@@ -5,7 +5,13 @@ use crate::user::windows::{
     process::{WindowsConfig, WindowsProcess},
 };
 
-fn invoke(p: &mut Proc, t: &mut Thread, module: usize, service: &str, args: &[u64]) -> u32 {
+pub(super) fn invoke(
+    p: &mut Proc,
+    t: &mut Thread,
+    module: usize,
+    service: &str,
+    args: &[u64],
+) -> u32 {
     let entry = loader::lookup(p, module, &SymRef::Name(service.as_bytes().to_vec(), None))
         .unwrap()
         .unwrap();

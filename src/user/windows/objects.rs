@@ -287,6 +287,9 @@ impl Object {
 #[derive(Debug)]
 struct Entry {
     obj: Object,
+    /// Registry key-body tags survive duplicated handles, independently of
+    /// immutable snapshot identity and the caller's low handle bits.
+    registry_tags: u32,
     /// Read-only installed-library authority, retained independently of a catalog.
     runtime_library: bool,
     refs: u32,
@@ -357,6 +360,7 @@ impl Objects {
             next,
             Entry {
                 obj,
+                registry_tags: 0,
                 runtime_library: false,
                 refs: 0,
                 name: None,
@@ -365,6 +369,21 @@ impl Objects {
         );
         self.next = next;
         Some(next)
+    }
+
+    pub(crate) fn create_registry_key(
+        &mut self,
+        key: std::sync::Arc<super::registry::Key>,
+        tags: u32,
+    ) -> Option<ObjId> {
+        let id = self.try_create(Object::Key(key))?;
+        self.objs.get_mut(&id)?.registry_tags = tags;
+        Some(id)
+    }
+
+    pub(crate) fn registry_tags(&self, handle: u64) -> Option<u32> {
+        let entry = self.objs.get(&self.id(handle)?)?;
+        matches!(entry.obj, Object::Key(_)).then_some(entry.registry_tags)
     }
 
     /// Creates a named object, or finds the existing object of that name:

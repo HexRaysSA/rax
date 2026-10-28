@@ -24,6 +24,11 @@ on:
       - docs/specifications/windows/native-open-thread/**
       - docs/specifications/windows/native-memory-prefetch/**
       - docs/specifications/windows/native-primary-user-hive/**
+      - docs/specifications/windows/native-query-key/**
+      - src/user/windows/dll/native/registry.rs
+      - src/user/windows/dll/native/registry/**
+      - src/user/windows/objects.rs
+      - src/user/windows/process/sched/tests/services_tests/registry_key_query*.rs
       - src/user/windows/registry.rs
       - src/user/windows/registry/**
       - src/user/windows/native.rs
@@ -63,6 +68,11 @@ on:
       - docs/specifications/windows/native-open-thread/**
       - docs/specifications/windows/native-memory-prefetch/**
       - docs/specifications/windows/native-primary-user-hive/**
+      - docs/specifications/windows/native-query-key/**
+      - src/user/windows/dll/native/registry.rs
+      - src/user/windows/dll/native/registry/**
+      - src/user/windows/objects.rs
+      - src/user/windows/process/sched/tests/services_tests/registry_key_query*.rs
       - src/user/windows/registry.rs
       - src/user/windows/registry/**
       - src/user/windows/native.rs
@@ -109,6 +119,20 @@ jobs:
         with:
           name: native-primary-user-hive-${{ matrix.os }}
           path: target/native-primary-user-hive-v4
+          if-no-files-found: error
+      - name: Verify retained key-query artifact provenance
+        run: python -B -m unittest discover -s docs/specifications/windows/native-query-key
+      - name: Observe native AMD64 and WoW64 key queries
+        run: python -B docs/specifications/windows/native-query-key/run-v2.py --require-native-machine 0x8664 --output target/native-query-key-v1
+      - name: Preserve native key-query observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-query-key-${{ matrix.os }}
+          path: |
+            target/native-query-key-v1/receipt.json
+            target/native-query-key-v1/**/*.log
+            target/native-query-key-v1/**/*.jsonl
           if-no-files-found: error
       - name: Observe native AMD64 and WoW64 memory prefetch
         run: |
@@ -374,6 +398,11 @@ jobs:
         run: |
           $env:RAX_NATIVE_PRIMARY_USER_HIVE_CORPUS = Join-Path $env:GITHUB_WORKSPACE 'target/native-primary-user-hive-v4/receipt.json'
           cargo test --locked --no-default-features --lib primary_hive -- --nocapture --test-threads=1
+      - name: Replay key-query controls and execute installed five-argument leaves
+        if: always()
+        run: |
+          $env:RAX_NATIVE_QUERY_KEY_CORPUS = Join-Path $env:GITHUB_WORKSPACE 'target/native-query-key-v1/receipt.json'
+          cargo test --locked --no-default-features --lib native_query_key -- --nocapture --test-threads=1
       - name: Execute image-extension queries through installed native leaves
         if: always()
         run: |

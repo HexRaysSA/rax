@@ -494,6 +494,14 @@ pub(super) static MEMORY_PREFETCH_EXPORTS: &[Export] = &[Export::func(
     memory_prefetch::set,
 )];
 
+// A tail family preserves every preceding synthetic ordinal and trap slot.
+pub(super) static KEY_QUERY_EXPORTS: &[Export] = &[Export::func(
+    "NtQueryKey",
+    Stdcall,
+    &[Ptr, I32, Ptr, I32, Ptr],
+    registry::query_key,
+)];
+
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)
 }

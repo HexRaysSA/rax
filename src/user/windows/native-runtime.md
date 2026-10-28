@@ -3157,3 +3157,37 @@ The existing selected-registry MAXIMUM_ALLOWED read cap also differs from native
 full grants; the specification retains that measured limitation. Public C API
 1.15.0 and its header are unchanged. Full process, installed Assist, GUI, real-IDB
 and package qualification remain open.
+
+
+### Registry key-body handle tags
+
+Guest `NtQueryKey` now implements class7 from guest-owned key-body state.
+Native64 selected shared keys retain tags0; x86 opens retain the measured
+registry-view tags (default400, explicit64 100, explicit32 600). Duplicate
+handles share that state, and low handle bits do not alter it. Five-argument
+native dispatch and an appended synthetic export preserve preceding ordinals.
+
+The handler follows recorded output/result-length validation, nonzero-grant
+requirements, short-buffer statuses, aliases and one-shot guards. WoW64 converts
+outputs not aligned to eight bytes through initialized private scratch; copy-out
+uses the existing captured runtime-store profile. No guest registry operation
+is forwarded to a host registry service. Other admitted `NtQueryKey` classes
+remain explicit metadata frontiers. This is not full CMD/process completion.
+
+The retained native29695 four-ABI captures, PE/hash proof, failed controls,
+fresh Windows CI producer, portable replay and installed-NTDLL test commands are
+in `docs/specifications/windows/native-query-key/README.md`. macOS qualification
+passed4 targeted tests (7680 retained status/output cases plus112 retained view
+opens),129 registry tests,3 mapped-filename tests,20 object tests,8 CLI tests,
+191 C-API tests, all-target compilation and production Clippy. Linux passed4
+targeted,126 registry,3 neighboring conversion,20 object,8 CLI and191 C-API
+tests, all-target compilation and production Clippy. NativeWindows29695 passed5
+targeted (retained plus fresh four-ABI replay and installed ARM64/x86 leaves),156
+registry,5 neighboring conversion,20 object,10 CLI and191 C-API tests, all-target
+compilation and an explicit CLI build. Independent physical AMD64 qualification
+remains pending publication.
+
+Unchanged installed ARM64 CMD now gets past class7 and stops at the next native
+service frontier, `NtOpenKeyEx` (0x12b), exiting125 before stdout. Native CMD
+exits0 with `RAX_QUERY_KEY_CMD\r\n`. Neither whole-CMD completion nor broader
+process completion is claimed.

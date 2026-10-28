@@ -219,6 +219,20 @@ fn copy_wow(
 // Store order follows the installed ARM64 NTDLL memcpy body and the native
 // byte-boundary observations. Paired vector stores can expose their first
 // 16-byte element before the second element faults.
+/// Copy through the captured native runtime's store sequence. Each store is
+/// probed as one operation, preserving faults across a page boundary.
+pub(super) fn copy_thunk_bytes(
+    c: &Ctx,
+    output: u64,
+    bytes: &[u8],
+) -> Result<(), crate::user::windows::hle::ApiErr> {
+    let profile = profile(c)?;
+    for (offset, block) in copy_blocks(bytes, profile, output) {
+        c.mem().wr(output + offset, block)?;
+    }
+    Ok(())
+}
+
 fn copy_blocks(encoded: &[u8], profile: Profile, destination: u64) -> Vec<(u64, &[u8])> {
     let n = encoded.len();
     let mut stores = Vec::new();

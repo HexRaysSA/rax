@@ -15,6 +15,10 @@ use std::sync::Arc;
 const READ_ACCESS: u32 = 0x0002_0019;
 const MAX_CONVERSION_BYTES: usize = 16 << 20;
 
+#[path = "registry/key_query.rs"]
+mod key_query;
+pub(super) use key_query::query_key;
+
 enum Failure {
     Status(u32),
     Api(ApiErr),
@@ -208,8 +212,17 @@ fn open_checked(c: &mut Ctx) -> Checked<u32> {
             }
         }
     };
+    // Native64 opens retain zero tags for these shared selected keys. WoW64
+    // marks its default/32-bit view with 0x400; an explicit 64-bit view is 0x100.
+    // The contradictory x86 view request is rejected by grant before creation.
+    let tags = if c.arch() == WinArch::X86 {
+        let view = access & 0x300;
+        view | if view == 0x100 { 0 } else { 0x400 }
+    } else {
+        0
+    };
     let access = grant(c, access)?;
-    let Some(id) = c.p.objects.try_create(Object::Key(selected)) else {
+    let Some(id) = c.p.objects.create_registry_key(selected, tags) else {
         return status(STATUS_INSUFFICIENT_RESOURCES);
     };
     let Some(handle) = c.p.objects.open_access(id, attrs.flags & 2 != 0, access) else {

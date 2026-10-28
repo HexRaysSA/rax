@@ -1,0 +1,1977 @@
+{
+  "pid": 6332,
+  "state": "complete",
+  "kernel": [
+    10,
+    0,
+    29695,
+    2,
+    ""
+  ],
+  "rows": [
+    {
+      "label": "arm64",
+      "command": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostarm64\\arm64\\cl.exe",
+        "/nologo",
+        "/std:c++17",
+        "/EHsc",
+        "/utf-8",
+        "/MT",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\probe-v4.cpp",
+        "/FoC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\arm64\\probe.obj",
+        "/FdC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\arm64\\compile.pdb",
+        "/FeC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\arm64\\native-query-key-v4.exe",
+        "/link",
+        "/PDB:C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\arm64\\link.pdb"
+      ],
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "source_before_sha256": "3b7e844bece81d2746e99b2dcabcb1a4fba4f92424e84c467961b32a14c2b657",
+      "build_returncode": 0,
+      "exe_before_sha256": "18b5a6ceec160e33978d960515988127ee2f4da3ead16a0c32bac6ff939291f5",
+      "run_returncode": 0,
+      "exe_after_sha256": "18b5a6ceec160e33978d960515988127ee2f4da3ead16a0c32bac6ff939291f5",
+      "source_after_sha256": "3b7e844bece81d2746e99b2dcabcb1a4fba4f92424e84c467961b32a14c2b657",
+      "stdout_sha256": "07ba1b694987dddc6c162cd4a39a37987fb820a5b41dafbbfdec15ba41795bc8",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "machine": {
+        "kind": "machine",
+        "pointer_bytes": 8,
+        "native_machine": 43620,
+        "process_machine": 0
+      },
+      "observations": 57
+    },
+    {
+      "label": "x64",
+      "command": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostarm64\\x64\\cl.exe",
+        "/nologo",
+        "/std:c++17",
+        "/EHsc",
+        "/utf-8",
+        "/MT",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\probe-v4.cpp",
+        "/FoC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x64\\probe.obj",
+        "/FdC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x64\\compile.pdb",
+        "/FeC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x64\\native-query-key-v4.exe",
+        "/link",
+        "/PDB:C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x64\\link.pdb"
+      ],
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "source_before_sha256": "3b7e844bece81d2746e99b2dcabcb1a4fba4f92424e84c467961b32a14c2b657",
+      "build_returncode": 0,
+      "exe_before_sha256": "9c17a9b08f7a3abfe1df632dc97b778d12f45d40a6629aedf0ea1991e352a8ab",
+      "run_returncode": 0,
+      "exe_after_sha256": "9c17a9b08f7a3abfe1df632dc97b778d12f45d40a6629aedf0ea1991e352a8ab",
+      "source_after_sha256": "3b7e844bece81d2746e99b2dcabcb1a4fba4f92424e84c467961b32a14c2b657",
+      "stdout_sha256": "07ba1b694987dddc6c162cd4a39a37987fb820a5b41dafbbfdec15ba41795bc8",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "machine": {
+        "kind": "machine",
+        "pointer_bytes": 8,
+        "native_machine": 43620,
+        "process_machine": 0
+      },
+      "observations": 57
+    },
+    {
+      "label": "x86",
+      "command": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostarm64\\x86\\cl.exe",
+        "/nologo",
+        "/std:c++17",
+        "/EHsc",
+        "/utf-8",
+        "/MT",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\probe-v4.cpp",
+        "/FoC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x86\\probe.obj",
+        "/FdC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x86\\compile.pdb",
+        "/FeC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x86\\native-query-key-v4.exe",
+        "/link",
+        "/PDB:C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x86\\link.pdb",
+        "/LARGEADDRESSAWARE:NO"
+      ],
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "source_before_sha256": "3b7e844bece81d2746e99b2dcabcb1a4fba4f92424e84c467961b32a14c2b657",
+      "build_returncode": 0,
+      "exe_before_sha256": "0fdb7f8c0bccb738eed9d3bc549539a10395295ca947924a85ad1e21ef142e1a",
+      "run_returncode": 0,
+      "exe_after_sha256": "0fdb7f8c0bccb738eed9d3bc549539a10395295ca947924a85ad1e21ef142e1a",
+      "source_after_sha256": "3b7e844bece81d2746e99b2dcabcb1a4fba4f92424e84c467961b32a14c2b657",
+      "stdout_sha256": "dea85e0e2092f1b43a343e83ecedfa319b823de4440a8e4a99224eb7cccd9479",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "machine": {
+        "kind": "machine",
+        "pointer_bytes": 4,
+        "native_machine": 43620,
+        "process_machine": 332
+      },
+      "observations": 50
+    },
+    {
+      "label": "x86-laa",
+      "command": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostarm64\\x86\\cl.exe",
+        "/nologo",
+        "/std:c++17",
+        "/EHsc",
+        "/utf-8",
+        "/MT",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\probe-v4.cpp",
+        "/FoC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x86-laa\\probe.obj",
+        "/FdC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x86-laa\\compile.pdb",
+        "/FeC:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x86-laa\\native-query-key-v4.exe",
+        "/link",
+        "/PDB:C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nt-query-key-probe-v4\\x86-laa\\link.pdb",
+        "/LARGEADDRESSAWARE"
+      ],
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "source_before_sha256": "3b7e844bece81d2746e99b2dcabcb1a4fba4f92424e84c467961b32a14c2b657",
+      "build_returncode": 0,
+      "exe_before_sha256": "b002a6818cb323688d4a4371778ca73d53edbd041a17055601f10840696bb682",
+      "run_returncode": 0,
+      "exe_after_sha256": "b002a6818cb323688d4a4371778ca73d53edbd041a17055601f10840696bb682",
+      "source_after_sha256": "3b7e844bece81d2746e99b2dcabcb1a4fba4f92424e84c467961b32a14c2b657",
+      "stdout_sha256": "dea85e0e2092f1b43a343e83ecedfa319b823de4440a8e4a99224eb7cccd9479",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "machine": {
+        "kind": "machine",
+        "pointer_bytes": 4,
+        "native_machine": 43620,
+        "process_machine": 332
+      },
+      "observations": 50
+    }
+  ],
+  "controller_sha256": "7d36c776f2080c36938899972421c65bf618f8f6253aa6301cd47f0811bdcc92",
+  "source_sha256": "3b7e844bece81d2746e99b2dcabcb1a4fba4f92424e84c467961b32a14c2b657",
+  "python_sha256": "052604e9a996df81925f9d9ab865fdac5fbd7e8e89644298e88ddcdb6aa85b06",
+  "compiler_adapter_sha256": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba",
+  "observations": {
+    "arm64": [
+      {
+        "kind": "machine",
+        "pointer_bytes": 8,
+        "native_machine": 43620,
+        "process_machine": 0
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      }
+    ],
+    "x64": [
+      {
+        "kind": "machine",
+        "pointer_bytes": 8,
+        "native_machine": 43620,
+        "process_machine": 0
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 256,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 512,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 768,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 768,
+        "query_status": 0,
+        "tags": 0,
+        "returned": 4
+      }
+    ],
+    "x86": [
+      {
+        "kind": "machine",
+        "pointer_bytes": 4,
+        "native_machine": 43620,
+        "process_machine": 332
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      }
+    ],
+    "x86-laa": [
+      {
+        "kind": "machine",
+        "pointer_bytes": 4,
+        "native_machine": 43620,
+        "process_machine": 332
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 1,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 1,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 8,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 8,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 16,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 16,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131072,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131072,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 131097,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 131097,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 2147483648,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 2147483648,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 0,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 0,
+        "query_status": 0,
+        "tags": 1024,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 256,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 256,
+        "query_status": 0,
+        "tags": 256,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 512,
+        "open_status": 0,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "duplicate",
+        "access": 33554432,
+        "view": 512,
+        "query_status": 0,
+        "tags": 1536,
+        "returned": 4
+      },
+      {
+        "kind": "view",
+        "access": 33554432,
+        "view": 768,
+        "open_status": 3221225485,
+        "query_status": 3758096385,
+        "tags": 2779096485,
+        "returned": 2779096485
+      }
+    ]
+  }
+}
