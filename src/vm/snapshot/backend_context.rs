@@ -13,6 +13,8 @@ pub const AARCH32_CONTEXT: u32 = 1;
 pub const S3C64XX_CONTEXT: u32 = 2;
 /// RISC-V interpreter and ordered adapter events, versioned by its inner tag.
 pub const RISCV_CONTEXT: u32 = 3;
+/// Software x86 CPU/MMU/user context, versioned by its inner tag.
+pub const X86_64_CONTEXT: u32 = 4;
 
 /// An opaque, bounded backend-owned record. Its kind identifies its producer;
 /// an architectural register projection cannot substitute for this payload.

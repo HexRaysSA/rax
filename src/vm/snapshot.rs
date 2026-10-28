@@ -31,13 +31,18 @@ mod clock;
 mod cpus;
 pub use backend_context::{
     AARCH32_CONTEXT, BackendContext, BackendContexts, RISCV_CONTEXT, S3C64XX_CONTEXT,
+    X86_64_CONTEXT,
 };
 mod execution;
 pub use cpus::{CpuSnapshot, CpuSnapshots};
 pub use execution::ExecutionSnapshot;
 mod physical_memory;
+mod resources;
 mod stream;
 pub use physical_memory::PhysicalMemorySnapshot;
+pub use resources::{
+    BOOT_CDROM_RESOURCE, CheckpointResource, PreparedResources, ResourceKey, ResourcesSnapshot,
+};
 mod pci;
 use crate::vm::memory::validate_guest_memory_size;
 use crate::vm::vcpu::state::CpuState;

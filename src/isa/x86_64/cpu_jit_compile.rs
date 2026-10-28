@@ -90,6 +90,7 @@ impl X86_64Vcpu {
         'modes: for &cm in modes {
             let mut lifter = X86_64Lifter::strict();
             lifter.set_interpreter_frontiers(true);
+            lifter.set_instruction_retirement(true);
             if cm {
                 lifter.set_lift_through_calls(512);
             }
@@ -114,9 +115,23 @@ impl X86_64Vcpu {
                 continue 'modes;
             };
 
+            // Optimize across instruction boundaries as before, then restore
+            // the original dynamic retirement CFG. Keeping the exact original
+            // graph includes NOPs and merged branches whose semantic ops vanish.
+            let retirement_graph = func.clone();
+            func.attrs.x86_instruction_retirement = false;
+
             // Optimize before computing exits / lowering (frontier-aware, see note).
             if std::env::var_os("RAX_JIT_NO_OPT").is_none() {
                 optimize_function(&mut func, OptLevel::O2);
+            }
+
+            if let Err(error) = crate::smir::ir::split_x86_retirement(&mut func, &retirement_graph)
+            {
+                if jit_bail_log() {
+                    eprintln!("[JIT-BAIL] retirement:{error} @ {entry:#x} (call={cm})");
+                }
+                continue 'modes;
             }
 
             // Mark every frontier terminal as a native-exit stub (records guest

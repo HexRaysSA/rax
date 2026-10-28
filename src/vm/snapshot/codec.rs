@@ -85,7 +85,7 @@ fn compressed_limit(size: u64) -> u64 {
 }
 
 pub(super) fn write_to<W: Write>(snapshot: &Snapshot, writer: &mut W) -> Result<()> {
-    write_to_parts(snapshot, None, None, None, None, None, None, writer)
+    write_to_parts(snapshot, None, None, None, None, None, None, None, writer)
 }
 fn write_to_parts<W: Write>(
     snapshot: &Snapshot,
@@ -93,6 +93,7 @@ fn write_to_parts<W: Write>(
     clock: Option<&crate::vm::timing::ClockState>,
     cpus: Option<&CpuSnapshots>,
     backend_contexts: Option<&super::BackendContexts>,
+    resources: Option<&super::ResourcesSnapshot>,
     pci: Option<&PciSnapshot>,
     physical: Option<&PhysicalMemorySnapshot>,
     writer: &mut W,
@@ -130,6 +131,9 @@ fn write_to_parts<W: Write>(
     let backend_records = backend_contexts
         .map(|c| c.encoded(snapshot.config.vcpus))
         .transpose()?;
+    if let Some(resources) = resources {
+        resources.validate_metadata()?;
+    }
     let control = if let Some(state) = pci {
         state.validate(&snapshot.config, snapshot.memory_size)?;
         Some(state.control()?)
@@ -159,6 +163,7 @@ fn write_to_parts<W: Write>(
         + u32::from(clock.is_some())
         + u32::from(cpus.is_some())
         + u32::from(backend_contexts.is_some())
+        + u32::from(resources.is_some())
         + u32::from(physical.is_some())
         + if let Some(state) = pci {
             1 + if state.has_endpoints() { 2 } else { 0 }
@@ -186,6 +191,14 @@ fn write_to_parts<W: Write>(
     }
     if let Some(raw) = backend_records {
         section(writer, 14, &raw)?;
+    }
+    if let Some(resources) = resources {
+        writer.write_all(&15u32.to_le_bytes()).map_err(io)?;
+        writer.write_all(&SCHEMA.to_le_bytes()).map_err(io)?;
+        writer
+            .write_all(&resources.encoded_len()?.to_le_bytes())
+            .map_err(io)?;
+        resources.write_to(writer)?;
     }
     if let Some(raw) = control {
         section(writer, 7, &raw)?;
@@ -224,6 +237,7 @@ pub(super) fn save_bundle_atomic(bundle: &SnapshotBundle, path: &Path) -> Result
             bundle.clock.as_ref(),
             bundle.cpus.as_ref(),
             bundle.backend_contexts.as_ref(),
+            bundle.resources.as_ref(),
             bundle.pci.as_ref(),
             bundle.physical_memory.as_ref(),
             writer,
@@ -371,6 +385,7 @@ fn read_sections<R: Read + Seek>(
     let mut physical_memory = None;
     let mut cpus = None;
     let mut backend_contexts = None;
+    let mut resources: Option<super::ResourcesSnapshot> = None;
     let mut clock = None;
     let mut execution = None;
     let mut seen = BTreeSet::new();
@@ -378,13 +393,13 @@ fn read_sections<R: Read + Seek>(
         let kind = word(reader)?;
         let schema = word(reader)?;
         let length = long(reader)?;
-        if kind & OPTIONAL != 0 && (1..=14).contains(&(kind & !OPTIONAL)) {
+        if kind & OPTIONAL != 0 && (1..=15).contains(&(kind & !OPTIONAL)) {
             return Err(invalid("required checkpoint section marked optional"));
         }
         if !seen.insert(kind) {
             return Err(invalid("duplicate checkpoint section"));
         }
-        if !(1..=14).contains(&kind) {
+        if !(1..=15).contains(&kind) {
             if kind & OPTIONAL == 0 {
                 return Err(invalid("unknown required checkpoint section"));
             }
@@ -399,13 +414,59 @@ fn read_sections<R: Read + Seek>(
         if schema != SCHEMA && !(kind == 1 && schema == 2) {
             return Err(invalid("unsupported checkpoint section schema"));
         }
+        if kind == 15 {
+            if !allow_extensions {
+                return Err(invalid(
+                    "checkpoint contains required resources; use SnapshotBundle::load",
+                ));
+            }
+            if [6, 7, 8, 9, 10].iter().any(|kind| seen.contains(kind)) {
+                return Err(invalid(
+                    "resources must precede PCI/physical/media/RAM payloads",
+                ));
+            }
+            if cpus.is_none() || backend_contexts.is_none() {
+                return Err(invalid(
+                    "resources require preceding CPU and backend context sets",
+                ));
+            }
+            if length > remaining(reader, file_size)? {
+                return Err(invalid("truncated resource section"));
+            }
+            let config = config
+                .as_ref()
+                .ok_or_else(|| invalid("resources require preceding configuration"))?;
+            let memory = metadata
+                .as_ref()
+                .map_or(config.memory_bytes, |meta: &Metadata| {
+                    meta.memory_size.max(config.memory_bytes)
+                });
+            let configured_media = config
+                .storage
+                .nvme
+                .as_ref()
+                .map_or(0, |image| image.identity.bytes)
+                .checked_add(
+                    config
+                        .storage
+                        .ahci
+                        .as_ref()
+                        .map_or(0, |image| image.identity.bytes),
+                )
+                .ok_or_else(|| invalid("resource media size overflow"))?;
+            let budget = super::resources::remaining_budget(memory, configured_media)?;
+            resources = Some(super::ResourcesSnapshot::read_from_with_budget(
+                reader, length, budget,
+            )?);
+            continue;
+        }
         if kind == 14 {
             if !allow_extensions {
                 return Err(invalid(
                     "checkpoint contains required backend contexts; use SnapshotBundle::load",
                 ));
             }
-            if [6, 7, 8, 9, 10].iter().any(|kind| seen.contains(kind)) {
+            if [6, 7, 8, 9, 10, 15].iter().any(|kind| seen.contains(kind)) {
                 return Err(invalid(
                     "backend contexts must precede PCI/physical/media/RAM payloads",
                 ));
@@ -430,7 +491,10 @@ fn read_sections<R: Read + Seek>(
                     "checkpoint contains required execution state; use SnapshotBundle::load",
                 ));
             }
-            if [6, 7, 8, 9, 10, 14].iter().any(|kind| seen.contains(kind)) {
+            if [6, 7, 8, 9, 10, 14, 15]
+                .iter()
+                .any(|kind| seen.contains(kind))
+            {
                 return Err(invalid(
                     "execution state must precede PCI/physical/media/RAM payloads",
                 ));
@@ -448,7 +512,7 @@ fn read_sections<R: Read + Seek>(
                     "checkpoint contains required clock state; use SnapshotBundle::load",
                 ));
             }
-            if [6, 7, 8, 9, 10, 11, 13, 14]
+            if [6, 7, 8, 9, 10, 11, 13, 14, 15]
                 .iter()
                 .any(|k| seen.contains(k))
             {
@@ -478,7 +542,10 @@ fn read_sections<R: Read + Seek>(
                     "checkpoint contains required CPU set; use SnapshotBundle::load",
                 ));
             }
-            if [6, 7, 8, 9, 10, 13, 14].iter().any(|k| seen.contains(k)) {
+            if [6, 7, 8, 9, 10, 13, 14, 15]
+                .iter()
+                .any(|k| seen.contains(k))
+            {
                 return Err(invalid(
                     "CPU set must precede PCI and physical/media/RAM payloads",
                 ));
@@ -533,7 +600,10 @@ fn read_sections<R: Read + Seek>(
             let represented_media = pci.as_ref().map_or(0, |p| {
                 p.nvme_media().map_or(0, |m| m.size()) + p.ahci_media().map_or(0, |m| m.size())
             });
-            let media = configured_media.max(represented_media);
+            let media = configured_media
+                .max(represented_media)
+                .checked_add(resources.as_ref().map_or(0, |r| r.total_bytes()))
+                .ok_or_else(|| invalid("checkpoint media/resource size overflow"))?;
             physical_memory = Some(PhysicalMemorySnapshot::read_from(reader, length, media)?);
             continue;
         }
@@ -556,6 +626,15 @@ fn read_sections<R: Read + Seek>(
             let raw = bytes(reader, file_size, length, super::pci::MAX_CONTROL)?;
             let state = PciSnapshot::parse_control(&raw)?;
             state.validate_metadata(conf, meta.memory_size)?;
+            if let Some(resources) = &resources {
+                let media = state.nvme_media().map_or(0, |m| m.size())
+                    + state.ahci_media().map_or(0, |m| m.size());
+                if resources.total_bytes()
+                    > super::resources::remaining_budget(meta.memory_size, media)?
+                {
+                    return Err(invalid("RAM plus media/resources exceeds bundle budget"));
+                }
+            }
             pci = Some(state);
             continue;
         }
@@ -627,6 +706,7 @@ fn read_sections<R: Read + Seek>(
     };
     let bundle = SnapshotBundle {
         base,
+        resources,
         backend_contexts,
         execution,
         clock,

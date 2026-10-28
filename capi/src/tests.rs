@@ -756,3 +756,6 @@ mod context_aarch32;
 
 #[path = "tests/context_riscv.rs"]
 mod context_riscv;
+
+#[path = "tests/context_x86.rs"]
+mod context_x86;

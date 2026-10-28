@@ -582,8 +582,9 @@ Memory-map reconstruction retains this backend state as well. Format 5 adds a
 producer kind and length-prefixed backend record after the emulator image.
 The public `rax_emu_icount` still restarts at zero after context restore;
 the restored backend counter remains available to the CPU implementation.
-Other engines continue to write format 2, and existing format 1/2 readers remain supported. An older library
-cannot restore an AArch32 user context.
+RISC-V engines use format 6 and software x86 engines use format 7, as described
+below. Existing format 1/2 inputs remain supported with their original retained
+state. An older library cannot restore the newer context formats.
 
 ABI 1.15 adds AArch64 PAuth configuration and context format 4. The new
 `rax_arm64_pauth_configure` / `rax_arm64_pauth_get_config` functions use a
@@ -800,3 +801,16 @@ ISA, LR/SC reservation, raw counters and pending backend events across context
 restore and memory-map rebuilds. The older formats 1/2 remain readable with their
 original register-projection semantics. `rax_emu_icount` starts at zero after
 restore while the underlying hart retirement state is retained.
+
+Software x86 system and user engines write context format 7. It preserves XCR0,
+the selected ISA capabilities, private descriptors and pending user traps,
+input-completion state, deferred native exits, the raw backend instruction count,
+and complete immutable BIOS media when attached. Memory-map reconstruction
+retains that state; reset retains ISA and BIOS configuration while clearing
+execution state. Format 7 appends the backend record and a length-prefixed
+resource section before the existing memory-region table. Restore validates
+complete media and matching CPU projections before replacing the engine.
+Legacy x86 formats 1/2 retain their original projection-only behavior.
+`rax_emu_icount` starts at zero after restore and remains cumulative across
+mapping changes. See [software x86 checkpoint contexts](../docs/development/x86-backend-context.md)
+for the wire format and verification limits.

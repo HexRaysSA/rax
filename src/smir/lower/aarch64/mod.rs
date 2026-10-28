@@ -131,6 +131,7 @@ pub struct Aarch64Lowerer {
     /// their native guest control transfer (e.g. RET → `ret`), as used by the
     /// standalone byte/exec tests.
     native_exits: HashMap<BlockId, u64>,
+    x86_instruction_retirement: bool,
     /// In-region source/target edges that cross the compiled frontier. Unlike
     /// `native_exits`, these do not replace a target block globally: only the
     /// selected edge records its resume PC and returns to the trampoline.
@@ -299,6 +300,9 @@ impl SmirLowerer for Aarch64Lowerer {
     }
 
     fn lower_function(&mut self, func: &SmirFunction) -> Result<LowerResult, LowerError> {
+        crate::smir::ir::validate_x86_retirement(func, &self.native_exits)
+            .map_err(|error| LowerError::UnsupportedOp { op: error.into() })?;
+        self.x86_instruction_retirement = func.attrs.x86_instruction_retirement;
         if !aarch64_neon_fusions_are_private(func) {
             return Err(LowerError::UnsupportedOp {
                 op: "escaping AdvSIMD temporary".to_string(),

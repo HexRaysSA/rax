@@ -99,6 +99,7 @@ impl X86_64Lowerer {
         self.emit_flag_preserving_stack_pop8(); // discard saved pre-access RAX
 
         let done = if msr.write {
+            self.emit_x86_retirement();
             self.emit_native_exit(msr.next_pc);
             None
         } else {

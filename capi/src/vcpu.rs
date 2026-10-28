@@ -56,6 +56,42 @@ pub(crate) enum UserTrap {
 }
 
 impl Vcpu {
+    /// Admit all references before replacing an offside engine CPU. Keep the
+    /// concrete user variant so trap access remains available after restore.
+    pub(crate) fn restore_backend_context(
+        &mut self,
+        state: &rax_engine::cpu::CpuState,
+        emulator: &rax_engine::snapshot::EmulatorState,
+        context: &rax_engine::snapshot::BackendContext,
+        resources: &rax_engine::snapshot::PreparedResources,
+    ) -> rax_engine::Result<()> {
+        self.validate_checkpoint_context(state, emulator, Some(context))?;
+        let mut required = std::collections::BTreeSet::new();
+        for key in self.checkpoint_resource_references(Some(context))? {
+            resources.resolve(key)?;
+            required.insert(key);
+        }
+        if required != resources.keys().collect() {
+            return Err(rax_engine::Error::InvalidConfig(
+                "context contains unreferenced resources".into(),
+            ));
+        }
+        match self {
+            Self::X86User(core) => core.restore_context_with_resources(&context.data, resources),
+            Self::System(core) => {
+                if let Some(replacement) =
+                    core.prepare_checkpoint_replacement(state, emulator, Some(context), resources)?
+                {
+                    *core = replacement;
+                    Ok(())
+                } else {
+                    core.restore_checkpoint_context(state, emulator, Some(context))
+                }
+            }
+            _ => self.restore_checkpoint_context(state, emulator, Some(context)),
+        }
+    }
+
     /// Whether this is a user-mode core.
     pub(crate) fn is_user(&self) -> bool {
         !matches!(self, Vcpu::System(_))

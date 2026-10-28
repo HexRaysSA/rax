@@ -75,6 +75,8 @@ pub struct Aarch64GuestRegs {
     /// `extern "C" fn(state, phase, raw, pc, features) -> ok`. Zero declines
     /// before execution; the callback records exact errors in its context.
     pub pauth_fn: u64,
+    /// Absolute wrapping x86 guest retirement count for the native bridge.
+    pub x86_retired_count: u64,
 }
 
 impl Default for Aarch64GuestRegs {
@@ -101,6 +103,7 @@ impl Default for Aarch64GuestRegs {
             x86_tbm_mode_valid: 0,
             pauth_context: 0,
             pauth_fn: 0,
+            x86_retired_count: 0,
         }
     }
 }
@@ -128,6 +131,7 @@ impl Aarch64GuestRegs {
 
     pub const PAUTH_CONTEXT_OFFSET: i32 = Self::X86_TBM_MODE_VALID_OFFSET + 8;
     pub const PAUTH_FN_OFFSET: i32 = Self::PAUTH_CONTEXT_OFFSET + 8;
+    pub const X86_RETIRED_COUNT_OFFSET: i32 = Self::PAUTH_FN_OFFSET + 8;
 
     /// A native exit, rather than an ordinary `Return`, recorded `pc`.
     pub const EXIT_VALID: u64 = 1 << 0;

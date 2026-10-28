@@ -80,10 +80,7 @@ impl X86_64Vcpu {
         state: &crate::vm::snapshot::EmulatorState,
     ) -> Result<()> {
         Self::validate_emulator_state(state)?;
-        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-        {
-            self.jit_vsib_resume_pc = None;
-        }
+        self.jit_vsib_resume_pc = None;
         // Restore FPU state
         self.fpu.control_word = state.fpu.control_word;
         self.fpu.status_word = state.fpu.status_word;

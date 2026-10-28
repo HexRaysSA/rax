@@ -31,6 +31,89 @@ impl VCpu for X86_64Vcpu {
         Self::validate_emulator_state(emulator)
     }
 
+    fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        Ok(Some(crate::vm::snapshot::BackendContext {
+            kind: crate::vm::snapshot::X86_64_CONTEXT,
+            data: self.save_context()?,
+        }))
+    }
+
+    fn capture_checkpoint_resources(&self) -> Result<Vec<crate::vm::snapshot::CheckpointResource>> {
+        self.checkpoint_media()
+    }
+
+    fn x86_configuration(&self) -> Option<crate::isa::x86_64::X86_64Config> {
+        Some(X86_64Vcpu::x86_configuration(self))
+    }
+
+    fn set_x86_configuration(&mut self, config: crate::isa::x86_64::X86_64Config) -> Result<()> {
+        X86_64Vcpu::set_x86_configuration(self, config)
+    }
+
+    fn checkpoint_resource_references(
+        &self,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<Vec<crate::vm::snapshot::ResourceKey>> {
+        match context {
+            None => Ok(Vec::new()),
+            Some(context) if context.kind == crate::vm::snapshot::X86_64_CONTEXT => {
+                self.context_resource_references(&context.data)
+            }
+            Some(_) => Err(Error::InvalidConfig(
+                "checkpoint context producer differs from software x86".into(),
+            )),
+        }
+    }
+
+    fn validate_checkpoint_context(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_state(state, emulator)?;
+        if let Some(context) = context {
+            if context.kind != crate::vm::snapshot::X86_64_CONTEXT {
+                return Err(Error::InvalidConfig(
+                    "checkpoint context producer differs from software x86".into(),
+                ));
+            }
+            self.validate_context_projection(state, emulator, &context.data)?;
+        }
+        Ok(())
+    }
+
+    fn prepare_checkpoint_replacement(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+        resources: &crate::vm::snapshot::PreparedResources,
+    ) -> Result<Option<Box<dyn VCpu>>> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        context
+            .map(|context| {
+                self.prepare_context(&context.data, resources)
+                    .map(|cpu| Box::new(cpu) as Box<dyn VCpu>)
+            })
+            .transpose()
+    }
+
+    fn restore_checkpoint_context(
+        &mut self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        if let Some(context) = context {
+            self.restore_context(&context.data)
+        } else {
+            self.set_state(state)?;
+            self.set_emulator_state(emulator)
+        }
+    }
+
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
         let state = match state {
             CpuState::X86_64(state) => state,
@@ -48,10 +131,7 @@ impl VCpu for X86_64Vcpu {
         // earlier ALU result would otherwise override it. A snapshot restore
         // reinstates its saved lazy flags with `set_emulator_state` afterwards.
         self.lazy_flags = Default::default();
-        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-        {
-            self.jit_vsib_resume_pc = None;
-        }
+        self.jit_vsib_resume_pc = None;
         // External state injection is a serializing boundary and does not carry
         // the emulator-private STI/MOV-SS interrupt shadow.
         self.interrupt_inhibit = false;
@@ -66,6 +146,9 @@ impl VCpu for X86_64Vcpu {
     }
 
     fn step_insn(&mut self) -> Result<Option<VcpuExit>> {
+        if let Some(exit) = self.jit_callout_exit.take() {
+            return Ok(Some(exit));
+        }
         #[cfg(feature = "debug")]
         if !self.single_step && !self.halted {
             if let Some(addr) = self.debug_breakpoint_at_current_rip() {
@@ -144,6 +227,10 @@ impl VCpu for X86_64Vcpu {
     fn attach_x86_64_bios(&mut self, cdrom: Option<Arc<Vec<u8>>>, mem_bytes: u64) {
         self.bios_cdrom = cdrom;
         self.bios_mem_bytes = mem_bytes;
+    }
+
+    fn x86_bios_binding(&self) -> Option<(Option<Arc<Vec<u8>>>, u64)> {
+        Some((self.bios_cdrom.clone(), self.bios_mem_bytes))
     }
 
     fn complete_io_in(&mut self, data: &[u8]) {

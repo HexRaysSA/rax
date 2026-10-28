@@ -21,7 +21,9 @@ mod user_mode;
 mod user_mode_tests;
 mod user_xstate;
 
-pub use cpu::{CURRENT_RIP, RIP_HISTORY, RIP_IDX, X86_64Vcpu, get_total_instruction_count};
+pub use cpu::{
+    CURRENT_RIP, RIP_HISTORY, RIP_IDX, X86_64Config, X86_64Vcpu, get_total_instruction_count,
+};
 pub use memory::{AccessType, Mmu};
 pub use user_gdt::{
     GDT_ENTRY_CPUNODE, GDT_ENTRY_TLS_MAX, GDT_ENTRY_TLS_MIN, USER_GDT_BASE, X86SegmentFault,

@@ -123,6 +123,18 @@ impl Aarch64Lowerer {
         } else {
             self.lower_ops(&block.ops)?;
         }
+        if self.x86_instruction_retirement {
+            // Preserve x9 and NZCV; ADD (without S) does not modify flags.
+            let offset =
+                crate::smir::lower::aarch64_guest_regs::Aarch64GuestRegs::X86_RETIRED_COUNT_OFFSET
+                    as u32
+                    / 8;
+            self.emit_push_scratch(9);
+            self.emit_ldst_unsigned(9, super::A64_STATE_REG, 3, 0b01, offset);
+            self.emit(0x9100_0529); // add x9,x9,#1
+            self.emit_ldst_unsigned(9, super::A64_STATE_REG, 3, 0b00, offset);
+            self.emit_pop_scratch(9);
+        }
         self.lower_terminator(block, folded_cond)
     }
 }

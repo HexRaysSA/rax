@@ -6,6 +6,9 @@ use super::{Error, LAPIC_POLL_STRIDE, Result, VcpuExit, X86_64Vcpu, publish_inst
 
 impl X86_64Vcpu {
     pub(super) fn run_loop(&mut self) -> Result<VcpuExit> {
+        if let Some(exit) = self.jit_callout_exit.take() {
+            return Ok(exit);
+        }
         #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
         maybe_spawn_mips_reporter();
         let start_time = std::time::Instant::now();
@@ -67,10 +70,7 @@ impl X86_64Vcpu {
             ))]
             let _jit_rip_before = {
                 let rip = self.regs.rip;
-                #[cfg(target_arch = "x86_64")]
                 let direct_vsib_restart = self.jit_vsib_resume_pc.take() == Some(rip);
-                #[cfg(target_arch = "aarch64")]
-                let direct_vsib_restart = false;
                 if !self.interrupt_inhibit
                     && !direct_vsib_restart
                     && !self.jit_disabled_for_debugger()

@@ -20,6 +20,8 @@ pub mod ops;
 mod trap;
 pub use trap::{TrapKind, X86Segment, X86StringIoKind};
 pub mod types;
+mod x86_retirement;
+pub(crate) use x86_retirement::{split_x86_retirement, validate_x86_retirement};
 mod x86_native_replay;
 pub use x86_native_replay::*;
 
@@ -228,6 +230,10 @@ pub struct FunctionAttrs {
     /// the frontier to the predecessor and make the native runtime reject or
     /// re-execute otherwise valid work.
     pub preserve_interpreter_frontiers: bool,
+    /// Each executable block represents exactly one original x86 instruction.
+    /// Native execution charges it after successful completion. Block merging
+    /// must preserve these observable retirement boundaries, including NOPs.
+    pub x86_instruction_retirement: bool,
 }
 
 // ============================================================================

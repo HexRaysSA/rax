@@ -260,6 +260,14 @@ impl Engine {
             Ok(context) => context,
             Err(error) => return self.fail_engine(&error),
         };
+        let resources = match self
+            .vcpu
+            .capture_checkpoint_resources()
+            .and_then(rax_engine::snapshot::PreparedResources::from_bindings)
+        {
+            Ok(resources) => resources,
+            Err(error) => return self.fail_engine(&error),
+        };
         let arm_user = self.vcpu.arm_user_state();
         let mut v = match crate::arch::build_vcpu(
             self.arch,
@@ -273,7 +281,7 @@ impl Engine {
         };
         if let Some(context) = &backend_context {
             if let Err(error) =
-                v.restore_checkpoint_context(&st, &es.clone().unwrap_or_default(), Some(context))
+                v.restore_backend_context(&st, &es.clone().unwrap_or_default(), context, &resources)
             {
                 return self.fail_engine(&error);
             }

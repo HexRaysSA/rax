@@ -4,6 +4,7 @@ use crate::error::{Error, Result};
 use crate::vm::runtime::pci_state::PciDeviceCheckpoint;
 use std::path::Path;
 pub struct SnapshotBundle {
+    pub(super) resources: Option<super::ResourcesSnapshot>,
     pub(super) backend_contexts: Option<super::BackendContexts>,
     pub(super) execution: Option<super::ExecutionSnapshot>,
     pub(super) clock: Option<crate::vm::timing::ClockState>,
@@ -16,6 +17,7 @@ impl std::fmt::Debug for SnapshotBundle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SnapshotBundle")
             .field("base", &self.base.summary())
+            .field("resources", &self.resources)
             .field("backend_contexts", &self.backend_contexts.is_some())
             .field("execution", &self.execution.is_some())
             .field("clock", &self.clock)
@@ -29,6 +31,7 @@ impl SnapshotBundle {
     pub fn new(base: Snapshot) -> Self {
         Self {
             base,
+            resources: None,
             backend_contexts: None,
             execution: None,
             clock: None,
@@ -39,6 +42,23 @@ impl SnapshotBundle {
     }
     pub fn base(&self) -> &Snapshot {
         &self.base
+    }
+    pub fn resources(&self) -> Option<&super::ResourcesSnapshot> {
+        self.resources.as_ref()
+    }
+    /// Store complete immutable media once, independently of CPU record limits.
+    pub fn with_resources(mut self, resources: Vec<super::CheckpointResource>) -> Result<Self> {
+        if self.cpus.is_none() || self.backend_contexts.is_none() {
+            return Err(Error::Emulator(
+                "checkpoint resources require CPU and backend context sets".into(),
+            ));
+        }
+        self.resources = Some(super::ResourcesSnapshot::capture(resources)?);
+        self.validate()?;
+        Ok(self)
+    }
+    pub fn take_resources(&mut self) -> Option<super::ResourcesSnapshot> {
+        self.resources.take()
     }
     pub fn backend_contexts(&self) -> Option<&super::BackendContexts> {
         self.backend_contexts.as_ref()
@@ -122,6 +142,11 @@ impl SnapshotBundle {
     /// Compatibility with the immediately preceding unreleased bundle API.
     /// Required physical state cannot be silently discarded by pair extraction.
     pub fn into_parts(self) -> Result<(Snapshot, Option<PciSnapshot>)> {
+        if self.resources.is_some() {
+            return Err(Error::Emulator(
+                "checkpoint contains required resources".into(),
+            ));
+        }
         if self.backend_contexts.is_some() {
             return Err(Error::Emulator(
                 "checkpoint contains required backend contexts".into(),
@@ -150,7 +175,8 @@ impl SnapshotBundle {
         Ok((self.base, self.pci))
     }
     pub fn into_base(self) -> Result<Snapshot> {
-        if self.backend_contexts.is_some()
+        if self.resources.is_some()
+            || self.backend_contexts.is_some()
             || self.execution.is_some()
             || self.pci.is_some()
             || self.physical_memory.is_some()
@@ -183,6 +209,14 @@ impl SnapshotBundle {
     }
     pub(crate) fn validate(&self) -> Result<()> {
         self.base.validate_for_restore()?;
+        if let Some(resources) = &self.resources {
+            if self.cpus.is_none() || self.backend_contexts.is_none() {
+                return Err(Error::Emulator(
+                    "checkpoint resources require CPU and backend context sets".into(),
+                ));
+            }
+            resources.validate_metadata()?;
+        }
         if let Some(contexts) = &self.backend_contexts {
             if self.cpus.is_none() {
                 return Err(Error::Emulator(
@@ -211,11 +245,22 @@ impl SnapshotBundle {
         self.validate_physical_metadata()
     }
     fn validate_physical_metadata(&self) -> Result<()> {
+        let media = self.pci.as_ref().map_or(0, |p| {
+            p.nvme_media().map_or(0, |m| m.size()) + p.ahci_media().map_or(0, |m| m.size())
+        });
+        let resources = self.resources.as_ref().map_or(0, |r| r.total_bytes());
+        if self.resources.is_some()
+            && resources > super::resources::remaining_budget(self.base.memory_size, media)?
+        {
+            return Err(Error::Emulator(
+                "RAM plus media/resources exceeds bundle budget".into(),
+            ));
+        }
         if let Some(state) = &self.physical_memory {
-            let media = self.pci.as_ref().map_or(0, |p| {
-                p.nvme_media().map_or(0, |m| m.size()) + p.ahci_media().map_or(0, |m| m.size())
-            });
-            state.validate_metadata(media)?;
+            let total = media
+                .checked_add(resources)
+                .ok_or_else(|| Error::Emulator("checkpoint media/resource size overflow".into()))?;
+            state.validate_metadata(total)?;
         }
         Ok(())
     }

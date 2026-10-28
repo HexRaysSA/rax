@@ -223,6 +223,7 @@ impl X86_64Lowerer {
         self.code.emit_u8(0x59);
         self.code.emit_u8(0x58);
         self.code.emit_u8(0x9D);
+        self.emit_x86_retirement();
         self.emit_native_exit(resume_pc);
 
         // Every invalid path is non-committing and restarts at XSETBV.

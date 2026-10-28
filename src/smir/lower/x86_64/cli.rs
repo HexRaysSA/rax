@@ -78,6 +78,7 @@ impl X86_64Lowerer {
         self.emit_reload_all(PhysReg::Rcx);
         self.code.emit_u8(0x9D); // restore exact pre-CLI native flags
         self.emit_flag_preserving_stack_pop8(); // discard saved guest RAX
+        self.emit_x86_retirement();
         self.emit_native_exit(*next_pc);
 
         self.patch_rel32_to_current(fault)?;

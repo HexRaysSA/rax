@@ -72,6 +72,22 @@ impl X86_64Lowerer {
         Ok(())
     }
 
+    /// Commit one completed guest instruction without changing guest registers
+    /// or flags. The state pointer is an aligned live GuestRegs for this call.
+    pub(crate) fn emit_x86_retirement(&mut self) {
+        if !self.x86_instruction_retirement {
+            return;
+        }
+        self.code.emit_bytes(&[0x9c, 0x50]); // pushfq; push rax
+        self.code.emit_bytes(&[0x48, 0x8b, 0x45]);
+        self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8);
+        self.code.emit_bytes(&[0x48, 0x83, 0x80]); // add qword [rax+count],1
+        self.code
+            .emit_u32(crate::smir::lower::X86_GUEST_RETIRED_COUNT_OFFSET as u32);
+        self.code.emit_u8(1);
+        self.code.emit_bytes(&[0x58, 0x9d]); // pop rax; popfq
+    }
+
     pub(crate) fn emit_native_exit(&mut self, resume_pc: u64) {
         // JIT native-exit stub: record the resume guest PC into `exit_pc` and
         // return to the trampoline. The state pointer lives at

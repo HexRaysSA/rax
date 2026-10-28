@@ -96,6 +96,8 @@ pub struct X86_64Lifter {
     /// the next `lift_function` result. The block ID participates in the key so
     /// synthetic ops carrying another block's guest PC cannot claim its bytes.
     lifted_instruction_bytes: HashMap<(BlockId, GuestAddr), X86InstructionBytes>,
+    /// Preserve one guest instruction per block for native retirement.
+    instruction_retirement: bool,
 }
 
 impl Default for X86_64Lifter {
@@ -113,6 +115,7 @@ impl X86_64Lifter {
             lift_through_calls: false,
             max_blocks: 0,
             lifted_instruction_bytes: HashMap::new(),
+            instruction_retirement: false,
         }
     }
 
@@ -124,6 +127,7 @@ impl X86_64Lifter {
             lift_through_calls: false,
             max_blocks: 0,
             lifted_instruction_bytes: HashMap::new(),
+            instruction_retirement: false,
         }
     }
 
@@ -132,6 +136,13 @@ impl X86_64Lifter {
     /// the JIT records its guest PC and exits before executing that instruction.
     pub fn set_interpreter_frontiers(&mut self, enabled: bool) {
         self.interpreter_frontiers = enabled;
+    }
+
+    /// Preserve each successfully lifted instruction as one CFG block.
+    /// Native runtimes can then count dynamic completion without inferring
+    /// instruction counts from byte distances or surviving optimized ops.
+    pub fn set_instruction_retirement(&mut self, enabled: bool) {
+        self.instruction_retirement = enabled;
     }
 
     /// Enable lift-through-calls with a block cap (see the field docs).
@@ -301,11 +312,20 @@ impl SmirLifter for X86_64Lifter {
 
             // Add ops to block
             block.ops.extend(result.ops);
+            let instruction_pc = pc;
             pc += result.bytes_consumed as u64;
 
             // Check for block-ending control flow
             match result.control_flow {
-                ControlFlow::Fallthrough | ControlFlow::NextInsn => continue,
+                ControlFlow::Fallthrough | ControlFlow::NextInsn => {
+                    if self.instruction_retirement {
+                        block.terminator = Terminator::Branch {
+                            target: ctx.get_or_create_block(pc),
+                        };
+                        break;
+                    }
+                    continue;
+                }
                 ControlFlow::Branch { target } | ControlFlow::DirectBranch(target) => {
                     block.terminator = Terminator::Branch {
                         target: ctx.get_or_create_block(target),
@@ -321,7 +341,11 @@ impl SmirLifter for X86_64Lifter {
                     let cond_vreg = ctx.alloc_vreg();
                     block.ops.push(SmirOp::new(
                         OpId(block.ops.len() as u16),
-                        pc,
+                        if self.instruction_retirement {
+                            instruction_pc
+                        } else {
+                            pc
+                        },
                         OpKind::TestCondition {
                             dst: cond_vreg,
                             cond,
@@ -402,6 +426,8 @@ impl SmirLifter for X86_64Lifter {
         let mut func = SmirFunction::new(FunctionId(entry as u32), entry_block, entry);
         func.attrs.preserve_interpreter_frontiers =
             self.interpreter_frontiers || (self.lift_through_calls && self.max_blocks != 0);
+
+        func.attrs.x86_instruction_retirement = self.instruction_retirement;
 
         // Work queue of blocks to lift
         let mut worklist = vec![entry];

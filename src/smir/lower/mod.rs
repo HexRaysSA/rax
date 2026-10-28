@@ -281,6 +281,8 @@ pub const X86_GUEST_VSIB_INSTRUCTION_ORDINAL_OFFSET: i32 =
 pub const X86_GUEST_ATOMIC_RMW_FN_OFFSET: i32 = X86_GUEST_VSIB_INSTRUCTION_ORDINAL_OFFSET + 8;
 /// Offset of the append-only sign-and-exponent words of the x87 payload.
 pub const X86_GUEST_X87_PAYLOAD_HIGH_OFFSET: i32 = X86_GUEST_ATOMIC_RMW_FN_OFFSET + 8;
+/// Offset of the append-only absolute guest retirement count.
+pub const X86_GUEST_RETIRED_COUNT_OFFSET: i32 = X86_GUEST_X87_PAYLOAD_HIGH_OFFSET + 8 * 8;
 /// Internal `vec_load_fn` destination namespace for
 /// [`runtime::GuestRegs::vector_scratch`]. Architectural ZMM indices remain
 /// exactly 0..=31. For `vec_store_fn`, this tag names an unmasked scratch

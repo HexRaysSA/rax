@@ -28,6 +28,9 @@ impl X86_64Vcpu {
     /// bypassed so each call retires exactly one architectural instruction —
     /// this is the precise primitive the embedding/debugger API steps with.
     pub fn step_with_faults(&mut self) -> Result<Option<VcpuExit>> {
+        if let Some(exit) = self.jit_callout_exit.take() {
+            return Ok(Some(exit));
+        }
         if self.halted {
             return Ok(Some(VcpuExit::Hlt));
         }

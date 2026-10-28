@@ -105,6 +105,12 @@ impl Engine {
         if !self.is_user() {
             vcpu.set_state(&arch::default_state(self.arch, self.mode))?;
         }
+        if let Some(config) = self.vcpu.x86_configuration() {
+            vcpu.set_x86_configuration(config)?;
+        }
+        if let Some((medium, memory_bytes)) = self.vcpu.x86_bios_binding() {
+            vcpu.attach_x86_64_bios(medium, memory_bytes);
+        }
         if self.arch == RaxArch::Arm64 {
             let source = self.vcpu.get_state()?;
             let mut target = vcpu.get_state()?;

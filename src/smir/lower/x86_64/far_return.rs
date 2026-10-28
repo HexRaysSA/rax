@@ -109,6 +109,7 @@ impl X86_64Lowerer {
         self.emit_reload_all(PhysReg::Rcx);
         self.code.emit_u8(0x9D); // popfq
         self.emit_flag_preserving_stack_pop8();
+        self.emit_x86_retirement();
         self.emit_epilogue_with_ret(None); // helper supplied dynamic exit_pc
 
         self.patch_rel32_to_current(helper_fault)?;

@@ -305,6 +305,11 @@ pub trait VCpu: Send {
     /// only the x86_64 emulator backend services BIOS interrupts directly.
     fn attach_x86_64_bios(&mut self, _cdrom: Option<std::sync::Arc<Vec<u8>>>, _mem_bytes: u64) {}
 
+    /// Retain immutable boot attachment and reported memory across CPU reset.
+    fn x86_bios_binding(&self) -> Option<(Option<std::sync::Arc<Vec<u8>>>, u64)> {
+        None
+    }
+
     /// Enable or disable single-step mode for debugging.
     #[cfg(feature = "debug")]
     fn set_single_step(&mut self, enabled: bool) {
@@ -386,10 +391,47 @@ pub trait VCpu: Send {
         Ok(None)
     }
 
+    /// Immutable contents referenced by this CPU's backend context. The bundle
+    /// stores each complete identity once, regardless of the number of CPUs.
+    fn capture_checkpoint_resources(&self) -> Result<Vec<crate::vm::snapshot::CheckpointResource>> {
+        Ok(Vec::new())
+    }
+
+    /// Pure resource-reference discovery after backend/machine admission.
+    fn checkpoint_resource_references(
+        &self,
+        _context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<Vec<crate::vm::snapshot::ResourceKey>> {
+        Ok(Vec::new())
+    }
+
+    /// Prepare a replacement CPU offside, with all resource binding and decode
+    /// failures resolved before publication. None retains the existing backend
+    /// restore path; it does not promise whole-VM/native setter transactions.
+    fn prepare_checkpoint_replacement(
+        &self,
+        _state: &CpuState,
+        _emulator: &crate::vm::snapshot::EmulatorState,
+        _context: Option<&crate::vm::snapshot::BackendContext>,
+        _resources: &crate::vm::snapshot::PreparedResources,
+    ) -> Result<Option<Box<dyn VCpu>>> {
+        Ok(None)
+    }
+
     /// Interpreter profile retained by a RISC-V backend context. Embedders use
     /// it when reconstructing the same engine after a memory-map change/reset.
     fn riscv_configuration(&self) -> Option<crate::isa::riscv::RiscVConfig> {
         None
+    }
+
+    fn x86_configuration(&self) -> Option<crate::isa::x86_64::X86_64Config> {
+        None
+    }
+
+    fn set_x86_configuration(&mut self, _config: crate::isa::x86_64::X86_64Config) -> Result<()> {
+        Err(Error::InvalidConfig(
+            "backend has no software-x86 configuration".into(),
+        ))
     }
 
     /// Admit backend-owned state against the declared machine before any live

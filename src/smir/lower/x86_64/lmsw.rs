@@ -212,6 +212,7 @@ impl X86_64Lowerer {
             let mut emitter = X86Emitter::new(&mut self.code);
             emitter.emit_lea(PhysReg::Rsp, PhysReg::Rsp, 16);
         }
+        self.emit_x86_retirement();
         self.emit_native_exit(*next_pc);
 
         // Guard failures precede the register read or MMU helper call. Restore

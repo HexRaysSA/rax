@@ -1321,7 +1321,7 @@ pub fn branch_folding(func: &mut SmirFunction) -> usize {
 ///
 /// Returns the number of blocks merged.
 pub fn block_merging(func: &mut SmirFunction) -> usize {
-    if func.blocks.len() < 2 {
+    if func.attrs.x86_instruction_retirement || func.blocks.len() < 2 {
         return 0;
     }
 

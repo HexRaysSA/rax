@@ -1564,6 +1564,8 @@ pub struct X86_64Lowerer {
     /// hand control back to the interpreter at the loop-exit address. Set via
     /// [`X86_64Lowerer::set_native_exits`] before `lower_function`.
     native_exits: std::collections::HashMap<BlockId, u64>,
+    /// Emit one count update after each validated guest instruction block.
+    x86_instruction_retirement: bool,
 
     /// Native-exit branch edges (source block, target block) => resume guest PC.
     /// Unlike `native_exits`, these do not replace the target block. They only
@@ -1668,6 +1670,9 @@ impl SmirLowerer for X86_64Lowerer {
     }
 
     fn lower_function(&mut self, func: &SmirFunction) -> Result<LowerResult, LowerError> {
+        crate::smir::ir::validate_x86_retirement(func, &self.native_exits)
+            .map_err(|error| LowerError::UnsupportedOp { op: error.into() })?;
+        self.x86_instruction_retirement = func.attrs.x86_instruction_retirement;
         // Reset state
         self.code.clear();
         #[cfg(feature = "smir-jit")]

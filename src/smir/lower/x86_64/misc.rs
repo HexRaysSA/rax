@@ -48,6 +48,7 @@ impl X86_64Lowerer {
             x86_instruction_bytes: HashMap::new(),
             pending_cond: None,
             native_exits: std::collections::HashMap::new(),
+            x86_instruction_retirement: false,
             native_exit_edges: std::collections::HashMap::new(),
             mem_helpers: false,
             preserve_vector_mem_helpers: false,

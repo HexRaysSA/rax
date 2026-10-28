@@ -11,6 +11,8 @@
 //!   cpu_len u64; cpu_bytes[cpu_len]      (bincode of CpuState)
 //!   emu_len u64; emu_bytes[emu_len]      (bincode of EmulatorState; if flag)
 //!   [format 3 only: arm_len u64 = 20; TLS + exclusive-monitor bytes[20]]
+//!   [formats 5/6/7: producer u32; backend_len u64; backend[backend_len]]
+//!   [format 7: resources_len u64; resources[resources_len]]
 //!   nregion u64
 //!   per region: base u64, size u64, perms u32, _pad u32, bytes[size]
 //! ```
@@ -35,6 +37,8 @@
 //! Formats 1/2 remain readable with their original projection-only semantics.
 //! Format 6 uses the same backend framing for system/user RISC-V contexts,
 //! retaining the hart profile, reservations, counters and ordered events.
+//! Format 7 carries the full software-x86 backend context, followed by a u64
+//! resource-section length and complete immutable media (zero means none).
 
 use std::sync::Arc;
 
@@ -58,6 +62,7 @@ const CTX_VERSION_ARM_USER: u32 = 3;
 const CTX_VERSION_AARCH64: u32 = 4;
 const CTX_VERSION_AARCH32: u32 = 5;
 const CTX_VERSION_RISCV: u32 = 6;
+const CTX_VERSION_X86: u32 = 7;
 const MAX_BACKEND_CONTEXT: usize = 16 * 1024 * 1024;
 
 #[path = "context/aarch64.rs"]
@@ -228,20 +233,23 @@ impl Engine {
             return Err(RaxStatus::Format);
         }
         let arm_user = self.vcpu.arm_user_state();
-        let backend_context =
-            if (self.arch == RaxArch::Arm && arm_user.is_none()) || self.arch == RaxArch::Riscv64 {
-                Some(
-                    self.vcpu
-                        .capture_backend_context()
-                        .map_err(|e| crate::status::status_from_engine_error(&e))?
-                        .ok_or(RaxStatus::Format)?,
-                )
-            } else {
-                None
-            };
+        let backend_context = if (self.arch == RaxArch::Arm && arm_user.is_none())
+            || matches!(self.arch, RaxArch::Riscv64 | RaxArch::X86)
+        {
+            Some(
+                self.vcpu
+                    .capture_backend_context()
+                    .map_err(|e| crate::status::status_from_engine_error(&e))?
+                    .ok_or(RaxStatus::Format)?,
+            )
+        } else {
+            None
+        };
         let mut w = Writer::new();
         w.u32(CTX_MAGIC);
-        w.u32(if self.arch == RaxArch::Riscv64 {
+        w.u32(if self.arch == RaxArch::X86 {
+            CTX_VERSION_X86
+        } else if self.arch == RaxArch::Riscv64 {
             CTX_VERSION_RISCV
         } else if backend_context.is_some() {
             CTX_VERSION_AARCH32
@@ -289,6 +297,8 @@ impl Engine {
         if let Some(context) = backend_context {
             let expected_kind = if self.arch == RaxArch::Riscv64 {
                 rax_engine::snapshot::RISCV_CONTEXT
+            } else if self.arch == RaxArch::X86 {
+                rax_engine::snapshot::X86_64_CONTEXT
             } else {
                 rax_engine::snapshot::AARCH32_CONTEXT
             };
@@ -301,6 +311,22 @@ impl Engine {
             w.u32(context.kind);
             w.u64(context.data.len() as u64);
             w.bytes(&context.data);
+        }
+
+        if self.arch == RaxArch::X86 {
+            let resources = self
+                .vcpu
+                .capture_checkpoint_resources()
+                .map_err(|e| crate::status::status_from_engine_error(&e))?;
+            let raw = if resources.is_empty() {
+                Vec::new()
+            } else {
+                rax_engine::snapshot::ResourcesSnapshot::capture(resources)
+                    .and_then(|snapshot| snapshot.encode())
+                    .map_err(|e| crate::status::status_from_engine_error(&e))?
+            };
+            w.u64(raw.len() as u64);
+            w.bytes(&raw);
         }
 
         w.u64(self.regions.len() as u64);
@@ -344,12 +370,18 @@ impl Engine {
                 | CTX_VERSION_AARCH64
                 | CTX_VERSION_AARCH32
                 | CTX_VERSION_RISCV
+                | CTX_VERSION_X86
         ) {
             return self.fail(RaxStatus::Format, "unsupported context version");
         }
-        let has_backend = matches!(version, CTX_VERSION_AARCH32 | CTX_VERSION_RISCV);
+        let has_backend = matches!(
+            version,
+            CTX_VERSION_AARCH32 | CTX_VERSION_RISCV | CTX_VERSION_X86
+        );
         let backend_arch = if version == CTX_VERSION_RISCV {
             "RISC-V"
+        } else if version == CTX_VERSION_X86 {
+            "x86"
         } else {
             "AArch32"
         };
@@ -377,6 +409,9 @@ impl Engine {
         if version == CTX_VERSION_RISCV && self.arch != RaxArch::Riscv64 {
             return self.fail(RaxStatus::Format, "format 6 requires RISC-V");
         }
+        if version == CTX_VERSION_X86 && self.arch != RaxArch::X86 {
+            return self.fail(RaxStatus::Format, "format 7 requires x86");
+        }
         let flags = match r.u32() {
             Some(v) => v,
             None => return self.fail(RaxStatus::Format, "truncated context"),
@@ -384,7 +419,14 @@ impl Engine {
         if is_arm_user && flags != 0 {
             return self.fail(RaxStatus::Format, "invalid AArch32 user context flags");
         }
-        if has_backend && flags != 0 {
+        if has_backend
+            && flags
+                != if version == CTX_VERSION_X86 {
+                    FLAG_HAS_EMU
+                } else {
+                    0
+                }
+        {
             return self.fail(
                 RaxStatus::Format,
                 &format!("invalid {backend_arch} backend context flags"),
@@ -415,7 +457,7 @@ impl Engine {
             Some(v) => v as usize,
             None => return self.fail(RaxStatus::Format, "truncated context"),
         };
-        if (is_arm_user || has_backend) && emu_len != 0 {
+        if (is_arm_user || (has_backend && version != CTX_VERSION_X86)) && emu_len != 0 {
             return self.fail(
                 RaxStatus::Format,
                 &format!("unexpected {backend_arch} generic emulator state"),
@@ -428,6 +470,8 @@ impl Engine {
             };
             let decoded = if version == CTX_VERSION_V1 {
                 decode_v1_emulator_state(eb)
+            } else if version == CTX_VERSION_X86 {
+                rax_engine::codec::deserialize_strict(eb).ok()
             } else {
                 rax_engine::codec::deserialize(eb).ok()
             };
@@ -457,6 +501,8 @@ impl Engine {
             let length = r.u64().and_then(|length| usize::try_from(length).ok());
             let expected_kind = if version == CTX_VERSION_RISCV {
                 rax_engine::snapshot::RISCV_CONTEXT
+            } else if version == CTX_VERSION_X86 {
+                rax_engine::snapshot::X86_64_CONTEXT
             } else {
                 rax_engine::snapshot::AARCH32_CONTEXT
             };
@@ -483,6 +529,37 @@ impl Engine {
             None
         };
 
+        let resources = if version == CTX_VERSION_X86 {
+            if !matches!(&cpu, CpuState::X86_64(_)) {
+                return self.fail(RaxStatus::Format, "format 7 requires x86 CPU state");
+            }
+            let length = match r.u64().and_then(|length| usize::try_from(length).ok()) {
+                Some(length) => length,
+                None => return self.fail(RaxStatus::Format, "truncated resource length"),
+            };
+            let raw = match r.take(length) {
+                Some(raw) => raw,
+                None => return self.fail(RaxStatus::Format, "truncated resources"),
+            };
+            if raw.is_empty() {
+                Arc::new(rax_engine::snapshot::PreparedResources::default())
+            } else {
+                match rax_engine::snapshot::ResourcesSnapshot::decode(raw)
+                    .and_then(|snapshot| snapshot.prepare())
+                {
+                    Ok(prepared) => prepared,
+                    Err(error) => {
+                        return self.fail(
+                            RaxStatus::Format,
+                            &format!("invalid x86 resources: {error}"),
+                        );
+                    }
+                }
+            }
+        } else {
+            Arc::new(rax_engine::snapshot::PreparedResources::default())
+        };
+
         let nregion = match r.u64().and_then(|value| usize::try_from(value).ok()) {
             Some(value) if value > 0 && value <= (r.buf.len() - r.pos) / 24 => value,
             Some(_) => return self.fail(RaxStatus::Format, "region count exceeds context bytes"),
@@ -502,7 +579,12 @@ impl Engine {
                 None => return self.fail(RaxStatus::Format, "truncated region"),
             };
             let perms = r.u32().unwrap_or(0);
-            let _pad = r.u32();
+            let pad = r.u32();
+            if version == CTX_VERSION_X86
+                && (pad != Some(0) || perms & !crate::mem::RAX_PROT_ALL != 0)
+            {
+                return self.fail(RaxStatus::Format, "invalid x86 region metadata");
+            }
             let bytes = match r.take(size as usize) {
                 Some(b) => b.to_vec(),
                 None => return self.fail(RaxStatus::Format, "truncated region data"),
@@ -570,8 +652,11 @@ impl Engine {
                     &format!("invalid {backend_arch} backend context: {err}"),
                 );
             }
-            if let Err(err) = vcpu.restore_checkpoint_context(&cpu, &legacy, Some(context)) {
-                return self.fail_engine(&err);
+            if let Err(err) = vcpu.restore_backend_context(&cpu, &legacy, context, &resources) {
+                return self.fail(
+                    RaxStatus::Format,
+                    &format!("invalid {backend_arch} backend context: {err}"),
+                );
             }
         } else {
             if let Err(err) = vcpu.set_state(&cpu) {

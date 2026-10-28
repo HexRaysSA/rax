@@ -332,6 +332,11 @@ pub struct GuestRegs {
     /// physical x87 register, in the low 16 bits of its slot; the rest of
     /// each slot is zero. Append-only; synchronized with `x87_payload`.
     pub x87_payload_high: [u64; 8],
+    /// Absolute wrapping guest retirement count, synchronized at native entry,
+    /// successful instruction boundaries, interpreter callouts, and exit.
+    pub retired_count: u64,
+    /// One for a runtime retirement-aware frame; legacy helper frames use zero.
+    pub retirement_active: u64,
 }
 
 pub const X86_VECTOR_STATE_INACTIVE: u64 = 0;
@@ -442,6 +447,8 @@ impl Default for GuestRegs {
             x86_vsib_instruction_ordinal: 0,
             atomic_rmw_fn: 0,
             x87_payload_high: [0; 8],
+            retired_count: 0,
+            retirement_active: 0,
         }
     }
 }

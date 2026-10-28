@@ -155,6 +155,7 @@ impl X86_64Lowerer {
             self.code.emit_u32(0);
             Some(branch)
         } else {
+            self.emit_x86_retirement();
             self.emit_native_exit(encoding.next_pc);
             None
         };

@@ -94,6 +94,7 @@ impl X86_64Vcpu {
             return;
         }
         let entry_pc = self.regs.rip;
+        let snap_insn_count = self.insn_count;
         let snap = self.regs.clone();
         let snap_fpu = self.fpu.clone();
         let snap_lf = self.lazy_flags;
@@ -134,6 +135,7 @@ impl X86_64Vcpu {
         self.jit_mem_log = Some(Vec::new());
         self.jit_mem_trace = Some(Vec::new());
         let (vsib_frontier, vsib_ordinal) = self.jit_run_region_native(region);
+        let jit_insn_count = self.insn_count;
         let jit = self.regs.clone();
         let jit_fpu = self.fpu.clone();
         let jit_mxcsr = self.mxcsr;
@@ -205,6 +207,7 @@ impl X86_64Vcpu {
 
         // 2) Re-run the interpreter from the same entry up to the exit PC,
         //    restoring the LAZY flag state (the interpreter's source of truth).
+        self.insn_count = snap_insn_count;
         self.regs = snap.clone();
         self.fpu = snap_fpu;
         self.lazy_flags = snap_lf;
@@ -396,6 +399,12 @@ impl X86_64Vcpu {
                 ("r31", self.regs.r31, jit.r31),
             ];
             let mut diffs: Vec<String> = frontier_error.into_iter().collect();
+            if self.insn_count != jit_insn_count {
+                diffs.push(format!(
+                    "retired count: interp={} jit={jit_insn_count}",
+                    self.insn_count
+                ));
+            }
             if vsib_frontier != 0 && self.mxcsr != jit_mxcsr {
                 diffs.push(format!(
                     "mxcsr: interp={:#x} jit={jit_mxcsr:#x}",
@@ -621,6 +630,7 @@ impl X86_64Vcpu {
         }
 
         // Matched (or unverifiable within the cap): adopt the native result.
+        self.insn_count = jit_insn_count;
         self.regs = jit;
         self.fpu = jit_fpu;
         self.mxcsr = jit_mxcsr;

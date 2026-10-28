@@ -823,6 +823,10 @@ impl Vmm {
             .iter()
             .map(|cpu| cpu.capture_backend_context())
             .collect::<Result<Vec<_>>>()?;
+        let mut resources = Vec::new();
+        for cpu in &self.vcpus {
+            resources.extend(cpu.capture_checkpoint_resources()?);
+        }
         let first = cpus
             .first()
             .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
@@ -855,6 +859,9 @@ impl Vmm {
             .with_execution(execution)?;
         if backend_contexts.iter().any(Option::is_some) {
             bundle = bundle.with_backend_contexts(backend_contexts)?;
+        }
+        if !resources.is_empty() {
+            bundle = bundle.with_resources(resources)?;
         }
         if let Some(pci) = pci {
             bundle = bundle.with_pci(pci)?;
@@ -984,6 +991,7 @@ impl Vmm {
             && bundle.clock().is_none()
             && bundle.execution().is_none()
             && bundle.backend_contexts().is_none()
+            && bundle.resources().is_none()
         {
             return self.restore_snapshot(snapshot);
         }
@@ -1043,6 +1051,30 @@ impl Vmm {
         for (vcpu, (state, emulator, context)) in self.vcpus.iter().zip(&states) {
             vcpu.validate_checkpoint_for_machine(&snapshot.config, state, emulator, *context)?;
         }
+        let resources = match bundle.resources() {
+            Some(resources) => resources.prepare()?,
+            None => Arc::new(crate::vm::snapshot::PreparedResources::default()),
+        };
+        let mut referenced = std::collections::BTreeSet::new();
+        for (vcpu, (_, _, context)) in self.vcpus.iter().zip(&states) {
+            for key in vcpu.checkpoint_resource_references(*context)? {
+                resources.resolve(key)?;
+                referenced.insert(key);
+            }
+        }
+        if referenced != resources.keys().collect() {
+            return Err(Error::InvalidConfig(
+                "checkpoint contains unreferenced resources".into(),
+            ));
+        }
+        let mut replacements = Vec::new();
+        replacements
+            .try_reserve_exact(states.len())
+            .map_err(|e| Error::Emulator(format!("CPU replacement allocation: {e}")))?;
+        for (vcpu, (state, emulator, context)) in self.vcpus.iter().zip(&states) {
+            replacements
+                .push(vcpu.prepare_checkpoint_replacement(state, emulator, *context, &resources)?);
+        }
         let physical = bundle
             .physical_memory()
             .map(|p| {
@@ -1095,8 +1127,14 @@ impl Vmm {
         let guest_mem = &self.guest_mem;
         let vcpus = &mut self.vcpus;
         let commit = move || -> Result<()> {
-            for (vcpu, (state, emulator, context)) in vcpus.iter_mut().zip(states) {
-                vcpu.restore_checkpoint_context(state, emulator, context)?;
+            for ((vcpu, (state, emulator, context)), replacement) in
+                vcpus.iter_mut().zip(states).zip(replacements)
+            {
+                if let Some(replacement) = replacement {
+                    *vcpu = replacement;
+                } else {
+                    vcpu.restore_checkpoint_context(state, emulator, context)?;
+                }
             }
             if let Some(physical) = physical {
                 physical.commit()?;
@@ -1362,6 +1400,10 @@ mod backend_context_tests;
 #[cfg(test)]
 #[path = "runtime/riscv_context_tests.rs"]
 mod riscv_context_tests;
+
+#[cfg(test)]
+#[path = "runtime/x86_context_tests.rs"]
+mod x86_context_tests;
 
 #[cfg(test)]
 #[path = "runtime/bundle_tests.rs"]

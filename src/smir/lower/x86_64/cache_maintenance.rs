@@ -52,6 +52,7 @@ impl X86_64Lowerer {
         self.code.emit_bytes(&[0x0f, 0xae, 0xf0]); // MFENCE: no host cache invalidation
         // End the native slice so prior code writes are drained before the
         // next guest instruction is fetched or another cached region runs.
+        self.emit_x86_retirement();
         self.emit_native_exit(next_pc);
         self.patch_rel32_to_current(denied)?;
         self.code.emit_u8(0x58);

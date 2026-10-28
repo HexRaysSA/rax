@@ -125,6 +125,7 @@ impl X86_64Lowerer {
         self.emit_reload_all(PhysReg::Rcx);
         self.code.emit_u8(0x9D); // popfq
         self.emit_flag_preserving_stack_pop8(); // discard saved pre-write RAX
+        self.emit_x86_retirement();
         self.emit_native_exit(*next_pc);
 
         // The helper is non-committing on failure. Restore native register

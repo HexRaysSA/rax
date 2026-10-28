@@ -15,6 +15,7 @@ use crate::vm::vcpu::SystemRegisters;
 
 use super::linear::crossing_next;
 
+pub(super) mod checkpoint;
 #[path = "memory_fault.rs"]
 mod fault;
 mod paging;
@@ -53,7 +54,7 @@ const LVT_MASK: u32 = 1 << 16;
 const SVR_APIC_ENABLED: u32 = 1 << 8;
 
 /// Inline LAPIC state for emulator
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct InlineLapic {
     id: u32,
     version: u32,
@@ -74,6 +75,8 @@ struct InlineLapic {
     timer_divide_config: u32,
     /// Nanoseconds elapsed since emulator start when timer was started (None = timer not running)
     timer_start_nanos: Option<u64>,
+    /// Elapsed timer phase retained when rebasing a restored local clock.
+    timer_elapsed_base: u64,
     /// Pending timer interrupt vector (not yet delivered)
     pending_timer_vector: Option<u8>,
 }
@@ -99,6 +102,7 @@ impl InlineLapic {
             timer_initial_count: 0,
             timer_divide_config: 0,
             timer_start_nanos: None,
+            timer_elapsed_base: 0,
             pending_timer_vector: None,
         }
     }
@@ -153,7 +157,9 @@ impl InlineLapic {
                 }
                 let start_nanos = self.timer_start_nanos.unwrap();
                 let current_nanos = timing::elapsed_nanos();
-                let elapsed_nanos = current_nanos.saturating_sub(start_nanos);
+                let elapsed_nanos = self
+                    .timer_elapsed_base
+                    .saturating_add(current_nanos.saturating_sub(start_nanos));
 
                 // Convert nanoseconds to timer ticks:
                 // LAPIC timer base frequency is 1 GHz, so 1 tick = 1 nanosecond at divisor 1
@@ -236,6 +242,7 @@ impl InlineLapic {
                     (self.lvt_timer & LVT_MASK) != 0
                 );
                 self.timer_initial_count = value;
+                self.timer_elapsed_base = 0;
                 if value > 0 {
                     self.timer_start_nanos = Some(timing::elapsed_nanos());
                     self.pending_timer_vector = None; // Clear any pending interrupt on restart
@@ -287,7 +294,9 @@ impl InlineLapic {
         };
 
         let current_nanos = timing::elapsed_nanos();
-        let elapsed_nanos = current_nanos.saturating_sub(start_nanos);
+        let elapsed_nanos = self
+            .timer_elapsed_base
+            .saturating_add(current_nanos.saturating_sub(start_nanos));
 
         // Convert nanoseconds to timer ticks (same formula as in read)
         // LAPIC timer base frequency is 1 GHz, so 1 tick = 1 nanosecond at divisor 1
@@ -312,6 +321,7 @@ impl InlineLapic {
                 if elapsed_ticks >= initial {
                     // Restart timer from current time
                     self.timer_start_nanos = Some(current_nanos);
+                    self.timer_elapsed_base = 0;
                     self.pending_timer_vector = Some(vector);
                     return Some(vector);
                 }

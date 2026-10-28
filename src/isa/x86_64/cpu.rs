@@ -459,20 +459,14 @@ pub struct X86_64Vcpu {
     jit_active_region_stale: bool,
     /// JIT of memory-touching regions (Load/Store via MMU helper calls). Enabled
     /// by default; `RAX_JIT_NO_MEM` disables it. Independently settable in tests.
-    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     jit_mem: bool,
     /// Lift guest calls into interpreter callouts while retaining the native
     /// caller region. Enabled by default; `RAX_JIT_NO_CALL` disables it.
     /// Independently settable in regression tests.
-    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     jit_call: bool,
     /// Set by [`rax_jit_call`] (the lift-through-calls helper) when a callee
     /// yields a VMM-bound exit (I/O, HLT, …): `jit_run_region_native` recovers it
     /// and propagates it so the run loop returns it to the VMM. `None` otherwise.
-    #[cfg(all(
-        feature = "smir-jit",
-        any(target_arch = "x86_64", target_arch = "aarch64")
-    ))]
     jit_callout_exit: Option<VcpuExit>,
     /// When `Some`, the memory-JIT store helper logs each store's `(addr, size,
     /// old_value)` here so verify mode can UNDO the region's writes and re-run
@@ -491,7 +485,6 @@ pub struct X86_64Vcpu {
     /// One-shot direct restart after a native VSIB lane/helper or mode guard
     /// defers at its instruction PC. This prevents cached-entry re-entry from
     /// retrying the same deferred access indefinitely.
-    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     jit_vsib_resume_pc: Option<u64>,
     /// Process-level execution state; `None` for system emulation.
     pub(super) user: Option<Box<super::user_mode::UserMode>>,
@@ -501,11 +494,13 @@ pub struct X86_64Vcpu {
 }
 
 /// Pending I/O operation.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 enum IoInTarget {
     Reg,
     Mem { addr: u64 },
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct IoPending {
     size: u8,
     target: IoInTarget,
@@ -1110,14 +1105,26 @@ impl X86_64Vcpu {
                 any(target_arch = "x86_64", target_arch = "aarch64")
             ))]
             jit_active_region_stale: false,
-            #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-            jit_mem: jit_mem_enabled() || jit_call_enabled(),
-            #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-            jit_call: jit_call_enabled(),
-            #[cfg(all(
-                feature = "smir-jit",
-                any(target_arch = "x86_64", target_arch = "aarch64")
-            ))]
+            jit_mem: {
+                #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+                {
+                    jit_mem_enabled() || jit_call_enabled()
+                }
+                #[cfg(not(all(feature = "smir-jit", target_arch = "x86_64")))]
+                {
+                    true
+                }
+            },
+            jit_call: {
+                #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+                {
+                    jit_call_enabled()
+                }
+                #[cfg(not(all(feature = "smir-jit", target_arch = "x86_64")))]
+                {
+                    true
+                }
+            },
             jit_callout_exit: None,
             #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
             jit_mem_log: None,
@@ -1125,7 +1132,6 @@ impl X86_64Vcpu {
             jit_mem_trace: None,
             #[cfg(any(test, all(feature = "smir-jit", target_arch = "x86_64")))]
             jit_verify_vsib_stop: None,
-            #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
             jit_vsib_resume_pc: None,
             user: None,
             jit_disabled_by_embedder: false,
@@ -3049,10 +3055,8 @@ impl X86_64Vcpu {
     /// attached guest memory. Mirrors the field initialisation in [`new`] for
     /// every architectural and cache field touched by execution.
     pub fn reset_state(&mut self) {
-        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-        {
-            self.jit_vsib_resume_pc = None;
-        }
+        self.jit_vsib_resume_pc = None;
+        self.jit_callout_exit = None;
         self.insn_count = 0;
         self.instruction_faulted = false;
         self.regs = Registers::default();
@@ -3103,6 +3107,10 @@ mod emulator_state;
 
 #[path = "cpu_vcpu.rs"]
 mod vcpu_impl;
+
+#[path = "cpu_context.rs"]
+mod checkpoint;
+pub use checkpoint::X86_64Config;
 
 /// Global instruction counter for snapshotting
 static GLOBAL_INSN_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -3182,6 +3190,14 @@ mod jit_compile;
 ))]
 #[path = "cpu_jit_state.rs"]
 mod jit_state;
+
+#[cfg(all(
+    test,
+    feature = "smir-jit",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+#[path = "cpu_jit_retirement_tests.rs"]
+mod jit_retirement_tests;
 #[cfg(all(
     feature = "smir-jit",
     any(target_arch = "x86_64", target_arch = "aarch64")
@@ -3936,6 +3952,8 @@ impl X86_64Vcpu {
         let pre_rflags = self.regs.rflags;
 
         let mut gr = GuestRegs::default();
+        gr.retired_count = self.insn_count;
+        gr.retirement_active = 1;
         // Memory-helper channel: the vcpu pointer + helper addresses, used only
         // by regions lowered with the MMU helper-call path (RAX_JIT_MEM).
         gr.ctx = self as *mut X86_64Vcpu as u64;
@@ -4100,6 +4118,7 @@ impl X86_64Vcpu {
         }
 
         region.exec.run(region.entry_offset, &mut gr);
+        self.insn_count = gr.retired_count;
 
         // Lift-through-calls: if a call-out bailed (a callee yielded a VMM-bound
         // exit or errored), the helper already synced the vcpu's full
@@ -4109,6 +4128,7 @@ impl X86_64Vcpu {
         // (the run loop reads `jit_callout_exit` and returns the stashed exit).
         #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
         if self.jit_callout_exit.is_some() {
+            self.jit_leave_region();
             self.lazy_flags = LazyFlags {
                 op: LazyFlagOp::None,
                 ..Default::default()
@@ -4259,6 +4279,7 @@ impl X86_64Vcpu {
 
         let mut state = Aarch64GuestRegs {
             pc: self.regs.rip,
+            x86_retired_count: self.insn_count,
             nzcv: x86_rflags_to_aarch64_nzcv(pre_rflags),
             x86_apx_enabled: u64::from(self.apx_enabled()),
             x86_tbm_enabled: u64::from(self.tbm_enabled()),
@@ -4282,6 +4303,7 @@ impl X86_64Vcpu {
         }
         self.regs.rflags = merge_aarch64_nzcv_into_x86_rflags(pre_rflags, state.nzcv);
         self.regs.rip = state.pc;
+        self.insn_count = state.x86_retired_count;
         self.lazy_flags = LazyFlags {
             op: LazyFlagOp::None,
             ..Default::default()

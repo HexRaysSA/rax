@@ -99,6 +99,17 @@ pub(super) struct UserTables {
 }
 
 impl UserTables {
+    pub(super) fn checkpoint_bytes(&self) -> Vec<u8> {
+        let Self { gdt } = self;
+        gdt.to_vec()
+    }
+
+    pub(super) fn from_checkpoint(bytes: &[u8]) -> Option<Self> {
+        Some(Self {
+            gdt: bytes.try_into().ok()?,
+        })
+    }
+
     /// The GDT at boot of CPU 0, node 0.
     fn linux() -> Self {
         let mut entries = [0u64; GDT_ENTRIES];

@@ -700,8 +700,8 @@ mod tests {
                         );
                         assert_eq!(native.regs.rip, frontier, "native frontier {label}");
                         assert_eq!(
-                            native.insn_count, 0,
-                            "no direct replay inside native run: {label}"
+                            native.insn_count, direct.insn_count,
+                            "native and direct retire the same prefix: {label}"
                         );
                         if kind == 5 || kind == 8 {
                             let writeback = match size {

@@ -24,6 +24,7 @@ impl Aarch64Lowerer {
             branch_fixups: Vec::new(),
             relocations: Vec::new(),
             native_exits: HashMap::new(),
+            x86_instruction_retirement: false,
             native_exit_edges: HashMap::new(),
             guest_call_exits: false,
             guest_interworking_call_exits: false,

@@ -64,8 +64,12 @@ fn split(blob: &[u8]) -> Sections {
     let emu_len = u64_at(blob, at);
     let emu = blob[at + 8..at + 8 + emu_len].to_vec();
     let mut region_offset = at + 8 + emu_len;
-    if matches!(u32::from_le_bytes(blob[4..8].try_into().unwrap()), 5 | 6) {
+    let version = u32::from_le_bytes(blob[4..8].try_into().unwrap());
+    if matches!(version, 5 | 6 | 7) {
         region_offset += 12 + u64_at(blob, region_offset + 4);
+    }
+    if version == 7 {
+        region_offset += 8 + u64_at(blob, region_offset);
     }
     let regions = blob[region_offset..].to_vec();
     Sections {
@@ -123,11 +127,11 @@ fn legacy_emulator_state(st: [f64; 8], top: u8, tag: u16, mxcsr: u32) -> Vec<u8>
 }
 
 #[test]
-fn saved_contexts_are_version_2() {
+fn saved_x86_contexts_are_version_7_with_the_exact_legacy_x87_projection() {
     let e = small_x86();
     let blob = save(e);
     assert_eq!(&blob[..4], &0x5241_5843u32.to_le_bytes());
-    assert_eq!(&blob[4..8], &2u32.to_le_bytes());
+    assert_eq!(&blob[4..8], &7u32.to_le_bytes());
     // The current layout stores ten bytes per x87 register.
     assert_eq!(split(&blob).emu.len(), 169 - 8 * 8 + 8 * 10);
     rax_engine_close(e);

@@ -123,6 +123,211 @@ fn backend_context_section_is_required_ordered_bounded_and_cannot_alias_optional
         );
     }
 }
+
+#[test]
+fn complete_resources_are_required_verified_ordered_and_cannot_be_discarded() {
+    let base = sample();
+    let cpu = CpuSnapshot {
+        state: base.cpu_state.clone(),
+        emulator: base.emulator_state.clone(),
+    };
+    let bytes = std::sync::Arc::new(vec![0x5a; 1024 * 1024]);
+    let resource = CheckpointResource::boot_cdrom(bytes.clone()).unwrap();
+    let key = resource.key();
+    let bundle = SnapshotBundle::new(base)
+        .with_cpus(vec![cpu])
+        .unwrap()
+        .with_backend_contexts(vec![Some(BackendContext {
+            kind: X86_64_CONTEXT,
+            data: vec![1], // Transport test: backend owns inner decoding.
+        })])
+        .unwrap()
+        .with_resources(vec![resource.clone(), resource])
+        .unwrap();
+    let path = TestPath::new();
+    bundle.save(&path.0).unwrap();
+    let raw = std::fs::read(&path.0).unwrap();
+    let loaded = SnapshotBundle::load(&path.0).unwrap();
+    let resources = loaded.resources().unwrap();
+    assert_eq!(resources.keys().collect::<Vec<_>>(), [key]);
+    assert_eq!(resources.prepare().unwrap().resolve(key).unwrap(), bytes);
+    assert!(Snapshot::load(&path.0).is_err());
+    for pair in [false, true] {
+        let mut loaded = SnapshotBundle::load(&path.0).unwrap();
+        loaded.take_backend_contexts();
+        loaded.take_cpus();
+        if pair {
+            assert!(loaded.into_parts().is_err());
+        } else {
+            assert!(loaded.into_base().is_err());
+        }
+    }
+    let original = sections(&raw);
+    let index = original
+        .iter()
+        .position(|p| u32::from_le_bytes(p[..4].try_into().unwrap()) == 15)
+        .unwrap();
+    let context_index = original
+        .iter()
+        .position(|p| u32::from_le_bytes(p[..4].try_into().unwrap()) == 14)
+        .unwrap();
+    for mutation in 0..8 {
+        let mut parts = original.clone();
+        match mutation {
+            0 => parts[index][..4].copy_from_slice(&(15u32 | (1 << 31)).to_le_bytes()),
+            1 => parts[index][4..8].copy_from_slice(&2u32.to_le_bytes()),
+            2 => parts.push(parts[index].clone()),
+            3 => {
+                parts.remove(context_index);
+            }
+            4 => parts.swap(index, context_index),
+            5 => {
+                let late = parts.remove(index);
+                parts.push(late);
+            }
+            6 => parts[index][40] ^= 1, // Inner full-content SHA-256.
+            7 => parts[index][32..40].copy_from_slice(&u64::MAX.to_le_bytes()),
+            _ => unreachable!(),
+        }
+        std::fs::write(&path.0, assemble(&parts)).unwrap();
+        assert!(
+            SnapshotBundle::load(&path.0).is_err(),
+            "mutation {mutation}"
+        );
+    }
+}
+
+#[test]
+fn projection_only_resource_bundles_enforce_ram_media_budget_before_payloads() {
+    fn bundle(memory: u64) -> Result<SnapshotBundle> {
+        let mut base = sample();
+        // Metadata admission must run before decompressing a large RAM image.
+        base.config.memory_bytes = memory;
+        base.memory_size = memory;
+        let cpu = CpuSnapshot {
+            state: base.cpu_state.clone(),
+            emulator: base.emulator_state.clone(),
+        };
+        SnapshotBundle::new(base)
+            .with_cpus(vec![cpu])?
+            .with_backend_contexts(vec![Some(BackendContext {
+                kind: X86_64_CONTEXT,
+                data: vec![1],
+            })])?
+            .with_resources(vec![CheckpointResource::boot_cdrom(std::sync::Arc::new(
+                vec![0x5a; 4096],
+            ))?])
+    }
+    let limit = crate::vm::memory::MAX_GUEST_MEMORY_BYTES;
+    assert!(bundle(limit - 4096).is_ok());
+    let error = bundle(limit).unwrap_err();
+    assert!(error.to_string().contains("budget"), "{error}");
+    // Start from a valid small file, then forge only the declared RAM geometry.
+    let path = TestPath::new();
+    bundle(4096).unwrap().save(&path.0).unwrap();
+    let mut parts = sections(&std::fs::read(&path.0).unwrap());
+    for part in &mut parts {
+        match u32::from_le_bytes(part[..4].try_into().unwrap()) {
+            1 => {
+                let mut config: CheckpointConfig = crate::codec::deserialize(&part[16..]).unwrap();
+                config.memory_bytes = limit;
+                let raw = crate::codec::serialize(&config).unwrap();
+                assert_eq!(raw.len(), part.len() - 16);
+                part[16..].copy_from_slice(&raw);
+            }
+            2 => part[32..40].copy_from_slice(&limit.to_le_bytes()),
+            _ => (),
+        }
+    }
+    std::fs::write(&path.0, assemble(&parts)).unwrap();
+    let error = SnapshotBundle::load(&path.0).unwrap_err();
+    assert!(error.to_string().contains("budget"), "{error}");
+}
+
+#[test]
+fn pci_resource_aggregate_rejects_before_later_storage_payloads() {
+    use crate::config::{ImageAccess, ImageAttachment, StorageConfig};
+    use crate::vm::runtime::pci_state::PciDevices;
+    use vm_memory::{GuestAddress, GuestMemoryMmap};
+    let base = sample();
+    let cpu = CpuSnapshot {
+        state: base.cpu_state.clone(),
+        emulator: base.emulator_state.clone(),
+    };
+    let memory = std::sync::Arc::new(
+        GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 4096)]).unwrap(),
+    );
+    let image = TestPath::new();
+    std::fs::write(&image.0, [0x33; 8192]).unwrap();
+    let storage = StorageConfig {
+        nvme: Some(ImageAttachment::capture(&image.0, ImageAccess::CopyOnWrite, 8192).unwrap()),
+        ..Default::default()
+    };
+    let devices = PciDevices::new(memory, &storage, true).unwrap();
+    let bundle = SnapshotBundle::new(base)
+        .with_cpus(vec![cpu])
+        .unwrap()
+        .with_backend_contexts(vec![Some(BackendContext {
+            kind: X86_64_CONTEXT,
+            data: vec![1],
+        })])
+        .unwrap()
+        .with_pci(devices.checkpoint().unwrap())
+        .unwrap()
+        .with_resources(vec![
+            CheckpointResource::boot_cdrom(std::sync::Arc::new(vec![0x5a; 4096])).unwrap(),
+        ])
+        .unwrap();
+    let pci = bundle.pci().unwrap();
+    let media = pci.nvme_media().unwrap().size() + pci.ahci_media().unwrap().size();
+    assert!(media >= 4096);
+    let declared = crate::vm::memory::MAX_GUEST_MEMORY_BYTES - media;
+    let path = TestPath::new();
+    bundle.save(&path.0).unwrap();
+    let mut parts = sections(&std::fs::read(&path.0).unwrap());
+    for part in &mut parts {
+        match u32::from_le_bytes(part[..4].try_into().unwrap()) {
+            1 => {
+                let mut config: CheckpointConfig = crate::codec::deserialize(&part[16..]).unwrap();
+                config.memory_bytes = declared;
+                part[16..].copy_from_slice(&crate::codec::serialize(&config).unwrap());
+            }
+            2 => part[32..40].copy_from_slice(&declared.to_le_bytes()),
+            _ => (),
+        }
+    }
+    // Keep only through PCI control. The budget must reject before requesting
+    // either storage frame or the missing RAM payload.
+    let last = parts
+        .iter()
+        .position(|part| u32::from_le_bytes(part[..4].try_into().unwrap()) == 7)
+        .unwrap();
+    std::fs::write(&path.0, assemble(&parts[..=last])).unwrap();
+    let error = SnapshotBundle::load(&path.0).unwrap_err();
+    assert!(error.to_string().contains("budget"), "{error}");
+}
+
+#[test]
+fn resource_capture_requires_complete_cpu_and_backend_context_sets() {
+    let resource = CheckpointResource::boot_cdrom(std::sync::Arc::new(Vec::new())).unwrap();
+    assert!(
+        SnapshotBundle::new(sample())
+            .with_resources(vec![resource.clone()])
+            .is_err()
+    );
+    let base = sample();
+    let cpu = CpuSnapshot {
+        state: base.cpu_state.clone(),
+        emulator: base.emulator_state.clone(),
+    };
+    assert!(
+        SnapshotBundle::new(base)
+            .with_cpus(vec![cpu])
+            .unwrap()
+            .with_resources(vec![resource])
+            .is_err()
+    );
+}
 fn encoded(snapshot: &Snapshot) -> Vec<u8> {
     let mut raw = vec![];
     codec::write_to(snapshot, &mut raw).unwrap();

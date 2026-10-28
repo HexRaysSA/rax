@@ -2318,7 +2318,11 @@
         "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-capi.log",
         "docs/development/execution-coordinator.md",
         "/Users/int/dev/rax-audit-work/four-findings-coordinator/broad-result.json",
-        "/Users/int/dev/rax-audit-work/four-findings-coordinator/ci-actions-pinned-result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/ci-actions-pinned-result.json",
+        "src/isa/x86_64/cpu_context.rs",
+        "src/vm/snapshot/resources.rs",
+        "docs/development/x86-backend-context.md",
+        "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/validation-v7/result.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2328,11 +2332,13 @@
         "Actual accepted128MiB full capture/save/load/typed construction proves fields,not guest/native/SMP execution.",
         "Inherited RISC-V CLI oracle still verifies all physical/projection bytes and actual missing-kernel UART/shutdown execution.",
         "Complete per-vCPU/private/inflight/device/topology checkpoint state, including coherent LAPIC ownership",
-        "Native Intel HVF state effects are unverified"
+        "Native Intel HVF state effects are unverified",
+        "Software-x86 private/media context and ABI/file continuation passed final validation. Actual AArch64 file restore still loses LDXR reservation; other platform/native state, all-writer quiescence and whole-VM transactions remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
-        "software-vmm-coordinator-startup-fault-retirement"
+        "software-vmm-coordinator-startup-fault-retirement",
+        "software-x86-private-context-and-immutable-resources"
       ]
     },
     {
@@ -191079,6 +191085,86 @@
       "final_qemu_oracle": "/Users/int/dev/rax-audit-work/four-findings-riscv-context/validation-v3/qemu-cli/result.json",
       "failed_fixture_validation": "/Users/int/dev/rax-audit-work/four-findings-riscv-context/validation-v2/result.json",
       "commit_workflow": "Exact owned paths staged, then red -m --staged --run with those paths; actual commit recorded in external receipt."
+    },
+    {
+      "id": "software-x86-private-context-and-immutable-resources",
+      "finding": "C-STATE",
+      "status": "locally_validated",
+      "scope": "Represented software x86 CPU/MMU/user/native frontier state; producer4, deduplicated complete immutable boot media section15, offside x86 replacement preparation, C API format7 and map/reset binding retention. Full four-finding acceptance remains open. Exact dynamic native x86 retirement on x86/AArch64 hosts, fault/success distinctions and callout/verifier count handoff.",
+      "base": "61809906e81bebd44a8041312cc703099437d1b7",
+      "owned_paths": "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/owned-paths.json",
+      "parent_evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/parent-mmu-result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/parent-cli-bios-v4/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-backend-private-controls/xcr0-result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/native-retirement-parent.json"
+      ],
+      "focused_evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/cpu-context-v2-result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/context-v3-result.json"
+      ],
+      "validation_attempts": [
+        "CAPI v1:205pass1failed; byte read buffer inferred i32 in new BIOS fixture; corrected to u8.",
+        "Context v3:CAPI206,CPU12,MMU5,snapshot52 passed; 1/2 VMM tests passed, fresh constructor rejected undersized64KiB fixture. Changed fixture to supported128MiB; subsequent final validation required.",
+        "Final validation-v1: CAPI206 and native10789pass2ignored passed. During checkpoint gate, independent review/control exposed missing RAM+resource aggregate admission without physical extension. Source corrected with shared budget and pre-payload table limit; v1 superseded and v2 required.",
+        "Revised v2:54snapshot tests passed,1new PCI budget fixture failed because default controllers have empty media. Fixture now attaches a real8KiB COW source before capturing endpoint state; no product change required from this failure.",
+        "Final validation-v3: first13 checks qualified, including native10792pass2ignored, CAPI206 and244 checkpoint tests. Rosetta actual native input exposed raw retirement0 instead of2. Product corrected with validated instruction CFGs, both host count channels and precise completion/callout handling; v4 required.",
+        "Validation-v4:7translated retirement regressions passed. Full translated library stopped after6637 completed results and observed old atomic test failure (native count2 versus stale expectation0). No full pass claimed. Atomic regression now compares native/direct counts; reconstruction retains cross-instruction O2 and native admission. v5 required.",
+        "v5:11787translated library tests passed,2ignored;261JIT tests across2binaries and28717native ARM integration tests across4binaries passed. ARM-only unit fixture failed to compile because it called x86-only policy setters; guarded the fixture, without product changes.",
+        "v6:55snapshot/CAPI206 qualified; native10795pass1fixturefail2ignored. The generic INC/DEC loop correctly failed ARM admission because PF/AF remain live. Retained x86 fixture unchanged; added ARM negative-admission and admitted NF/BLSI native count fixtures; v7 required.",
+        "Native Intel Linux v1 failed at dependency staging before compilation;v2 failed because534compile-time fixture logs were omitted. Both temporary trees were removed. v3 exported the complete input and passed all7required native/ABI checks using existing Rust1.98 with offline locked dependencies."
+      ],
+      "assumptions": [
+        {
+          "id": "X1",
+          "assumption": "Complete immutable media content is sufficient independently of its original host path.",
+          "falsification_probe": "Remove original ISO path and read an unread sector after a fresh CLI file restore."
+        },
+        {
+          "id": "X2",
+          "assumption": "Logical deferred exits, input completion and VSIB restart state must survive while derived host caches may be discarded.",
+          "falsification_probe": "Resume actual helper-produced native I/O without replay or extra retirement, and reject incomplete native-host evidence."
+        },
+        {
+          "id": "X3",
+          "assumption": "External RAM/controllers/PCI/process translations belong to the target.",
+          "falsification_probe": "Distinct target backings, binding-mode mismatch and invalid last CPU/media record must preserve all prior live state."
+        }
+      ],
+      "remaining": [
+        "Other backend/platform/private/in-flight contexts",
+        "All-writer coordinated quiescence and whole-VM late-failure transaction recovery",
+        "A32 remaining profile controls/admission",
+        "Architectural secondary startup and bounded JIT/native multi-vCPU execution",
+        "Native VSIB coverage on a suitable host and physical Intel HVF MMIO/interrupt validation"
+      ],
+      "aggregate_admission_control": "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/aggregate-budget-parent-result.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/validation-v7/result.json",
+      "exported_parent_control": "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/exported-parent-v1/result.json",
+      "exported_positive": "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/validation-v7/exported-library/result.json",
+      "actual_file_positive": "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/validation-v7/qemu-cli/result.json",
+      "native_intel_linux_validation": "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/native-intel-linux-v3/result.json",
+      "native_intel_linux_scope": "Actual Intel Linux execution of RAX software-x86 native JIT, software CPU/MMU checkpoint contexts and Linux C API/exported library. The kvm_minimal target validates VM/vCPU creation through kvm_ioctls only. It does not execute a guest through the RAX KVM backend; the separate C smoke executes a KVM guest. No native macOS Hypervisor.framework or AVX512 execution is established.",
+      "final_validation_summary": {
+        "qualified_gates": 23,
+        "native_library_passed": 10797,
+        "native_library_ignored": 2,
+        "capi_passed": 206,
+        "translated_x86_context_passed": 14,
+        "translated_mmu_passed": 5,
+        "translated_library_passed": 11787,
+        "translated_library_ignored": 2,
+        "translated_retirement_regressions_passed": 7,
+        "native_arm_retirement_and_admission_passed": 2,
+        "native_intel_retirement_passed": 7,
+        "native_intel_cpu_context_passed": 14,
+        "native_intel_mmu_context_passed": 5,
+        "native_intel_capi_passed": 206,
+        "native_intel_kvm_creation_only_passed": 2,
+        "source_reuse_scope": "Completed checks reused only across documented unit-test-only host cfg changes; product sources were byte-identical. See validation-v5/v6 reuse receipts.",
+        "scope": "Executed tests establish represented software-x86 context/media and exact dynamic native-retirement behavior. Doctests provide no executed coverage when ignored. Actual Intel Linux tests qualify software JIT/context/ABI behavior; the KVM fixture qualifies creation only. Native Intel Mac HVF, RAX KVM guest execution and native AVX512 VSIB remain unverified."
+      }
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -191113,7 +191199,8 @@
     "remaining_state_counterexamples": {
       "riscv_file_resume": "/Users/int/dev/rax-audit-work/four-findings-backend-private-controls/actual-vmm-v2/result.json",
       "x86_xcr0": "/Users/int/dev/rax-audit-work/four-findings-backend-private-controls/xcr0-result.json",
-      "scope": "These remain defects: actual RISC-V CLI file resume loses LR/SC reservation; x86 C API context loses XCR0. Neither is closed by the two implemented backend producers."
+      "scope": "Historical RISC-V and x86 controls remain available. RISC-V was corrected in61809906; the software-x86 context/media group passed final validation. Actual AArch64 reservation/file restore and controller ownership controls remain unresolved. Full C-STATE remains partial.",
+      "aarch64_reservation": "/Users/int/dev/rax-audit-work/recovery/aarch64-private-negative-2026-10-28/actual-vmm-v2/result.json"
     },
     "postvalidation_packaging_receipt": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/postvalidation-packaging-change.json"
   }

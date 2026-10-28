@@ -1791,6 +1791,10 @@ impl X86_64Lowerer {
             idx += 1;
         }
 
+        // CALL retires in its helper only after the return-address push.
+        if !matches!(block.terminator, Terminator::Call { .. }) {
+            self.emit_x86_retirement();
+        }
         // Lower terminator
         self.lower_terminator(block.id, &block.terminator)?;
 

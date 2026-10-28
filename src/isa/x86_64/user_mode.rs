@@ -37,7 +37,7 @@ use crate::vm::memory::FlatTranslation;
 use crate::vm::vcpu::Registers;
 
 /// How the recorded event was raised.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum X86EventSource {
     /// A processor-detected exception (fault or trap class).
     Exception,
@@ -46,7 +46,7 @@ pub enum X86EventSource {
 }
 
 /// An exception or software interrupt reported to the user-mode embedder.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct X86UserEvent {
     /// IDT vector the event would have used.
     pub vector: u8,
@@ -64,7 +64,7 @@ pub struct X86UserEvent {
 }
 
 /// The system-call instruction that ended a user-mode run.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum X86SyscallInsn {
     /// 64-bit `SYSCALL`. RCX and R11 hold the architectural save values and
     /// RIP is the return address.
@@ -76,7 +76,7 @@ pub enum X86SyscallInsn {
 }
 
 /// A user-mode trap recorded by the vCPU.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum X86UserTrap {
     /// A system-call instruction at `insn_rip` retired.
     SystemCall { insn: X86SyscallInsn, insn_rip: u64 },
@@ -85,6 +85,7 @@ pub enum X86UserTrap {
 }
 
 /// Per-vCPU user-mode state.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(super) struct UserMode {
     pub(super) trap: Option<X86UserTrap>,
     /// Running 32-bit compatibility-mode code (`set_user_compat`).
@@ -106,6 +107,18 @@ const XCR0_AVX: u64 = 1 << 2;
 const XCR0_AVX512: u64 = (1 << 5) | (1 << 6) | (1 << 7);
 const XCR0_PKRU: u64 = 1 << 9;
 const XCR0_APX_F: u64 = 1 << 19;
+
+pub(super) fn xcr0_value_is_valid(value: u64, apx: bool) -> bool {
+    let supported =
+        XCR0_X87 | XCR0_SSE | XCR0_AVX | XCR0_AVX512 | XCR0_PKRU | if apx { XCR0_APX_F } else { 0 };
+    let avx512 = value & XCR0_AVX512;
+    let invalid = value & XCR0_X87 == 0
+        || value & !supported != 0
+        || (value & XCR0_AVX != 0 && value & XCR0_SSE == 0)
+        || (avx512 != 0
+            && (avx512 != XCR0_AVX512 || value & (XCR0_SSE | XCR0_AVX) != XCR0_SSE | XCR0_AVX));
+    !invalid
+}
 
 impl X86_64Vcpu {
     /// Switches this vCPU to user mode with `translation` as its address
@@ -300,18 +313,7 @@ impl X86_64Vcpu {
     /// error, leaving XCR0 unchanged, for a value `XSETBV` would reject with
     /// #GP(0).
     pub fn set_xcr0(&mut self, value: u64) -> Result<()> {
-        let supported = XCR0_X87
-            | XCR0_SSE
-            | XCR0_AVX
-            | XCR0_AVX512
-            | XCR0_PKRU
-            | if self.apx_enabled() { XCR0_APX_F } else { 0 };
-        let avx512 = value & XCR0_AVX512;
-        let invalid = value & XCR0_X87 == 0
-            || value & !supported != 0
-            || (value & XCR0_AVX != 0 && value & XCR0_SSE == 0)
-            || (avx512 != 0
-                && (avx512 != XCR0_AVX512 || value & (XCR0_SSE | XCR0_AVX) != XCR0_SSE | XCR0_AVX));
+        let invalid = !xcr0_value_is_valid(value, self.apx_enabled());
         if invalid {
             return Err(Error::InvalidConfig(format!(
                 "XCR0 value {value:#x} would raise #GP(0) on XSETBV"

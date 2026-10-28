@@ -135,7 +135,13 @@ pub(super) unsafe extern "C" fn rax_jit_call(
     // The target operand, if memory-indirect, has already been read by the
     // lowered MMU helper. The architectural return-address push is next. push64
     // updates RSP only after a successful write, so its error path is precise.
+    if gr.retirement_active != 0 {
+        vcpu.insn_count = gr.retired_count;
+    }
     let mut ok = if vcpu.push64(return_pc).is_ok() {
+        if gr.retirement_active != 0 {
+            vcpu.insn_count = vcpu.insn_count.wrapping_add(1);
+        }
         vcpu.regs.rip = target_pc;
         1
     } else {
@@ -316,6 +322,9 @@ pub(super) unsafe extern "C" fn rax_jit_call(
     gr.cpuid_xop = u64::from(vcpu.xop_enabled());
     if ok == 0 {
         gr.exit_pc = vcpu.regs.rip;
+    }
+    if gr.retirement_active != 0 {
+        gr.retired_count = vcpu.insn_count;
     }
     ok
 }
