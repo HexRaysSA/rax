@@ -193,6 +193,8 @@ jobs:
           cache-key: test-capi-${{ matrix.name }}
       - name: Regression runner failure propagation
         run: python -m unittest discover -s tools/ci
+      - name: Windows process CLI and native library selection
+        run: cargo test --locked --no-default-features --test user_windows_cli
       - name: C API semantic regressions
         run: cargo test --locked -p rax-capi --no-default-features
       - name: Native Windows clock and NLS observations

@@ -11,6 +11,11 @@
 
 `rax-user` runs Linux user-space ELF programs on Linux or macOS without booting a guest kernel. The Linux personality implements process and thread creation, signals, file and socket I/O, IPC, memory controls, and guest process tracing for x86-64, AArch64, and RV64. ELF32 i386 compatibility tasks use the x86 core in compatibility mode with a partial 32-bit syscall table. This process execution path is independent of the machine boot paths.
 
+Windows and Unix hosts can run PE programs through `rax-user`. Windows hosts
+select installed system DLLs by default; `--windows-libraries builtin` selects
+the portable built-in DLL services. The native backend remains bounded by its
+implemented kernel services.
+
 Windows PE programs select an additional [Windows personality](docs/architecture/user-mode/windows.md)
 for x86, x64, and ARM64 guests on Unix hosts. The current surface covers PE
 loading, process startup, calling conventions, and core DLL/memory services;

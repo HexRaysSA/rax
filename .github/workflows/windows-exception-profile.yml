@@ -19,6 +19,10 @@ on:
       - docs/specifications/windows/native-nls-amd64-initialize/**
       - docs/specifications/windows/native-wow64-csr-amd64/**
       - docs/specifications/windows/native-image-extension-amd64/**
+      - docs/specifications/windows/native-file-write/**
+      - src/bin/rax_user.rs
+      - src/user/windows/dll/native/file_write.rs
+      - tests/suites/user/windows/cli.rs
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
@@ -36,6 +40,10 @@ on:
       - docs/specifications/windows/native-nls-amd64-initialize/**
       - docs/specifications/windows/native-wow64-csr-amd64/**
       - docs/specifications/windows/native-image-extension-amd64/**
+      - docs/specifications/windows/native-file-write/**
+      - src/bin/rax_user.rs
+      - src/user/windows/dll/native/file_write.rs
+      - tests/suites/user/windows/cli.rs
   workflow_dispatch:
 
 permissions:
@@ -262,3 +270,9 @@ jobs:
       - name: Execute the whole original installed-library hardware-fault fixture
         if: always()
         run: cargo test --locked --no-default-features --lib user::windows::seh::native_entry::tests::native_entry_installed_ntdll_runs_hardware_fault_veh_and_context_continuation -- --exact --nocapture --test-threads=1
+      - name: Execute installed-library CLI and native write regressions
+        if: always()
+        run: |
+          cargo test --locked --no-default-features --lib file_write_tests -- --nocapture --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --no-default-features --test user_windows_cli -- --nocapture --test-threads=1

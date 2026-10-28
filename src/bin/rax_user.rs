@@ -18,14 +18,17 @@
 //! host lacks; 125 for an emulator failure; 126 when the program cannot be
 //! executed; and 127 when it cannot be found. Asynchronous host signals
 //! (terminal interrupts, `kill` from other processes, window changes, ...)
-//! are forwarded to the guest.
+//! are forwarded to Unix guests. Windows hosts preserve all 32 bits of a
+//! Windows guest exit code; Unix hosts report its low 8 bits.
 
-#[cfg(unix)]
-mod unix {
+#[cfg(any(unix, windows))]
+mod cli {
     use std::path::PathBuf;
 
     use clap::Parser;
+    #[cfg(unix)]
     use rax::user::linux::loader::ImageFile;
+    #[cfg(unix)]
     use rax::user::linux::{ExitStatus, LinuxConfig, LinuxProcess};
     use rax::user::windows::{WindowsConfig, WindowsProcess};
 
@@ -34,6 +37,13 @@ mod unix {
         Auto,
         Linux,
         Windows,
+    }
+
+    #[derive(clap::ValueEnum, Clone, Copy, Debug)]
+    enum WindowsLibraries {
+        Auto,
+        Native,
+        Builtin,
     }
 
     /// Parses a byte size with an optional `K`, `M`, `G`, or `T` suffix
@@ -65,10 +75,11 @@ mod unix {
         version,
         about = "Run a Linux ELF, macOS Mach-O, or Windows PE program on RAX's software CPUs",
         long_about = "rax-user selects Linux for ELF, Darwin for Mach-O, and Windows for PE images. \
-Windows guests use x86, x64, or ARM64 instructions with emulated DLL services. Linux guests \
+Windows guests use x86, x64, or ARM64 instructions; Windows hosts select installed system \
+DLLs by default, while Unix hosts use built-in DLL services. Linux guests \
 load as the kernel's binfmt_elf would (with address-space randomization disabled); ELF32 i386 \
 and ARM EABI use partial compatibility syscall tables and interpreter-only execution. \
-Dynamically linked Linux programs find their interpreter and libraries through --sysroot. \
+Linux hosts use their installed interpreter and libraries; --sysroot optionally supplies an overlay. \
 Darwin guests map Mach-O images and /usr/lib/dyld as XNU's exec does; dyld maps its shared \
 cache through emulated shared-region calls. --sysroot supplies dyld and the cache when needed. \
 A #! script with a Mach-O interpreter runs that interpreter as execve would.",
@@ -78,6 +89,10 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
         /// OS personality; auto selects from the executable file signature.
         #[arg(long, value_enum, default_value_t = Personality::Auto)]
         os: Personality,
+        /// Windows DLL provider: auto uses installed libraries on Windows
+        /// and built-in services on Unix; native requires a Windows host.
+        #[arg(long, value_enum, default_value_t = WindowsLibraries::Auto)]
+        windows_libraries: WindowsLibraries,
         /// Map a Windows drive letter to a host directory (repeatable C=/dir).
         #[arg(long, value_name = "LETTER=DIR")]
         drive: Vec<String>,
@@ -161,6 +176,7 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
         }
     }
 
+    #[cfg(unix)]
     fn environment(cli: &Cli) -> Vec<Vec<u8>> {
         use std::os::unix::ffi::OsStrExt;
         let mut env: Vec<(Vec<u8>, Vec<u8>)> = if cli.clear_env {
@@ -198,6 +214,11 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
 
     pub fn main() -> i32 {
         let cli = Cli::parse();
+        #[cfg(windows)]
+        if matches!(cli.os, Personality::Linux) {
+            eprintln!("rax-user: the Linux personality requires a Unix host (Linux or macOS)");
+            return 125;
+        }
         let _trace = match &cli.mem_trace {
             Some(path) => match rax::observability::memtrace::start(path) {
                 Ok(()) => Some(TraceGuard),
@@ -223,7 +244,29 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
         if matches!(cli.os, Personality::Windows)
             || matches!(cli.os, Personality::Auto) && bytes.starts_with(b"MZ")
         {
+            let native_libraries = match cli.windows_libraries {
+                WindowsLibraries::Auto => cfg!(windows),
+                WindowsLibraries::Builtin => false,
+                WindowsLibraries::Native if cfg!(windows) => true,
+                WindowsLibraries::Native => {
+                    eprintln!("rax-user: installed Windows libraries require a Windows host");
+                    return 125;
+                }
+            };
             let mut config = WindowsConfig::new(cli.program(), cli.args().to_vec());
+            config.native_libraries = native_libraries;
+            #[cfg(windows)]
+            {
+                // Preserve native drive identities even when the executable
+                // and current directory reside on different volumes.
+                config.drives = match windows_drives() {
+                    Ok(drives) => drives,
+                    Err(error) => {
+                        eprintln!("rax-user: cannot discover Windows drives: {error}");
+                        return 125;
+                    }
+                };
+            }
             config.argv0 = cli.argv0.clone();
             config.command_line = cli.command_line.clone();
             config.cwd = cli.cwd.clone();
@@ -285,22 +328,71 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
                 Ok(process) => process,
                 Err(e) => {
                     eprintln!("rax-user: {program}: {e}");
-                    return (e.exit_code() & 0xFF) as i32;
+                    return windows_exit_code(e.exit_code());
                 }
             };
             let status = process.run();
             if !matches!(status, rax::user::windows::ExitStatus::Exited(0)) {
                 eprintln!("rax-user: {program}: {status}");
             }
-            return status.shell_code();
+            return match status {
+                rax::user::windows::ExitStatus::Exited(code) => windows_exit_code(code),
+                rax::user::windows::ExitStatus::Internal(_) => 125,
+            };
         }
+        #[cfg(unix)]
+        {
+            run_unix(&cli, program, bytes)
+        }
+        #[cfg(windows)]
+        {
+            eprintln!("rax-user: {program}: not a supported Windows PE image");
+            126
+        }
+    }
+
+    #[cfg(windows)]
+    fn windows_drives() -> std::io::Result<rax::user::windows::fs::DriveMap> {
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn GetLogicalDrives() -> u32;
+        }
+        // This query has no pointer arguments or retained handles. A zero
+        // mask is the API's failure result, not an empty successful drive map.
+        let mask = unsafe { GetLogicalDrives() };
+        if mask == 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        let mut drives = rax::user::windows::fs::DriveMap::empty();
+        for index in 0..26 {
+            if mask & (1 << index) != 0 {
+                let letter = char::from(b'A' + index);
+                drives.set(letter, PathBuf::from(format!("{letter}:\\")));
+            }
+        }
+        Ok(drives)
+    }
+
+    fn windows_exit_code(code: u32) -> i32 {
+        #[cfg(windows)]
+        {
+            code as i32
+        }
+        #[cfg(unix)]
+        {
+            (code & 0xFF) as i32
+        }
+    }
+
+    #[cfg(unix)]
+    fn run_unix(cli: &Cli, program: String, bytes: Vec<u8>) -> i32 {
         let argv0 = cli.argv0.clone().unwrap_or_else(|| program.clone());
         let argv: Vec<Vec<u8>> = std::iter::once(argv0)
             .chain(cli.args().iter().cloned())
             .map(String::into_bytes)
             .collect();
         if !matches!(cli.os, Personality::Linux) && rax::user::image::macho::is_macho(&bytes) {
-            return crate::darwin::run(&cli, &program, argv, environment(&cli));
+            return crate::darwin::run(cli, &program, argv, environment(cli));
         }
         // A `#!` script whose interpreter is a Mach-O program runs that
         // interpreter as execve does (exec_shell_imgact): the interpreter
@@ -324,10 +416,10 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
                     .chain(std::iter::once(program.clone().into_bytes()))
                     .chain(argv.into_iter().skip(1))
                     .collect();
-                return crate::darwin::run(&cli, &interp, argv, environment(&cli));
+                return crate::darwin::run(cli, &interp, argv, environment(cli));
             }
         }
-        let mut config = LinuxConfig::new(program.clone(), argv, environment(&cli));
+        let mut config = LinuxConfig::new(program.clone(), argv, environment(cli));
         config.sysroot = cli.sysroot.clone();
         if let Some(cwd) = &cli.cwd {
             config.cwd = cwd.clone();
@@ -392,7 +484,7 @@ mod darwin {
     use rax::user::darwin::{DarwinConfig, DarwinProcess, ExitStatus};
 
     pub fn run(
-        cli: &super::unix::Cli,
+        cli: &super::cli::Cli,
         program: &str,
         argv: Vec<Vec<u8>>,
         envp: Vec<Vec<u8>>,
@@ -489,9 +581,9 @@ mod darwin {
     }
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn main() {
-    let code = unix::main();
+    let code = cli::main();
     // Flush the instruction trace and Rust's buffered standard streams before
     // leaving.
     rax::user::trace::close();
@@ -501,7 +593,7 @@ fn main() {
     std::process::exit(code);
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 fn main() {
     eprintln!("rax-user: the Linux personality requires a Unix host (Linux or macOS)");
     std::process::exit(125);

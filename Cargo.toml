@@ -216,6 +216,10 @@ name = "user_windows"
 path = "tests/suites/user/windows/main.rs"
 
 [[test]]
+name = "user_windows_cli"
+path = "tests/suites/user/windows/cli.rs"
+
+[[test]]
 name = "user_windows_memory"
 path = "tests/suites/user/windows_memory.rs"
 

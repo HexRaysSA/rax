@@ -2,8 +2,13 @@
 
 `rax-user` selects the Windows personality for an `MZ` executable, or with
 `--os windows`. Supported guest machine types are PE32 i386 (`0x014C`), PE32+
-AMD64 (`0x8664`), and PE32+ ARM64 (`0xAA64`). The personality currently requires
-a Unix host; all three guests execute through the existing software ISA cores.
+AMD64 (`0x8664`), and PE32+ ARM64 (`0xAA64`). The CLI supports Windows and Unix hosts; all three guests execute through the
+existing software ISA cores. Windows hosts select installed system DLLs by
+default; Unix hosts retain built-in DLL services. `--windows-libraries native`
+requires a Windows host, and `--windows-libraries builtin` explicitly selects
+the portable built-in services. No separate sysroot is required for installed
+Windows libraries. This selects the existing bounded native backend; it does
+not imply complete Windows loader or service equivalence.
 The x86 guest uses the x86 core's architectural compatibility mode; this does
 not implement the complete WoW64 subsystem, its thunk DLLs, or its native NT
 service dispatch. The synthetic TEB selector does not establish WoW64 fidelity.
@@ -12,6 +17,12 @@ service dispatch. The synthetic TEB selector does not establish WoW64 fidelity.
 cargo run --bin rax-user --no-default-features -- program.exe argument
 cargo run --bin rax-user --no-default-features -- --os windows --drive C=/guest --dll-path /guest/dll program.exe
 ```
+
+Windows CLI drive mappings start with native drive roots; `--drive` overrides
+individual letters. UNC and device paths retain the existing unsupported-path
+result. Windows hosts preserve all 32 bits of a guest exit code; Unix hosts
+report the low eight bits. Linux/Darwin signal forwarding applies only to Unix
+guests.
 
 The loader validates PE structure, maps sections, applies relocations, resolves
 imports and forwarders, constructs synthetic system DLLs, and builds process
@@ -55,9 +66,8 @@ implemented service profiles are recorded in
 [windows-files.md](windows-files.md), with checked dynamic DLL and notification
 profiles in [windows-dll-lifecycle.md](windows-dll-lifecycle.md). API names alone do not establish complete
 parameter coverage. Raw NT
-service-number tables, complete CRT/GUI/network/registry personalities, modern
-LoadLibraryEx/search policies and host Windows support remain
-incomplete. ARM64EC is a distinct ABI and is not admitted as ARM64. Nonzero
+service-number tables, complete CRT/GUI/network/registry personalities, and modern
+LoadLibraryEx/search policies remain incomplete. ARM64EC is a distinct ABI and is not admitted as ARM64. Nonzero
 `NtContinue.TestAlert`, over-aligned static TLS, aggregate/vectorcall signatures,
 ARM64 authenticated-return behavior under FEAT_PAuth, SVE/custom unwind records,
 and x64 unwind versions other than 1 are explicitly outside the admitted

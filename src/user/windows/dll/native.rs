@@ -13,6 +13,7 @@ mod directory;
 mod events;
 mod file_attributes;
 mod file_open;
+mod file_write;
 mod hotpatch;
 mod io_completion;
 mod mutant;
@@ -54,6 +55,12 @@ mod worker_factory;
 mod wow64_csr;
 
 pub(super) static EXPORTS: &[Export] = &[
+    Export::func(
+        "NtWriteFile",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, I32, Ptr, Ptr],
+        file_write::write,
+    ),
     Export::func(
         "NtAlpcSendWaitReceivePort",
         Stdcall,
