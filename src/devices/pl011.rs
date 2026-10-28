@@ -63,7 +63,89 @@ pub struct Pl011 {
     dmacr: u32,
 }
 
+/// Complete represented FIFO/control state; no host output is replayed on restore.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Pl011Checkpoint {
+    rx_queue: VecDeque<u8>,
+    imsc: u32,
+    cr: u32,
+    lcr_h: u32,
+    ibrd: u32,
+    fbrd: u32,
+    ifls: u32,
+    dmacr: u32,
+}
+
+impl Pl011Checkpoint {
+    pub(crate) fn validate(&self) -> crate::error::Result<()> {
+        if self.rx_queue.len() > 16 * 1024 * 1024
+            || self.imsc & !0x7ff != 0
+            || self.cr & !0xffff != 0
+            || self.lcr_h & !0xff != 0
+            || self.ibrd & !0xffff != 0
+            || self.fbrd & !0x3f != 0
+            || self.ifls & !0x3f != 0
+            || self.dmacr & !7 != 0
+        {
+            return Err(crate::error::Error::InvalidConfig(
+                "invalid PL011 checkpoint".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl Pl011 {
+    pub(crate) fn checkpoint(&self) -> crate::error::Result<Pl011Checkpoint> {
+        let Self {
+            rx_queue,
+            imsc,
+            cr,
+            lcr_h,
+            ibrd,
+            fbrd,
+            ifls,
+            dmacr,
+        } = self;
+        let state = Pl011Checkpoint {
+            rx_queue: rx_queue.clone(),
+            imsc: *imsc,
+            cr: *cr,
+            lcr_h: *lcr_h,
+            ibrd: *ibrd,
+            fbrd: *fbrd,
+            ifls: *ifls,
+            dmacr: *dmacr,
+        };
+        state.validate()?;
+        Ok(state)
+    }
+
+    /// Only admitted checkpoint records reach publication. IRQ status is
+    /// derived from these fields; this does not emit TX or invoke a host callback.
+    pub(crate) fn restore_checkpoint(&mut self, state: Pl011Checkpoint) {
+        let Pl011Checkpoint {
+            rx_queue,
+            imsc,
+            cr,
+            lcr_h,
+            ibrd,
+            fbrd,
+            ifls,
+            dmacr,
+        } = state;
+        *self = Self {
+            rx_queue,
+            imsc,
+            cr,
+            lcr_h,
+            ibrd,
+            fbrd,
+            ifls,
+            dmacr,
+        };
+    }
+
     pub fn new() -> Self {
         Pl011 {
             rx_queue: VecDeque::new(),
@@ -311,5 +393,36 @@ mod tests {
         uart.write_reg(UARTIMSC, INT_TX);
         assert_eq!(uart.read_reg(UARTMIS) & INT_TX, INT_TX);
         assert!(uart.irq_pending());
+    }
+
+    #[test]
+    fn checkpoint_retains_fifo_controls_and_derived_irq_without_transmitting() {
+        let mut source = Pl011::new();
+        source.queue_input(b"abc");
+        for (register, value) in [
+            (UARTIBRD, 123),
+            (UARTFBRD, 17),
+            (UARTLCR_H, 0x70),
+            (UARTCR, 0x301),
+            (UARTIFLS, 0x21),
+            (UARTDMACR, 7),
+            (UARTIMSC, INT_RX),
+        ] {
+            source.write_reg(register, value);
+        }
+        let expected = source.checkpoint().unwrap();
+        let raw = crate::codec::serialize(&expected).unwrap();
+        let restored = crate::codec::deserialize_strict(&raw).unwrap();
+        let mut target = Pl011::new();
+        target.restore_checkpoint(restored);
+        assert!(target.irq_pending());
+        assert_eq!(target.checkpoint().unwrap(), expected);
+        for byte in b"abc" {
+            assert_eq!(target.read_reg(UARTDR), u32::from(*byte));
+        }
+        assert!(!target.irq_pending());
+        let mut bad = expected;
+        bad.imsc |= 1 << 31;
+        assert!(bad.validate().is_err());
     }
 }

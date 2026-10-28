@@ -28,7 +28,7 @@ fn interpreted_step_preserves_cached_region_and_unbounded_native_execution() {
         let key = (ENTRY, cpu.jit_mode_tag());
         cpu.jit.cache.insert(key, Some(region.clone()));
         assert!(cpu.jit_lookup(ENTRY).is_some());
-        (key, region, cpu.jit.disabled)
+        (key, region, cpu.execution.disabled)
     };
     assert!(matches!(
         cpu.step_system_interpreted(true).unwrap(),
@@ -45,7 +45,7 @@ fn interpreted_step_preserves_cached_region_and_unbounded_native_execution() {
     );
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     {
-        assert_eq!(cpu.jit.disabled, disabled);
+        assert_eq!(cpu.execution.disabled, disabled);
         let cached = cpu.jit.cache.get(&key).unwrap().as_ref().unwrap();
         assert!(std::sync::Arc::ptr_eq(cached, &region));
         cpu.set_pc(ENTRY);

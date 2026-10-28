@@ -29,6 +29,16 @@ impl AArch64Cpu {
         fault_exit: bool,
         allow_jit: bool,
     ) -> Result<CpuExit, ArmError> {
+        // Native entry already advanced this attempt's time before producing
+        // the event. A resumed interpreter must neither re-execute it nor
+        // advance time/poll IRQs ahead of its synchronous completion.
+        if let Some(error) = self.execution.native_fault.take() {
+            return if fault_exit {
+                Err(error)
+            } else {
+                self.deliver_fault(error)
+            };
+        }
         // Drain any pending self-modifying-code invalidation before consulting
         // the region cache (never mid-region — writes during a run defer here).
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
@@ -79,7 +89,7 @@ impl AArch64Cpu {
             #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
             if let Some(region) = self.jit_lookup(self.pc) {
                 let ran = self.jit_run_region(&region);
-                if let Some(error) = self.jit.native_fault.take() {
+                if let Some(error) = self.execution.native_fault.take() {
                     return if fault_exit {
                         Err(error)
                     } else {
@@ -410,7 +420,7 @@ impl AArch64Cpu {
     /// Fast-path lookup: a runnable compiled region at `pc` in the current mode.
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_lookup(&self, pc: u64) -> Option<std::sync::Arc<JitRegion>> {
-        if self.jit.disabled || self.aarch32.is_some() {
+        if self.execution.disabled || self.aarch32.is_some() {
             return None;
         }
         let mt = self.jit_mode_tag();
@@ -435,7 +445,7 @@ impl AArch64Cpu {
                 return;
             }
         }
-        if self.jit.disabled {
+        if self.execution.disabled {
             return;
         }
         let head = self.pc;

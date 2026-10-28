@@ -11,7 +11,9 @@ use std::fmt::Debug;
 use crate::isa::arm::common::features::ArmFeatures;
 
 /// ARM architecture version.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum ArmVersion {
     /// ARMv6-M (Cortex-M0, M0+, M1)
     V6M,
@@ -370,7 +372,7 @@ pub enum CpuExit {
 }
 
 /// Memory fault information.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MemoryFaultInfo {
     /// Faulting address.
     pub address: u64,
@@ -383,7 +385,7 @@ pub struct MemoryFaultInfo {
 }
 
 /// Type of memory access.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AccessType {
     /// Instruction fetch.
     InstructionFetch,
@@ -396,7 +398,7 @@ pub enum AccessType {
 }
 
 /// Type of memory fault.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MemoryFaultType {
     /// Address translation fault.
     Translation,
@@ -440,7 +442,7 @@ pub enum DebugEvent {
 }
 
 /// ARM exception types.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ArmException {
     // Cortex-M exceptions
     /// Reset
@@ -531,7 +533,7 @@ impl ArmException {
 }
 
 /// Watchpoint kind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum WatchpointKind {
     /// Trigger on read.
     Read,
@@ -542,7 +544,7 @@ pub enum WatchpointKind {
 }
 
 /// ARM CPU error types.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ArmError {
     /// Undefined instruction.
     UndefinedInstruction(u32),

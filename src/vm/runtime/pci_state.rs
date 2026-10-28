@@ -90,25 +90,42 @@ impl PciDevices {
     /// Capture a consistent bridge/endpoint boundary without running DMA. This
     /// does not serialize or stop independent guest-memory writers.
     pub fn checkpoint(&self) -> Result<PciDeviceCheckpoint> {
+        self.checkpoint_with(Ok)
+    }
+    /// Retain every endpoint guard while the caller captures CPU/controller/RAM
+    /// state. Endpoint DMA takes its device lock before the physical domain.
+    pub(super) fn checkpoint_with<T>(
+        &self,
+        capture: impl FnOnce(PciDeviceCheckpoint) -> Result<T>,
+    ) -> Result<T> {
         let bridge = locked(&self.bridge)?;
         bridge
             .validate_checkpoint(&self.topology)
             .map_err(state_error)?;
         let state = bridge.checkpoint().map_err(state_error)?;
-        let endpoints = match &self.endpoints {
-            None => None,
-            Some(e) => Some(PciEndpointCheckpoint {
-                e1000: locked(&e.e1000)?.checkpoint().map_err(state_error)?,
-                uhci: locked(&e.uhci)?.checkpoint().map_err(state_error)?,
-                nvme: locked(&e.nvme)?.checkpoint().map_err(state_error)?,
-                ahci: locked(&e.ahci)?.checkpoint().map_err(state_error)?,
-                ac97: locked(&e.ac97)?.checkpoint().map_err(state_error)?,
+        match &self.endpoints {
+            None => capture(PciDeviceCheckpoint {
+                bridge: state,
+                endpoints: None,
             }),
-        };
-        Ok(PciDeviceCheckpoint {
-            bridge: state,
-            endpoints,
-        })
+            Some(e) => {
+                let net = locked(&e.e1000)?;
+                let usb = locked(&e.uhci)?;
+                let nvme = locked(&e.nvme)?;
+                let ahci = locked(&e.ahci)?;
+                let ac97 = locked(&e.ac97)?;
+                capture(PciDeviceCheckpoint {
+                    bridge: state,
+                    endpoints: Some(PciEndpointCheckpoint {
+                        e1000: net.checkpoint().map_err(state_error)?,
+                        uhci: usb.checkpoint().map_err(state_error)?,
+                        nvme: nvme.checkpoint().map_err(state_error)?,
+                        ahci: ahci.checkpoint().map_err(state_error)?,
+                        ac97: ac97.checkpoint().map_err(state_error)?,
+                    }),
+                })
+            }
+        }
     }
     /// Validate every endpoint into detached candidates before changing live
     /// state. Bridge restore is atomic; all endpoint assignments after it are

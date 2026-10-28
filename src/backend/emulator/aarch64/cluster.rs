@@ -203,12 +203,20 @@ impl ArmCluster {
     }
 
     pub fn checkpoint(&self) -> Result<ArmClusterCheckpoint> {
+        self.checkpoint_with(Ok)
+    }
+
+    /// Keep the shared controller and power graph frozen through CPU/RAM capture.
+    pub(crate) fn checkpoint_with<T>(
+        &self,
+        capture: impl FnOnce(ArmClusterCheckpoint) -> Result<T>,
+    ) -> Result<T> {
         let control = self
             .control
             .lock()
             .map_err(|_| invalid("control lock poisoned"))?;
         let gic = self.gic.lock().map_err(|_| invalid("GIC lock poisoned"))?;
-        Ok(ArmClusterCheckpoint {
+        capture(ArmClusterCheckpoint {
             control: control.clone(),
             gic: gic.checkpoint(),
             high_redist_base: self.high_redist_base,
@@ -250,6 +258,20 @@ impl ArmCluster {
 }
 
 impl ArmClusterCheckpoint {
+    pub(crate) fn validate_cpu_power(&self, id: usize, powered_off: bool) -> Result<()> {
+        let expected = match self.control.states.get(id) {
+            Some(PowerState::On) => false,
+            Some(PowerState::Off | PowerState::OnPending) => true,
+            None => return Err(invalid("missing CPU power state")),
+        };
+        if expected != powered_off {
+            return Err(invalid(
+                "private CPU power state differs from shared PSCI state",
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn validate(&self, online: &[bool]) -> Result<()> {
         if self.high_redist_base < crate::machine::arm_virt::AARCH64_GICR_HIGH_BASE
             || self.high_redist_base & 0x1_ffff != 0

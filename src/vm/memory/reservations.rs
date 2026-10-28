@@ -78,6 +78,12 @@ fn registry() -> &'static Mutex<BTreeMap<Identity, Weak<MemoryDomain>>> {
 }
 
 impl MemoryDomain {
+    pub(super) fn freeze(&self) -> FrozenDomain<'_> {
+        FrozenDomain {
+            domain: self,
+            state: self.lock(),
+        }
+    }
     pub fn for_memory(memory: &GuestMemoryMmap) -> Arc<Self> {
         let mut registry = registry()
             .lock()
@@ -151,6 +157,80 @@ impl MemoryDomain {
     }
 }
 
+/// Held only after controller/device publication locks. No callback or ordinary
+/// tracked writer may run inside this guard: they would reacquire the domain.
+pub(super) struct FrozenDomain<'a> {
+    domain: &'a MemoryDomain,
+    state: MutexGuard<'a, State>,
+}
+
+impl FrozenDomain<'_> {
+    pub(super) fn owns(&self, monitor: &Monitor) -> bool {
+        std::ptr::eq(self.domain, Arc::as_ptr(&monitor.domain))
+    }
+
+    pub(super) fn admits(&self, reservation: Reservation) -> bool {
+        if !reservation.valid() {
+            return false;
+        }
+        let mut done = 0;
+        while done < usize::from(reservation.size) {
+            let Some(address) = reservation.address.checked_add(done as u64) else {
+                return false;
+            };
+            let Some(region) = self.domain._backing.find_region(GuestAddress(address)) else {
+                return false;
+            };
+            #[cfg(unix)]
+            if region.prot() & libc::PROT_READ == 0 {
+                return false;
+            }
+            done += ((region.len() - (address - region.start_addr().0)) as usize)
+                .min(usize::from(reservation.size) - done);
+        }
+        true
+    }
+
+    /// The publication permit already checked ownership, width and mapping.
+    pub(super) fn restore(&self, monitor: &Monitor, reservation: Option<Reservation>) {
+        debug_assert!(self.owns(monitor));
+        debug_assert!(reservation.is_none_or(|value| self.admits(value)));
+        *slot_lock(&monitor.slot) = reservation;
+    }
+
+    pub(super) fn write(&mut self, address: u64, bytes: &[u8]) -> Result<(), GuestMemoryError> {
+        preflight_write(&self.domain._backing, address, bytes.len())?;
+        MemoryDomain::invalidate(&mut self.state, address, bytes.len());
+        // Avoid materializing unchanged sparse RAM, while the logical write
+        // above still invalidates identical-value exclusive reservations.
+        // Never inspect a write-only host mapping through the compare path.
+        #[cfg(unix)]
+        let readable = self
+            .domain
+            ._backing
+            .iter()
+            .all(|r| r.prot() & libc::PROT_READ != 0);
+        #[cfg(not(unix))]
+        let readable = true;
+        const CHUNK: usize = 64 * 1024;
+        let mut previous = [0u8; CHUNK];
+        for (index, chunk) in bytes.chunks(CHUNK).enumerate() {
+            // Whole-range preflight admitted this address before mutation.
+            let current = GuestAddress(address + (index * CHUNK) as u64);
+            if readable {
+                self.domain
+                    ._backing
+                    .read_slice(&mut previous[..chunk.len()], current)?;
+                if previous[..chunk.len()] == *chunk {
+                    continue;
+                }
+            }
+            self.domain._backing.write_slice(chunk, current)?;
+        }
+        Ok(())
+    }
+}
+
 /// Invalidate even identical-value and ABA stores; comparing RAM values is not
 /// sufficient evidence that an exclusive reservation survived.
 pub(crate) fn write(
@@ -164,7 +244,7 @@ pub(crate) fn write(
     MemoryDomain::for_memory(memory).write(memory, address, bytes)
 }
 
-fn preflight_write(
+pub(crate) fn preflight_write(
     memory: &GuestMemoryMmap,
     address: u64,
     size: usize,

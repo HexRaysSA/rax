@@ -15,6 +15,8 @@ pub const S3C64XX_CONTEXT: u32 = 2;
 pub const RISCV_CONTEXT: u32 = 3;
 /// Software x86 CPU/MMU/user context, versioned by its inner tag.
 pub const X86_64_CONTEXT: u32 = 4;
+/// Software AArch64 core, memory observations and pending adapter execution.
+pub const AARCH64_CONTEXT: u32 = 5;
 
 /// An opaque, bounded backend-owned record. Its kind identifies its producer;
 /// an architectural register projection cannot substitute for this payload.

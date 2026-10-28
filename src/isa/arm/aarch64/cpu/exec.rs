@@ -80,6 +80,7 @@ impl AArch64Cpu {
             insn_count: 0,
             last_instruction_size: 4,
             cycle_count: 0,
+            execution: native_execution::NativeExecution::default(),
             #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
             jit: Aarch64JitState::default(),
             halted: false,

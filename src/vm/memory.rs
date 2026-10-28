@@ -1,3 +1,4 @@
+pub mod checkpoint;
 pub(crate) mod reservations;
 
 /// Write physical RAM while invalidating registered software exclusive monitors.

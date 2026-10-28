@@ -811,70 +811,6 @@ impl Vmm {
         Ok(cpus)
     }
 
-    /// Capture every mapped physical region and represented PCI/media state,
-    /// including represented public/base-private state for every vCPU, explicit
-    /// clock mode/counters/phase/notification and the four legacy device base. All independent writers must be quiescent.
-    /// Additional backend-private/platform/scheduler state remains separate.
-    pub fn take_snapshot_bundle(
-        &self,
-        insn_count: u64,
-    ) -> Result<crate::vm::snapshot::SnapshotBundle> {
-        let _timing = self.timing_context.enter();
-        use crate::vm::snapshot::{PhysicalMemorySnapshot, SnapshotBundle};
-        let clock = self.timing_context.checkpoint_state();
-        let execution = self.capture_execution_state()?;
-        let cpus = self.capture_cpu_states()?;
-        let backend_contexts = self
-            .vcpus
-            .iter()
-            .map(|cpu| cpu.capture_backend_context())
-            .collect::<Result<Vec<_>>>()?;
-        let mut resources = Vec::new();
-        for cpu in &self.vcpus {
-            resources.extend(cpu.capture_checkpoint_resources()?);
-        }
-        let first = cpus
-            .first()
-            .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-        let cpu_state = first.state.clone();
-        let emulator_state = first.emulator.clone();
-        let devices = self.capture_devices()?;
-        let pci = self
-            .pci_devices
-            .as_ref()
-            .map(PciDevices::checkpoint)
-            .transpose()?;
-        let (physical, memory_data) = PhysicalMemorySnapshot::capture_with_projection(
-            self.guest_mem.memory(),
-            self.guest_mem.size(),
-        )?;
-        let base = Snapshot {
-            version: 8,
-            config: self.checkpoint_config.clone(),
-            instruction_count: insn_count,
-            elapsed_nanos: clock.elapsed_nanos,
-            cpu_state,
-            emulator_state,
-            devices,
-            memory_size: self.guest_mem.size(),
-            memory_data,
-        };
-        let mut bundle = SnapshotBundle::new(base)
-            .with_clock(clock)?
-            .with_cpus(cpus)?
-            .with_execution(execution)?;
-        if backend_contexts.iter().any(Option::is_some) {
-            bundle = bundle.with_backend_contexts(backend_contexts)?;
-        }
-        if !resources.is_empty() {
-            bundle = bundle.with_resources(resources)?;
-        }
-        if let Some(pci) = pci {
-            bundle = bundle.with_pci(pci)?;
-        }
-        bundle.with_physical_memory(physical)
-    }
-
     /// Write a checkpoint to the configured `--snapshot-out` path (default
     /// `./checkpoint.rxc`). Invoked from the `Ctrl-A s` console hotkey and the
     /// SIGUSR1 signal. The machine is effectively paused while this runs because
@@ -1160,37 +1096,106 @@ impl Vmm {
         } else {
             None
         };
+        if let Some((_, state)) = &arm_restore {
+            for (id, cpu) in replacements.iter().enumerate() {
+                if let Some(off) = cpu.as_ref().and_then(|cpu| cpu.checkpoint_powered_off()) {
+                    state.validate_cpu_power(id, off)?;
+                }
+            }
+        }
+        let uart_state = bundle.execution().and_then(|state| state.pl011.clone());
+        if uart_state.is_some() && self.pl011.is_none() {
+            return Err(Error::InvalidConfig(
+                "checkpoint PL011 target binding differs".into(),
+            ));
+        }
+        if let Some(state) = &uart_state {
+            state.validate()?;
+        }
+        if let Some(memory) = &memory {
+            crate::vm::memory::reservations::preflight_write(
+                self.guest_mem.memory(),
+                0,
+                memory.len(),
+            )?;
+        }
         let devices = snapshot.devices.clone();
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
-        let mut pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
-        let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
-        let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
-        let mut lapics = Vec::with_capacity(self.local_apics.len());
-        for controller in &self.local_apics {
-            lapics.push(controller.lock().map_err(|_| lock_err("lapic"))?);
-        }
+        // UART/PCI -> shared platform -> legacy devices -> owned GIC -> RAM.
+        let mut uart = self
+            .pl011
+            .as_ref()
+            .map(|uart| uart.lock().map_err(|_| lock_err("PL011")))
+            .transpose()?;
+        let bindings = crate::vm::memory::checkpoint::CheckpointBindings::new(
+            self.guest_mem.memory(),
+            replacements
+                .iter()
+                .flatten()
+                .flat_map(|cpu| cpu.checkpoint_owned_gics())
+                .collect(),
+        );
+        // This guard outlives both controller wrappers, which publish their
+        // state after the inner closure returns. Releasing it inside the
+        // closure would expose RAM/leases before controller publication.
+        let mut publication = None;
+        let mut legacy_publication = None;
         let coordinator = &mut self.coordinator;
-        let guest_mem = &self.guest_mem;
         let vcpus = &mut self.vcpus;
-        let commit = move || -> Result<()> {
+        let pic = &self.pic;
+        let pit = &self.pit;
+        let serial = &self.serial;
+        let local_apics = &self.local_apics;
+        let commit = || -> Result<()> {
+            let pic = pic.lock().map_err(|_| lock_err("pic"))?;
+            let pit = pit.lock().map_err(|_| lock_err("pit"))?;
+            let serial = serial.lock().map_err(|_| lock_err("serial"))?;
+            let mut lapics = Vec::with_capacity(local_apics.len());
+            for controller in local_apics {
+                lapics.push(controller.lock().map_err(|_| lock_err("lapic"))?);
+            }
+            legacy_publication = Some((pic, pit, serial, lapics));
+            let (pic, pit, serial, lapics) =
+                legacy_publication.as_mut().expect("legacy locks installed");
+            // Historical/native setters remain fallible and do not promise
+            // whole-VM rollback. Run them before the physical freeze: legacy
+            // reset may clear a monitor through the ordinary domain API.
             for ((vcpu, (state, emulator, context)), replacement) in
-                vcpus.iter_mut().zip(states).zip(replacements)
+                vcpus.iter_mut().zip(&states).zip(&replacements)
             {
-                if let Some(replacement) = replacement {
-                    *vcpu = replacement;
-                } else {
-                    vcpu.restore_checkpoint_context(state, emulator, context)?;
+                if replacement.is_none() {
+                    vcpu.restore_checkpoint_context(state, emulator, *context)?;
                 }
             }
-            if let Some(physical) = physical {
-                physical.commit()?;
-            } else if let Some(memory) = memory {
-                guest_mem.write_all(&memory)?;
+            publication = Some(bindings.enter()?);
+            let scope = publication.as_ref().expect("publication installed");
+            let mut permits = Vec::with_capacity(replacements.len());
+            for cpu in replacements.iter_mut().flatten() {
+                permits.push(cpu.prepare_checkpoint_publication(scope)?);
             }
-            *pic = devices.pic;
-            *pit = devices.pit;
-            *serial = devices.serial;
+            if let Some(physical) = physical {
+                physical.commit_in_scope(scope)?;
+            } else if let Some(memory) = memory {
+                scope.write(0, &memory)?;
+            }
+            // RAM invalidates the old rights first. Only admitted source rights
+            // are installed, and no writer can run before the complete graph
+            // (including outer PCI/shared-controller publication) is live.
+            for permit in permits {
+                permit.commit();
+            }
+            for (vcpu, replacement) in vcpus.iter_mut().zip(replacements) {
+                if let Some(replacement) = replacement {
+                    *vcpu = replacement;
+                }
+            }
+            **pic = devices.pic;
+            **pit = devices.pit;
+            **serial = devices.serial;
+            if let (Some(target), Some(state)) = (&mut uart, uart_state) {
+                target.restore_checkpoint(state);
+            }
             if let Some((saved, apics)) = execution {
                 *coordinator = saved;
                 let resume = std::time::Instant::now();
@@ -1202,7 +1207,6 @@ impl Vmm {
                 *lapics[0] = devices.lapic;
                 lapics[0].enable_coordinated_delivery();
             }
-
             if let Some(clock) = clock_restore {
                 clock.commit();
             } else {
@@ -1210,15 +1214,18 @@ impl Vmm {
             }
             Ok(())
         };
-        let commit = move || match arm_restore {
+        let commit = || match arm_restore {
             Some((cluster, state)) => cluster.restore_with(state, commit),
             None => commit(),
         };
-        match (&self.pci_devices, pci) {
+        let result = match (&self.pci_devices, pci) {
             (Some(devices), Some(pci)) => devices.restore_checkpoint_with(pci, commit),
             (None, None) => commit(),
             _ => unreachable!("PCI topology admitted before commit"),
-        }
+        };
+        drop(publication);
+        drop(legacy_publication);
+        result
     }
 
     /// Restore represented base state after validating input and target admission.
@@ -1475,6 +1482,7 @@ mod lapic;
 #[cfg(test)]
 mod execution_tests;
 
+mod checkpoint_capture;
 mod coordinator;
 mod execution;
 

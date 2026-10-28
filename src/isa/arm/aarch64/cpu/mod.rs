@@ -31,11 +31,14 @@ use crate::vm::vcpu::Aarch64SystemRegisters;
 mod aarch32;
 mod branch;
 pub use branch::*;
+mod checkpoint;
+pub(crate) use checkpoint::CoreCheckpoint;
 mod entry;
 mod exception_return;
 mod exec;
 mod identity;
 mod interrupt_binding;
+mod native_execution;
 mod psci_entry;
 pub use exec::*;
 mod math;
@@ -289,6 +292,9 @@ pub struct AArch64Cpu {
     /// Cycle count.
     cycle_count: u64,
 
+    /// Portable native continuation and per-instance execution policy.
+    execution: native_execution::NativeExecution,
+
     /// SMIR hot-block JIT tier state (region cache + hotness counters). Present
     /// only on an aarch64 host with the `smir-jit` feature.
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
@@ -438,21 +444,11 @@ pub(crate) struct JitRegion {
 #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
 #[derive(Default)]
 pub(crate) struct Aarch64JitState {
-    /// Exact native fault, consumed by system stepping without re-execution.
-    native_fault: Option<ArmError>,
-    pauth_native_runs: u64,
     /// Compiled regions keyed by (head guest PC, mode tag). `Some` ⇒ runnable;
     /// `None` ⇒ memoized-ineligible (skipped until an SMC cache wipe).
     cache: std::collections::HashMap<(u64, u64), Option<std::sync::Arc<JitRegion>>>,
     /// Per-head back-edge hit counter (promotion trigger).
     hot: std::collections::HashMap<u64, u32>,
-    /// Route memory ops through MMU helper call-outs (vs. bail to interpreter).
-    mem: bool,
-    /// Per-instance kill switch (default enabled). Used by differential tests to
-    /// get a pure-interpreter oracle run; complements the process-global
-    /// `RAX_NO_JIT` env. When set, no region is ever promoted, so the cache
-    /// stays empty and the fast path never fires.
-    disabled: bool,
     /// 4 KiB page bases covered by some cached region's guest code. A guest
     /// write into one of these pages marks the cache stale (self-modifying
     /// code); the next `step_system` drains it. Empty ⇒ the SMC write-check is
@@ -612,6 +608,9 @@ unsafe extern "C" fn rax_a64_vec_store(
 
 impl ArmCpu for AArch64Cpu {
     fn step(&mut self) -> Result<CpuExit, ArmError> {
+        if let Some(error) = self.execution.native_fault.take() {
+            return Err(error);
+        }
         if self.halted {
             return Ok(CpuExit::Halt);
         }
@@ -702,6 +701,8 @@ impl ArmCpu for AArch64Cpu {
         self.wfe = false;
         self.event_register = false;
         self.pending_exceptions.clear();
+        self.execution.native_fault = None;
+        self.clear_jit_cache();
         self.breakpoints.clear();
         self.watchpoints.clear();
     }
@@ -719,6 +720,9 @@ impl ArmCpu for AArch64Cpu {
     }
 
     fn set_pc(&mut self, value: u64) {
+        // A trusted host selecting a new instruction frontier abandons a
+        // previously produced synchronous event; cache/policy changes do not.
+        self.execution.native_fault = None;
         self.pc = value;
     }
 
@@ -802,6 +806,7 @@ impl ArmCpu for AArch64Cpu {
             | ((state.i as u8) << 1)
             | (state.f as u8);
         self.update_mmu_config();
+        self.execution.native_fault = None;
         self.clear_jit_cache();
     }
 

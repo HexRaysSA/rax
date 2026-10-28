@@ -23,7 +23,7 @@ use crate::error::{Error, Result};
 /// Intent of a guest memory access, used by [`VCpu::translate_addr`] to select
 /// the correct permission check when walking translation structures, and to tag
 /// recorded accesses ([`MemRecord`]).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MemAccess {
     /// Data read.
     Read,
@@ -36,7 +36,7 @@ pub enum MemAccess {
 /// A single recorded guest memory access, surfaced to embedders via per-access
 /// memory hooks. Produced by backends that implement [`VCpu::set_mem_recording`]
 /// and collected through [`VCpu::drain_mem_records`].
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MemRecord {
     /// Kind of access: [`MemAccess::Read`], [`MemAccess::Write`], or
     /// [`MemAccess::Exec`] (instruction fetch).
@@ -399,6 +399,43 @@ pub trait VCpu: Send {
     /// must include its version and admit all bytes before changing live state.
     fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
         Ok(None)
+    }
+
+    /// Preserve execution state across address-map reconstruction. A mapping
+    /// change may invalidate reservation rights independently of CPU state.
+    fn capture_backend_context_for_remap(
+        &self,
+    ) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        self.capture_backend_context()
+    }
+
+    /// Owned controllers that must be locked before freezing physical memory.
+    fn checkpoint_owned_gics(
+        &self,
+    ) -> Vec<std::sync::Arc<std::sync::Mutex<crate::isa::arm::aarch64::gic::Gic>>> {
+        Vec::new()
+    }
+
+    /// Software ARM power state, checked against the shared PSCI graph.
+    fn checkpoint_powered_off(&self) -> Option<bool> {
+        None
+    }
+
+    /// Capture at the caller's existing memory/controller boundary.
+    fn capture_backend_context_in_scope(
+        &self,
+        _scope: &crate::vm::memory::checkpoint::CheckpointPublication<'_>,
+    ) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        self.capture_backend_context()
+    }
+
+    /// Admit detached bindings before any RAM or live CPU changes. The permit
+    /// publishes only after restored RAM has been copied under the same scope.
+    fn prepare_checkpoint_publication<'scope, 'bindings>(
+        &mut self,
+        scope: &'scope crate::vm::memory::checkpoint::CheckpointPublication<'bindings>,
+    ) -> Result<crate::vm::memory::checkpoint::CpuPublication<'scope, 'bindings>> {
+        Ok(scope.empty())
     }
 
     /// Immutable contents referenced by this CPU's backend context. The bundle

@@ -6,7 +6,7 @@
 
 use super::pauth::PauthControls;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Aarch32Pstate {
     pub mode: u8,
     pub q: bool,

@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 
 const TAG: &[u8; 8] = b"RAXEXE01";
 const ARM_TAG: &[u8; 8] = b"RAXEXE02";
+const UART_TAG: &[u8; 8] = b"RAXEXE03";
 pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
 const MAX_CONTROL: usize = 4096;
 const MAX_REQUESTS: usize = 1_048_576;
@@ -24,6 +25,7 @@ mod tests {
             retired: 53,
             online: vec![true],
             arm_cluster: None,
+            pl011: None,
             local_apics: vec![LapicCheckpoint {
                 registers: LocalApic::new(0),
                 timer_age_nanos: None,
@@ -154,6 +156,7 @@ pub struct ExecutionSnapshot {
     pub(crate) retired: u64,
     pub(crate) online: Vec<bool>,
     pub(crate) local_apics: Vec<LapicCheckpoint>,
+    pub(crate) pl011: Option<crate::devices::pl011::Pl011Checkpoint>,
     pub(crate) arm_cluster:
         Option<crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint>,
 }
@@ -180,6 +183,12 @@ impl ExecutionSnapshot {
         {
             return Err(invalid("CPU count or cursor disagrees with configuration"));
         }
+        if let Some(uart) = &self.pl011 {
+            if base.config.arch != crate::config::ArchKind::Aarch64 {
+                return Err(invalid("PL011 state on another architecture"));
+            }
+            uart.validate()?;
+        }
         if let Some(cluster) = &self.arm_cluster {
             if base.config.arch != crate::config::ArchKind::Aarch64 {
                 return Err(invalid("ARM platform state on another architecture"));
@@ -205,7 +214,9 @@ impl ExecutionSnapshot {
 
     pub(super) fn encoded(&self) -> Result<Vec<u8>> {
         let mut raw = Vec::new();
-        raw.extend_from_slice(if self.arm_cluster.is_some() {
+        raw.extend_from_slice(if self.pl011.is_some() {
+            UART_TAG
+        } else if self.arm_cluster.is_some() {
             ARM_TAG
         } else {
             TAG
@@ -251,6 +262,19 @@ impl ExecutionSnapshot {
             raw.extend_from_slice(&(control.len() as u32).to_le_bytes());
             raw.extend_from_slice(&control);
         }
+        if self.pl011.is_some() && self.arm_cluster.is_none() {
+            raw.extend_from_slice(&0u32.to_le_bytes());
+        }
+        if let Some(uart) = &self.pl011 {
+            uart.validate()?;
+            let control =
+                crate::codec::serialize_limited(uart, MAX_SECTION as usize).map_err(invalid)?;
+            if raw.len() as u64 + 4 + control.len() as u64 > MAX_SECTION {
+                return Err(invalid("UART state exceeds execution section limit"));
+            }
+            raw.extend_from_slice(&(control.len() as u32).to_le_bytes());
+            raw.extend_from_slice(&control);
+        }
         Ok(raw)
     }
 
@@ -283,7 +307,7 @@ impl ExecutionSnapshot {
         }
         let mut reader = Reader(raw);
         let tag = reader.take(8)?;
-        if tag != TAG && tag != ARM_TAG {
+        if tag != TAG && tag != ARM_TAG && tag != UART_TAG {
             return Err(invalid("bad execution section tag"));
         }
         let count = reader.u32()? as usize;
@@ -332,18 +356,37 @@ impl ExecutionSnapshot {
                 timer_age_nanos: (armed != 0).then_some(age),
             });
         }
-        let arm_cluster = if tag == ARM_TAG {
+        let arm_cluster = if tag == ARM_TAG || tag == UART_TAG {
             let length = reader.u32()? as usize;
-            if length == 0 || length > MAX_SECTION as usize {
+            if length > MAX_SECTION as usize || (length == 0 && tag == ARM_TAG) {
                 return Err(invalid("bad ARM platform length"));
             }
-            let cluster: crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint =
-                crate::codec::deserialize_limited::<_, { MAX_SECTION as usize }>(
-                    reader.take(length)?,
-                )
-                .map_err(invalid)?;
-            cluster.validate(&online)?;
-            Some(cluster)
+            if length == 0 {
+                None
+            } else {
+                let cluster: crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint =
+                    crate::codec::deserialize_limited::<_, { MAX_SECTION as usize }>(
+                        reader.take(length)?,
+                    )
+                    .map_err(invalid)?;
+                cluster.validate(&online)?;
+                Some(cluster)
+            }
+        } else {
+            None
+        };
+        let pl011 = if tag == UART_TAG {
+            let length = reader.u32()? as usize;
+            if length == 0 || length > MAX_SECTION as usize {
+                return Err(invalid("bad UART length"));
+            }
+            let uart: crate::devices::pl011::Pl011Checkpoint = crate::codec::deserialize_limited::<
+                _,
+                { MAX_SECTION as usize },
+            >(reader.take(length)?)
+            .map_err(invalid)?;
+            uart.validate()?;
+            Some(uart)
         } else {
             None
         };
@@ -356,6 +399,7 @@ impl ExecutionSnapshot {
             online,
             local_apics,
             arm_cluster,
+            pl011,
         })
     }
 }

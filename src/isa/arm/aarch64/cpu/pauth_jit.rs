@@ -73,7 +73,9 @@ impl AArch64Cpu {
     }
 
     pub(super) fn jit_run_pauth_instruction(&mut self, region: &JitRegion, raw: u32) -> bool {
-        self.jit.native_fault = None;
+        if self.execution.native_fault.is_some() {
+            return false;
+        }
         if self.breakpoints.contains(&self.pc) {
             return false;
         }
@@ -92,7 +94,7 @@ impl AArch64Cpu {
                 return false;
             }
             Err(error) => {
-                self.jit.native_fault = Some(error);
+                self.execution.native_fault = Some(error);
                 return true;
             }
         }
@@ -116,7 +118,7 @@ impl AArch64Cpu {
             });
             (result, runtime.registers, runtime.retired)
         };
-        self.jit.pauth_native_runs = self.jit.pauth_native_runs.saturating_add(1);
+        self.execution.pauth_native_runs = self.execution.pauth_native_runs.saturating_add(1);
         let Some(exported) = state.to_cpu_state() else {
             return false;
         };
@@ -138,7 +140,7 @@ impl AArch64Cpu {
         self.event_register = state.event_register;
         self.insn_count = self.insn_count.saturating_add(retired);
         self.cycle_count = self.cycle_count.saturating_add(retired);
-        self.jit.native_fault = match result {
+        self.execution.native_fault = match result {
             Ok(()) | Err(ExitReason::InsnLimit) | Err(ExitReason::Unsupported { .. }) => None,
             Err(ExitReason::Aarch64Fault { error, .. }) => Some(error),
             Err(ExitReason::Aarch64Exception {
@@ -155,6 +157,6 @@ impl AArch64Cpu {
                 "unexpected PAuth native exit: {reason:?}"
             ))),
         };
-        retired != 0 || self.jit.native_fault.is_some()
+        retired != 0 || self.execution.native_fault.is_some()
     }
 }

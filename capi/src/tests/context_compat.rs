@@ -65,7 +65,7 @@ fn split(blob: &[u8]) -> Sections {
     let emu = blob[at + 8..at + 8 + emu_len].to_vec();
     let mut region_offset = at + 8 + emu_len;
     let version = u32::from_le_bytes(blob[4..8].try_into().unwrap());
-    if matches!(version, 5 | 6 | 7) {
+    if matches!(version, 5 | 6 | 7 | 8) {
         region_offset += 12 + u64_at(blob, region_offset + 4);
     }
     if version == 7 {

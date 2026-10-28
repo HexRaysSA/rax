@@ -85,7 +85,7 @@ fn pauth_jit_system_step_all_forms_algorithms_profiles_and_features_match_direct
                         cpu
                     };
                     let mut direct = make();
-                    direct.jit.disabled = true;
+                    direct.execution.disabled = true;
                     let mut native = make();
                     install(&mut native);
                     let expected = direct.step_system_with_fault_exit();
@@ -96,10 +96,10 @@ fn pauth_jit_system_step_all_forms_algorithms_profiles_and_features_match_direct
                         "{raw:#x} {algorithm:?} {profile:?} enabled={enabled}"
                     );
                     assert_eq!(
-                        native.jit.pauth_native_runs, 1,
+                        native.execution.pauth_native_runs, 1,
                         "{raw:#x} {algorithm:?} {profile:?} enabled={enabled}"
                     );
-                    assert!(native.jit.native_fault.is_none());
+                    assert!(native.execution.native_fault.is_none());
                     assert_state(&native, &direct);
                     assert_eq!(native.sysregs.cntpct_el0, 16);
                     cases += 1;
@@ -129,7 +129,7 @@ fn pauth_jit_auth_fault_is_delivered_once_with_exact_saved_pc_pstate_and_syndrom
         cpu.nzcv = 10;
         cpu.btype = 3;
     }
-    direct.jit.disabled = true;
+    direct.execution.disabled = true;
     install(&mut native);
     direct.step_system().unwrap();
     native.step_system().unwrap();
@@ -138,7 +138,114 @@ fn pauth_jit_auth_fault_is_delivered_once_with_exact_saved_pc_pstate_and_syndrom
     assert_eq!(native.sysregs.el1.elr, 0);
     assert_eq!(native.pc, 0x8200);
     assert_eq!(native.insn_count, 0);
-    assert_eq!(native.jit.pauth_native_runs, 1);
+    assert_eq!(native.execution.pauth_native_runs, 1);
+}
+
+fn pending_native_authentication_fault() -> AArch64Cpu {
+    let mut cpu = keyed_cpu(
+        0xdac1_1020,
+        PauthAlgorithm::Qarma5,
+        PauthProfile::FpacCombine,
+    );
+    cpu.set_x(0, 0x1230);
+    cpu.set_x(1, 0x4567);
+    cpu.sysregs.el1.vbar = 0x8000;
+    // Match the system entry's existing 16-tick advance before native entry.
+    cpu.tick_system(16);
+    let region = install(&mut cpu);
+    assert!(cpu.jit_run_region(&region));
+    assert!(matches!(
+        cpu.execution.native_fault,
+        Some(ArmError::ArchitecturalException { ec: 0x1c, .. })
+    ));
+    // A resumed CPU must deliver the already-produced event. Re-executing the
+    // instruction bytes can no longer reproduce it after this replacement.
+    cpu.write_memory(0, &0xd503_201fu32.to_le_bytes()).unwrap();
+    cpu
+}
+
+#[test]
+fn pending_native_fault_survives_cache_policy_changes_and_all_interpreter_entries() {
+    for clear_cache in [false, true] {
+        for entry in ["system", "user", "direct"] {
+            let mut cpu = pending_native_authentication_fault();
+            let expected = format!("{:?}", cpu.execution.native_fault.as_ref().unwrap());
+            if clear_cache {
+                cpu.clear_jit_cache();
+            }
+            cpu.set_jit_enabled(false);
+            let before = (
+                cpu.pc,
+                cpu.insn_count,
+                cpu.cycle_count,
+                cpu.sysregs.cntpct_el0,
+            );
+            let result = match entry {
+                "system" => cpu.step_system_interpreted(true),
+                "user" => cpu.step_user_pauth(false),
+                "direct" => cpu.step(),
+                _ => unreachable!(),
+            };
+            let error = result.expect_err("pending native event must precede the replacement NOP");
+            assert_eq!(
+                format!("{error:?}"),
+                expected,
+                "{entry} clear={clear_cache}"
+            );
+            assert_eq!(
+                (
+                    cpu.pc,
+                    cpu.insn_count,
+                    cpu.cycle_count,
+                    cpu.sysregs.cntpct_el0
+                ),
+                before,
+                "{entry} clear={clear_cache}"
+            );
+            assert!(cpu.execution.native_fault.is_none());
+            assert_eq!(
+                cpu.step_system_interpreted(true).unwrap(),
+                CpuExit::Continue
+            );
+            assert_eq!(cpu.pc, 4);
+            assert_eq!(cpu.insn_count, before.1 + 1);
+            assert_eq!(cpu.sysregs.cntpct_el0, before.3 + 16);
+        }
+    }
+}
+
+#[test]
+fn pending_native_fault_vectors_before_another_system_tick_or_instruction() {
+    let mut cpu = pending_native_authentication_fault();
+    let before = (cpu.insn_count, cpu.cycle_count, cpu.sysregs.cntpct_el0);
+    cpu.clear_jit_cache();
+    assert_eq!(
+        cpu.step_system_interpreted(false).unwrap(),
+        CpuExit::Continue
+    );
+    assert_eq!(cpu.pc, 0x8200);
+    assert_eq!(cpu.sysregs.el1.elr, 0);
+    assert_eq!(cpu.sysregs.el1.esr, (0x1c << 26) | (1 << 25));
+    assert_eq!(
+        (cpu.insn_count, cpu.cycle_count, cpu.sysregs.cntpct_el0),
+        before
+    );
+    assert!(cpu.execution.native_fault.is_none());
+}
+
+#[test]
+fn explicit_host_frontier_replacement_cancels_the_old_native_fault() {
+    for replace in ["pc", "pstate", "sregs", "reset"] {
+        let mut cpu = pending_native_authentication_fault();
+        match replace {
+            "pc" => cpu.set_pc(0),
+            "pstate" => cpu.set_pstate_bits(cpu.pstate_bits()).unwrap(),
+            "sregs" => cpu.import_sregs(&cpu.export_sregs()).unwrap(),
+            "reset" => cpu.reset(),
+            _ => unreachable!(),
+        }
+        assert!(cpu.execution.native_fault.is_none(), "{replace}");
+    }
 }
 
 #[test]
@@ -160,14 +267,14 @@ fn pauth_jit_reads_dynamic_keys_and_refuses_stale_instruction_bytes() {
     cpu.set_pauth_keys(keys);
     assert!(cpu.jit_run_region(&region));
     assert_eq!(cpu.get_x(0), 0xd733_0000_0000_0000); // Independent QEMU vector.
-    assert_eq!(cpu.jit.pauth_native_runs, 2);
+    assert_eq!(cpu.execution.pauth_native_runs, 2);
     cpu.set_pc(0);
     cpu.set_x(0, 0x1230);
     cpu.write_memory(0, &0xd503_201fu32.to_le_bytes()).unwrap();
     assert!(!cpu.jit_run_region(&region));
     assert_eq!(cpu.get_x(0), 0x1230);
     assert_eq!(cpu.get_pc(), 0);
-    assert_eq!(cpu.jit.pauth_native_runs, 2);
+    assert_eq!(cpu.execution.pauth_native_runs, 2);
 }
 
 #[test]
@@ -190,7 +297,7 @@ fn pauth_jit_promotion_preserves_one_retirement_and_16_counter_ticks_per_system_
     assert_eq!(cpu.get_x(0), 0);
     assert_eq!(cpu.insn_count, 1);
     assert_eq!(cpu.sysregs.cntpct_el0, 16);
-    assert_eq!(cpu.jit.pauth_native_runs, 0);
+    assert_eq!(cpu.execution.pauth_native_runs, 0);
     assert!(cpu.jit_lookup(0).is_some());
     cpu.step_system().unwrap();
     assert_eq!(cpu.pc, 4);
@@ -198,7 +305,7 @@ fn pauth_jit_promotion_preserves_one_retirement_and_16_counter_ticks_per_system_
     assert_eq!(cpu.insn_count, 2);
     assert_eq!(cpu.cycle_count, 2);
     assert_eq!(cpu.sysregs.cntpct_el0, 32);
-    assert_eq!(cpu.jit.pauth_native_runs, 1);
+    assert_eq!(cpu.execution.pauth_native_runs, 1);
     assert!(cpu.jit_lookup(0).is_some());
 }
 
@@ -219,7 +326,7 @@ fn pauth_jit_authenticated_call_preserves_an_aliased_guest_link_target() {
         cpu
     };
     let mut direct = make();
-    direct.jit.disabled = true;
+    direct.execution.disabled = true;
     let mut native = make();
     install(&mut native);
     direct.step_system().unwrap();
@@ -228,7 +335,7 @@ fn pauth_jit_authenticated_call_preserves_an_aliased_guest_link_target() {
     assert_eq!(native.pc, 0x800);
     assert_eq!(native.get_x(30), 4);
     assert_eq!(native.btype, 2);
-    assert_eq!(native.jit.pauth_native_runs, 1);
+    assert_eq!(native.execution.pauth_native_runs, 1);
 }
 
 #[test]
@@ -246,7 +353,7 @@ fn pauth_jit_vhe_tagged_load_fault_retains_far_stage_level_and_exception_target(
                     cpu
                 };
                 let mut direct = make();
-                direct.jit.disabled = true;
+                direct.execution.disabled = true;
                 let mut native = make();
                 install(&mut native);
                 let expected = if fault_exit {
@@ -274,7 +381,7 @@ fn pauth_jit_vhe_tagged_load_fault_retains_far_stage_level_and_exception_target(
                     assert_eq!(native.current_el, 2);
                 }
                 assert_state(&native, &direct);
-                assert_eq!(native.jit.pauth_native_runs, 1);
+                assert_eq!(native.execution.pauth_native_runs, 1);
                 assert_eq!(native.insn_count, 0);
             }
         }

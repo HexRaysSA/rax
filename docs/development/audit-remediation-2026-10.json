@@ -2341,7 +2341,12 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/qualification-v2.json",
         "src/isa/x86_64/cpu_context/user.rs",
         "docs/development/x86-context-integration/README.md",
-        "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/a64-reservation-negative-v2/result.json"
+        "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/a64-reservation-negative-v2/result.json",
+        "docs/development/aarch64-checkpoints/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/qualification-final-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/file-continuation-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/consumers-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/portability-final-v1.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2352,7 +2357,7 @@
         "Inherited RISC-V CLI oracle still verifies all physical/projection bytes and actual missing-kernel UART/shutdown execution.",
         "Complete per-vCPU/private/inflight/device/topology checkpoint state, including coherent LAPIC ownership",
         "Native Intel HVF state effects are unverified",
-        "Software-x86 private/media context and ABI/file continuation passed final validation. Actual AArch64 file restore still loses LDXR reservation; other platform/native state, all-writer quiescence and whole-VM transactions remain open."
+        "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2362,7 +2367,8 @@
         "aarch64-tracked-reservation-coherence-2026-10-28",
         "aarch64-user-physical-reservations-2026-10-28",
         "tracked-ram-first-domain-publication-2026-10-28",
-        "main-integration-and-x86-user-context-version-2026-10-28"
+        "main-integration-and-x86-user-context-version-2026-10-28",
+        "software-aarch64-private-publication-2026-10-28"
       ]
     },
     {
@@ -192025,6 +192031,164 @@
         "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/x86-file-v1/result.json",
         "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/x86-capi-v1/result.json",
         "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/a64-reservation-negative-v2/result.json"
+      ]
+    },
+    {
+      "id": "software-aarch64-private-publication-2026-10-28",
+      "status": "locally_validated",
+      "scope": "Complete represented software AArch64 core/adapter payload, pending native faults/policy/history, semantic public/private projection admission, source reservation publication after RAM, owned/shared GIC and PL011 continuation. All four full findings remain partial.",
+      "parent": "fc839d9956309dbf4683241dd2133959bd85a50f",
+      "owned_paths": [
+        "capi/README.md",
+        "capi/src/context.rs",
+        "capi/src/context/aarch64.rs",
+        "capi/src/mem.rs",
+        "capi/src/tests/aarch64_reservations.rs",
+        "capi/src/tests/context_compat.rs",
+        "capi/src/tests/context_pauth.rs",
+        "capi/src/vcpu.rs",
+        "docs/development/aarch64-checkpoints/README.md",
+        "docs/development/aarch64-checkpoints/legacy-v4.context",
+        "docs/development/aarch64-checkpoints/legacy-v4.provenance.json",
+        "docs/development/aarch64-reservations.md",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/x86-context-integration/README.md",
+        "src/backend/emulator/aarch64.rs",
+        "src/backend/emulator/aarch64/checkpoint.rs",
+        "src/backend/emulator/aarch64/checkpoint_tests.rs",
+        "src/backend/emulator/aarch64/cluster.rs",
+        "src/backend/emulator/aarch64/vcpu.rs",
+        "src/devices/pl011.rs",
+        "src/isa/arm/aarch64/aarch32_state.rs",
+        "src/isa/arm/aarch64/cpu/checkpoint.rs",
+        "src/isa/arm/aarch64/cpu/checkpoint_tests.rs",
+        "src/isa/arm/aarch64/cpu/exec.rs",
+        "src/isa/arm/aarch64/cpu/mod.rs",
+        "src/isa/arm/aarch64/cpu/native_execution.rs",
+        "src/isa/arm/aarch64/cpu/pauth_jit.rs",
+        "src/isa/arm/aarch64/cpu/pauth_user_jit.rs",
+        "src/isa/arm/aarch64/cpu/registers.rs",
+        "src/isa/arm/aarch64/cpu/state.rs",
+        "src/isa/arm/aarch64/cpu/system_step.rs",
+        "src/isa/arm/aarch64/cpu/system_step_tests.rs",
+        "src/isa/arm/aarch64/cpu/tests/pauth_aarch32.rs",
+        "src/isa/arm/aarch64/cpu/tests/pauth_jit.rs",
+        "src/isa/arm/aarch64/cpu/user_mode.rs",
+        "src/isa/arm/aarch64/gic.rs",
+        "src/isa/arm/aarch64/mmu.rs",
+        "src/isa/arm/aarch64/sysregs.rs",
+        "src/isa/arm/common/cpu.rs",
+        "src/vm/memory.rs",
+        "src/vm/memory/checkpoint.rs",
+        "src/vm/memory/reservations.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/aarch64_cluster_tests.rs",
+        "src/vm/runtime/checkpoint_capture.rs",
+        "src/vm/runtime/coordinator.rs",
+        "src/vm/runtime/pci_state.rs",
+        "src/vm/snapshot.rs",
+        "src/vm/snapshot/backend_context.rs",
+        "src/vm/snapshot/execution.rs",
+        "src/vm/snapshot/physical_memory.rs",
+        "src/vm/vcpu/mod.rs",
+        "src/vm/vcpu/state.rs"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/source-freeze-final-v3.json",
+      "regression_parent": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/native-frontier-parent-v2.json",
+      "old_file_negative": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/a64-reservation-negative-v2/result.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/qualification-final-v3.json",
+      "file_continuation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/file-continuation-v1/result.json",
+      "c_cpp_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/consumers-v1.json",
+      "portability": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/portability-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/commit-receipt.json",
+      "validation_summary": {
+        "library": {
+          "passed": 11176,
+          "failed": 0,
+          "ignored": 2,
+          "binaries": 1
+        },
+        "capi": {
+          "passed": 210,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "owning": {
+          "passed": 47628,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 22
+        },
+        "consumers": 18,
+        "strict_abi_objects": 6,
+        "portable": {
+          "portable-core-rosetta-v1": {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-adapter-rosetta-v1": {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          }
+        },
+        "frozen_inputs": 9441,
+        "file_outputs": {
+          "qemu": "0",
+          "uninterrupted": "0",
+          "resumed": "0"
+        }
+      },
+      "assumption_register": [
+        {
+          "id": "AC1",
+          "assumption": "Checkpoint capture occurs between host execution calls.",
+          "basis": "Stopped VMM ownership and CPU/helper return frontiers.",
+          "dependent_result": "Portable pending-event delivery.",
+          "stress_test": "Actual native FPAC fault, replace bytes, clear caches/disable JIT, interpreted entries and portable checkpoint import.",
+          "falsification_probe": "Another instruction, clock tick or interrupt is processed before the pending synchronous event.",
+          "status": "confirmed at tested boundaries; arbitrary host callbacks remain open"
+        },
+        {
+          "id": "AC2",
+          "assumption": "External raw aliases and host mapping/protection changes are coordinated by the caller.",
+          "basis": "Physical mapping ownership and domain-mediated controlled writers.",
+          "dependent_result": "Coherent RAM/reservation publication.",
+          "stress_test": "Writer blocking, foreign/unmapped permit rejection, equal-copy invalidation and malformed final CPU preservation.",
+          "falsification_probe": "An uncoordinated raw/mapping writer bypasses the domain lock.",
+          "status": "retained external boundary; controlled writer tests pass"
+        },
+        {
+          "id": "AC3",
+          "assumption": "Compiled code/hot counters are derived; pending faults, policy and native-entry history are retained.",
+          "basis": "Explicit common execution state and exhaustive private CPU field capture.",
+          "dependent_result": "Cold-cache interpreter continuation.",
+          "stress_test": "Core/adapter state round trips and interpreter-only/Rosetta consumption.",
+          "falsification_probe": "A rebuilt cache changes modeled instruction/fault/clock behavior.",
+          "status": "confirmed within tested modeled paths; no future native-promotion-count identity promise"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "remaining": "Historical/native setter rollback, arbitrary in-flight host callbacks, other platform state and full replay remain required for C-STATE."
+        },
+        {
+          "impact": "high",
+          "remaining": "Physical Intel HVF execution remains unverified; current macOS peers offline."
+        },
+        {
+          "impact": "medium",
+          "remaining": "External raw mmap and mapping changes remain a caller coordination requirement; diagnostic wall-time/promotion work is not a deterministic replay guarantee."
+        }
+      ],
+      "harness_notes": [
+        "V2 source qualification was superseded after preserving sparse-copy optimization. Do not treat earlier V2 aggregate as final source proof.",
+        "The original doctest selector used a workspace-only feature and failed before execution; the corrected root-feature command passed, with five existing ignored doctests."
       ]
     }
   ],

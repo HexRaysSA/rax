@@ -320,7 +320,7 @@ pub struct RiscVCpuState {
 // =============================================================================
 
 /// AArch64 general-purpose and system registers.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Aarch64Registers {
     /// General-purpose registers X0-X30
     pub x: [u64; 31],
@@ -450,7 +450,7 @@ impl Aarch64Registers {
 }
 
 /// AArch64 system registers.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Aarch64SystemRegisters {
     /// System Control Register (EL1)
     pub sctlr_el1: u64,
@@ -498,7 +498,7 @@ pub struct Aarch64SystemRegisters {
 
 /// AArch64 state required for keyed authentication and exception return.
 /// Keys and configuration are mandatory fields, never defaulted on decode.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Aarch64ExecutionState {
     pub features: u64,
     pub pauth: crate::isa::arm::aarch64::pauth::PauthConfig,
@@ -508,7 +508,7 @@ pub struct Aarch64ExecutionState {
 }
 
 /// Complete AArch64 CPU state snapshot.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Aarch64CpuState {
     pub regs: Aarch64Registers,
     pub sregs: Aarch64SystemRegisters,

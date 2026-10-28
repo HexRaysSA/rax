@@ -158,3 +158,158 @@ fn dma_writes_invalidate_only_reservations_in_the_written_granule() {
         assert_eq!(state.regs.x[2], status, "address={address:#x}");
     }
 }
+
+#[test]
+fn aarch64_file_restore_retains_exclusive_frontier_and_pl011_fifo() {
+    let mut source = Fixture::new(1);
+    let memory = source.vm.guest_mem.memory();
+    memory
+        .write_slice(&0x885f_7c20u32.to_le_bytes(), GuestAddress(CODE))
+        .unwrap();
+    memory
+        .write_slice(&0x8802_7c20u32.to_le_bytes(), GuestAddress(CODE + 4))
+        .unwrap();
+    memory
+        .write_slice(&0x1234_5678u32.to_le_bytes(), GuestAddress(CODE + 0x1000))
+        .unwrap();
+    let CpuState::Aarch64(mut state) = source.vm.vcpus[0].get_state().unwrap() else {
+        panic!()
+    };
+    state.regs.x[1] = CODE + 0x1000;
+    source.vm.vcpus[0]
+        .update_state(&CpuState::Aarch64(state))
+        .unwrap();
+    source
+        .vm
+        .pl011
+        .as_ref()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .queue_input(b"checkpoint FIFO");
+    assert_eq!(
+        source.vm.vcpus[0].run_retirement_budget(1).unwrap().retired,
+        1
+    );
+    let saved = source.vm.take_snapshot_bundle(1).unwrap();
+    assert_eq!(
+        saved.backend_contexts().unwrap().entries()[0]
+            .as_ref()
+            .unwrap()
+            .kind,
+        crate::vm::snapshot::AARCH64_CONTEXT
+    );
+    let path = source.kernel.with_extension("rxc");
+    saved.save(&path).unwrap();
+    let loaded = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();
+    let expected_uart = source
+        .vm
+        .pl011
+        .as_ref()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .checkpoint()
+        .unwrap();
+    let mut target = Fixture::new(1);
+    target.vm.restore_snapshot_bundle(&loaded).unwrap();
+    assert_eq!(
+        target
+            .vm
+            .pl011
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .checkpoint()
+            .unwrap(),
+        expected_uart
+    );
+    assert_eq!(
+        target.vm.vcpus[0].run_retirement_budget(1).unwrap().retired,
+        1
+    );
+    assert_eq!(
+        target.vm.vcpus[0]
+            .get_state()
+            .unwrap()
+            .as_aarch64()
+            .unwrap()
+            .regs
+            .x[2],
+        0
+    );
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn malformed_final_aarch64_context_preserves_all_cpus_ram_uart_and_shared_controller() {
+    let source = Fixture::new(2);
+    let mut saved = source.vm.take_snapshot_bundle(0).unwrap();
+    let mut contexts = saved.take_backend_contexts().unwrap().entries().to_vec();
+    contexts.last_mut().unwrap().as_mut().unwrap().data.pop();
+    let bad = saved.with_backend_contexts(contexts).unwrap();
+    let mut target = Fixture::new(2);
+    target
+        .vm
+        .guest_mem
+        .memory()
+        .write_slice(&[0x77; 16], GuestAddress(CODE + 0x1000))
+        .unwrap();
+    target
+        .vm
+        .pl011
+        .as_ref()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .queue_input(b"target FIFO");
+    let graph = target.graph();
+    let cpus = target.vm.capture_cpu_states().unwrap();
+    let uart = target
+        .vm
+        .pl011
+        .as_ref()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .checkpoint()
+        .unwrap();
+    assert!(target.vm.restore_snapshot_bundle(&bad).is_err());
+    assert_eq!(target.graph(), graph);
+    assert_eq!(
+        format!("{:?}", target.vm.capture_cpu_states().unwrap()),
+        format!("{cpus:?}")
+    );
+    assert_eq!(
+        target
+            .vm
+            .pl011
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .checkpoint()
+            .unwrap(),
+        uart
+    );
+    let mut bytes = [0; 16];
+    target
+        .vm
+        .guest_mem
+        .memory()
+        .read_slice(&mut bytes, GuestAddress(CODE + 0x1000))
+        .unwrap();
+    assert_eq!(bytes, [0x77; 16]);
+}
+
+#[test]
+fn capture_rejects_private_cpu_power_disagreement_with_psci_graph() {
+    let mut source = Fixture::new(2);
+    // Simulate a broken host startup path that bypassed PSCI completion.
+    source.vm.vcpus[1]
+        .start_aarch64_cpu(CODE, 0, 0x3c5)
+        .unwrap();
+    let error = source.vm.take_snapshot_bundle(0).unwrap_err();
+    assert!(error.to_string().contains("power state differs"));
+}

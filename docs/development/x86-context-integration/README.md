@@ -63,7 +63,10 @@ after fresh restore with the original ISO path unavailable. The actual exported
 C API preserved XCR0 and continuation in both 32-bit and 64-bit modes. These
 results do not establish physical Intel HVF, native Windows, or a wasm build.
 
-The combined engine still emitted `1` after restoring the unchanged AArch64
-exclusive-reservation guest, while QEMU and uninterrupted RAX emitted `0`. Its
-checkpoint was verified after LDXR and before STXR, without a backend context.
-This remains a required C-STATE counterexample.
+At integration qualification, the combined engine emitted `1` after restoring
+the unchanged AArch64 exclusive-reservation guest, while QEMU and uninterrupted
+RAX emitted `0`. That historical checkpoint had no backend context. The later
+[AArch64 private-checkpoint implementation](../aarch64-checkpoints/README.md)
+retests the identical guest and frontier: QEMU, uninterrupted RAX and fresh file
+restore all emit `0`. Full C-STATE closure still requires the remaining native,
+in-flight and whole-VM transaction work.

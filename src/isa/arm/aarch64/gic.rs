@@ -194,7 +194,7 @@ impl Default for InterruptConfig {
 // =============================================================================
 
 /// GIC configuration.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct GicConfig {
     /// GIC version.
     pub version: GicVersion,

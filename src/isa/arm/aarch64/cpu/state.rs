@@ -115,6 +115,7 @@ impl AArch64Cpu {
 
     pub fn set_pstate_bits(&mut self, value: u64) -> Result<(), ArmError> {
         self.set_pstate_bits_from_native(value)?;
+        self.execution.native_fault = None;
         self.clear_jit_cache();
         Ok(())
     }
@@ -243,6 +244,7 @@ impl AArch64Cpu {
         self.sysregs.cntv_cval_el0 = sregs.cntv_cval_el0;
         self.update_pauth_id_registers();
         self.update_mmu_config();
+        self.execution.native_fault = None;
         self.clear_jit_cache();
         Ok(())
     }

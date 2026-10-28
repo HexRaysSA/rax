@@ -79,6 +79,9 @@ impl Vcpu {
         match self {
             Self::X86User(core) => core.restore_context_with_resources(&context.data, resources),
             Self::System(core) => {
+                if context.kind == rax_engine::snapshot::AARCH64_CONTEXT {
+                    return core.restore_checkpoint_context(state, emulator, Some(context));
+                }
                 if let Some(replacement) =
                     core.prepare_checkpoint_replacement(state, emulator, Some(context), resources)?
                 {

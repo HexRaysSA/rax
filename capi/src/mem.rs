@@ -256,7 +256,7 @@ impl Engine {
             Err(e) => return self.fail_engine(&e),
         };
         let es = self.vcpu.get_emulator_state();
-        let backend_context = match self.vcpu.capture_backend_context() {
+        let backend_context = match self.vcpu.capture_backend_context_for_remap() {
             Ok(context) => context,
             Err(error) => return self.fail_engine(&error),
         };

@@ -1,4 +1,4 @@
-//! AArch64 format-4 contexts, frozen legacy inputs, and key continuity.
+//! AArch64 private contexts, legacy format-4 contexts, frozen legacy inputs, and key continuity.
 
 use super::*;
 use crate::context::{rax_context_restore, rax_context_save};
@@ -47,7 +47,19 @@ fn replace_cpu(blob: &[u8], version: u32, cpu: &[u8]) -> Vec<u8> {
     result[4..8].copy_from_slice(&version.to_le_bytes());
     result.extend_from_slice(&(cpu.len() as u64).to_le_bytes());
     result.extend_from_slice(cpu);
-    result.extend_from_slice(&blob[28 + old_length..]);
+    let rest = 28 + old_length;
+    let emu_length = u64::from_le_bytes(blob[rest..rest + 8].try_into().unwrap()) as usize;
+    let backend = rest + 8 + emu_length;
+    result.extend_from_slice(&blob[rest..backend]);
+    let source_version = u32::from_le_bytes(blob[4..8].try_into().unwrap());
+    let regions = if source_version == 8 && version != 8 {
+        backend
+            + 12
+            + u64::from_le_bytes(blob[backend + 4..backend + 12].try_into().unwrap()) as usize
+    } else {
+        backend
+    };
+    result.extend_from_slice(&blob[regions..]);
     result
 }
 
@@ -108,7 +120,7 @@ fn pauth_context_roundtrip_preserves_keys_configuration_and_full_pstate() {
         assert_eq!(rd_u64(engine, ARM64_X0), 0xf916_0000_0000_0000);
         let saved_state = (*engine).vcpu.get_state().unwrap();
         let blob = save(engine);
-        assert_eq!(&blob[4..8], &4u32.to_le_bytes());
+        assert_eq!(&blob[4..8], &8u32.to_le_bytes());
         assert_eq!(rax_engine_reset(engine), RaxStatus::Ok);
         assert_eq!(
             rax_context_restore(engine, blob.as_ptr(), blob.len()),
@@ -338,7 +350,7 @@ fn pauth_configuration_api_validates_and_survives_reset_and_mapping_changes() {
             }
         }
     }
-    let before = save(engine);
+    let before = unsafe { (*engine).vcpu.get_state().unwrap() };
     for invalid in [
         RaxArm64PauthConfig { size: 31, ..config },
         RaxArm64PauthConfig {
@@ -359,7 +371,12 @@ fn pauth_configuration_api_validates_and_survives_reset_and_mapping_changes() {
         },
     ] {
         assert_eq!(rax_arm64_pauth_configure(engine, &invalid), RaxStatus::Arg);
-        assert_eq!(save(engine), before);
+        // Heartbeat age advances with host time; compare architectural/profile
+        // state rather than its diagnostic elapsed-time encoding.
+        assert_eq!(
+            unsafe { (*engine).vcpu.get_state().unwrap() }.as_aarch64(),
+            before.as_aarch64()
+        );
     }
     for id in 0x0413..=0x0433 {
         assert_eq!(rax_reg_size(RaxArch::Arm64 as i32, id), 8);
@@ -559,4 +576,24 @@ fn pauth_c_api_native_loop_reports_precise_fpac_after_actual_native_entries() {
         }
     }
     assert_eq!(cases, 8);
+}
+
+#[test]
+fn actual_legacy_format_four_fixture_remains_readable() {
+    let raw = include_bytes!("../../../docs/development/aarch64-checkpoints/legacy-v4.context");
+    assert_eq!(&raw[4..8], &4u32.to_le_bytes());
+    let engine = small_arm64();
+    assert_eq!(
+        rax_context_restore(engine, raw.as_ptr(), raw.len()),
+        RaxStatus::Ok
+    );
+    unsafe {
+        assert_eq!(rd_u64(engine, ARM64_X0), 0x123);
+        assert_eq!(rd_u64(engine, 0x0011), 0x104);
+        let mut executed = 0;
+        assert_eq!(rax_emu_step(engine, 1, &mut executed), RaxStatus::Ok);
+        assert_eq!(executed, 1);
+        assert_eq!(rd_u64(engine, 0x0011), 0x108);
+    }
+    rax_engine_close(engine);
 }

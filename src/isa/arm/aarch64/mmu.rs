@@ -17,7 +17,7 @@ use crate::isa::arm::common::memory::{ArmMemory, MemoryError};
 // =============================================================================
 
 /// Translation granule size.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TranslationGranule {
     /// 4KB pages.
     Granule4KB,
@@ -385,7 +385,7 @@ impl Default for MemoryAttributes {
 // =============================================================================
 
 /// MMU configuration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MmuConfig {
     /// Whether MMU is enabled.
     pub enabled: bool,

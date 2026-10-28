@@ -575,7 +575,7 @@ ABI 1.7 writes context format 3 only for AArch32 user engines. It adds a
 length-prefixed, 20-byte image of both TLS registers and the local exclusive
 monitor after the generic emulator image. Memory-map reconstruction and context
 restore preserve that state. Instruction-observation boundaries retain the
-monitor; a syscall or exception clears it. AArch64 engines use format 4 as described below.
+monitor; a syscall or exception clears it. AArch64 engines now use format 8 as described below; legacy format 4 remains readable.
 System-mode AArch32 engines use format 5, retaining CP15/FP controls, all banked
 registers, halt state, exclusive reservations, and backend instruction counts.
 Memory-map reconstruction retains this backend state as well. Format 5 adds a
@@ -615,13 +615,20 @@ the engine's guest keys and returns faults at the same PC with no retirement.
 Instruction-scoped memory recording retains direct stepping, including its
 access trace. Other hosts retain their existing execution path.
 
-Format 4 records mandatory keys, algorithm/profile, feature state, all modeled
+Legacy format 4 records mandatory keys, algorithm/profile, feature state, all modeled
 system-register banks, banked SPs, and full modeled PSTATE, including BTYPE.
 Legacy AArch64 format 1/2 inputs use a frozen decoder and are accepted only
 when all SCTLR address-authentication enables are clear, because those formats
 contained no keys. Missing extensions in format 4, unknown algorithm/profile
 values, truncation, and trailing data are format errors. Older libraries cannot
-read format 4. Full VM checkpoints use format 8 and reject older checkpoint
+read format 4. Current AArch64 contexts emit format 8, which additionally carries
+the complete represented software core/adapter state, including pending faults,
+ordered memory observations and physical reservation rights. Full context
+restore copies RAM before reinstating these rights. Map reconstruction
+invalidates an old reservation while retaining the other private state. Earlier
+formats retain their original projection semantics. See
+[the checkpoint contract](../docs/development/aarch64-checkpoints/README.md).
+Full VM checkpoints use format 8 and reject older checkpoint
 versions before decoding the changed CPU layout.
 
 | Assumption | Basis | Dependent behavior | Stress test / falsification probe | Status |

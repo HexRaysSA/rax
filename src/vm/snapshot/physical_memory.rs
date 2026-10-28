@@ -34,6 +34,16 @@ impl PhysicalMemoryRestore<'_> {
     pub(crate) fn commit(self) -> Result<()> {
         self.checkpoint.write_verified(self.target)
     }
+    /// The caller retains the mapping and all writer/controller guards through
+    /// publication. All compressed input and destination extents were admitted
+    /// by prepare_with_projection before entering this method.
+    pub(crate) fn commit_in_scope(
+        self,
+        scope: &crate::vm::memory::checkpoint::CheckpointPublication<'_>,
+    ) -> Result<()> {
+        self.checkpoint
+            .visit(|address, bytes| scope.write(address, bytes).map_err(invalid))
+    }
 }
 impl std::fmt::Debug for PhysicalMemorySnapshot {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

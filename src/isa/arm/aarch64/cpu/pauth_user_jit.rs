@@ -10,6 +10,9 @@ impl AArch64Cpu {
     /// single-instruction PAuth regions. The adapter disables this path while
     /// recording memory accesses, including compilation and validation fetches.
     pub(crate) fn step_user_pauth(&mut self, allow_native: bool) -> Result<CpuExit, ArmError> {
+        if let Some(error) = self.execution.native_fault.take() {
+            return Err(error);
+        }
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
         {
             let eligible = allow_native
@@ -24,7 +27,7 @@ impl AArch64Cpu {
                     && region.pauth_instruction.is_some()
                 {
                     let ran = self.jit_run_region(&region);
-                    if let Some(error) = self.jit.native_fault.take() {
+                    if let Some(error) = self.execution.native_fault.take() {
                         return Err(error);
                     }
                     if ran {
@@ -44,7 +47,10 @@ impl AArch64Cpu {
 
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     fn sample_user_pauth_backedge(&mut self, pc_before: u64) {
-        if self.jit.disabled || self.pc >= pc_before || std::env::var_os("RAX_NO_JIT").is_some() {
+        if self.execution.disabled
+            || self.pc >= pc_before
+            || std::env::var_os("RAX_NO_JIT").is_some()
+        {
             return;
         }
         let key = (self.pc, self.jit_mode_tag());
@@ -69,13 +75,6 @@ impl AArch64Cpu {
     }
 
     pub(crate) fn native_pauth_entry_count(&self) -> u64 {
-        #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-        {
-            return self.jit.pauth_native_runs;
-        }
-        #[cfg(not(all(feature = "smir-jit", target_arch = "aarch64")))]
-        {
-            0
-        }
+        self.execution.pauth_native_runs
     }
 }

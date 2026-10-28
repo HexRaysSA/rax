@@ -142,7 +142,7 @@ fn pauth_eret_aarch32_actual_native_handoff_matches_direct_and_continues() {
                     )
                 };
                 let mut direct = make();
-                direct.jit.disabled = true;
+                direct.execution.disabled = true;
                 let mut native = make();
                 let region =
                     std::sync::Arc::new(native.jit_compile_region().expect("compile ERETAA/B"));
@@ -170,7 +170,7 @@ fn pauth_eret_aarch32_actual_native_handoff_matches_direct_and_continues() {
                         crate::codec::serialize(&direct.export_sregs()).unwrap()
                     );
                 }
-                assert_eq!(native.jit.pauth_native_runs, 1);
+                assert_eq!(native.execution.pauth_native_runs, 1);
                 cases += 1;
             }
         }

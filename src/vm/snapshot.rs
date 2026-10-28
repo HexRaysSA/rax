@@ -30,8 +30,8 @@ mod bundle;
 mod clock;
 mod cpus;
 pub use backend_context::{
-    AARCH32_CONTEXT, BackendContext, BackendContexts, RISCV_CONTEXT, S3C64XX_CONTEXT,
-    X86_64_CONTEXT,
+    AARCH32_CONTEXT, AARCH64_CONTEXT, BackendContext, BackendContexts, RISCV_CONTEXT,
+    S3C64XX_CONTEXT, X86_64_CONTEXT,
 };
 mod execution;
 pub use cpus::{CpuSnapshot, CpuSnapshots};

@@ -12,7 +12,7 @@ use crate::isa::arm::common::sysreg::{Aarch64SysReg, Aarch64SysRegEncoding};
 // =============================================================================
 
 /// Per-exception-level system register bank.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct SystemRegisterBank {
     /// System Control Register.
     pub sctlr: u64,
@@ -80,7 +80,7 @@ impl Default for SystemRegisterBank {
 // =============================================================================
 
 /// Complete AArch64 system register state.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct SystemRegisters {
     // =========================================================================
     // Per-EL Register Banks

@@ -1,0 +1,18 @@
+{
+  "library": "/Users/int/dev/rax-audit-work/main-integration-target/debug/librax.dylib",
+  "library_sha256": "f6e70c28548c5f1afa7a12088cc2d4f2a7bdae5ecd0783670c9593416b15df22",
+  "fixture_sha256": "7c0abc7f5d23b9de85370036f1b6826071ef478a3d4bd9c405fc60dcb359026d",
+  "fixture_bytes": 7788,
+  "format": 4,
+  "arch": 2,
+  "mode": 4,
+  "memory_base": 0,
+  "memory_bytes": 4096,
+  "memory_perms": 7,
+  "code_address": 256,
+  "guest_code_hex": "602480d21f2003d5",
+  "executed": 1,
+  "expected_pc": 260,
+  "expected_x0": 291,
+  "provenance": "Actual retained pre-producer exported C API library; no source commit is inferred solely from the artifact filename."
+}

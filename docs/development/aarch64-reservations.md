@@ -166,3 +166,10 @@ objects, formatting, workspace Clippy and the all-target build. Two existing
 library tests remained ignored. The unchanged public-helper control now
 retains the original RAM byte after its range error. Exact producer hashes
 and the superseded global-copy-lock checks are retained separately.
+
+The subsequent [private-checkpoint implementation](aarch64-checkpoints/README.md)
+retains the CPU-owned monitor and restores an admitted source right after RAM,
+under a controller/endpoint/RAM publication boundary. The unchanged original
+LDXR/file/STXR guest now emits `0` under QEMU, uninterrupted RAX and fresh file
+restore. This supersedes the earlier negative file-continuation observation; it
+does not close the full C-STATE finding.

@@ -834,7 +834,7 @@ impl AArch64Cpu {
     /// Off by default (register-only regions); memory ops otherwise bail.
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     pub fn set_jit_mem(&mut self, on: bool) {
-        self.jit.mem = on;
+        self.execution.mem = on;
     }
 
     /// Enable/disable the JIT tier for this CPU instance (default enabled).
@@ -842,7 +842,7 @@ impl AArch64Cpu {
     /// oracle without touching the process-global `RAX_NO_JIT`.
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     pub fn set_jit_enabled(&mut self, on: bool) {
-        self.jit.disabled = !on;
+        self.execution.disabled = !on;
     }
 
     /// Run a compiled region over the current state. FP/SIMD regions take the
@@ -851,7 +851,9 @@ impl AArch64Cpu {
     /// be interpreted. Callers then resume at the unchanged guest PC.
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_run_region(&mut self, region: &JitRegion) -> bool {
-        self.jit.native_fault = None;
+        if self.execution.native_fault.is_some() {
+            return false;
+        }
         if let Some(raw) = region.pauth_instruction {
             return self.jit_run_pauth_instruction(region, raw);
         }
@@ -967,7 +969,7 @@ impl AArch64Cpu {
 
         // The current IR does not encode instruction-level SP alignment checks.
         // Keep memory instructions in the interpreter while SA/SA0 is enabled.
-        let allow_mem = self.jit.mem && !self.sp_alignment_enabled();
+        let allow_mem = self.execution.mem && !self.sp_alignment_enabled();
         let uses_memory = func.blocks.iter().any(|block| {
             block
                 .ops

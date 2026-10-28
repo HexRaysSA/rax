@@ -60,6 +60,15 @@ impl Vmm {
             retired: self.coordinator.retired,
             online: self.coordinator.online.clone(),
             local_apics,
+            pl011: self
+                .pl011
+                .as_ref()
+                .map(|uart| {
+                    uart.lock()
+                        .map_err(|_| Error::Emulator("PL011 lock poisoned".into()))?
+                        .checkpoint()
+                })
+                .transpose()?,
             arm_cluster: self
                 .vm
                 .as_any()

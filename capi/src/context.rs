@@ -8,10 +8,10 @@
 //!   arch    i32
 //!   mode    u32
 //!   flags   u32  (bit0: extended emulator state present)
-//!   cpu_len u64; cpu_bytes[cpu_len]      (bincode of CpuState)
-//!   emu_len u64; emu_bytes[emu_len]      (bincode of EmulatorState; if flag)
+//!   cpu_len u64; cpu_bytes[cpu_len]      (legacy fixed-width codec of CpuState)
+//!   emu_len u64; emu_bytes[emu_len]      (legacy fixed-width codec of EmulatorState; if flag)
 //!   [format 3 only: arm_len u64 = 20; TLS + exclusive-monitor bytes[20]]
-//!   [formats 5/6/7: producer u32; backend_len u64; backend[backend_len]]
+//!   [formats 5/6/7/8: producer u32; backend_len u64; backend[backend_len]]
 //!   [format 7: resources_len u64; resources[resources_len]]
 //!   nregion u64
 //!   per region: base u64, size u64, perms u32, _pad u32, bytes[size]
@@ -28,7 +28,7 @@
 //! use the formats documented below. Its five little-endian u32 words are TPIDRURW,
 //! TPIDRURO, exclusive address, exclusive size, and exclusive-present (0/1).
 
-//! Format 4 is used only by AArch64 engines. It records mandatory keys,
+//! Legacy format 4 is read for AArch64 engines. It records mandatory keys,
 //! algorithm/profile, feature configuration, full modeled PSTATE, and all
 //! system-register banks. Legacy AArch64 formats 1/2 restore only when their
 //! SCTLR has no enabled authentication keys; they contain no key material.
@@ -39,6 +39,8 @@
 //! retaining the hart profile, reservations, counters and ordered events.
 //! Format 7 carries the full software-x86 backend context, followed by a u64
 //! resource-section length and complete immutable media (zero means none).
+//! Format 8 carries the software AArch64 core/adapter context, including pending
+//! faults, memory observations, counters and physical reservation rights.
 
 use std::sync::Arc;
 
@@ -63,6 +65,8 @@ const CTX_VERSION_AARCH64: u32 = 4;
 const CTX_VERSION_AARCH32: u32 = 5;
 const CTX_VERSION_RISCV: u32 = 6;
 const CTX_VERSION_X86: u32 = 7;
+/// Complete represented software-AArch64 backend and memory context.
+const CTX_VERSION_AARCH64_PRIVATE: u32 = 8;
 const MAX_BACKEND_CONTEXT: usize = 16 * 1024 * 1024;
 
 #[path = "context/aarch64.rs"]
@@ -234,7 +238,7 @@ impl Engine {
         }
         let arm_user = self.vcpu.arm_user_state();
         let backend_context = if (self.arch == RaxArch::Arm && arm_user.is_none())
-            || matches!(self.arch, RaxArch::Riscv64 | RaxArch::X86)
+            || matches!(self.arch, RaxArch::Riscv64 | RaxArch::X86 | RaxArch::Arm64)
         {
             Some(
                 self.vcpu
@@ -251,12 +255,12 @@ impl Engine {
             CTX_VERSION_X86
         } else if self.arch == RaxArch::Riscv64 {
             CTX_VERSION_RISCV
+        } else if self.arch == RaxArch::Arm64 {
+            CTX_VERSION_AARCH64_PRIVATE
         } else if backend_context.is_some() {
             CTX_VERSION_AARCH32
         } else if arm_user.is_some() {
             CTX_VERSION_ARM_USER
-        } else if self.arch == RaxArch::Arm64 {
-            CTX_VERSION_AARCH64
         } else {
             CTX_VERSION
         });
@@ -299,6 +303,8 @@ impl Engine {
                 rax_engine::snapshot::RISCV_CONTEXT
             } else if self.arch == RaxArch::X86 {
                 rax_engine::snapshot::X86_64_CONTEXT
+            } else if self.arch == RaxArch::Arm64 {
+                rax_engine::snapshot::AARCH64_CONTEXT
             } else {
                 rax_engine::snapshot::AARCH32_CONTEXT
             };
@@ -371,17 +377,20 @@ impl Engine {
                 | CTX_VERSION_AARCH32
                 | CTX_VERSION_RISCV
                 | CTX_VERSION_X86
+                | CTX_VERSION_AARCH64_PRIVATE
         ) {
             return self.fail(RaxStatus::Format, "unsupported context version");
         }
         let has_backend = matches!(
             version,
-            CTX_VERSION_AARCH32 | CTX_VERSION_RISCV | CTX_VERSION_X86
+            CTX_VERSION_AARCH32 | CTX_VERSION_RISCV | CTX_VERSION_X86 | CTX_VERSION_AARCH64_PRIVATE
         );
         let backend_arch = if version == CTX_VERSION_RISCV {
             "RISC-V"
         } else if version == CTX_VERSION_X86 {
             "x86"
+        } else if version == CTX_VERSION_AARCH64_PRIVATE {
+            "AArch64"
         } else {
             "AArch32"
         };
@@ -402,6 +411,9 @@ impl Engine {
         }
         if version == CTX_VERSION_AARCH64 && self.arch != RaxArch::Arm64 {
             return self.fail(RaxStatus::Format, "format 4 requires AArch64");
+        }
+        if version == CTX_VERSION_AARCH64_PRIVATE && self.arch != RaxArch::Arm64 {
+            return self.fail(RaxStatus::Format, "format 8 requires AArch64");
         }
         if version == CTX_VERSION_AARCH32 && (self.arch != RaxArch::Arm || is_arm_user) {
             return self.fail(RaxStatus::Format, "format 5 requires system-mode AArch32");
@@ -503,6 +515,8 @@ impl Engine {
                 rax_engine::snapshot::RISCV_CONTEXT
             } else if version == CTX_VERSION_X86 {
                 rax_engine::snapshot::X86_64_CONTEXT
+            } else if version == CTX_VERSION_AARCH64_PRIVATE {
+                rax_engine::snapshot::AARCH64_CONTEXT
             } else {
                 rax_engine::snapshot::AARCH32_CONTEXT
             };
