@@ -332,14 +332,11 @@ impl AArch64Cpu {
 
     /// Execute load/store instruction.
     pub(crate) fn exec_load_store(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
-        // SIMD&FP register load/stores (V=1, bit 26) respect the CPACR FP
-        // trap: lazy FP context switching depends on the first FP touch
+        // SIMD&FP register load/stores (V=1, bit 26) respect FP access controls:
+        // lazy FP context switching depends on the first FP touch
         // (including vector loads in memcpy) trapping.
         if (insn >> 26) & 1 != 0 {
-            let fpen = (self.sysregs.el1.cpacr >> 20) & 0x3;
-            if (self.current_el == 0 && fpen != 0x3) || (self.current_el == 1 && (fpen & 1) == 0) {
-                return self.take_fp_access_trap();
-            }
+            self.check_fp_access(crate::isa::arm::common::fp_access::FpAccessClass::Data)?;
         }
 
         // Advanced SIMD load/store multiple structures (LD1-4 / ST1-4).

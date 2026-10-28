@@ -202,17 +202,6 @@ impl AArch64Cpu {
         self.take_exception(target, ExceptionType::Irq, SyndromeRegister::new())
     }
 
-    /// Report FP/SIMD access denial before the instruction retires. The common
-    /// instruction error path restores PC/BTYPE; system stepping then delivers
-    /// EC=0x07, while direct and diagnostic stepping expose the fault.
-    pub(crate) fn take_fp_access_trap(&mut self) -> Result<CpuExit, ArmError> {
-        Err(ArmError::ArchitecturalException {
-            ec: 7,
-            iss: 0,
-            target_el: None,
-        })
-    }
-
     /// Convert an execution error into the corresponding guest exception.
     /// PC has been restored to the faulting instruction by
     /// `execute_instruction`.
@@ -337,29 +326,25 @@ impl AArch64Cpu {
         }
     }
 
-    /// CPACR_EL1.FPEN access policy used by the direct SIMD/FP and memory paths.
-    /// Keep denied native regions in the interpreter so it delivers the trap
-    /// at the first FP instruction after any preceding scalar instructions.
-    #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-    pub(crate) fn jit_fp_access_permitted(&self) -> bool {
-        let fpen = (self.sysregs.el1.cpacr >> 20) & 0x3;
-        match self.current_el {
-            0 => fpen == 0b11,
-            1 => fpen & 1 != 0,
-            _ => true,
-        }
-    }
-
-    /// Cache-key discriminator: TTBR0 frame, EL, MMU enable, FPEN and SP policy.
-    /// FPEN occupies two of the unused low frame bits; changing FP access
-    /// cannot reuse a region or ineligibility memo from a different policy.
+    /// Cache-key discriminator: TTBR0 frame, EL, MMU enable, FPEN, SP policy
+    /// and effective data/system FP permission. Denied cold-cache memos cannot
+    /// suppress promotion after CPTR or host-control permissions are enabled.
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_mode_tag(&self) -> u64 {
+        let fp = self.fp_access_controls();
         (self.sysregs.el1.ttbr0 & !0xFFF)
             | (self.current_el as u64)
             | (((self.sysregs.el1.sctlr & 1) as u64) << 2)
             | (((self.sysregs.el1.cpacr >> 20) & 0x3) << 3)
             | ((self.sp_alignment_enabled() as u64) << 5)
+            | (u64::from(
+                fp.fault(crate::isa::arm::common::fp_access::FpAccessClass::Data)
+                    .is_some(),
+            ) << 6)
+            | (u64::from(
+                fp.fault(crate::isa::arm::common::fp_access::FpAccessClass::System)
+                    .is_some(),
+            ) << 7)
     }
 
     /// Read up to `max` bytes of guest instruction stream from `entry`, stopping
@@ -427,7 +412,7 @@ impl AArch64Cpu {
         }
         let mt = self.jit_mode_tag();
         match self.jit.cache.get(&(pc, mt)) {
-            Some(Some(r)) if !r.uses_fp || self.jit_fp_access_permitted() => Some(r.clone()),
+            Some(Some(r)) if r.fp_access.permitted(self.fp_access_controls()) => Some(r.clone()),
             _ => None,
         }
     }

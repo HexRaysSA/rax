@@ -50,6 +50,7 @@ impl AArch64Cpu {
             exec: ExecMem::new(&code).ok()?,
             entry_offset: lowered.entry_offset,
             uses_fp: false,
+            fp_access: Default::default(),
             uses_memory: matches!(instruction, PauthInstruction::Load { .. }),
             source_pages: vec![(source, self.translate_address(source, false, true).ok()?)],
             pauth_instruction: Some(raw),

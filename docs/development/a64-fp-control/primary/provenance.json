@@ -1,0 +1,13 @@
+{
+  "title": "Arm Cortex-A720 Core Technical Reference Manual",
+  "issuer": "Arm Limited",
+  "document_id": "102530_0002_05_en",
+  "revision": "r0p2, Issue 05, 30 November 2023",
+  "url": "https://documentation-service.arm.com/static/65f169aaa1811e3f64baa2e5",
+  "retrieved_utc": "2026-10-28T20:54:24.675847+00:00",
+  "sha256": "a1b904e8e61025a661ad9d4b0cc1d78aee5323dbf76ee03df50d7eb95e1c0fc0",
+  "bytes": 6208834,
+  "purpose": "Primary FPCR system-register accessibility rules, including EL0..EL3, VHE, FPEN/TFP and TGE routing. FPSR forms are additionally exercised by the independent oracle. This is not a claim that the synthetic PE is a Cortex-A720.",
+  "size_justification": "Retain the complete original primary reference to preserve its identity, page numbering, copyright and redistribution notices; no pages or notices rewritten.",
+  "copyright": "Original notices retained in the unchanged PDF."
+}

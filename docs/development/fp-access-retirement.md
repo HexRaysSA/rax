@@ -72,9 +72,10 @@ retirement meter, physical Arm behavior or Intel Mac HVF execution.
 
 ## Remaining scope
 
-High-impact work remains for complete FPCR/FPSR system-register access checks,
-CPTR/security/virtualization routing, A64 half-precision admission beyond FHM,
-and the full checkpoint/in-flight, SMP/native/debug/clock/replay requirements.
-In particular, the FPCR/FPSR guest system-register paths currently lack the same
-FP access checks. The four full audit findings remain partial. Physical Arm and
+The subsequent [FP control group](a64-fp-control/README.md) adds guest FPCR/FPSR
+admission, represented CPTR/security/VHE routing, and native permission guards
+that survive dead-result optimization. High-impact work remains for A64
+half-precision admission beyond FHM, full SVE/SME and unrepresented halting-debug
+controls, and the full checkpoint/in-flight, SMP/native/debug/clock/replay
+requirements. The four full audit findings remain partial. Physical Arm and
 physical Intel Mac HVF validation are separate runtime boundaries.

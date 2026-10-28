@@ -74,26 +74,74 @@ fn diagnostic_fp_fault_preserves_retry_pc_and_retries_once_when_enabled() {
 
 #[test]
 fn checkpoint_before_and_after_fp_delivery_preserves_exact_handler_frontier() {
-    for delivered in [false, true] {
-        let (mut source, mem) = machine(false);
-        if delivered {
-            assert_eq!(source.run_retirement_budget(1).unwrap().retired, 0);
+    for instruction in [
+        0x1e22_2820u32,
+        0xd53b_4400,
+        0xd53b_4420,
+        0xd51b_4400,
+        0xd51b_4420,
+    ] {
+        for delivered in [false, true] {
+            let (mut source, mem) = machine(false);
+            mem.write_slice(&instruction.to_le_bytes(), GuestAddress(ENTRY))
+                .unwrap();
+            if delivered {
+                assert_eq!(source.run_retirement_budget(1).unwrap().retired, 0);
+            }
+            let state = source.get_state().unwrap();
+            let raw = source.capture_backend_context().unwrap().unwrap();
+            assert!(raw.data.starts_with(b"RAXA6402"));
+            let mut target = Aarch64Vcpu::new(0, mem);
+            target
+                .restore_checkpoint_context(&state, &Default::default(), Some(&raw))
+                .unwrap();
+            if !delivered {
+                let result = target.run_retirement_budget(1000).unwrap();
+                assert!(matches!(result.stop, RetirementStop::StateChange));
+                assert_eq!(result.retired, 0);
+            }
+            assert_eq!(target.current_pc(), HANDLER);
+            assert_eq!(target.instruction_count(), 0);
+            assert_eq!(target.run_retirement_budget(1).unwrap().retired, 1);
+            assert_eq!(target.cpu.get_gpr(9), 1);
         }
-        let state = source.get_state().unwrap();
-        let raw = source.capture_backend_context().unwrap().unwrap();
-        assert!(raw.data.starts_with(b"RAXA6402"));
-        let mut target = Aarch64Vcpu::new(0, mem);
-        target
-            .restore_checkpoint_context(&state, &Default::default(), Some(&raw))
-            .unwrap();
-        if !delivered {
-            let result = target.run_retirement_budget(1000).unwrap();
-            assert!(matches!(result.stop, RetirementStop::StateChange));
-            assert_eq!(result.retired, 0);
-        }
-        assert_eq!(target.current_pc(), HANDLER);
-        assert_eq!(target.instruction_count(), 0);
-        assert_eq!(target.run_retirement_budget(1).unwrap().retired, 1);
-        assert_eq!(target.cpu.get_gpr(9), 1);
     }
+}
+
+#[test]
+fn fp_sysreg_higher_trap_controls_survive_private_checkpoint_and_retirement_boundary() {
+    let (mut source, mem) = machine(false);
+    mem.write_slice(&0xd53b_4400u32.to_le_bytes(), GuestAddress(ENTRY))
+        .unwrap();
+    mem.write_slice(&0x9100_0529u32.to_le_bytes(), GuestAddress(0x2400))
+        .unwrap();
+    let CpuState::Aarch64(mut state) = source.get_state().unwrap() else {
+        panic!()
+    };
+    let sys = &mut state.sregs.execution.as_mut().unwrap().sysregs;
+    sys.scr_el3 = 0x501;
+    sys.hcr_el2 = 1 << 31;
+    sys.el1.cpacr = 3 << 20;
+    sys.el2.vbar = 0x2000;
+    sys.impl_defined.insert(
+        crate::isa::arm::common::sysreg::Aarch64SysRegEncoding::new(3, 4, 1, 1, 2).encode(),
+        1 << 10,
+    );
+    source.set_state(&CpuState::Aarch64(state)).unwrap();
+    let state = source.get_state().unwrap();
+    let raw = source.capture_backend_context().unwrap().unwrap();
+    let mut target = Aarch64Vcpu::new(0, mem);
+    target
+        .restore_checkpoint_context(&state, &Default::default(), Some(&raw))
+        .unwrap();
+    let result = target.run_retirement_budget(1000).unwrap();
+    assert!(matches!(result.stop, RetirementStop::StateChange));
+    assert_eq!((result.retired, target.current_pc()), (0, 0x2400));
+    let CpuState::Aarch64(state) = target.get_state().unwrap() else {
+        panic!()
+    };
+    let sys = &state.sregs.execution.as_ref().unwrap().sysregs;
+    assert_eq!((sys.el2.elr, sys.el2.esr >> 26), (ENTRY, 7));
+    assert_eq!(target.run_retirement_budget(1).unwrap().retired, 1);
+    assert_eq!(target.cpu.get_gpr(9), 1);
 }

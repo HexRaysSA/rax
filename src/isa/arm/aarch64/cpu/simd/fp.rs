@@ -25,18 +25,7 @@ use crate::vm::vcpu::Aarch64SystemRegisters;
 impl AArch64Cpu {
     /// Execute SIMD/FP instruction.
     pub(crate) fn exec_simd_fp(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
-        // Check if FP/SIMD is enabled
-        let cpacr = self.sysregs.el1.cpacr;
-        let fpen = (cpacr >> 20) & 0x3;
-
-        if self.current_el == 0 && fpen != 0x3 {
-            // FP/SIMD trapped at EL0
-            return self.take_fp_access_trap();
-        }
-        if self.current_el == 1 && (fpen & 1) == 0 {
-            // FP/SIMD trapped at EL1
-            return self.take_fp_access_trap();
-        }
+        self.check_fp_access(crate::isa::arm::common::fp_access::FpAccessClass::Data)?;
 
         // Decode SIMD/FP instruction groups
         // Bits [28:25] = 0111 or 1111 for SIMD/FP

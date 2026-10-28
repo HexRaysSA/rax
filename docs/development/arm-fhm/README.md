@@ -105,10 +105,12 @@ and source/artifact hashes are retained with this semantic group's receipts.
 | FHM2: Old positional checkpoints remain readable | Restore the actual old exports and continue; malformed source admission or lost declared state falsifies compatibility |
 
 The [FP access retirement correction](../fp-access-retirement.md) routes denied
-instructions through the common non-retiring fault path. High-impact remaining
-work includes A64 half-precision execution/native admission beyond FHM,
-FPCR/FPSR access checks, and non-half capability/profile coherence,
-remaining security/virtualization controls, complete checkpoint/in-flight and
+instructions through the common non-retiring fault path. The subsequent
+[FP control group](../a64-fp-control/README.md) adds FPCR/FPSR admission,
+represented CPTR/security/VHE controls, and native permission requirements
+before optimization. High-impact remaining work includes A64 half-precision
+execution/native admission beyond FHM, non-half capability/profile coherence,
+unrepresented FP control states, complete checkpoint/in-flight and
 publication coverage, SMP/native/debug/clock/replay closure, and physical
 Intel Mac HVF qualification. All four full audit findings remain partial.
 The whole Linux raw native-reference suite and physical A32 behavior are

@@ -36,6 +36,9 @@ pub(crate) use checkpoint::CoreCheckpoint;
 mod entry;
 mod exception_return;
 mod exec;
+mod fp_access;
+#[cfg(test)]
+mod fp_control_tests;
 mod fp_profile;
 mod identity;
 mod interrupt_binding;
@@ -433,6 +436,8 @@ pub(crate) struct JitRegion {
     /// trampoline that additionally marshals V0-V31 + FPCR/FPSR. Integer-only
     /// regions use the cheaper GPR-only trampoline.
     uses_fp: bool,
+    /// Architectural access requirements, captured before dead-result removal.
+    fp_access: crate::isa::arm::common::fp_access::FpAccessRequirements,
     /// Memory regions require interpreter SP checks when SA/SA0 is enabled.
     uses_memory: bool,
     /// Virtual/physical 4 KiB source-frame bindings for the lift window.

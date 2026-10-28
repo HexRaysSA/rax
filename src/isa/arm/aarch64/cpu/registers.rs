@@ -697,6 +697,9 @@ impl AArch64Cpu {
         let rt = (insn & 0x1F) as u8;
 
         let encoding = Aarch64SysRegEncoding::new(o0, op1, crn, crm, op2);
+        if crate::isa::arm::common::fp_access::is_fp_system_instruction(insn) {
+            self.check_fp_access(crate::isa::arm::common::fp_access::FpAccessClass::System)?;
+        }
         if (o0, op1, crn, crm, op2) == (3, 4, 2, 0, 1)
             && !self.config.features.contains(ArmFeatures::VHE)
         {
@@ -859,7 +862,7 @@ impl AArch64Cpu {
         }
         if self.il
             || (self.btype != 0 && self.config.features.contains(ArmFeatures::BTI))
-            || (region.uses_fp && !self.jit_fp_access_permitted())
+            || !region.fp_access.permitted(self.fp_access_controls())
             || (region.uses_memory && self.sp_alignment_enabled())
         {
             return false;
@@ -939,6 +942,7 @@ impl AArch64Cpu {
         let mut lifter = Aarch64Lifter::new();
         let mut lctx = LiftContext::new(SourceArch::Aarch64);
         let mut func = lifter.lift_function(entry, &reader, &mut lctx).ok()?;
+        let fp_access = self.native_fp_requirements(&func, entry, &reader.bytes);
 
         if std::env::var_os("RAX_JIT_NO_OPT").is_none() {
             optimize_function(&mut func, OptLevel::O2);
@@ -981,7 +985,7 @@ impl AArch64Cpu {
         }
 
         let uses_fp = uses_aarch64_fp_trampoline(&func);
-        if uses_fp && !self.jit_fp_access_permitted() {
+        if !fp_access.permitted(self.fp_access_controls()) {
             return None;
         }
 
@@ -999,6 +1003,7 @@ impl AArch64Cpu {
             exec,
             entry_offset: res.entry_offset,
             uses_fp,
+            fp_access,
             uses_memory,
             source_pages,
             pauth_instruction: None,

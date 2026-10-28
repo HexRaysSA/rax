@@ -63,25 +63,20 @@ impl FpAccessContext {
     }
 
     fn higher_aarch64_traps(self, kind: FpAccessKind) -> Option<FpAccessFault> {
-        if self.current_el <= 2 && self.el2_enabled {
-            let host = self.vhe && self.hcr & (1 << 34) != 0;
-            let disabled = if host {
-                match (self.cptr_el2 >> 20) & 3 {
-                    0 | 2 => true,
-                    1 => self.current_el == 0 && self.hcr & (1 << 27) != 0,
-                    _ => false,
-                }
-            } else {
-                self.cptr_el2 & (1 << 10) != 0
-            };
-            if disabled {
-                return Some(self.trap(kind, 2, 7, 0));
-            }
-        }
-        if self.have_el3 && self.cptr_el3 & (1 << 10) != 0 {
-            return Some(self.trap(kind, 3, 7, 0));
-        }
-        None
+        use crate::isa::arm::common::fp_access::FpAccessControls;
+        let controls = FpAccessControls {
+            current_el: self.current_el,
+            el2_enabled: self.el2_enabled,
+            have_el3: self.have_el3,
+            vhe: self.vhe,
+            hcr: self.hcr,
+            cpacr: u64::from(self.cpacr),
+            cptr_el2: self.cptr_el2,
+            cptr_el3: self.cptr_el3,
+        };
+        controls
+            .higher_fault()
+            .map(|fault| self.trap(kind, fault.target_el, u32::from(fault.ec), 0))
     }
 
     pub(crate) fn check(self, kind: FpAccessKind) -> Option<FpAccessFault> {
@@ -516,5 +511,51 @@ impl super::cpu::Armv7Cpu {
             cptr_el2: 0,
             cptr_el3: 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod shared_policy_tests {
+    use super::*;
+    #[test]
+    fn shared_vhe_higher_fp_rule_preserves_aarch32_data_priority() {
+        let mut controls = FpAccessContext {
+            current_el: 1,
+            secure: false,
+            have_el2: true,
+            have_el3: true,
+            el1_aarch64: false,
+            el2_aarch64: true,
+            el3_aarch64: true,
+            el2_enabled: true,
+            vhe: true,
+            cpacr: 3 << 20,
+            fpexc: 1 << 30,
+            nsacr: 0,
+            hcptr: 0,
+            hcr: (1 << 34) | (1 << 27),
+            cptr_el2: 1 << 20,
+            cptr_el3: 0,
+        };
+        let kind = FpAccessKind {
+            advsimd: true,
+            fpexc_check: true,
+            privileged_only: false,
+            invalid_system_encoding: false,
+            system_read: None,
+            raw: 0,
+            condition: 14,
+        };
+        assert_eq!(controls.check(kind), None);
+        controls.cptr_el3 = 1 << 10;
+        assert!(matches!(
+            controls.check(kind),
+            Some(FpAccessFault::Trap { target_el: 3, .. })
+        ));
+        controls.cptr_el2 = 0;
+        assert!(matches!(
+            controls.check(kind),
+            Some(FpAccessFault::Trap { target_el: 2, .. })
+        ));
     }
 }
