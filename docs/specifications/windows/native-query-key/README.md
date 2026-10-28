@@ -150,3 +150,23 @@ Native probe/qualification outputs were archived with CRC and per-file SHA256
 verification before their generated trees were removed. Compatible warm Cargo
 trees remain assigned to the immediate `NtOpenKeyEx` implementation and remaining
 `NtQueryKey` metadata work; no extra CMake or Cargo build tree was allocated.
+
+
+## Independent AMD64 copy qualification in progress
+
+The first physical Windows2022/build20348 and Windows2025/build26100 run
+40656903707 captured fresh native data successfully, then exposed a real
+WoW64 copy-profile difference in Rust replay. A converted short buffer crossing
+an inaccessible page can retain a prefix on29695 and remain unchanged on AMD64.
+The assertion remains enabled. The mapped-filename copy sequence is therefore
+not yet qualified for this key-query operation on AMD64; assumption KQ3 that the
+same sequence applies is falsified. The source group remains under qualification,
+and the paired Assist publication is held until this is corrected.
+
+`probe-v5.cpp` adds3312 fixed-key later-page copy controls per ABI, including
+valid/invalid handles, inaccessible/guarded pages,23 caller-prefix lengths and36
+advertised lengths. `run-v3.py` preserves v2/v4 and additionally compiles/runs v5.
+The ARM64 host run passes all three probe versions for ARM64/x64/x86/x86-LAA,
+with PE/source/executable identity checks. The unchanged existing AMD64 jobs now
+collect the same extended controls. Their artifacts will determine the dedicated
+key-query copy adapter; this does not weaken or skip the failed replay.

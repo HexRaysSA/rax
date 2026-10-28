@@ -123,7 +123,7 @@ jobs:
       - name: Verify retained key-query artifact provenance
         run: python -B -m unittest discover -s docs/specifications/windows/native-query-key
       - name: Observe native AMD64 and WoW64 key queries
-        run: python -B docs/specifications/windows/native-query-key/run-v2.py --require-native-machine 0x8664 --output target/native-query-key-v1
+        run: python -B docs/specifications/windows/native-query-key/run-v3.py --require-native-machine 0x8664 --output target/native-query-key-v1
       - name: Preserve native key-query observations
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
