@@ -162,3 +162,10 @@ version-8 rows, and all 266 first-run AMD64 build-26100 rows in
 `amd64-26100-projected-v1.json`. The first AMD64 run and ZIP digest are recorded
 in that corpus. The query implementation still needs the measured profile
 correction; capturing an observation does not establish a passing replay.
+
+Version 9 repeats the byte-boundary campaign with the installed KERNEL32 image
+as the subject and every 1-128-byte writable prefix. It distinguishes filename
+length from kernel architecture when selecting a WoW64 copy profile. The v3
+AMD64 runner retains all preceding controls and adds 512 short-name rows
+(906 native observations per kernel). This acquisition precedes qualification
+of the length-dependent copy model.

@@ -64,14 +64,14 @@ jobs:
       - name: Observe native AMD64 and WoW64 mapped backing-file names
         run: |
           New-Item -ItemType Directory -Force (Join-Path $env:GITHUB_WORKSPACE 'target') | Out-Null
-          python -B docs/specifications/windows/native-mapped-filename/run-amd64-v2.py
+          python -B docs/specifications/windows/native-mapped-filename/run-amd64-v3.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Preserve early native mapped filename observations
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: native-mapped-filename-${{ matrix.os }}
-          path: target/native-mapped-filename-amd64-v2
+          path: target/native-mapped-filename-amd64-v3
           if-no-files-found: error
       - name: Observe native AMD64 image-extension availability
         run: python -B docs/specifications/windows/native-image-extension-amd64/run-v1.py
@@ -290,5 +290,5 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --no-default-features --test user_windows_cli -- --nocapture --test-threads=1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $env:RAX_NATIVE_MAPPED_FILENAME_OBSERVATIONS = Join-Path $env:GITHUB_WORKSPACE 'target/native-mapped-filename-amd64-v2'
+          $env:RAX_NATIVE_MAPPED_FILENAME_OBSERVATIONS = Join-Path $env:GITHUB_WORKSPACE 'target/native-mapped-filename-amd64-v3'
           cargo test --locked --no-default-features --lib mapped_filename -- --nocapture --test-threads=1
