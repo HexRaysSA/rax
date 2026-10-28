@@ -3170,22 +3170,19 @@ native dispatch and an appended synthetic export preserve preceding ordinals.
 The handler follows recorded output/result-length validation, nonzero-grant
 requirements, short-buffer statuses, aliases and one-shot guards. WoW64 converts
 outputs not aligned to eight bytes through initialized private scratch; copy-out
-uses the existing captured runtime-store profile. No guest registry operation
-is forwarded to a host registry service. Other admitted `NtQueryKey` classes
+uses the measured key-query store profile described below. No guest registry
+operation is forwarded to a host registry service. Other admitted `NtQueryKey` classes
 remain explicit metadata frontiers. This is not full CMD/process completion.
 
-The retained native29695 four-ABI captures, PE/hash proof, failed controls,
-fresh Windows CI producer, portable replay and installed-NTDLL test commands are
-in `docs/specifications/windows/native-query-key/README.md`. macOS qualification
-passed4 targeted tests (7680 retained status/output cases plus112 retained view
-opens),129 registry tests,3 mapped-filename tests,20 object tests,8 CLI tests,
-191 C-API tests, all-target compilation and production Clippy. Linux passed4
-targeted,126 registry,3 neighboring conversion,20 object,8 CLI and191 C-API
-tests, all-target compilation and production Clippy. NativeWindows29695 passed5
-targeted (retained plus fresh four-ABI replay and installed ARM64/x86 leaves),156
-registry,5 neighboring conversion,20 object,10 CLI and191 C-API tests, all-target
-compilation and an explicit CLI build. Independent physical AMD64 qualification
-remains pending publication.
+The retained native captures, PE/hash proof, failed controls, fresh CI producer,
+portable replay and installed-NTDLL commands are documented in
+`docs/specifications/windows/native-query-key/README.md`. The corrected local
+macOS/Linux/Windows qualification passes5/5/6 targeted,130/127/157 registry,
+3/3/5 neighboring conversion,20 object,8/8/10 CLI and191 C API tests, plus
+all-target compilation. macOS/Linux production Clippy and three Python provenance
+tests pass. NativeWindows29695 includes fresh four-ABI replay and installed leaves.
+Both physical AMD64 jobs pass in run40667473190, including fresh replay,
+installed leaves, unchanged whole hardware-fault fixture and CLI regressions.
 
 Unchanged installed ARM64 CMD now gets past class7 and stops at the next native
 service frontier, `NtOpenKeyEx` (0x12b), exiting125 before stdout. Native CMD
@@ -3202,6 +3199,7 @@ and19872 retained v5 cases, selecting the captured kernel identity explicitly.
 Ten frozen data files and a provenance manifest bind the added cases to their
 native producers and binaries. Corrected macOS/Linux gates pass5/5 targeted,
 130/127 registry,3 neighbor conversion,20 object,8 CLI and191 C API tests,
-all-target compilation and production Clippy. NativeWindows29695 targeted6,
-registry157,neighbor conversion5 andobject20 pass; its remaining checks and a
-new independent AMD64 run are in progress. No whole-process completion is claimed.
+all-target compilation and production Clippy. NativeWindows29695 completes
+its CLI/C API/all-target checks too. Both independent AMD64 jobs pass. The older
+end-relative processor-export guard is repaired to retain its ordinal assertions
+after later appended families. No whole-process completion is claimed.

@@ -46,24 +46,27 @@ fn native_system_processor_export_appends_without_moving_prior_ordinals() {
     use crate::user::windows::dll::{self, BuiltinDll};
     use crate::user::windows::loader::builtin;
     let current = dll::find("ntdll.dll").unwrap();
-    for (tail, name, x86_only) in [
-        (
-            current.exports.len() - 4,
-            "NtWow64GetNativeSystemInformation",
-            true,
-        ),
-        (
-            current.exports.len() - 3,
-            "NtWow64CsrClientConnectToServer",
-            true,
-        ),
-        (current.exports.len() - 2, "NtOpenThread", false),
-        (
-            current.exports.len() - 1,
-            "NtSetInformationVirtualMemory",
-            false,
-        ),
-    ] {
+    // Later services append independent families after this historical group.
+    // Anchor the group itself while retaining its order and prefix invariants.
+    let first = current
+        .exports
+        .iter()
+        .position(|family| {
+            family
+                .first()
+                .is_some_and(|export| export.name == "NtWow64GetNativeSystemInformation")
+        })
+        .unwrap();
+    for (offset, (name, x86_only)) in [
+        ("NtWow64GetNativeSystemInformation", true),
+        ("NtWow64CsrClientConnectToServer", true),
+        ("NtOpenThread", false),
+        ("NtSetInformationVirtualMemory", false),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let tail = first + offset;
         assert_eq!(current.exports[tail].len(), 1);
         assert_eq!(current.exports[tail][0].name, name);
         let previous = BuiltinDll {
