@@ -1,6 +1,10 @@
 //! Instruction stepping and diagnostic-fault translation for the AArch64 adapter.
 use super::*;
 
+#[cfg(test)]
+#[path = "aarch64_step/fp_access_tests.rs"]
+mod fp_access_tests;
+
 impl Aarch64Vcpu {
     pub(super) fn step_micro(&mut self, allow_jit: bool) -> Result<Option<VcpuExit>> {
         self.sync_uart_irq();

@@ -104,9 +104,10 @@ and source/artifact hashes are retained with this semantic group's receipts.
 | FHM1: FP16 and FHM are separate capabilities with a dependency | Vary both flags, ARM/Thumb, every implemented form and access traps; disabled execution or mismatched guest IDs falsifies the contract |
 | FHM2: Old positional checkpoints remain readable | Restore the actual old exports and continue; malformed source admission or lost declared state falsifies compatibility |
 
-High-impact remaining work includes A64 half-precision execution/native
-admission beyond FHM, FP-access-trap retirement accounting, and non-half
-capability/profile coherence,
+The [FP access retirement correction](../fp-access-retirement.md) routes denied
+instructions through the common non-retiring fault path. High-impact remaining
+work includes A64 half-precision execution/native admission beyond FHM,
+FPCR/FPSR access checks, and non-half capability/profile coherence,
 remaining security/virtualization controls, complete checkpoint/in-flight and
 publication coverage, SMP/native/debug/clock/replay closure, and physical
 Intel Mac HVF qualification. All four full audit findings remain partial.

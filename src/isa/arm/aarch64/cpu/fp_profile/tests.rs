@@ -48,9 +48,14 @@ fn fhm_vector_and_indexed_decode_admission_precedes_access_and_retirement() {
                         assert_eq!(cpu.cycle_count, 0);
                         assert_eq!(cpu.v, before);
                     } else if trap {
-                        // The direct CPU delivers this enabled-instruction FP access trap.
-                        assert_eq!(result.unwrap(), CpuExit::Continue);
-                        assert_eq!(cpu.sysregs.el1.esr >> 26, 7);
+                        assert!(matches!(
+                            result,
+                            Err(ArmError::ArchitecturalException { ec: 7, iss: 0, .. })
+                        ));
+                        assert_eq!(cpu.pc, 0x100);
+                        assert_eq!(cpu.insn_count, 0);
+                        assert_eq!(cpu.cycle_count, 0);
+                        assert_eq!(cpu.v, before);
                     } else {
                         assert_eq!(result.unwrap(), CpuExit::Continue);
                         assert_eq!(cpu.pc, 0x104);

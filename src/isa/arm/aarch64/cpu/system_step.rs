@@ -202,13 +202,15 @@ impl AArch64Cpu {
         self.take_exception(target, ExceptionType::Irq, SyndromeRegister::new())
     }
 
-    /// FP/SIMD access trap (CPACR.FPEN): vector to the EL1 handler with
-    /// EC=0x07 so the kernel can do its lazy FP context switch. Called from
-    /// inside instruction execution, where PC has already been advanced.
+    /// Report FP/SIMD access denial before the instruction retires. The common
+    /// instruction error path restores PC/BTYPE; system stepping then delivers
+    /// EC=0x07, while direct and diagnostic stepping expose the fault.
     pub(crate) fn take_fp_access_trap(&mut self) -> Result<CpuExit, ArmError> {
-        self.pc = self.pc.wrapping_sub(4);
-        self.enter_sync_exception(SyndromeRegister::simd_fp_trap(), None)?;
-        Ok(CpuExit::Continue)
+        Err(ArmError::ArchitecturalException {
+            ec: 7,
+            iss: 0,
+            target_el: None,
+        })
     }
 
     /// Convert an execution error into the corresponding guest exception.

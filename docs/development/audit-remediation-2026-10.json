@@ -887,16 +887,30 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/generator-tests-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/source-and-lock-review-v1.json",
         "docs/development/arm-fhm/README.md",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/next-a64-half-admission-v1/result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/next-a64-half-admission-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/parent-control-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/scope-and-primary-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/targeted-final-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/qualification-broad-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/current-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/consumers-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/portability-final-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/next-fpcr-current-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/next-fpcr-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/unrelated-darwin-transport-v1/result.json",
+        "docs/development/fp-access-retirement.md"
       ],
       "remaining_validation": [
         "Remaining security/virtualization controls, non-half capability/profile consistency and reserved instruction-admission semantics.",
         "Physical A32 hardware and optional trapped profiles remain unverified.",
-        "FHM and modeled half/FHM IDs are corrected in this component. A64 half-precision execution/native admission beyond FHM remains open; disabled FP16 still executes FADD H0,H1,H2 in the retained qualified-artifact witness."
+        "FHM and modeled half/FHM IDs are corrected in this component. A64 half-precision execution/native admission beyond FHM remains open; disabled FP16 still executes FADD H0,H1,H2 in the retained qualified-artifact witness.",
+        "FPCR/FPSR guest system-register access checks remain open; independent QEMU controls and current CLI disagreement are retained. A64 data/memory FP access-trap retirement is corrected in its separate component."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
-        "arm-fhm-profile-and-legacy-wire-2026-10-28"
+        "arm-fhm-profile-and-legacy-wire-2026-10-28",
+        "aarch64-fp-access-nonretirement-2026-10-28"
       ]
     },
     {
@@ -2369,7 +2383,19 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/generator-tests-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/source-and-lock-review-v1.json",
         "docs/development/arm-fhm/README.md",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/next-fp-access-retirement-final-v2/result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/next-fp-access-retirement-final-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/parent-control-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/scope-and-primary-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/targeted-final-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/qualification-broad-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/current-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/consumers-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/portability-final-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/next-fpcr-current-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/next-fpcr-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/unrelated-darwin-transport-v1/result.json",
+        "docs/development/fp-access-retirement.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2380,8 +2406,7 @@
         "Inherited RISC-V CLI oracle still verifies all physical/projection bytes and actual missing-kernel UART/shutdown execution.",
         "Complete per-vCPU/private/inflight/device/topology checkpoint state, including coherent LAPIC ownership",
         "Native Intel HVF state effects are unverified",
-        "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open.",
-        "A64 FP access traps currently enter EC7 while reporting one retired instruction; budget/clock semantics require correction (qualified-artifact witness retained)."
+        "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2393,7 +2418,8 @@
         "tracked-ram-first-domain-publication-2026-10-28",
         "main-integration-and-x86-user-context-version-2026-10-28",
         "software-aarch64-private-publication-2026-10-28",
-        "arm-fhm-profile-and-legacy-wire-2026-10-28"
+        "arm-fhm-profile-and-legacy-wire-2026-10-28",
+        "aarch64-fp-access-nonretirement-2026-10-28"
       ]
     },
     {
@@ -2863,15 +2889,26 @@
         "src/user/cpu/tests/aarch64_reservations.rs",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/qualification-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/qualification-v2.json",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/next-fp-access-retirement-final-v2/result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/next-fp-access-retirement-final-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/parent-control-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/scope-and-primary-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/targeted-final-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/qualification-broad-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/current-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/consumers-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/portability-final-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/next-fpcr-current-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/next-fpcr-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/unrelated-darwin-transport-v1/result.json",
+        "docs/development/fp-access-retirement.md"
       ],
       "remaining_validation": [
         "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
         "Native entry remains unbounded;physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
         "Additional ARM startup/control profiles and RISC-V SBI startup/controller topology remain required; software AArch64 PSCI/shared-platform execution is locally validated.",
         "Complete backend/private/in-flight/platform state,writer quiescence and transactional late-failure restoration remain required.",
-        "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required.",
-        "A64 FP access traps currently enter EC7 while reporting one retired instruction; budget/clock semantics require correction (qualified-artifact witness retained)."
+        "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2879,7 +2916,8 @@
         "aarch64-shared-platform-psci-smp",
         "aarch64-tracked-reservation-coherence-2026-10-28",
         "aarch64-user-physical-reservations-2026-10-28",
-        "tracked-ram-first-domain-publication-2026-10-28"
+        "tracked-ram-first-domain-publication-2026-10-28",
+        "aarch64-fp-access-nonretirement-2026-10-28"
       ]
     },
     {
@@ -192435,6 +192473,163 @@
         "Public C API icount restarts at zero after context restore; private backend count is preserved. The two fixture assertions were corrected to that existing documented contract.",
         "Two library tests and five doctests remain ignored; no execution credit is assigned to ignored tests."
       ]
+    },
+    {
+      "id": "aarch64-fp-access-nonretirement-2026-10-28",
+      "status": "locally_validated",
+      "scope": "A64 FP data/memory access denial returns a synchronous fault before retirement. Full system entry preserves the fault state and returns a zero-delta scheduler transition; direct/diagnostic/user stepping expose the fault. All full findings remain partial.",
+      "parent": "93be82fb24e3b0d8b4f668d7c85c7b4a05bf7d7d",
+      "owned_paths": [
+        "capi/src/tests.rs",
+        "capi/src/tests/fp_access.rs",
+        "docs/development/arm-fhm/README.md",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/fp-access-retirement.md",
+        "docs/development/fp-access-retirement/guest.ld",
+        "docs/development/fp-access-retirement/guest.s",
+        "src/backend/emulator/aarch64_step.rs",
+        "src/backend/emulator/aarch64_step/fp_access_tests.rs",
+        "src/backend/emulator/aarch64_user_tests.rs",
+        "src/backend/emulator/aarch64_user_tests/fp_access.rs",
+        "src/isa/arm/aarch64/cpu/fp_access_tests.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/tests.rs",
+        "src/isa/arm/aarch64/cpu/system_step.rs",
+        "src/isa/arm/aarch64/cpu/system_step_tests.rs",
+        "src/isa/arm/aarch64/cpu/tests/jit_permissions.rs"
+      ],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/parent-control-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/scope-and-primary-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/targeted-final-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/qualification-broad-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/current-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/consumers-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/portability-final-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/next-fpcr-current-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/next-fpcr-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/unrelated-darwin-transport-v1/result.json"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/source-freeze-final-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/qualification-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/commit-receipt.json",
+      "validation_summary": {
+        "library": {
+          "passed": 11192,
+          "failed": 1,
+          "ignored": 2,
+          "binaries": 1
+        },
+        "owning": {
+          "passed": 47706,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 23
+        },
+        "capi": {
+          "passed": 213,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "doc": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "binaries": 1
+        },
+        "portable": {
+          "portable-fp-access-rosetta-v1": {
+            "passed": 12,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-fhm-rosetta-v1": {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-a64-context-rosetta-v1": {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-a32-fp-rosetta-v1": {
+            "passed": 453,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-fp-access-capi-rosetta-v1": {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          }
+        },
+        "consumers": 18,
+        "strict_abi_objects": 6,
+        "qemu_data_memory_cases": 144,
+        "current_cli_data_memory_cases": 72,
+        "remaining_fpcr_qemu_cases": 64,
+        "remaining_fpcr_cli_disagreements": 20
+      },
+      "assumption_register": [
+        {
+          "id": "FR1",
+          "assumption": "Access denial completes no instruction.",
+          "basis": "Arm ASL CheckFPAdvSIMDEnabled and AdvSIMDFPAccessTrap take the exception at ThisInstrAddr before data effects.",
+          "dependent_result": "No retired unit; retry keeps the fault PC.",
+          "stress_test": "Nine data/memory forms, EL0/EL1, all FPEN settings, unmapped operands, maximum counters and independent guest-state oracle.",
+          "falsification_probe": "Any denied architectural data effect or retirement.",
+          "status": "confirmed within tested modeled instruction boundaries"
+        },
+        {
+          "id": "FR2",
+          "assumption": "Checkpoint capture is between execution calls.",
+          "basis": "Existing stopped CPU ownership; no additional in-flight state introduced.",
+          "dependent_result": "Existing wire record is sufficient at the tested exception boundary.",
+          "stress_test": "Capture before/after delivery, restore and execute the handler once.",
+          "falsification_probe": "Lost or duplicate delivery or extra handler retirement.",
+          "status": "confirmed within tested modeled instruction boundaries"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "remaining": "FPCR/FPSR guest system-register access checks, complete CPTR/security/virtualization routing and A64 half admission beyond FHM remain open.",
+          "evidence": [
+            "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/next-fpcr-current-v1.json"
+          ]
+        },
+        {
+          "impact": "high",
+          "remaining": "Complete C-STATE/C-SMP/C-HVF native/inflight/platform/publication/debug/clock/replay requirements and physical Intel Mac HVF proof remain open."
+        },
+        {
+          "impact": "medium",
+          "remaining": "The existing generic timer advances per attempt, separately from the caller-owned retired-instruction clock; this component does not define a physical elapsed-time model."
+        },
+        {
+          "impact": "high",
+          "remaining": "Unchanged Darwin ptrace transport loses forwarded connection data under parallel tests; exact root cause remains unknown. Outside these four audit findings; module left unchanged.",
+          "evidence": [
+            "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/unrelated-darwin-transport-v1/result.json"
+          ]
+        }
+      ],
+      "harness_notes": [
+        "First test compilation failed on two child-module paths; the explicit paths were corrected before successful final qualification.",
+        "The new C API test was corrected to the existing successful user-exception stop contract and ExitInfo::none constructor. No production changes were made for those fixture corrections.",
+        "Direct and diagnostic FP faults now follow the documented direct-stepping error contract; callers requiring vectoring select full system stepping. Public enums, ABI declarations and checkpoint layouts are unchanged.",
+        "QEMU proves guest fault/state expectations, not physical runtime or RAX retirement counters. Actual RAX adapter and 72 CLI executions supply the implementation evidence.",
+        "Two existing library tests and five doctests remain ignored; no execution credit is assigned to ignored tests.",
+        "Full library failure is retained, not retried into a passing gate. Only unchanged Darwin transport test failures with standalone parent reproductions are reconciled; any changed-plane failure rejects this qualification."
+      ],
+      "validation_scope": "Affected FP retirement, checkpoint, native-permission, API and portability checks passed. The full library gate remains failed in unchanged Darwin transport code, independently reproduced in the parent module."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

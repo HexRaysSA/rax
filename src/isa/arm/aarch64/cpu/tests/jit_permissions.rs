@@ -72,6 +72,7 @@ fn cached_fp_regions_observe_every_fpen_transition_at_el0_and_el1() {
                 assert!(matches!(cpu.step_system().unwrap(), CpuExit::Continue));
                 assert_eq!(cpu.sysregs.el1.elr, VECTOR_PC);
                 assert_eq!((cpu.sysregs.el1.esr >> 26) & 0x3f, 0x07);
+                assert_eq!(cpu.instruction_count(), 1);
                 assert_eq!(cpu.get_x(0), 2);
                 assert_eq!(cpu.get_simd(0), initial_vector);
             }

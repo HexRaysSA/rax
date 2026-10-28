@@ -4,6 +4,8 @@
 
 #![allow(clippy::missing_safety_doc)]
 
+mod fp_access;
+
 use std::os::raw::c_void;
 use std::ptr;
 use std::sync::atomic::{AtomicU64, Ordering};

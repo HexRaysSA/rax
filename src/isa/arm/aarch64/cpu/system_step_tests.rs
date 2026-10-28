@@ -1,6 +1,9 @@
 //! Prove one interpreted step bypasses a runnable cache without disabling it.
 use super::*;
 use crate::isa::arm::common::memory::FlatMemory;
+
+#[path = "fp_access_tests.rs"]
+mod fp_access;
 #[test]
 fn interpreted_step_preserves_cached_region_and_unbounded_native_execution() {
     const ENTRY: u64 = 0x1000;

@@ -1,5 +1,8 @@
 //! User-mode (EL0) execution of [`Aarch64Vcpu::new_user`].
 
+#[path = "aarch64_user_tests/fp_access.rs"]
+mod fp_access;
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
