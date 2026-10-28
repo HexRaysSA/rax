@@ -272,7 +272,11 @@ fn installed_cli_preserves_the_executable_backing_filename() {
         );
         for provider in ["auto", "native"] {
             let mut command = cli();
-            command.args(["--windows-libraries", provider]).arg(&path);
+            // Bound this filename fixture's commit charge while the separate
+            // installed-library oracle continues exercising the CLI default.
+            command
+                .args(["--windows-libraries", provider, "--memory", "256M"])
+                .arg(&path);
             let actual = run(command);
             assert_eq!(
                 actual.status.code(),

@@ -212,3 +212,10 @@ Linux passes its 8 CLI and 191 C API tests. The existing Windows profile jobs
 qualify installed native AMD64 leaves, the whole original hardware-fault fixture,
 CLI behavior and 906 fresh native observations against this implementation.
 Those CI results are separate from the retained-corpus and ARM64 runtime gates.
+
+The executable-filename CLI fixture uses an explicit 256 MiB arena. The separate
+installed-library CLI oracle retains the 16 GiB default. Windows installs the
+arena's private extents with `MEM_COMMIT`; two simultaneous default-size
+oracles request 32 GiB of host commitment and can exhaust a CI runner's limit.
+The bounded filename fixture preserves every exit/status/byte assertion and
+its 60 s timeout; the original hardware-fault fixture is unchanged.
