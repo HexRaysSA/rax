@@ -45,7 +45,15 @@ not implement exclusive transactions and raise an unsupported-atomic fault
 before accessing device state or backing RAM. A user embedder's explicit RAM
 mappings remain usable at those numeric addresses.
 
-Lock order is domain then local slot. Translation callbacks, device handlers,
+The tracked writer preflights the complete range even when no reservation
+domain exists or the previous domain has expired. Every writer retains a
+per-backing domain through its checked copy, including before the first PE
+exists. A PE registering during that copy joins the same live domain and
+waits for its RAM lock. The registry is released before the copy begins;
+RAM copies for unrelated backings do not hold the process-wide registry.
+
+Lock order is domain then local slot; the registry is released before either
+lock is acquired. Translation callbacks, device handlers,
 and memory-recording callbacks run outside the domain lock. Only checked
 mmap reads/writes execute inside it. A poisoned host lock conservatively clears
 exclusive rights before use; it cannot manufacture a successful conditional
@@ -73,7 +81,11 @@ stores, simultaneous outstanding reservations, granule edges, paired widths,
 alignment faults, endian element order, mixed AArch32 execution and exclusive
 device-window rejection. Internal unit tests cover cloned/distinct backings,
 failed crossing writes, two host threads contending for one exclusive store,
-and the actual VMM DMA adapter. C ABI tests exercise `rax_mem_write` between
+and the actual VMM DMA adapter. Additional controls cover failed first writes
+without a monitor, failed writes after the last domain expires, and a successful
+first write across adjacent regions followed by PE registration. Both failing
+first-write controls changed the accessible RAM prefix on the parent revision;
+they now return the error without that mutation. C ABI tests exercise `rax_mem_write` between
 `LDXR` and `STXR`. Real user-CPU tests cover identical/ABA peer stores,
 tracked address-space writes, competing conditional stores, granule edges,
 distinct spaces at equal virtual addresses, and read-only store rejection.
@@ -134,3 +146,23 @@ change; the user-adapter source remained unchanged throughout qualification.
 Exact commands, source hashes and artifact identities are in the user-adapter
 qualification receipt. No complete private checkpoint or native-HVF result
 is inferred from these checks.
+
+The first-write publication change preserves O(R log(D + 2)) registry lookup
+and uses O(R) temporary identity space. Creating a domain additionally prunes
+O(D) registry entries; existing-domain lookup skips that scan. The O(B) checked
+copy and range preflight hold only the backing's domain lock, for B payload
+bytes. The original registry-held-copy implementation passed its tests but
+was superseded to avoid blocking unrelated backings during the copy. No
+throughput claim is made. The retained first-domain interleaving is a source-level argument,
+while prefix corruption and its correction were observed in executable tests.
+Whole-VM capture/restore still requires a coordinated transaction across CPU
+private state, RAM, controllers, devices, mappings and pending operations.
+
+The final per-backing writer implementation passed seven reservation tests
+(the parent had five passes and two failures), 10799 library tests, 187
+checkpoint tests across 12 targets, 26 cluster tests, 208 C API tests, the
+seven reservation tests under Rosetta, 18 C/C++ consumers, six strict ABI
+objects, formatting, workspace Clippy and the all-target build. Two existing
+library tests remained ignored. The unchanged public-helper control now
+retains the original RAM byte after its range error. Exact producer hashes
+and the superseded global-copy-lock checks are retained separately.

@@ -2337,7 +2337,8 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/next-cross-pe-reservation-final-v4/result.json",
         "src/user/cpu/aarch64.rs",
         "src/user/cpu/tests/aarch64_reservations.rs",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/qualification-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/qualification-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/qualification-v2.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2356,7 +2357,8 @@
         "software-x86-private-context-and-immutable-resources",
         "aarch64-shared-platform-psci-smp",
         "aarch64-tracked-reservation-coherence-2026-10-28",
-        "aarch64-user-physical-reservations-2026-10-28"
+        "aarch64-user-physical-reservations-2026-10-28",
+        "tracked-ram-first-domain-publication-2026-10-28"
       ]
     },
     {
@@ -2824,7 +2826,8 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/next-cross-pe-reservation-final-v4/result.json",
         "src/user/cpu/aarch64.rs",
         "src/user/cpu/tests/aarch64_reservations.rs",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/qualification-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/qualification-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/qualification-v2.json"
       ],
       "remaining_validation": [
         "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
@@ -2838,7 +2841,8 @@
         "software-vmm-coordinator-startup-fault-retirement",
         "aarch64-shared-platform-psci-smp",
         "aarch64-tracked-reservation-coherence-2026-10-28",
-        "aarch64-user-physical-reservations-2026-10-28"
+        "aarch64-user-physical-reservations-2026-10-28",
+        "tracked-ram-first-domain-publication-2026-10-28"
       ]
     },
     {
@@ -191856,6 +191860,75 @@
         "C-HVF"
       ],
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/commit-receipt.json"
+    },
+    {
+      "id": "tracked-ram-first-domain-publication-2026-10-28",
+      "status": "locally_validated",
+      "scope": "Preflight every tracked RAM write, including no/expired domain; retain a per-backing domain through publication so new PEs join its RAM lock. Registry pruning is confined to creation.",
+      "owned_paths": [
+        "src/vm/memory/reservations.rs",
+        "docs/development/aarch64-reservations.md",
+        "docs/development/audit-remediation-2026-10.json"
+      ],
+      "parent_evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/parent.json",
+      "parent_unit_evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/parent-red-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/qualification-v2.json",
+      "validation_summary": {
+        "library_passed": 10799,
+        "library_ignored": 2,
+        "checkpoint_passed": 187,
+        "checkpoint_binaries": 12,
+        "cluster_passed": 26,
+        "c_api_passed": 208,
+        "rosetta_reservation_passed": 7,
+        "c_cpp_consumers": 18,
+        "strict_abi_objects": 6
+      },
+      "assumption_register": [
+        {
+          "id": "W1",
+          "assumption": "GuestMemoryMmap topology/protection remains stable during a checked write.",
+          "basis": "Existing mmap-writer coordination contract; callbacks execute before entry.",
+          "dependent_result": "Successful whole-range preflight makes the checked copy infallible absent external mapping changes.",
+          "stress_test": "Gaps, expired/no domain, adjacent physical regions, existing monitor invalidation.",
+          "falsification_probe": "Uncoordinated mapping/protection replacement during validation/copy can invalidate this premise.",
+          "status": "retained external-writer boundary; full writer coordination remains part of C-STATE"
+        },
+        {
+          "id": "W2",
+          "assumption": "A tracked writer retains the backing domain until its copy completes, and concurrent PE registration selects that live domain.",
+          "basis": "MemoryDomain::for_memory registry identity/Arc ownership; registry released before domain entry.",
+          "dependent_result": "First-domain publication cannot split a tracked write from a newly registered monitor.",
+          "stress_test": "No/expired-domain failures, adjacent-region first write followed by registration, cloned backings and concurrent conditional stores.",
+          "falsification_probe": "A writer releases its last domain reference before copy completion or a concurrent clone selects another live domain.",
+          "status": "confirmed by source ownership; original creation race remains source-derived rather than an instrumented native repro"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "remaining": "Complete private CPU/adapter state, device/controller state and whole-VM writer transactions are still required."
+        },
+        {
+          "impact": "medium",
+          "remaining": "Domain creation prunes expired registry entries in O(D); existing-domain writes retain the O(R log(D+2)) lookup. No throughput claim."
+        }
+      ],
+      "remaining_validation": [
+        "Two existing library tests ignored.",
+        "Windows native-runtime and physical Intel HVF validation were not run.",
+        "V1 gates passed but its registry-held RAM copy was superseded; final qualification uses V2 source hashes.",
+        "The original first-domain stale-rights race is a source-derived interleaving. Prefix corruption was independently reproduced through the public helper.",
+        "Complete private state, coordinated capture/restore, all platform devices and native/backend publication remain open.",
+        "External raw alias/mapping changes still require caller coordination."
+      ],
+      "remaining_full_findings": [
+        "A32-FP",
+        "C-STATE",
+        "C-SMP",
+        "C-HVF"
+      ],
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/commit-receipt.json"
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -82,11 +82,13 @@ impl MemoryDomain {
         let mut registry = registry()
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        registry.retain(|_, value| value.strong_count() != 0);
         let key = identity(memory);
         if let Some(domain) = registry.get(&key).and_then(Weak::upgrade) {
             return domain;
         }
+        // Prune expired identities only on creation. Existing-domain writers
+        // must not scan every registry entry on their hot path.
+        registry.retain(|_, value| value.strong_count() != 0);
         let domain = Arc::new(Self {
             state: Mutex::new(State::default()),
             _backing: memory.clone(),
@@ -156,16 +158,10 @@ pub(crate) fn write(
     address: u64,
     bytes: &[u8],
 ) -> Result<(), GuestMemoryError> {
-    let domain = {
-        let registry = registry()
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        registry.get(&identity(memory)).and_then(Weak::upgrade)
-    };
-    match domain {
-        Some(domain) => domain.write(memory, address, bytes),
-        None => memory.write_slice(bytes, GuestAddress(address)),
-    }
+    // Retain a domain even before the first PE exists. Any PE registering
+    // during this copy joins the same live domain and waits for its RAM lock.
+    // The registry is released before the checked copy starts.
+    MemoryDomain::for_memory(memory).write(memory, address, bytes)
 }
 
 fn preflight_write(
@@ -313,6 +309,43 @@ mod tests {
         monitor.read_exclusive(&memory, 128, 8).unwrap();
         write(&memory, 191, &[0]).unwrap();
         assert!(!monitor.write_exclusive(&memory, 128, &[2; 8]).unwrap());
+    }
+
+    fn rejected_first_write(expired_domain: bool) {
+        let memory = memory();
+        if expired_domain {
+            drop(MemoryDomain::for_memory(&memory));
+        }
+        memory.write_slice(&[0x7b], GuestAddress(4095)).unwrap();
+        assert!(write(&memory, 4095, &[1, 2]).is_err());
+        let mut byte = [0];
+        memory.read_slice(&mut byte, GuestAddress(4095)).unwrap();
+        assert_eq!(byte, [0x7b], "failed first writer published a RAM prefix");
+    }
+
+    #[test]
+    fn a_first_writer_without_any_monitor_preserves_ram_on_range_failure() {
+        rejected_first_write(false);
+    }
+
+    #[test]
+    fn a_first_writer_after_the_last_domain_drops_preserves_ram_on_failure() {
+        rejected_first_write(true);
+    }
+
+    #[test]
+    fn the_first_writer_spans_adjacent_regions_before_a_pe_registers() {
+        let memory =
+            GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 4096), (GuestAddress(4096), 4096)])
+                .unwrap();
+        write(&memory, 4094, &[1, 2, 3, 4]).unwrap();
+        let monitor = MemoryDomain::for_memory(&memory).register();
+        assert_eq!(monitor.read_exclusive(&memory, 4096, 2).unwrap(), [3, 4]);
+        write(&memory.clone(), 4096, &[3, 4]).unwrap();
+        assert!(!monitor.write_exclusive(&memory, 4096, &[9, 9]).unwrap());
+        let mut bytes = [0; 4];
+        memory.read_slice(&mut bytes, GuestAddress(4094)).unwrap();
+        assert_eq!(bytes, [1, 2, 3, 4]);
     }
 
     #[test]
