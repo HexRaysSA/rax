@@ -1,0 +1,17 @@
+{
+  "source_url": "https://kolegite.com/EE_library/datasheets_and_manuals/CPU/arm_cortex_r82_processor_trm_102670_0101_02_en.pdf",
+  "canonical_title": "Arm Cortex-R82 Processor Technical Reference Manual",
+  "revision": "102670_0101_02_en",
+  "original_sha256": "85a3cf3d05c91e2b67dceed93c40639f096a7e6ec5426fa4d1f1abf8a9da02c4",
+  "original_bytes": 14809155,
+  "section": "Appendix C.1 SBZ or SBO fields in instructions",
+  "status": "Verified source excerpt archived in the repository; exact source page retained.",
+  "excerpt_page": 2017,
+  "excerpt_pages": 1,
+  "original_total_pages": 2039,
+  "excerpt_sha256": "003405f242aa9d21d4e29f83971b63a72659cc14d0d9df57dc54c82f6b9f408d",
+  "scope": "Generic A-profile architecture specification in Appendix C.1; the R82-specific implementation is not claimed as a RAX CPU identity.",
+  "notices": "Source-page copyright and Non-Confidential notice retained. No redistribution grant is inferred.",
+  "retrieved_utc": "2026-10-28T07:08:34.644557+00:00",
+  "issuing_organization": "Arm Limited"
+}
