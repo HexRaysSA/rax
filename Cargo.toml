@@ -558,3 +558,7 @@ path = "tests/suites/backend/a32_fp_pairs.rs"
 [[test]]
 name = "x86_fault_retirement"
 path = "tests/suites/backend/x86_fault_retirement.rs"
+
+[[test]]
+name = "hvf_arm64_mmio"
+path = "tests/suites/backend/hvf_arm64_mmio.rs"

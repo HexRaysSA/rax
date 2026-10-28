@@ -273,18 +273,7 @@ impl Drop for HvfArm64Vm {
     }
 }
 
-/// In-flight MMIO read: where to put the bus data once the VMM hands it back
-/// via `complete_io_in`.
-struct PendingMmioRead {
-    /// Destination register (31 = XZR/WZR, discard).
-    rt: u32,
-    /// Sign-extend the loaded value (LDRS*).
-    sign_extend: bool,
-    /// Destination is a 64-bit register (Xt) rather than 32-bit (Wt).
-    sixty_four: bool,
-    /// Access size in bytes.
-    size: u8,
-}
+use super::arm64_mmio::PendingMmioRead;
 
 /// ARM64 HVF vCPU.
 pub struct HvfArm64Vcpu {
@@ -298,6 +287,8 @@ pub struct HvfArm64Vcpu {
     mem: Arc<GuestMemoryMmap>,
     /// MMIO read awaiting completion by the VMM.
     pending_mmio_read: Option<PendingMmioRead>,
+    /// Report a failed completion write before another hardware entry.
+    io_completion_error: Option<Error>,
     /// Stops the periodic kick thread on drop.
     kick_stop: Arc<std::sync::atomic::AtomicBool>,
     /// Kick thread handle.
@@ -372,6 +363,7 @@ impl HvfArm64Vcpu {
             id,
             mem,
             pending_mmio_read: None,
+            io_completion_error: None,
             kick_stop,
             kick_thread,
         })
@@ -504,6 +496,7 @@ impl HvfArm64Vcpu {
             })
         } else {
             self.pending_mmio_read = Some(PendingMmioRead {
+                addr,
                 rt,
                 sign_extend: exc.sign_extend(),
                 sixty_four: (iss >> 15) & 1 != 0,
@@ -582,6 +575,15 @@ impl HvfArm64Vcpu {
 
 impl VCpu for HvfArm64Vcpu {
     fn run(&mut self) -> Result<VcpuExit> {
+        if let Some(error) = self.io_completion_error.take() {
+            return Err(error);
+        }
+        if let Some(pending) = self.pending_mmio_read {
+            return Ok(VcpuExit::MmioRead {
+                addr: pending.addr,
+                size: pending.size,
+            });
+        }
         loop {
             let ret = unsafe { hv_vcpu_run(self.vcpu) };
             if ret != HV_SUCCESS {
@@ -693,36 +695,28 @@ impl VCpu for HvfArm64Vcpu {
     }
 
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
-        self.restore_native_state(state)
+        self.restore_native_state(state)?;
+        // Successful external state replacement cancels the old transaction.
+        // Failed replacement leaves the staged transaction pending.
+        self.pending_mmio_read = None;
+        self.io_completion_error = None;
+        Ok(())
     }
 
     fn complete_io_in(&mut self, data: &[u8]) {
-        // Completion of an MMIO read surfaced from a data abort: place the
-        // bus data in the destination register of the trapped load.
-        let Some(pending) = self.pending_mmio_read.take() else {
+        let Some(pending) = self.pending_mmio_read else {
             return;
         };
-        let mut raw = [0u8; 8];
-        let n = data.len().min(pending.size as usize).min(8);
-        raw[..n].copy_from_slice(&data[..n]);
-        let mut value = u64::from_le_bytes(raw);
-
-        if pending.sign_extend {
-            let bits = (n * 8) as u32;
-            if bits < 64 {
-                let shift = 64 - bits;
-                value = (((value << shift) as i64) >> shift) as u64;
+        match pending.complete(data, |rt, value| self.write_gpr(rt, value)) {
+            Ok(false) => return,
+            Err(error) => {
+                self.io_completion_error = Some(error);
+                return;
             }
-            if !pending.sixty_four {
-                value &= 0xFFFF_FFFF;
-            }
-        } else if !pending.sixty_four {
-            value &= 0xFFFF_FFFF;
+            Ok(true) => {}
         }
-
-        if pending.rt < 31 {
-            let _ = self.write_gpr(pending.rt, value);
-        }
+        self.pending_mmio_read = None;
+        self.io_completion_error = None;
     }
 
     fn inject_interrupt(&mut self, _vector: u8) -> Result<bool> {

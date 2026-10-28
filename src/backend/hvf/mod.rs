@@ -9,6 +9,7 @@
 //! Apple's Hypervisor.framework only supports guests matching the host architecture.
 //! For x86_64 emulation on Apple Silicon, use the emulator backend.
 
+mod arm64_mmio;
 mod bindings;
 #[cfg(target_arch = "x86_64")]
 mod controls;

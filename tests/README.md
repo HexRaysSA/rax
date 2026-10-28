@@ -123,6 +123,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `aarch64_step_jit` | `suites/backend/aarch64_step_jit.rs` | Exact cold, hot and cached instruction boundaries |
 | `counter_ticks` | `suites/vm/counter_ticks.rs` | Exact platform-frequency scaling with fractional clock phase |
 | `hvf_arm64_state` | `suites/backend/hvf_arm64_state.rs` | Native ARM canonical-SP projection and bank preservation |
+| `hvf_arm64_mmio` | `suites/backend/hvf_arm64_mmio.rs` | Complete ARM64 scalar MMIO replies, destination publication, and short/failed completion handling. |
 | `riscv_hartid` | `suites/backend/riscv_hartid.rs` | Configured hardware-thread identity and readonly CSR persistence |
 | `aarch64_affinity` | `suites/backend/aarch64_affinity.rs` | Configured PE affinity and readonly identity persistence |
 | `a32_fp_controls` | `suites/backend/a32_fp_controls.rs` | A32/T32 FP controls, trap priority, CP15 clamps, mixed-width ownership and precise exception boundaries |

@@ -3350,7 +3350,12 @@
         "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk-parity/manifest.json",
         "docs/development/execution-coordinator.md",
         "/Users/int/dev/rax-audit-work/four-findings-coordinator/broad-result.json",
-        "/Users/int/dev/rax-audit-work/four-findings-coordinator/ci-actions-pinned-result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/ci-actions-pinned-result.json",
+        "src/backend/hvf/arm64_mmio.rs",
+        "tests/suites/backend/hvf_arm64_mmio.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/parent-current/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/validation-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/validation-v1/native-arm/manifest.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -3367,7 +3372,8 @@
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
-        "software-vmm-coordinator-startup-fault-retirement"
+        "software-vmm-coordinator-startup-fault-retirement",
+        "native-arm64-hvf-pending-mmio-transaction"
       ]
     },
     {
@@ -191164,6 +191170,62 @@
         "native_intel_kvm_creation_only_passed": 2,
         "source_reuse_scope": "Completed checks reused only across documented unit-test-only host cfg changes; product sources were byte-identical. See validation-v5/v6 reuse receipts.",
         "scope": "Executed tests establish represented software-x86 context/media and exact dynamic native-retirement behavior. Doctests provide no executed coverage when ignored. Actual Intel Linux tests qualify software JIT/context/ABI behavior; the KVM fixture qualifies creation only. Native Intel Mac HVF, RAX KVM guest execution and native AVX512 VSIB remain unverified."
+      }
+    },
+    {
+      "id": "native-arm64-hvf-pending-mmio-transaction",
+      "finding": "C-HVF",
+      "status": "locally_validated",
+      "base": "b9cbd8dce129067e98b97907cb9ac423c2ea7cf8",
+      "scope": "ARM64 HVF scalar MMIO completion retains incomplete/failed transactions, repeats pending exits before hardware entry, cancels stale input after successful state replacement. All four broad findings remain open.",
+      "owned_paths": "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/owned-paths.json",
+      "parent_evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/parent-current/result.json"
+      ],
+      "assumption_register": [
+        {
+          "id": "M1",
+          "assumption": "A scalar load needs the complete transfer width before destination publication.",
+          "basis": "Arm guide sections9/17, actual predecessor failure and corrected native rows.",
+          "dependent_result": "Incomplete replies preserve destination and pending request.",
+          "stress_test": "Nine load forms, all short lengths, zero/sign boundaries and W/X/ZR destinations.",
+          "falsification_probe": "A changed destination or executed native marker before full completion.",
+          "status": "confirmed for represented little-endian scalar profile"
+        },
+        {
+          "id": "M2",
+          "assumption": "Successful external state replacement cancels the previous pending read.",
+          "basis": "Public VCpu replacement contract and actual native replacement/late-reply observations.",
+          "dependent_result": "Late replies cannot overwrite replacement context.",
+          "stress_test": "Invalid mode admission followed by successful replacement and stale reply.",
+          "falsification_probe": "A lost request after rejection or changed replacement X0 after stale reply.",
+          "status": "confirmed for mode admission/success; partial SDK restoration failure remains unknown"
+        },
+        {
+          "id": "M3",
+          "assumption": "A failed destination writer does not accept a complete reply.",
+          "basis": "Production helper with injected writer error and retry; source retains pending/error before native entry.",
+          "dependent_result": "Completion error is reported without losing the pending read.",
+          "stress_test": "Full signed reply rejects then retries successfully.",
+          "falsification_probe": "Completion helper returns success on writer Err, or run enters hardware before its saved error/pending checks.",
+          "status": "confirmed for helper and source ordering; actual SDK failure injection unknown"
+        }
+      ],
+      "remaining_validation": [
+        "Actual SDK register-write failure injection and partial state-restoration SDK failures.",
+        "Big-endian and additional instruction profiles, whole-VM private state, scheduler/IRQ coherence and physical Intel Mac HVF runtime."
+      ],
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/validation-v1/result.json",
+      "native_evidence": "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/validation-v1/native-arm/manifest.json",
+      "integer_evidence": "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/validation-v1/integer-oracle/manifest.json",
+      "final_validation_summary": {
+        "qualified_gates": 9,
+        "portable_cases_per_host": 7,
+        "integer_observations": 516,
+        "native_load_cases": 108,
+        "native_observations": 761,
+        "incomplete_replies": 216,
+        "scope": "Actual Apple Silicon HVF scalar MMIO transaction lifecycle; Rosetta is translated policy execution, not physical Intel HVF runtime."
       }
     }
   ],
