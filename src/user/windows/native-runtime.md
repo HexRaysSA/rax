@@ -3070,12 +3070,31 @@ native AMD64/WoW64 CI collection. Dedicated installed-leaf tests verify native
 and x86 service entry, caller state, guards, handle identity and RET16 cleanup;
 repeated native capture checks handle-count conservation.
 
-The unchanged installed ARM64 CMD passes its prior NtOpenThread frontier and
+The `f3fc7b6a` baseline's unchanged installed ARM64 CMD passes its NtOpenThread frontier and
 stops at `NtSetInformationVirtualMemory` (`0x1B0` on build29695), exiting125
 before stdout. Native CMD emits the requested marker and exits0. Full
 Linux/macOS/Windows installed-library process support, Windows child-process
 namespaces, custom thread security and subsequent kernel services remain
 unfinished requirements.
+
+`NtSetInformationVirtualMemory` class0 now validates guest ranges and process
+operation rights, with separate native64/WoW64 capture order. Flag1 performs
+best-effort guest working-set population without changing commitment or target
+guards/protections; flag0 does not insert pages into the guest working set.
+The [native prefetch record](../../../docs/specifications/windows/native-memory-prefetch/README.md)
+binds the immutable native producer,1026 retained build29695 observations,
+822 selected class0/invalid-class replay cases, LastError8 on WoW64 conversion
+allocation failure, and six-argument installed-leaf/RET24 verification. The204
+exploratory observations for other declared information classes remain explicit
+frontiers. No guest request reaches a host kernel memory-prefetch operation.
+
+The subsequent installed ARM64 CMD comparison passes class0 prefetch and reaches
+`NtOpenKey: registry key outside selected runtime snapshot`. Emulation exits125
+before stdout; native CMD emits the marker and exits0. CMD's source hash is
+unchanged. Local selected replay, working-set/ordinal, CLI, C API and all-target
+checks pass on macOS, Linux and Windows; the prefetch record separates those
+results from pending independent AMD64-kernel qualification and full application
+compatibility.
 
 
 The opening-grant consumer audit also fixes built-in `ResumeThread` to accept

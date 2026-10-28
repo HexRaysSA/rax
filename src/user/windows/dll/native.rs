@@ -16,6 +16,7 @@ mod file_open;
 mod file_write;
 mod hotpatch;
 mod io_completion;
+mod memory_prefetch;
 mod mutant;
 mod named_object;
 mod nls;
@@ -483,6 +484,14 @@ pub(super) static THREAD_OPEN_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[Ptr, I32, Ptr, Ptr],
     thread_open::open,
+)];
+
+// Append a family rather than moving existing synthetic ordinals/trap slots.
+pub(super) static MEMORY_PREFETCH_EXPORTS: &[Export] = &[Export::func(
+    "NtSetInformationVirtualMemory",
+    Stdcall,
+    &[Ptr, I32, Ptr, Ptr, Ptr, I32],
+    memory_prefetch::set,
 )];
 
 fn self_process(c: &Ctx, handle: u64) -> bool {

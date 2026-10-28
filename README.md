@@ -19,6 +19,9 @@ implemented kernel services.
 The native Windows kernel model supports
 [opening retained guest thread objects](docs/specifications/windows/native-open-thread/README.md)
 with captured access grants and separate native64/WoW64 caller-buffer handling.
+It also implements [native memory prefetch](docs/specifications/windows/native-memory-prefetch/README.md)
+with guest working-set population, preserved target guards, and measured
+native64/WoW64 buffer validation.
 
 Windows PE programs select an additional [Windows personality](docs/architecture/user-mode/windows.md)
 for x86, x64, and ARM64 guests on Unix hosts. The current surface covers PE

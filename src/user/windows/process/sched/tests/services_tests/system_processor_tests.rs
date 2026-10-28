@@ -48,16 +48,21 @@ fn native_system_processor_export_appends_without_moving_prior_ordinals() {
     let current = dll::find("ntdll.dll").unwrap();
     for (tail, name, x86_only) in [
         (
-            current.exports.len() - 3,
+            current.exports.len() - 4,
             "NtWow64GetNativeSystemInformation",
             true,
         ),
         (
-            current.exports.len() - 2,
+            current.exports.len() - 3,
             "NtWow64CsrClientConnectToServer",
             true,
         ),
-        (current.exports.len() - 1, "NtOpenThread", false),
+        (current.exports.len() - 2, "NtOpenThread", false),
+        (
+            current.exports.len() - 1,
+            "NtSetInformationVirtualMemory",
+            false,
+        ),
     ] {
         assert_eq!(current.exports[tail].len(), 1);
         assert_eq!(current.exports[tail][0].name, name);

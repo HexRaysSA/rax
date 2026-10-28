@@ -22,6 +22,11 @@ on:
       - docs/specifications/windows/native-file-write/**
       - docs/specifications/windows/native-mapped-filename/**
       - docs/specifications/windows/native-open-thread/**
+      - docs/specifications/windows/native-memory-prefetch/**
+      - src/user/windows/dll/native/memory_prefetch.rs
+      - src/user/windows/memory/prefetch.rs
+      - src/user/windows/process/sched/tests/services_tests/memory_prefetch_tests.rs
+      - src/user/windows/process/sched/tests/services_tests/memory_prefetch_tests/**
       - src/user/windows/dll/native/thread_open.rs
       - src/user/windows/security/thread.rs
       - src/user/windows/security/thread/**
@@ -51,6 +56,11 @@ on:
       - docs/specifications/windows/native-image-extension-amd64/**
       - docs/specifications/windows/native-file-write/**
       - docs/specifications/windows/native-open-thread/**
+      - docs/specifications/windows/native-memory-prefetch/**
+      - src/user/windows/dll/native/memory_prefetch.rs
+      - src/user/windows/memory/prefetch.rs
+      - src/user/windows/process/sched/tests/services_tests/memory_prefetch_tests.rs
+      - src/user/windows/process/sched/tests/services_tests/memory_prefetch_tests/**
       - src/user/windows/dll/native/thread_open.rs
       - src/user/windows/security/thread.rs
       - src/user/windows/security/thread/**
@@ -77,6 +87,18 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Observe native AMD64 and WoW64 memory prefetch
+        run: |
+          New-Item -ItemType Directory -Force (Join-Path $env:GITHUB_WORKSPACE 'target') | Out-Null
+          python -B docs/specifications/windows/native-memory-prefetch/run-v4.py --require-native-machine 0x8664 --output target/native-memory-prefetch-v4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve native memory prefetch observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-memory-prefetch-${{ matrix.os }}
+          path: target/native-memory-prefetch-v4
+          if-no-files-found: error
       - name: Observe native AMD64 and WoW64 thread opening
         run: |
           New-Item -ItemType Directory -Force (Join-Path $env:GITHUB_WORKSPACE 'target') | Out-Null
@@ -319,6 +341,11 @@ jobs:
           $env:RAX_NATIVE_OPEN_THREAD_OBSERVATIONS = Join-Path $env:GITHUB_WORKSPACE 'target/native-open-thread-v6/receipt.json'
           $env:RAX_NATIVE_THREAD_RESUME_OBSERVATIONS = Join-Path $env:GITHUB_WORKSPACE 'target/native-thread-resume-v1/receipt.json'
           cargo test --locked --no-default-features --lib thread_open -- --nocapture --test-threads=1
+      - name: Replay native prefetch controls and execute installed six-argument leaves
+        if: always()
+        run: |
+          $env:RAX_NATIVE_MEMORY_PREFETCH_CORPUS = Join-Path $env:GITHUB_WORKSPACE 'target/native-memory-prefetch-v4/receipt.json'
+          cargo test --locked --no-default-features --lib native_memory_prefetch -- --nocapture --test-threads=1
       - name: Execute image-extension queries through installed native leaves
         if: always()
         run: |
