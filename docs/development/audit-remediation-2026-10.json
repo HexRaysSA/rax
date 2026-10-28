@@ -191955,7 +191955,7 @@
           "dependent_result": "Preserved user checkout and incoming committed history.",
           "stress_test": "Five conflict resolutions plus auto-merge duplicate module removal; exact owned staging and two-parent verification.",
           "falsification_probe": "Any unexplained primary hash change or owned blob mismatch.",
-          "status": "confirmed before merge and at15:47; recheck immediately around commit"
+          "status": "confirmed around actual08995784 merge commit; all837 blobs and both parents verified; primary hashes identical"
         },
         {
           "id": "I2",
@@ -191980,8 +191980,8 @@
         },
         {
           "impact": "medium",
-          "finding": "Installed red appends paths to git commit; Git forbids partial commits during a merge. Exact requested invocation precedes verification and an ordinary authorized merge commit if necessary.",
-          "evidence": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/red-merge-preflight.json"
+          "finding": "Full837-path red calls returned Morph429 and Gemini400. Retrying the16 manually resolved/added paths through Gemini succeeded and installed red committed the entire837-path staged merge with both expected parents. The earlier claim that installed red would append file paths during a merge was an unverified inference from local source and was contradicted by actual execution.",
+          "evidence": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/commit-receipt.json"
         }
       ],
       "remaining_full_findings": [
@@ -192094,6 +192094,8 @@
       "doctests_passed": 0,
       "doctests_ignored": 5,
       "frozen_source_files": 3924
-    }
+    },
+    "actual_merge_commit": "08995784b69b7f7847d27fe5383bf3be8741ae53",
+    "red_execution": "Exact full-path calls rejected by providers;16-path semantic retry committed all837 staged paths and both parents. No manual Git commit."
   }
 }
