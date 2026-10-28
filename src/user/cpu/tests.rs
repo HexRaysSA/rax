@@ -1085,3 +1085,6 @@ fn a64_pauth_thread_clone_inherits_keys_controls_and_precise_faults() {
     assert_eq!(child.core().get_x(0), signed ^ (1 << 48));
     assert_eq!(child.pc(), CODE + 4);
 }
+
+#[path = "tests/aarch64_reservations.rs"]
+mod aarch64_reservations;

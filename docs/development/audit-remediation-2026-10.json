@@ -2328,7 +2328,10 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/qualification-v5.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/guest-final-v4/result.json",
         "/Users/int/dev/rax-audit-work/recovery/aarch64-private-negative-2026-10-28/actual-vmm-current-0517/result.json",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/next-cross-pe-reservation-final-v4/result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/next-cross-pe-reservation-final-v4/result.json",
+        "src/user/cpu/aarch64.rs",
+        "src/user/cpu/tests/aarch64_reservations.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/qualification-v1.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2346,7 +2349,8 @@
         "software-vmm-coordinator-startup-fault-retirement",
         "software-x86-private-context-and-immutable-resources",
         "aarch64-shared-platform-psci-smp",
-        "aarch64-tracked-reservation-coherence-2026-10-28"
+        "aarch64-tracked-reservation-coherence-2026-10-28",
+        "aarch64-user-physical-reservations-2026-10-28"
       ]
     },
     {
@@ -2811,7 +2815,10 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/qualification-v5.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/guest-final-v4/result.json",
         "/Users/int/dev/rax-audit-work/recovery/aarch64-private-negative-2026-10-28/actual-vmm-current-0517/result.json",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/next-cross-pe-reservation-final-v4/result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/next-cross-pe-reservation-final-v4/result.json",
+        "src/user/cpu/aarch64.rs",
+        "src/user/cpu/tests/aarch64_reservations.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/qualification-v1.json"
       ],
       "remaining_validation": [
         "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
@@ -2824,7 +2831,8 @@
         "per-vcpu-lapic-ownership-mmio-transactions",
         "software-vmm-coordinator-startup-fault-retirement",
         "aarch64-shared-platform-psci-smp",
-        "aarch64-tracked-reservation-coherence-2026-10-28"
+        "aarch64-tracked-reservation-coherence-2026-10-28",
+        "aarch64-user-physical-reservations-2026-10-28"
       ]
     },
     {
@@ -191672,6 +191680,91 @@
       },
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/commit-receipt.json",
       "source_review": "Lock order domain then slot; translation/device/recording callbacks remain outside; RAM preflight precedes mutation; mapping/raw-alias boundaries explicit."
+    },
+    {
+      "id": "aarch64-user-physical-reservations-2026-10-28",
+      "status": "locally_validated",
+      "scope": "Bind actual AArch64 user CPU views to physical reservation domains; tracked peer/kernel stores revoke stale rights, permission and retirement boundaries retained.",
+      "owned_paths": [
+        "src/user/cpu/aarch64.rs",
+        "src/user/cpu/tests.rs",
+        "src/user/cpu/tests/aarch64_reservations.rs",
+        "docs/development/aarch64-reservations.md",
+        "docs/development/audit-remediation-2026-10.json"
+      ],
+      "parent_evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/parent-red-v1.json",
+      "parent_summary": {
+        "passed": 2,
+        "failed": 4
+      },
+      "direct_parent": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-memory-negative-v1/result.json",
+      "direct_fixed": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/direct-positive-v1/result.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/qualification-v1.json",
+      "source_boundary": "Library, process, C API and Rosetta tests compiled before the independent A32 admission edits. The three owned user-adapter Rust files stayed identical. The final all-target build includes the pending independent A32 source/test delta in a32-admission-study/implementation-freeze-v3.json; this is explicitly a combined build.",
+      "validation_summary": {
+        "library_passed": 10796,
+        "library_ignored": 2,
+        "user_cpu_passed": 49,
+        "c_api_passed": 208,
+        "darwin_passed": 118,
+        "linux_passed": 43,
+        "linux_ignored": 1,
+        "windows_personality_passed": 544,
+        "windows_native_memory_cases": 0,
+        "rosetta_user_cpu_passed": 49,
+        "rosetta_cluster_passed": 26,
+        "c_cpp_consumers": 18
+      },
+      "assumption_register": [
+        {
+          "id": "U1",
+          "assumption": "AddressSpace clones retain their physical mmap identity.",
+          "dependent_result": "Peer CPUs and tracked kernel/frame writes invalidate the same monitor set.",
+          "stress_test": "Two real CPU views, identical/ABA stores, competing conditional writes, kernel write, separate spaces at equal virtual addresses.",
+          "status": "confirmed within the stated cloned-backing and mapping-coordination boundary",
+          "basis": "AddressSpace clone/physical_memory ownership and real peer/kernel-write regressions.",
+          "falsification_probe": "A tracked peer or address-space store followed by successful stale STXR falsifies the shared-domain result."
+        },
+        {
+          "id": "U2",
+          "assumption": "Naturally aligned exclusive widths 1, 2, 4, 8 and 16 bytes cannot cross a 4096-byte page.",
+          "dependent_result": "One checked user translation describes the complete transaction.",
+          "stress_test": "4096 is divisible by each admitted width; unsupported widths/misalignment reject before translation/RAM.",
+          "status": "confirmed within the stated cloned-backing and mapping-coordination boundary",
+          "basis": "PAGE_SIZE=4096; every admitted width divides 4096; an aligned start is at most 4096 minus the width within its page.",
+          "falsification_probe": "An admitted aligned access spanning two 4096-byte pages, or mutation from unsupported width/misalignment, falsifies the single-translation result."
+        },
+        {
+          "id": "U3",
+          "assumption": "Translation/population callbacks complete before the RAM-domain lock is taken.",
+          "dependent_result": "No recursive domain lock through FrameArena writes during population.",
+          "stress_test": "First-touch loads, permission denial, budget/wait continuation, source lock-order review.",
+          "status": "confirmed within the stated cloned-backing and mapping-coordination boundary",
+          "basis": "exclusive_physical translates before Monitor enters its checked mmap transaction; source lock-order review.",
+          "falsification_probe": "Page-population callback entering the RAM domain while an exclusive transaction already holds it would falsify the lock-order argument."
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "remaining": "A32 configured FP16 admission counterexample and complete private/in-flight checkpoint producer/publication remain open."
+        },
+        {
+          "impact": "high",
+          "remaining": "Physical Intel Mac HVF, native bounded scheduling and remaining MMIO/controller profiles remain unverified."
+        },
+        {
+          "impact": "medium",
+          "remaining": "Independent file aliases and uncoordinated mapping replacement/raw writers remain outside the cloned-backing domain proof."
+        }
+      ],
+      "remaining_full_findings": [
+        "A32-FP",
+        "C-STATE",
+        "C-SMP",
+        "C-HVF"
+      ],
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/commit-receipt.json"
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

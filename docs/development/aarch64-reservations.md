@@ -27,6 +27,12 @@ order in both endiannesses.
 The VMM DMA adapter, debugger memory writes, RAM-wrapper restore writes,
 physical checkpoint writes, C API host writes, C API AArch32 user writes, and
 process frame-arena writes participate through `write_guest_memory`.
+The process-level `UserArmMemory` also registers one physical monitor per CPU
+view. Its exclusive transactions translate the virtual address and check user
+permissions before entering the shared RAM domain. Two threads using cloned
+`AddressSpace` handles therefore cannot retain stale rights across a tracked
+peer or kernel write. Naturally aligned widths of 1, 2, 4, 8 or 16 bytes fit
+within one 4096-byte page, so one translation covers the complete transaction.
 A write is preflighted before RAM or reservation mutation. This prevents a
 failed crossing store from publishing its accessible prefix. Loads and stores
 remain subject to their existing translation and permission checks.
@@ -55,12 +61,10 @@ coordinated publication with RAM, devices and pending operations.
 Raw `GuestMemoryMmap` writes, direct host-pointer writes, independently mapped
 file aliases, external file modifications and mapping replacement do not pass
 through this helper. Their callers must coordinate them with guest execution;
-this domain does not establish all-writer quiescence. The separate
-`user::cpu::aarch64::UserArmMemory` still owns a local monitor; a direct peer
-write through two views of the same `AddressSpace` reproduces stale exclusive
-success and requires its own domain binding. Native code needs its own
-admission/ownership proof. This component does not close C-STATE, C-SMP,
-A32-FP or C-HVF.
+this domain does not establish all-writer quiescence. Independent process
+address spaces remain separate domains even when their virtual addresses match.
+Native code needs its own admission/ownership proof. This component does not
+close C-STATE, C-SMP, A32-FP or C-HVF.
 
 ## Validation and assumptions
 
@@ -70,7 +74,11 @@ alignment faults, endian element order, mixed AArch32 execution and exclusive
 device-window rejection. Internal unit tests cover cloned/distinct backings,
 failed crossing writes, two host threads contending for one exclusive store,
 and the actual VMM DMA adapter. C ABI tests exercise `rax_mem_write` between
-`LDXR` and `STXR`.
+`LDXR` and `STXR`. Real user-CPU tests cover identical/ABA peer stores,
+tracked address-space writes, competing conditional stores, granule edges,
+distinct spaces at equal virtual addresses, and read-only store rejection.
+The retained direct user-memory reproducer succeeds before the domain binding
+and rejects the stale store afterward.
 
 The retained guest from the original failure runs unchanged on QEMU and the
 real RAX CLI. Both must print `1` after the AP completes a store observed by the
@@ -81,6 +89,9 @@ commands, raw output and executable hashes are retained in the audit evidence.
 | --- | --- | --- | --- |
 | R1 | Cloned mmap regions retain backing identity; their PEs select one domain. | Clone handles and compare distinct backings at equal guest addresses; an intervening clone writer allowing `STXR` falsifies it. | Region layout and host mapping identity; independent file aliases remain outside this proof. |
 | R2 | Tracked RAX writers enter the domain. | Identical/ABA, DMA, C ABI, overlap and failed crossing controls; any stale successful conditional store falsifies it. | External raw writers and remapping remain separate requirements. |
+| U1 | User address-space clones retain physical backing identity. | Two CPU views, tracked kernel writes, competing stores, and separate spaces at equal virtual addresses. | Cloned backing only; mapping replacement remains separate. |
+| U2 | An aligned access of at most 16 bytes occupies one 4096-byte page. | Each admitted width divides 4096; reject unsupported widths and misalignment before translation. | One checked translation covers the complete transaction. |
+| U3 | Translation and page population finish before the domain lock. | First-touch and permission controls plus lock-order inspection. | Callbacks remain outside the RAM-domain critical section. |
 | R3 | The configured default reservation granule is 64 bytes. | Writes at offsets 63 and 64 must have distinct effects; compare default CTR ERG. | Arbitrary imported/custom granule profiles require admission proof. |
 
 With R memory regions, D registry entries and P registered PE slots
@@ -111,3 +122,15 @@ ran zero cases on macOS. This establishes no physical Intel HVF or Windows
 native-runtime result. The final CLI reproduced the cross-PE fix, while fresh
 file restore still lost an outstanding reservation at PC 0x40080fa0 before
 STXR at 0x40081140. The qualification receipt retains exact commands/counts.
+
+The user-adapter binding was separately qualified with a captured parent failure
+(2 passing and 4 failing regressions), then 49 user-CPU tests, 10796 library
+tests, 208 C API tests, 118 Darwin, 43 Linux and 544 Windows-personality
+process tests, plus Rosetta user-CPU and cluster controls and the C/C++
+consumers. The two existing library ignores, Linux Docker/binfmt oracle
+ignore and macOS-empty Windows-native memory target remain explicit limits.
+The final all-target build includes the separately owned pending A32 admission
+change; the user-adapter source remained unchanged throughout qualification.
+Exact commands, source hashes and artifact identities are in the user-adapter
+qualification receipt. No complete private checkpoint or native-HVF result
+is inferred from these checks.

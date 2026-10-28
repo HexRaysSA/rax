@@ -17,21 +17,43 @@ use crate::isa::arm::common::cpu::{AccessType, ArmCpu, ArmError, CpuExit, Memory
 use crate::isa::arm::common::memory::{ArmMemory, MemResult, MemoryError, MmioHandler};
 use crate::user::mm::AddressSpace;
 
-/// [`ArmMemory`] over a user address space, with one local exclusive
-/// monitor.
+/// [`ArmMemory`] over a user address space, with a physical exclusive monitor
+/// shared with other views and tracked writers of the same backing.
 #[derive(Debug)]
 pub struct UserArmMemory {
     space: AddressSpace,
-    exclusive: Option<(u64, u8)>,
+    exclusive: crate::vm::memory::reservations::Monitor,
 }
 
 impl UserArmMemory {
     /// Creates a memory view of `space`.
     pub fn new(space: AddressSpace) -> Self {
-        UserArmMemory {
-            space,
-            exclusive: None,
+        let exclusive =
+            crate::vm::memory::reservations::MemoryDomain::for_memory(space.physical_memory())
+                .register();
+        UserArmMemory { space, exclusive }
+    }
+
+    /// Natural alignment and a width of at most 16 bytes keep the transaction
+    /// within one 4 KiB page. Translation/population runs before the RAM lock.
+    fn exclusive_physical(
+        &self,
+        address: u64,
+        size: usize,
+        access: MemoryAccessKind,
+    ) -> MemResult<u64> {
+        if !matches!(size, 1 | 2 | 4 | 8 | 16) {
+            return Err(MemoryError::ExclusiveFailed { addr: address });
         }
+        if address & (size as u64 - 1) != 0 {
+            return Err(MemoryError::Alignment {
+                addr: address,
+                required: size,
+            });
+        }
+        self.space
+            .translate(address, access)
+            .map_err(|fault| to_memory_error(fault, size))
     }
 }
 
@@ -81,16 +103,39 @@ impl ArmMemory for UserArmMemory {
             .map_err(|f| to_memory_error(f, buf.len()))
     }
 
+    fn read_exclusive(&mut self, addr: u64, size: usize) -> MemResult<Vec<u8>> {
+        let physical = self.exclusive_physical(addr, size, MemoryAccessKind::Read)?;
+        self.exclusive
+            .read_exclusive(self.space.physical_memory(), physical, size)
+            .map_err(|_| MemoryError::BusError { addr })
+    }
+
+    fn write_exclusive(&mut self, addr: u64, data: &[u8]) -> MemResult<bool> {
+        let physical = self.exclusive_physical(addr, data.len(), MemoryAccessKind::Write)?;
+        self.exclusive
+            .write_exclusive(self.space.physical_memory(), physical, data)
+            .map_err(|_| MemoryError::BusError { addr })
+    }
+
     fn mark_exclusive(&mut self, addr: u64, size: u8) {
-        self.exclusive = Some((addr, size));
+        match self.exclusive_physical(addr, usize::from(size), MemoryAccessKind::Read) {
+            Ok(physical) => self.exclusive.mark(physical, size),
+            Err(_) => self.exclusive.clear(),
+        }
     }
 
     fn check_exclusive(&mut self, addr: u64, size: u8) -> bool {
-        self.exclusive.take() == Some((addr, size))
+        match self.exclusive_physical(addr, usize::from(size), MemoryAccessKind::Write) {
+            Ok(physical) => self.exclusive.check(physical, size),
+            Err(_) => {
+                self.exclusive.clear();
+                false
+            }
+        }
     }
 
     fn clear_exclusive(&mut self) {
-        self.exclusive = None;
+        self.exclusive.clear();
     }
 
     fn requires_alignment(&self) -> bool {
