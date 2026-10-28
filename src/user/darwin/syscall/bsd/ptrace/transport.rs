@@ -567,7 +567,6 @@ mod tests {
         a.queue(b"before").unwrap();
         a.queue_with_fd(b"with fd", &offered).unwrap();
         a.queue(b"").unwrap();
-        drop(offered);
         a.flush().unwrap();
         let (mut frames, closed) = b.receive_frames().unwrap();
         assert!(!closed);
@@ -582,6 +581,9 @@ mod tests {
         let flags = unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_GETFD) };
         assert_ne!(flags & libc::FD_CLOEXEC, 0);
         let mut received = UnixStream::from(fd);
+        // Socket senders remain live through receipt; the adopted endpoint
+        // must then work after the original sender reference is gone.
+        drop(offered);
         peer.write_all(b"x").unwrap();
         let mut byte = [0];
         received.read_exact(&mut byte).unwrap();
@@ -591,10 +593,12 @@ mod tests {
     #[test]
     fn consecutive_descriptor_frames_keep_each_endpoint() {
         let (mut a, mut b) = Link::pair().unwrap();
+        let mut offered = Vec::new();
         let mut peers = Vec::new();
         for index in 0..16u8 {
             let (fd, peer) = UnixStream::pair().unwrap();
             a.queue_with_fd(&[index], &fd).unwrap();
+            offered.push(fd);
             peers.push(peer);
         }
         let mut frames = Vec::new();
@@ -606,6 +610,7 @@ mod tests {
             }
         }
         assert_eq!(frames.len(), peers.len());
+        drop(offered);
         for (index, (frame, peer)) in frames.into_iter().zip(peers.iter_mut()).enumerate() {
             assert_eq!(frame.payload, [index as u8]);
             let mut endpoint = UnixStream::from(frame.fd.unwrap());
@@ -623,7 +628,6 @@ mod tests {
         intermediate.queue_with_fd(b"descendant", &offered).unwrap();
         intermediate.flush().unwrap();
         assert!(!intermediate.wants_write());
-        drop(offered);
         drop(intermediate);
         let (mut frames, closed) = ancestor.receive_frames().unwrap();
         assert!(closed);
@@ -631,12 +635,35 @@ mod tests {
         assert_eq!(frames[0].payload, b"descendant");
         let fd = frames[0].fd.take().unwrap();
         let mut adopted = Link::new(UnixStream::from(fd)).unwrap();
+        drop(offered);
         child.queue(b"direct").unwrap();
         child.flush().unwrap();
         assert_eq!(
             adopted.receive().unwrap(),
             (vec![b"direct".to_vec()], false)
         );
+    }
+
+    #[test]
+    fn regular_file_frame_survives_sender_close_before_receipt() {
+        use std::os::unix::fs::FileExt;
+
+        let (mut a, mut b) = Link::pair().unwrap();
+        let mut file = crate::user::mm::anonymous_file().unwrap();
+        file.write_all(b"snapshot").unwrap();
+        a.queue_with_fd(b"blob", &file).unwrap();
+        drop(file);
+        a.flush().unwrap();
+        let (mut frames, closed) = b.receive_frames().unwrap();
+        assert!(!closed);
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].payload, b"blob");
+        let file = std::fs::File::from(frames[0].fd.take().unwrap());
+        assert!(file.metadata().unwrap().is_file());
+        assert_eq!(file.metadata().unwrap().len(), 8);
+        let mut bytes = [0; 8];
+        file.read_exact_at(&mut bytes, 0).unwrap();
+        assert_eq!(bytes, *b"snapshot");
     }
 
     #[test]
@@ -689,12 +716,12 @@ mod tests {
         let (fd, mut peer) = UnixStream::pair().unwrap();
         let fd: OwnedFd = fd.into();
         assert_eq!(send_descriptor(&a.stream, &[0], &fd).unwrap(), 1);
-        drop(fd);
         drop(a);
         assert_eq!(
             b.receive_frames().unwrap_err().kind(),
             io::ErrorKind::UnexpectedEof
         );
+        drop(fd);
         peer.set_nonblocking(true).unwrap();
         assert_eq!(peer.read(&mut [0]).unwrap(), 0);
     }
@@ -728,11 +755,11 @@ mod tests {
             }
             assert_eq!(libc::sendmsg(a.fd(), &msg, 0), bytes.len() as libc::ssize_t);
         }
-        drop(fd);
         assert_eq!(
             b.receive_frames().unwrap_err().kind(),
             io::ErrorKind::InvalidData
         );
+        drop(fd);
         peer.set_nonblocking(true).unwrap();
         assert_eq!(
             peer.read(&mut [0]).unwrap(),

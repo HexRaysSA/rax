@@ -6,8 +6,9 @@
 //! What the kernel reports follows its validation of the executable at
 //! exec and the code-signing policy that decides which flags a platform
 //! binary, a hardened runtime, or an entitlement brings. The emulated
-//! process is a host process, so the answers are the host kernel's own for
-//! the same executable: the first query of an image, or trace setup, spawns
+//! legacy host-services process is a host process, so the answers are the
+//! host kernel's own for the same executable: the first query of an image,
+//! or trace setup, spawns
 //! the executable (the slice loaded) suspended on the host, asks every
 //! question `csops` answers about it, and kills it before any of its code runs. The
 //! process's flags then change as `csops` asks (marking it invalid, hard,
@@ -16,8 +17,12 @@
 //! spawn the executable, the process is reported as an ad hoc, linker-signed
 //! program without entitlements.
 //!
-//! A status query about a connected guest child uses published guest flags
-//! when available. Other cross-process queries are the host's.
+//! Closed processes retain supplied signing state or the existing fallback;
+//! they never spawn a host image to sample it. Foreign-process queries in the
+//! closed profile return ESRCH before forwarding guest buffers to the host.
+//! In the host-services profile, a status query about a connected guest child
+//! uses published guest flags when available. Other cross-process queries are
+//! the host's.
 
 use std::sync::Arc;
 
@@ -484,6 +489,9 @@ fn host_csops(
     usize: u64,
     token: Option<u64>,
 ) -> SysResult {
+    if !ctx.proc.config.host_services {
+        return Err(Errno::ESRCH);
+    }
     #[cfg(target_os = "macos")]
     {
         unsafe extern "C" {
@@ -539,6 +547,9 @@ fn host_csops(
 /// Spawns the process's executable suspended on the host and asks the
 /// host kernel what `csops` tells about it; `None` when the host cannot.
 fn harvest(proc: &mut Proc) -> Option<Signature> {
+    if !proc.config.host_services {
+        return None;
+    }
     #[cfg(target_os = "macos")]
     {
         use std::ffi::CString;
@@ -686,6 +697,48 @@ fn ask(pid: i32) -> Option<Signature> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn closed_trace_preparation_does_not_spawn_a_host_image() {
+        use crate::user::darwin::abi::DarwinAbi;
+        use crate::user::darwin::process::bounded_tests::process;
+
+        let host_image = std::env::current_exe().unwrap();
+        for abi in [DarwinAbi::Arm64, DarwinAbi::X86_64] {
+            let mut guest = process(abi);
+            assert!(!guest.proc.config.host_services);
+            // Even an existing host image must not enable native sampling
+            // for caller-supplied guest bytes in the closed profile.
+            guest.proc.program.image.host_path = host_image.clone();
+            assert_eq!(prepare_trace_me(&mut guest.proc), None);
+            assert_eq!(
+                guest.proc.codesign.as_ref().unwrap().flags,
+                Signature::fallback().flags
+            );
+            assert!(guest.proc.hidden.is_empty());
+        }
+    }
+
+    #[test]
+    fn closed_foreign_signing_query_stops_before_host_buffer_forwarding() {
+        use crate::user::darwin::abi::DarwinAbi;
+        use crate::user::darwin::process::bounded_tests::process;
+
+        let mut guest = process(DarwinAbi::Arm64);
+        guest.proc.pid = 1;
+        let (_, mut thread) = guest.proc.threads.pop_first().unwrap();
+        let mut ctx = Ctx {
+            proc: &mut guest.proc,
+            thread: &mut thread,
+            nr: 169,
+            pc: 0,
+        };
+        assert_eq!(
+            csops(&mut ctx, 2, ops::STATUS, u64::MAX, 4, None),
+            Err(Errno::ESRCH)
+        );
+        assert!(ctx.proc.codesign.is_none());
+    }
 
     #[test]
     fn trace_preparation_initializes_signing_without_replacing_existing_flags() {

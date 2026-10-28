@@ -1414,13 +1414,16 @@ the old `OSIOCGIFCONF`) are refused with `EOPNOTSUPP`, and
 | `PROC_INFO_CALL_PIDINFO` about the calling process: the flavor and size checks (`EINVAL`, `ENOMEM`, `EOVERFLOW` for a path buffer over 4096 bytes) and the identifier checks of `proc_info_extended_id` (`ESRCH`), then the emulated process: its names (the executed path's last component), `PROC_FLAG_EXEC`, and descriptor-table size in the process record (the session, terminal, start time, and unique identifiers the host's); the executable's UUID, CPU type, and platform; the task's memory, CPU times in Mach units, counters, and threads; thread records by TSD base or identifier with the thread's name and run state, and the thread lists; memory regions and the files mapped; the working directory; the executable's path (the whole buffer written, 0 returned); descriptors and their types; knote user data; workloop identifiers; the work queue's threads (`ESRCH` before it exists) | `procinfo::pidinfo` | `proc_pidinfo` |
 | `PROC_INFO_CALL_PIDFDINFO` about the calling process's descriptors (`EBADF` for none, the flavor's error for another type): a file, pipe, or shared memory object is the host's record of the host descriptor with the descriptor's status the guest's (close-on-exec; shared when another guest descriptor, or as the host says another process, holds the open file); a kqueue is the emulated kqueue's state, pending events, event size, and knotes; descriptor -1 names the work queue's kqueue | `procinfo::fdinfo` | `proc_pidfdinfo`, `fill_kqueueinfo`, `pid_kqueue_extinfo` |
 | The calling process's controls: a thread's name (`PROC_SELFSET_THREADNAME`, at most 63 characters, `ENAMETOOLONG`; the name Mach `thread_info` reports too), the other controls the host's; dyld's image-information registration (`TASK_DYLD_INFO`: final once a registration replaces another, `EINVAL` after); resource usage the host's with the executable's UUID (a whole record whatever the buffer size); its fileports (none) and workloops (`PIDDYNKQUEUEINFO`) | `procinfo::selfctl` | `proc_setcontrol`, `proc_set_dyld_images`, `task_set_dyld_info` |
-| Code signing (`csops`, `csops_audittoken`) of the calling process: XNU's checks in order (a change to another process refused without root, `EPERM`; the audit token's pid and pid version, `ESRCH`), then what the host kernel concluded of the executable at exec (status flags, code-directory hash, slice offset, identity and team, entitlements in XML and DER, the signature blob, validation category), with each operation's size rules (the 8-byte header with the length and `ERANGE` for a short buffer) and `EINVAL` once the process is invalid; and the flags the process changes (invalid, hard, killable, restricted, those `CS_OPS_SET_STATUS` may set, the installer's and library validation's cleared as XNU allows), a killable process dying of `SIGKILL` when it becomes invalid. Of another process, the host's answer | `codesign` | `csops_internal`, `csops_copy_token` |
+| Code signing (`csops`, `csops_audittoken`) of the calling process: XNU's checks in order (a change to another process refused without root, `EPERM`; the audit token's pid and pid version, `ESRCH`), then what the host kernel concluded of the executable at exec (status flags, code-directory hash, slice offset, identity and team, entitlements in XML and DER, the signature blob, validation category), with each operation's size rules (the 8-byte header with the length and `ERANGE` for a short buffer) and `EINVAL` once the process is invalid; and the flags the process changes (invalid, hard, killable, restricted, those `CS_OPS_SET_STATUS` may set, the installer's and library validation's cleared as XNU allows), a killable process dying of `SIGKILL` when it becomes invalid. Foreign-process signing queries in the host-services profile use the host's answer; the closed profile returns `ESRCH` before forwarding buffers | `codesign` | `csops_internal`, `csops_copy_token` |
 
-The executable's signature is the host kernel's verdict: the first
-`csops` of an image spawns the executable (the slice the emulator loaded)
-suspended on the host, asks it every question, and kills it before it
-runs; its `SIGCHLD` is not the guest's. Without a macOS host the process
-is an ad hoc, linker-signed program without entitlements. The macOS 27
+In the host-services profile, the executable's signature is the host kernel's
+verdict: the first `csops` of an image spawns the executable (the slice the
+emulator loaded) suspended on the host, asks it every question, and kills it
+before it runs; its `SIGCHLD` is not the guest's. Without a macOS host the process
+is an ad hoc, linker-signed program without entitlements. Closed supplied-file
+processes retain supplied signing state or that existing fallback; they never
+spawn a host executable for signature sampling. Their foreign-process signing
+queries return `ESRCH` before host buffer forwarding. The macOS 27
 kernel refuses `CS_OPS_CDHASH_WITH_INFO` (`EINVAL`) at every size, so the
 emulated process does too. `CS_ENFORCEMENT` and library validation are
 reported, not enforced on the emulated process's memory and libraries.
@@ -1431,9 +1434,9 @@ links resolved, the root overlay's prefix removed, and laid out as
 it was built as at the end. An image and a mapped file are named when
 they are mapped.
 
-Another emulated process is a host process running `rax-user`, so what
-the host says of it beyond its identity, credentials, status, and
-resource usage (its name and path, arguments, descriptors, memory, and
+In the host-services profile, another emulated process is a host process
+running `rax-user`, so what the host says of it beyond its identity,
+credentials, status, and resource usage (its name and path, arguments, descriptors, memory, and
 threads) is the emulator's. A region's share mode and shared flag follow the kind of
 mapping rather than the reference counts of its memory objects: two parts
 of one private mapping split by `munmap`, or a region copied by `fork`, are
@@ -1658,6 +1661,41 @@ order, thread QoS requests, the pthread priority encoding, work-queue
 admission and request selection, interpreter-line parsing, fat and thin
 grading with binary preferences, `NCARGS` accounting, `execsigs`,
 `fdt_exec`, the spawn layouts, and entitlement lookup in a signature.
+
+### Closed signing and descriptor lifetime qualification
+
+The closed-profile signing regressions exercise both guest ABIs with an existing
+host image and check that trace preparation keeps the existing fallback without
+sampling that image. A foreign status query with an unmapped output address
+returns `ESRCH` before host buffer forwarding. Supplied signing state remains
+covered by the existing trace-preparation test. These tests enforce the existing
+`host_services = false` boundary; the host-services signing and trace-admission
+policy is unchanged.
+
+The Unix transport fixtures retain the original reference to a transferred
+socket until the receiver adopts it. They still close the intermediate transport
+before receipt in the handoff case and still check the adopted endpoint after
+the original reference closes. A separate regular-file regression closes the
+sender before flushing, then verifies the received file type, 8-byte length, and
+exact `snapshot` contents. Production blob transfers therefore retain their
+close-before-receipt check. Frame limits, receive budgets, and assertions are
+unchanged.
+
+On macOS 27.2 ARM64, ten consecutive parallel Darwin library runs passed all
+420 selected tests; the full serial library run passed 8,788 tests with two
+existing ignores. On the Linux x86-64 container running through host translation,
+the full serial library run passed 8,778 tests with two existing ignores. Both
+platforms passed all 191 C API tests, all-target compilation, and four installed
+program comparisons (`true`, UTF-8 `printf`, a shell builtin, and a shell exec),
+with matching output, empty standard error, and exit status 0. These finite
+runs do not establish native x86-64 execution or resolve the separate macOS 27
+native-oracle failures for hardened-runtime and restricted trace admission.
+The macOS transport selection also passes all 16 tests with Cargo's default
+features enabled. That selected run does not qualify the complete core suite
+under those features; Assist's embedded dependency keeps its defaults disabled.
+On native Windows ARM64, the five signing tests and three parallel Darwin
+selections of 185 tests each pass, as do all 191 C API tests. The Unix transport
+selection applies to macOS and Linux; it is not compiled on Windows.
 
 ### Sampled same-host reclaim pressure
 
