@@ -5,9 +5,11 @@
 mod budget;
 pub use budget::{DEFAULT_RETIREMENT_QUANTUM, RetirementRun, RetirementStop};
 pub mod exit;
+mod power;
 pub mod state;
 
 pub use exit::VcpuExit;
+pub use power::CpuPowerRequest;
 pub use state::{
     Aarch32CpuState, Aarch32Registers, Aarch32SystemRegisters, Aarch64CpuState,
     Aarch64ExecutionState, Aarch64Registers, Aarch64SystemRegisters, CortexMCpuState,
@@ -125,6 +127,14 @@ pub trait VCpu: Send {
     fn deliver_init(&mut self) -> Result<()> {
         Err(Error::InvalidConfig(
             "INIT delivery is not supported by this backend".into(),
+        ))
+    }
+
+    /// Install the reset state and return width/EL selected by PSCI CPU_ON.
+    /// The coordinator publishes online status only after this succeeds.
+    fn start_aarch64_cpu(&mut self, _entry: u64, _context: u64, _pstate: u64) -> Result<()> {
+        Err(Error::InvalidConfig(
+            "AArch64 startup is not supported by this backend".into(),
         ))
     }
 

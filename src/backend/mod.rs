@@ -26,6 +26,23 @@ use crate::vm::vcpu::VCpu;
 ///
 /// Represents a virtual machine that can create vCPUs and manage interrupts.
 pub trait Vm: Send + Sync {
+    /// Establish immutable CPU topology before creating any vCPU.
+    fn configure_cpu_topology(&self, _count: u8, _ram_end: u64) -> Result<()> {
+        Ok(())
+    }
+
+    /// Drain firmware power requests at an instruction boundary.
+    fn take_cpu_power_requests(&self) -> Result<Vec<crate::vm::vcpu::CpuPowerRequest>> {
+        Ok(Vec::new())
+    }
+
+    /// Publish completion only after a requested CPU entry state is installed.
+    fn complete_cpu_start(&self, _cpu_id: u32) -> Result<()> {
+        Err(Error::InvalidConfig(
+            "CPU startup is not supported by this VM".into(),
+        ))
+    }
+
     /// Create a new vCPU.
     fn create_vcpu(&self, id: u32, mem: Arc<GuestMemoryMmap>) -> Result<Box<dyn VCpu>>;
 

@@ -17,7 +17,7 @@ lowest-priority selection chooses the online, enabled recipient with the lowest
 processor priority, then APIC ID. The controller retains a FIFO of outgoing
 requests. Accepted maskable interrupts transfer IRR to ISR; guest EOI clears ISR.
 
-Native bounded execution, ARM PSCI and RISC-V SBI startup, architectural topology
+Native bounded execution, additional ARM profiles and RISC-V SBI startup, architectural topology
 enumeration, complete backend/private/in-flight CPU state, and full writer
 quiescence remain full-audit acceptance requirements. The current coordinator
 prototype and its software tests do not establish those requirements.
@@ -154,3 +154,16 @@ The pinned local source is
 Fault/trap classification and restart semantics use Volume 3A sections 7.5 and
 7.6 of the same revision. Debugger stop semantics use the GNU GDB manual,
 [All-Stop Mode](https://sourceware.org/gdb/current/onlinedocs/gdb.html/All_002dStop-Mode.html).
+
+
+## Software AArch64 platform
+
+The configured software AArch64 cluster now shares one GIC, binds ICC/IRQ/timer
+state per PE, and routes asynchronous PSCI CPU_ON/CPU_OFF through the same
+coordinator. Its FDT describes each affinity and the actual redistributor regions.
+The execution extension uses RAXEXE02 when shared ARM power/GIC state is present;
+the bounded platform payload follows the existing CPU/controller records as a
+little-endian u32 byte length and codec body. Other producers retain RAXEXE01.
+See [AArch64 cluster ownership](aarch64-cluster.md) for admission, implementation
+limits and actual 1/2/4-CPU validation. Full native scheduling and CPU/bridge
+private-state closure remain separate audit requirements.

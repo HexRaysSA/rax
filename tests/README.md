@@ -126,6 +126,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `hvf_arm64_mmio` | `suites/backend/hvf_arm64_mmio.rs` | Complete ARM64 scalar MMIO replies, destination publication, and short/failed completion handling. |
 | `riscv_hartid` | `suites/backend/riscv_hartid.rs` | Configured hardware-thread identity and readonly CSR persistence |
 | `aarch64_affinity` | `suites/backend/aarch64_affinity.rs` | Configured PE affinity and readonly identity persistence |
+| `aarch64_cluster` | `suites/backend/aarch64_cluster.rs` | Shared GIC/PSCI startup, per-PE interrupts, power-off/restart and ARM/Thumb firmware admission. |
 | `a32_fp_controls` | `suites/backend/a32_fp_controls.rs` | A32/T32 FP controls, trap priority, CP15 clamps, mixed-width ownership and precise exception boundaries |
 | `a32_fp_pairs` | `suites/backend/a32_fp_pairs.rs` | VMOV single/double register-pair fields, aliases, admission, predicates and mixed-width projection |
 | `x86_fault_retirement` | `suites/backend/x86_fault_retirement.rs` | Protected-mode delivered faults and traps retain exact retired-unit counts. |

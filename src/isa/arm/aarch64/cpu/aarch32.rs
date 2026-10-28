@@ -1,6 +1,7 @@
 //! ARM/Thumb execution after a checked exception-return width transition.
 
 mod exceptions;
+mod firmware;
 mod fp_controls;
 mod memory;
 mod preflight;
@@ -86,6 +87,9 @@ impl AArch64Cpu {
         }
         let mut state = self.aarch32_register_state();
         let in_it = pstate.t && state.cpsr.in_it_block();
+        if decoded.mnemonic == Mnemonic::HVC {
+            return self.execute_aarch32_hvc(raw, pstate.t, in_it);
+        }
         let mut monitor = std::mem::take(&mut self.aarch32_monitor);
         let (result, fault, status) = {
             let mut memory = memory::Aarch32Memory::new(self);

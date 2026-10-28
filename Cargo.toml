@@ -562,3 +562,7 @@ path = "tests/suites/backend/x86_fault_retirement.rs"
 [[test]]
 name = "hvf_arm64_mmio"
 path = "tests/suites/backend/hvf_arm64_mmio.rs"
+
+[[test]]
+name = "aarch64_cluster"
+path = "tests/suites/backend/aarch64_cluster.rs"

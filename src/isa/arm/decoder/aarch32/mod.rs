@@ -610,7 +610,9 @@ impl Aarch32Decoder {
                     // ARMv7 with Jazelle disabled) is BX.
                     (0b01, 0b010) => return Self::decode_bx(raw),
                     (0b11, 0b110) => mk(Mnemonic::ERET),
-                    (0b10, 0b111) => mk(Mnemonic::HVC),
+                    (0b10, 0b111) => mk(Mnemonic::HVC).with_operand(Operand::Imm(Immediate::new(
+                        ((((raw >> 8) & 0xfff) << 4) | (raw & 15)) as i64,
+                    ))),
                     (0b11, 0b111) => mk(Mnemonic::SMC),
                     _ => mk(Mnemonic::UNKNOWN),
                 });

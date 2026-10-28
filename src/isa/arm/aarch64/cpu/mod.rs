@@ -35,6 +35,8 @@ mod entry;
 mod exception_return;
 mod exec;
 mod identity;
+mod interrupt_binding;
+mod psci_entry;
 pub use exec::*;
 mod math;
 pub use math::*;
@@ -242,6 +244,9 @@ pub struct AArch64Cpu {
     /// distributor/redistributor MMIO and the CPU's ICC system registers
     /// observe the same state.
     gic: Option<std::sync::Arc<std::sync::Mutex<Gic>>>,
+    gic_cpu_id: usize,
+    gic_shared: bool,
+    nonsecure_reset: bool,
     /// Lock-free mirror of this CPU's GIC IRQ line (published by the GIC on
     /// every state change); checked on the hot path of `step_system`.
     gic_irq_line: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
@@ -676,11 +681,16 @@ impl ArmCpu for AArch64Cpu {
         self.sysregs.reset();
         self.sysregs.mpidr_el1 = mpidr;
         self.initialize_reset_control_state();
+        if self.nonsecure_reset {
+            self.sysregs.scr_el3 |= 1 | (1 << 8);
+        }
         self.update_pauth_id_registers();
         self.mmu = Mmu::new();
-        if let Some(ref gic) = self.gic {
-            if let Ok(mut gic) = gic.lock() {
-                gic.reset();
+        if !self.gic_shared {
+            if let Some(ref gic) = self.gic {
+                if let Ok(mut gic) = gic.lock() {
+                    gic.reset();
+                }
             }
         }
         self.timer_levels = (false, false);

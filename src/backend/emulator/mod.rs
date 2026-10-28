@@ -15,7 +15,7 @@ pub mod s5l8900;
 pub mod x86_64;
 
 use std::any::Any;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use vm_memory::GuestMemoryMmap;
 
@@ -81,6 +81,8 @@ impl Backend for EmulatorBackend {
 
 /// Emulated VM instance.
 pub struct EmulatorVm {
+    arm_cluster: OnceLock<Arc<aarch64::cluster::ArmCluster>>,
+    created_cpus: std::sync::Mutex<Vec<u32>>,
     irq_pending: std::sync::Mutex<Vec<u32>>,
     arch: ArchKind,
     hexagon_isa: HexagonIsa,
@@ -96,6 +98,8 @@ impl EmulatorVm {
         riscv_config: Option<RiscVConfig>,
     ) -> Self {
         EmulatorVm {
+            arm_cluster: OnceLock::new(),
+            created_cpus: std::sync::Mutex::new(Vec::new()),
             irq_pending: std::sync::Mutex::new(Vec::new()),
             arch,
             hexagon_isa,
@@ -105,9 +109,57 @@ impl EmulatorVm {
     }
 }
 
+impl EmulatorVm {
+    pub(crate) fn arm_cluster(&self) -> Option<Arc<aarch64::cluster::ArmCluster>> {
+        self.arm_cluster.get().cloned()
+    }
+}
+
 impl Vm for EmulatorVm {
+    fn configure_cpu_topology(&self, count: u8, ram_end: u64) -> Result<()> {
+        if self.arch != ArchKind::Aarch64 {
+            return Ok(());
+        }
+        let created = self
+            .created_cpus
+            .lock()
+            .map_err(|_| Error::Emulator("CPU topology lock poisoned".into()))?;
+        if !created.is_empty() {
+            return Err(Error::InvalidConfig(
+                "CPU topology must precede vCPU creation".into(),
+            ));
+        }
+        if self.arm_cluster.get().is_some() {
+            return Err(Error::InvalidConfig(
+                "CPU topology is already configured".into(),
+            ));
+        }
+        self.arm_cluster
+            .set(Arc::new(aarch64::cluster::ArmCluster::new(count, ram_end)?))
+            .map_err(|_| Error::InvalidConfig("CPU topology was configured concurrently".into()))
+    }
+    fn take_cpu_power_requests(&self) -> Result<Vec<crate::vm::vcpu::CpuPowerRequest>> {
+        match self.arm_cluster.get() {
+            Some(cluster) => cluster.take_requests(),
+            None => Ok(Vec::new()),
+        }
+    }
+    fn complete_cpu_start(&self, id: u32) -> Result<()> {
+        self.arm_cluster
+            .get()
+            .ok_or_else(|| Error::InvalidConfig("missing AArch64 topology".into()))?
+            .complete_start(id)
+    }
+
     fn create_vcpu(&self, id: u32, mem: Arc<GuestMemoryMmap>) -> Result<Box<dyn VCpu>> {
-        match self.arch {
+        let mut created = self
+            .created_cpus
+            .lock()
+            .map_err(|_| Error::Emulator("CPU topology lock poisoned".into()))?;
+        if self.arm_cluster.get().is_some() && created.contains(&id) {
+            return Err(Error::InvalidConfig("AArch64 CPU id already exists".into()));
+        }
+        let cpu: Result<Box<dyn VCpu>> = match self.arch {
             ArchKind::X86_64 => Ok(Box::new(X86_64Vcpu::new(id, mem))),
             ArchKind::Hexagon => Ok(Box::new(HexagonVcpu::new(
                 id,
@@ -126,7 +178,14 @@ impl Vm for EmulatorVm {
                     )))
                 }
             }
-            ArchKind::Aarch64 => Ok(Box::new(aarch64::Aarch64Vcpu::new(id, mem))),
+            ArchKind::Aarch64 => match self.arm_cluster.get() {
+                Some(cluster) => Ok(Box::new(aarch64::Aarch64Vcpu::new_in_cluster(
+                    id,
+                    mem,
+                    cluster.clone(),
+                )?)),
+                None => Ok(Box::new(aarch64::Aarch64Vcpu::new(id, mem))),
+            },
             ArchKind::CortexM => Ok(Box::new(cortex_m::CortexMVcpu::new(id, mem))),
             ArchKind::Armv7a => {
                 if std::env::var("RAX_MACHINE").as_deref() == Ok("s5l8900") {
@@ -139,10 +198,17 @@ impl Vm for EmulatorVm {
                 "Unsupported architecture: {:?}",
                 self.arch
             ))),
+        };
+        if cpu.is_ok() {
+            created.push(id);
         }
+        cpu
     }
 
     fn set_irq_line(&self, irq: u32, level: bool) -> Result<()> {
+        if let Some(cluster) = self.arm_cluster.get() {
+            return cluster.set_irq_line(irq, level);
+        }
         if level {
             let mut pending = self.irq_pending.lock().unwrap();
             if !pending.contains(&irq) {

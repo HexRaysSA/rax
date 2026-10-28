@@ -2322,7 +2322,12 @@
         "src/isa/x86_64/cpu_context.rs",
         "src/vm/snapshot/resources.rs",
         "docs/development/x86-backend-context.md",
-        "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/validation-v7/result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-x86-private-state/validation-v7/result.json",
+        "docs/development/aarch64-cluster.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/qualification-v5.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/guest-final-v4/result.json",
+        "/Users/int/dev/rax-audit-work/recovery/aarch64-private-negative-2026-10-28/actual-vmm-current-0517/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/next-cross-pe-reservation-final-v4/result.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2338,7 +2343,8 @@
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
         "software-vmm-coordinator-startup-fault-retirement",
-        "software-x86-private-context-and-immutable-resources"
+        "software-x86-private-context-and-immutable-resources",
+        "aarch64-shared-platform-psci-smp"
       ]
     },
     {
@@ -2798,18 +2804,24 @@
         "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-capi.log",
         "docs/development/execution-coordinator.md",
         "/Users/int/dev/rax-audit-work/four-findings-coordinator/broad-result.json",
-        "/Users/int/dev/rax-audit-work/four-findings-coordinator/ci-actions-pinned-result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/ci-actions-pinned-result.json",
+        "docs/development/aarch64-cluster.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/qualification-v5.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/guest-final-v4/result.json",
+        "/Users/int/dev/rax-audit-work/recovery/aarch64-private-negative-2026-10-28/actual-vmm-current-0517/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/next-cross-pe-reservation-final-v4/result.json"
       ],
       "remaining_validation": [
         "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
         "Native entry remains unbounded;physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
-        "ARM PSCI and RISC-V SBI startup,per-CPU controller ownership and architectural topology remain required.",
+        "Additional ARM startup/control profiles and RISC-V SBI startup/controller topology remain required; software AArch64 PSCI/shared-platform execution is locally validated.",
         "Complete backend/private/in-flight/platform state,writer quiescence and transactional late-failure restoration remain required.",
         "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
-        "software-vmm-coordinator-startup-fault-retirement"
+        "software-vmm-coordinator-startup-fault-retirement",
+        "aarch64-shared-platform-psci-smp"
       ]
     },
     {
@@ -191227,6 +191239,337 @@
         "incomplete_replies": 216,
         "scope": "Actual Apple Silicon HVF scalar MMIO transaction lifecycle; Rosetta is translated policy execution, not physical Intel HVF runtime."
       }
+    },
+    {
+      "id": "aarch64-shared-platform-psci-smp",
+      "finding": "C-SMP",
+      "also_addresses": [
+        "C-STATE",
+        "A32-FP instruction admission surfaces"
+      ],
+      "status": "locally_validated",
+      "base": "abf3fdfe377f92cfea00073b8eeeafbd4fc02242",
+      "scope": "Software AArch64 shared controller, CPU_ON/CPU_OFF/AFFINITY_INFO, actual coordinator execution, device-tree topology, shared GIC/power checkpoint state. Complete CPU/bridge private state, native backend scheduling, A32-FP and remaining C-HVF remain in the unchanged full goal.",
+      "owned_paths": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/owned-paths.json",
+      "parent_evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/parent/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/parent-gic-active-result.json"
+      ],
+      "targeted_evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/actual-start-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/cluster-v6.json"
+      ],
+      "validation_attempts": [
+        "v1 scalar startup guest QEMU S1/2/4, RAX S1/F2/F4; public GIC parent acknowledged shared SPI42 twice.",
+        "Initial IRQ guest QEMU4 stalled due a lost wakeup in test WFI sequence; QMP per-PE state confirmed handled IRQ then stale read/WFI. Corrected guest masks IRQ around completion check;9reference runs passed.",
+        "Mixed ARM HVC exposed missing mixed-width HVC execution; added A1/T1 decode/admission and nonsecure/HVC reset policy. Full14case adapter target passed in cluster-v6.",
+        "The full library suite exposed a register-only ARM SMP fixture. It now captures the required actual shared graph for2/4CPUs; one-CPU legacy admission remains covered. The corrected fixture passed in the final full library run (10785 passed,2 ignored).",
+        "Per-region GICR_TYPER.Last defect reproduced by corrected assertion and the same255CPU guest in QEMU1/pre-fixRAX0; board read corrected and finalRAX1.",
+        "AArch32 AFFINITY_INFO64 returnedOFF instead of NOT_SUPPORTED; common SMC64 guard corrected under DEN0022D5.2.1 and ARM/Thumb regressions passed.",
+        "New IT fixture initially encoded an inactive ITSTATE0x20; corrected split CPSR encoding represents ITSTATE0x08. Constrained/unprivileged HVC then reached UNDEF without retirement."
+      ],
+      "remaining_validation": [
+        "Complete CPU/bridge private context, reservation persistence/coherence, all-writer quiescence and whole-VM late-failure transactions.",
+        "Broader ARM security/control profiles, bounded native/JIT entries, RISC-V startup, debugger/thread selection, deterministic clock/replay and physical Intel Mac HVF runtime."
+      ],
+      "pending_interrupt_file_witness": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/pending-sgi-file-witness.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/qualification-v5.json",
+      "final_validation_summary": {
+        "owning-native-v4": [
+          {
+            "passed": 23,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 11,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 18,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 28,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 46850,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 475,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 12,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 13,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 13,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 12,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          }
+        ],
+        "checkpoint-native-v4": [
+          {
+            "passed": 16,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 12,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 30,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 19,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 16,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 14,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 15,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          }
+        ],
+        "capi-native-v4": [
+          {
+            "passed": 207,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          }
+        ],
+        "owning-rosetta-v4": [
+          {
+            "passed": 23,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 11,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 18,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 28,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 46850,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          },
+          {
+            "passed": 441,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          }
+        ],
+        "ci-targets-v4": [
+          {
+            "passed": 12,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          }
+        ],
+        "platform-rosetta-v4": [
+          {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 11771
+          }
+        ],
+        "frame-rosetta-v4": [
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 11772
+          }
+        ],
+        "library-final-v5": [
+          {
+            "passed": 10785,
+            "failed": 0,
+            "ignored": 2,
+            "filtered_out": 0
+          }
+        ],
+        "cluster-final-v4": [
+          {
+            "passed": 18,
+            "failed": 0,
+            "ignored": 0,
+            "filtered_out": 0
+          }
+        ]
+      },
+      "guest_evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/guest-final-v4/result.json",
+      "assumption_register": [
+        {
+          "id": "S1",
+          "assumption": "CPU identity is flat affinity0 with IDs0..count-1.",
+          "basis": "Existing configured MPIDR binding and FDT reg contract.",
+          "dependent_result": "PSCI affinity lookup and SGI routing.",
+          "stress_test": "IDs0,15,16,122,123,254 and absent/reserved affinity bits.",
+          "falsification_probe": "Different identities observed by MPIDR, FDT, redistributor TYPER or PSCI.",
+          "status": "confirmed within represented software topology; full native/private-state boundaries remain separate"
+        },
+        {
+          "id": "S2",
+          "assumption": "All software guest execution and power-request publication is serialized by the coordinator.",
+          "basis": "execute_turn per-instruction routing.",
+          "dependent_result": "Startup/capture ordering and GIC checkpoint publication.",
+          "stress_test": "Pending starts/offline CPUs, CPU restart, checkpoint cursor and target state.",
+          "falsification_probe": "A secondary instruction before its entry/context is installed, or a resumed power state diverges from online flags.",
+          "status": "confirmed within represented software topology; full native/private-state boundaries remain separate"
+        },
+        {
+          "id": "S3",
+          "assumption": "CPU architectural replacement must retain the VM-owned controller.",
+          "basis": "Shared controller topology; parent set_state resets the old per-CPU controller.",
+          "dependent_result": "Starting a CPU preserves other PEs distributor/private state.",
+          "stress_test": "BSP priority mask and distributor values across AP start/restart.",
+          "falsification_probe": "Any BSP controller state lost by secondary startup.",
+          "status": "confirmed within represented software topology; full native/private-state boundaries remain separate"
+        }
+      ]
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -64,6 +64,9 @@ impl AArch64Cpu {
             sysregs: SystemRegisters::new(),
             mmu: Mmu::new(),
             gic,
+            gic_cpu_id: 0,
+            gic_shared: false,
+            nonsecure_reset: false,
             gic_irq_line,
             timer_levels: (false, false),
             instruction_guarded: std::sync::atomic::AtomicBool::new(false),
@@ -259,7 +262,7 @@ impl AArch64Cpu {
     pub(crate) fn check_pending_interrupts(&mut self) -> Result<Option<CpuExit>, ArmError> {
         // Check GIC for pending interrupt
         if let Some(ref gic) = self.gic {
-            let cpu_id = 0; // Assume single core for now
+            let cpu_id = self.gic_cpu_id;
 
             if gic
                 .lock()

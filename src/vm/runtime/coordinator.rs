@@ -60,6 +60,13 @@ impl Vmm {
             retired: self.coordinator.retired,
             online: self.coordinator.online.clone(),
             local_apics,
+            arm_cluster: self
+                .vm
+                .as_any()
+                .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+                .and_then(|vm| vm.arm_cluster())
+                .map(|cluster| cluster.checkpoint())
+                .transpose()?,
         })
     }
 
@@ -107,6 +114,37 @@ impl Vmm {
     }
 
     pub(super) fn route_interprocessor_requests(&mut self) -> Result<()> {
+        if self.checkpoint_config.arch == ArchKind::Aarch64 {
+            for request in self.vm.take_cpu_power_requests()? {
+                match request {
+                    crate::vm::vcpu::CpuPowerRequest::Start {
+                        cpu_id,
+                        entry,
+                        context,
+                        pstate,
+                    } => {
+                        let index = cpu_id as usize;
+                        let cpu = self.vcpus.get_mut(index).ok_or_else(|| {
+                            Error::Emulator("CPU_ON target exceeds VMM topology".into())
+                        })?;
+                        cpu.start_aarch64_cpu(entry, context, pstate)?;
+                        self.vm.complete_cpu_start(cpu_id)?;
+                        self.coordinator.online[index] = true;
+                    }
+                    crate::vm::vcpu::CpuPowerRequest::Off { cpu_id } => {
+                        let online = self
+                            .coordinator
+                            .online
+                            .get_mut(cpu_id as usize)
+                            .ok_or_else(|| {
+                                Error::Emulator("CPU_OFF target exceeds VMM topology".into())
+                            })?;
+                        *online = false;
+                    }
+                }
+            }
+            return Ok(());
+        }
         if self.checkpoint_config.arch != ArchKind::X86_64 {
             return Ok(());
         }

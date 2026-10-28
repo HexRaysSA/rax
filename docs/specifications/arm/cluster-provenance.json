@@ -1,0 +1,34 @@
+[
+  {
+    "path": "psci-den0022.pdf",
+    "title": "Power State Coordination Interface",
+    "document_id": "ARM DEN 0022D, PSCI1.1, 2017",
+    "issuing_organization": "Arm",
+    "source_url": "https://documentation-service.arm.com/static/5f905c71f86e16515cdc1fd0",
+    "retrieved_at": "2026-10-28T04:03:16.562322+00:00",
+    "bytes": 2026072,
+    "sha256": "ed924cebfe9f705327b0c07832c643023ad0525887477440a6195887dda37253",
+    "license": "Original PDF proprietary/license notices retained; unchanged primary reference."
+  },
+  {
+    "path": "gic-ihi0069.pdf",
+    "title": "Generic Interrupt Controller Architecture Specification, version3 and4",
+    "document_id": "Arm IHI0069H, ID020922",
+    "issuing_organization": "Arm",
+    "source_url": "https://documentation-service.arm.com/static/620531b00ca305732a3a5c10",
+    "retrieved_at": "2026-10-28T04:03:18.311598+00:00",
+    "bytes": 9972611,
+    "sha256": "4b66bedbab044103f8870f48c5fc0e00320ce8a85ca17e6568aec5334b3a2159",
+    "license": "Original PDF proprietary/license notices retained; unchanged primary reference."
+  },
+  {
+    "path": "aarch32-isa-2025-03.pdf",
+    "source_url": "https://documentation-service.arm.com/static/67e40a9c4191d739c8e9bd2c",
+    "issuing_organization": "Arm",
+    "retrieved_at": "2026-10-28T04:36:31.297192+00:00",
+    "bytes": 6510019,
+    "sha256": "29b5436067ef93655c2a62b3886ba45ca6772f4b4ad30e9d28b33b00bf2a9dda",
+    "used_section": "HVC A1/T1 encoding, IT/conditional constraints and operation.",
+    "license": "Original PDF notices retained unchanged."
+  }
+]

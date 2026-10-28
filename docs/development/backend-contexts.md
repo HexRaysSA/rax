@@ -129,3 +129,11 @@ media. Software x86 replacements are prepared before VMM publication; other
 backends and whole-VM late-failure transactions retain separate requirements.
 See [software x86 contexts](x86-backend-context.md) for format 7, resource
 framing, map/reset behavior and the actual file/ABI verification boundaries.
+
+
+Software AArch64 shared interrupt and power state is now a VM-owned RAXEXE02
+execution payload, captured once instead of duplicated into CPU projections.
+It retains controller interfaces, queued power requests and target-owned IRQ
+handle identities across restoration. This complements the CPU projection;
+full core/bridge private context and exclusive reservation closure remain open.
+See [AArch64 cluster ownership](aarch64-cluster.md).

@@ -146,8 +146,8 @@ impl AArch64Cpu {
         if levels != self.timer_levels {
             if let Some(ref gic) = self.gic {
                 if let Ok(mut gic) = gic.lock() {
-                    gic.set_ppi_level(0, 27, levels.0);
-                    gic.set_ppi_level(0, 30, levels.1);
+                    gic.set_ppi_level(self.gic_cpu_id, 27, levels.0);
+                    gic.set_ppi_level(self.gic_cpu_id, 30, levels.1);
                 }
             }
             self.timer_levels = levels;

@@ -21,6 +21,9 @@
 //! synchronous exceptions as [`Error::GuestEvent`] instead of taking them to
 //! EL1 (see [`A64UserTrap`]).
 
+pub(crate) mod cluster;
+mod psci;
+
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -140,6 +143,8 @@ struct GuestBridge {
     /// Full-machine construction owns fixed UART/GIC windows; an instruction
     /// embedder owns its complete address space through explicit mappings.
     devices_enabled: bool,
+    gic_cpus: u8,
+    gic_high_base: u64,
     /// User mode: every access is translated and permission-checked here,
     /// one page at a time, before guest memory is touched.
     translation: Option<Arc<dyn FlatTranslation>>,
@@ -293,6 +298,28 @@ impl GuestBridge {
         }
     }
 
+    fn read_redist(&self, gic: &Gic, address: u64) -> u32 {
+        let Some((cpu, offset)) = crate::machine::arm_virt::aarch64_redist_frame(
+            address,
+            self.gic_cpus,
+            self.gic_high_base,
+        ) else {
+            return 0;
+        };
+        let mut value = gic.read_redist(cpu, offset);
+        if offset == 8 {
+            // IHI0069H12.11.37: Last terminates each contiguous series of
+            // redistributor pages. The board can split that series at UART.
+            let low_frames =
+                crate::machine::arm_virt::aarch64_redist_regions(self.gic_cpus, self.gic_high_base)
+                    [0]
+                .1 / GICR_SIZE;
+            let last = cpu as u64 + 1 == low_frames || cpu + 1 == usize::from(self.gic_cpus);
+            value = (value & !16) | (u32::from(last) << 4);
+        }
+        value
+    }
+
     fn gic_read(&self, addr: u64, buf: &mut [u8]) {
         let Some(gic) = self.late.gic.get() else {
             buf.fill(0);
@@ -310,7 +337,7 @@ impl GuestBridge {
             let value = if in_window(reg_addr, AARCH64_GICD_BASE, GICD_SIZE) {
                 gic.read_dist(reg_addr - AARCH64_GICD_BASE)
             } else {
-                gic.read_redist(0, reg_addr - AARCH64_GICR_BASE)
+                self.read_redist(&gic, reg_addr)
             };
             *b = value.to_le_bytes()[lane];
         }
@@ -336,7 +363,7 @@ impl GuestBridge {
             let mut value = if dist {
                 gic.read_dist(reg_addr - AARCH64_GICD_BASE)
             } else {
-                gic.read_redist(0, reg_addr - AARCH64_GICR_BASE)
+                self.read_redist(&gic, reg_addr)
             };
             let mut bytes = value.to_le_bytes();
             bytes[lane..lane + take].copy_from_slice(&data[offset..offset + take]);
@@ -345,7 +372,13 @@ impl GuestBridge {
             if dist {
                 gic.write_dist(reg_addr - AARCH64_GICD_BASE, value);
             } else {
-                gic.write_redist(0, reg_addr - AARCH64_GICR_BASE, value);
+                if let Some((cpu, offset)) = crate::machine::arm_virt::aarch64_redist_frame(
+                    reg_addr,
+                    self.gic_cpus,
+                    self.gic_high_base,
+                ) {
+                    gic.write_redist(cpu, offset, value);
+                }
             }
             offset += take;
         }
@@ -374,7 +407,12 @@ impl GuestBridge {
         }
         if self.devices_enabled
             && (in_window(addr, AARCH64_GICD_BASE, GICD_SIZE)
-                || in_window(addr, AARCH64_GICR_BASE, GICR_SIZE))
+                || crate::machine::arm_virt::aarch64_redist_frame(
+                    addr,
+                    self.gic_cpus,
+                    self.gic_high_base,
+                )
+                .is_some())
         {
             self.gic_read(addr, buf);
             return Ok(());
@@ -423,7 +461,12 @@ impl ArmMemory for GuestBridge {
         }
         if self.devices_enabled
             && (in_window(addr, AARCH64_GICD_BASE, GICD_SIZE)
-                || in_window(addr, AARCH64_GICR_BASE, GICR_SIZE))
+                || crate::machine::arm_virt::aarch64_redist_frame(
+                    addr,
+                    self.gic_cpus,
+                    self.gic_high_base,
+                )
+                .is_some())
         {
             self.gic_write(addr, data);
             self.recorder.record(MemAccess::Write, addr, data);
@@ -565,6 +608,9 @@ pub struct Aarch64Vcpu {
     fault_exits: bool,
     /// Process-level execution at EL0 ([`Aarch64Vcpu::new_user`]).
     user: Option<A64User>,
+    cluster: Option<Arc<cluster::ArmCluster>>,
+    powered_off: bool,
+    physical_memory: Arc<GuestMemoryMmap>,
 }
 
 impl Aarch64Vcpu {
@@ -573,7 +619,14 @@ impl Aarch64Vcpu {
     }
 
     fn with_machine_devices(id: u32, mem: Arc<GuestMemoryMmap>, devices_enabled: bool) -> Self {
-        Self::build(id, mem, devices_enabled, None, AArch64Config::default())
+        Self::build(
+            id,
+            mem,
+            devices_enabled,
+            None,
+            AArch64Config::default(),
+            None,
+        )
     }
 
     fn build(
@@ -582,18 +635,31 @@ impl Aarch64Vcpu {
         devices_enabled: bool,
         translation: Option<Arc<dyn FlatTranslation>>,
         config: AArch64Config,
+        binding: Option<(Arc<cluster::ArmCluster>, Arc<AtomicBool>)>,
     ) -> Self {
         let late = Arc::new(LateBound::default());
         let recorder = Arc::new(MemRecorder::default());
+        let physical_memory = mem.clone();
+        let gic_cpus = binding.as_ref().map_or(1, |(cluster, _)| cluster.count());
+        let gic_high_base = binding.as_ref().map_or(
+            crate::machine::arm_virt::AARCH64_GICR_HIGH_BASE,
+            |(cluster, _)| cluster.high_redist_base,
+        );
         let bridge = GuestBridge {
             mem,
             late: late.clone(),
             recorder: recorder.clone(),
             devices_enabled,
+            gic_cpus,
+            gic_high_base,
             translation,
             exclusive: Mutex::new(None),
         };
-        let cpu = AArch64Cpu::new_with_cpu_id(config, Box::new(bridge), id);
+        let mut cpu = AArch64Cpu::new_with_cpu_id(config, Box::new(bridge), id);
+        if let Some((platform, line)) = &binding {
+            cpu.bind_platform_gic(platform.gic.clone(), id as usize, line.clone());
+            cpu.configure_nonsecure_reset();
+        }
         // The CPU owns the GIC; hand the bridge a reference to the same
         // instance so MMIO and ICC system registers agree.
         if let Some(gic) = cpu.gic_handle() {
@@ -610,7 +676,38 @@ impl Aarch64Vcpu {
             shutdown: false,
             fault_exits: !devices_enabled,
             user: None,
+            cluster: binding.map(|(cluster, _)| cluster),
+            powered_off: false,
+            physical_memory,
         }
+    }
+
+    pub(super) fn new_in_cluster(
+        id: u32,
+        mem: Arc<GuestMemoryMmap>,
+        cluster: Arc<cluster::ArmCluster>,
+    ) -> Result<Self> {
+        if id >= u32::from(cluster.count()) {
+            return Err(Error::InvalidConfig(
+                "AArch64 CPU id exceeds configured topology".into(),
+            ));
+        }
+        let line = cluster
+            .gic
+            .lock()
+            .map_err(|_| Error::Emulator("GIC lock poisoned".into()))?
+            .irq_line(id as usize)
+            .ok_or_else(|| Error::InvalidConfig("missing CPU IRQ binding".into()))?;
+        let mut cpu = Self::build(
+            id,
+            mem,
+            true,
+            None,
+            AArch64Config::default(),
+            Some((cluster, line)),
+        );
+        cpu.powered_off = id != 0;
+        Ok(cpu)
     }
 
     /// Instruction-level engine for embedders without a guest exception handler.
@@ -639,7 +736,7 @@ impl Aarch64Vcpu {
             gic_config: None,
             ..AArch64Config::default()
         };
-        let mut vcpu = Self::build(id, mem, false, Some(translation.clone()), config);
+        let mut vcpu = Self::build(id, mem, false, Some(translation.clone()), config, None);
         vcpu.cpu.enter_el0();
         vcpu.user = Some(A64User {
             translation,
@@ -803,50 +900,6 @@ impl Aarch64Vcpu {
             }
         }
     }
-
-    /// SMCCC/PSCI 1.1 over HVC/SMC. Returns Some(exit) when the call shuts
-    /// the machine down.
-    fn handle_psci(&mut self) -> Option<VcpuExit> {
-        const PSCI_VERSION: u32 = 0x8400_0000;
-        const CPU_ON_32: u32 = 0x8400_0003;
-        const CPU_ON_64: u32 = 0xC400_0003;
-        const MIGRATE_INFO_TYPE: u32 = 0x8400_0006;
-        const SYSTEM_OFF: u32 = 0x8400_0008;
-        const SYSTEM_RESET: u32 = 0x8400_0009;
-        const PSCI_FEATURES: u32 = 0x8400_000A;
-
-        const NOT_SUPPORTED: u64 = -1i64 as u64;
-        const DENIED: u64 = -3i64 as u64;
-
-        let func = self.cpu.get_gpr(0) as u32;
-        let result = match func {
-            PSCI_VERSION => 0x0001_0001, // PSCI 1.1
-            MIGRATE_INFO_TYPE => 2,      // no trusted OS
-            SYSTEM_OFF => {
-                info!("PSCI SYSTEM_OFF: guest requested power-off");
-                return Some(VcpuExit::Shutdown);
-            }
-            SYSTEM_RESET => {
-                info!("PSCI SYSTEM_RESET: guest requested reset; shutting down");
-                return Some(VcpuExit::Shutdown);
-            }
-            PSCI_FEATURES => {
-                let queried = self.cpu.get_gpr(1) as u32;
-                match queried {
-                    PSCI_VERSION | SYSTEM_OFF | SYSTEM_RESET | PSCI_FEATURES
-                    | MIGRATE_INFO_TYPE => 0,
-                    _ => NOT_SUPPORTED,
-                }
-            }
-            CPU_ON_32 | CPU_ON_64 => DENIED, // single-vCPU machine
-            _ => {
-                debug!(func = format!("{func:#x}"), "unhandled SMCCC/PSCI call");
-                NOT_SUPPORTED
-            }
-        };
-        self.cpu.set_gpr(0, result);
-        None
-    }
 }
 
 #[path = "aarch64_step.rs"]
@@ -854,6 +907,9 @@ mod stepping;
 
 impl VCpu for Aarch64Vcpu {
     fn run(&mut self) -> Result<VcpuExit> {
+        if self.powered_off {
+            return Ok(VcpuExit::Hlt);
+        }
         if self.shutdown {
             return Ok(VcpuExit::Shutdown);
         }
@@ -929,9 +985,9 @@ impl VCpu for Aarch64Vcpu {
                     self.heartbeat();
                     return Ok(VcpuExit::Hlt);
                 }
-                Ok(CpuExit::Hvc(_)) | Ok(CpuExit::Smc(_)) => {
-                    if let Some(exit) = self.handle_psci() {
-                        self.shutdown = true;
+                Ok(CpuExit::Hvc(immediate)) | Ok(CpuExit::Smc(immediate)) => {
+                    if let Some(exit) = self.handle_psci(immediate)? {
+                        self.shutdown = matches!(exit, VcpuExit::Shutdown);
                         return Ok(exit);
                     }
                 }
@@ -1032,6 +1088,7 @@ impl VCpu for Aarch64Vcpu {
         // overlaid for compatibility with existing initial-state callers.
         self.cpu.set_sp(state.regs.sp);
         self.shutdown = false;
+        self.powered_off = false;
         if let Some(user) = self.user.as_mut() {
             // `reset` restarted the core's instruction count.
             user.trap = None;
@@ -1081,6 +1138,16 @@ impl VCpu for Aarch64Vcpu {
         self.cpu.set_pc(state.regs.pc);
         self.cpu.set_sp(state.regs.sp);
         self.shutdown = false;
+        Ok(())
+    }
+
+    fn start_aarch64_cpu(&mut self, entry: u64, context: u64, pstate: u64) -> Result<()> {
+        self.cpu
+            .enter_psci(entry, context, pstate)
+            .map_err(|e| Error::Emulator(e.to_string()))?;
+        self.powered_off = false;
+        self.shutdown = false;
+        self.insn_count.store(0, Ordering::Relaxed);
         Ok(())
     }
 

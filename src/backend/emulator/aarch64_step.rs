@@ -12,9 +12,9 @@ impl Aarch64Vcpu {
         let result = match step {
             Ok(CpuExit::Continue) => Ok(None),
             Ok(CpuExit::Wfi | CpuExit::Wfe) => Ok(Some(VcpuExit::Hlt)),
-            Ok(CpuExit::Hvc(_) | CpuExit::Smc(_)) => {
-                if let Some(exit) = self.handle_psci() {
-                    self.shutdown = true;
+            Ok(CpuExit::Hvc(immediate) | CpuExit::Smc(immediate)) => {
+                if let Some(exit) = self.handle_psci(immediate)? {
+                    self.shutdown = matches!(exit, VcpuExit::Shutdown);
                     Ok(Some(exit))
                 } else {
                     Ok(None)
@@ -64,6 +64,9 @@ impl Aarch64Vcpu {
     }
 
     pub(super) fn step_instruction(&mut self) -> Result<Option<VcpuExit>> {
+        if self.powered_off {
+            return Ok(Some(VcpuExit::Hlt));
+        }
         if self.shutdown {
             return Ok(Some(VcpuExit::Shutdown));
         }
@@ -78,9 +81,9 @@ impl Aarch64Vcpu {
         let r = match self.cpu.step_system_interpreted(false) {
             Ok(CpuExit::Continue) => Ok(None),
             Ok(CpuExit::Wfi) | Ok(CpuExit::Wfe) => Ok(Some(VcpuExit::Hlt)),
-            Ok(CpuExit::Hvc(_)) | Ok(CpuExit::Smc(_)) => {
-                if let Some(exit) = self.handle_psci() {
-                    self.shutdown = true;
+            Ok(CpuExit::Hvc(immediate)) | Ok(CpuExit::Smc(immediate)) => {
+                if let Some(exit) = self.handle_psci(immediate)? {
+                    self.shutdown = matches!(exit, VcpuExit::Shutdown);
                     Ok(Some(exit))
                 } else {
                     Ok(None)

@@ -50,6 +50,41 @@ pub const AARCH64_UART_IRQ: u32 = 33;
 pub const AARCH64_GICD_BASE: u64 = 0x0800_0000;
 /// GICv3 redistributor region base
 pub const AARCH64_GICR_BASE: u64 = 0x080A_0000;
+
+/// Additional redistributors are outside RAM and the low UART/device aperture.
+pub const AARCH64_GICR_HIGH_BASE: u64 = 0x40_0000_0000;
+
+pub(crate) fn aarch64_redist_high_base(ram_end: u64) -> Result<u64> {
+    let base = ram_end.checked_add(0x1_ffff).ok_or_else(|| {
+        Error::InvalidConfig("AArch64 RAM end overflows redistributor alignment".into())
+    })? & !0x1_ffff;
+    let base = base.max(AARCH64_GICR_HIGH_BASE);
+    base.checked_add(255 * 0x2_0000)
+        .ok_or_else(|| Error::InvalidConfig("AArch64 high redistributor range overflows".into()))?;
+    Ok(base)
+}
+
+pub(crate) fn aarch64_redist_regions(count: u8, high_base: u64) -> [(u64, u64); 2] {
+    let stride = 0x2_0000;
+    let low_capacity = (AARCH64_UART_BASE - AARCH64_GICR_BASE) / stride;
+    let low = u64::from(count).min(low_capacity);
+    [
+        (AARCH64_GICR_BASE, low * stride),
+        (high_base, (u64::from(count) - low) * stride),
+    ]
+}
+
+pub(crate) fn aarch64_redist_frame(addr: u64, count: u8, high_base: u64) -> Option<(usize, u64)> {
+    let mut first_cpu = 0;
+    for (base, size) in aarch64_redist_regions(count, high_base) {
+        if addr >= base && addr - base < size {
+            let offset = addr - base;
+            return Some((first_cpu + (offset / 0x2_0000) as usize, offset % 0x2_0000));
+        }
+        first_cpu += (size / 0x2_0000) as usize;
+    }
+    None
+}
 /// RAM base address
 pub const AARCH64_RAM_BASE: u64 = 0x4000_0000;
 
@@ -171,13 +206,15 @@ impl Aarch64VirtMachine {
         })
     }
 
-    /// Build the device tree for the AArch64 virt machine: RAM, one CPU,
+    /// Build the device tree for the configured AArch64 virt CPU topology, RAM,
     /// GICv3, the architected timer, PSCI over HVC, and a PL011 console.
     fn build_dtb(
         cmdline: &str,
         ram_base: u64,
         ram_size: u64,
         initrd: Option<(u64, u64)>,
+        cpu_count: u8,
+        high_base: u64,
     ) -> Vec<u8> {
         use crate::machine::fdt::FdtBuilder;
 
@@ -220,11 +257,14 @@ impl Aarch64VirtMachine {
         fdt.begin_node("cpus");
         fdt.prop_u32("#address-cells", 1);
         fdt.prop_u32("#size-cells", 0);
-        fdt.begin_node("cpu@0");
-        fdt.prop_str("device_type", "cpu");
-        fdt.prop_str("compatible", "arm,arm-v8");
-        fdt.prop_u32("reg", 0);
-        fdt.end_node();
+        for id in 0..cpu_count {
+            fdt.begin_node(&format!("cpu@{id:x}"));
+            fdt.prop_str("device_type", "cpu");
+            fdt.prop_str("compatible", "arm,arm-v8");
+            fdt.prop_u32("reg", u32::from(id));
+            fdt.prop_str("enable-method", "psci");
+            fdt.end_node();
+        }
         fdt.end_node();
 
         fdt.begin_node("psci");
@@ -236,19 +276,29 @@ impl Aarch64VirtMachine {
         fdt.prop_str("compatible", "arm,gic-v3");
         fdt.prop_u32("#interrupt-cells", 3);
         fdt.prop_empty("interrupt-controller");
-        fdt.prop_cells(
-            "reg",
-            &[
-                (AARCH64_GICD_BASE >> 32) as u32,
-                AARCH64_GICD_BASE as u32,
-                (GICD_SIZE >> 32) as u32,
-                GICD_SIZE as u32,
-                (AARCH64_GICR_BASE >> 32) as u32,
-                AARCH64_GICR_BASE as u32,
-                (GICR_SIZE_PER_CPU >> 32) as u32,
-                GICR_SIZE_PER_CPU as u32,
-            ],
+        let regions = aarch64_redist_regions(cpu_count, high_base);
+        let mut reg = vec![
+            (AARCH64_GICD_BASE >> 32) as u32,
+            AARCH64_GICD_BASE as u32,
+            (GICD_SIZE >> 32) as u32,
+            GICD_SIZE as u32,
+        ];
+        for (base, size) in regions {
+            if size != 0 {
+                reg.extend([
+                    (base >> 32) as u32,
+                    base as u32,
+                    (size >> 32) as u32,
+                    size as u32,
+                ]);
+            }
+        }
+        fdt.prop_cells("reg", &reg);
+        fdt.prop_u32(
+            "#redistributor-regions",
+            if regions[1].1 == 0 { 1 } else { 2 },
         );
+        fdt.prop_u64("redistributor-stride", GICR_SIZE_PER_CPU);
         fdt.prop_u32("phandle", PHANDLE_GIC);
         fdt.end_node();
 
@@ -371,7 +421,14 @@ impl Machine for Aarch64VirtMachine {
             None => None,
         };
 
-        let dtb = Self::build_dtb(&config.cmdline, AARCH64_RAM_BASE, ram_size, initrd_range);
+        let dtb = Self::build_dtb(
+            &config.cmdline,
+            AARCH64_RAM_BASE,
+            ram_size,
+            initrd_range,
+            config.vcpus,
+            aarch64_redist_high_base(ram_end)?,
+        );
         let dtb_addr = next;
         if dtb_addr + dtb.len() as u64 > ram_end {
             return Err(Error::KernelLoad(

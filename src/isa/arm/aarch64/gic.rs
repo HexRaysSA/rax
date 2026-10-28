@@ -7,6 +7,9 @@
 //! - SGI, PPI, and SPI support
 //! - Interrupt prioritization and routing
 
+pub mod checkpoint;
+mod sgi;
+
 use std::collections::VecDeque;
 
 // =============================================================================
@@ -45,7 +48,7 @@ pub const INTID_SPURIOUS: u32 = 1023;
 // =============================================================================
 
 /// GIC version.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum GicVersion {
     /// GICv2.
     V2,
@@ -60,7 +63,7 @@ pub enum GicVersion {
 // =============================================================================
 
 /// State of an interrupt.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum InterruptState {
     /// Inactive - not pending and not active.
     Inactive,
@@ -129,7 +132,7 @@ impl InterruptState {
 // =============================================================================
 
 /// Interrupt trigger type.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TriggerType {
     /// Level-sensitive.
     Level,
@@ -138,7 +141,7 @@ pub enum TriggerType {
 }
 
 /// Interrupt routing mode.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RoutingMode {
     /// Route to specific affinity.
     Affinity(u64),
@@ -151,7 +154,7 @@ pub enum RoutingMode {
 // =============================================================================
 
 /// Per-interrupt configuration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct InterruptConfig {
     /// Interrupt state.
     pub state: InterruptState,
@@ -191,7 +194,7 @@ impl Default for InterruptConfig {
 // =============================================================================
 
 /// GIC configuration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct GicConfig {
     /// GIC version.
     pub version: GicVersion,
@@ -225,7 +228,7 @@ impl Default for GicConfig {
 // =============================================================================
 
 /// Per-CPU GIC state.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CpuInterface {
     /// CPU ID.
     pub cpu_id: u8,
@@ -323,7 +326,11 @@ impl CpuInterface {
 
         // Check private interrupts (SGI/PPI)
         for (i, config) in self.private_interrupts.iter().enumerate() {
-            if config.enabled && config.state.is_pending() && config.priority < best_priority {
+            if config.enabled
+                && config.state.is_pending()
+                && !config.state.is_active()
+                && config.priority < best_priority
+            {
                 // Check if unmasked
                 if config.priority < self.priority_mask {
                     best_priority = config.priority;
@@ -335,7 +342,11 @@ impl CpuInterface {
         // Check SPIs
         for (i, config) in spis.iter().enumerate() {
             let intid = SPI_START + i as u32;
-            if config.enabled && config.state.is_pending() && config.priority < best_priority {
+            if config.enabled
+                && config.state.is_pending()
+                && !config.state.is_active()
+                && config.priority < best_priority
+            {
                 // Check routing
                 let routed = match config.routing {
                     RoutingMode::Any => true,
@@ -666,7 +677,7 @@ impl Gic {
         } else {
             // Send to specified PEs
             for (i, cpu) in self.cpu_interfaces.iter_mut().enumerate() {
-                if (target_list >> i) & 1 != 0 {
+                if i < 16 && (target_list >> i) & 1 != 0 {
                     cpu.send_sgi(intid);
                 }
             }
@@ -761,6 +772,11 @@ impl Gic {
                     | ((id_bits & 0x1F) << 19)
                     | (a3v << 24)
                     | (no1n << 25)
+                    | (if self.config.version != GicVersion::V2 {
+                        1 << 26
+                    } else {
+                        0
+                    })
             }
             // GICD_IIDR
             0x0008 => {
@@ -1236,10 +1252,7 @@ impl Gic {
     /// ICC_SGI1R_EL1 write: raise an SGI. On this single-/few-CPU machine the
     /// target list is interpreted over the local cluster (IRM targets all).
     pub fn raise_sgi(&mut self, value: u64) {
-        let intid = ((value >> 24) & 0xF) as u32;
-        let irm = (value >> 40) & 1 != 0;
-        let target_list = (value & 0xFFFF) as u16;
-        self.send_sgi(intid, target_list, irm);
+        self.raise_sgi_from(0, value);
     }
 }
 

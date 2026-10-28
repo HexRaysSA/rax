@@ -420,6 +420,14 @@ impl Vmm {
 
         // Select the guest machine.
         let machine = machine::from_arch_kind(config.arch);
+        vm.configure_cpu_topology(
+            config.vcpus,
+            machine
+                .ram_base()
+                .checked_add(config.memory.bytes())
+                .ok_or_else(|| Error::InvalidConfig("guest RAM extent overflows".into()))?,
+        )?;
+
         info!(machine = machine.name(), "selected guest machine");
 
         // ARM64 HVF: map only the platform RAM window into the guest so that
@@ -1113,6 +1121,47 @@ impl Vmm {
                 ))
             })
             .transpose()?;
+        if self.checkpoint_config.arch == ArchKind::Aarch64
+            && self.checkpoint_config.vcpus > 1
+            && self
+                .vm
+                .as_any()
+                .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+                .is_some()
+            && bundle
+                .execution()
+                .and_then(|state| state.arm_cluster.as_ref())
+                .is_none()
+        {
+            return Err(Error::InvalidConfig(
+                "AArch64 SMP checkpoint requires shared interrupt/power state".into(),
+            ));
+        }
+        let arm_restore = if let Some(state) = bundle
+            .execution()
+            .and_then(|saved| saved.arm_cluster.as_ref())
+        {
+            let cluster = self
+                .vm
+                .as_any()
+                .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+                .and_then(|vm| vm.arm_cluster())
+                .ok_or_else(|| {
+                    Error::InvalidConfig(
+                        "ARM platform checkpoint requires the software cluster".into(),
+                    )
+                })?;
+            cluster.validate_checkpoint(
+                state,
+                bundle
+                    .execution()
+                    .ok_or_else(|| Error::InvalidConfig("missing execution state".into()))?
+                    .online(),
+            )?;
+            Some((cluster, state.clone()))
+        } else {
+            None
+        };
         let devices = snapshot.devices.clone();
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
@@ -1162,6 +1211,10 @@ impl Vmm {
                 timing_context.set_resume_base(snapshot.elapsed_nanos);
             }
             Ok(())
+        };
+        let commit = move || match arm_restore {
+            Some((cluster, state)) => cluster.restore_with(state, commit),
+            None => commit(),
         };
         match (&self.pci_devices, pci) {
             (Some(devices), Some(pci)) => devices.restore_checkpoint_with(pci, commit),
@@ -1433,3 +1486,6 @@ mod execution;
 #[cfg(test)]
 #[path = "runtime/mmio_rmw_tests.rs"]
 mod mmio_rmw_tests;
+
+#[cfg(test)]
+mod aarch64_cluster_tests;

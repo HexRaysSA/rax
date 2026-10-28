@@ -5,6 +5,7 @@ use crate::error::{Error, Result};
 use std::collections::VecDeque;
 
 const TAG: &[u8; 8] = b"RAXEXE01";
+const ARM_TAG: &[u8; 8] = b"RAXEXE02";
 pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
 const MAX_CONTROL: usize = 4096;
 const MAX_REQUESTS: usize = 1_048_576;
@@ -22,6 +23,7 @@ mod tests {
             cursor: 0,
             retired: 53,
             online: vec![true],
+            arm_cluster: None,
             local_apics: vec![LapicCheckpoint {
                 registers: LocalApic::new(0),
                 timer_age_nanos: None,
@@ -64,6 +66,46 @@ mod tests {
         let mut trailing = raw;
         trailing.push(0);
         assert!(ExecutionSnapshot::decode(&trailing, 1).is_err());
+    }
+
+    #[test]
+    fn arm_controller_frame_is_required_bounded_and_retains_legacy_encoding() {
+        let legacy = fixture();
+        let mut state = ExecutionSnapshot::decode(&legacy, 1).unwrap();
+        state.arm_cluster = Some(
+            crate::backend::emulator::aarch64::cluster::ArmCluster::new(1, 0x8000)
+                .unwrap()
+                .checkpoint()
+                .unwrap(),
+        );
+        let raw = state.encoded().unwrap();
+        assert_eq!(&raw[..8], ARM_TAG);
+        assert_eq!(
+            ExecutionSnapshot::decode(&raw, 1)
+                .unwrap()
+                .encoded()
+                .unwrap(),
+            raw
+        );
+        for end in 0..raw.len() {
+            assert!(
+                ExecutionSnapshot::decode(&raw[..end], 1).is_err(),
+                "prefix {end}"
+            );
+        }
+        let mut trailing = raw.clone();
+        trailing.push(0);
+        assert!(ExecutionSnapshot::decode(&trailing, 1).is_err());
+        let mut missing = raw;
+        missing[..8].copy_from_slice(TAG);
+        assert!(ExecutionSnapshot::decode(&missing, 1).is_err());
+        assert_eq!(
+            ExecutionSnapshot::decode(&legacy, 1)
+                .unwrap()
+                .encoded()
+                .unwrap(),
+            legacy
+        );
     }
 
     #[test]
@@ -112,6 +154,8 @@ pub struct ExecutionSnapshot {
     pub(crate) retired: u64,
     pub(crate) online: Vec<bool>,
     pub(crate) local_apics: Vec<LapicCheckpoint>,
+    pub(crate) arm_cluster:
+        Option<crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint>,
 }
 
 impl ExecutionSnapshot {
@@ -136,6 +180,12 @@ impl ExecutionSnapshot {
         {
             return Err(invalid("CPU count or cursor disagrees with configuration"));
         }
+        if let Some(cluster) = &self.arm_cluster {
+            if base.config.arch != crate::config::ArchKind::Aarch64 {
+                return Err(invalid("ARM platform state on another architecture"));
+            }
+            cluster.validate(&self.online)?;
+        }
         let first = self
             .local_apics
             .first()
@@ -155,7 +205,11 @@ impl ExecutionSnapshot {
 
     pub(super) fn encoded(&self) -> Result<Vec<u8>> {
         let mut raw = Vec::new();
-        raw.extend_from_slice(TAG);
+        raw.extend_from_slice(if self.arm_cluster.is_some() {
+            ARM_TAG
+        } else {
+            TAG
+        });
         raw.extend_from_slice(&(self.online.len() as u32).to_le_bytes());
         raw.extend_from_slice(&(self.cursor as u32).to_le_bytes());
         raw.extend_from_slice(&self.retired.to_le_bytes());
@@ -184,6 +238,18 @@ impl ExecutionSnapshot {
             if raw.len() as u64 > MAX_SECTION {
                 return Err(invalid("execution section exceeds format limit"));
             }
+        }
+        if let Some(cluster) = &self.arm_cluster {
+            cluster.validate(&self.online)?;
+            let control =
+                crate::codec::serialize_limited(cluster, MAX_SECTION as usize).map_err(invalid)?;
+            if raw.len() as u64 + 4 + control.len() as u64 > MAX_SECTION {
+                return Err(invalid(
+                    "ARM platform state exceeds execution section limit",
+                ));
+            }
+            raw.extend_from_slice(&(control.len() as u32).to_le_bytes());
+            raw.extend_from_slice(&control);
         }
         Ok(raw)
     }
@@ -216,7 +282,8 @@ impl ExecutionSnapshot {
             }
         }
         let mut reader = Reader(raw);
-        if reader.take(8)? != TAG {
+        let tag = reader.take(8)?;
+        if tag != TAG && tag != ARM_TAG {
             return Err(invalid("bad execution section tag"));
         }
         let count = reader.u32()? as usize;
@@ -265,6 +332,21 @@ impl ExecutionSnapshot {
                 timer_age_nanos: (armed != 0).then_some(age),
             });
         }
+        let arm_cluster = if tag == ARM_TAG {
+            let length = reader.u32()? as usize;
+            if length == 0 || length > MAX_SECTION as usize {
+                return Err(invalid("bad ARM platform length"));
+            }
+            let cluster: crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint =
+                crate::codec::deserialize_limited::<_, { MAX_SECTION as usize }>(
+                    reader.take(length)?,
+                )
+                .map_err(invalid)?;
+            cluster.validate(&online)?;
+            Some(cluster)
+        } else {
+            None
+        };
         if !reader.0.is_empty() {
             return Err(invalid("trailing execution data"));
         }
@@ -273,6 +355,7 @@ impl ExecutionSnapshot {
             retired,
             online,
             local_apics,
+            arm_cluster,
         })
     }
 }

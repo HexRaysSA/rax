@@ -62,6 +62,13 @@ fn represented(vm: &Vmm) -> SnapshotBundle {
     let mut b = SnapshotBundle::new(base)
         .with_cpus(vm.capture_cpu_states().unwrap())
         .unwrap();
+    // A shared ARM controller/power graph is required even when this fixture
+    // checks only represented CPU bytes. Keep the one-CPU legacy case intact.
+    if vm.checkpoint_config.arch == ArchKind::Aarch64 && vm.checkpoint_config.vcpus > 1 {
+        b = b
+            .with_execution(vm.capture_execution_state().unwrap())
+            .unwrap();
+    }
     if let Some(p) = &vm.pci_devices {
         b = b.with_pci(p.checkpoint().unwrap()).unwrap();
     }

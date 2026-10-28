@@ -296,30 +296,32 @@ impl AArch64Cpu {
         let mut gic = gic.lock().ok()?;
         let value = match enc {
             // ICC_PMR_EL1
-            (3, 0, 4, 6, 0) => gic.cpu(0)?.priority_mask as u64,
+            (3, 0, 4, 6, 0) => gic.cpu(self.gic_cpu_id)?.priority_mask as u64,
             // ICC_IAR0_EL1 / ICC_IAR1_EL1 (read acknowledges)
-            (3, 0, 12, 8, 0) | (3, 0, 12, 12, 0) => gic.acknowledge(0) as u64,
+            (3, 0, 12, 8, 0) | (3, 0, 12, 12, 0) => gic.acknowledge(self.gic_cpu_id) as u64,
             // ICC_HPPIR0_EL1 / ICC_HPPIR1_EL1
-            (3, 0, 12, 8, 2) | (3, 0, 12, 12, 2) => gic.cpu(0)?.highest_pending_intid as u64,
+            (3, 0, 12, 8, 2) | (3, 0, 12, 12, 2) => {
+                gic.cpu(self.gic_cpu_id)?.highest_pending_intid as u64
+            }
             // ICC_BPR0_EL1
-            (3, 0, 12, 8, 3) => gic.cpu(0)?.bpr0 as u64,
+            (3, 0, 12, 8, 3) => gic.cpu(self.gic_cpu_id)?.bpr0 as u64,
             // ICC_BPR1_EL1
-            (3, 0, 12, 12, 3) => gic.cpu(0)?.bpr1 as u64,
+            (3, 0, 12, 12, 3) => gic.cpu(self.gic_cpu_id)?.bpr1 as u64,
             // ICC_AP0R / ICC_AP1R (active priorities: RAZ)
             (3, 0, 12, 8, 4..=7) | (3, 0, 12, 9, 0..=3) => 0,
             // ICC_RPR_EL1
-            (3, 0, 12, 11, 3) => gic.cpu(0)?.running_priority as u64,
+            (3, 0, 12, 11, 3) => gic.cpu(self.gic_cpu_id)?.running_priority as u64,
             // ICC_CTLR_EL1: PRIbits=7 (8 priority bits), IDbits=0 (16-bit)
             (3, 0, 12, 12, 4) => {
-                let cpu = gic.cpu(0)?;
-                (7 << 8) | (cpu.eoi_mode as u64) << 1
+                let cpu = gic.cpu(self.gic_cpu_id)?;
+                (7 << 8) | (1 << 18) | (cpu.eoi_mode as u64) << 1
             }
             // ICC_SRE_EL1: system register interface enabled, locked on
             (3, 0, 12, 12, 5) => 0x7,
             // ICC_IGRPEN0_EL1
-            (3, 0, 12, 12, 6) => gic.cpu(0)?.igrpen0,
+            (3, 0, 12, 12, 6) => gic.cpu(self.gic_cpu_id)?.igrpen0,
             // ICC_IGRPEN1_EL1
-            (3, 0, 12, 12, 7) => gic.cpu(0)?.igrpen1,
+            (3, 0, 12, 12, 7) => gic.cpu(self.gic_cpu_id)?.igrpen1,
             _ => return None,
         };
         Some(value)
@@ -343,30 +345,34 @@ impl AArch64Cpu {
         };
         match enc {
             // ICC_PMR_EL1
-            (3, 0, 4, 6, 0) => gic.set_priority_mask(0, value as u8),
+            (3, 0, 4, 6, 0) => gic.set_priority_mask(self.gic_cpu_id, value as u8),
             // ICC_EOIR0_EL1 / ICC_EOIR1_EL1
-            (3, 0, 12, 8, 1) | (3, 0, 12, 12, 1) => gic.end_of_interrupt(0, value as u32),
+            (3, 0, 12, 8, 1) | (3, 0, 12, 12, 1) => {
+                gic.end_of_interrupt(self.gic_cpu_id, value as u32)
+            }
             // ICC_BPR0_EL1
             (3, 0, 12, 8, 3) => {
-                if let Some(cpu) = gic.cpu_mut(0) {
+                if let Some(cpu) = gic.cpu_mut(self.gic_cpu_id) {
                     cpu.bpr0 = (value & 0x7) as u8;
                 }
             }
             // ICC_BPR1_EL1
             (3, 0, 12, 12, 3) => {
-                if let Some(cpu) = gic.cpu_mut(0) {
+                if let Some(cpu) = gic.cpu_mut(self.gic_cpu_id) {
                     cpu.bpr1 = (value & 0x7) as u8;
                 }
             }
             // ICC_AP0R / ICC_AP1R: WI
             (3, 0, 12, 8, 4..=7) | (3, 0, 12, 9, 0..=3) => {}
             // ICC_DIR_EL1
-            (3, 0, 12, 11, 1) => gic.deactivate(0, value as u32),
+            (3, 0, 12, 11, 1) => gic.deactivate(self.gic_cpu_id, value as u32),
             // ICC_SGI1R_EL1 / ICC_ASGI1R_EL1 / ICC_SGI0R_EL1
-            (3, 0, 12, 11, 5) | (3, 0, 12, 11, 6) | (3, 0, 12, 11, 7) => gic.raise_sgi(value),
+            (3, 0, 12, 11, 5) | (3, 0, 12, 11, 6) | (3, 0, 12, 11, 7) => {
+                gic.raise_sgi_from(self.gic_cpu_id, value)
+            }
             // ICC_CTLR_EL1: only EOImode is writable here
             (3, 0, 12, 12, 4) => {
-                if let Some(cpu) = gic.cpu_mut(0) {
+                if let Some(cpu) = gic.cpu_mut(self.gic_cpu_id) {
                     cpu.eoi_mode = (value >> 1) & 1 != 0;
                     cpu.ctlr_el1 = value;
                 }
@@ -374,9 +380,9 @@ impl AArch64Cpu {
             // ICC_SRE_EL1: WI (system register interface is always on)
             (3, 0, 12, 12, 5) => {}
             // ICC_IGRPEN0_EL1
-            (3, 0, 12, 12, 6) => gic.set_group_enable(0, false, value & 1 != 0),
+            (3, 0, 12, 12, 6) => gic.set_group_enable(self.gic_cpu_id, false, value & 1 != 0),
             // ICC_IGRPEN1_EL1
-            (3, 0, 12, 12, 7) => gic.set_group_enable(0, true, value & 1 != 0),
+            (3, 0, 12, 12, 7) => gic.set_group_enable(self.gic_cpu_id, true, value & 1 != 0),
             _ => return false,
         }
         true
