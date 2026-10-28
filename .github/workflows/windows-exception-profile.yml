@@ -27,6 +27,7 @@ on:
       - docs/specifications/windows/native-open-key-ex/**
       - docs/specifications/windows/native-appmodel-registry/**
       - src/user/windows/process/sched/tests/services_tests/registry_key_open_ex*.rs
+      - src/user/windows/process/sched/tests/services_tests/appmodel_registry_tests.rs
       - docs/specifications/windows/native-query-key/**
       - src/user/windows/dll/native/registry.rs
       - src/user/windows/dll/native/registry/**
@@ -72,7 +73,9 @@ on:
       - docs/specifications/windows/native-memory-prefetch/**
       - docs/specifications/windows/native-primary-user-hive/**
       - docs/specifications/windows/native-open-key-ex/**
+      - docs/specifications/windows/native-appmodel-registry/**
       - src/user/windows/process/sched/tests/services_tests/registry_key_open_ex*.rs
+      - src/user/windows/process/sched/tests/services_tests/appmodel_registry_tests.rs
       - docs/specifications/windows/native-query-key/**
       - src/user/windows/dll/native/registry.rs
       - src/user/windows/dll/native/registry/**
@@ -457,6 +460,8 @@ jobs:
           $env:RAX_NATIVE_OPEN_KEY_EX_GRANTS = Join-Path $env:GITHUB_WORKSPACE 'target/native-open-key-grants-v5/receipt.json'
           $env:RAX_NATIVE_OPEN_KEY_EX_VIEWS = Join-Path $env:GITHUB_WORKSPACE 'target/native-open-key-views-v7/receipt.json'
           cargo test --locked --no-default-features --lib native_open_key_ex -- --nocapture --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --no-default-features --lib appmodel -- --nocapture --test-threads=1
       - name: Replay key-query controls and execute installed five-argument leaves
         if: always()
         run: |

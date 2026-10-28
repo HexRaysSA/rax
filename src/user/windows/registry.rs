@@ -33,6 +33,9 @@ mod primary_hive;
 #[cfg(test)]
 pub(crate) use primary_hive::HiveHeader;
 use primary_hive::PrimaryHive;
+#[path = "registry/appmodel.rs"]
+mod appmodel;
+pub(crate) use appmodel::{AppModelViews, RegistryView};
 #[path = "registry/fixed.rs"]
 mod fixed;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;
@@ -55,6 +58,7 @@ pub(crate) struct SelectedKey {
 #[derive(Debug)]
 pub struct Key {
     pub(crate) path: Vec<u16>,
+    pub(crate) appmodel_view: Option<RegistryView>,
     pub(crate) children: u32,
     upcase: Arc<[u16]>,
     values: Arc<BTreeMap<Vec<u16>, Value>>,
@@ -82,6 +86,7 @@ pub(crate) struct Registry {
     selected_trees: BTreeSet<TreeRoot>,
     user_policies: BTreeMap<UserPolicyRoot, Arc<[u16]>>,
     primary_hive: Option<PrimaryHive>,
+    pub(crate) appmodel: Arc<AppModelViews>,
 }
 impl Registry {
     #[cfg(test)]
@@ -105,6 +110,7 @@ impl Registry {
             selected_trees: BTreeSet::new(),
             user_policies: BTreeMap::new(),
             primary_hive: None,
+            appmodel: Arc::default(),
         };
         let mut budget = ValueBudget::default();
         for selected in selected {
@@ -113,6 +119,7 @@ impl Registry {
             }
             let key = Key {
                 path: selected.path.encode_utf16().collect(),
+                appmodel_view: None,
                 children: selected.children,
                 upcase: result.upcase.clone(),
                 values: Arc::new(bounded_values(
@@ -163,6 +170,13 @@ impl Registry {
         }
     }
     pub(crate) fn lookup(&self, name: &[u16]) -> Lookup {
+        self.lookup_view(name, RegistryView::Native64)
+    }
+    pub(crate) fn lookup_view(&self, name: &[u16], view: RegistryView) -> Lookup {
+        match self.appmodel.lookup(name, view) {
+            Lookup::Unselected => {}
+            selected => return selected,
+        }
         if self.keys.is_empty()
             && self.selected_trees.is_empty()
             && self.user_policies.is_empty()

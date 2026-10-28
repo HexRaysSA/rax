@@ -3296,3 +3296,65 @@ Independent native fixed-key queries return STATUS_OBJECT_NAME_NOT_FOUND;
 all three requested views report absence on this ARM64 host. The AppModel
 snapshot change, full CMD/process execution and installed Assist/package
 qualification remain open.
+
+### AppModel machine registry snapshots (2026-10-28)
+
+Installed selection captures the fixed
+`\Registry\Machine\Software\Microsoft\AppModel\Lookaside\machine`
+subtree independently through Win32 registry views0x100 and0x200. Native
+root not-found is retained per view; other acquisition errors abort. Both
+views share the existing4096-value/16MiB aggregate and a1024-key/1MiB path
+metadata bound. No guest name, access mask or handle reaches a native registry
+operation. Selected values and descendants remain immutable.
+
+Retained native controls cover ARM64 kernel29695 and physical AMD64
+kernels20348/26100:640 ordinary/extended opens across ten executable views.
+Native64 NT opens ignore view bits. WoW64 absolute opens select the default32
+or explicit32 snapshot, or64 for0x100; conflicting bits remain invalid.
+Relative opens retain their root view except for the measured explicit32
+request from a64-bit root. Handles retain their original immutable pair after
+catalog replacement and duplication, including the opposite-view transition.
+The earlier universal-retention summary is corrected against the raw canonical
+name records.
+
+Present AppModel mapping remains an explicit inference from inherited SOFTWARE
+redirection and the measured CurrentVersion control; AppModel itself is absent
+on all captured hosts. Native64 body tags remain zero. WoW64 AppModel body
+tags are explicitly uncaptured rather than assigned the existing shared-key
+formula. Key-query validation still precedes that boundary, and unsupported
+metadata does not publish invented bytes through an aligned or converted buffer.
+Producers, original captures, independent provenance tests and implementation
+limits are documented under
+`docs/specifications/windows/native-appmodel-registry/`.
+
+The prefix-corrected candidate passes complete-library gates8783/8773 on
+macOS/Linux, with zero failures, two existing ignored tests per host and zero
+filtered tests. Focused/registry/object/CLI/CAPI counts are8/149/8/8/191 on
+macOS and8/146/8/8/191 on Linux; both all-target checks pass. macOS strict
+production Clippy and12 workflow-policy checks pass. Four direct CLI/native
+program comparisons per Unix host also match stdout and exit0 without a
+separate sysroot, including a shell launching an external program. Those
+comparisons use the default host-service mode, while existing closed-runtime
+tests separately exercise installed glibc/libm or the dyld shared cache.
+
+The first Windows installed-library CLI run exceeds its unchanged60s child
+deadline; the exact same test/source/CLI subsequently passes in51.18s. Both
+records remain retained. Corrected-source native Windows qualification and
+current-source installed CMD observations are recorded below. Full CMD/process
+execution, installed Assist/GUI/real-IDB and final-package qualification remain
+open.
+
+The current corrected-source Windows filtered gates pass11 focused,180 registry,
+8 object,10 CLI and191 C API tests plus all-target checking and CLI build. Its
+complete-library gate passes8092 tests, with zero failures, two existing ignored
+tests and zero filtered tests, in991.78s. The CLI SHA256 is
+`acb37a7b351b4ae5f437923578f7890639111db41eede415de483fa2b9a8a8d5`.
+Current-source inspection advances the prior machine-root boundary to
+`\Registry\Machine\SOFTWARE\Microsoft\AppModel\Lookaside\user`,
+access0x80000100, attributes48bytes/root0/flags0x40, nameLength120/Maximum122bytes.
+Native CMD exits0; emulation exits125 before stdout. Independent read-only
+native64 and Win32 view queries report both leaves absent on this host, with
+balanced117/117 process handles. The current core archive has SHA256
+`3bef76cff4ff19ac892b292a2df897d94f03a2ea9694290306602464b2d8a9f1`.
+The sibling user-root snapshot and full CMD/process/installed-product
+qualification remain open.

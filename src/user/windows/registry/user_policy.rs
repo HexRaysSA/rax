@@ -79,6 +79,7 @@ impl Registry {
                 0,
                 &mut self.value_budget()?,
                 &mut tree::TreeBudget::default(),
+                None,
             )?;
             self.keys.insert(folded.clone(), key);
         }

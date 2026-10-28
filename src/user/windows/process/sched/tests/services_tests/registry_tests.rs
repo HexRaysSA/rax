@@ -97,6 +97,9 @@ fn native_registry_selected_namespace_query_and_handle_lifetime_all_abis() {
 #[path = "registry_leaf_tests.rs"]
 mod installed;
 
+#[path = "appmodel_registry_tests.rs"]
+mod appmodel;
+
 #[path = "registry_key_query_tests.rs"]
 mod key_query;
 

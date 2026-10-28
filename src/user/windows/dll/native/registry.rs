@@ -9,7 +9,7 @@ use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
-use crate::user::windows::registry::{Key, Lookup, Value};
+use crate::user::windows::registry::{Key, Lookup, RegistryView, Value};
 use std::sync::Arc;
 
 const READ_ACCESS: u32 = 0x0002_0019;
@@ -173,7 +173,7 @@ fn grant(c: &Ctx, access: u32) -> Checked<u32> {
     if c.arch() == WinArch::X86 && access & 0x300 == 0x300 {
         return status(STATUS_INVALID_PARAMETER);
     }
-    let access = access & !0x300; // Selected SYSTEM/IFEO keys are shared between views.
+    let access = access & !0x300; // View flags select snapshots; they are not granted rights.
     if access == 0 || access & !(READ_ACCESS | 0xA200_0000) != 0 {
         return status(STATUS_ACCESS_DENIED);
     }
@@ -264,6 +264,7 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
             .unsupported("registry link-source metadata is not captured")
             .into());
     }
+    let views;
     let selected = if attrs.root != 0 {
         // The compatibility thunk rejects an absolute rooted name before the
         // native object manager checks the root handle's validity/type.
@@ -277,7 +278,19 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         if absolute {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
-        match root.relative(&attrs.name.units) {
+        let selected =
+            if wow && access & 0x200 != 0 && root.appmodel_view == Some(RegistryView::Native64) {
+                let captured = c.p.objects.registry_views(attrs.root).ok_or_else(|| {
+                    c.unsupported("AppModel relative registry views are not captured")
+                })?;
+                let selected = captured.relative(&root, &attrs.name.units, RegistryView::Wow32);
+                views = Some(captured);
+                selected
+            } else {
+                views = c.p.objects.registry_views(attrs.root);
+                root.relative(&attrs.name.units)
+            };
+        match selected {
             Lookup::Present(key) => key,
             Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
             Lookup::Unselected => {
@@ -288,7 +301,13 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         if !absolute {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
-        match c.p.registry.lookup(&attrs.name.units) {
+        let view = if wow && access & 0x100 == 0 {
+            RegistryView::Wow32
+        } else {
+            RegistryView::Native64
+        };
+        views = Some(c.p.registry.appmodel.clone());
+        match c.p.registry.lookup_view(&attrs.name.units, view) {
             Lookup::Present(key) => key,
             Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
             Lookup::Unselected => {
@@ -303,6 +322,7 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     // Native64 opens retain zero tags for these shared selected keys. WoW64
     // marks its default/32-bit view with 0x400; an explicit 64-bit view is 0x100.
     // The contradictory x86 view request is rejected by grant before creation.
+    let redirected = selected.appmodel_view.is_some();
     let tags = if c.arch() == WinArch::X86 {
         let view = access & 0x300;
         view | if view == 0x100 { 0 } else { 0x400 }
@@ -310,9 +330,21 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         0
     };
     let access = open_grant(c, access, options)?;
-    let Some(id) = c.p.objects.create_registry_key(selected, tags) else {
+    // Redirected WoW64 key-body metadata is not inferred from the shared-key
+    // formula. Keep it explicitly uncaptured until a present-root oracle exists.
+    let id = if redirected && wow {
+        c.p.objects.create_registry_key_metadata(selected, None)
+    } else {
+        c.p.objects.create_registry_key(selected, tags)
+    };
+    let Some(id) = id else {
         return status(STATUS_INSUFFICIENT_RESOURCES);
     };
+    if redirected {
+        if let Some(views) = views {
+            c.p.objects.set_registry_views(id, views);
+        }
+    }
     let Some(handle) = c.p.objects.open_access(id, attrs.flags & 2 != 0, access) else {
         c.p.objects.release(id);
         return status(STATUS_INSUFFICIENT_RESOURCES);

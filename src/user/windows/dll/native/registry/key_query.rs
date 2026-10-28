@@ -31,6 +31,9 @@ fn query_checked(c: &mut Ctx) -> Checked<u32> {
         returned,
         scratch.as_deref_mut(),
     );
+    if matches!(&result, Err(Failure::Api(ApiErr::Unimplemented(_)))) {
+        return result;
+    }
     if let Some(scratch) = scratch {
         let result = match result {
             Err(Failure::Api(ApiErr::Fault(fault))) if c.p.vm.take_guard(fault.addr) => {
@@ -83,7 +86,7 @@ fn query_native(
     let tags =
         c.p.objects
             .registry_tags(handle)
-            .expect("validated key body");
+            .ok_or_else(|| c.unsupported("registry key-body tags are not captured"))?;
     c.mem().w32(returned, 4)?;
     if length < 4 {
         return Ok(STATUS_BUFFER_TOO_SMALL);

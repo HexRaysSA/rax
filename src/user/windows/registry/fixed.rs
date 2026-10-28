@@ -29,6 +29,7 @@ impl Registry {
                 }
                 Some(Arc::new(Key {
                     path: SEGMENT_HEAP_KEY.encode_utf16().collect(),
+                    appmodel_view: None,
                     children: selected.children,
                     upcase: self.upcase.clone(),
                     values: Arc::new(bounded_values(
@@ -45,6 +46,7 @@ impl Registry {
         };
         let key = Key {
             path: parent.path.clone(),
+            appmodel_view: None,
             children: parent.children,
             upcase: parent.upcase.clone(),
             values: parent.values.clone(),

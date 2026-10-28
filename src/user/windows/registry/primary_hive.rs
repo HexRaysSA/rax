@@ -65,6 +65,7 @@ impl Registry {
                     bounded_values(&self.upcase, header.values, &mut self.value_budget()?)?;
                 Some(Arc::new(Key {
                     path: header.canonical,
+                    appmodel_view: None,
                     children: header.children,
                     upcase: self.upcase.clone(),
                     values: Arc::new(values),
@@ -117,6 +118,7 @@ impl Registry {
         };
         let root = Arc::new(Key {
             path: root.path.clone(),
+            appmodel_view: None,
             children: root.children,
             upcase: root.upcase.clone(),
             values: root.values.clone(),

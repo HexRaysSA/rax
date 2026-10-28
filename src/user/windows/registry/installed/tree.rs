@@ -29,6 +29,14 @@ pub(super) fn capture_root_with(
 pub(super) fn capture_path_with(
     registry: &Registry,
     path: Vec<u16>,
+    opener: impl FnMut(&[u16]) -> io::Result<OwnedKey>,
+) -> io::Result<Option<KeyTree>> {
+    capture_path_budgeted(registry, path, TreeBudget::default(), opener)
+}
+pub(super) fn capture_path_budgeted(
+    registry: &Registry,
+    path: Vec<u16>,
+    mut metadata: TreeBudget,
     mut opener: impl FnMut(&[u16]) -> io::Result<OwnedKey>,
 ) -> io::Result<Option<KeyTree>> {
     let key = match opener(&path) {
@@ -37,8 +45,11 @@ pub(super) fn capture_path_with(
         Err(error) => return Err(error),
     };
     let mut value_budget = registry.value_budget()?;
-    let mut metadata = TreeBudget::default();
-    let mut reserved = 1;
+    let mut reserved = metadata
+        .key_count()
+        .checked_add(1)
+        .filter(|count| *count <= MAX_TREE_KEYS)
+        .ok_or_else(|| invalid("installed subtree key budget exhausted"))?;
     node(
         path,
         0,

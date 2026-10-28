@@ -289,7 +289,8 @@ struct Entry {
     obj: Object,
     /// Registry key-body tags survive duplicated handles, independently of
     /// immutable snapshot identity and the caller's low handle bits.
-    registry_tags: u32,
+    registry_tags: Option<u32>,
+    registry_views: Option<std::sync::Arc<super::registry::AppModelViews>>,
     /// Read-only installed-library authority, retained independently of a catalog.
     runtime_library: bool,
     refs: u32,
@@ -356,11 +357,16 @@ impl Objects {
             self.retain_many(&ids[..if process.is_some() { 2 } else { 1 }])
                 .ok()?;
         }
+        let registry_tags = match &obj {
+            Object::Key(key) if key.appmodel_view.is_some() => None,
+            _ => Some(0),
+        };
         self.objs.insert(
             next,
             Entry {
                 obj,
-                registry_tags: 0,
+                registry_tags,
+                registry_views: None,
                 runtime_library: false,
                 refs: 0,
                 name: None,
@@ -376,6 +382,14 @@ impl Objects {
         key: std::sync::Arc<super::registry::Key>,
         tags: u32,
     ) -> Option<ObjId> {
+        self.create_registry_key_metadata(key, Some(tags))
+    }
+
+    pub(crate) fn create_registry_key_metadata(
+        &mut self,
+        key: std::sync::Arc<super::registry::Key>,
+        tags: Option<u32>,
+    ) -> Option<ObjId> {
         let id = self.try_create(Object::Key(key))?;
         self.objs.get_mut(&id)?.registry_tags = tags;
         Some(id)
@@ -383,7 +397,26 @@ impl Objects {
 
     pub(crate) fn registry_tags(&self, handle: u64) -> Option<u32> {
         let entry = self.objs.get(&self.id(handle)?)?;
-        matches!(entry.obj, Object::Key(_)).then_some(entry.registry_tags)
+        matches!(entry.obj, Object::Key(_))
+            .then_some(entry.registry_tags)
+            .flatten()
+    }
+
+    pub(crate) fn set_registry_views(
+        &mut self,
+        id: ObjId,
+        views: std::sync::Arc<super::registry::AppModelViews>,
+    ) {
+        self.objs
+            .get_mut(&id)
+            .expect("new registry object")
+            .registry_views = Some(views);
+    }
+    pub(crate) fn registry_views(
+        &self,
+        handle: u64,
+    ) -> Option<std::sync::Arc<super::registry::AppModelViews>> {
+        self.objs.get(&self.id(handle)?)?.registry_views.clone()
     }
 
     /// Creates a named object, or finds the existing object of that name:

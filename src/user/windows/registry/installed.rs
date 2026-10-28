@@ -1,6 +1,8 @@
 //! Fixed SYSTEM values and complete fixed subtrees during native selection.
 //! No guest name reaches a host registry operation. All HKEYs close before
 //! selection returns, and the kernel reads the resulting immutable records.
+#[path = "installed/appmodel.rs"]
+mod appmodel;
 #[path = "installed/primary_hive.rs"]
 mod primary_hive;
 #[path = "installed/tree.rs"]
@@ -328,7 +330,8 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let registry = registry.with_tree(root, selected)?;
     let root = super::TreeRoot::LanguageOverlayPackages;
     let selected = tree::capture_root(&registry, root)?;
-    registry.with_tree(root, selected)
+    let registry = registry.with_tree(root, selected)?;
+    appmodel::capture(registry)
 }
 
 #[cfg(test)]

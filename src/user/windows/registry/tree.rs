@@ -87,6 +87,9 @@ pub(super) struct TreeBudget {
     path_bytes: usize,
 }
 impl TreeBudget {
+    pub(super) fn key_count(&self) -> usize {
+        self.keys
+    }
     pub(super) fn charge(&mut self, path: &[u16], depth: usize) -> io::Result<()> {
         if depth > MAX_TREE_DEPTH || path.len() > 32_767 {
             return Err(invalid("runtime registry depth/path exceeds bounds"));
@@ -125,6 +128,9 @@ impl Registry {
         for key in self.keys.values() {
             charge_key(key, &mut budget, &mut seen)?;
         }
+        for key in self.appmodel.roots.values().flatten() {
+            charge_key(key, &mut budget, &mut seen)?;
+        }
         Ok(budget)
     }
     pub(crate) fn with_ifeo(self, tree: KeyTree) -> io::Result<Self> {
@@ -147,6 +153,7 @@ impl Registry {
                 0,
                 &mut self.value_budget()?,
                 &mut TreeBudget::default(),
+                None,
             )?;
             self.keys.insert(folded, key);
         }
@@ -270,6 +277,7 @@ pub(super) fn build(
     depth: usize,
     values: &mut ValueBudget,
     metadata: &mut TreeBudget,
+    appmodel_view: Option<RegistryView>,
 ) -> io::Result<Arc<Key>> {
     metadata.charge(&path, depth)?;
     if tree.children.len() >= MAX_TREE_KEYS {
@@ -278,6 +286,7 @@ pub(super) fn build(
     let raw_values = bounded_values(&upcase, tree.values, values)?;
     let mut key = Key {
         path,
+        appmodel_view,
         children: tree.children.len() as u32,
         upcase,
         values: Arc::new(raw_values),
@@ -289,7 +298,15 @@ pub(super) fn build(
     for (name, child) in tree.children {
         let path = child_path(&key.path, &name)?;
         let name = key.fold(&name);
-        let child = build(key.upcase.clone(), path, child, depth + 1, values, metadata)?;
+        let child = build(
+            key.upcase.clone(),
+            path,
+            child,
+            depth + 1,
+            values,
+            metadata,
+            appmodel_view,
+        )?;
         if children.insert(name, child).is_some() {
             return Err(invalid("duplicate ordinal runtime registry child"));
         }

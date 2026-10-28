@@ -1,0 +1,24 @@
+[
+  {
+    "file": "amd64-20348-capture-v1.zip",
+    "bytes": 6968,
+    "sha256": "3422145e927bdb09f9044d00be0f3fde594ee7d7d95c4960a1028f2a2d29515b",
+    "kernel_build": 20348,
+    "native_machine": 34404,
+    "run": 40713596189,
+    "artifact": 12826687911,
+    "source_commit": "c504cedf89e6503cfa7fd158f3504e8e17c3aac4",
+    "url": "https://github.com/HexRaysSA/rax/actions/runs/40713596189"
+  },
+  {
+    "file": "amd64-26100-capture-v1.zip",
+    "bytes": 6966,
+    "sha256": "2ed048c24c117520f6e09d6ff8dad3013fb73bcd082366a9384dbb1d2d61f97d",
+    "kernel_build": 26100,
+    "native_machine": 34404,
+    "run": 40713596189,
+    "artifact": 12827870443,
+    "source_commit": "c504cedf89e6503cfa7fd158f3504e8e17c3aac4",
+    "url": "https://github.com/HexRaysSA/rax/actions/runs/40713596189"
+  }
+]

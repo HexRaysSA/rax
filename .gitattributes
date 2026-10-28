@@ -18,3 +18,6 @@ docs/specifications/windows/native-file-write/* -text whitespace=cr-at-eol
 docs/specifications/windows/native-mapped-filename/* -text whitespace=cr-at-eol
 tests/fixtures/user/windows/native_cli/** -text whitespace=cr-at-eol
 tests/fixtures/user/windows/native_mapped_filename/** -text whitespace=cr-at-eol
+
+# Preserve the executed AppModel acquisition inputs and native evidence bytes.
+docs/specifications/windows/native-appmodel-registry/* -text whitespace=cr-at-eol
