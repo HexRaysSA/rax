@@ -14,6 +14,7 @@ pub mod heap;
 pub mod hle;
 pub mod layout;
 pub mod loader;
+mod mapped_filename;
 pub mod memory;
 pub(crate) mod native;
 mod nls;

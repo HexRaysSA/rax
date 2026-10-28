@@ -20,6 +20,7 @@ on:
       - docs/specifications/windows/native-wow64-csr-amd64/**
       - docs/specifications/windows/native-image-extension-amd64/**
       - docs/specifications/windows/native-file-write/**
+      - docs/specifications/windows/native-mapped-filename/**
       - src/bin/rax_user.rs
       - src/user/windows/dll/native/file_write.rs
       - tests/suites/user/windows/cli.rs
@@ -276,3 +277,15 @@ jobs:
           cargo test --locked --no-default-features --lib file_write_tests -- --nocapture --test-threads=1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --no-default-features --test user_windows_cli -- --nocapture --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-mapped-filename/run-amd64-v1.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:RAX_NATIVE_MAPPED_FILENAME_OBSERVATIONS = Join-Path $env:GITHUB_WORKSPACE 'target/native-mapped-filename-amd64-v1'
+          cargo test --locked --no-default-features --lib mapped_filename -- --nocapture --test-threads=1
+      - name: Preserve native mapped filename observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-mapped-filename-${{ matrix.os }}
+          path: target/native-mapped-filename-amd64-v1
+          if-no-files-found: error

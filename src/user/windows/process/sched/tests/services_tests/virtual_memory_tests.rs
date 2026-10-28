@@ -21,6 +21,9 @@ mod region_replay;
 #[path = "virtual_memory_read_tests.rs"]
 mod read;
 
+#[path = "mapped_filename_tests.rs"]
+mod mapped_filename;
+
 fn arguments(p: &mut Proc, t: &mut Thread, args: &[u64]) {
     let sp = t.cpu.sp();
     t.cpu.set_pc(0x1234_0004);
@@ -292,9 +295,8 @@ fn native_virtual_memory_class_length_bound_priority_and_wow_optional_guards() {
         let (mut process, mut t, base) = setup(arch);
         let p = process.state_mut();
         arguments(p, &mut t, &[arch.ptr(u64::MAX), base, 2, base + 128, 64, 0]);
-        assert!(
-            matches!(dispatch(p, &mut t), Outcome::Fail(message) if message.contains("NtQueryVirtualMemory class 2"))
-        );
+        assert_eq!(dispatch(p, &mut t), Outcome::Continue);
+        assert_eq!(t.cpu.gpr(0) as u32, STATUS_INVALID_ADDRESS);
     }
 }
 

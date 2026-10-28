@@ -208,8 +208,15 @@ mod sha256;
 
 #[test]
 fn fixture_binaries_and_source_match_recorded_provenance() {
-    let folder =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/user/windows/native_cli");
+    for name in ["native_cli", "native_mapped_filename"] {
+        verify_fixture_provenance(name);
+    }
+}
+
+fn verify_fixture_provenance(name: &str) {
+    let folder = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/user/windows")
+        .join(name);
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(folder.join("manifest.json")).unwrap()).unwrap();
     assert_eq!(
@@ -223,6 +230,64 @@ fn fixture_binaries_and_source_match_recorded_provenance() {
         assert_eq!(bytes.len() as u64, fixture["bytes"].as_u64().unwrap());
         assert_eq!(sha256::hex(&bytes), fixture["sha256"].as_str().unwrap());
     }
+}
+
+#[cfg(windows)]
+#[test]
+fn installed_cli_preserves_the_executable_backing_filename() {
+    let host = if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else if cfg!(target_arch = "x86_64") {
+        "x64"
+    } else {
+        "x86"
+    };
+    let archs = if host == "x86" {
+        vec![host]
+    } else {
+        vec![host, "x86"]
+    };
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let directory = std::env::temp_dir().join(format!(
+        "rax-cli-mapped-name-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir(&directory).unwrap();
+    for arch in archs {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/user/windows/native_mapped_filename/bin")
+            .join(arch)
+            .join("probe.exe");
+        let path = directory.join(format!("mapped executable λ {arch}.exe"));
+        std::fs::copy(source, &path).unwrap();
+        let before = sha256::hex(&std::fs::read(&path).unwrap());
+        let native = run(Command::new(&path));
+        assert_eq!(native.status.code(), Some(0), "{arch}: {native:?}");
+        assert!(
+            native.stdout.starts_with(b"RAX-MAPPED-NAME\n"),
+            "{arch}: {native:?}"
+        );
+        for provider in ["auto", "native"] {
+            let mut command = cli();
+            command.args(["--windows-libraries", provider]).arg(&path);
+            let actual = run(command);
+            assert_eq!(
+                actual.status.code(),
+                Some(0),
+                "{arch}/{provider}: {actual:?}"
+            );
+            assert_eq!(
+                actual.stdout, native.stdout,
+                "{arch}/{provider}: {actual:?}"
+            );
+        }
+        assert_eq!(sha256::hex(&std::fs::read(&path).unwrap()), before);
+        std::fs::remove_file(path).unwrap();
+    }
+    std::fs::remove_dir(directory).unwrap();
 }
 
 #[cfg(windows)]

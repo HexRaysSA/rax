@@ -324,7 +324,9 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
                     PathBuf::from(root),
                 );
             }
-            let mut process = match WindowsProcess::spawn_image(config, bytes) {
+            // Format detection above is a preflight. Process creation opens,
+            // reads and retains the executable's actual file identity.
+            let mut process = match WindowsProcess::spawn(config) {
                 Ok(process) => process,
                 Err(e) => {
                     eprintln!("rax-user: {program}: {e}");

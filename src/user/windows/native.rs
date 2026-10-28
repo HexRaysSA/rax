@@ -40,7 +40,11 @@ fn invalid(message: impl Into<String>) -> io::Error {
 }
 
 pub(crate) fn read_image(path: &Path) -> io::Result<Vec<u8>> {
-    let file = File::open(path)?;
+    let mut file = File::open(path)?;
+    read_image_file(&mut file)
+}
+
+pub(crate) fn read_image_file(file: &mut File) -> io::Result<Vec<u8>> {
     let metadata = file.metadata()?;
     if !metadata.is_file() || metadata.len() > MAX_DLL_BYTES {
         return Err(invalid(

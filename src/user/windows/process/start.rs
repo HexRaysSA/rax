@@ -223,11 +223,21 @@ pub(super) fn spawn(config: WindowsConfig) -> Result<Proc, SpawnError> {
             "host filesystem disabled; supply executable bytes",
         )));
     }
-    let bytes = std::fs::read(&config.exe_host_path).map_err(SpawnError::Io)?;
-    spawn_image(config, bytes)
+    let mut file = std::fs::File::open(&config.exe_host_path).map_err(SpawnError::Io)?;
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut file, &mut bytes).map_err(SpawnError::Io)?;
+    spawn_image_file(config, bytes, Some(file))
 }
 
-pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc, SpawnError> {
+pub(super) fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc, SpawnError> {
+    spawn_image_file(config, bytes, None)
+}
+
+fn spawn_image_file(
+    mut config: WindowsConfig,
+    bytes: Vec<u8>,
+    file: Option<std::fs::File>,
+) -> Result<Proc, SpawnError> {
     if !config.host_filesystem
         && (config.seed.is_none()
             || config.trace
@@ -437,6 +447,14 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
             message: e.message,
         }
     })?;
+    if p.native.is_some()
+        && let Some(file) = file
+        && let Some(filename) =
+            super::super::mapped_filename::Filename::image(&file).map_err(SpawnError::Io)?
+    {
+        p.vm.record_mapped_filename(p.modules.exe().base, filename)
+            .map_err(memory)?;
+    }
     p.image_information =
         super::image_information::ImageInformation::capture(&pe, p.modules.exe().entry);
     p.process_heap = p

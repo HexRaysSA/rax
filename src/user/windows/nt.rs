@@ -46,6 +46,7 @@ pub mod status {
     pub const STATUS_INVALID_DEVICE_REQUEST: u32 = 0xC000_0010;
     pub const STATUS_END_OF_FILE: u32 = 0xC000_0011;
     pub const STATUS_NO_MEMORY: u32 = 0xC000_0017;
+    pub const STATUS_FILE_INVALID: u32 = 0xC000_0098;
     pub const STATUS_CONFLICTING_ADDRESSES: u32 = 0xC000_0018;
     pub const STATUS_NOT_MAPPED_VIEW: u32 = 0xC000_0019;
     pub const STATUS_UNABLE_TO_FREE_VM: u32 = 0xC000_001A;

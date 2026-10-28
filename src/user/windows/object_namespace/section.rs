@@ -48,6 +48,11 @@ pub struct ImageSection {
     pub(super) source: OnceLock<Arc<super::installed::image::Source>>,
 }
 impl ImageSection {
+    #[cfg(windows)]
+    pub(crate) fn mapped_filename(&self) -> Option<io::Result<Vec<u16>>> {
+        self.source.get().map(|source| source.mapped_filename())
+    }
+
     #[cfg(test)]
     pub(crate) fn with_test_image(image: Arc<ImageTemplate>) -> Arc<Self> {
         let section = Self::selected(

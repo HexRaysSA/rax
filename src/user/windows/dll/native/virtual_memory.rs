@@ -7,6 +7,7 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 
 mod image_extension;
+mod mapped_filename;
 mod region;
 mod working_set;
 
@@ -28,6 +29,9 @@ fn checked(c: &mut Ctx) -> ApiResult {
         c.ptr(5)?,
     );
     let wow = c.arch() == WinArch::X86;
+    if class == 2 {
+        return mapped_filename::query(c, process, address, output, length, returned);
+    }
     // WoW64 probes this optional destination before kernel dispatch. A fault
     // consumes its guard and disables later publication. If output shares
     // that page, its subsequent copy can succeed; the native entry differs.

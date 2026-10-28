@@ -1,0 +1,1382 @@
+{
+  "format": 1,
+  "raw_canonical_sha256": "1edc4103b3ceadc65f6eb9877fb561a41350bec10dc2dfc64c8414ba70a6ef02",
+  "build": 29695,
+  "source_sha256": "547d284fea43d1e36b57797dc99ae670729ef886245c22e35239587a7bda3a47",
+  "binaries": {
+    "arm64": "10e3140ec817ea84e819c0b8e3ecea76f346c94b225226fe503de358f9a90db6",
+    "x86": "8717d3889a599ce57f6d3c6c1a91e82010c31286d36ea319186067efd4c40356",
+    "x64": "f004757a7e907550ed49f5e699a49c897f8687be4931e63815a8e269a104b011"
+  },
+  "state": "finished",
+  "cases": [
+    {
+      "arch": "arm64",
+      "case": 77,
+      "exit_code": 0,
+      "observation": {
+        "case": 77,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 296,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "16011801cccccccc900046bf630200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 278,
+        "maximum_length": 280,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760034005c00610072006d00360034005c00700072006f00620065002e0065007800"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 78,
+      "exit_code": 0,
+      "observation": {
+        "case": 78,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 295,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "14011601cccccccc9000e3af040200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760034005c00610072006d00360034005c00700072006f00620065002e006500"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 79,
+      "exit_code": 0,
+      "observation": {
+        "case": 79,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 290,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "10011201cccccccc900097d8310200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 272,
+        "maximum_length": 274,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760034005c00610072006d00360034005c00700072006f0062006500"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 80,
+      "exit_code": 0,
+      "observation": {
+        "case": 80,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 266,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "f800fa00cccccccc9000c1d0620200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 248,
+        "maximum_length": 250,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d0076003400"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 81,
+      "exit_code": 0,
+      "observation": {
+        "case": 81,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 234,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "d800da00cccccccc90000043330200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 216,
+        "maximum_length": 218,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d00"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 82,
+      "exit_code": 0,
+      "observation": {
+        "case": 82,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 48,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689351590537540532,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 83,
+      "exit_code": 0,
+      "observation": {
+        "case": 83,
+        "status": 3221225529,
+        "raised": 0,
+        "required": 298,
+        "length": 64,
+        "returned": 0,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "2e003000cccccccc9000fa5a4d0200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 46,
+        "maximum_length": 48,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d0065003300"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 84,
+      "exit_code": 0,
+      "observation": {
+        "case": 84,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 80,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "3e004000cccccccc9000dcae430200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 62,
+        "maximum_length": 64,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f0077007300"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 85,
+      "exit_code": 0,
+      "observation": {
+        "case": 85,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 96,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "4e005000cccccccc9000270f8d0100005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c00610073000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 78,
+        "maximum_length": 80,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c0061007300"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 86,
+      "exit_code": 0,
+      "observation": {
+        "case": 86,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 128,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "6e007000cccccccc9000752f110200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d000000",
+        "name_length": 110,
+        "maximum_length": 112,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 87,
+      "exit_code": 0,
+      "observation": {
+        "case": 87,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 192,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "ae00b000cccccccc900055a7ac0100005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 174,
+        "maximum_length": 176,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c00"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 88,
+      "exit_code": 0,
+      "observation": {
+        "case": 88,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 256,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "ee00f000cccccccc900076824e0200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 238,
+        "maximum_length": 240,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f0062007300650072007600610074006900"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 89,
+      "exit_code": 0,
+      "observation": {
+        "case": 89,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 294,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "14011601cccccccc90004563480200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760034005c00610072006d00360034005c00700072006f00620065002e006500"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 90,
+      "exit_code": 0,
+      "observation": {
+        "case": 90,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 298,
+        "length": 292,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "12011401cccccccc9000012f970200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 274,
+        "maximum_length": 276,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760034005c00610072006d00360034005c00700072006f00620065002e00"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 91,
+      "exit_code": 0,
+      "observation": {
+        "case": 91,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 124,
+        "length": 123,
+        "returned": 124,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "68006a00cccccccc900091384a0200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006b00650072006e0065006c00330032002e0064006c000000cccccccccccc",
+        "name_length": 104,
+        "maximum_length": 106,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006b00650072006e0065006c00330032002e0064006c00"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 92,
+      "exit_code": 0,
+      "observation": {
+        "case": 92,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 124,
+        "length": 122,
+        "returned": 124,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "68006a00cccccccc900048051e0200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006b00650072006e0065006c00330032002e0064006c000000cccccccccccc",
+        "name_length": 104,
+        "maximum_length": 106,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006b00650072006e0065006c00330032002e0064006c00"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 93,
+      "exit_code": 0,
+      "observation": {
+        "case": 93,
+        "status": 3221225529,
+        "raised": 0,
+        "required": 124,
+        "length": 64,
+        "returned": 0,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "2e003000cccccccc9000616a820200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 46,
+        "maximum_length": 48,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d0065003300"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 94,
+      "exit_code": 0,
+      "observation": {
+        "case": 94,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 124,
+        "length": 80,
+        "returned": 124,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "3e004000cccccccc90003693da0100005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 62,
+        "maximum_length": 64,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f0077007300"
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 95,
+      "exit_code": 0,
+      "observation": {
+        "case": 95,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 124,
+        "length": 96,
+        "returned": 124,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "4e005000cccccccc9000d40a470200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d0033000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 78,
+        "maximum_length": 80,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d003300"
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 77,
+      "exit_code": 0,
+      "observation": {
+        "case": 77,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 284,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3372272716,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 78,
+      "exit_code": 0,
+      "observation": {
+        "case": 78,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 283,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3372469324,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 79,
+      "exit_code": 0,
+      "observation": {
+        "case": 79,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 278,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3384921164,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 80,
+      "exit_code": 0,
+      "observation": {
+        "case": 80,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 254,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3375025228,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 81,
+      "exit_code": 0,
+      "observation": {
+        "case": 81,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 222,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3384527948,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 82,
+      "exit_code": 0,
+      "observation": {
+        "case": 82,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 48,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3375156300,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 83,
+      "exit_code": 0,
+      "observation": {
+        "case": 83,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 64,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3375615052,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 84,
+      "exit_code": 0,
+      "observation": {
+        "case": 84,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 80,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3381972044,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 85,
+      "exit_code": 0,
+      "observation": {
+        "case": 85,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 96,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3372207180,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 86,
+      "exit_code": 0,
+      "observation": {
+        "case": 86,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 128,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3384593484,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 87,
+      "exit_code": 0,
+      "observation": {
+        "case": 87,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 192,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3369126988,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 88,
+      "exit_code": 0,
+      "observation": {
+        "case": 88,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 256,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3376073804,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 89,
+      "exit_code": 0,
+      "observation": {
+        "case": 89,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 282,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3368537164,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 90,
+      "exit_code": 0,
+      "observation": {
+        "case": 90,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 286,
+        "length": 280,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3376598092,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 91,
+      "exit_code": 0,
+      "observation": {
+        "case": 91,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 116,
+        "length": 115,
+        "returned": 116,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3384003660,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 92,
+      "exit_code": 0,
+      "observation": {
+        "case": 92,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 116,
+        "length": 114,
+        "returned": 116,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3369978956,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 93,
+      "exit_code": 0,
+      "observation": {
+        "case": 93,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 116,
+        "length": 64,
+        "returned": 116,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3388394572,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 94,
+      "exit_code": 0,
+      "observation": {
+        "case": 94,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 116,
+        "length": 80,
+        "returned": 116,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3371813964,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 95,
+      "exit_code": 0,
+      "observation": {
+        "case": 95,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 116,
+        "length": 96,
+        "returned": 116,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": 3382561868,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 77,
+      "exit_code": 0,
+      "observation": {
+        "case": 77,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 292,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "12011401cccccccc90005296660200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 274,
+        "maximum_length": 276,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760034005c007800360034005c00700072006f00620065002e0065007800"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 78,
+      "exit_code": 0,
+      "observation": {
+        "case": 78,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 291,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "10011201cccccccc90000bd3430200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 272,
+        "maximum_length": 274,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760034005c007800360034005c00700072006f00620065002e006500"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 79,
+      "exit_code": 0,
+      "observation": {
+        "case": 79,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 286,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "0c010e01cccccccc9000e631b40100005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 268,
+        "maximum_length": 270,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760034005c007800360034005c00700072006f0062006500"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 80,
+      "exit_code": 0,
+      "observation": {
+        "case": 80,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 262,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "f400f600cccccccc90003afab40200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 244,
+        "maximum_length": 246,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 81,
+      "exit_code": 0,
+      "observation": {
+        "case": 81,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 230,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "d400d600cccccccc9000cc052a0200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 212,
+        "maximum_length": 214,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e00"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 82,
+      "exit_code": 0,
+      "observation": {
+        "case": 82,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 48,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689351543117984692,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 83,
+      "exit_code": 0,
+      "observation": {
+        "case": 83,
+        "status": 3221225529,
+        "raised": 0,
+        "required": 294,
+        "length": 64,
+        "returned": 0,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "2e003000cccccccc900085adba0100005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 46,
+        "maximum_length": 48,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d0065003300"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 84,
+      "exit_code": 0,
+      "observation": {
+        "case": 84,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 80,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "3e004000cccccccc90007455660200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 62,
+        "maximum_length": 64,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f0077007300"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 85,
+      "exit_code": 0,
+      "observation": {
+        "case": 85,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 96,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "4e005000cccccccc9000e77b890200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c00610073000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 78,
+        "maximum_length": 80,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c0061007300"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 86,
+      "exit_code": 0,
+      "observation": {
+        "case": 86,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 128,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "6e007000cccccccc9000bd32d90100005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d000000",
+        "name_length": 110,
+        "maximum_length": 112,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 87,
+      "exit_code": 0,
+      "observation": {
+        "case": 87,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 192,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "ae00b000cccccccc900075433f0200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 174,
+        "maximum_length": 176,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c00"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 88,
+      "exit_code": 0,
+      "observation": {
+        "case": 88,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 256,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "ee00f000cccccccc9000eac0f20100005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 238,
+        "maximum_length": 240,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f0062007300650072007600610074006900"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 89,
+      "exit_code": 0,
+      "observation": {
+        "case": 89,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 290,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "10011201cccccccc900087ce8d0200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 272,
+        "maximum_length": 274,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760034005c007800360034005c00700072006f00620065002e006500"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 90,
+      "exit_code": 0,
+      "observation": {
+        "case": 90,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 294,
+        "length": 288,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "0e011001cccccccc90006c89c90200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200",
+        "name_length": 270,
+        "maximum_length": 272,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760034005c007800360034005c00700072006f00620065002e00"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 91,
+      "exit_code": 0,
+      "observation": {
+        "case": 91,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 124,
+        "length": 123,
+        "returned": 124,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "68006a00cccccccc9000375f8e0200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006b00650072006e0065006c00330032002e0064006c000000cccccccccccc",
+        "name_length": 104,
+        "maximum_length": 106,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006b00650072006e0065006c00330032002e0064006c00"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 92,
+      "exit_code": 0,
+      "observation": {
+        "case": 92,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 124,
+        "length": 122,
+        "returned": 124,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "68006a00cccccccc900076bd010200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006b00650072006e0065006c00330032002e0064006c000000cccccccccccc",
+        "name_length": 104,
+        "maximum_length": 106,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006b00650072006e0065006c00330032002e0064006c00"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 93,
+      "exit_code": 0,
+      "observation": {
+        "case": 93,
+        "status": 3221225529,
+        "raised": 0,
+        "required": 124,
+        "length": 64,
+        "returned": 0,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "2e003000cccccccc9000dde1d60100005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 46,
+        "maximum_length": 48,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d0065003300"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 94,
+      "exit_code": 0,
+      "observation": {
+        "case": 94,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 124,
+        "length": 80,
+        "returned": 124,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "3e004000cccccccc9000d880270200005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 62,
+        "maximum_length": 64,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f0077007300"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 95,
+      "exit_code": 0,
+      "observation": {
+        "case": 95,
+        "status": 2147483653,
+        "raised": 0,
+        "required": 124,
+        "length": 96,
+        "returned": 124,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "4e005000cccccccc90004037d60100005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d0033000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 78,
+        "maximum_length": 80,
+        "buffer_offset": 16,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d003300"
+      }
+    }
+  ]
+}

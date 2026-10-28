@@ -32,7 +32,7 @@ pub(super) fn load(p: &mut Proc, name: &str, explicit: bool) -> Option<Result<us
         }
         // The immutable supplied bytes are copied into the PE parser's ownership;
         // guest mappings are populated by the same loader as filesystem DLLs.
-        return Some(load_image(p, bytes.to_vec(), &key, path, None));
+        return Some(load_image(p, bytes.to_vec(), &key, path, None, None));
     }
     None
 }

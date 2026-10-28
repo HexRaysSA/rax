@@ -15,4 +15,6 @@ docs/specifications/windows/native-image-view-reserved-tail/* -text whitespace=c
 
 # Keep native CLI fixture and observation identities stable under core.autocrlf.
 docs/specifications/windows/native-file-write/* -text whitespace=cr-at-eol
+docs/specifications/windows/native-mapped-filename/* -text whitespace=cr-at-eol
 tests/fixtures/user/windows/native_cli/** -text whitespace=cr-at-eol
+tests/fixtures/user/windows/native_mapped_filename/** -text whitespace=cr-at-eol

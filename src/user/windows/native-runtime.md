@@ -1,5 +1,10 @@
 # Installed Windows runtime selection
 
+Mapped-file queries now retain the selected backing file or section identity
+through allocation lifetime. Class 2's native/WoW64 layouts, copy ordering and
+independent measurements are documented in
+[native-mapped-filename](../../../docs/specifications/windows/native-mapped-filename/README.md).
+
 Native image acquisition distinguishes logical PE bytes, executable extension
 bytes and trailing reserved owner pages. A coalesced reserved query region is
 bounded to the logical byte copy while its complete allocation lifetime and
@@ -78,8 +83,9 @@ initialized with a process-owned kernel frontier. With transition ESP = S,
 the internal return is at S, caller return at S+4, and argument zero at S+8.
 The kernel return consumes only 4 bytes; the installed DLL's actual `RET imm16`
 consumes its caller return and arguments. Unknown/hooked/partial encodings and
-unimplemented NT operations stop explicitly. The adapter executes no host NT
-syscall for guest requests.
+unimplemented NT operations stop explicitly. Guest syscall arguments are never
+forwarded to host NT. Narrow native-input adapters acquire selected file and
+section metadata using only host-owned handles, views and buffers.
 
 Supported kernel operations include checked NtClose, memory allocation/free/
 protection, context continuation, forced termination and bounded installed
