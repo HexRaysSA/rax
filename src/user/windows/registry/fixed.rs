@@ -40,6 +40,7 @@ impl Registry {
                     subkeys: None,
                     selected_child: None,
                     selected_paths: BTreeMap::new(),
+                    machine: None,
                 }))
             }
             None => None,
@@ -56,8 +57,10 @@ impl Registry {
                 child,
             )),
             selected_paths: BTreeMap::new(),
+            machine: None,
         };
         self.keys.insert(name, Arc::new(key));
+        self.relink_machine_hive()?;
         Ok(self)
     }
     pub(super) fn segment_heap_lookup(&self, folded: &[u16], original: &[u16]) -> Lookup {

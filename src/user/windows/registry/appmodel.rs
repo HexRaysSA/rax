@@ -116,6 +116,7 @@ impl Registry {
         let views = Arc::make_mut(&mut self.appmodel);
         views.upcase = self.upcase.clone();
         views.roots.insert((selected, view), root);
+        self.relink_machine_hive()?;
         Ok(self)
     }
 

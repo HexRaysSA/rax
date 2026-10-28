@@ -72,6 +72,7 @@ impl Registry {
                     subkeys: None,
                     selected_child: None,
                     selected_paths: BTreeMap::new(),
+                    machine: None,
                 }))
             }
             None => None,
@@ -125,6 +126,7 @@ impl Registry {
             subkeys: None,
             selected_child: None,
             selected_paths: routes,
+            machine: None,
         });
         let path = hive.path.clone();
         self.insert_hive_aliases(&path, &root);

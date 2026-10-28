@@ -131,6 +131,9 @@ impl Registry {
         for key in self.appmodel.roots.values().flatten() {
             charge_key(key, &mut budget, &mut seen)?;
         }
+        if let Some(root) = &self.machine_hive {
+            charge_key(root, &mut budget, &mut seen)?;
+        }
         Ok(budget)
     }
     pub(crate) fn with_ifeo(self, tree: KeyTree) -> io::Result<Self> {
@@ -158,6 +161,7 @@ impl Registry {
             self.keys.insert(folded, key);
         }
         self.selected_trees.insert(root);
+        self.relink_machine_hive()?;
         Ok(self)
     }
     pub(super) fn tree_lookup(&self, name: &[u16], original: &[u16]) -> Lookup {
@@ -220,6 +224,9 @@ fn charge_key(
 }
 impl Key {
     pub(crate) fn relative(self: &Arc<Self>, name: &[u16]) -> Lookup {
+        if self.machine.is_some() {
+            return self.relative_in_view(name, RegistryView::Native64);
+        }
         if !self.selected_paths.is_empty() {
             let mut normalized = Vec::with_capacity(name.len());
             for component in name.split(|u| *u == 92).filter(|part| !part.is_empty()) {
@@ -293,6 +300,7 @@ pub(super) fn build(
         subkeys: None,
         selected_child: None,
         selected_paths: BTreeMap::new(),
+        machine: None,
     };
     let mut children = BTreeMap::new();
     for (name, child) in tree.children {

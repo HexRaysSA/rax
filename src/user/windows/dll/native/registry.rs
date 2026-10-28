@@ -184,11 +184,17 @@ fn grant(c: &Ctx, access: u32) -> Checked<u32> {
     })
 }
 
-fn open_grant(c: &Ctx, access: u32, options: u32) -> Checked<u32> {
+fn open_grant(c: &Ctx, access: u32, options: u32, selected: &Key) -> Checked<u32> {
     if c.arch() == WinArch::X86 && access & 0x300 == 0x300 {
         return status(STATUS_INVALID_PARAMETER);
     }
     if options & 4 == 0 {
+        if let Some(profile) = selected.machine_access() {
+            return match profile.grant(access) {
+                Ok(granted) => Ok(granted),
+                Err(code) => status(code),
+            };
+        }
         return grant(c, access);
     }
     let subject =
@@ -210,6 +216,19 @@ fn open_grant(c: &Ctx, access: u32, options: u32) -> Checked<u32> {
     } else {
         Ok(granted)
     }
+}
+
+// Captured WoW64 MACHINE rules distinguish reopening the root itself from
+// resolving a descendant. The parent view survives an empty relative open.
+fn machine_body_tags(parent: u32, requested: u32, self_open: bool) -> u32 {
+    if self_open {
+        return if requested == 0 { parent } else { requested };
+    }
+    if parent == 0x100 && requested != 0x200 {
+        return 0;
+    }
+    let effective = if requested == 0 { parent } else { requested };
+    effective | if effective == 0x100 { 0 } else { 0x400 }
 }
 
 pub(super) fn open(c: &mut Ctx) -> ApiResult {
@@ -265,6 +284,7 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
             .into());
     }
     let views;
+    let mut machine_parent_tags = None;
     let selected = if attrs.root != 0 {
         // The compatibility thunk rejects an absolute rooted name before the
         // native object manager checks the root handle's validity/type.
@@ -278,18 +298,42 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         if absolute {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
-        let selected =
-            if wow && access & 0x200 != 0 && root.appmodel_view == Some(RegistryView::Native64) {
-                let captured = c.p.objects.registry_views(attrs.root).ok_or_else(|| {
-                    c.unsupported("AppModel relative registry views are not captured")
-                })?;
-                let selected = captured.relative(&root, &attrs.name.units, RegistryView::Wow32);
-                views = Some(captured);
-                selected
+        let selected = if let Some(catalog) = root.machine_views() {
+            views = Some(catalog);
+            let parent = if wow {
+                let tags =
+                    c.p.objects
+                        .registry_tags(attrs.root)
+                        .ok_or_else(|| c.unsupported("MACHINE parent key tags are not captured"))?;
+                if tags & !0x300 != 0 || tags == 0x300 {
+                    return Err(c
+                        .unsupported("MACHINE parent tags outside captured root profile")
+                        .into());
+                }
+                tags
             } else {
-                views = c.p.objects.registry_views(attrs.root);
-                root.relative(&attrs.name.units)
+                0
             };
+            machine_parent_tags = Some(parent);
+            let requested = access & 0x300;
+            let effective = if requested == 0 { parent } else { requested };
+            let view = if wow && effective != 0x100 {
+                RegistryView::Wow32
+            } else {
+                RegistryView::Native64
+            };
+            root.relative_in_view(&attrs.name.units, view)
+        } else if wow && access & 0x200 != 0 && root.appmodel_view == Some(RegistryView::Native64) {
+            let captured = c.p.objects.registry_views(attrs.root).ok_or_else(|| {
+                c.unsupported("AppModel relative registry views are not captured")
+            })?;
+            let selected = captured.relative(&root, &attrs.name.units, RegistryView::Wow32);
+            views = Some(captured);
+            selected
+        } else {
+            views = c.p.objects.registry_views(attrs.root);
+            root.relative(&attrs.name.units)
+        };
         match selected {
             Lookup::Present(key) => key,
             Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
@@ -325,11 +369,19 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     let redirected = selected.appmodel_view.is_some();
     let tags = if c.arch() == WinArch::X86 {
         let view = access & 0x300;
-        view | if view == 0x100 { 0 } else { 0x400 }
+        if selected.machine_access().is_some() || machine_parent_tags.is_some() {
+            machine_body_tags(
+                machine_parent_tags.unwrap_or(0),
+                view,
+                selected.machine_access().is_some(),
+            )
+        } else {
+            view | if view == 0x100 { 0 } else { 0x400 }
+        }
     } else {
         0
     };
-    let access = open_grant(c, access, options)?;
+    let access = open_grant(c, access, options, &selected)?;
     // Redirected WoW64 key-body metadata is not inferred from the shared-key
     // formula. Keep it explicitly uncaptured until a present-root oracle exists.
     let id = if redirected && wow {

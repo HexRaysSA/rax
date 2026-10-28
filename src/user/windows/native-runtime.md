@@ -3405,3 +3405,38 @@ The published baseline's native macOS 27 integration job also records 371
 passes and six code-signing/ptrace parity failures, across ARM64 and x86-64
 fixtures. Their cause remains unknown; this Windows registry change does not
 qualify those native Darwin paths.
+
+### Fixed MACHINE-root selection and retained routes (2026-10-28)
+
+Selection captures the actual fixed `\Registry\Machine` root header, values,
+canonical name, maximum-access ceiling and security-access result through
+owned native handles. Capture errors abort selection; the root is not an empty
+synthetic key. Native handles close before guest execution. Ordinary root
+`NtOpenKey`/`NtOpenKeyEx` grants use that captured ceiling and the independently
+measured generic mappings. Other selected keys keep their prior access rules.
+
+A root handle retains immutable routes to already selected fixed subtrees and
+both AppModel catalogs. Duplicate handles and relative opens preserve those
+records after namespace replacement. Unknown descendants remain unselected;
+recorded absence remains not-found. Root values share the existing aggregate
+value/byte bounds, and route references do not charge those values twice or
+retain cycles. Adding another selected tree replaces the namespace's root
+record while existing handles keep their original routes.
+
+The native corpus under `docs/specifications/windows/native-machine-hive/`
+contains 516 ordinary-open and relative-open controls on kernel 29695, covering
+ARM64, x64 and x86 process ABIs on Windows on ARM. It establishes distinct
+WoW64 root/self-open/NLS-descendant tag rules; it is not AMD64-kernel evidence.
+The existing Windows CI job captures fresh root controls and replays them
+through guest dispatch, alongside Windows-only acquisition and closure tests.
+The owning complete library passed on macOS (8,800 tests), Linux (8,790 tests)
+and native Windows on ARM (8,111 tests), each with zero failures and two ignored
+tests. Windows also passed the three native acquisition tests, 191 C API tests,
+the all-target check and ten Windows CLI tests; all 6,393 audited inputs were
+unchanged. Installed ARM64 CMD passed the MACHINE-root open and then stopped
+at the unselected relative `Software\Microsoft\Command Processor` key, before
+its expected echo output. Fresh AMD64-kernel controls, other-kernel and
+installed-product qualification remain separate gates.
+Present AppModel WoW64 body tags and key
+information classes other than the existing implemented class remain explicit
+boundaries; this change does not establish complete process execution.

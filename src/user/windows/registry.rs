@@ -39,6 +39,10 @@ pub(crate) use appmodel::{AppModelRoot, AppModelViews, RegistryView};
 #[path = "registry/fixed.rs"]
 mod fixed;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;
+#[path = "registry/machine_hive.rs"]
+mod machine_hive;
+use machine_hive::MachineKey;
+pub(crate) use machine_hive::{MACHINE_HIVE_KEY, MachineAccess, MachineHeader};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Value {
@@ -65,6 +69,7 @@ pub struct Key {
     subkeys: Option<BTreeMap<Vec<u16>, Arc<Key>>>,
     selected_child: Option<(Vec<u16>, Option<Arc<Key>>)>,
     selected_paths: BTreeMap<Vec<u16>, Option<Arc<Key>>>,
+    machine: Option<MachineKey>,
 }
 impl Key {
     #[cfg(test)]
@@ -86,6 +91,7 @@ pub(crate) struct Registry {
     selected_trees: BTreeSet<TreeRoot>,
     user_policies: BTreeMap<UserPolicyRoot, Arc<[u16]>>,
     primary_hive: Option<PrimaryHive>,
+    machine_hive: Option<Arc<Key>>,
     pub(crate) appmodel: Arc<AppModelViews>,
 }
 impl Registry {
@@ -110,6 +116,7 @@ impl Registry {
             selected_trees: BTreeSet::new(),
             user_policies: BTreeMap::new(),
             primary_hive: None,
+            machine_hive: None,
             appmodel: Arc::default(),
         };
         let mut budget = ValueBudget::default();
@@ -130,6 +137,7 @@ impl Registry {
                 subkeys: None,
                 selected_child: None,
                 selected_paths: BTreeMap::new(),
+                machine: None,
             };
             if result
                 .keys
@@ -181,12 +189,17 @@ impl Registry {
             && self.selected_trees.is_empty()
             && self.user_policies.is_empty()
             && self.primary_hive.is_none()
+            && self.machine_hive.is_none()
         {
             return Lookup::Unselected;
         }
         let folded: Vec<_> = name.iter().map(|&u| self.upcase[usize::from(u)]).collect();
         if let Some(key) = self.keys.get(&folded) {
             return Lookup::Present(key.clone());
+        }
+        match self.machine_hive_lookup(&folded, name, view) {
+            Lookup::Unselected => {}
+            selected => return selected,
         }
         match self.tree_lookup(&folded, name) {
             Lookup::Unselected => match self.primary_hive_lookup(&folded, name) {

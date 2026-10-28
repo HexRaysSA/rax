@@ -4,17 +4,6 @@ use super::super::primary_hive::HiveHeader;
 use super::super::user_policy::user_hive_path;
 use super::*;
 
-#[link(name = "ntdll")]
-unsafe extern "system" {
-    fn NtQueryKey(
-        key: Hkey,
-        class: u32,
-        information: *mut u32,
-        length: u32,
-        returned: *mut u32,
-    ) -> i32;
-}
-
 pub(crate) fn capture(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
     let registry = capture_with(registry, sid, |path| open(sid, path))?;
     super::user_policy::capture(registry, sid)
@@ -85,36 +74,7 @@ fn open(sid: &[u8], path: &[u16]) -> io::Result<OwnedKey> {
 }
 
 fn canonical_name(key: &OwnedKey) -> io::Result<Vec<u16>> {
-    // A ULONG header followed by at most MAX_NAME_UNITS WCHARs. The backing
-    // words guarantee the native ULONG alignment and initialize the entire buffer.
-    let mut words = vec![0u32; (4 + MAX_NAME_UNITS * 2).div_ceil(4)];
-    let mut returned = 0xCCCC_CCCC;
-    let capacity = (words.len() * 4) as u32;
-    // SAFETY: live query-only key, KeyNameInformation=3, exclusive aligned
-    // initialized buffer of exactly capacity bytes and one ULONG result length.
-    let status = unsafe { NtQueryKey(key.0, 3, words.as_mut_ptr(), capacity, &mut returned) };
-    if status != 0 {
-        return Err(invalid(&format!(
-            "primary hive name query failed: 0x{:08X}",
-            status as u32
-        )));
-    }
-    let bytes = words[0] as usize;
-    if returned > capacity
-        || returned < 4
-        || bytes % 2 != 0
-        || bytes > MAX_NAME_UNITS * 2
-        || bytes + 4 > returned as usize
-    {
-        return Err(invalid(
-            "native primary hive name exceeded its returned buffer",
-        ));
-    }
-    Ok(words[1..]
-        .iter()
-        .flat_map(|&word| [word as u16, (word >> 16) as u16])
-        .take(bytes / 2)
-        .collect())
+    canonical_hive_name(key, "primary")
 }
 
 #[cfg(test)]

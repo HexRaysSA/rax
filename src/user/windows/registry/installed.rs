@@ -3,6 +3,8 @@
 //! selection returns, and the kernel reads the resulting immutable records.
 #[path = "installed/appmodel.rs"]
 mod appmodel;
+#[path = "installed/machine_hive.rs"]
+mod machine_hive;
 #[path = "installed/primary_hive.rs"]
 mod primary_hive;
 #[path = "installed/tree.rs"]
@@ -63,6 +65,44 @@ unsafe extern "system" {
 #[link(name = "ntdll")]
 unsafe extern "system" {
     fn RtlUpcaseUnicodeChar(value: u16) -> u16;
+    fn NtQueryKey(
+        key: Hkey,
+        class: u32,
+        information: *mut u32,
+        length: u32,
+        returned: *mut u32,
+    ) -> i32;
+}
+
+fn canonical_hive_name(key: &OwnedKey, subject: &str) -> io::Result<Vec<u16>> {
+    let mut words = vec![0u32; (4 + MAX_NAME_UNITS * 2).div_ceil(4)];
+    let mut returned = 0xCCCC_CCCC;
+    let capacity = (words.len() * 4) as u32;
+    // SAFETY: live owned HKEY, KeyNameInformation=3, exclusive initialized
+    // ULONG-aligned bounded output and result length; no retained pointers.
+    let status = unsafe { NtQueryKey(key.0, 3, words.as_mut_ptr(), capacity, &mut returned) };
+    if status != 0 {
+        return Err(invalid(&format!(
+            "{subject} hive name query failed: 0x{:08X}",
+            status as u32
+        )));
+    }
+    let bytes = words[0] as usize;
+    if returned > capacity
+        || returned < 4
+        || bytes % 2 != 0
+        || bytes > MAX_NAME_UNITS * 2
+        || bytes + 4 > returned as usize
+    {
+        return Err(invalid(&format!(
+            "native {subject} hive name exceeded its returned buffer"
+        )));
+    }
+    Ok(words[1..]
+        .iter()
+        .flat_map(|&word| [word as u16, (word >> 16) as u16])
+        .take(bytes / 2)
+        .collect())
 }
 struct OwnedKey(Hkey);
 impl Drop for OwnedKey {
@@ -331,7 +371,7 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let root = super::TreeRoot::LanguageOverlayPackages;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;
-    appmodel::capture(registry)
+    machine_hive::capture(appmodel::capture(registry)?)
 }
 
 #[cfg(test)]

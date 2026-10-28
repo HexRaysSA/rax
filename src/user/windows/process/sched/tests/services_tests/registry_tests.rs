@@ -115,6 +115,9 @@ mod redirection;
 #[path = "registry_fixed_tests.rs"]
 mod fixed;
 
+#[path = "registry_machine_hive_tests.rs"]
+mod machine_hive;
+
 fn arguments(p: &mut Proc, t: &mut Thread, args: &[u64]) {
     let sp = t.cpu.sp();
     t.cpu.set_pc(0x1234_0004);
