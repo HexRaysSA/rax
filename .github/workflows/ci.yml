@@ -102,7 +102,8 @@ jobs:
   test-core:
     name: test-core (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    # Cold macOS builds and the complete core/process slice exceed one hour.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
