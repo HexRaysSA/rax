@@ -282,6 +282,7 @@ pub struct Proc {
     pub cfg: Arc<WindowsConfig>,
     pub(crate) native: Option<super::native::NativeRuntime>,
     pub(crate) flush_information: Result<[u8; 32], String>,
+    pub(crate) thread_access: Result<super::security::thread::Access, String>,
     pub(crate) image_information: Result<image_information::ImageInformation, &'static str>,
     pub(crate) wow64: Option<wow64::State>,
     pub(crate) teb_arena: thread::teb::Arena,

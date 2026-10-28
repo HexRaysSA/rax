@@ -21,6 +21,12 @@ on:
       - docs/specifications/windows/native-image-extension-amd64/**
       - docs/specifications/windows/native-file-write/**
       - docs/specifications/windows/native-mapped-filename/**
+      - docs/specifications/windows/native-open-thread/**
+      - src/user/windows/dll/native/thread_open.rs
+      - src/user/windows/security/thread.rs
+      - src/user/windows/security/thread/**
+      - src/user/windows/process/sched/tests/services_tests/thread_open_tests.rs
+      - src/user/windows/process/sched/tests/services_tests/thread_open_tests/**
       - src/bin/rax_user.rs
       - src/user/windows/dll/native/file_write.rs
       - tests/suites/user/windows/cli.rs
@@ -42,6 +48,12 @@ on:
       - docs/specifications/windows/native-wow64-csr-amd64/**
       - docs/specifications/windows/native-image-extension-amd64/**
       - docs/specifications/windows/native-file-write/**
+      - docs/specifications/windows/native-open-thread/**
+      - src/user/windows/dll/native/thread_open.rs
+      - src/user/windows/security/thread.rs
+      - src/user/windows/security/thread/**
+      - src/user/windows/process/sched/tests/services_tests/thread_open_tests.rs
+      - src/user/windows/process/sched/tests/services_tests/thread_open_tests/**
       - src/bin/rax_user.rs
       - src/user/windows/dll/native/file_write.rs
       - tests/suites/user/windows/cli.rs
@@ -61,6 +73,18 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Observe native AMD64 and WoW64 thread opening
+        run: |
+          New-Item -ItemType Directory -Force (Join-Path $env:GITHUB_WORKSPACE 'target') | Out-Null
+          python -B docs/specifications/windows/native-open-thread/run-v6.py --require-native-machine 0x8664 --output target/native-open-thread-v6
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve native thread opening observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-open-thread-${{ matrix.os }}
+          path: target/native-open-thread-v6
+          if-no-files-found: error
       - name: Observe native AMD64 and WoW64 mapped backing-file names
         run: |
           New-Item -ItemType Directory -Force (Join-Path $env:GITHUB_WORKSPACE 'target') | Out-Null
@@ -274,6 +298,11 @@ jobs:
       - name: Execute installed pure x86 CSR leaf on the native AMD64 kernel
         if: always()
         run: cargo test --locked --no-default-features --lib wow64_csr -- --nocapture --test-threads=1
+      - name: Replay captured thread opens and execute installed NTDLL leaves
+        if: always()
+        run: |
+          $env:RAX_NATIVE_OPEN_THREAD_OBSERVATIONS = Join-Path $env:GITHUB_WORKSPACE 'target/native-open-thread-v6/receipt.json'
+          cargo test --locked --no-default-features --lib thread_open -- --nocapture --test-threads=1
       - name: Execute image-extension queries through installed native leaves
         if: always()
         run: |

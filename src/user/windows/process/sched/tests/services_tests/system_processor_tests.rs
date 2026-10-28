@@ -46,12 +46,18 @@ fn native_system_processor_export_appends_without_moving_prior_ordinals() {
     use crate::user::windows::dll::{self, BuiltinDll};
     use crate::user::windows::loader::builtin;
     let current = dll::find("ntdll.dll").unwrap();
-    for (tail, name) in [
+    for (tail, name, x86_only) in [
+        (
+            current.exports.len() - 3,
+            "NtWow64GetNativeSystemInformation",
+            true,
+        ),
         (
             current.exports.len() - 2,
-            "NtWow64GetNativeSystemInformation",
+            "NtWow64CsrClientConnectToServer",
+            true,
         ),
-        (current.exports.len() - 1, "NtWow64CsrClientConnectToServer"),
+        (current.exports.len() - 1, "NtOpenThread", false),
     ] {
         assert_eq!(current.exports[tail].len(), 1);
         assert_eq!(current.exports[tail][0].name, name);
@@ -66,6 +72,7 @@ fn native_system_processor_export_appends_without_moving_prior_ordinals() {
             ..previous
         };
         for arch in WinArch::ALL {
+            let available = !x86_only || arch == WinArch::X86;
             let before = builtin::build(&previous, arch, 0, &[]);
             let after = builtin::build(&appended, arch, 0, &[]);
             assert_eq!(after.ordinal_base, before.ordinal_base);
@@ -75,9 +82,9 @@ fn native_system_processor_export_appends_without_moving_prior_ordinals() {
             );
             assert_eq!(
                 after.symbols.len() - before.symbols.len(),
-                usize::from(arch == WinArch::X86)
+                usize::from(available)
             );
-            assert_eq!(dll::nt_service(name, arch).is_some(), arch == WinArch::X86);
+            assert_eq!(dll::nt_service(name, arch).is_some(), available);
         }
     }
 }

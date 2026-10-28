@@ -38,6 +38,7 @@ mod secure_connect;
 mod semaphore;
 mod symbolic_link;
 mod system_time;
+mod thread_open;
 mod thread_set;
 mod timers;
 mod token;
@@ -475,6 +476,14 @@ pub(super) static WOW64_CSR_EXPORTS: &[Export] = &[Export::func(
     wow64_csr::connect,
 )
 .only(Archs::X86)];
+
+// Append to preserve all prior synthetic export ordinals and trap addresses.
+pub(super) static THREAD_OPEN_EXPORTS: &[Export] = &[Export::func(
+    "NtOpenThread",
+    Stdcall,
+    &[Ptr, I32, Ptr, Ptr],
+    thread_open::open,
+)];
 
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)

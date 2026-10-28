@@ -3045,3 +3045,34 @@ remain unchanged. The [native setter record](../../../docs/specifications/window
 binds 5286 independent calls across native64 and pure/CHPE x86, plus eight
 full-width native64 handle boundaries. Mutable/default DEP and ATL behavior
 remain unfinished requirements for full process emulation.
+
+
+## Opening retained guest thread objects (2026-10-28)
+
+`NtOpenThread` now resolves the current or retained peer thread in the guest
+object namespace. PID zero selects lookup by TID; an explicit PID must match
+its owner. Exited objects remain discoverable while handles or waits retain
+references. Generic and implied rights, independent per-handle grants and
+inheritance come from one shared model. Missing native access capture refuses
+opening rather than inventing a grant. The new export family is appended, so
+previous ordinals and trap addresses remain stable.
+
+Native64 and WoW64 use distinct measured input/output probe order. The native
+adapter creates and joins a private default-security thread, retains its native
+handle during four fixed access controls, and closes every handle. Host
+impersonation is not accepted as the captured primary subject. Guest addresses,
+IDs, handles, masks and syscall numbers never reach those host calls.
+
+The [thread-opening record](../../../docs/specifications/windows/native-open-thread/README.md)
+binds the complete C producer, 870 retained ARM64-host observations, the 867
+case replay, three explicitly bounded asynchronous-release observations, and
+native AMD64/WoW64 CI collection. Dedicated installed-leaf tests verify native
+and x86 service entry, caller state, guards, handle identity and RET16 cleanup;
+repeated native capture checks handle-count conservation.
+
+The unchanged installed ARM64 CMD passes its prior NtOpenThread frontier and
+stops at `NtSetInformationVirtualMemory` (`0x1B0` on build29695), exiting125
+before stdout. Native CMD emits the requested marker and exits0. Full
+Linux/macOS/Windows installed-library process support, Windows child-process
+namespaces, custom thread security and subsequent kernel services remain
+unfinished requirements.

@@ -287,6 +287,11 @@ fn spawn_image_file(
         || Err("SystemFlushInformation requires selected native inputs".into()),
         crate::user::windows::native::flush_information,
     );
+    let thread_access = if native.is_some() {
+        crate::user::windows::security::thread::snapshot()
+    } else {
+        Ok(crate::user::windows::security::thread::Access::modeled())
+    };
     let high = layout::user_limit(
         arch,
         h.characteristics & IMAGE_FILE_LARGE_ADDRESS_AWARE != 0,
@@ -403,6 +408,7 @@ fn spawn_image_file(
         cfg: Arc::new(config),
         native,
         flush_information,
+        thread_access,
         image_information: Err("executable has not been mapped"),
         wow64: None,
         teb_arena: Default::default(),

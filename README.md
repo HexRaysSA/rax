@@ -16,6 +16,10 @@ select installed system DLLs by default; `--windows-libraries builtin` selects
 the portable built-in DLL services. The native backend remains bounded by its
 implemented kernel services.
 
+The native Windows kernel model supports
+[opening retained guest thread objects](docs/specifications/windows/native-open-thread/README.md)
+with captured access grants and separate native64/WoW64 caller-buffer handling.
+
 Windows PE programs select an additional [Windows personality](docs/architecture/user-mode/windows.md)
 for x86, x64, and ARM64 guests on Unix hosts. The current surface covers PE
 loading, process startup, calling conventions, and core DLL/memory services;
