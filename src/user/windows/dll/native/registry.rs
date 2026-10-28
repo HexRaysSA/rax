@@ -1,5 +1,5 @@
 //! Snapshot-backed runtime registry reads. Native64 and WoW64 capture/probe order
-//! follows the build29683 observations retained under docs/specifications.
+//! follows the build29683/29695 observations retained under docs/specifications.
 //! No guest path, access mask or handle reaches a host registry service.
 use super::query::{guard_result, probe_write};
 use crate::error::MemoryAccessKind;
@@ -123,9 +123,13 @@ fn attributes(c: &Ctx, address: u64) -> Checked<Attributes> {
             return Err(c.unsupported(description).into());
         }
     }
+    let descriptor = name(c, object_name)?;
+    if !wow && descriptor.length != 0 && descriptor.length % 2 == 0 && descriptor.buffer % 2 != 0 {
+        return status(STATUS_DATATYPE_MISALIGNMENT);
+    }
     Ok(Attributes {
         root,
-        name: text(c, name(c, object_name)?, wow)?,
+        name: text(c, descriptor, wow)?,
         flags,
     })
 }
@@ -159,13 +163,49 @@ fn grant(c: &Ctx, access: u32) -> Checked<u32> {
     })
 }
 
+fn open_grant(c: &Ctx, access: u32, options: u32) -> Checked<u32> {
+    if c.arch() == WinArch::X86 && access & 0x300 == 0x300 {
+        return status(STATUS_INVALID_PARAMETER);
+    }
+    if options & 4 == 0 {
+        return grant(c, access);
+    }
+    let subject =
+        c.p.objects.primary_token_subject().ok_or_else(|| {
+            c.unsupported("registry backup/restore token subject is not captured")
+        })?;
+    // The current thread-token attachment boundary keeps this the captured
+    // primary subject. Native controls use a separately duplicated token.
+    let enabled = |luid| {
+        subject
+            .privileges
+            .iter()
+            .any(|privilege| privilege.luid == luid && privilege.attributes & 2 != 0)
+    };
+    let granted =
+        if enabled(17) { 0x0102_0019 } else { 0 } | if enabled(18) { 0x010F_0006 } else { 0 };
+    if granted == 0 {
+        status(STATUS_ACCESS_DENIED)
+    } else {
+        Ok(granted)
+    }
+}
+
 pub(super) fn open(c: &mut Ctx) -> ApiResult {
-    let result = open_checked(c);
+    let result = open_checked(c, 0);
     finish(c, result)
 }
-fn open_checked(c: &mut Ctx) -> Checked<u32> {
+pub(super) fn open_ex(c: &mut Ctx) -> ApiResult {
+    let options = c.u32(3)?;
+    let result = open_checked(c, options);
+    finish(c, result)
+}
+fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     let (out, access, attrs) = (c.ptr(0)?, c.u32(1)?, c.ptr(2)?);
     let wow = c.arch() == WinArch::X86;
+    if !wow && options & !0x1C != 0 {
+        return status(STATUS_INVALID_PARAMETER_4);
+    }
     let attrs = if wow {
         attributes(c, attrs)?
     } else {
@@ -173,18 +213,40 @@ fn open_checked(c: &mut Ctx) -> Checked<u32> {
         c.write_ptr(out, 0)?;
         attributes(c, attrs)?
     };
-    if wow {
+    if wow && out != 0 {
         probe_write(c, out, 4)?;
         c.write_ptr(out, 0)?;
     }
-    if attrs.flags & !0x1EF2 != 0 || attrs.name.odd {
+    let absolute = attrs.name.units.first() == Some(&(b'\\' as u16));
+    if wow && attrs.root != 0 && absolute {
+        return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
+    }
+    if wow && access & 0x300 == 0x300 {
         return status(STATUS_INVALID_PARAMETER);
     }
-    let absolute = attrs.name.units.first() == Some(&(b'\\' as u16));
+    if wow && attrs.root != 0 {
+        // The thunk resolves a relative root before native option validation.
+        // Absolute syntax and contradictory views still precede this lookup.
+        key(c, attrs.root, false)?;
+    }
+    if options & !0x1C != 0 {
+        return status(STATUS_INVALID_PARAMETER_4);
+    }
+    if attrs.flags & !0x1FF2 != 0 || attrs.name.odd {
+        return status(STATUS_INVALID_PARAMETER);
+    }
+    if attrs.flags & 0x100 != 0 {
+        return Err(c
+            .unsupported("registry link-source metadata is not captured")
+            .into());
+    }
     let selected = if attrs.root != 0 {
         // The compatibility thunk rejects an absolute rooted name before the
         // native object manager checks the root handle's validity/type.
         if wow && absolute {
+            return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
+        }
+        if absolute && c.p.objects.get(attrs.root).is_some() {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
         let root = key(c, attrs.root, false)?;
@@ -212,6 +274,8 @@ fn open_checked(c: &mut Ctx) -> Checked<u32> {
             }
         }
     };
+    // Native controls distinguish OBJ_OPENLINK above from OpenOptions bit8.
+    // The admitted option alone retains the ordinary resolved-key behavior.
     // Native64 opens retain zero tags for these shared selected keys. WoW64
     // marks its default/32-bit view with 0x400; an explicit 64-bit view is 0x100.
     // The contradictory x86 view request is rejected by grant before creation.
@@ -221,7 +285,7 @@ fn open_checked(c: &mut Ctx) -> Checked<u32> {
     } else {
         0
     };
-    let access = grant(c, access)?;
+    let access = open_grant(c, access, options)?;
     let Some(id) = c.p.objects.create_registry_key(selected, tags) else {
         return status(STATUS_INSUFFICIENT_RESOURCES);
     };
@@ -230,7 +294,11 @@ fn open_checked(c: &mut Ctx) -> Checked<u32> {
         return status(STATUS_INSUFFICIENT_RESOURCES);
     };
     if let Err(fault) = c.write_ptr(out, u64::from(handle)) {
-        let _ = c.p.objects.close(u64::from(handle));
+        // The measured WoW64 NULL-output successful open leaks its handle.
+        // A NULL output on an earlier failure skips copy-back entirely.
+        if !wow || out != 0 {
+            let _ = c.p.objects.close(u64::from(handle));
+        }
         return Err(fault.into());
     }
     Ok(STATUS_SUCCESS)

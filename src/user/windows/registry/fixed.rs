@@ -38,7 +38,7 @@ impl Registry {
                     )?),
                     subkeys: None,
                     selected_child: None,
-                    selected_path: None,
+                    selected_paths: BTreeMap::new(),
                 }))
             }
             None => None,
@@ -53,7 +53,7 @@ impl Registry {
                 parent.fold(&CHILD.encode_utf16().collect::<Vec<_>>()),
                 child,
             )),
-            selected_path: None,
+            selected_paths: BTreeMap::new(),
         };
         self.keys.insert(name, Arc::new(key));
         Ok(self)

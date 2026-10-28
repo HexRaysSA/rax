@@ -100,6 +100,9 @@ mod installed;
 #[path = "registry_key_query_tests.rs"]
 mod key_query;
 
+#[path = "registry_key_open_ex_tests.rs"]
+mod key_open_ex;
+
 #[path = "registry_tree_tests.rs"]
 mod tree;
 
@@ -746,7 +749,12 @@ fn native_registry_open_capture_order_output_zeroing_and_read_only_policy_all_ab
                     "{arch}/role{role}"
                 );
             }
-            assert_eq!(p.objects.handle_count(), before);
+            // Native v3 controls retain one WoW64 handle after a successful
+            // open whose NULL caller destination faults during copy-back.
+            assert_eq!(
+                p.objects.handle_count(),
+                before + usize::from(arch == WinArch::X86 && role == 0)
+            );
         }
     }
 }

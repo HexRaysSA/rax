@@ -173,7 +173,7 @@ impl Registry {
             // The supplied case table need not be assumed idempotent here.
             return root.relative(&original[prefix.len()..]);
         }
-        if let Some(prefix) = &self.user_policy {
+        for prefix in self.user_policies.values() {
             if name == prefix.as_ref() {
                 return Lookup::Missing;
             }
@@ -201,7 +201,7 @@ fn charge_key(
     if let Some((_, Some(child))) = &key.selected_child {
         charge_key(child, budget, seen)?;
     }
-    if let Some((_, Some(child))) = &key.selected_path {
+    for child in key.selected_paths.values().flatten() {
         charge_key(child, budget, seen)?;
     }
     if let Some(children) = &key.subkeys {
@@ -213,7 +213,7 @@ fn charge_key(
 }
 impl Key {
     pub(crate) fn relative(self: &Arc<Self>, name: &[u16]) -> Lookup {
-        if let Some((selected, child)) = &self.selected_path {
+        if !self.selected_paths.is_empty() {
             let mut normalized = Vec::with_capacity(name.len());
             for component in name.split(|u| *u == 92).filter(|part| !part.is_empty()) {
                 if !normalized.is_empty() {
@@ -222,13 +222,16 @@ impl Key {
                 normalized.extend_from_slice(component);
             }
             let folded = self.fold(&normalized);
-            if folded.starts_with(selected)
-                && (folded.len() == selected.len() || normalized.get(selected.len()) == Some(&92))
-            {
-                return match child {
-                    Some(child) => child.relative(&normalized[selected.len()..]),
-                    None => Lookup::Missing,
-                };
+            for (selected, child) in &self.selected_paths {
+                if folded.starts_with(selected)
+                    && (folded.len() == selected.len()
+                        || normalized.get(selected.len()) == Some(&92))
+                {
+                    return match child {
+                        Some(child) => child.relative(&normalized[selected.len()..]),
+                        None => Lookup::Missing,
+                    };
+                }
             }
         }
         let mut key = self.clone();
@@ -280,7 +283,7 @@ pub(super) fn build(
         values: Arc::new(raw_values),
         subkeys: None,
         selected_child: None,
-        selected_path: None,
+        selected_paths: BTreeMap::new(),
     };
     let mut children = BTreeMap::new();
     for (name, child) in tree.children {

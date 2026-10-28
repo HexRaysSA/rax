@@ -1,5 +1,5 @@
 //! The creator's hive header and its captured native alias. This partial key
-//! owns the already selected policy route; other nonempty descendants stay unknown.
+//! owns selected policy routes; other nonempty descendants stay unknown.
 use super::*;
 
 #[derive(Debug, Clone)]
@@ -24,8 +24,9 @@ impl Registry {
         {
             return Err(invalid("primary hive and policy select different subjects"));
         }
-        if let Some(policy) = &self.user_policy {
-            let expected: Vec<_> = user_policy_path(sid)?
+        for (root, policy) in &self.user_policies {
+            let expected: Vec<_> = root
+                .path(sid)?
                 .iter()
                 .map(|&u| self.upcase[usize::from(u)])
                 .collect();
@@ -69,7 +70,7 @@ impl Registry {
                     values: Arc::new(values),
                     subkeys: None,
                     selected_child: None,
-                    selected_path: None,
+                    selected_paths: BTreeMap::new(),
                 }))
             }
             None => None,
@@ -88,24 +89,32 @@ impl Registry {
     }
 
     pub(super) fn link_primary_hive_policy(&mut self) -> io::Result<()> {
-        let (Some(hive), Some(policy)) = (&self.primary_hive, &self.user_policy) else {
+        let Some(hive) = &self.primary_hive else {
             return Ok(());
         };
-        let child = self.keys.get(policy.as_ref()).cloned();
-        let Some(root) = &hive.root else {
-            if child.is_some() {
-                return Err(invalid(
-                    "selected policy exists below an absent primary hive",
-                ));
-            }
+        if self.user_policies.is_empty() {
             return Ok(());
-        };
-        if root.children == 0 && child.is_some() {
-            return Err(invalid(
-                "selected policy exists below a childless primary hive",
-            ));
         }
-        let relative: Vec<_> = user_policy::POLICY_SUFFIX.encode_utf16().skip(1).collect();
+        let mut routes = BTreeMap::new();
+        for (selection, policy) in &self.user_policies {
+            let child = self.keys.get(policy.as_ref()).cloned();
+            if child.is_some() && hive.root.as_ref().is_none_or(|root| root.children == 0) {
+                return Err(invalid(if hive.root.is_none() {
+                    "selected policy exists below an absent primary hive"
+                } else {
+                    "selected policy exists below a childless primary hive"
+                }));
+            }
+            let relative: Vec<_> = selection.suffix().encode_utf16().skip(1).collect();
+            let folded: Vec<_> = relative
+                .iter()
+                .map(|&u| self.upcase[usize::from(u)])
+                .collect();
+            routes.insert(folded, child);
+        }
+        let Some(root) = &hive.root else {
+            return Ok(());
+        };
         let root = Arc::new(Key {
             path: root.path.clone(),
             children: root.children,
@@ -113,7 +122,7 @@ impl Registry {
             values: root.values.clone(),
             subkeys: None,
             selected_child: None,
-            selected_path: Some((root.fold(&relative), child)),
+            selected_paths: routes,
         });
         let path = hive.path.clone();
         self.insert_hive_aliases(&path, &root);

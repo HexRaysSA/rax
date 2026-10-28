@@ -1,0 +1,7 @@
+*.zip -text -diff
+*.zst -text -diff
+probe-v*.cpp -text
+run-v*.py -text
+provenance.json -text -diff
+references/*.html -text -diff
+references/provenance.json -text -diff

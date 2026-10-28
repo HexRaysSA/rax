@@ -24,6 +24,8 @@ on:
       - docs/specifications/windows/native-open-thread/**
       - docs/specifications/windows/native-memory-prefetch/**
       - docs/specifications/windows/native-primary-user-hive/**
+      - docs/specifications/windows/native-open-key-ex/**
+      - src/user/windows/process/sched/tests/services_tests/registry_key_open_ex*.rs
       - docs/specifications/windows/native-query-key/**
       - src/user/windows/dll/native/registry.rs
       - src/user/windows/dll/native/registry/**
@@ -68,6 +70,8 @@ on:
       - docs/specifications/windows/native-open-thread/**
       - docs/specifications/windows/native-memory-prefetch/**
       - docs/specifications/windows/native-primary-user-hive/**
+      - docs/specifications/windows/native-open-key-ex/**
+      - src/user/windows/process/sched/tests/services_tests/registry_key_open_ex*.rs
       - docs/specifications/windows/native-query-key/**
       - src/user/windows/dll/native/registry.rs
       - src/user/windows/dll/native/registry/**
@@ -119,6 +123,37 @@ jobs:
         with:
           name: native-primary-user-hive-${{ matrix.os }}
           path: target/native-primary-user-hive-v4
+          if-no-files-found: error
+      - name: Verify and observe native extended key opens
+        run: |
+          python -B -m unittest discover -s docs/specifications/windows/native-open-key-ex
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-open-key-ex/run-v3.py --require-native-machine 0x8664 --output target/native-open-key-order-v3
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-open-key-ex/run-v5.py --require-native-machine 0x8664 --output target/native-open-key-grants-v5
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-open-key-ex/run-v6.py --require-native-machine 0x8664 --output target/native-open-key-link-v6
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-open-key-ex/run-v7.py --require-native-machine 0x8664 --output target/native-open-key-views-v7
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve native extended key-open observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-open-key-ex-${{ matrix.os }}
+          path: |
+            target/native-open-key-order-v3/receipt.json
+            target/native-open-key-order-v3/**/*.log
+            target/native-open-key-order-v3/**/*.jsonl
+            target/native-open-key-grants-v5/receipt.json
+            target/native-open-key-grants-v5/**/*.log
+            target/native-open-key-grants-v5/**/*.jsonl
+            target/native-open-key-link-v6/receipt.json
+            target/native-open-key-link-v6/**/*.log
+            target/native-open-key-link-v6/**/*.jsonl
+            target/native-open-key-views-v7/receipt.json
+            target/native-open-key-views-v7/**/*.log
+            target/native-open-key-views-v7/**/*.jsonl
           if-no-files-found: error
       - name: Verify retained key-query artifact provenance
         run: python -B -m unittest discover -s docs/specifications/windows/native-query-key
@@ -398,6 +433,13 @@ jobs:
         run: |
           $env:RAX_NATIVE_PRIMARY_USER_HIVE_CORPUS = Join-Path $env:GITHUB_WORKSPACE 'target/native-primary-user-hive-v4/receipt.json'
           cargo test --locked --no-default-features --lib primary_hive -- --nocapture --test-threads=1
+      - name: Replay extended key opens and execute installed four-argument leaves
+        if: always()
+        run: |
+          $env:RAX_NATIVE_OPEN_KEY_EX_ORDER = Join-Path $env:GITHUB_WORKSPACE 'target/native-open-key-order-v3/receipt.json'
+          $env:RAX_NATIVE_OPEN_KEY_EX_GRANTS = Join-Path $env:GITHUB_WORKSPACE 'target/native-open-key-grants-v5/receipt.json'
+          $env:RAX_NATIVE_OPEN_KEY_EX_VIEWS = Join-Path $env:GITHUB_WORKSPACE 'target/native-open-key-views-v7/receipt.json'
+          cargo test --locked --no-default-features --lib native_open_key_ex -- --nocapture --test-threads=1
       - name: Replay key-query controls and execute installed five-argument leaves
         if: always()
         run: |

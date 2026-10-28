@@ -502,6 +502,14 @@ pub(super) static KEY_QUERY_EXPORTS: &[Export] = &[Export::func(
     registry::query_key,
 )];
 
+// Keep existing synthetic ordinals and trap slots stable.
+pub(super) static KEY_OPEN_EX_EXPORTS: &[Export] = &[Export::func(
+    "NtOpenKeyEx",
+    Stdcall,
+    &[Ptr, I32, Ptr, I32],
+    registry::open_ex,
+)];
+
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)
 }

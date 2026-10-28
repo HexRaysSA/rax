@@ -27,7 +27,7 @@ pub(crate) use tree::{
 };
 #[path = "registry/user_policy.rs"]
 mod user_policy;
-pub(crate) use user_policy::user_policy_path;
+pub(crate) use user_policy::{UserPolicyRoot, user_policy_path};
 #[path = "registry/primary_hive.rs"]
 mod primary_hive;
 #[cfg(test)]
@@ -60,7 +60,7 @@ pub struct Key {
     values: Arc<BTreeMap<Vec<u16>, Value>>,
     subkeys: Option<BTreeMap<Vec<u16>, Arc<Key>>>,
     selected_child: Option<(Vec<u16>, Option<Arc<Key>>)>,
-    selected_path: Option<(Vec<u16>, Option<Arc<Key>>)>,
+    selected_paths: BTreeMap<Vec<u16>, Option<Arc<Key>>>,
 }
 impl Key {
     #[cfg(test)]
@@ -80,7 +80,7 @@ pub(crate) struct Registry {
     keys: BTreeMap<Vec<u16>, Arc<Key>>,
     upcase: Arc<[u16]>,
     selected_trees: BTreeSet<TreeRoot>,
-    user_policy: Option<Arc<[u16]>>,
+    user_policies: BTreeMap<UserPolicyRoot, Arc<[u16]>>,
     primary_hive: Option<PrimaryHive>,
 }
 impl Registry {
@@ -103,7 +103,7 @@ impl Registry {
             keys: BTreeMap::new(),
             upcase: upcase.into(),
             selected_trees: BTreeSet::new(),
-            user_policy: None,
+            user_policies: BTreeMap::new(),
             primary_hive: None,
         };
         let mut budget = ValueBudget::default();
@@ -122,7 +122,7 @@ impl Registry {
                 )?),
                 subkeys: None,
                 selected_child: None,
-                selected_path: None,
+                selected_paths: BTreeMap::new(),
             };
             if result
                 .keys
@@ -165,7 +165,7 @@ impl Registry {
     pub(crate) fn lookup(&self, name: &[u16]) -> Lookup {
         if self.keys.is_empty()
             && self.selected_trees.is_empty()
-            && self.user_policy.is_none()
+            && self.user_policies.is_empty()
             && self.primary_hive.is_none()
         {
             return Lookup::Unselected;

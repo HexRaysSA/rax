@@ -3203,3 +3203,39 @@ all-target compilation and production Clippy. NativeWindows29695 completes
 its CLI/C API/all-target checks too. Both independent AMD64 jobs pass. The older
 end-relative processor-export guard is repaired to retain its ordinal assertions
 after later appended families. No whole-process completion is claimed.
+
+### Extended key opens and the fixed System policy snapshot (2026-10-28)
+
+The appended four-argument `NtOpenKeyEx` family shares immutable key selection
+with `NtOpenKey`, preserving all preceding export names, ordinals and trap RVAs.
+The fixed per-primary-SID System policy subtree joins the existing Safer route;
+known absence, captured native aliases, aggregate budgets and handle-owned
+snapshot lifetime remain distinct from uncaptured registry paths.
+
+Native controls on build29695 cover ARM64, x64, x86 and x86-LAA. The v3/v5/v7
+replay checks18492 native-equality calls and68 explicit namespace frontiers,
+retaining128 additional sibling-name calls as exploratory evidence. It covers
+output/attribute/name capture, guards, conflicting views, invalid relative
+roots, all four backup/restore privilege profiles, grants, tags and handle
+lifetime. Returned native handles and addresses are normalized separately from
+defined writes. Ordinary `MAXIMUM_ALLOWED` still has its documented read-cap
+versus native-grant difference; no complete grant parity is claimed.
+
+The native user-mode link diagnostic distinguishes OpenOptions bit8 from
+`OBJECT_ATTRIBUTES.Attributes` bit0x100 (`OBJ_OPENLINK`). Link-source metadata
+remains uncaptured and produces an explicit frontier. Source/producers,
+compressed unchanged observations, provenance checks, reference copies,
+reproduction commands, assumptions and exclusions are documented in
+`docs/specifications/windows/native-open-key-ex/README.md`.
+
+The unchanged installed ARM64 CMD passes the earlier System-policy
+open and reaches `NtOpenKey` for
+`\Registry\Machine\SOFTWARE\Microsoft\AppModel\Lookaside\machine`, with desired
+access0x80000100. It still exits125 before stdout while native CMD prints its
+marker and exits0. This is measured advancement, not CMD completion. The current CLI has SHA256
+`9da83b64fc680a57815a7a528cc4b37d59f38f53d0dccc55839e118936c3d17a`; source and both executable hashes remain unchanged across
+this run. macOS/Linux full library gates pass8771/8761 tests, each with two
+existing ignored tests; their191 C API tests and all-target checks pass. The
+Windows focused/fresh, registry, CLI,191 C API and all-target checks pass; its
+unfiltered library gate remains running. Independent AMD64 qualification and
+installed-Assist/package results remain separate open gates.

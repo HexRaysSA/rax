@@ -253,3 +253,102 @@ fn primary_hive_route_matches_fold_once_and_retains_immutable_earlier_handles() 
     };
     assert_eq!(child.value(&units("raw")).unwrap().data, [0, 255, 17]);
 }
+
+#[test]
+fn primary_hive_two_fixed_policies_preserve_aliases_absence_and_all_capture_orders() {
+    for order in [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+    ] {
+        for presence in [[false, false], [false, true], [true, false], [true, true]] {
+            let mut selected = registry();
+            for operation in order {
+                selected = if operation == 0 {
+                    selected.with_primary_hive(&sid(), Some(header(9)))
+                } else {
+                    let root = UserPolicyRoot::ALL[operation - 1];
+                    selected.with_user_policy_root(root, &sid(), presence[operation - 1].then(tree))
+                }
+                .unwrap();
+            }
+            let root = selected.key(&units("\\Registry\\User\\S-1-5-18")).unwrap();
+            let alias = selected.key(&units("\\Registry\\User\\.DEFAULT")).unwrap();
+            assert!(Arc::ptr_eq(&root, &alias));
+            assert_eq!(
+                selected.value_budget().unwrap().count,
+                1 + presence.into_iter().filter(|&present| present).count() * 2
+            );
+            for (index, policy) in UserPolicyRoot::ALL.into_iter().enumerate() {
+                let suffix = format!("{}\\OPTION", policy.suffix());
+                for prefix in ["\\Registry\\User\\S-1-5-18", "\\Registry\\User\\.DEFAULT"] {
+                    let actual = selected.lookup(&units(&format!("{prefix}{suffix}")));
+                    if presence[index] {
+                        let Lookup::Present(child) = actual else {
+                            panic!("{prefix}{suffix}")
+                        };
+                        assert_eq!(child.value(&units("raw")).unwrap().data, [0, 255, 17]);
+                    } else {
+                        assert!(matches!(actual, Lookup::Missing));
+                    }
+                }
+                let lookalike = format!("{}Suffix", policy.suffix());
+                assert!(matches!(
+                    root.relative(&units(&lookalike)),
+                    Lookup::Unselected
+                ));
+            }
+            drop(selected);
+            for (index, policy) in UserPolicyRoot::ALL.into_iter().enumerate() {
+                let suffix = format!("{}\\\\OPTION\\", policy.suffix());
+                let actual = alias.relative(&units(&suffix));
+                assert_eq!(matches!(actual, Lookup::Present(_)), presence[index]);
+                assert_eq!(matches!(actual, Lookup::Missing), !presence[index]);
+            }
+        }
+    }
+}
+
+#[test]
+fn primary_hive_two_policy_routes_charge_values_once_and_reject_other_subjects() {
+    let mut h = header(9);
+    h.values = (0..MAX_VALUES - 2)
+        .map(|i| value(&format!("v{i}")))
+        .collect();
+    let mut selected = registry().with_primary_hive(&sid(), Some(h)).unwrap();
+    for root in UserPolicyRoot::ALL {
+        selected = selected
+            .with_user_policy_root(
+                root,
+                &sid(),
+                Some(KeyTree {
+                    values: vec![value("last")],
+                    children: vec![],
+                }),
+            )
+            .unwrap();
+    }
+    assert_eq!(selected.value_budget().unwrap().count, MAX_VALUES);
+    assert!(selected.with_tree(TreeRoot::Ifeo, Some(tree())).is_err());
+    let mut other = sid();
+    other[8] = 19;
+    for first in UserPolicyRoot::ALL {
+        let base = registry()
+            .with_user_policy_root(first, &sid(), None)
+            .unwrap();
+        assert!(
+            base.clone()
+                .with_user_policy_root(first, &sid(), None)
+                .is_err()
+        );
+        let second = if first == UserPolicyRoot::Safer {
+            UserPolicyRoot::System
+        } else {
+            UserPolicyRoot::Safer
+        };
+        assert!(base.with_user_policy_root(second, &other, None).is_err());
+    }
+}

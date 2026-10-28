@@ -70,16 +70,19 @@ fn native_query_key_appends_five_slot_export_without_moving_prior_symbols_all_ab
         .iter()
         .position(|table| table.iter().any(|e| e.name == "NtQueryKey"))
         .unwrap();
-    assert_eq!(family + 1, current.exports.len());
     let previous = BuiltinDll {
         name: current.name,
         display: current.display,
         subsystem: current.subsystem,
         exports: &current.exports[..family],
     };
+    let appended = BuiltinDll {
+        exports: &current.exports[..=family],
+        ..previous
+    };
     for arch in WinArch::ALL {
         let before = builtin::build(&previous, arch, 0, &[]);
-        let after = builtin::build(current, arch, 0, &[]);
+        let after = builtin::build(&appended, arch, 0, &[]);
         assert_eq!(after.ordinal_base, before.ordinal_base);
         assert_eq!(
             &after.symbols[..before.symbols.len()],
