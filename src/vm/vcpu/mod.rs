@@ -386,6 +386,24 @@ pub trait VCpu: Send {
         Ok(None)
     }
 
+    /// Interpreter profile retained by a RISC-V backend context. Embedders use
+    /// it when reconstructing the same engine after a memory-map change/reset.
+    fn riscv_configuration(&self) -> Option<crate::isa::riscv::RiscVConfig> {
+        None
+    }
+
+    /// Admit backend-owned state against the declared machine before any live
+    /// restore changes. Standalone context import has no machine envelope.
+    fn validate_checkpoint_for_machine(
+        &self,
+        _config: &crate::config::CheckpointConfig,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_context(state, emulator, context)
+    }
+
     /// Admit the public projection and backend record before any CPU is changed.
     fn validate_checkpoint_context(
         &self,

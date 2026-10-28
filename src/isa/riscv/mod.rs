@@ -52,7 +52,7 @@ pub use float::RoundingMode;
 pub use memory::{FlatMemory, MemError, MemResult, Memory};
 
 /// Register width of the hart.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Xlen {
     /// 32-bit registers (RV32).
     Rv32,
@@ -82,7 +82,7 @@ impl Xlen {
 
 /// Enabled standard extensions. A `false` field means the corresponding
 /// encodings decode as illegal instructions.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Isa {
     /// M: integer multiply/divide.
     pub m: bool,

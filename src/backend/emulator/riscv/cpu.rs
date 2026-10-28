@@ -18,7 +18,11 @@
 //! [`Error::GuestEvent`] instead of entering the M-mode trap vector (see
 //! [`RvUserTrap`]).
 
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
+
+#[path = "cpu_context.rs"]
+mod context;
 
 use vm_memory::{Bytes, GuestAddress, GuestMemory, GuestMemoryMmap};
 
@@ -26,7 +30,7 @@ use crate::error::{Error, GuestMemoryFault, MemoryAccessKind, Result};
 use crate::isa::riscv::cpu::{Priv, cause};
 use crate::isa::riscv::{MemError, MemResult, Memory, RiscVConfig, RiscVCpu, RiscVExit};
 use crate::vm::memory::FlatTranslation;
-use crate::vm::vcpu::{CpuState, MemAccess, RiscVRegisters, VCpu, VcpuExit};
+use crate::vm::vcpu::{CpuState, MemAccess, VCpu, VcpuExit};
 
 /// 16550 UART MMIO base/length (matches `RiscvVirtMachine::serial_mmio_base`).
 const UART_BASE: u64 = 0x1000_0000;
@@ -37,17 +41,22 @@ const LSR_THRE_TEMT: u8 = 0x60;
 /// Bound on instructions executed per `run()` call (keeps the loop responsive).
 const MAX_ITERS: u64 = 2_000_000;
 
-/// A pending MMIO write surfaced to the run loop.
-type MmioSink = Arc<Mutex<Option<(u64, Vec<u8>)>>>;
-/// A pending guest-requested exit surfaced to the run loop.
-type ExitSink = Arc<Mutex<Option<VcpuExit>>>;
+/// Events remain ordered across a multi-access instruction and its terminal
+/// result. They are drained before the next instruction executes.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+enum PendingEvent {
+    MmioWrite { addr: u64, data: Vec<u8> },
+    Shutdown,
+    Failure { reason: String, halt: bool },
+    Debug,
+}
+type EventSink = Arc<Mutex<VecDeque<PendingEvent>>>;
 
 /// Guest memory bridge: RAM via [`GuestMemoryMmap`], with the UART window
 /// intercepted.
 struct GuestBridge {
     mem: Arc<GuestMemoryMmap>,
-    pending: MmioSink,
-    pending_exit: ExitSink,
+    pending: EventSink,
     tohost_addr: Arc<Mutex<Option<u64>>>,
     /// The bare-metal machine's UART window and HTIF `tohost` port. An
     /// embedder that owns the whole address space ([`RiscVVcpu::new_embedded`])
@@ -183,7 +192,7 @@ impl Memory for UserBridge {
 
 /// A U-mode event a user-mode hart ([`RiscVVcpu::new_user`]) reported to its
 /// embedder instead of entering the M-mode trap vector.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RvUserTrap {
     /// `ECALL` at `pc`. The vCPU completed it for the embedder: the PC is
     /// `pc + 4`, where the supervisor's `sret` would resume.
@@ -240,33 +249,46 @@ impl Memory for GuestBridge {
 
     fn write(&mut self, addr: u64, data: &[u8]) -> MemResult<()> {
         if self.is_uart(addr) {
-            *self.pending.lock().unwrap() = Some((addr, data.to_vec()));
+            self.pending
+                .lock()
+                .unwrap()
+                .push_back(PendingEvent::MmioWrite {
+                    addr,
+                    data: data.to_vec(),
+                });
             return Ok(());
-        }
-        if self.devices_enabled && *self.tohost_addr.lock().unwrap() == Some(addr) {
-            let mut raw = [0u8; 8];
-            let len = data.len().min(raw.len());
-            raw[..len].copy_from_slice(&data[..len]);
-            let value = u64::from_le_bytes(raw);
-            if value == 1 {
-                *self.pending_exit.lock().unwrap() = Some(VcpuExit::Shutdown);
-            } else if value & 1 == 1 {
-                *self.pending_exit.lock().unwrap() = Some(VcpuExit::Unknown(format!(
-                    "riscv tohost failure: value={value:#x} test={}",
-                    value >> 1
-                )));
-            } else if value != 0 {
-                *self.pending_exit.lock().unwrap() = Some(VcpuExit::Unknown(format!(
-                    "unsupported riscv tohost value: {value:#x}"
-                )));
-            }
         }
         self.mem
             .write_slice(data, GuestAddress(addr))
             .map_err(|_| MemError::OutOfBounds {
                 addr,
                 size: data.len(),
-            })
+            })?;
+        if self.devices_enabled && *self.tohost_addr.lock().unwrap() == Some(addr) {
+            let mut raw = [0u8; 8];
+            let len = data.len().min(raw.len());
+            raw[..len].copy_from_slice(&data[..len]);
+            let value = u64::from_le_bytes(raw);
+            let event = if value == 1 {
+                Some(PendingEvent::Shutdown)
+            } else if value & 1 == 1 {
+                Some(PendingEvent::Failure {
+                    reason: format!("riscv tohost failure: value={value:#x} test={}", value >> 1),
+                    halt: false,
+                })
+            } else if value != 0 {
+                Some(PendingEvent::Failure {
+                    reason: format!("unsupported riscv tohost value: {value:#x}"),
+                    halt: false,
+                })
+            } else {
+                None
+            };
+            if let Some(event) = event {
+                self.pending.lock().unwrap().push_back(event);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -274,10 +296,10 @@ impl Memory for GuestBridge {
 pub struct RiscVVcpu {
     id: u32,
     cpu: RiscVCpu,
-    pending: MmioSink,
-    pending_exit: ExitSink,
+    pending: EventSink,
     tohost_addr: Arc<Mutex<Option<u64>>>,
     halted: bool,
+    devices_enabled: bool,
     /// Process-level execution in U-mode ([`RiscVVcpu::new_user`]).
     user: Option<RvUser>,
 }
@@ -299,13 +321,11 @@ impl RiscVVcpu {
     }
 
     fn build(id: u32, mem: Arc<GuestMemoryMmap>, cfg: RiscVConfig, devices_enabled: bool) -> Self {
-        let pending: MmioSink = Arc::new(Mutex::new(None));
-        let pending_exit: ExitSink = Arc::new(Mutex::new(None));
+        let pending: EventSink = Arc::new(Mutex::new(VecDeque::new()));
         let tohost_addr = Arc::new(Mutex::new(None));
         let bridge = GuestBridge {
             mem,
             pending: pending.clone(),
-            pending_exit: pending_exit.clone(),
             tohost_addr: tohost_addr.clone(),
             devices_enabled,
         };
@@ -314,9 +334,9 @@ impl RiscVVcpu {
             id,
             cpu,
             pending,
-            pending_exit,
             tohost_addr,
             halted: false,
+            devices_enabled,
             user: None,
         }
     }
@@ -349,10 +369,10 @@ impl RiscVVcpu {
         RiscVVcpu {
             id,
             cpu,
-            pending: Arc::new(Mutex::new(None)),
-            pending_exit: Arc::new(Mutex::new(None)),
+            pending: Arc::new(Mutex::new(VecDeque::new())),
             tohost_addr: Arc::new(Mutex::new(None)),
             halted: false,
+            devices_enabled: false,
             user: Some(RvUser {
                 translation,
                 last_fault,
@@ -439,9 +459,138 @@ impl RiscVVcpu {
             }
         }
     }
+    fn pop_event(&mut self) -> Result<Option<VcpuExit>> {
+        let event = self
+            .pending
+            .lock()
+            .map_err(|_| Error::Emulator("RISC-V event queue poisoned".into()))?
+            .pop_front();
+        Ok(event.map(|event| match event {
+            PendingEvent::MmioWrite { addr, data } => VcpuExit::MmioWrite { addr, data },
+            PendingEvent::Shutdown => {
+                self.halted = true;
+                VcpuExit::Shutdown
+            }
+            PendingEvent::Failure { reason, halt } => {
+                self.halted = halt;
+                VcpuExit::Unknown(reason)
+            }
+            PendingEvent::Debug => {
+                self.halted = true;
+                VcpuExit::Debug
+            }
+        }))
+    }
+
+    fn step_system(&mut self) -> Result<Option<VcpuExit>> {
+        if self.halted {
+            return Ok(Some(VcpuExit::Hlt));
+        }
+        if let Some(exit) = self.pop_event()? {
+            return Ok(Some(exit));
+        }
+        let exit = self.cpu.step();
+        let terminal = match exit {
+            RiscVExit::Continue | RiscVExit::Wfi => None,
+            RiscVExit::Ecall => {
+                let syscall = self.cpu.x(17);
+                let code = self.cpu.x(10);
+                Some(if syscall == 93 && code != 0 {
+                    PendingEvent::Failure {
+                        reason: format!("riscv ecall failure: code={code:#x}"),
+                        halt: true,
+                    }
+                } else {
+                    PendingEvent::Shutdown
+                })
+            }
+            RiscVExit::Ebreak => Some(PendingEvent::Debug),
+            RiscVExit::Trap(t) => Some(PendingEvent::Failure {
+                reason: format!(
+                    "riscv trap: cause={} tval={:#x} pc={:#x}",
+                    t.cause,
+                    t.tval,
+                    self.cpu.pc()
+                ),
+                halt: true,
+            }),
+        };
+        if let Some(event) = terminal {
+            self.pending
+                .lock()
+                .map_err(|_| Error::Emulator("RISC-V event queue poisoned".into()))?
+                .push_back(event);
+        }
+        self.pop_event()
+    }
 }
 
 impl VCpu for RiscVVcpu {
+    fn validate_checkpoint_for_machine(
+        &self,
+        config: &crate::config::CheckpointConfig,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        let profile = match context {
+            Some(context) => self.context_configuration(&context.data)?,
+            None => *self.cpu.config(),
+        };
+        if config.arch != crate::config::ArchKind::Riscv64
+            || profile.xlen != crate::isa::riscv::Xlen::Rv64
+        {
+            return Err(Error::InvalidConfig(
+                "Riscv64 checkpoint requires an RV64 backend profile".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn riscv_configuration(&self) -> Option<RiscVConfig> {
+        Some(*self.cpu.config())
+    }
+
+    fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        Ok(Some(crate::vm::snapshot::BackendContext {
+            kind: crate::vm::snapshot::RISCV_CONTEXT,
+            data: self.save_context()?,
+        }))
+    }
+
+    fn validate_checkpoint_context(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_state(state, emulator)?;
+        if let Some(context) = context {
+            if context.kind != crate::vm::snapshot::RISCV_CONTEXT {
+                return Err(Error::InvalidConfig(
+                    "RISC-V checkpoint context producer differs from target backend".into(),
+                ));
+            }
+            self.validate_context_record(state, &context.data)?;
+        }
+        Ok(())
+    }
+
+    fn restore_checkpoint_context(
+        &mut self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        if let Some(context) = context {
+            self.restore_context(&context.data)
+        } else {
+            self.set_state(state)
+        }
+    }
+
     fn run(&mut self) -> Result<VcpuExit> {
         if self.user.is_some() {
             for _ in 0..MAX_ITERS {
@@ -453,64 +602,20 @@ impl VCpu for RiscVVcpu {
             // `Hlt` here never reports a halted hart.
             return Ok(VcpuExit::Hlt);
         }
-        if self.halted {
-            return Ok(VcpuExit::Hlt);
-        }
         for _ in 0..MAX_ITERS {
-            let exit = self.cpu.step();
-            if let Some(exit) = self.pending_exit.lock().unwrap().take() {
-                self.halted = matches!(exit, VcpuExit::Shutdown);
+            if let Some(exit) = self.step_system()? {
                 return Ok(exit);
-            }
-            // Surface any UART output produced by this instruction first.
-            if let Some((addr, data)) = self.pending.lock().unwrap().take() {
-                return Ok(VcpuExit::MmioWrite { addr, data });
-            }
-            match exit {
-                RiscVExit::Continue => {}
-                RiscVExit::Ecall => {
-                    let syscall = self.cpu.x(17);
-                    let code = self.cpu.x(10);
-                    self.halted = true;
-                    if syscall == 93 && code != 0 {
-                        return Ok(VcpuExit::Unknown(format!(
-                            "riscv ecall failure: code={code:#x}"
-                        )));
-                    }
-                    return Ok(VcpuExit::Shutdown);
-                }
-                RiscVExit::Ebreak => {
-                    self.halted = true;
-                    return Ok(VcpuExit::Debug);
-                }
-                RiscVExit::Wfi => {}
-                RiscVExit::Trap(t) => {
-                    self.halted = true;
-                    return Ok(VcpuExit::Unknown(format!(
-                        "riscv trap: cause={} tval={:#x} pc={:#x}",
-                        t.cause,
-                        t.tval,
-                        self.cpu.pc()
-                    )));
-                }
             }
         }
         Ok(VcpuExit::Hlt)
     }
 
     fn get_state(&self) -> Result<CpuState> {
-        let mut regs = RiscVRegisters::default();
-        for i in 0..32u8 {
-            regs.x[i as usize] = self.cpu.x(i);
-            regs.f[i as usize] = self.cpu.f(i);
-        }
-        regs.pc = self.cpu.pc();
-        regs.fcsr = self.cpu.fcsr();
-        regs.tohost_addr = *self.tohost_addr.lock().unwrap();
-        regs.privilege = Some(self.cpu.privilege() as u8);
-        regs.csrs = self.cpu.export_csrs();
-        regs.vector = self.cpu.export_vector();
-        Ok(CpuState::riscv(regs))
+        let tohost = *self
+            .tohost_addr
+            .lock()
+            .map_err(|_| Error::Emulator("RISC-V tohost lock poisoned during capture".into()))?;
+        Ok(CpuState::riscv(self.cpu.public_registers(tohost)))
     }
 
     fn validate_checkpoint_state(
@@ -624,47 +729,7 @@ impl VCpu for RiscVVcpu {
         if self.user.is_some() {
             return self.step_user();
         }
-        if self.halted {
-            return Ok(Some(VcpuExit::Hlt));
-        }
-        // One iteration of the run() loop body.
-        let exit = self.cpu.step();
-        if let Some(exit) = self.pending_exit.lock().unwrap().take() {
-            self.halted = matches!(exit, VcpuExit::Shutdown);
-            return Ok(Some(exit));
-        }
-        if let Some((addr, data)) = self.pending.lock().unwrap().take() {
-            return Ok(Some(VcpuExit::MmioWrite { addr, data }));
-        }
-        match exit {
-            RiscVExit::Continue => Ok(None),
-            RiscVExit::Ecall => {
-                let syscall = self.cpu.x(17);
-                let code = self.cpu.x(10);
-                self.halted = true;
-                if syscall == 93 && code != 0 {
-                    Ok(Some(VcpuExit::Unknown(format!(
-                        "riscv ecall failure: code={code:#x}"
-                    ))))
-                } else {
-                    Ok(Some(VcpuExit::Shutdown))
-                }
-            }
-            RiscVExit::Ebreak => {
-                self.halted = true;
-                Ok(Some(VcpuExit::Debug))
-            }
-            RiscVExit::Wfi => Ok(None),
-            RiscVExit::Trap(t) => {
-                self.halted = true;
-                Ok(Some(VcpuExit::Unknown(format!(
-                    "riscv trap: cause={} tval={:#x} pc={:#x}",
-                    t.cause,
-                    t.tval,
-                    self.cpu.pc()
-                ))))
-            }
-        }
+        self.step_system()
     }
 }
 

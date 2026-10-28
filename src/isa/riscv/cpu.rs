@@ -16,6 +16,7 @@ use super::memory::{MemError, Memory};
 use super::{Isa, Xlen};
 
 mod atomics;
+pub(crate) mod checkpoint;
 mod csr_ops;
 mod execution;
 mod fp_moves;
@@ -35,7 +36,9 @@ mod vector_permute;
 mod vector_validation;
 
 /// Privilege level of the hart.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum Priv {
     /// User mode.
     User = 0,
@@ -128,7 +131,7 @@ pub enum RiscVExit {
 }
 
 /// Configuration of a [`RiscVCpu`].
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RiscVConfig {
     /// Register width.
     pub xlen: Xlen,

@@ -1041,7 +1041,7 @@ impl Vmm {
             states.push((&snapshot.cpu_state, &snapshot.emulator_state, None));
         }
         for (vcpu, (state, emulator, context)) in self.vcpus.iter().zip(&states) {
-            vcpu.validate_checkpoint_context(state, emulator, *context)?;
+            vcpu.validate_checkpoint_for_machine(&snapshot.config, state, emulator, *context)?;
         }
         let physical = bundle
             .physical_memory()
@@ -1358,6 +1358,10 @@ mod checkpoint_tests;
 #[cfg(test)]
 #[path = "runtime/backend_context_tests.rs"]
 mod backend_context_tests;
+
+#[cfg(test)]
+#[path = "runtime/riscv_context_tests.rs"]
+mod riscv_context_tests;
 
 #[cfg(test)]
 #[path = "runtime/bundle_tests.rs"]

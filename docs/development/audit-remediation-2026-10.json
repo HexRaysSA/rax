@@ -191042,6 +191042,43 @@
       ],
       "broad_validation": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/broad-v2/result.json",
       "commit_receipt": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/integration-commit.json"
+    },
+    {
+      "id": "riscv-backend-context-and-event-frontiers",
+      "status": "locally_validated",
+      "finding": "C-STATE",
+      "scope": "Complete represented standalone RISC-V hart/adapter context and ordered unpublished bridge/terminal events; producer3 in section14, C API format6, and declared-machine admission before live restore. Other platforms, global quiescence/transactions and remaining full findings stay open.",
+      "base": "c2be2aae9b0be76f70208f275ca3908e9d24237d",
+      "owned_paths": "/Users/int/dev/rax-audit-work/four-findings-riscv-context/owned-paths.json",
+      "parent_evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-riscv-context/parent-cli/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-riscv-context/parent-vector-result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-riscv-context/parent-ordered-result.json"
+      ],
+      "initial_validation": "Before the final VMM profile hook: full native10757passed2ignored, all200CAPI, RISC lift/native/boot and17checkpoint targets passed. Actual QEMU/CLI oracle: UARTABCD/resumedBCD and LRSC0/resumed0. Validation stopped after terminal oracle due observed malformed VMM RV32/Riscv64 acceptance; final source revalidation pending.",
+      "assumptions": [
+        {
+          "id": "RV1",
+          "assumption": "Context capture occurs between synchronous hart/native entries; caller supplies matching RAM and process translation bindings.",
+          "falsification_probe": "Actual snapshot between LR and SC, and between vector UART access and its terminal store fault; restored execution/event traces must agree without extra retirement."
+        },
+        {
+          "id": "RV2",
+          "assumption": "Host-native code caches are derived state.",
+          "falsification_probe": "Require real native LR and SC entry at O0/O1/O2 before and after importing the same core state, with discarded cache entries."
+        }
+      ],
+      "remaining": "This group does not complete all-backend private state, GSC/platform state, shared-writer quiescence, whole-VM late-failure restore transactions, architectural secondary startup or physical Intel HVF validation.",
+      "prototype_admission_control": "/Users/int/dev/rax-audit-work/four-findings-riscv-context/prototype-xlen-negative-result.json",
+      "qemu_parent_control": "/Users/int/dev/rax-audit-work/four-findings-riscv-context/parent-cli-oracle/result.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-riscv-context/validation-v3/result.json",
+      "prior_validation": "/Users/int/dev/rax-audit-work/four-findings-riscv-context/validation-v1/result.json",
+      "vmm_admission_control": "/Users/int/dev/rax-audit-work/four-findings-riscv-context/prototype-vmm-xlen-result.json",
+      "corrected_cli_before_machine_hook": "/Users/int/dev/rax-audit-work/four-findings-riscv-context/validation-v1/qemu-cli/result.json",
+      "final_validation_summary": "15of15 frozen-source gates passed: full native10758passed0failed2ignored, C API200passed0failed, profile-admission regression, RISC lift/native/boot targets,17checkpoint/storage/clock targets, actual2QEMU+4RAX file continuations, C/C++ consumers, fmt, all-target Clippy/build/debug-disabled build and256RISC-V tests on translated x86. The doctest gate exited0 with0passed and5ignored; it provides no executed doctest coverage. Linux-only riscv_diff/riscv_vector did not execute on macOS. Rosetta is not physical Intel HVF validation.",
+      "final_qemu_oracle": "/Users/int/dev/rax-audit-work/four-findings-riscv-context/validation-v3/qemu-cli/result.json",
+      "failed_fixture_validation": "/Users/int/dev/rax-audit-work/four-findings-riscv-context/validation-v2/result.json",
+      "commit_workflow": "Exact owned paths staged, then red -m --staged --run with those paths; actual commit recorded in external receipt."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

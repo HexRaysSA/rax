@@ -753,3 +753,6 @@ mod context_pauth;
 
 #[path = "tests/context_aarch32.rs"]
 mod context_aarch32;
+
+#[path = "tests/context_riscv.rs"]
+mod context_riscv;

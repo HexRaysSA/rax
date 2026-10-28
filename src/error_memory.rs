@@ -1,7 +1,7 @@
 //! Typed faults at the boundary between a guest access and its physical backing.
 use std::fmt;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MemoryAccessKind {
     Read,
     Write,
@@ -17,7 +17,7 @@ impl fmt::Display for MemoryAccessKind {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MemoryFaultKind {
     Unmapped,
     Permission,
@@ -26,7 +26,7 @@ pub enum MemoryFaultKind {
 
 /// `address` is the first inaccessible byte, not the beginning of a crossing
 /// access. `size` is the requested inaccessible chunk width (0 if unavailable).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct GuestMemoryFault {
     pub address: u64,
     pub size: u32,

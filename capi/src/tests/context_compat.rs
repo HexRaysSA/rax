@@ -63,7 +63,11 @@ fn split(blob: &[u8]) -> Sections {
     let at = 28 + cpu_len;
     let emu_len = u64_at(blob, at);
     let emu = blob[at + 8..at + 8 + emu_len].to_vec();
-    let regions = blob[at + 8 + emu_len..].to_vec();
+    let mut region_offset = at + 8 + emu_len;
+    if matches!(u32::from_le_bytes(blob[4..8].try_into().unwrap()), 5 | 6) {
+        region_offset += 12 + u64_at(blob, region_offset + 4);
+    }
+    let regions = blob[region_offset..].to_vec();
     Sections {
         header,
         cpu,

@@ -11,6 +11,8 @@ pub(super) const MAX_SECTION: u64 = 1024 * 1024 * 1024;
 pub const AARCH32_CONTEXT: u32 = 1;
 /// ARM1176 interpreter and its S3C64xx platform, versioned by its inner tag.
 pub const S3C64XX_CONTEXT: u32 = 2;
+/// RISC-V interpreter and ordered adapter events, versioned by its inner tag.
+pub const RISCV_CONTEXT: u32 = 3;
 
 /// An opaque, bounded backend-owned record. Its kind identifies its producer;
 /// an architectural register projection cannot substitute for this payload.

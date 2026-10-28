@@ -4,7 +4,7 @@
 //! The blob format is versioned and little-endian:
 //! ```text
 //!   magic   u32  = 0x52415843 ("RAXC")
-//!   version u32  = 2
+//!   version u32  = architecture-specific format (see below)
 //!   arch    i32
 //!   mode    u32
 //!   flags   u32  (bit0: extended emulator state present)
@@ -23,7 +23,7 @@
 //! RISC-V hart restores with the reset privilege, CSRs, and vector state
 //! (see [`decode_v1_riscv_state`]).
 //! Format 3 is used only by AArch32 user engines (ABI 1.7); existing engines
-//! otherwise write format 2. Its five little-endian u32 words are TPIDRURW,
+//! use the formats documented below. Its five little-endian u32 words are TPIDRURW,
 //! TPIDRURO, exclusive address, exclusive size, and exclusive-present (0/1).
 
 //! Format 4 is used only by AArch64 engines. It records mandatory keys,
@@ -33,6 +33,8 @@
 //! Format 5 is used by system-mode AArch32 engines. After the emulator image,
 //! it carries a u32 producer kind, u64 length, and the full backend context.
 //! Formats 1/2 remain readable with their original projection-only semantics.
+//! Format 6 uses the same backend framing for system/user RISC-V contexts,
+//! retaining the hart profile, reservations, counters and ordered events.
 
 use std::sync::Arc;
 
@@ -55,6 +57,7 @@ const CTX_VERSION_ARM_USER: u32 = 3;
 /// AArch64 keys, algorithm/profile, full PSTATE, and system-register banks.
 const CTX_VERSION_AARCH64: u32 = 4;
 const CTX_VERSION_AARCH32: u32 = 5;
+const CTX_VERSION_RISCV: u32 = 6;
 const MAX_BACKEND_CONTEXT: usize = 16 * 1024 * 1024;
 
 #[path = "context/aarch64.rs"]
@@ -218,20 +221,29 @@ fn decode_v1_emulator_state(bytes: &[u8]) -> Option<EmulatorState> {
 impl Engine {
     /// Serializes the full engine context into a byte vector.
     fn serialize_context(&self) -> Result<Vec<u8>, RaxStatus> {
+        if self.arch == RaxArch::Riscv64
+            && !matches!(self.vcpu.riscv_configuration(), Some(config)
+                if config.xlen == rax_engine::isa::riscv::Xlen::Rv64)
+        {
+            return Err(RaxStatus::Format);
+        }
         let arm_user = self.vcpu.arm_user_state();
-        let backend_context = if self.arch == RaxArch::Arm && arm_user.is_none() {
-            Some(
-                self.vcpu
-                    .capture_backend_context()
-                    .map_err(|e| crate::status::status_from_engine_error(&e))?
-                    .ok_or(RaxStatus::Format)?,
-            )
-        } else {
-            None
-        };
+        let backend_context =
+            if (self.arch == RaxArch::Arm && arm_user.is_none()) || self.arch == RaxArch::Riscv64 {
+                Some(
+                    self.vcpu
+                        .capture_backend_context()
+                        .map_err(|e| crate::status::status_from_engine_error(&e))?
+                        .ok_or(RaxStatus::Format)?,
+                )
+            } else {
+                None
+            };
         let mut w = Writer::new();
         w.u32(CTX_MAGIC);
-        w.u32(if backend_context.is_some() {
+        w.u32(if self.arch == RaxArch::Riscv64 {
+            CTX_VERSION_RISCV
+        } else if backend_context.is_some() {
             CTX_VERSION_AARCH32
         } else if arm_user.is_some() {
             CTX_VERSION_ARM_USER
@@ -275,7 +287,12 @@ impl Engine {
             w.bytes(&bytes);
         }
         if let Some(context) = backend_context {
-            if context.kind != rax_engine::snapshot::AARCH32_CONTEXT
+            let expected_kind = if self.arch == RaxArch::Riscv64 {
+                rax_engine::snapshot::RISCV_CONTEXT
+            } else {
+                rax_engine::snapshot::AARCH32_CONTEXT
+            };
+            if context.kind != expected_kind
                 || context.data.is_empty()
                 || context.data.len() > MAX_BACKEND_CONTEXT
             {
@@ -326,9 +343,16 @@ impl Engine {
                 | CTX_VERSION_ARM_USER
                 | CTX_VERSION_AARCH64
                 | CTX_VERSION_AARCH32
+                | CTX_VERSION_RISCV
         ) {
             return self.fail(RaxStatus::Format, "unsupported context version");
         }
+        let has_backend = matches!(version, CTX_VERSION_AARCH32 | CTX_VERSION_RISCV);
+        let backend_arch = if version == CTX_VERSION_RISCV {
+            "RISC-V"
+        } else {
+            "AArch32"
+        };
         let arch = r.i32().unwrap_or(-1);
         let mode = r.u32().unwrap_or(0);
         if RaxArch::from_i32(arch) != Some(self.arch) {
@@ -350,6 +374,9 @@ impl Engine {
         if version == CTX_VERSION_AARCH32 && (self.arch != RaxArch::Arm || is_arm_user) {
             return self.fail(RaxStatus::Format, "format 5 requires system-mode AArch32");
         }
+        if version == CTX_VERSION_RISCV && self.arch != RaxArch::Riscv64 {
+            return self.fail(RaxStatus::Format, "format 6 requires RISC-V");
+        }
         let flags = match r.u32() {
             Some(v) => v,
             None => return self.fail(RaxStatus::Format, "truncated context"),
@@ -357,8 +384,11 @@ impl Engine {
         if is_arm_user && flags != 0 {
             return self.fail(RaxStatus::Format, "invalid AArch32 user context flags");
         }
-        if version == CTX_VERSION_AARCH32 && flags != 0 {
-            return self.fail(RaxStatus::Format, "invalid AArch32 backend context flags");
+        if has_backend && flags != 0 {
+            return self.fail(
+                RaxStatus::Format,
+                &format!("invalid {backend_arch} backend context flags"),
+            );
         }
         let cpu_len = match r.u64() {
             Some(v) => v as usize,
@@ -370,7 +400,7 @@ impl Engine {
         };
         let decoded = if self.arch == RaxArch::Arm64 {
             aarch64::decode_state(cpu_bytes, version)
-        } else if version == CTX_VERSION_AARCH32 {
+        } else if has_backend {
             rax_engine::codec::deserialize_strict(cpu_bytes).ok()
         } else if version == CTX_VERSION_V1 && self.arch == RaxArch::Riscv64 {
             decode_v1_riscv_state(cpu_bytes)
@@ -385,10 +415,10 @@ impl Engine {
             Some(v) => v as usize,
             None => return self.fail(RaxStatus::Format, "truncated context"),
         };
-        if (is_arm_user || version == CTX_VERSION_AARCH32) && emu_len != 0 {
+        if (is_arm_user || has_backend) && emu_len != 0 {
             return self.fail(
                 RaxStatus::Format,
-                "unexpected AArch32 generic emulator state",
+                &format!("unexpected {backend_arch} generic emulator state"),
             );
         }
         let emu: Option<EmulatorState> = if flags & FLAG_HAS_EMU != 0 {
@@ -422,20 +452,28 @@ impl Engine {
         } else {
             None
         };
-        let backend_context = if version == CTX_VERSION_AARCH32 {
+        let backend_context = if has_backend {
             let kind = r.u32().unwrap_or(0);
             let length = r.u64().and_then(|length| usize::try_from(length).ok());
-            if kind != rax_engine::snapshot::AARCH32_CONTEXT
-                || !matches!(length, Some(1..=MAX_BACKEND_CONTEXT))
-            {
+            let expected_kind = if version == CTX_VERSION_RISCV {
+                rax_engine::snapshot::RISCV_CONTEXT
+            } else {
+                rax_engine::snapshot::AARCH32_CONTEXT
+            };
+            if kind != expected_kind || !matches!(length, Some(1..=MAX_BACKEND_CONTEXT)) {
                 return self.fail(
                     RaxStatus::Format,
-                    "invalid AArch32 backend context kind or length",
+                    &format!("invalid {backend_arch} backend context kind or length"),
                 );
             }
             let bytes = match r.take(length.unwrap()) {
                 Some(bytes) => bytes,
-                None => return self.fail(RaxStatus::Format, "truncated AArch32 backend context"),
+                None => {
+                    return self.fail(
+                        RaxStatus::Format,
+                        &format!("truncated {backend_arch} backend context"),
+                    );
+                }
             };
             Some(rax_engine::snapshot::BackendContext {
                 kind,
@@ -529,7 +567,7 @@ impl Engine {
             if let Err(err) = vcpu.validate_checkpoint_context(&cpu, &legacy, Some(context)) {
                 return self.fail(
                     RaxStatus::Format,
-                    &format!("invalid AArch32 backend context: {err}"),
+                    &format!("invalid {backend_arch} backend context: {err}"),
                 );
             }
             if let Err(err) = vcpu.restore_checkpoint_context(&cpu, &legacy, Some(context)) {
@@ -549,6 +587,18 @@ impl Engine {
             vcpu.set_arm_user_state(state);
         }
 
+        if version == CTX_VERSION_RISCV {
+            let configuration = vcpu.riscv_configuration();
+            if !matches!(configuration, Some(config)
+                if config.xlen == rax_engine::isa::riscv::Xlen::Rv64)
+            {
+                return self.fail(
+                    RaxStatus::Format,
+                    "RISC-V context profile differs from Riscv64 architecture",
+                );
+            }
+            self.riscv_config = configuration;
+        }
         self.mode = mode;
         self.vcpu = vcpu;
         self.mem = new_mem;

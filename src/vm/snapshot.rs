@@ -29,7 +29,9 @@ mod backend_context;
 mod bundle;
 mod clock;
 mod cpus;
-pub use backend_context::{AARCH32_CONTEXT, BackendContext, BackendContexts, S3C64XX_CONTEXT};
+pub use backend_context::{
+    AARCH32_CONTEXT, BackendContext, BackendContexts, RISCV_CONTEXT, S3C64XX_CONTEXT,
+};
 mod execution;
 pub use cpus::{CpuSnapshot, CpuSnapshots};
 pub use execution::ExecutionSnapshot;

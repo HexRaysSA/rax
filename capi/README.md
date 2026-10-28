@@ -794,3 +794,9 @@ arithmetic remain unsupported; rejection and capacity failure publish no prefix.
 This extension does not rename the existing `rax_smir_lift_x64` entry point or
 change any record layout. Old consumers must continue rejecting unknown operand
 kinds/opcodes/widths rather than treating a complete record as a known operation.
+
+RISC-V system and user engines write context format 6. It retains the configured
+ISA, LR/SC reservation, raw counters and pending backend events across context
+restore and memory-map rebuilds. The older formats 1/2 remain readable with their
+original register-projection semantics. `rax_emu_icount` starts at zero after
+restore while the underlying hart retirement state is retained.
