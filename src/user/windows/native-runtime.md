@@ -3262,4 +3262,37 @@ as exploratory data. macOS/Linux/Windows focused checks pass9/9/10 and registry
 checks141/138/169; CLI and all-target gates pass on all three. Complete library
 gates pass8775 on macOS and8765 on Linux, each with zero failures, two existing
 ignored tests and zero filtered tests. Native Windows complete-library and
-fresh independent AMD64 results remain separate open gates at publication.
+fresh independent AMD64 results remained open at that source publication.
+
+### Final extended-key qualification (2026-10-28)
+
+Runtime source864523b57256d3fd90e505996c624b731c628d4a passes complete
+no-default-feature library gates8775/8765/8081 on macOS/Linux/Windows, with
+zero failures, two existing ignored tests per host and zero filtered tests.
+Native Windows takes2046.48s of test execution. All three hosts pass targeted,
+registry, CLI,191 C API and all-target checks. The Linux x86-64 container runs
+through translation on an ARM64 physical host.
+
+Both fresh physical AMD64 jobs in run40700723530 pass on that exact runtime
+source, including12000 order/view cases plus1920 privilege cases per host,
+installed leaves, unchanged whole hardware-fault fixtures and CLI/native-write
+regressions. ZIP digest/CRC and producer/receipt/compiler/PE/stdout chains are
+verified. The two archive SHA256 values and complete scope are recorded in
+`docs/specifications/windows/native-open-key-ex/README.md`. This final record
+changes only Markdown; qualified runtime/test/fixture/workflow sources are
+unchanged.
+
+The qualified CLI has SHA256
+`245691396fdfadcaed8abeebbe82616e29aaeb651e9584943e30e29a297d7689`.
+Unchanged installed CMD still has SHA256
+`d0f47e2d32ab33e593e5b49592d3dcfa3c8c5f9f9b345d512ef7269bca6b481a`.
+Native CMD exits0 with `RAX_OPEN_KEY_NAME_PROFILE\r\n`; emulation exits125
+before stdout at uncaptured `NtOpenKey`. The current-source inspector, using
+the same arguments and qualified core archive, directly observes
+`\Registry\Machine\SOFTWARE\Microsoft\AppModel\Lookaside\machine`, access
+0x80000100, attributes48bytes/root0/flags0x40 and name Length126/Maximum128bytes.
+All selected source/compiler/archive/inspector/CMD hashes remain stable.
+Independent native fixed-key queries return STATUS_OBJECT_NAME_NOT_FOUND;
+all three requested views report absence on this ARM64 host. The AppModel
+snapshot change, full CMD/process execution and installed Assist/package
+qualification remain open.

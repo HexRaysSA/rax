@@ -215,15 +215,55 @@ compilation passes on each.
 The macOS complete library gate passes8775 tests and the Linux gate8765, each
 with zero failures, two existing ignored tests and zero filtered tests. macOS
 strict production Clippy passes. Native Windows complete-library validation
-and fresh physical AMD64 CI remain running or pending at this source frame;
-neither is represented as completed by the retained replay.
+and fresh physical AMD64 CI were still pending when runtime source864523b5
+was published. Their completed results are recorded below, separately from
+retained replay.
 
-High: an instrumented prototype identifies an uncaptured AppModel Lookaside
-machine key. The final CLI independently stops at an uncaptured `NtOpenKey`;
-its exact key name has not been independently re-inspected. Full CMD/process
-execution remains incomplete.
+High: the qualified current-source inspector directly identifies the uncaptured
+AppModel Lookaside machine key described below. Full CMD/process execution
+remains incomplete.
 Medium: link-source metadata and the ordinary `MAXIMUM_ALLOWED` grant disparity
 remain explicit boundaries. Neither is concealed by a native-parity claim.
+
+## Final qualification of runtime source864523b5
+
+The complete no-default-feature library runs pass8775/8765/8081 tests on
+macOS ARM64/Linux x86-64 container/Windows ARM64. Each has zero failures,
+two existing ignored tests and zero filtered tests. The Windows tests take
+2046.48s; its complete Cargo invocation takes2047.16s. Focused, registry,
+CLI,191 C API tests and all-target compilation also pass as recorded above.
+The Linux container uses translation on an ARM64 physical host.
+
+Both fresh physical AMD64 jobs pass on the exact runtime commit
+`864523b57256d3fd90e505996c624b731c628d4a` in
+[run40700723530](https://github.com/HexRaysSA/rax/actions/runs/40700723530).
+Each executes12000 fresh open-order/view cases including explicit namespace
+frontiers, plus1920 privilege cases across x64, x86 and x86-LAA. The jobs also
+retain installed leaves, the unchanged whole hardware-fault fixture and
+CLI/native-write regressions. Both acquisition ZIPs pass API digest, CRC,
+producer/receipt/compiler/PE/stdout-chain checks. Their SHA256 values are
+`c377759027dcf799bc75aff8357359b68d4c48d4084e9cc30b1f0bef5627fb79`
+(20348) and `bb53c0a2268c98b39b759537197fcc63f9a2e10e826edd56ea5558985ca14602`
+(26100). Their statuses agree with the original retained observations. This
+final record changes only Markdown; qualified Rust/test/fixture/workflow bytes
+remain unchanged.
+
+The qualified CLI SHA256 is
+`245691396fdfadcaed8abeebbe82616e29aaeb651e9584943e30e29a297d7689`.
+The unchanged installed ARM64 CMD SHA256 is
+`d0f47e2d32ab33e593e5b49592d3dcfa3c8c5f9f9b345d512ef7269bca6b481a`.
+Native CMD exits0 with `RAX_OPEN_KEY_NAME_PROFILE\r\n`; emulation exits125
+before stdout at an uncaptured `NtOpenKey`. A separate inspector linked to the
+qualified215839852-byte core archive (SHA256
+`1ebb5f3299fd14ae0be92c0bfa6f4051af6cf6363e6fefec3bb093c6d80f34e6`)
+uses the same arguments and directly observes
+`\Registry\Machine\SOFTWARE\Microsoft\AppModel\Lookaside\machine`, access
+0x80000100, attributes48bytes/root0/flags0x40 and name Length126/Maximum128bytes.
+Source/compiler/archive/inspector/CMD identities remain stable through the run.
+Independent read-only native opens return STATUS_OBJECT_NAME_NOT_FOUND for that
+fixed key; all three registry views report absence on this host. That next
+snapshot selection is not implemented here. Full CMD/process, installed Assist,
+GUI/real-IDB and final package qualification remain open.
 
 ## Primary references
 
