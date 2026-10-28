@@ -170,3 +170,30 @@ The ARM64 host run passes all three probe versions for ARM64/x64/x86/x86-LAA,
 with PE/source/executable identity checks. The unchanged existing AMD64 jobs now
 collect the same extended controls. Their artifacts will determine the dedicated
 key-query copy adapter; this does not weaken or skip the failed replay.
+
+
+## Dedicated AMD64 short-copy correction
+
+Physical20348/26100 v5 controls rule out a whole-buffer preflight: later-page
+failures can preserve leading stores. The key-query copier uses a tail-first
+word tier through8 bytes, then a head-first qword tier through16 bytes. Larger
+copies and ARM64 retain the existing captured sequence. The correction selects
+its mechanics from captured native kernel identity, independently of configurable
+guest version. KQ3 is revised: shared conversion policy does not imply identical
+short-store order for every native operation.
+
+The ten added JSONL corpora preserve original bytes from both physical AMD64
+artifacts and the ARM64 v5 capture. `copy-provenance-v1.json` binds each to the
+producer, compiler, PE identity, before/after executable hashes and artifact or
+archive identity. Portable replay now covers15360 retained v2 cases plus19872
+retained v5 cases. Fresh capture adds its own v2/v4/v5 rows. Undefined scratch
+remains excluded, while tag bytes, statuses, result lengths, LastError and guards
+stay asserted. Replay explicitly selects each corpus's captured kernel profile;
+the shared fixture keeps configurable guest version deliberately different.
+
+Corrected local macOS/Linux checks pass5/5 targeted,130/127 registry,3/3 neighbor
+conversion,20 object,8 CLI and191 C API tests, all-target checks and production
+Clippy. NativeWindows29695 has passed6 targeted (including fresh four-ABI capture
+and installed leaves),157 registry,5 neighbor conversion and20 object tests.
+Its CLI/C API/all-target checks are continuing. Independent AMD64 execution of
+the corrected source remains pending; the paired Assist pin is still held.

@@ -40,7 +40,7 @@ fn query_checked(c: &mut Ctx) -> Checked<u32> {
         };
         // Copy-out is reached after native status failures too. Captured native
         // store widths determine which completed writes precede a fault.
-        super::super::virtual_memory::copy_thunk_bytes(c, output, &scratch)?;
+        copy_back(c, output, &scratch)?;
         result
     } else {
         result
@@ -94,4 +94,45 @@ fn query_native(
         c.mem().w32(output, tags)?;
     }
     Ok(STATUS_SUCCESS)
+}
+
+fn copy_back(c: &Ctx, output: u64, bytes: &[u8]) -> Checked<()> {
+    let amd64 = c.p.native.as_ref().is_some_and(|native| {
+        matches!(
+            (
+                native.version.major,
+                native.version.minor,
+                native.version.build,
+                native.object_namespace.native_machine
+            ),
+            (10, 0, 20348 | 26100, Some(0x8664))
+        )
+    });
+    if bytes.is_empty() {
+        return Ok(());
+    }
+    if !amd64 || bytes.len() > 16 {
+        return Ok(super::super::virtual_memory::copy_thunk_bytes(
+            c, output, bytes,
+        )?);
+    }
+    // The native AMD64 WoW64 key-query short copier publishes the tail word
+    // before the leading word. ARM64 uses the other captured store sequence.
+    // Every individual store probes its entire width before publishing bytes.
+    let width = match bytes.len() {
+        0 => return Ok(()),
+        1 => 1,
+        2..=3 => 2,
+        4..=8 => 4,
+        _ => 8,
+    };
+    let tail = bytes.len() - width;
+    if bytes.len() <= 8 {
+        c.mem().wr(output + tail as u64, &bytes[tail..])?;
+        c.mem().wr(output, &bytes[..width])?;
+    } else {
+        c.mem().wr(output, &bytes[..width])?;
+        c.mem().wr(output + tail as u64, &bytes[tail..])?;
+    }
+    Ok(())
 }

@@ -3,6 +3,9 @@ use super::*;
 use serde_json::Value as Json;
 use std::collections::BTreeMap;
 
+#[path = "registry_key_query_copy_tests.rs"]
+mod copy_boundaries;
+
 fn number(row: &Json, field: &str) -> u64 {
     row[field].as_u64().unwrap()
 }
@@ -12,9 +15,10 @@ fn bytes(text: &str) -> Vec<u8> {
         .map(|i| u8::from_str_radix(&text[i..i + 2], 16).unwrap())
         .collect()
 }
-fn corpus(arch: WinArch, text: &str) {
+fn corpus(arch: WinArch, text: &str, build: u32, machine: u16) {
     let (mut process, mut t, base) = setup(arch);
     let p = process.state_mut();
+    super::super::super::native_profile::kernel_profile(p, build, machine);
     let crate::user::windows::registry::Lookup::Present(key) = p
         .registry
         .lookup(&NLS_KEY.encode_utf16().collect::<Vec<_>>())
@@ -204,7 +208,39 @@ fn native_query_key_replays_status_output_alias_guard_and_wow64_copy_order() {
             )),
         ),
     ] {
-        corpus(arch, text);
+        corpus(arch, text, 29695, 0xAA64);
+    }
+    for (build, text) in [
+        (
+            20348,
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-query-key/amd64-20348-x86-v2.jsonl"
+            )),
+        ),
+        (
+            20348,
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-query-key/amd64-20348-x86-laa-v2.jsonl"
+            )),
+        ),
+        (
+            26100,
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-query-key/amd64-26100-x86-v2.jsonl"
+            )),
+        ),
+        (
+            26100,
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-query-key/amd64-26100-x86-laa-v2.jsonl"
+            )),
+        ),
+    ] {
+        corpus(WinArch::X86, text, build, 0x8664);
     }
     if let Some(path) = std::env::var_os("RAX_NATIVE_QUERY_KEY_CORPUS") {
         let data: Json = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
@@ -221,7 +257,12 @@ fn native_query_key_replays_status_output_alias_guard_and_wow64_copy_order() {
             assert_eq!(probe["build_returncode"], 0);
             assert_eq!(probe["run_returncode"], 0);
             assert_eq!(probe["exe_before_sha256"], probe["exe_after_sha256"]);
-            corpus(arch, probe["text"].as_str().unwrap());
+            corpus(
+                arch,
+                probe["text"].as_str().unwrap(),
+                data["kernel"][2].as_u64().unwrap() as u32,
+                data["native_machine"].as_u64().unwrap() as u16,
+            );
         }
     }
 }

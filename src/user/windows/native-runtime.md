@@ -3191,3 +3191,17 @@ Unchanged installed ARM64 CMD now gets past class7 and stops at the next native
 service frontier, `NtOpenKeyEx` (0x12b), exiting125 before stdout. Native CMD
 exits0 with `RAX_QUERY_KEY_CMD\r\n`. Neither whole-CMD completion nor broader
 process completion is claimed.
+
+
+The independent physical AMD64 run exposed a short-copy-order mismatch; the
+assertion was retained and v5 measured later-page controls on20348/26100 and
+ARM64. The dedicated key-query adapter now preserves AMD64 tail-first word
+stores through8 bytes and head-first qword stores through16, with captured
+larger-copy behavior retained. Its portable tests replay15360 retained v2 cases
+and19872 retained v5 cases, selecting the captured kernel identity explicitly.
+Ten frozen data files and a provenance manifest bind the added cases to their
+native producers and binaries. Corrected macOS/Linux gates pass5/5 targeted,
+130/127 registry,3 neighbor conversion,20 object,8 CLI and191 C API tests,
+all-target compilation and production Clippy. NativeWindows29695 targeted6,
+registry157,neighbor conversion5 andobject20 pass; its remaining checks and a
+new independent AMD64 run are in progress. No whole-process completion is claimed.

@@ -76,6 +76,31 @@ class Provenance(unittest.TestCase):
                 self.assertEqual(duplicate["tags"], opened["tags"])
                 self.assertEqual(duplicate["returned"], 4)
 
+    def test_copy_profiles_bind_every_frozen_record_to_its_native_producer(self):
+        profiles = json.loads((ROOT / "copy-provenance-v1.json").read_text())
+        self.assertEqual(len(profiles), 10)
+        for profile in profiles:
+            raw = (ROOT / profile["file"]).read_bytes()
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), profile["sha256"])
+            version = "v5" if profile["file"].endswith("-v5.jsonl") else "v2"
+            self.assertEqual(
+                hashlib.sha256(
+                    (ROOT / ("probe-" + version + ".cpp")).read_bytes()
+                ).hexdigest(),
+                profile["producer_source_sha256"],
+            )
+            self.assertEqual(
+                profile["producer_source_sha256"], profile["source_after_sha256"]
+            )
+            self.assertEqual(profile["exe_sha256"], profile["exe_after_sha256"])
+            self.assertEqual(profile["pe_identity"]["machine"], 0x14C)
+            rows = [json.loads(line) for line in raw.splitlines()]
+            self.assertEqual(len(rows), 3314 if version == "v5" else 2690)
+            self.assertEqual(rows[0]["pointer_bytes"], 4)
+            self.assertEqual(rows[0]["process_machine"], 0x14C)
+            self.assertEqual(rows[0]["native_machine"], profile["native_machine"])
+            self.assertTrue(all(row.get("exception", 0) == 0 for row in rows))
+
 
 if __name__ == "__main__":
     unittest.main()
