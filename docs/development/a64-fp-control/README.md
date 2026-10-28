@@ -110,8 +110,10 @@ exception delivery, and permission-enable retry.
 | FC3 | The selected tests describe normal execution | Existing CPU has no architectural halting-debug or SME streaming state | Separate those architectural states before extending this policy; do not substitute HLT/CPU.halted for halting debug | Retained boundary |
 | FC4 | Checkpoint capture occurs between execution calls | Existing stopped-CPU ownership; requirements are derived caches | Restore higher controls, deliver zero-retirement fault, resume once; duplicate or missing execution falsifies it | Confirmed at tested boundaries |
 
-High-impact remaining scope includes A64 half-precision admission beyond FHM,
-full SVE/SME access behavior, unrepresented halting-debug controls, and the full
+The subsequent [half-admission group](../a64-half-admission/README.md) adds
+optional FP16 and represented reserved-field admission, including original
+native feature requirements. High-impact remaining scope includes non-half
+capability/profile coherence, full SVE/SME access behavior, unrepresented halting-debug controls, and the full
 checkpoint/in-flight, multi-vCPU/native/debug/clock/replay requirements. These
 remain open full findings. QEMU is a software oracle; Apple Silicon native
 execution and Rosetta do not establish physical Intel Mac HVF behavior.

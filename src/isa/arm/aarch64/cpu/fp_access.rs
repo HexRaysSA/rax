@@ -42,8 +42,9 @@ impl AArch64Cpu {
         function: &crate::smir::ir::SmirFunction,
         entry: u64,
         bytes: &[u8],
-    ) -> FpAccessRequirements {
+    ) -> Option<(FpAccessRequirements, ArmFeatures)> {
         let mut requirements = FpAccessRequirements::default();
+        let mut features = ArmFeatures::empty();
         for op in function.blocks.iter().flat_map(|b| &b.ops) {
             let Some(offset) = op
                 .guest_pc
@@ -56,7 +57,9 @@ impl AArch64Cpu {
                 continue;
             };
             if let Some(word) = bytes.get(offset..end) {
-                requirements.observe(u32::from_le_bytes(word.try_into().unwrap()));
+                let word = u32::from_le_bytes(word.try_into().unwrap());
+                requirements.observe(word);
+                features |= super::fp_profile::instruction_features(word)?;
             }
         }
         // Preserve the existing policy for helper-generated FP operations that
@@ -67,6 +70,6 @@ impl AArch64Cpu {
         {
             requirements.data = true;
         }
-        requirements
+        Some((requirements, features))
     }
 }

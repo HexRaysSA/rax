@@ -74,8 +74,10 @@ retirement meter, physical Arm behavior or Intel Mac HVF execution.
 
 The subsequent [FP control group](a64-fp-control/README.md) adds guest FPCR/FPSR
 admission, represented CPTR/security/VHE routing, and native permission guards
-that survive dead-result optimization. High-impact work remains for A64
-half-precision admission beyond FHM, full SVE/SME and unrepresented halting-debug
+that survive dead-result optimization. The [half-admission group](a64-half-admission/README.md)
+adds optional FP16 and represented reserved-field admission, including original
+native feature requirements. High-impact work remains for non-half capability/
+profile coherence, full SVE/SME and unrepresented halting-debug
 controls, and the full checkpoint/in-flight, SMP/native/debug/clock/replay
 requirements. The four full audit findings remain partial. Physical Arm and
 physical Intel Mac HVF validation are separate runtime boundaries.

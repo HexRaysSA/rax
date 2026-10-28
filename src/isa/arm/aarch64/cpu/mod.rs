@@ -438,6 +438,8 @@ pub(crate) struct JitRegion {
     uses_fp: bool,
     /// Architectural access requirements, captured before dead-result removal.
     fp_access: crate::isa::arm::common::fp_access::FpAccessRequirements,
+    /// Original guest FP feature dependencies, independent of dead results.
+    fp_features: ArmFeatures,
     /// Memory regions require interpreter SP checks when SA/SA0 is enabled.
     uses_memory: bool,
     /// Virtual/physical 4 KiB source-frame bindings for the lift window.

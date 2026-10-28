@@ -3,6 +3,8 @@ use super::*;
 
 const HALF_FIELDS: u64 = (15 << 16) | (15 << 20);
 const FHM_FIELD: u64 = 15 << 48;
+mod admission;
+mod fp16;
 
 fn has_fhm(features: ArmFeatures) -> bool {
     features.contains(ArmFeatures::FP16 | ArmFeatures::FHM)
@@ -45,6 +47,20 @@ pub(super) fn fhm_encoding(insn: u32) -> Option<bool> {
     indexed.then_some(insn & (1 << 31) == 0)
 }
 
+/// Feature dependencies of an original instruction, before IR optimization.
+/// None denotes a reserved encoding that must never be promoted.
+pub(super) fn instruction_features(insn: u32) -> Option<ArmFeatures> {
+    if admission::reserved(insn) {
+        return None;
+    }
+    match fhm_encoding(insn) {
+        Some(false) => None,
+        Some(true) => Some(ArmFeatures::FP16 | ArmFeatures::FHM),
+        None if fp16::required(insn) => Some(ArmFeatures::FP16),
+        None => Some(ArmFeatures::empty()),
+    }
+}
+
 impl AArch64Cpu {
     pub(crate) fn fhm_supported(&self) -> bool {
         has_fhm(self.config.features)
@@ -57,6 +73,16 @@ impl AArch64Cpu {
     pub(super) fn check_fhm_instruction(&self, insn: u32) -> Result<(), ArmError> {
         if let Some(legal) = fhm_encoding(insn)
             && (!legal || !self.fhm_supported())
+        {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+        Ok(())
+    }
+
+    pub(super) fn check_fp_instruction(&self, insn: u32) -> Result<(), ArmError> {
+        self.check_fhm_instruction(insn)?;
+        if admission::reserved(insn)
+            || (!self.config.features.contains(ArmFeatures::FP16) && fp16::required(insn))
         {
             return Err(ArmError::UndefinedInstruction(insn));
         }
@@ -92,5 +118,7 @@ impl AArch64Cpu {
     }
 }
 
+#[cfg(test)]
+mod half_tests;
 #[cfg(test)]
 mod tests;

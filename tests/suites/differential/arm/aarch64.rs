@@ -29,7 +29,10 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use rax::isa::arm::{AArch64Config, AArch64Cpu, ArmCpu, CpuExit, FlatMemory};
+#[path = "aarch64/profile.rs"]
+mod profile;
+
+use rax::isa::arm::{AArch64Cpu, ArmCpu, CpuExit, FlatMemory};
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use rax::smir::ir::flags::{FlagSet, FlagUpdate};
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -801,7 +804,7 @@ fn run_rax_sequence_with_trailing_at_el(
 ) -> Option<ArmState> {
     // Memory must cover both the instruction (at 0) and the scratch window.
     let mem = FlatMemory::new(0, 0x30_0000);
-    let mut config = AArch64Config::default();
+    let mut config = profile::config();
     config.initial_el = initial_el;
     let mut cpu = AArch64Cpu::new(config, Box::new(mem));
 
@@ -890,7 +893,7 @@ fn run_rax_sequence_with_trailing_at_el(
 /// interpreter rejected the encoding with an execution error.
 fn run_rax_exit(insn: u32, input: &ArmState) -> Option<CpuExit> {
     let mem = FlatMemory::new(0, 0x30_0000);
-    let mut cpu = AArch64Cpu::new(AArch64Config::default(), Box::new(mem));
+    let mut cpu = AArch64Cpu::new(profile::config(), Box::new(mem));
 
     for i in 0..31u8 {
         cpu.set_gpr(i, input.x[i as usize]);
@@ -924,7 +927,7 @@ fn run_rax_exit(insn: u32, input: &ArmState) -> Option<CpuExit> {
 /// NOPs after the load, while rax only needs the bytes to be present in memory.
 fn run_rax_literal(insn: u32, word1: u32, word2: u32, input: &ArmState) -> Option<ArmState> {
     let mem = FlatMemory::new(0, 0x30_0000);
-    let mut cpu = AArch64Cpu::new(AArch64Config::default(), Box::new(mem));
+    let mut cpu = AArch64Cpu::new(profile::config(), Box::new(mem));
 
     for i in 0..31u8 {
         cpu.set_gpr(i, input.x[i as usize]);
@@ -25857,7 +25860,7 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
 /// Run rax over a two-instruction sequence and return the final state.
 fn run_rax_pair(insn: u32, insn2: u32, input: &ArmState) -> Option<ArmState> {
     let mem = FlatMemory::new(0, 0x30_0000);
-    let mut cpu = AArch64Cpu::new(AArch64Config::default(), Box::new(mem));
+    let mut cpu = AArch64Cpu::new(profile::config(), Box::new(mem));
     for i in 0..31u8 {
         cpu.set_gpr(i, input.x[i as usize]);
     }
@@ -26000,7 +26003,7 @@ const BRK: u32 = 0xd420_0000;
 
 fn run_rax_branch_program(insn: u32, marker: u32, input: &ArmState) -> Option<ArmState> {
     let mem = FlatMemory::new(0, 0x30_0000);
-    let mut cpu = AArch64Cpu::new(AArch64Config::default(), Box::new(mem));
+    let mut cpu = AArch64Cpu::new(profile::config(), Box::new(mem));
     for i in 0..31u8 {
         let mut value = input.x[i as usize];
         if input.pc == PCREL_MAGIC {

@@ -20,7 +20,7 @@ impl AArch64Cpu {
         // Illegal execution state precedes instruction decode. Let the common
         // entry policy deliver IL without first decoding an absent extension.
         if !self.il {
-            self.check_fhm_instruction(instruction)?;
+            self.check_fp_instruction(instruction)?;
         }
         self.pauth_environment()
             .check_entry(

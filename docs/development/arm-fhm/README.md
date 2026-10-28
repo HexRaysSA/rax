@@ -108,8 +108,10 @@ The [FP access retirement correction](../fp-access-retirement.md) routes denied
 instructions through the common non-retiring fault path. The subsequent
 [FP control group](../a64-fp-control/README.md) adds FPCR/FPSR admission,
 represented CPTR/security/VHE controls, and native permission requirements
-before optimization. High-impact remaining work includes A64 half-precision
-execution/native admission beyond FHM, non-half capability/profile coherence,
+before optimization. The subsequent [half-admission group](../a64-half-admission/README.md)
+adds optional FP16 and represented reserved-field admission, including original
+native feature requirements; native FP16 execution support remains a separate
+interpreter boundary. High-impact remaining work includes non-half capability/profile coherence,
 unrepresented FP control states, complete checkpoint/in-flight and
 publication coverage, SMP/native/debug/clock/replay closure, and physical
 Intel Mac HVF qualification. All four full audit findings remain partial.

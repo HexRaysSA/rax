@@ -1,0 +1,685 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH v2 1/2] aarch64: Add support for FEAT_FPRCVT
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:richard.ball%40arm.com?Subject=Re:%20Re%3A%20%5BPATCH%20v2%201/2%5D%20aarch64%3A%20Add%20support%20for%20FEAT_FPRCVT&In-Reply-To=%3C20250611160308.15188-1-richard.ball%40arm.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="141771.html">
+   <LINK REL="Next"  HREF="141776.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH v2 1/2] aarch64: Add support for FEAT_FPRCVT</H1>
+    <B>richard.ball@arm.com</B> 
+    <A HREF="mailto:richard.ball%40arm.com?Subject=Re:%20Re%3A%20%5BPATCH%20v2%201/2%5D%20aarch64%3A%20Add%20support%20for%20FEAT_FPRCVT&In-Reply-To=%3C20250611160308.15188-1-richard.ball%40arm.com%3E"
+       TITLE="[PATCH v2 1/2] aarch64: Add support for FEAT_FPRCVT">richard.ball@arm.com
+       </A><BR>
+    <I>Wed Jun 11 16:03:07 GMT 2025</I>
+    <P><UL>
+        <LI>Previous message (by thread): <A HREF="141771.html">Removing false positive warnings related to CVE-2021-42694 from the binutils code base
+</A></li>
+        <LI>Next message (by thread): <A HREF="141776.html">[PATCH v2 2/2] aarch64: ADD FPRCVT regenerated files
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#141756">[ date ]</a>
+              <a href="thread.html#141756">[ thread ]</a>
+              <a href="subject.html#141756">[ subject ]</a>
+              <a href="author.html#141756">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Richard Ball &lt;<A HREF="mailto:Richard.Ball@arm.com">Richard.Ball@arm.com</A>&gt;
+
+FEAT_FPRCVT introduces new versions of previous instructions.
+The instructions are used to convert between floating points and
+Integers.
+These new versions take as operands SIMD&amp;FP registers for both
+the source and destination register.
+FEAT_FPRCVT also enables the use
+of some existing AdvSIMD instructions in streaming mode.
+However, no changes are needed in gas to support this.
+---
+ gas/config/tc-aarch64.c            |   1 +
+ gas/doc/c-aarch64.texi             |   2 +
+ gas/testsuite/gas/aarch64/fprcvt.d | 176 +++++++++++++++++++++++++++++
+ gas/testsuite/gas/aarch64/fprcvt.s | 159 ++++++++++++++++++++++++++
+ include/opcode/aarch64.h           |   4 +
+ opcodes/aarch64-asm.c              |   3 +-
+ opcodes/aarch64-dis.c              |  11 +-
+ opcodes/aarch64-opc.h              |  10 ++
+ opcodes/aarch64-tbl.h              |  35 ++++++
+ 9 files changed, 399 insertions(+), 2 deletions(-)
+ create mode 100644 gas/testsuite/gas/aarch64/fprcvt.d
+ create mode 100644 gas/testsuite/gas/aarch64/fprcvt.s
+
+diff --git a/gas/config/tc-aarch64.c b/gas/config/tc-aarch64.c
+index 98254eb87ed..0fd74aaa999 100644
+--- a/gas/config/tc-aarch64.c
++++ b/gas/config/tc-aarch64.c
+@@ -10667,6 +10667,7 @@ static const struct aarch64_option_cpu_value_table aarch64_features[] = {
+   {&quot;rdm&quot;,		AARCH64_FEATURE (RDMA), AARCH64_FEATURE (SIMD)},
+   {&quot;fp16&quot;,		AARCH64_FEATURE (F16), AARCH64_FEATURE (FP)},
+   {&quot;fp16fml&quot;,		AARCH64_FEATURE (F16_FML), AARCH64_FEATURE (F16)},
++  {&quot;fprcvt&quot;,		AARCH64_FEATURE (FPRCVT), AARCH64_FEATURE (FP)},
+   {&quot;profile&quot;,		AARCH64_FEATURE (PROFILE), AARCH64_NO_FEATURES},
+   {&quot;sve&quot;,		AARCH64_FEATURE (SVE), AARCH64_FEATURE (COMPNUM)},
+   {&quot;tme&quot;,		AARCH64_FEATURE (TME), AARCH64_NO_FEATURES},
+diff --git a/gas/doc/c-aarch64.texi b/gas/doc/c-aarch64.texi
+index 10888d1e78f..74ce717a746 100644
+--- a/gas/doc/c-aarch64.texi
++++ b/gas/doc/c-aarch64.texi
+@@ -205,6 +205,8 @@ automatically cause those extensions to be disabled.
+  @tab Enable Armv8.2 16-bit floating-point multiplication variant support.
+ @item @code{fp16} @tab @code{fp}
+  @tab Enable Armv8.2 16-bit floating-point support.
+<A HREF="mailto:+@item">+@item</A> @code{fprcvt} @tab @code{fp}
++ @tab Enable Armv9.6 fprcvt instructions.
+ @item @code{frintts} @tab @code{fp}
+  @tab Enable floating-point round to integral value instructions.
+ @item @code{gcs} @tab
+diff --git a/gas/testsuite/gas/aarch64/fprcvt.d b/gas/testsuite/gas/aarch64/fprcvt.d
+new file mode 100644
+index 00000000000..91298584d00
+--- /dev/null
++++ b/gas/testsuite/gas/aarch64/fprcvt.d
+@@ -0,0 +1,176 @@
++#name: FPRCVT instructions
++#as: -march=armv8-a+fprcvt
++#objdump: -dr
++
++.*:     file format .*
++
++
++Disassembly of section .*:
++
++.* &lt;a&gt;:
++.*:	1efa0000 	fcvtas	s0, h0
++.*:	1efa001f 	fcvtas	s31, h0
++.*:	1efa03e0 	fcvtas	s0, h31
++.*:	9e3a0000 	fcvtas	d0, s0
++.*:	9e3a001f 	fcvtas	d31, s0
++.*:	9e3a03e0 	fcvtas	d0, s31
++.*:	9efa0000 	fcvtas	d0, h0
++.*:	9efa001f 	fcvtas	d31, h0
++.*:	9efa03e0 	fcvtas	d0, h31
++.*:	1e7a0000 	fcvtas	s0, d0
++.*:	1e7a001f 	fcvtas	s31, d0
++.*:	1e7a03e0 	fcvtas	s0, d31
++
++.* &lt;b&gt;:
++.*:	1efb0000 	fcvtau	s0, h0
++.*:	1efb001f 	fcvtau	s31, h0
++.*:	1efb03e0 	fcvtau	s0, h31
++.*:	9e3b0000 	fcvtau	d0, s0
++.*:	9e3b001f 	fcvtau	d31, s0
++.*:	9e3b03e0 	fcvtau	d0, s31
++.*:	9efb0000 	fcvtau	d0, h0
++.*:	9efb001f 	fcvtau	d31, h0
++.*:	9efb03e0 	fcvtau	d0, h31
++.*:	1e7b0000 	fcvtau	s0, d0
++.*:	1e7b001f 	fcvtau	s31, d0
++.*:	1e7b03e0 	fcvtau	s0, d31
++
++.* &lt;c&gt;:
++.*:	1ef40000 	fcvtms	s0, h0
++.*:	1ef4001f 	fcvtms	s31, h0
++.*:	1ef403e0 	fcvtms	s0, h31
++.*:	9e340000 	fcvtms	d0, s0
++.*:	9e34001f 	fcvtms	d31, s0
++.*:	9e3403e0 	fcvtms	d0, s31
++.*:	9ef40000 	fcvtms	d0, h0
++.*:	9ef4001f 	fcvtms	d31, h0
++.*:	9ef403e0 	fcvtms	d0, h31
++.*:	1e740000 	fcvtms	s0, d0
++.*:	1e74001f 	fcvtms	s31, d0
++.*:	1e7403e0 	fcvtms	s0, d31
++
++.* &lt;d&gt;:
++.*:	1ef50000 	fcvtmu	s0, h0
++.*:	1ef5001f 	fcvtmu	s31, h0
++.*:	1ef503e0 	fcvtmu	s0, h31
++.*:	9e350000 	fcvtmu	d0, s0
++.*:	9e35001f 	fcvtmu	d31, s0
++.*:	9e3503e0 	fcvtmu	d0, s31
++.*:	9ef50000 	fcvtmu	d0, h0
++.*:	9ef5001f 	fcvtmu	d31, h0
++.*:	9ef503e0 	fcvtmu	d0, h31
++.*:	1e750000 	fcvtmu	s0, d0
++.*:	1e75001f 	fcvtmu	s31, d0
++.*:	1e7503e0 	fcvtmu	s0, d31
++
++.* &lt;e&gt;:
++.*:	1eea0000 	fcvtns	s0, h0
++.*:	1eea001f 	fcvtns	s31, h0
++.*:	1eea03e0 	fcvtns	s0, h31
++.*:	9e2a0000 	fcvtns	d0, s0
++.*:	9e2a001f 	fcvtns	d31, s0
++.*:	9e2a03e0 	fcvtns	d0, s31
++.*:	9eea0000 	fcvtns	d0, h0
++.*:	9eea001f 	fcvtns	d31, h0
++.*:	9eea03e0 	fcvtns	d0, h31
++.*:	1e6a0000 	fcvtns	s0, d0
++.*:	1e6a001f 	fcvtns	s31, d0
++.*:	1e6a03e0 	fcvtns	s0, d31
++
++.* &lt;f&gt;:
++.*:	1eeb0000 	fcvtnu	s0, h0
++.*:	1eeb001f 	fcvtnu	s31, h0
++.*:	1eeb03e0 	fcvtnu	s0, h31
++.*:	9e2b0000 	fcvtnu	d0, s0
++.*:	9e2b001f 	fcvtnu	d31, s0
++.*:	9e2b03e0 	fcvtnu	d0, s31
++.*:	9eeb0000 	fcvtnu	d0, h0
++.*:	9eeb001f 	fcvtnu	d31, h0
++.*:	9eeb03e0 	fcvtnu	d0, h31
++.*:	1e6b0000 	fcvtnu	s0, d0
++.*:	1e6b001f 	fcvtnu	s31, d0
++.*:	1e6b03e0 	fcvtnu	s0, d31
++
++.* &lt;g&gt;:
++.*:	1ef20000 	fcvtps	s0, h0
++.*:	1ef2001f 	fcvtps	s31, h0
++.*:	1ef203e0 	fcvtps	s0, h31
++.*:	9e320000 	fcvtps	d0, s0
++.*:	9e32001f 	fcvtps	d31, s0
++.*:	9e3203e0 	fcvtps	d0, s31
++.*:	9ef20000 	fcvtps	d0, h0
++.*:	9ef2001f 	fcvtps	d31, h0
++.*:	9ef203e0 	fcvtps	d0, h31
++.*:	1e720000 	fcvtps	s0, d0
++.*:	1e72001f 	fcvtps	s31, d0
++.*:	1e7203e0 	fcvtps	s0, d31
++
++.* &lt;h&gt;:
++.*:	1ef30000 	fcvtpu	s0, h0
++.*:	1ef3001f 	fcvtpu	s31, h0
++.*:	1ef303e0 	fcvtpu	s0, h31
++.*:	9e330000 	fcvtpu	d0, s0
++.*:	9e33001f 	fcvtpu	d31, s0
++.*:	9e3303e0 	fcvtpu	d0, s31
++.*:	9ef30000 	fcvtpu	d0, h0
++.*:	9ef3001f 	fcvtpu	d31, h0
++.*:	9ef303e0 	fcvtpu	d0, h31
++.*:	1e730000 	fcvtpu	s0, d0
++.*:	1e73001f 	fcvtpu	s31, d0
++.*:	1e7303e0 	fcvtpu	s0, d31
++
++.* &lt;i&gt;:
++.*:	1ef60000 	fcvtzs	s0, h0
++.*:	1ef6001f 	fcvtzs	s31, h0
++.*:	1ef603e0 	fcvtzs	s0, h31
++.*:	9e360000 	fcvtzs	d0, s0
++.*:	9e36001f 	fcvtzs	d31, s0
++.*:	9e3603e0 	fcvtzs	d0, s31
++.*:	9ef60000 	fcvtzs	d0, h0
++.*:	9ef6001f 	fcvtzs	d31, h0
++.*:	9ef603e0 	fcvtzs	d0, h31
++.*:	1e760000 	fcvtzs	s0, d0
++.*:	1e76001f 	fcvtzs	s31, d0
++.*:	1e7603e0 	fcvtzs	s0, d31
++
++.* &lt;j&gt;:
++.*:	1ef70000 	fcvtzu	s0, h0
++.*:	1ef7001f 	fcvtzu	s31, h0
++.*:	1ef703e0 	fcvtzu	s0, h31
++.*:	9e370000 	fcvtzu	d0, s0
++.*:	9e37001f 	fcvtzu	d31, s0
++.*:	9e3703e0 	fcvtzu	d0, s31
++.*:	9ef70000 	fcvtzu	d0, h0
++.*:	9ef7001f 	fcvtzu	d31, h0
++.*:	9ef703e0 	fcvtzu	d0, h31
++.*:	1e770000 	fcvtzu	s0, d0
++.*:	1e77001f 	fcvtzu	s31, d0
++.*:	1e7703e0 	fcvtzu	s0, d31
++
++.* &lt;k&gt;:
++.*:	1efc0000 	scvtf	h0, s0
++.*:	1efc001f 	scvtf	h31, s0
++.*:	1efc03e0 	scvtf	h0, s31
++.*:	1e7c0000 	scvtf	d0, s0
++.*:	1e7c001f 	scvtf	d31, s0
++.*:	1e7c03e0 	scvtf	d0, s31
++.*:	9efc0000 	scvtf	h0, d0
++.*:	9efc001f 	scvtf	h31, d0
++.*:	9efc03e0 	scvtf	h0, d31
++.*:	9e3c0000 	scvtf	s0, d0
++.*:	9e3c001f 	scvtf	s31, d0
++.*:	9e3c03e0 	scvtf	s0, d31
++
++.* &lt;l&gt;:
++.*:	1efd0000 	ucvtf	h0, s0
++.*:	1efd001f 	ucvtf	h31, s0
++.*:	1efd03e0 	ucvtf	h0, s31
++.*:	1e7d0000 	ucvtf	d0, s0
++.*:	1e7d001f 	ucvtf	d31, s0
++.*:	1e7d03e0 	ucvtf	d0, s31
++.*:	9efd0000 	ucvtf	h0, d0
++.*:	9efd001f 	ucvtf	h31, d0
++.*:	9efd03e0 	ucvtf	h0, d31
++.*:	9e3d0000 	ucvtf	s0, d0
++.*:	9e3d001f 	ucvtf	s31, d0
++.*:	9e3d03e0 	ucvtf	s0, d31
+diff --git a/gas/testsuite/gas/aarch64/fprcvt.s b/gas/testsuite/gas/aarch64/fprcvt.s
+new file mode 100644
+index 00000000000..3b0919581d4
+--- /dev/null
++++ b/gas/testsuite/gas/aarch64/fprcvt.s
+@@ -0,0 +1,159 @@
++/* fprcvt.s Test file for AArch64 floating-point&lt;-&gt;fixed-point
++   conversion and floating-point&lt;-&gt;integer conversion instructions.  */
++
++a:
++	fcvtas s0, h0
++	fcvtas s31, h0
++	fcvtas s0, h31
++	fcvtas d0, s0
++	fcvtas d31, s0
++	fcvtas d0, s31
++	fcvtas d0, h0
++	fcvtas d31, h0
++	fcvtas d0, h31
++	fcvtas s0, d0
++	fcvtas s31, d0
++	fcvtas s0, d31
++b:
++	fcvtau s0, h0
++	fcvtau s31, h0
++	fcvtau s0, h31
++	fcvtau d0, s0
++	fcvtau d31, s0
++	fcvtau d0, s31
++	fcvtau d0, h0
++	fcvtau d31, h0
++	fcvtau d0, h31
++	fcvtau s0, d0
++	fcvtau s31, d0
++	fcvtau s0, d31
++c:
++	fcvtms s0, h0
++	fcvtms s31, h0
++	fcvtms s0, h31
++	fcvtms d0, s0
++	fcvtms d31, s0
++	fcvtms d0, s31
++	fcvtms d0, h0
++	fcvtms d31, h0
++	fcvtms d0, h31
++	fcvtms s0, d0
++	fcvtms s31, d0
++	fcvtms s0, d31
++d:
++	fcvtmu s0, h0
++	fcvtmu s31, h0
++	fcvtmu s0, h31
++	fcvtmu d0, s0
++	fcvtmu d31, s0
++	fcvtmu d0, s31
++	fcvtmu d0, h0
++	fcvtmu d31, h0
++	fcvtmu d0, h31
++	fcvtmu s0, d0
++	fcvtmu s31, d0
++	fcvtmu s0, d31
++e:
++	fcvtns s0, h0
++	fcvtns s31, h0
++	fcvtns s0, h31
++	fcvtns d0, s0
++	fcvtns d31, s0
++	fcvtns d0, s31
++	fcvtns d0, h0
++	fcvtns d31, h0
++	fcvtns d0, h31
++	fcvtns s0, d0
++	fcvtns s31, d0
++	fcvtns s0, d31
++f:
++	fcvtnu s0, h0
++	fcvtnu s31, h0
++	fcvtnu s0, h31
++	fcvtnu d0, s0
++	fcvtnu d31, s0
++	fcvtnu d0, s31
++	fcvtnu d0, h0
++	fcvtnu d31, h0
++	fcvtnu d0, h31
++	fcvtnu s0, d0
++	fcvtnu s31, d0
++	fcvtnu s0, d31
++g:
++	fcvtps s0, h0
++	fcvtps s31, h0
++	fcvtps s0, h31
++	fcvtps d0, s0
++	fcvtps d31, s0
++	fcvtps d0, s31
++	fcvtps d0, h0
++	fcvtps d31, h0
++	fcvtps d0, h31
++	fcvtps s0, d0
++	fcvtps s31, d0
++	fcvtps s0, d31
++h:
++	fcvtpu s0, h0
++	fcvtpu s31, h0
++	fcvtpu s0, h31
++	fcvtpu d0, s0
++	fcvtpu d31, s0
++	fcvtpu d0, s31
++	fcvtpu d0, h0
++	fcvtpu d31, h0
++	fcvtpu d0, h31
++	fcvtpu s0, d0
++	fcvtpu s31, d0
++	fcvtpu s0, d31
++i:
++	fcvtzs s0, h0
++	fcvtzs s31, h0
++	fcvtzs s0, h31
++	fcvtzs d0, s0
++	fcvtzs d31, s0
++	fcvtzs d0, s31
++	fcvtzs d0, h0
++	fcvtzs d31, h0
++	fcvtzs d0, h31
++	fcvtzs s0, d0
++	fcvtzs s31, d0
++	fcvtzs s0, d31
++j:
++	fcvtzu s0, h0
++	fcvtzu s31, h0
++	fcvtzu s0, h31
++	fcvtzu d0, s0
++	fcvtzu d31, s0
++	fcvtzu d0, s31
++	fcvtzu d0, h0
++	fcvtzu d31, h0
++	fcvtzu d0, h31
++	fcvtzu s0, d0
++	fcvtzu s31, d0
++	fcvtzu s0, d31
++k:
++	scvtf h0, s0
++	scvtf h31, s0
++	scvtf h0, s31
++	scvtf d0, s0
++	scvtf d31, s0
++	scvtf d0, s31
++	scvtf h0, d0
++	scvtf h31, d0
++	scvtf h0, d31
++	scvtf s0, d0
++	scvtf s31, d0
++	scvtf s0, d31
++l:
++	ucvtf h0, s0
++	ucvtf h31, s0
++	ucvtf h0, s31
++	ucvtf d0, s0
++	ucvtf d31, s0
++	ucvtf d0, s31
++	ucvtf h0, d0
++	ucvtf h31, d0
++	ucvtf h0, d31
++	ucvtf s0, d0
++	ucvtf s31, d0
++	ucvtf s0, d31
+diff --git a/include/opcode/aarch64.h b/include/opcode/aarch64.h
+index 29dc094ac5f..24327fd8895 100644
+--- a/include/opcode/aarch64.h
++++ b/include/opcode/aarch64.h
+@@ -270,6 +270,8 @@ enum aarch64_feature_bit {
+   AARCH64_FEATURE_SME_B16B16,
+   /* Armv9.5-A processors.  */
+   AARCH64_FEATURE_V9_5A,
++  /* FPRCVT instructions.  */
++  AARCH64_FEATURE_FPRCVT,
+ 
+   /* Virtual features.  These are used to gate instructions that are enabled
+      by either of two (or more) sets of command line flags.  */
+@@ -1107,6 +1109,8 @@ enum aarch64_insn_class
+   floatdp3,
+   floatimm,
+   floatsel,
++  fprcvtfloat2int,
++  fprcvtint2float,
+   ldst_immpost,
+   ldst_immpre,
+   ldst_imm9,	/* immpost or immpre */
+diff --git a/opcodes/aarch64-asm.c b/opcodes/aarch64-asm.c
+index f20bdf6ae67..cef689db326 100644
+--- a/opcodes/aarch64-asm.c
++++ b/opcodes/aarch64-asm.c
+@@ -2033,7 +2033,8 @@ do_special_encoding (struct aarch64_inst *inst)
+     {
+       idx = select_operand_for_sf_field_coding (inst-&gt;opcode);
+       value = (inst-&gt;operands[idx].qualifier == AARCH64_OPND_QLF_X
+-	       || inst-&gt;operands[idx].qualifier == AARCH64_OPND_QLF_SP)
++	       || inst-&gt;operands[idx].qualifier == AARCH64_OPND_QLF_SP
++	       || inst-&gt;operands[idx].qualifier == AARCH64_OPND_QLF_S_D)
+ 	? 1 : 0;
+       insert_field (FLD_sf, &amp;inst-&gt;value, value, 0);
+       if (inst-&gt;opcode-&gt;flags &amp; F_N)
+diff --git a/opcodes/aarch64-dis.c b/opcodes/aarch64-dis.c
+index 6552d0e202d..af93980637e 100644
+--- a/opcodes/aarch64-dis.c
++++ b/opcodes/aarch64-dis.c
+@@ -2746,7 +2746,16 @@ do_special_decoding (aarch64_inst *inst)
+     {
+       idx = select_operand_for_sf_field_coding (inst-&gt;opcode);
+       value = extract_field (FLD_sf, inst-&gt;value, 0);
+-      inst-&gt;operands[idx].qualifier = get_greg_qualifier_from_value (value);
++      if (inst-&gt;opcode-&gt;iclass == fprcvtfloat2int
++	  || inst-&gt;opcode-&gt;iclass == fprcvtint2float)
++	{
++	  if (value == 0)
++	    inst-&gt;operands[idx].qualifier = AARCH64_OPND_QLF_S_S;
++	  else
++	    inst-&gt;operands[idx].qualifier = AARCH64_OPND_QLF_S_D;
++	}
++      else
++	inst-&gt;operands[idx].qualifier = get_greg_qualifier_from_value (value);
+       if (inst-&gt;operands[idx].qualifier == AARCH64_OPND_QLF_ERR)
+ 	return 0;
+       if ((inst-&gt;opcode-&gt;flags &amp; F_N)
+diff --git a/opcodes/aarch64-opc.h b/opcodes/aarch64-opc.h
+index d2b556fdba6..73d02a61029 100644
+--- a/opcodes/aarch64-opc.h
++++ b/opcodes/aarch64-opc.h
+@@ -551,6 +551,11 @@ static inline int
+ select_operand_for_sf_field_coding (const aarch64_opcode *opcode)
+ {
+   int idx = -1;
++  if (opcode-&gt;iclass == fprcvtfloat2int)
++    return 0;
++  else if (opcode-&gt;iclass == fprcvtint2float)
++    return 1;
++
+   if (aarch64_get_operand_class (opcode-&gt;operands[0])
+       == AARCH64_OPND_CLASS_INT_REG)
+     /* normal case.  */
+@@ -572,6 +577,11 @@ static inline int
+ select_operand_for_fptype_field_coding (const aarch64_opcode *opcode)
+ {
+   int idx;
++  if (opcode-&gt;iclass == fprcvtfloat2int)
++    return 1;
++  else if (opcode-&gt;iclass == fprcvtint2float)
++    return 0;
++
+   if (aarch64_get_operand_class (opcode-&gt;operands[1])
+       == AARCH64_OPND_CLASS_FP_REG)
+     /* normal case.  */
+diff --git a/opcodes/aarch64-tbl.h b/opcodes/aarch64-tbl.h
+index f43e1e32b80..b88c2ca196c 100644
+--- a/opcodes/aarch64-tbl.h
++++ b/opcodes/aarch64-tbl.h
+@@ -359,6 +359,15 @@
+   QLF2 (S_H, X),			\
+ }
+ 
++/* e.g. FCVTAS &lt;Xd&gt;, &lt;Dn&gt;.  */
++#define QL_INT2FP_FPRCVT	\
++{				\
++  QLF2(S_H,S_S),		\
++  QLF2(S_H,S_D),		\
++  QLF2(S_S,S_D),		\
++  QLF2(S_D,S_S),		\
++}
++
+ /* e.g. FCVTNS &lt;Xd&gt;, &lt;Dn&gt;.  */
+ #define QL_FP2INT		\
+ {				\
+@@ -368,6 +377,15 @@
+   QLF2(X,S_S),			\
+ }
+ 
++/* e.g. FCVTAS &lt;Sd&gt;, &lt;Dn&gt;.  */
++#define QL_FP2INT_FPRCVT	\
++{				\
++  QLF2(S_D,S_S),		\
++  QLF2(S_S,S_D),		\
++  QLF2(S_D,S_H),		\
++  QLF2(S_S,S_H),		\
++}
++
+ /* e.g. FMOV &lt;Xd&gt;, &lt;Dn&gt;.  */
+ #define QL_FP2INT_FMOV		\
+ {				\
+@@ -2703,6 +2721,8 @@ static const aarch64_feature_set aarch64_feature_fp_f16 =
+   AARCH64_FEATURES (2, F16, FP);
+ static const aarch64_feature_set aarch64_feature_simd_f16 =
+   AARCH64_FEATURES (2, F16, SIMD);
++static const aarch64_feature_set aarch64_feature_fprcvt =
++  AARCH64_FEATURE (FPRCVT);
+ static const aarch64_feature_set aarch64_feature_sve =
+   AARCH64_FEATURE (SVE);
+ static const aarch64_feature_set aarch64_feature_pauth =
+@@ -2880,6 +2900,7 @@ static const aarch64_feature_set aarch64_feature_sve2p1_sme2p1 =
+ #define RDMA		&amp;aarch64_feature_rdma
+ #define FP_F16		&amp;aarch64_feature_fp_f16
+ #define SIMD_F16	&amp;aarch64_feature_simd_f16
++#define FPRCVT		&amp;aarch64_feature_fprcvt
+ #define SVE		&amp;aarch64_feature_sve
+ #define PAUTH		&amp;aarch64_feature_pauth
+ #define COMPNUM		&amp;aarch64_feature_compnum
+@@ -2986,6 +3007,8 @@ static const aarch64_feature_set aarch64_feature_sve2p1_sme2p1 =
+   { NAME, OPCODE, MASK, CLASS, 0, FP_F16, OPS, QUALS, FLAGS, 0, 0, NULL }
+ #define SF16_INSN(NAME,OPCODE,MASK,CLASS,OPS,QUALS,FLAGS)		\
+   { NAME, OPCODE, MASK, CLASS, 0, SIMD_F16, OPS, QUALS, FLAGS, 0, 0, NULL }
++#define FPRCVT_INSN(NAME,OPCODE,MASK,CLASS,OPS,QUALS,FLAGS)		\
++  { NAME, OPCODE, MASK, CLASS, 0, FPRCVT, OPS, QUALS, FLAGS, 0, 0, NULL }
+ #define _SVE_INSN(NAME,OPCODE,MASK,CLASS,OP,OPS,QUALS,FLAGS,TIED) \
+   { NAME, OPCODE, MASK, CLASS, OP, SVE, OPS, QUALS, \
+     FLAGS | F_STRICT, 0, TIED, NULL }
+@@ -4091,32 +4114,44 @@ const struct aarch64_opcode aarch64_opcode_table[] =
+   /* Floating-point&lt;-&gt;integer conversions.  */
+   __FP_INSN (&quot;fcvtns&quot;,0x1e200000, 0x7f3ffc00, float2int, 0, OP2 (Rd, Fn), QL_FP2INT, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fcvtns&quot;,0x1ee00000, 0x7f3ffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;fcvtns&quot;,0x1e2a0000, 0x7f3ffc00, fprcvtfloat2int, OP2 (Fd, Fn), QL_FP2INT_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fcvtnu&quot;,0x1e210000, 0x7f3ffc00, float2int, 0, OP2 (Rd, Fn), QL_FP2INT, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fcvtnu&quot;,0x1ee10000, 0x7f3ffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;fcvtnu&quot;,0x1e2b0000, 0x7f3ffc00, fprcvtfloat2int, OP2 (Fd, Fn), QL_FP2INT_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;scvtf&quot;, 0x1e220000, 0x7f3ffc00, float2int, 0, OP2 (Fd, Rn), QL_INT2FP, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;scvtf&quot;, 0x1ee20000, 0x7f3ffc00, float2int, OP2 (Fd, Rn), QL_INT2FP_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;scvtf&quot;,0x1e3c0000, 0x7f3ffc00, fprcvtint2float, OP2 (Fd, Fn), QL_INT2FP_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;ucvtf&quot;, 0x1e230000, 0x7f3ffc00, float2int, 0, OP2 (Fd, Rn), QL_INT2FP, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;ucvtf&quot;, 0x1ee30000, 0x7f3ffc00, float2int, OP2 (Fd, Rn), QL_INT2FP_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;ucvtf&quot;,0x1e3d0000, 0x7f3ffc00, fprcvtint2float, OP2 (Fd, Fn), QL_INT2FP_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fcvtas&quot;,0x1e240000, 0x7f3ffc00, float2int, 0, OP2 (Rd, Fn), QL_FP2INT, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fcvtas&quot;,0x1ee40000, 0x7f3ffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;fcvtas&quot;,0x1e3a0000, 0x7f3ffc00, fprcvtfloat2int, OP2 (Fd, Fn), QL_FP2INT_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fcvtau&quot;,0x1e250000, 0x7f3ffc00, float2int, 0, OP2 (Rd, Fn), QL_FP2INT, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fcvtau&quot;,0x1ee50000, 0x7f3ffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;fcvtau&quot;,0x1e3b0000, 0x7f3ffc00, fprcvtfloat2int, OP2 (Fd, Fn), QL_FP2INT_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fmov&quot;,  0x1e260000, 0x7f3ffc00, float2int, 0, OP2 (Rd, Fn), QL_FP2INT_FMOV, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fmov&quot;,  0x1ee60000, 0x7f3ffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_H, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fmov&quot;,  0x1e270000, 0x7f3ffc00, float2int, 0, OP2 (Fd, Rn), QL_INT2FP_FMOV, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fmov&quot;,  0x1ee70000, 0x7f3ffc00, float2int, OP2 (Fd, Rn), QL_INT2FP_H, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fcvtps&quot;,0x1e280000, 0x7f3ffc00, float2int, 0, OP2 (Rd, Fn), QL_FP2INT, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fcvtps&quot;,0x1ee80000, 0x7f3ffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;fcvtps&quot;,0x1e320000, 0x7f3ffc00, fprcvtfloat2int, OP2 (Fd, Fn), QL_FP2INT_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fcvtpu&quot;,0x1e290000, 0x7f3ffc00, float2int, 0, OP2 (Rd, Fn), QL_FP2INT, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fcvtpu&quot;,0x1ee90000, 0x7f3ffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;fcvtpu&quot;,0x1e330000, 0x7f3ffc00, fprcvtfloat2int, OP2 (Fd, Fn), QL_FP2INT_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fcvtms&quot;,0x1e300000, 0x7f3ffc00, float2int, 0, OP2 (Rd, Fn), QL_FP2INT, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fcvtms&quot;,0x1ef00000, 0x7f3ffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;fcvtms&quot;,0x1e340000, 0x7f3ffc00, fprcvtfloat2int, OP2 (Fd, Fn), QL_FP2INT_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fcvtmu&quot;,0x1e310000, 0x7f3ffc00, float2int, 0, OP2 (Rd, Fn), QL_FP2INT, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fcvtmu&quot;,0x1ef10000, 0x7f3ffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;fcvtmu&quot;,0x1e350000, 0x7f3ffc00, fprcvtfloat2int, OP2 (Fd, Fn), QL_FP2INT_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fcvtzs&quot;,0x1e380000, 0x7f3ffc00, float2int, 0, OP2 (Rd, Fn), QL_FP2INT, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fcvtzs&quot;,0x1ef80000, 0x7f3ffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;fcvtzs&quot;,0x1e360000, 0x7f3ffc00, fprcvtfloat2int, OP2 (Fd, Fn), QL_FP2INT_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fcvtzu&quot;,0x1e390000, 0x7f3ffc00, float2int, 0, OP2 (Rd, Fn), QL_FP2INT, F_FPTYPE | F_SF),
+   FF16_INSN (&quot;fcvtzu&quot;,0x1ef90000, 0x7f3ffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_H, F_FPTYPE | F_SF),
++  FPRCVT_INSN (&quot;fcvtzu&quot;,0x1e370000, 0x7f3ffc00, fprcvtfloat2int, OP2 (Fd, Fn), QL_FP2INT_FPRCVT, F_FPTYPE | F_SF),
+   __FP_INSN (&quot;fmov&quot;,  0x9eae0000, 0xfffffc00, float2int, 0, OP2 (Rd, VnD1), QL_XVD1, 0),
+   __FP_INSN (&quot;fmov&quot;,  0x9eaf0000, 0xfffffc00, float2int, 0, OP2 (VdD1, Rn), QL_VD1X, 0),
+   JSCVT_INSN (&quot;fjcvtzs&quot;, 0x1e7e0000, 0xfffffc00, float2int, OP2 (Rd, Fn), QL_FP2INT_W_D, 0),
+-- 
+2.34.1
+
+</PRE>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message (by thread): <A HREF="141771.html">Removing false positive warnings related to CVE-2021-42694 from the binutils code base
+</A></li>
+	<LI>Next message (by thread): <A HREF="141776.html">[PATCH v2 2/2] aarch64: ADD FPRCVT regenerated files
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#141756">[ date ]</a>
+              <a href="thread.html#141756">[ thread ]</a>
+              <a href="subject.html#141756">[ subject ]</a>
+              <a href="author.html#141756">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://sourceware.org/mailman/listinfo/binutils">More information about the Binutils
+mailing list</a><br>
+</body></html>

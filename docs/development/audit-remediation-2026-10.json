@@ -912,19 +912,45 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-register-admission/consumers-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-register-admission/portability-final-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-register-admission/fixture-corrections-v4.json",
-        "docs/development/a64-fp-control/README.md"
+        "docs/development/a64-fp-control/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-control-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-native-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-production-source-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/oracle-toolchain-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/targeted-final-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/fixture-epoch-v7.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/old-lowering-fixture-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/generated-correction-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/qualification-broad-final-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/kernel-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/small-profile-control-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-profile-control-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-current-v5/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-current-v6/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-disposition-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/reserved-characterization-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/profile-discrepancy-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/current-proof-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/final-engine-parity-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/consumers-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/portability-final-v3.json",
+        "docs/development/a64-half-admission/README.md"
       ],
       "remaining_validation": [
         "Remaining security/virtualization controls, non-half capability/profile consistency and reserved instruction-admission semantics.",
         "Physical A32 hardware and optional trapped profiles remain unverified.",
-        "FHM and modeled half/FHM IDs are corrected in this component. A64 half-precision execution/native admission beyond FHM remains open; disabled FP16 still executes FADD H0,H1,H2 in the retained qualified-artifact witness.",
-        "FPCR/FPSR admission and represented CPTR/security/VHE routing are corrected, including optimized-away native reads. Full SVE/SME, architectural halting-debug and other unrepresented/profile controls remain open."
+        "FPCR/FPSR admission and represented CPTR/security/VHE routing are corrected, including optimized-away native reads. Full SVE/SME, architectural halting-debug and other unrepresented/profile controls remain open.",
+        "A64 optional FP16 and represented reserved-field admission are corrected, including preoptimization native feature requirements. Full non-half capability/profile coherence (including FCMA/JSCVT flags versus IDs), SVE/SME, newer/unimplemented features and halting-debug controls remain open. Native FP16 execution is not newly implemented."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
         "arm-fhm-profile-and-legacy-wire-2026-10-28",
         "aarch64-fp-access-nonretirement-2026-10-28",
-        "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28"
+        "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
+        "aarch64-fp16-reserved-admission-2026-10-28"
       ]
     },
     {
@@ -2422,7 +2448,32 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-register-admission/consumers-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-register-admission/portability-final-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-register-admission/fixture-corrections-v4.json",
-        "docs/development/a64-fp-control/README.md"
+        "docs/development/a64-fp-control/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-control-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-native-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-production-source-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/oracle-toolchain-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/targeted-final-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/fixture-epoch-v7.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/old-lowering-fixture-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/generated-correction-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/qualification-broad-final-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/kernel-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/small-profile-control-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-profile-control-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-current-v5/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-current-v6/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-disposition-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/reserved-characterization-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/profile-discrepancy-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/current-proof-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/final-engine-parity-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/consumers-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/portability-final-v3.json",
+        "docs/development/a64-half-admission/README.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2447,7 +2498,8 @@
         "software-aarch64-private-publication-2026-10-28",
         "arm-fhm-profile-and-legacy-wire-2026-10-28",
         "aarch64-fp-access-nonretirement-2026-10-28",
-        "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28"
+        "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
+        "aarch64-fp16-reserved-admission-2026-10-28"
       ]
     },
     {
@@ -2942,7 +2994,32 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-register-admission/consumers-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-register-admission/portability-final-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-register-admission/fixture-corrections-v4.json",
-        "docs/development/a64-fp-control/README.md"
+        "docs/development/a64-fp-control/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-control-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-native-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-production-source-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/oracle-toolchain-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/targeted-final-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/fixture-epoch-v7.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/old-lowering-fixture-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/generated-correction-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/qualification-broad-final-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/kernel-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/small-profile-control-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-profile-control-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-current-v5/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-current-v6/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-disposition-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/reserved-characterization-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/profile-discrepancy-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/current-proof-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/final-engine-parity-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/consumers-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/portability-final-v3.json",
+        "docs/development/a64-half-admission/README.md"
       ],
       "remaining_validation": [
         "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
@@ -2959,7 +3036,8 @@
         "aarch64-user-physical-reservations-2026-10-28",
         "tracked-ram-first-domain-publication-2026-10-28",
         "aarch64-fp-access-nonretirement-2026-10-28",
-        "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28"
+        "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
+        "aarch64-fp16-reserved-admission-2026-10-28"
       ]
     },
     {
@@ -192849,6 +192927,253 @@
         {
           "impact": "medium",
           "finding": "Unchanged Darwin ptrace transport has retained independent-parent failure evidence; root cause is unknown."
+        }
+      ],
+      "published": false
+    },
+    {
+      "id": "aarch64-fp16-reserved-admission-2026-10-28",
+      "status": "locally_validated",
+      "scope": "A64 optional FP16 and represented reserved scalar-conversion/reduction admission before FP access and retirement; original native feature dependencies. Full audit findings remain partial.",
+      "parent": "76aa8a83a1c93de99298753c78f584655f1b4320",
+      "owned_paths": [
+        "capi/src/tests/fp_access.rs",
+        "docs/development/a64-fp-control/README.md",
+        "docs/development/a64-half-admission/README.md",
+        "docs/development/a64-half-admission/batch.ld",
+        "docs/development/a64-half-admission/batch.s",
+        "docs/development/a64-half-admission/encodings.json",
+        "docs/development/a64-half-admission/guest.ld",
+        "docs/development/a64-half-admission/guest.s",
+        "docs/development/a64-half-admission/kernel.ld",
+        "docs/development/a64-half-admission/kernel.s",
+        "docs/development/a64-half-admission/legacy-conversion-correction.json",
+        "docs/development/a64-half-admission/primary/.gitattributes",
+        "docs/development/a64-half-admission/primary/fprcvt-binutils-2025-06.html",
+        "docs/development/a64-half-admission/primary/provenance.json",
+        "docs/development/arm-fhm/README.md",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/fp-access-retirement.md",
+        "src/backend/emulator/aarch64_step/fp_access_tests.rs",
+        "src/isa/arm/aarch64/cpu/entry.rs",
+        "src/isa/arm/aarch64/cpu/exec.rs",
+        "src/isa/arm/aarch64/cpu/fp_access.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/admission.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/fp16.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/fp16_encodings.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/half_tests.rs",
+        "src/isa/arm/aarch64/cpu/mod.rs",
+        "src/isa/arm/aarch64/cpu/pauth_jit.rs",
+        "src/isa/arm/aarch64/cpu/registers.rs",
+        "src/isa/arm/aarch64/cpu/system_step.rs",
+        "src/isa/arm/aarch64/cpu/tests/misc.rs",
+        "src/isa/arm/aarch64/cpu/tests/simd.rs",
+        "src/smir/lower/aarch64/tests/fp_execution.rs",
+        "src/smir/lower/aarch64/tests/mod.rs",
+        "tests/generated/arm/a64/float/convert.rs",
+        "tests/generated/manifest.toml",
+        "tests/suites/differential/arm/aarch64.rs",
+        "tests/suites/differential/arm/aarch64/profile.rs",
+        "tests/suites/isa/arm/a64/arithmetic/floating_point/half_precision/arithmetic/add/mod.rs",
+        "tools/execution/a64_fp16_admission.py",
+        "tools/testgen/a64_conversion_expectations.py"
+      ],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-control-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-native-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/parent-production-source-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/oracle-toolchain-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/targeted-final-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/fixture-epoch-v7.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/old-lowering-fixture-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/generated-correction-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/qualification-broad-final-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/kernel-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/small-profile-control-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-profile-control-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-current-v5/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-current-v6/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/batch-disposition-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/reserved-characterization-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/profile-discrepancy-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/current-proof-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/final-engine-parity-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/consumers-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/portability-final-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/fp-access-retirement/unrelated-darwin-transport-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/vendor-whitespace-v1.json"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/source-freeze-final-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/qualification-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/commit-receipt.json",
+      "validation_summary": {
+        "library": {
+          "passed": 11211,
+          "failed": 0,
+          "ignored": 2,
+          "binaries": 1
+        },
+        "owning": {
+          "passed": 47706,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 23
+        },
+        "capi": {
+          "passed": 214,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "doc": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "binaries": 1
+        },
+        "portable": {
+          "portable-half-rosetta-v3": {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-lowering-fp16-rosetta-v3": {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-fp-control-rosetta-v3": {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-shared-fp-rosetta-v3": {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-fp-access-rosetta-v3": {
+            "passed": 14,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-fhm-rosetta-v3": {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-a64-context-rosetta-v3": {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-a32-fp-rosetta-v3": {
+            "passed": 453,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-fp-access-capi-rosetta-v3": {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          }
+        },
+        "consumers": 18,
+        "strict_abi_objects": 6,
+        "small_qemu_cases": 2028,
+        "kernel_qemu_cases": 48,
+        "exact_generated_conversion_qemu_cases": 8,
+        "current_engine_guests": 1352,
+        "current_cli_guests": 24,
+        "batch_qemu_events": 992148,
+        "batch_current_comparisons": 992148,
+        "a710_events_matched": 330716,
+        "earlier_model_profile_differences": 248
+      },
+      "assumption_register": [
+        {
+          "id": "HA1",
+          "assumption": "Pinned Arm predicates identify the FP16 requirement in the represented A64 classes.",
+          "basis": "64 distinct descriptions with explicit HaveFP16Ext checks; generator enforces exact source hash.",
+          "dependent_result": "Optional FP16 admission.",
+          "stress_test": "8192 absent-feature class/register/control combinations and retained independent QEMU guests.",
+          "falsification_probe": "An absent-feature arithmetic word executes or a legacy control is rejected solely for missing FP16.",
+          "status": "confirmed within tested classes"
+        },
+        {
+          "id": "HA2",
+          "assumption": "Legacy half conversion/storage is independent of optional FP16 arithmetic.",
+          "basis": "Pinned instruction decodes and Cortex-A53 controls.",
+          "dependent_result": "Preserved legacy admission.",
+          "stress_test": "12 legacy forms with access enabled/denied.",
+          "falsification_probe": "A legacy form changes its U/D/P outcome.",
+          "status": "confirmed for selected controls"
+        },
+        {
+          "id": "HA3",
+          "assumption": "Original CPU instruction dependencies survive IR optimization.",
+          "basis": "Native builder captures feature metadata before optimization.",
+          "dependent_result": "Cold/cache/entry feature rejection.",
+          "stress_test": "64 actual parent native shapes rejected; real integer native control with explicitly synthetic feature metadata.",
+          "falsification_probe": "Denied native state effects or cache reuse across an incompatible profile.",
+          "status": "confirmed within represented native boundaries; no native FP16 execution claim"
+        },
+        {
+          "id": "HA4",
+          "assumption": "Checkpoint capture occurs between execution calls.",
+          "basis": "Existing stopped-CPU ownership and derived caches; unchanged RAXA6402 wire tag.",
+          "dependent_result": "Fault/context/retry continuity.",
+          "stress_test": "Capture before/after delivery; zero retirement and single handler/retry.",
+          "falsification_probe": "Lost profile, changed fault PC or duplicate execution.",
+          "status": "confirmed at tested boundaries"
+        },
+        {
+          "id": "HA5",
+          "assumption": "Normal execution with masked numerical FP traps suffices to compare admission.",
+          "basis": "Reset FP control state and U/D/P guest protocol.",
+          "dependent_result": "Finite reserved-field comparison.",
+          "stress_test": "82679 words across EL0/EL1 and FPEN=0/3; handler checks PC, saved mode, syndrome and denied X0.",
+          "falsification_probe": "Unexpected exception, incorrect event count or a modified denied sentinel.",
+          "status": "confirmed within retained guests"
+        },
+        {
+          "id": "HA6",
+          "assumption": "Earlier QEMU profiles differ from current RAX guest IDs for FCMA/JSCVT.",
+          "basis": "A53/A76/A710 outputs, RAX IDs and retained disassembly.",
+          "dependent_result": "Explicit profile difference disposition.",
+          "stress_test": "Preserve all 248 earlier-model differences and compare 330716 A710 events without mismatches.",
+          "falsification_probe": "Any unexplained mismatch, or labeling differing earlier-profile cases as matches.",
+          "status": "retained profile boundary; flags/ID coherence remains open"
+        }
+      ],
+      "native_frontier": "No new native FP16 execution support. All 64 sampled parent region shapes reject; native integer controls with synthetic metadata test the feature gates.",
+      "oracle_discrepancy": "Retain max FEAT_FPRCVT support and all A53/A76 capability differences. They are not treated as matching whole-CPU profiles. Current RAX FCMA/JSCVT flags and IDs remain incoherent.",
+      "failure_disposition": "passed within recorded host scope",
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Non-half capability/profile consistency, including FCMA/JSCVT flags versus advertised IDs, remains open; FPRCVT, full SVE/SME and halting-debug controls are not newly implemented."
+        },
+        {
+          "impact": "high",
+          "finding": "Complete backend/private/in-flight/platform state, bounded native execution, debugger/clock/replay and physical Intel Mac HVF proof remain open."
+        },
+        {
+          "impact": "medium",
+          "finding": "Unchanged Darwin ptrace transport has retained independent-parent failure evidence; root cause remains unknown."
         }
       ],
       "published": false

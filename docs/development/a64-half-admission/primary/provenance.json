@@ -1,0 +1,9 @@
+{
+  "title": "[PATCH v2 1/2] aarch64: Add support for FEAT_FPRCVT",
+  "organization": "GNU Binutils development mailing list",
+  "source_url": "https://sourceware.org/pipermail/binutils/2025-June/141756.html",
+  "retrieved": "2026-10-28T22:40:48.351800+00:00",
+  "file": "fprcvt-binutils-2025-06.html",
+  "sha256": "26de5d667315a299023fe444fe1b5d1261c54d631705c88c856c45d6afc29f50",
+  "scope": "Encoding corroboration of FCVTNS scalar SIMD and FP; not evidence that the RAX profile implements FPRCVT. Notices and attribution remain in the unmodified mailing-list HTML."
+}

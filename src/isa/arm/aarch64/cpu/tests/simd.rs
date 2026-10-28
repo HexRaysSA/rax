@@ -3,6 +3,15 @@
 use super::*;
 use crate::isa::arm::aarch64::cpu::*;
 
+fn create_fp16_cpu_with_insn(insn: u32) -> AArch64Cpu {
+    let mut cpu = AArch64Cpu::new(
+        AArch64Config::v8_2(),
+        Box::new(FlatMemory::new(0, 0x1000_0000)),
+    );
+    cpu.write_memory(0, &insn.to_le_bytes()).unwrap();
+    cpu
+}
+
 #[test]
 fn sve_ld1rq_effective_address_wraps_no_panic() {
     // LD1RQ Z0.B, P0/Z, [X5, #0]. With the base register at u64::MAX, the
@@ -356,7 +365,7 @@ fn simd_scalar_fp16_pairwise_maxmin_rejects_reserved_size_bit() {
         0x5ef0_c800, // FMINNMP with reserved low size bit
         0x5ef0_f800, // FMINP with reserved low size bit
     ] {
-        let mut cpu = create_cpu_with_insn(insn);
+        let mut cpu = create_fp16_cpu_with_insn(insn);
         cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
         let exit = cpu.step();
         assert!(
@@ -372,12 +381,12 @@ fn simd_scalar_fp16_pairwise_maxmin_rejects_reserved_size_bit() {
         0x5e30_f800, // FMAXP H0, V0.2H
         0x5eb0_f800, // FMINP H0, V0.2H
     ] {
-        let mut cpu = create_cpu_with_insn(insn);
+        let mut cpu = create_fp16_cpu_with_insn(insn);
         cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
         assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
     }
 
-    let mut cpu = create_cpu_with_insn(0x5e30_f821); // FMAXP H1, V1.2H
+    let mut cpu = create_fp16_cpu_with_insn(0x5e30_f821); // FMAXP H1, V1.2H
     cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     cpu.v[1] = 0x3c00_7d01; // +1.0 and an FP16 signaling NaN
     assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
@@ -390,7 +399,7 @@ fn simd_scalar_fp16_pairwise_add_rejects_reserved_size_bit() {
         0x5e70_d81f,
         0x5e70_dbe0,
     ] {
-        let mut cpu = create_cpu_with_insn(insn);
+        let mut cpu = create_fp16_cpu_with_insn(insn);
         cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
         let exit = cpu.step();
         assert!(
@@ -400,7 +409,7 @@ fn simd_scalar_fp16_pairwise_add_rejects_reserved_size_bit() {
         );
     }
 
-    let mut cpu = create_cpu_with_insn(0x5e30_d800); // FADDP H0, V0.2H
+    let mut cpu = create_fp16_cpu_with_insn(0x5e30_d800); // FADDP H0, V0.2H
     cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     cpu.v[0] = 0x3c00_7d01; // +1.0 and an FP16 signaling NaN
     assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
@@ -520,21 +529,21 @@ fn simd_fp16_fma_lost_product_sets_inexact() {
     let acc = 0x5f11_5f11_5f11_5f11u128;
     let tiny = 0x0001_0001_0001_0001u128;
 
-    let mut cpu = create_cpu_with_insn(0x0e41_0c20); // FMLA V0.4H, V1.4H, V1.4H
+    let mut cpu = create_fp16_cpu_with_insn(0x0e41_0c20); // FMLA V0.4H, V1.4H, V1.4H
     cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     cpu.v[0] = acc;
     cpu.v[1] = tiny;
     assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
     assert_eq!(cpu.fpsr & FPSR_IXC, FPSR_IXC);
 
-    let mut cpu = create_cpu_with_insn(0x0f01_1020); // FMLA V0.4H, V1.4H, V1.H[0]
+    let mut cpu = create_fp16_cpu_with_insn(0x0f01_1020); // FMLA V0.4H, V1.4H, V1.H[0]
     cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     cpu.v[0] = acc;
     cpu.v[1] = tiny;
     assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
     assert_eq!(cpu.fpsr & FPSR_IXC, FPSR_IXC);
 
-    let mut cpu = create_cpu_with_insn(0x5f01_1020); // FMLA H0, H1, V1.H[0]
+    let mut cpu = create_fp16_cpu_with_insn(0x5f01_1020); // FMLA H0, H1, V1.H[0]
     cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     cpu.v[0] = acc;
     cpu.v[1] = tiny;

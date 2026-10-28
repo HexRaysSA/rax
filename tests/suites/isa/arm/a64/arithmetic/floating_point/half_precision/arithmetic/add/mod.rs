@@ -4,7 +4,7 @@ use rax::isa::arm::{AArch64Config, AArch64Cpu, Aarch64SysReg, ArmCpu, CpuExit, F
 
 fn create_test_cpu() -> AArch64Cpu {
     let memory = FlatMemory::new(0, 0x1000_0000);
-    AArch64Cpu::new(AArch64Config::default(), Box::new(memory))
+    AArch64Cpu::new(AArch64Config::v8_2(), Box::new(memory))
 }
 
 fn write_insn(cpu: &mut AArch64Cpu, addr: u64, insn: u32) {

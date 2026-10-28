@@ -1,0 +1,520 @@
+{
+  "source": "docs/architecture/arm/asl/arm_instrs.asl",
+  "source_sha256": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+  "encoding_descriptions": 64,
+  "distinct_masks": 64,
+  "records": [
+    {
+      "name": "aarch64_float_arithmetic_add_sub",
+      "pattern": "00011110xx1xxxxx001x10xxxxxxxxxx",
+      "predicate": "type=11",
+      "required_pattern": "00011110111xxxxx001x10xxxxxxxxxx",
+      "mask": 4292930560,
+      "value": 518006784
+    },
+    {
+      "name": "aarch64_float_arithmetic_div",
+      "pattern": "00011110xx1xxxxx000110xxxxxxxxxx",
+      "predicate": "type=11",
+      "required_pattern": "00011110111xxxxx000110xxxxxxxxxx",
+      "mask": 4292934656,
+      "value": 518002688
+    },
+    {
+      "name": "aarch64_float_arithmetic_max_min",
+      "pattern": "00011110xx1xxxxx01xx10xxxxxxxxxx",
+      "predicate": "type=11",
+      "required_pattern": "00011110111xxxxx01xx10xxxxxxxxxx",
+      "mask": 4292922368,
+      "value": 518014976
+    },
+    {
+      "name": "aarch64_float_arithmetic_mul_add_sub",
+      "pattern": "00011111xxxxxxxxxxxxxxxxxxxxxxxx",
+      "predicate": "type=11",
+      "required_pattern": "0001111111xxxxxxxxxxxxxxxxxxxxxx",
+      "mask": 4290772992,
+      "value": 532676608
+    },
+    {
+      "name": "aarch64_float_arithmetic_mul_product",
+      "pattern": "00011110xx1xxxxxx00010xxxxxxxxxx",
+      "predicate": "type=11",
+      "required_pattern": "00011110111xxxxxx00010xxxxxxxxxx",
+      "mask": 4292901888,
+      "value": 517998592
+    },
+    {
+      "name": "aarch64_float_arithmetic_round_frint",
+      "pattern": "00011110xx1001xxx10000xxxxxxxxxx",
+      "predicate": "type=11",
+      "required_pattern": "00011110111001xxx10000xxxxxxxxxx",
+      "mask": 4294736896,
+      "value": 518275072
+    },
+    {
+      "name": "aarch64_float_arithmetic_unary",
+      "pattern": "00011110xx10000xx10000xxxxxxxxxx",
+      "predicate": "type=11",
+      "required_pattern": "000111101110000xx10000xxxxxxxxxx",
+      "mask": 4294867968,
+      "value": 518012928
+    },
+    {
+      "name": "aarch64_float_compare_cond",
+      "pattern": "00011110xx1xxxxxxxxx01xxxxxxxxxx",
+      "predicate": "type=11",
+      "required_pattern": "00011110111xxxxxxxxx01xxxxxxxxxx",
+      "mask": 4292873216,
+      "value": 517997568
+    },
+    {
+      "name": "aarch64_float_compare_uncond",
+      "pattern": "00011110xx1xxxxx001000xxxxxxx000",
+      "predicate": "type=11",
+      "required_pattern": "00011110111xxxxx001000xxxxxxx000",
+      "mask": 4292934663,
+      "value": 518004736
+    },
+    {
+      "name": "aarch64_float_convert_fix",
+      "pattern": "x0011110xx0xxxxxxxxxxxxxxxxxxxxx",
+      "predicate": "type=11",
+      "required_pattern": "x0011110110xxxxxxxxxxxxxxxxxxxxx",
+      "mask": 2145386496,
+      "value": 515899392
+    },
+    {
+      "name": "aarch64_float_convert_int",
+      "pattern": "x0011110xx1xxxxx000000xxxxxxxxxx",
+      "predicate": "type=11",
+      "required_pattern": "x0011110111xxxxx000000xxxxxxxxxx",
+      "mask": 2145451008,
+      "value": 517996544
+    },
+    {
+      "name": "aarch64_float_move_fp_imm",
+      "pattern": "00011110xx1xxxxxxxx10000000xxxxx",
+      "predicate": "type=11",
+      "required_pattern": "00011110111xxxxxxxx10000000xxxxx",
+      "mask": 4292878304,
+      "value": 518000640
+    },
+    {
+      "name": "aarch64_float_move_fp_select",
+      "pattern": "00011110xx1xxxxxxxxx11xxxxxxxxxx",
+      "predicate": "type=11",
+      "required_pattern": "00011110111xxxxxxxxx11xxxxxxxxxx",
+      "mask": 4292873216,
+      "value": 517999616
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_element_mul_acc_complex",
+      "pattern": "0x101111xxxxxxxx0xx1x0xxxxxxxxxx",
+      "predicate": "size=01",
+      "required_pattern": "0x10111101xxxxxx0xx1x0xxxxxxxxxx",
+      "mask": 3217069056,
+      "value": 792727552
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_element_mul_acc_fp16_simd",
+      "pattern": "0x00111100xxxxxx0x01x0xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x00111100xxxxxx0x01x0xxxxxxxxxx",
+      "mask": 3217077248,
+      "value": 251662336
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_element_mul_acc_fp16_sisd",
+      "pattern": "0101111100xxxxxx0x01x0xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0101111100xxxxxx0x01x0xxxxxxxxxx",
+      "mask": 4290819072,
+      "value": 1593839616
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_element_mul_fp16_simd",
+      "pattern": "0xx0111100xxxxxx1001x0xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx0111100xxxxxx1001x0xxxxxxxxxx",
+      "mask": 2680222720,
+      "value": 251695104
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_element_mul_fp16_sisd",
+      "pattern": "01x1111100xxxxxx1001x0xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01x1111100xxxxxx1001x0xxxxxxxxxx",
+      "mask": 3753964544,
+      "value": 1593872384
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_add_fp16",
+      "pattern": "0xx01110010xxxxx000101xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx01110010xxxxx000101xxxxxxxxxx",
+      "mask": 2682321920,
+      "value": 239080448
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_add_fp_complex",
+      "pattern": "0x101110xx0xxxxx111x01xxxxxxxxxx",
+      "predicate": "size=01",
+      "required_pattern": "0x101110010xxxxx111x01xxxxxxxxxx",
+      "mask": 3219188736,
+      "value": 776004608
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_cmp_fp16_simd",
+      "pattern": "0xx01110x10xxxxx0010x1xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx01110x10xxxxx0010x1xxxxxxxxxx",
+      "mask": 2673931264,
+      "value": 239084544
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_cmp_fp16_sisd",
+      "pattern": "01x11110x10xxxxx0010x1xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01x11110x10xxxxx0010x1xxxxxxxxxx",
+      "mask": 3747673088,
+      "value": 1581261824
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_div_fp16",
+      "pattern": "0x101110010xxxxx001111xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x101110010xxxxx001111xxxxxxxxxx",
+      "mask": 3219192832,
+      "value": 775961600
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_max_min_fp16_1985",
+      "pattern": "0xx01110x10xxxxx001101xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx01110x10xxxxx001101xxxxxxxxxx",
+      "mask": 2673933312,
+      "value": 239088640
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_max_min_fp16_2008",
+      "pattern": "0xx01110x10xxxxx000001xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx01110x10xxxxx000001xxxxxxxxxx",
+      "mask": 2673933312,
+      "value": 239076352
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_mul_fp16_extended_simd",
+      "pattern": "0x001110010xxxxx000111xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x001110010xxxxx000111xxxxxxxxxx",
+      "mask": 3219192832,
+      "value": 239082496
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_mul_fp16_extended_sisd",
+      "pattern": "01011110010xxxxx000111xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01011110010xxxxx000111xxxxxxxxxx",
+      "mask": 4292934656,
+      "value": 1581259776
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_mul_fp16_fused",
+      "pattern": "0x001110x10xxxxx000011xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x001110x10xxxxx000011xxxxxxxxxx",
+      "mask": 3210804224,
+      "value": 239078400
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_mul_fp16_product",
+      "pattern": "0x101110010xxxxx000111xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x101110010xxxxx000111xxxxxxxxxx",
+      "mask": 3219192832,
+      "value": 775953408
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_mul_fp_complex",
+      "pattern": "0x101110xx0xxxxx110xx1xxxxxxxxxx",
+      "predicate": "size=01",
+      "required_pattern": "0x101110010xxxxx110xx1xxxxxxxxxx",
+      "mask": 3219186688,
+      "value": 775996416
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_recps_fp16_simd",
+      "pattern": "0x001110010xxxxx001111xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x001110010xxxxx001111xxxxxxxxxx",
+      "mask": 3219192832,
+      "value": 239090688
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_recps_fp16_sisd",
+      "pattern": "01011110010xxxxx001111xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01011110010xxxxx001111xxxxxxxxxx",
+      "mask": 4292934656,
+      "value": 1581267968
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_rsqrts_fp16_simd",
+      "pattern": "0x001110110xxxxx001111xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x001110110xxxxx001111xxxxxxxxxx",
+      "mask": 3219192832,
+      "value": 247479296
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_rsqrts_fp16_sisd",
+      "pattern": "01011110110xxxxx001111xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01011110110xxxxx001111xxxxxxxxxx",
+      "mask": 4292934656,
+      "value": 1589656576
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_sub_fp16_simd",
+      "pattern": "0xx01110110xxxxx000101xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx01110110xxxxx000101xxxxxxxxxx",
+      "mask": 2682321920,
+      "value": 247469056
+    },
+    {
+      "name": "aarch64_vector_arithmetic_binary_uniform_sub_fp16_sisd",
+      "pattern": "01111110110xxxxx000101xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01111110110xxxxx000101xxxxxxxxxx",
+      "mask": 4292934656,
+      "value": 2126517248
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_cmp_fp16_bulk_simd",
+      "pattern": "0xx0111011111000110x10xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx0111011111000110x10xxxxxxxxxx",
+      "mask": 2684349440,
+      "value": 251185152
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_cmp_fp16_bulk_sisd",
+      "pattern": "01x1111011111000110x10xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01x1111011111000110x10xxxxxxxxxx",
+      "mask": 3758091264,
+      "value": 1593362432
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_cmp_fp16_lessthan_simd",
+      "pattern": "0x00111011111000111010xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x00111011111000111010xxxxxxxxxx",
+      "mask": 3221224448,
+      "value": 251193344
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_cmp_fp16_lessthan_sisd",
+      "pattern": "0101111011111000111010xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0101111011111000111010xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 1593370624
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_diff_neg_fp16",
+      "pattern": "0xx0111011111000111110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx0111011111000111110xxxxxxxxxx",
+      "mask": 2684353536,
+      "value": 251197440
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_fp16_conv_float_bulk_simd",
+      "pattern": "0xx01110x1111001101x10xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx01110x1111001101x10xxxxxxxxxx",
+      "mask": 2675960832,
+      "value": 242853888
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_fp16_conv_float_bulk_sisd",
+      "pattern": "01x11110x1111001101x10xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01x11110x1111001101x10xxxxxxxxxx",
+      "mask": 3749702656,
+      "value": 1585031168
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_fp16_conv_float_tieaway_simd",
+      "pattern": "0xx0111001111001110010xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx0111001111001110010xxxxxxxxxx",
+      "mask": 2684353536,
+      "value": 242862080
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_fp16_conv_float_tieaway_sisd",
+      "pattern": "01x1111001111001110010xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01x1111001111001110010xxxxxxxxxx",
+      "mask": 3758095360,
+      "value": 1585039360
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_fp16_conv_int_simd",
+      "pattern": "0xx0111001111001110110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx0111001111001110110xxxxxxxxxx",
+      "mask": 2684353536,
+      "value": 242866176
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_fp16_conv_int_sisd",
+      "pattern": "01x1111001111001110110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01x1111001111001110110xxxxxxxxxx",
+      "mask": 3758095360,
+      "value": 1585043456
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_fp16_round",
+      "pattern": "0xx01110x1111001100x10xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0xx01110x1111001100x10xxxxxxxxxx",
+      "mask": 2675960832,
+      "value": 242845696
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_special_frecpx_fp16",
+      "pattern": "0101111011111001111110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0101111011111001111110xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 1593440256
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_special_recip_fp16_simd",
+      "pattern": "0x00111011111001110110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x00111011111001110110xxxxxxxxxx",
+      "mask": 3221224448,
+      "value": 251254784
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_special_recip_fp16_sisd",
+      "pattern": "0101111011111001110110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0101111011111001110110xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 1593432064
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_special_sqrt_est_fp16_simd",
+      "pattern": "0x10111011111001110110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x10111011111001110110xxxxxxxxxx",
+      "mask": 3221224448,
+      "value": 788125696
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_special_sqrt_est_fp16_sisd",
+      "pattern": "0111111011111001110110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0111111011111001110110xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 2130302976
+    },
+    {
+      "name": "aarch64_vector_arithmetic_unary_special_sqrt_fp16",
+      "pattern": "0x10111011111001111110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x10111011111001111110xxxxxxxxxx",
+      "mask": 3221224448,
+      "value": 788133888
+    },
+    {
+      "name": "aarch64_vector_fp16_movi",
+      "pattern": "0x00111100000xxx111111xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x00111100000xxx111111xxxxxxxxxx",
+      "mask": 3220765696,
+      "value": 251722752
+    },
+    {
+      "name": "aarch64_vector_reduce_fp16_add_sisd",
+      "pattern": "010111100x110000110110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "010111100x110000110110xxxxxxxxxx",
+      "mask": 4290771968,
+      "value": 1580259328
+    },
+    {
+      "name": "aarch64_vector_reduce_fp16_max_simd",
+      "pattern": "0x001110x0110000111110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x001110x0110000111110xxxxxxxxxx",
+      "mask": 3212835840,
+      "value": 238090240
+    },
+    {
+      "name": "aarch64_vector_reduce_fp16_max_sisd",
+      "pattern": "01011110xx110000111110xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01011110xx110000111110xxxxxxxxxx",
+      "mask": 4282383360,
+      "value": 1580267520
+    },
+    {
+      "name": "aarch64_vector_reduce_fp16_maxnm_simd",
+      "pattern": "0x001110x0110000110010xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "0x001110x0110000110010xxxxxxxxxx",
+      "mask": 3212835840,
+      "value": 238077952
+    },
+    {
+      "name": "aarch64_vector_reduce_fp16_maxnm_sisd",
+      "pattern": "01011110xx110000110010xxxxxxxxxx",
+      "predicate": "unconditional",
+      "required_pattern": "01011110xx110000110010xxxxxxxxxx",
+      "mask": 4282383360,
+      "value": 1580255232
+    },
+    {
+      "name": "aarch64_vector_shift_conv_float_simd",
+      "pattern": "0xx011110xxxxxxx111111xxxxxxxxxx",
+      "predicate": "immh=001x",
+      "required_pattern": "0xx011110001xxxx111111xxxxxxxxxx",
+      "mask": 2683370496,
+      "value": 252771328
+    },
+    {
+      "name": "aarch64_vector_shift_conv_float_sisd",
+      "pattern": "01x111110xxxxxxx111111xxxxxxxxxx",
+      "predicate": "immh=001x",
+      "required_pattern": "01x111110001xxxx111111xxxxxxxxxx",
+      "mask": 3757112320,
+      "value": 1594948608
+    },
+    {
+      "name": "aarch64_vector_shift_conv_int_simd",
+      "pattern": "0xx011110xxxxxxx111001xxxxxxxxxx",
+      "predicate": "immh=001x",
+      "required_pattern": "0xx011110001xxxx111001xxxxxxxxxx",
+      "mask": 2683370496,
+      "value": 252765184
+    },
+    {
+      "name": "aarch64_vector_shift_conv_int_sisd",
+      "pattern": "01x111110xxxxxxx111001xxxxxxxxxx",
+      "predicate": "immh=001x",
+      "required_pattern": "01x111110001xxxx111001xxxxxxxxxx",
+      "mask": 3757112320,
+      "value": 1594942464
+    }
+  ]
+}

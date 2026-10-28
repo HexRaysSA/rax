@@ -387,6 +387,8 @@ fn simd_modified_imm_rejects_reserved_bits() {
     // (o2=1 on a MOVI, or bit31 set) must trap; valid forms still execute.
     let setup = |insn: u32| {
         let mut cpu = create_cpu_with_insn(insn);
+        cpu.config.features.insert(ArmFeatures::FP16);
+        cpu.update_fp_id_registers();
         cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
         cpu
     };
@@ -550,6 +552,8 @@ fn simd_float_compare_nan_sets_invalid_status() {
     assert_eq!(cpu.fpsr & FPSR_IOC, FPSR_IOC);
 
     let mut cpu = create_cpu_with_insn(0x7e40_2400); // FCMGE H0, H0, H0
+    cpu.config.features.insert(ArmFeatures::FP16);
+    cpu.update_fp_id_registers();
     cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     cpu.v[0] = 0x7e01; // quiet NaN
     assert_eq!(cpu.step().unwrap(), CpuExit::Continue);

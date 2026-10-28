@@ -145,3 +145,53 @@ fn fp_sysreg_higher_trap_controls_survive_private_checkpoint_and_retirement_boun
     assert_eq!(target.run_retirement_budget(1).unwrap().retired, 1);
     assert_eq!(target.cpu.get_gpr(9), 1);
 }
+
+#[test]
+fn fp16_admission_checkpoint_retains_undefined_fault_and_zero_retirement() {
+    use crate::isa::arm::common::features::ArmFeatures;
+    for delivered in [false, true] {
+        let (mut source, mem) = machine(false);
+        mem.write_slice(&0x1ee2_2820u32.to_le_bytes(), GuestAddress(ENTRY))
+            .unwrap();
+        let CpuState::Aarch64(mut state) = source.get_state().unwrap() else {
+            panic!()
+        };
+        let execution = state.sregs.execution.as_mut().unwrap();
+        execution.features &= !(ArmFeatures::FP16 | ArmFeatures::FHM).bits();
+        execution.sysregs.el1.cpacr = 3 << 20;
+        state.regs.v[1][0] = 0x3c00;
+        state.regs.v[2][0] = 0x3c00;
+        source.set_state(&CpuState::Aarch64(state)).unwrap();
+        if delivered {
+            let result = source.run_retirement_budget(1).unwrap();
+            assert_eq!(result.retired, 0);
+            assert!(matches!(result.stop, RetirementStop::StateChange));
+        }
+        let state = source.get_state().unwrap();
+        let private = source.capture_backend_context().unwrap().unwrap();
+        assert!(private.data.starts_with(b"RAXA6402"));
+        let mut target = Aarch64Vcpu::new(0, mem);
+        target
+            .restore_checkpoint_context(&state, &Default::default(), Some(&private))
+            .unwrap();
+        if !delivered {
+            let result = target.run_retirement_budget(1).unwrap();
+            assert_eq!(result.retired, 0);
+            assert!(matches!(result.stop, RetirementStop::StateChange));
+        }
+        assert_eq!(
+            (target.current_pc(), target.instruction_count()),
+            (HANDLER, 0)
+        );
+        let CpuState::Aarch64(after) = target.get_state().unwrap() else {
+            panic!()
+        };
+        let execution = after.sregs.execution.as_ref().unwrap();
+        assert_eq!(execution.features & ArmFeatures::FP16.bits(), 0);
+        assert_eq!(execution.sysregs.el1.esr >> 26, 0);
+        assert_eq!(execution.sysregs.el1.elr, ENTRY);
+        assert_eq!(after.regs.v[0][0], 0);
+        assert_eq!(target.run_retirement_budget(1).unwrap().retired, 1);
+        assert_eq!(target.cpu.get_gpr(9), 1);
+    }
+}

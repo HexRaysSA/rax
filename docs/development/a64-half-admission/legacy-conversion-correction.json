@@ -1,0 +1,91 @@
+{
+  "word": "0x1e070000",
+  "expected": "Undefined",
+  "output": "tests/generated/arm/a64/float/convert.rs",
+  "tests": [
+    "test_aarch64_float_convert_fix_field_opcode_7_max_0_1e070000",
+    "test_aarch64_float_convert_fix_combo_10_0_1e070000"
+  ],
+  "original_output_sha256": "b1c4fdd8499b5bfbd8d9efc126dfd005461819494d4e43a75e03785d152ff028",
+  "primary_source": "docs/architecture/arm/asl/arm_instrs.asl",
+  "primary_sha256": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+  "primary_class": "aarch64_float_convert_fix",
+  "reason": "sf=0 and scale[5]=0; opcode<2:1>:rmode=11:00 is also reserved for the fixed-point conversion class.",
+  "oracle_version": "QEMU 11.1.2",
+  "oracle_cases": [
+    {
+      "el": 0,
+      "fpen": 0,
+      "model": "cortex-a53",
+      "code": 0,
+      "actual": "100I",
+      "elf_sha256": "903db9bcd08efd7557b1728e901e7e48fdf9c880969b5221ee7051b13c827a91",
+      "raw_sha256": "9eb8ff09fc80cad7a40b5e680cc2958e7ed49a65fd3307eb55fec5a71dd2f165"
+    },
+    {
+      "el": 0,
+      "fpen": 0,
+      "model": "cortex-a710",
+      "code": 0,
+      "actual": "100I",
+      "elf_sha256": "903db9bcd08efd7557b1728e901e7e48fdf9c880969b5221ee7051b13c827a91",
+      "raw_sha256": "9eb8ff09fc80cad7a40b5e680cc2958e7ed49a65fd3307eb55fec5a71dd2f165"
+    },
+    {
+      "el": 0,
+      "fpen": 3,
+      "model": "cortex-a53",
+      "code": 0,
+      "actual": "100I",
+      "elf_sha256": "e7a30344e0bb58714903a108e8b1b6a95e90c63f00722ca767192444621bbb07",
+      "raw_sha256": "8d87f3c9777ca7b7c7b4a7e06e08776b2c4904f78bd5bb671b97b8ece26ad018"
+    },
+    {
+      "el": 0,
+      "fpen": 3,
+      "model": "cortex-a710",
+      "code": 0,
+      "actual": "100I",
+      "elf_sha256": "e7a30344e0bb58714903a108e8b1b6a95e90c63f00722ca767192444621bbb07",
+      "raw_sha256": "8d87f3c9777ca7b7c7b4a7e06e08776b2c4904f78bd5bb671b97b8ece26ad018"
+    },
+    {
+      "el": 1,
+      "fpen": 0,
+      "model": "cortex-a53",
+      "code": 0,
+      "actual": "100I",
+      "elf_sha256": "49fcd02416123287643e2793a0eecabe3699ebd43735e0dcb69dde5ce2fa613a",
+      "raw_sha256": "fcf1bbd1966e4496eded8b8526067108881b5362bb13a0a29e78a14da4d4bdae"
+    },
+    {
+      "el": 1,
+      "fpen": 0,
+      "model": "cortex-a710",
+      "code": 0,
+      "actual": "100I",
+      "elf_sha256": "49fcd02416123287643e2793a0eecabe3699ebd43735e0dcb69dde5ce2fa613a",
+      "raw_sha256": "fcf1bbd1966e4496eded8b8526067108881b5362bb13a0a29e78a14da4d4bdae"
+    },
+    {
+      "el": 1,
+      "fpen": 3,
+      "model": "cortex-a53",
+      "code": 0,
+      "actual": "100I",
+      "elf_sha256": "9fb50c255a9c4b84cb949130324ec7d36f2f8938be9b24055c6a1d47f726d5c4",
+      "raw_sha256": "ebdd2a0e3f507d34678b1063e7b4574745c368a5cd9853ca5d39ab8ff6b0ef66"
+    },
+    {
+      "el": 1,
+      "fpen": 3,
+      "model": "cortex-a710",
+      "code": 0,
+      "actual": "100I",
+      "elf_sha256": "9fb50c255a9c4b84cb949130324ec7d36f2f8938be9b24055c6a1d47f726d5c4",
+      "raw_sha256": "ebdd2a0e3f507d34678b1063e7b4574745c368a5cd9853ca5d39ab8ff6b0ef66"
+    }
+  ],
+  "raw_evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/generated-correction-oracle-v1/result.json",
+  "historical_corpus": "Full input/revision remain unknown; older allocation expectations characterized the previous RAX decoder. This focused correction uses primary decode restrictions and independent QEMU results."
+}

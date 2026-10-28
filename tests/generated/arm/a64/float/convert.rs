@@ -1440,9 +1440,9 @@ fn test_aarch64_float_convert_fix_field_opcode_7_max_0_1e070000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected unallocated encoding for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -1946,9 +1946,9 @@ fn test_aarch64_float_convert_fix_combo_10_0_1e070000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected unallocated encoding for 0x{:08X}: {:?}",
         encoding,
         exit
     );

@@ -863,6 +863,7 @@ impl AArch64Cpu {
         if self.il
             || (self.btype != 0 && self.config.features.contains(ArmFeatures::BTI))
             || !region.fp_access.permitted(self.fp_access_controls())
+            || !self.config.features.contains(region.fp_features)
             || (region.uses_memory && self.sp_alignment_enabled())
         {
             return false;
@@ -942,7 +943,7 @@ impl AArch64Cpu {
         let mut lifter = Aarch64Lifter::new();
         let mut lctx = LiftContext::new(SourceArch::Aarch64);
         let mut func = lifter.lift_function(entry, &reader, &mut lctx).ok()?;
-        let fp_access = self.native_fp_requirements(&func, entry, &reader.bytes);
+        let (fp_access, fp_features) = self.native_fp_requirements(&func, entry, &reader.bytes)?;
 
         if std::env::var_os("RAX_JIT_NO_OPT").is_none() {
             optimize_function(&mut func, OptLevel::O2);
@@ -985,7 +986,9 @@ impl AArch64Cpu {
         }
 
         let uses_fp = uses_aarch64_fp_trampoline(&func);
-        if !fp_access.permitted(self.fp_access_controls()) {
+        if !fp_access.permitted(self.fp_access_controls())
+            || !self.config.features.contains(fp_features)
+        {
             return None;
         }
 
@@ -1004,6 +1007,7 @@ impl AArch64Cpu {
             entry_offset: res.entry_offset,
             uses_fp,
             fp_access,
+            fp_features,
             uses_memory,
             source_pages,
             pauth_instruction: None,

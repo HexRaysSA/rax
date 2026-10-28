@@ -345,6 +345,8 @@ impl AArch64Cpu {
                 fp.fault(crate::isa::arm::common::fp_access::FpAccessClass::System)
                     .is_some(),
             ) << 7)
+            | (u64::from(self.config.features.contains(ArmFeatures::FP16)) << 8)
+            | (u64::from(self.fhm_supported()) << 9)
     }
 
     /// Read up to `max` bytes of guest instruction stream from `entry`, stopping
@@ -412,7 +414,12 @@ impl AArch64Cpu {
         }
         let mt = self.jit_mode_tag();
         match self.jit.cache.get(&(pc, mt)) {
-            Some(Some(r)) if r.fp_access.permitted(self.fp_access_controls()) => Some(r.clone()),
+            Some(Some(r))
+                if r.fp_access.permitted(self.fp_access_controls())
+                    && self.config.features.contains(r.fp_features) =>
+            {
+                Some(r.clone())
+            }
             _ => None,
         }
     }
