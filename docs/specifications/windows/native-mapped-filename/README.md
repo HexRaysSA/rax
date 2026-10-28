@@ -35,10 +35,10 @@ after caller copy. Its initial optional-slot read consumes a reached guard;
 a readable, read-only slot can fail at the final store instead. An incomplete
 copy can retain a temporary pointer in the header. The emulator gives that
 pointer guest-owned temporary storage and retires it on every copy outcome.
-The captured ARM64-host WoW64 converter preserves completed 16-byte copy blocks
-before a straddling block faults.
+The completed stores depend on the captured kernel, string length and caller
+alignment; the measured profiles below preserve their precise order.
 
-Common query work is O(L + log A), excluding native filesystem metadata cost,
+Common query work is O(L log A), excluding native filesystem metadata cost,
 for L filename units and A allocations; retained metadata is O(A). Native name
 buffers are bounded by the 16-bit NT string ceiling. WoW64 conversion backing
 uses the guest memory manager and cannot allocate beyond its commitment budget.
@@ -93,8 +93,8 @@ runtime frontier; this change does not silently substitute another file family.
 | ID | Assumption and dependent result | Basis | Stress test / falsification probe | Status |
 | --- | --- | --- | --- | --- |
 | A1 | Mapping names belong to backing-file identity; allocation-owned metadata is required | Native image/data/pagefile, rename and close controls | Reopen a replaced pathname and compare both live mappings | Confirmed on the captured host; native regression also exercises replacement |
-| A2 | Native local-device short-buffer geometry generalizes across selected installed images | Every byte length around the device prefix and separate KERNEL32 controls | Replay fresh native AMD64/x86 matrices on both existing Windows CI kernels | Retained pending those native lanes |
-| A3 | The selected WoW64 copy profile preserves whole 16-byte blocks before a crossing fault | Six no-access/guard partial-copy controls | Fresh AMD64/x86 captures and complete buffer-prefix comparison | Confirmed for the captured ARM64 kernel; other kernels require their native lane |
+| A2 | A single kernel-copy profile can describe native64 and WoW64 publication | Original ARM64-host observations | Fresh native AMD64/x86 matrices and complete byte comparisons | Falsified; kernel-specific padding and validation order are modeled below |
+| A3 | Copy operations follow the admitted kernel routine, including length and destination alignment | Long/short-name byte sweeps and installed ARM64 NTDLL code | All 1-128-byte writable prefixes with guard/no-access boundaries on both native AMD64 kernels | Confirmed for the named captured profiles |
 
 Caller permissions are captured before conversion-storage allocation. A dedicated
 regression rejects an initially invalid destination even when its address would
@@ -153,19 +153,62 @@ The first fresh AMD64 qualification also falsified the assumption that native
 string padding and WoW64 copy blocks generalize from the ARM64 kernel. Build
 26100 zeros the four padding bytes on successful native64 queries, preserves
 them on short results, and reaches further into partial WoW64 destinations.
-The original exact replay correctly failed; these are open model corrections
-until the new byte-boundary controls are replayed. No padding mask, skipped
-case, or assertion reduction is used to qualify that profile.
+The original exact replay failed and prompted the measured corrections below.
+The retained byte comparisons include padding, skipped stores and partial
+publication throughout qualification.
 
 The added retained inputs are 144 ARM64-host version-7 rows, 192 ARM64-host
 version-8 rows, and all 266 first-run AMD64 build-26100 rows in
 `amd64-26100-projected-v1.json`. The first AMD64 run and ZIP digest are recorded
-in that corpus. The query implementation still needs the measured profile
-correction; capturing an observation does not establish a passing replay.
+in that corpus. Those captures expose the profile differences corrected below; acquisition
+and passing replay remain separate evidence.
 
 Version 9 repeats the byte-boundary campaign with the installed KERNEL32 image
 as the subject and every 1-128-byte writable prefix. It distinguishes filename
 length from kernel architecture when selecting a WoW64 copy profile. The v3
 AMD64 runner retains all preceding controls and adds 512 short-name rows
-(906 native observations per kernel). This acquisition precedes qualification
-of the length-dependent copy model.
+(906 native observations per kernel). This acquisition supplied the length-dependent copy model below.
+
+## Measured kernel-copy profiles
+
+Fresh AMD64 observations falsified the original assumption that the ARM64
+padding and copy rules generalize to other native kernels. The corrected model
+selects its profile from the admitted installation identity, independently of
+spoofable guest version fields:
+
+| Kernel | Native64 padding on success | High-address/output-alignment order | WoW64 string stores |
+| --- | --- | --- | --- |
+| ARM64 10.0.29695 | Preserve four bytes | Address first | Length-dependent ARM64 vector stores, including overlapping tail stores |
+| AMD64 10.0.20348 / 10.0.26100 | Zero four bytes | Output alignment first | First vector, destination-aligned vectors, then final-tail/remaining-vector order |
+
+Short native results preserve padding on both families. The common synthetic
+profile keeps its existing ARM64-derived behavior. An unmeasured native kernel
+identity produces an explicit unsupported-profile diagnostic.
+
+The ARM64 store plan is checked against the installed NTDLL `memcpy` body:
+2,048 captured bytes with SHA-256
+`d779beba1878b623d2c80284f3fe1ba8677c44a5b54d01e3708465baea3a2352`.
+Its medium-length path stores the trailing middle vectors before the head;
+paired vector stores expose the completed first 16-byte element when the
+second faults. The native AMD64 byte sweeps establish destination alignment
+and final-tail precedence on both captured kernels. The emulator retains that
+order, including gaps in partially written destinations, and checks caller
+permissions before allocating temporary conversion storage.
+
+The exact replay now evaluates 3,437 retained rows: 399 original ARM64-host
+rows, 192 long-name boundary rows, 768 short-name boundary rows, 266 first-run
+AMD64 rows, 788 corrected AMD64 setup/boundary rows and 1,024 AMD64 short-name
+rows. The additional 144 version-7 ARM64-host setup receipts retain deletion
+result/error evidence. The v3 runner also verifies `IsWow64Process2` reports a
+native AMD64 kernel and a native observer process, then adds 906 fresh rows in
+each existing Windows profile lane. Every byte comparison remains exact except
+the explicitly checked ASLR pointer field.
+
+The corrected model passes all 3,437 retained rows and both allocation
+regressions on macOS, Linux and native Windows ARM64. The wider VM selections
+pass 51, 51 and 57 tests respectively. macOS also passes 8 CLI tests, 191 C API
+tests, all-target checks and production-library Clippy with warnings denied;
+Linux passes its 8 CLI and 191 C API tests. The existing Windows profile jobs
+qualify installed native AMD64 leaves, the whole original hardware-fault fixture,
+CLI behavior and 906 fresh native observations against this implementation.
+Those CI results are separate from the retained-corpus and ARM64 runtime gates.

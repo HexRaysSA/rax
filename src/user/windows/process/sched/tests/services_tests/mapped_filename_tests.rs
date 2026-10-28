@@ -58,324 +58,522 @@ fn mapped_filename_replays_native_status_lengths_copy_and_fault_priority() {
             "/docs/specifications/windows/native-mapped-filename/observations-v6.json"
         )),
     ];
-    let external = std::env::var_os("RAX_NATIVE_MAPPED_FILENAME_OBSERVATIONS");
-    let corpora: Vec<serde_json::Value> = sources
+    let mut retained: Vec<(usize, serde_json::Value)> = sources
         .iter()
         .enumerate()
-        .map(|(version, text)| {
-            let text = external
-                .as_ref()
-                .map(|directory| {
-                    std::fs::read_to_string(
-                        std::path::Path::new(directory)
-                            .join(format!("observations-v{}.json", version + 1)),
-                    )
-                    .unwrap()
-                })
-                .unwrap_or_else(|| (*text).to_owned());
-            serde_json::from_str(&text).unwrap()
-        })
+        .map(|(version, text)| (version, serde_json::from_str(text).unwrap()))
         .collect();
-    let architectures: std::collections::BTreeSet<_> = corpora[0]["cases"]
+    retained.push((
+        7,
+        serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/docs/specifications/windows/native-mapped-filename/observations-v8.json"
+        )))
+        .unwrap(),
+    ));
+    retained.push((
+        8,
+        serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/docs/specifications/windows/native-mapped-filename/observations-v9.json"
+        )))
+        .unwrap(),
+    ));
+    replay(&retained, 3, 1359, 29695, 0xaa64, false);
+    let amd64: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-mapped-filename/amd64-26100-projected-v1.json"
+    )))
+    .unwrap();
+    let amd64: Vec<_> = amd64["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .cloned()
+        .enumerate()
+        .collect();
+    replay(&amd64, 2, 266, 26100, 0x8664, false);
+    let profiles: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-mapped-filename/amd64-profiles-v2.json"
+    )))
+    .unwrap();
+    for profile in profiles["profiles"].as_array().unwrap() {
+        let corpora: Vec<_> = profile["groups"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|group| {
+                (
+                    group["version"].as_u64().unwrap() as usize - 1,
+                    group["corpus"].clone(),
+                )
+            })
+            .collect();
+        replay(
+            &corpora,
+            2,
+            394,
+            profile["build"].as_u64().unwrap() as u32,
+            profile["native_machine"].as_u64().unwrap() as u16,
+            true,
+        );
+    }
+    let short: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-mapped-filename/amd64-short-profiles-v3.json"
+    )))
+    .unwrap();
+    for profile in short["profiles"].as_array().unwrap() {
+        let corpora = [(8, profile["groups"][0]["corpus"].clone())];
+        // The short-name subject is KERNEL32, so the baseline executable path
+        // is irrelevant to these rows. Rebind its native file metadata to the
+        // matching kernel's retained baseline before evaluating the subject.
+        let baselines: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/docs/specifications/windows/native-mapped-filename/amd64-profiles-v2.json"
+        )))
+        .unwrap();
+        let baseline = baselines["profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["build"] == profile["build"])
+            .unwrap();
+        replay_with_baseline(
+            &corpora,
+            2,
+            512,
+            profile["build"].as_u64().unwrap() as u32,
+            0x8664,
+            false,
+            &baseline["groups"][0]["corpus"],
+        );
+    }
+    if let Some(directory) = std::env::var_os("RAX_NATIVE_MAPPED_FILENAME_OBSERVATIONS") {
+        let external: Vec<_> = [0, 1, 2, 3, 4, 5, 7, 8]
+            .into_iter()
+            .map(|version| {
+                let text = std::fs::read_to_string(
+                    std::path::Path::new(&directory)
+                        .join(format!("observations-v{}.json", version + 1)),
+                )
+                .unwrap();
+                (
+                    version,
+                    serde_json::from_str::<serde_json::Value>(&text).unwrap(),
+                )
+            })
+            .collect();
+        let build = external[0].1["build"].as_u64().unwrap() as u32;
+        replay(&external, 2, 906, build, 0x8664, true);
+    }
+}
+
+fn kernel_profile(p: &mut Proc, build: u32, machine: u16) {
+    use crate::user::windows::{loader::apiset_schema::ApiSetSchema, native::NativeRuntime};
+    let schema: Vec<u8> = [6u32, 28, 0, 0, 28, 28, 0]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect();
+    let mut native = NativeRuntime {
+        directory: Default::default(),
+        guest_root: "C:\\Windows".into(),
+        guest_directory: "C:\\Windows\\System32".into(),
+        version: Default::default(),
+        apisets: ApiSetSchema::parse(&schema).unwrap(),
+        registry: Default::default(),
+        object_namespace: Default::default(),
+        nls: None,
+        appcompat: Default::default(),
+        wnf_catalog: Default::default(),
+        startup: None,
+        gui: Default::default(),
+        code_integrity: Err("controlled filename query profile".into()),
+    };
+    native.version.build = build;
+    native.object_namespace.native_machine = Some(machine);
+    p.native = Some(native);
+    std::sync::Arc::make_mut(&mut p.cfg).version.build = 12345;
+}
+
+fn replay(
+    corpora: &[(usize, serde_json::Value)],
+    architectures: usize,
+    cases: usize,
+    build: u32,
+    machine: u16,
+    external: bool,
+) {
+    replay_with_baseline(
+        corpora,
+        architectures,
+        cases,
+        build,
+        machine,
+        external,
+        &corpora[0].1,
+    );
+}
+
+fn replay_with_baseline(
+    corpora: &[(usize, serde_json::Value)],
+    architectures: usize,
+    cases: usize,
+    build: u32,
+    machine: u16,
+    external: bool,
+    baseline: &serde_json::Value,
+) {
+    let selected: std::collections::BTreeSet<_> = corpora[0].1["cases"]
         .as_array()
         .unwrap()
         .iter()
         .map(|row| row["arch"].as_str().unwrap())
         .collect();
-    assert_eq!(architectures.len(), if external.is_some() { 2 } else { 3 });
+    assert_eq!(selected.len(), architectures);
     assert_eq!(
         corpora
             .iter()
-            .map(|corpus| corpus["cases"].as_array().unwrap().len())
+            .map(|(_, corpus)| corpus["cases"].as_array().unwrap().len())
             .sum::<usize>(),
-        133 * architectures.len()
+        cases
     );
-    for (version, corpus) in corpora.iter().enumerate() {
+    let mut failures = Vec::new();
+    for (version, corpus) in corpora {
         for row in corpus["cases"].as_array().unwrap() {
-            let arch_name = row["arch"].as_str().unwrap();
-            let arch = match arch_name {
-                "x86" => WinArch::X86,
-                "x64" => WinArch::X64,
-                "arm64" => WinArch::Arm64,
-                other => panic!("unknown architecture {other}"),
-            };
-            let which = row["case"].as_u64().unwrap();
-            let observation = &row["observation"];
-            assert_eq!(row["exit_code"], 0);
-            assert_eq!(observation["raised"], 0);
-            let find = |case: u64| {
-                corpora[0]["cases"]
-                    .as_array()
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let arch_name = row["arch"].as_str().unwrap();
+                let arch = match arch_name {
+                    "x86" => WinArch::X86,
+                    "x64" => WinArch::X64,
+                    "arm64" => WinArch::Arm64,
+                    other => panic!("unknown architecture {other}"),
+                };
+                let which = row["case"].as_u64().unwrap();
+                let observation = &row["observation"];
+                assert_eq!(row["exit_code"], 0);
+                assert_eq!(observation["raised"], 0);
+                if external && *version == 0 && which == 44 {
+                    assert_eq!(observation["delete_attempted"], true);
+                    let deleted = observation["delete_success"].as_bool().unwrap();
+                    let error = observation["delete_error"].as_u64().unwrap();
+                    assert_eq!(deleted, error == 0, "{arch} deletion setup receipt");
+                }
+                let find = |case: u64| {
+                    baseline["cases"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|row| {
+                            row["arch"].as_str() == Some(arch_name)
+                                && row["case"].as_u64() == Some(case)
+                        })
+                        .unwrap()
+                };
+                let exe_name = String::from_utf16(&captured_name(find(0)))
                     .unwrap()
-                    .iter()
-                    .find(|row| {
-                        row["arch"].as_str() == Some(arch_name)
-                            && row["case"].as_u64() == Some(case)
-                    })
-                    .unwrap()
-            };
-            let exe_name = String::from_utf16(&captured_name(find(0)))
-                .unwrap()
-                .replace("observation-v1", &format!("observation-v{}", version + 1))
-                .encode_utf16()
-                .collect::<Vec<_>>();
-            let (mut process, mut thread, base) = setup(arch);
-            let p = process.state_mut();
-            let exe = p.modules.exe().base;
-            p.vm.record_mapped_filename(exe, Filename::Captured(exe_name.into()))
-                .unwrap();
-            p.space.wr(base, &vec![0xCC; 16384]).unwrap();
-            let mut address = exe;
-            let mut handle = arch.ptr(u64::MAX);
-            let mut output = base + 128;
-            let mut returned = base + 64;
-            let length = observation["length"].as_u64().unwrap();
-            let protect = |p: &mut Proc, page: u64, protection| {
-                p.vm.protect(base + page * PAGE_SIZE, PAGE_SIZE, protection)
+                    .replace("observation-v1", &format!("observation-v{}", version + 1))
+                    .encode_utf16()
+                    .collect::<Vec<_>>();
+                let (mut process, mut thread, base) = setup(arch);
+                let p = process.state_mut();
+                kernel_profile(p, build, machine);
+                let exe = p.modules.exe().base;
+                p.vm.record_mapped_filename(exe, Filename::Captured(exe_name.into()))
                     .unwrap();
-            };
-            match which {
-                8 | 9 | 63 => output = 0,
-                10 => output += 1,
-                11 | 48 | 49 => output = 1,
-                12 => protect(p, 0, prot::READONLY),
-                13 => protect(p, 0, prot::NOACCESS),
-                14 => protect(p, 0, prot::READWRITE | prot::GUARD),
-                15 | 34 => {
-                    output = base + PAGE_SIZE - 2 * arch.ptr_size();
-                    protect(
-                        p,
-                        1,
-                        if which == 15 {
-                            prot::NOACCESS
-                        } else {
-                            prot::READWRITE | prot::GUARD
-                        },
-                    );
-                }
-                16 | 60 => returned = 0,
-                17 | 50 => returned = 1,
-                18 => returned += 1,
-                19 | 20 | 51 | 52 => {
-                    returned = base + 2 * PAGE_SIZE;
-                    protect(
-                        p,
-                        2,
-                        if matches!(which, 19 | 51) {
-                            prot::READONLY
-                        } else {
-                            prot::READWRITE | prot::GUARD
-                        },
-                    );
-                }
-                21 | 61 => returned = output,
-                22 => returned = output + arch.ptr_size(),
-                23 | 45 => handle = 0x1234,
-                24 => {
-                    handle = 0x1234;
-                    output = 0;
-                }
-                25 => handle = arch.ptr(u64::MAX - 1),
-                26 | 27 => {
-                    let object = p.objects.create(Object::Process {
-                        pid: p.pid,
-                        exit_code: None,
-                    });
-                    handle = u64::from(
-                        p.objects
-                            .open_access(object, false, if which == 26 { 0x1000 } else { 0x10 })
-                            .unwrap(),
-                    );
-                }
-                28 | 46 => address = 0,
-                29 => {
-                    address =
-                        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                p.space.wr(base, &vec![0xCC; 16384]).unwrap();
+                let mut address = exe;
+                let mut handle = arch.ptr(u64::MAX);
+                let mut output = base + 128;
+                let mut returned = base + 64;
+                let length = observation["length"].as_u64().unwrap();
+                let protect = |p: &mut Proc, page: u64, protection| {
+                    p.vm.protect(base + page * PAGE_SIZE, PAGE_SIZE, protection)
+                        .unwrap();
+                };
+                match which {
+                    8 | 9 | 63 => output = 0,
+                    10 => output += 1,
+                    11 | 48 | 49 => output = 1,
+                    12 => protect(p, 0, prot::READONLY),
+                    13 => protect(p, 0, prot::NOACCESS),
+                    14 => protect(p, 0, prot::READWRITE | prot::GUARD),
+                    15 | 34 => {
+                        output = base + PAGE_SIZE - 2 * arch.ptr_size();
+                        protect(
+                            p,
+                            1,
+                            if which == 15 {
+                                prot::NOACCESS
+                            } else {
+                                prot::READWRITE | prot::GUARD
+                            },
+                        );
+                    }
+                    16 | 60 => returned = 0,
+                    17 | 50 => returned = 1,
+                    18 => returned += 1,
+                    19 | 20 | 51 | 52 => {
+                        returned = base + 2 * PAGE_SIZE;
+                        protect(
+                            p,
+                            2,
+                            if matches!(which, 19 | 51) {
+                                prot::READONLY
+                            } else {
+                                prot::READWRITE | prot::GUARD
+                            },
+                        );
+                    }
+                    21 | 61 => returned = output,
+                    22 => returned = output + arch.ptr_size(),
+                    23 | 45 => handle = 0x1234,
+                    24 => {
+                        handle = 0x1234;
+                        output = 0;
+                    }
+                    25 => handle = arch.ptr(u64::MAX - 1),
+                    26 | 27 => {
+                        let object = p.objects.create(Object::Process {
+                            pid: p.pid,
+                            exit_code: None,
+                        });
+                        handle = u64::from(
+                            p.objects
+                                .open_access(object, false, if which == 26 { 0x1000 } else { 0x10 })
+                                .unwrap(),
+                        );
+                    }
+                    28 | 46 => address = 0,
+                    29 => {
+                        address = p
+                            .vm
+                            .allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
                             .unwrap()
                             .0
-                }
-                30 => {
-                    address =
-                        p.vm.reserve(
-                            None,
-                            PAGE_SIZE,
-                            prot::NOACCESS,
-                            AllocKind::Private,
-                            false,
-                            None,
-                        )
-                        .unwrap()
-                }
-                31 => address = arch.ptr(u64::MAX),
-                32 => {
-                    address = map(p, AllocKind::Private, PAGE_SIZE, None);
-                    p.vm.release(address).unwrap();
-                }
-                33 => protect(p, 1, prot::NOACCESS),
-                35 => address += 1,
-                36 | 40 => {
-                    address = map(
-                        p,
-                        AllocKind::Image,
-                        PAGE_SIZE,
-                        Some(captured_name(find(36))),
-                    )
-                }
-                37 | 38 | 41 | 42 | 43 | 44 => {
-                    address = map(
-                        p,
-                        AllocKind::Mapped,
-                        32 * PAGE_SIZE,
-                        Some(captured_name(find(if which == 41 { 37 } else { which }))),
-                    );
-                    if which == 38 {
-                        address += 65536;
                     }
-                    if which == 41 {
+                    30 => {
+                        address =
+                            p.vm.reserve(
+                                None,
+                                PAGE_SIZE,
+                                prot::NOACCESS,
+                                AllocKind::Private,
+                                false,
+                                None,
+                            )
+                            .unwrap()
+                    }
+                    31 => address = arch.ptr(u64::MAX),
+                    32 => {
+                        address = map(p, AllocKind::Private, PAGE_SIZE, None);
                         p.vm.release(address).unwrap();
                     }
+                    33 => protect(p, 1, prot::NOACCESS),
+                    35 => address += 1,
+                    36 | 40 => {
+                        address = map(
+                            p,
+                            AllocKind::Image,
+                            PAGE_SIZE,
+                            Some(captured_name(find(36))),
+                        )
+                    }
+                    37 | 38 | 41 | 42 | 43 | 44 => {
+                        address = map(
+                            p,
+                            AllocKind::Mapped,
+                            32 * PAGE_SIZE,
+                            Some(captured_name(find(if which == 41 { 37 } else { which }))),
+                        );
+                        if which == 38 {
+                            address += 65536;
+                        }
+                        if which == 41 {
+                            p.vm.release(address).unwrap();
+                        }
+                    }
+                    39 => address = map(p, AllocKind::Mapped, PAGE_SIZE, None),
+                    53 => {
+                        output = 1;
+                        handle = 0x1234;
+                    }
+                    54 | 55 => {
+                        output = 1;
+                        address = if which == 54 { 0 } else { arch.ptr(u64::MAX) };
+                    }
+                    62 => {
+                        handle = 0x1234;
+                        protect(p, 0, prot::READONLY);
+                    }
+                    64 | 65 => {
+                        returned = base + PAGE_SIZE - 2;
+                        protect(
+                            p,
+                            1,
+                            if which == 64 {
+                                prot::NOACCESS
+                            } else {
+                                prot::READWRITE | prot::GUARD
+                            },
+                        );
+                    }
+                    91..=95 => {
+                        address = map(
+                            p,
+                            AllocKind::Image,
+                            PAGE_SIZE,
+                            Some(captured_name(find(36))),
+                        )
+                    }
+                    124..=129 => {
+                        output = base + PAGE_SIZE - (64 + ((which - 124) / 2) * 64);
+                        protect(
+                            p,
+                            1,
+                            if which % 2 == 0 {
+                                prot::NOACCESS
+                            } else {
+                                prot::READWRITE | prot::GUARD
+                            },
+                        );
+                    }
+                    130 | 131 => {
+                        returned = base + PAGE_SIZE - 2;
+                        protect(
+                            p,
+                            1,
+                            if which == 130 {
+                                prot::READONLY
+                            } else {
+                                prot::READONLY | prot::GUARD
+                            },
+                        );
+                    }
+                    132 => returned = output + 2 * arch.ptr_size() + 4,
+                    133..=388 => {
+                        output = base + PAGE_SIZE - (1 + (which - 133) / 2);
+                        protect(
+                            p,
+                            1,
+                            if (which - 133) % 2 == 0 {
+                                prot::NOACCESS
+                            } else {
+                                prot::READWRITE | prot::GUARD
+                            },
+                        );
+                    }
+                    _ => {}
                 }
-                39 => address = map(p, AllocKind::Mapped, PAGE_SIZE, None),
-                53 => {
-                    output = 1;
-                    handle = 0x1234;
-                }
-                54 | 55 => {
-                    output = 1;
-                    address = if which == 54 { 0 } else { arch.ptr(u64::MAX) };
-                }
-                62 => {
-                    handle = 0x1234;
-                    protect(p, 0, prot::READONLY);
-                }
-                64 | 65 => {
-                    returned = base + PAGE_SIZE - 2;
-                    protect(
-                        p,
-                        1,
-                        if which == 64 {
-                            prot::NOACCESS
-                        } else {
-                            prot::READWRITE | prot::GUARD
-                        },
-                    );
-                }
-                91..=95 => {
+                if *version == 8 {
                     address = map(
                         p,
                         AllocKind::Image,
                         PAGE_SIZE,
                         Some(captured_name(find(36))),
-                    )
-                }
-                124..=129 => {
-                    output = base + PAGE_SIZE - (64 + ((which - 124) / 2) * 64);
-                    protect(
-                        p,
-                        1,
-                        if which % 2 == 0 {
-                            prot::NOACCESS
-                        } else {
-                            prot::READWRITE | prot::GUARD
-                        },
                     );
                 }
-                130 | 131 => {
-                    returned = base + PAGE_SIZE - 2;
-                    protect(
-                        p,
-                        1,
-                        if which == 130 {
-                            prot::READONLY
-                        } else {
-                            prot::READONLY | prot::GUARD
-                        },
-                    );
-                }
-                132 => returned = output + 2 * arch.ptr_size() + 4,
-                _ => {}
-            }
-            let last_error =
-                thread.teb + crate::user::windows::layout::offsets(arch).teb_last_error;
-            p.space.w32(last_error, 0x1234_5678).unwrap();
-            arguments(
-                p,
-                &mut thread,
-                &[handle, address, 2, output, length, returned],
-            );
-            assert_eq!(
-                dispatch(p, &mut thread),
-                Outcome::Continue,
-                "{arch} v{} case {which}",
-                version + 1
-            );
-            let status = thread.cpu.gpr(0) as u32;
-            assert_eq!(
-                status,
-                observation["status"].as_u64().unwrap() as u32,
-                "{arch} v{} case {which}",
-                version + 1
-            );
-            assert_eq!(p.space.u32(last_error).unwrap(), 0x1234_5678);
-            for page in 0..3 {
-                assert_eq!(
-                    p.vm.query(base + page * PAGE_SIZE).unwrap().protect,
-                    observation["protect"][page as usize].as_u64().unwrap() as u32,
-                    "{arch} case {which} page {page}"
+                let last_error =
+                    thread.teb + crate::user::windows::layout::offsets(arch).teb_last_error;
+                p.space.w32(last_error, 0x1234_5678).unwrap();
+                arguments(
+                    p,
+                    &mut thread,
+                    &[handle, address, 2, output, length, returned],
                 );
-            }
-            p.vm.protect(base, 4 * PAGE_SIZE, prot::READWRITE).unwrap();
-            let actual_return = if returned >= base && returned + arch.ptr_size() <= base + 16384 {
-                p.space.ptr(returned, arch.ptr_size()).unwrap()
-            } else {
-                0
-            };
-            assert_eq!(
-                actual_return,
-                observation["returned"].as_u64().unwrap(),
-                "{arch} v{} case {which} ReturnLength",
-                version + 1
-            );
-            let mut expected = decode_hex(observation["output_hex"].as_str().unwrap());
-            if !expected.is_empty() {
-                let mut actual = p.space.bytes(output, expected.len()).unwrap();
-                let pointer = arch.ptr_size() as usize;
-                if expected[pointer..2 * pointer]
-                    .iter()
-                    .any(|&byte| byte != 0xCC)
-                    && which != 22
-                {
-                    expected[pointer..2 * pointer].fill(0);
-                    actual[pointer..2 * pointer].fill(0);
-                    let value = p
-                        .space
-                        .ptr(output + pointer as u64, pointer as u64)
-                        .unwrap();
-                    if (matches!(which, 15 | 34) || (124..=129).contains(&which))
-                        && arch == WinArch::X86
-                    {
-                        assert!(value >= p.vm.low() && value < p.vm.high());
-                        assert!(
-                            p.vm.allocation(value).is_none(),
-                            "conversion backing leaked"
-                        );
-                    } else {
-                        assert_eq!(
-                            value,
-                            output + 2 * pointer as u64,
-                            "{arch} case {which} Buffer"
-                        );
-                    }
-                }
                 assert_eq!(
-                    actual,
-                    expected,
-                    "{arch} v{} case {which} output",
+                    dispatch(p, &mut thread),
+                    Outcome::Continue,
+                    "{arch} v{} case {which}",
                     version + 1
                 );
+                let status = thread.cpu.gpr(0) as u32;
+                assert_eq!(
+                    status,
+                    observation["status"].as_u64().unwrap() as u32,
+                    "{arch} v{} case {which}",
+                    version + 1
+                );
+                assert_eq!(p.space.u32(last_error).unwrap(), 0x1234_5678);
+                for page in 0..3 {
+                    assert_eq!(
+                        p.vm.query(base + page * PAGE_SIZE).unwrap().protect,
+                        observation["protect"][page as usize].as_u64().unwrap() as u32,
+                        "{arch} case {which} page {page}"
+                    );
+                }
+                p.vm.protect(base, 4 * PAGE_SIZE, prot::READWRITE).unwrap();
+                let actual_return =
+                    if returned >= base && returned + arch.ptr_size() <= base + 16384 {
+                        p.space.ptr(returned, arch.ptr_size()).unwrap()
+                    } else {
+                        0
+                    };
+                assert_eq!(
+                    actual_return,
+                    observation["returned"].as_u64().unwrap(),
+                    "{arch} v{} case {which} ReturnLength",
+                    version + 1
+                );
+                let mut expected = decode_hex(observation["output_hex"].as_str().unwrap());
+                if !expected.is_empty() {
+                    let mut actual = p.space.bytes(output, expected.len()).unwrap();
+                    let pointer = arch.ptr_size() as usize;
+                    if expected[pointer..2 * pointer]
+                        .iter()
+                        .any(|&byte| byte != 0xCC)
+                        && which != 22
+                    {
+                        expected[pointer..2 * pointer].fill(0);
+                        actual[pointer..2 * pointer].fill(0);
+                        let value = p
+                            .space
+                            .ptr(output + pointer as u64, pointer as u64)
+                            .unwrap();
+                        if (matches!(which, 15 | 34)
+                            || (124..=129).contains(&which)
+                            || (133..=388).contains(&which))
+                            && status != STATUS_SUCCESS
+                            && arch == WinArch::X86
+                        {
+                            assert!(value >= p.vm.low() && value < p.vm.high());
+                            assert!(
+                                p.vm.allocation(value).is_none(),
+                                "conversion backing leaked"
+                            );
+                        } else {
+                            assert_eq!(
+                                value,
+                                output + 2 * pointer as u64,
+                                "{arch} case {which} Buffer"
+                            );
+                        }
+                    }
+                    assert_eq!(
+                        actual,
+                        expected,
+                        "{arch} v{} case {which} output",
+                        version + 1
+                    );
+                }
+            }));
+            if result.is_err() {
+                failures.push(format!(
+                    "machine {machine:#06x} build {build}: {} v{} case {}",
+                    row["arch"],
+                    version + 1,
+                    row["case"]
+                ));
             }
         }
     }
+    assert!(
+        failures.is_empty(),
+        "{} native replay failures:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
 }
 
 #[test]
