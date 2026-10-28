@@ -266,21 +266,29 @@ fn call(ctx: &mut Ctx<'_>, nr: u32, a: &[u64; 9]) -> KernReturn {
         trap::PID_FOR_TASK => {
             // Any flavor of the caller's own task port names this process;
             // the copy-out's failure is ignored.
-            let ok = ctx
+            let named = ctx
                 .proc
                 .ipc
                 .lookup(name(0))
                 .ok()
                 .filter(|e| e.send > 0)
-                .and_then(|e| e.port().cloned())
-                .is_some_and(|p| {
-                    Arc::ptr_eq(&p, &ctx.proc.task_port)
-                        || matches!(
-                            p.kobject,
-                            KObject::TaskName | KObject::TaskRead | KObject::TaskInspect
-                        )
-                });
-            let (k, pid) = if ok {
+                .and_then(|e| e.port().cloned());
+            #[cfg(unix)]
+            let remote = named.as_ref().and_then(|port| {
+                crate::user::darwin::syscall::bsd::ptrace::remote_pid_for_task(ctx.proc, port)
+            });
+            #[cfg(not(unix))]
+            let remote: Option<i32> = None;
+            let ok = named.is_some_and(|p| {
+                Arc::ptr_eq(&p, &ctx.proc.task_port)
+                    || matches!(
+                        p.kobject,
+                        KObject::TaskName | KObject::TaskRead | KObject::TaskInspect
+                    )
+            });
+            let (k, pid) = if let Some(pid) = remote {
+                (kr::KERN_SUCCESS, pid)
+            } else if ok {
                 (kr::KERN_SUCCESS, ctx.proc.pid)
             } else {
                 (kr::KERN_FAILURE, -1)
@@ -289,26 +297,46 @@ fn call(ctx: &mut Ctx<'_>, nr: u32, a: &[u64; 9]) -> KernReturn {
             k
         }
         trap::TASK_FOR_PID | trap::TASK_NAME_FOR_PID => {
-            // The caller's own pid yields its task (or name) port; other
-            // pids are refused as for an unentitled process. MACH_PORT_NULL
-            // is stored on failure; copy-out failures are ignored.
+            // MACH_PORT_NULL is stored on failure; copy-out failures are
+            // ignored. Foreign control ports use the authenticated child
+            // connection independently of the BSD tracing stop state.
             let pid = a[1] as i32;
-            if pid == 0 || pid != ctx.proc.pid || !port::is_self_task(ctx.proc, name(0)) {
+            if pid == 0 || !port::is_self_task(ctx.proc, name(0)) {
                 let _ = ctx.write_u32(a[2], MACH_PORT_NULL);
                 return kr::KERN_FAILURE;
             }
-            let port = if nr == trap::TASK_FOR_PID {
-                ctx.proc.task_port.clone()
+            #[cfg(unix)]
+            if nr == trap::TASK_FOR_PID && pid != ctx.proc.pid {
+                return crate::user::darwin::syscall::bsd::ptrace::remote_task_for_pid(
+                    ctx, pid, a[2],
+                );
+            }
+            let port = if pid != ctx.proc.pid {
+                None
+            } else if nr == trap::TASK_FOR_PID {
+                Some(ctx.proc.task_port.clone())
             } else {
-                ctx.proc
-                    .task
-                    .name_port
-                    .get_or_insert_with(|| {
-                        crate::user::darwin::mach::ipc::Port::new(KObject::TaskName)
-                    })
-                    .clone()
+                Some(
+                    ctx.proc
+                        .task
+                        .name_port
+                        .get_or_insert_with(|| {
+                            crate::user::darwin::mach::ipc::Port::new(KObject::TaskName)
+                        })
+                        .clone(),
+                )
+            };
+            let Some(port) = port else {
+                let _ = ctx.write_u32(a[2], MACH_PORT_NULL);
+                return kr::KERN_FAILURE;
             };
             let n = ctx.proc.insert_send(&port);
+            #[cfg(unix)]
+            if n == MACH_PORT_NULL
+                && crate::user::darwin::syscall::bsd::ptrace::is_remote_mach_port(ctx.proc, &port)
+            {
+                crate::user::darwin::syscall::mach::kmsg::release_send(ctx.proc, &port);
+            }
             let _ = ctx.write_u32(a[2], n);
             kr::KERN_SUCCESS
         }

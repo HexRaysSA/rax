@@ -57,8 +57,8 @@ mod off {
     pub const SS: u64 = 64;
 }
 
-/// `getreg32`: the word of `struct user32` at `off` (the debug registers
-/// read as zero: no thread has hardware breakpoints); a misaligned offset,
+/// `getreg32`: the word of `struct user32` at `off` (DR6 retains the last
+/// trace status; other debug registers read zero); a misaligned offset,
 /// or one past the structure, is `EIO` (its end itself is not).
 pub fn getreg32(cpu: &X86UserCpu, syscall: Option<SyscallEntry>, off: u64) -> Result<u32, Errno> {
     let v = cpu.vcpu();
@@ -82,6 +82,7 @@ pub fn getreg32(cpu: &X86UserCpu, syscall: Option<SyscallEntry>, off: u64) -> Re
         off::EFLAGS => v.user_rflags() as u32,
         off::ESP => r.rsp as u32,
         off::SS => sel(X86UserSegment::Ss),
+        n if n == USER32_DEBUGREG + 6 * 4 => (v.last_user_debug_status() & (1 << 14)) as u32,
         _ if off > USER32 || off & 3 != 0 => return Err(Errno(EIO)),
         _ => 0,
     })
@@ -141,6 +142,9 @@ pub fn putreg32(
         }
         _ if (USER32_DEBUGREG..USER32_DEBUGREG + 32).contains(&off) => {
             if value == 0 {
+                if off == USER32_DEBUGREG + 6 * 4 {
+                    v.clear_user_debug_status();
+                }
                 Ok(())
             } else {
                 Err(Errno(EIO))

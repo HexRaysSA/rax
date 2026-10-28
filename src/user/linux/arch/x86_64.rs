@@ -2,7 +2,7 @@
 //!
 //! - System calls: `SYSCALL` with the number in RAX and arguments in RDI,
 //!   RSI, RDX, R10, R8, R9; the result returns in RAX, and RCX/R11 hold the
-//!   return RIP and RFLAGS (the kernel returns with `SYSRET`).
+//!   return RIP and RFLAGS (the kernel selects IRET when TF or RF requires it).
 //! - `INT 0x80` enters the 32-bit (IA32 emulation) system-call table with
 //!   EAX, EBX, ECX, EDX, ESI, EDI, EBP.
 //! - Exceptions become signals as in `arch/x86/kernel/traps.c`.
@@ -77,7 +77,7 @@ fn fp_exception_code(err: u32) -> i32 {
 }
 
 /// Maps an x86 exception or software interrupt to its Linux signal.
-fn event_signal(e: &X86UserEvent, mxcsr: u32) -> Result<SigInfo, ()> {
+fn event_signal(e: &X86UserEvent, mxcsr: u32, debug_status: u64) -> Result<SigInfo, ()> {
     let fault = |signo, code, addr| Ok(SigInfo::fault(signo, code, addr));
     match (e.source, e.vector) {
         // INT3/INT 3 and INTO/INT 4 use DPL-3 gates (do_int3_user, do_trap).
@@ -86,8 +86,19 @@ fn event_signal(e: &X86UserEvent, mxcsr: u32) -> Result<SigInfo, ()> {
         // Every other vector's gate is DPL 0, so INT n raises #GP(n*8+2).
         (X86EventSource::SoftwareInterrupt, _) => fault(SIGSEGV, code::SI_KERNEL, 0),
         (X86EventSource::Exception, 0) => fault(SIGFPE, code::FPE_INTDIV, e.insn_rip),
-        // INT1/ICEBP and single-step: send_sigtrap(regs, 0, TRAP_BRKPT).
-        (X86EventSource::Exception, 1) => fault(SIGTRAP, code::TRAP_BRKPT, e.return_rip),
+        // exc_debug_user/get_si_code: distinguish DR_STEP from ICEBP's
+        // status-free #DB, without reusing a previous debug trap's cause.
+        (X86EventSource::Exception, 1) => fault(
+            SIGTRAP,
+            if debug_status & (1 << 14) != 0 {
+                code::TRAP_TRACE
+            } else if debug_status & 0xf != 0 {
+                code::TRAP_HWBKPT
+            } else {
+                code::TRAP_BRKPT
+            },
+            e.return_rip,
+        ),
         (X86EventSource::Exception, 5) => fault(SIGSEGV, code::SI_KERNEL, 0),
         (X86EventSource::Exception, 6) => fault(SIGILL, code::ILL_ILLOPN, e.insn_rip),
         (X86EventSource::Exception, 11 | 12) => fault(SIGBUS, code::SI_KERNEL, 0),
@@ -163,6 +174,13 @@ pub fn step(cpu: &mut X86UserCpu) -> CpuEvent {
 
 /// The Linux view of how a run ended.
 fn event(cpu: &mut X86UserCpu, exit: X86Exit) -> CpuEvent {
+    let debug_status = if matches!(&exit, X86Exit::Event(e)
+        if e.source == X86EventSource::Exception && e.vector == 1)
+    {
+        cpu.vcpu_mut().capture_user_debug_status()
+    } else {
+        0
+    };
     match exit {
         X86Exit::Syscall {
             insn: X86SyscallInsn::Syscall,
@@ -214,7 +232,7 @@ fn event(cpu: &mut X86UserCpu, exit: X86Exit) -> CpuEvent {
                 CpuEvent::CompatSyscall { nr, args }
             }
         }
-        X86Exit::Event(e) => match event_signal(&e, cpu.vcpu().mxcsr()) {
+        X86Exit::Event(e) => match event_signal(&e, cpu.vcpu().mxcsr(), debug_status) {
             Ok(info) => {
                 // The frame's saved RIP: past the instruction for traps and
                 // for INT3/INTO, the instruction itself for faults and for

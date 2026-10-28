@@ -304,9 +304,10 @@ fn take_host_signals(ctx: &mut Ctx<'_>) {
 
 /// `kill(pid, signum, posix)`.
 ///
-/// The process itself is signalled directly. Other processes are the
-/// host's: the host sends the signal, and a process group that includes
-/// this process reaches it through host-signal forwarding. `kill(-1)`
+/// The process itself is signalled directly. A connected traced child gets
+/// signals through the guest tracing link; other targets use the host. A
+/// process group that includes this process reaches it through
+/// host-signal forwarding. `kill(-1)`
 /// ("every process the user may signal") signals only this process.
 /// An embedded process is its own virtual process group; other targets
 /// return `EPERM` before any host process lookup or signal forwarding.
@@ -328,6 +329,19 @@ pub fn kill(ctx: &mut Ctx<'_>, pid: i32, sig: i32, posix: i32) -> SysResult {
     }
     #[cfg(unix)]
     {
+        if pid > 0
+            && sig != 0
+            && (super::ptrace::is_signal_peer(&ctx.proc.tracing, pid)
+                || matches!(sig, signal::SIGSTOP | signal::SIGCONT))
+        {
+            // Preserve the host's existence and basic permission check;
+            // delivery itself must not stop the host emulator.
+            // SAFETY: signal zero checks a PID without delivering a signal.
+            crate::user::darwin::host::check(unsafe { libc::kill(pid, 0) })?;
+            if super::ptrace::send_traced_signal(&mut ctx.proc.tracing, pid, sig, own)? {
+                return Ok(Rv::one(0));
+            }
+        }
         // SAFETY: getpgrp takes no arguments.
         let pgrp = unsafe { libc::getpgrp() };
         let own_group = pid == 0 || pid == -pgrp;
@@ -342,6 +356,9 @@ pub fn kill(ctx: &mut Ctx<'_>, pid: i32, sig: i32, posix: i32) -> SysResult {
         let hsig = signal::to_host(sig).ok_or(Errno::EINVAL)?;
         // SAFETY: kill takes no pointers.
         crate::user::darwin::host::check(unsafe { libc::kill(pid, hsig) })?;
+        if pid > 0 && sig == signal::SIGCONT {
+            super::ptrace::note_host_stop(&mut ctx.proc.tracing, pid, false);
+        }
         if own_group {
             take_host_signals(ctx);
         }

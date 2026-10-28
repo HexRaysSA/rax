@@ -227,6 +227,9 @@ pub fn pop_sreg(
         8 => vcpu.regs.rsp = new_stack_offset,
         _ => unreachable!("x86 stack-address width changed"),
     }
+    if matches!(target, X86SegmentLoadTarget::Ss) {
+        vcpu.suppress_user_step();
+    }
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)
 }

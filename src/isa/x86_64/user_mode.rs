@@ -89,6 +89,11 @@ pub(super) struct UserMode {
     pub(super) trap: Option<X86UserTrap>,
     /// Running 32-bit compatibility-mode code (`set_user_compat`).
     pub(super) compat: bool,
+    /// MOV/POP SS suppresses the trace trap of this instruction attempt.
+    /// Reset before and consumed after each step; not persistent CPU state.
+    pub(super) step_suppressed: bool,
+    /// Last status consumed by the personality's debug-exception entry.
+    pub(super) last_debug_status: u64,
 }
 
 /// Linux x86-64 user code selector (`__USER_CS`, GDT entry 6, RPL 3).
@@ -169,6 +174,8 @@ impl X86_64Vcpu {
         self.user = Some(Box::new(UserMode {
             trap: None,
             compat: false,
+            step_suppressed: false,
+            last_debug_status: 0,
         }));
         self.invalidate_all_code();
     }
@@ -221,6 +228,64 @@ impl X86_64Vcpu {
     /// Whether [`X86_64Vcpu::enable_user_mode`] is in effect.
     pub fn user_mode_enabled(&self) -> bool {
         self.user.is_some()
+    }
+
+    /// Architectural TF in the fixed user-mode CPU profile.
+    pub(super) fn user_single_step_enabled(&self) -> bool {
+        self.user.is_some() && self.regs.rflags & super::flags::bits::TF != 0
+    }
+
+    /// Only successful MOV/POP SS instructions use this suppression.
+    /// LSS, STI, and host-side segment-state installation do not.
+    pub(super) fn suppress_user_step(&mut self) {
+        if let Some(user) = &mut self.user {
+            user.step_suppressed = true;
+        }
+    }
+
+    /// A repeated string operation has completed an iteration, but not its
+    /// instruction. Its debug frame resumes at the prefix with RF set
+    /// (Intel SDM Vol. 3B 19.3.1.1). The step wrapper retains partial state
+    /// and does not count the unfinished instruction as retired.
+    pub(super) fn user_repeat_step_trap(&mut self) -> crate::error::Result<()> {
+        if self.user_single_step_enabled() {
+            self.regs.rflags |= super::flags::bits::RF;
+            self.sregs.dr6 |= 1 << 14;
+            self.inject_exception(1, None)?;
+        }
+        Ok(())
+    }
+
+    /// Kernel debug entry reads and clears DR6, retaining its thread snapshot.
+    pub(crate) fn capture_user_debug_status(&mut self) -> u64 {
+        if self.user.is_none() {
+            return 0;
+        }
+        let status = std::mem::take(&mut self.sregs.dr6);
+        if let Some(user) = &mut self.user {
+            user.last_debug_status = status;
+        }
+        status
+    }
+
+    pub(crate) fn last_user_debug_status(&self) -> u64 {
+        self.user.as_ref().map_or(0, |user| user.last_debug_status)
+    }
+
+    pub(crate) fn clear_user_debug_status(&mut self) {
+        if let Some(user) = &mut self.user {
+            user.last_debug_status = 0;
+        }
+    }
+
+    /// A personality synthesizing a syscall/ptrace step uses the same BS
+    /// status as a hardware trace exception, then enters its kernel handler.
+    pub(crate) fn report_user_single_step(&mut self) -> u64 {
+        if self.user.is_none() {
+            return 0;
+        }
+        self.sregs.dr6 |= 1 << 14;
+        self.capture_user_debug_status()
     }
 
     /// Removes and returns the trap that ended the last user-mode run.

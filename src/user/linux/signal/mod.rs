@@ -157,6 +157,8 @@ pub mod code {
     pub const TRAP_BRKPT: i32 = 1;
     /// Process trace trap.
     pub const TRAP_TRACE: i32 = 2;
+    /// Hardware breakpoint/watchpoint (#DB with DR_TRAP_BITS).
+    pub const TRAP_HWBKPT: i32 = 4;
 }
 
 /// Whether a signal's default action terminates the process with a core

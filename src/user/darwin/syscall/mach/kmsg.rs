@@ -62,15 +62,26 @@ pub fn release(proc: &mut Proc, rights: impl IntoIterator<Item = Right>) {
 /// Drops one send right to `port`; the last one fires the port's
 /// no-senders request (`ipc_port_release_send`).
 pub fn release_send(proc: &mut Proc, port: &Arc<Port>) {
-    let fire = {
+    let (fire, last) = {
         let mut st = port.state.lock().unwrap();
+        let before = st.srights;
         st.srights = st.srights.saturating_sub(1);
-        if st.srights == 0 && !st.dead {
-            st.no_senders.take().map(|n| (n, st.mscount))
+        let last = before != 0 && st.srights == 0 && !st.dead;
+        if last {
+            (st.no_senders.take().map(|n| (n, st.mscount)), true)
         } else {
-            None
+            (None, false)
         }
     };
+    if last {
+        crate::user::darwin::mach::suspend::last_send(proc, port);
+    }
+    #[cfg(unix)]
+    if last {
+        crate::user::darwin::syscall::bsd::ptrace::remote_last_send(proc, port);
+    }
+    #[cfg(not(unix))]
+    let _ = last;
     if let Some((notify, mscount)) = fire {
         let mut body = Vec::with_capacity(12);
         body.extend_from_slice(&msg::NDR_RECORD);
@@ -96,6 +107,17 @@ pub fn consume_dest(proc: &mut Proc, dest: Right) {
 /// Destroys a send-once right: a live port receives
 /// `MACH_NOTIFY_SEND_ONCE` through it (`ipc_notify_send_once_and_unlock`).
 pub fn release_send_once(proc: &mut Proc, port: Arc<Port>) {
+    if crate::user::darwin::mach::suspend::abandon_token(proc, &port) {
+        return;
+    }
+    #[cfg(unix)]
+    if crate::user::darwin::syscall::bsd::ptrace::release_task_token(proc, &port) {
+        return;
+    }
+    #[cfg(unix)]
+    if crate::user::darwin::syscall::bsd::ptrace::release_callback_reply(proc, &port) {
+        return;
+    }
     // A proxy's host right goes back to the host, whose kernel notifies
     // the receiver.
     if let KObject::Proxy(h) = &port.kobject {
@@ -204,6 +226,8 @@ pub fn destroy_receive(proc: &mut Proc, port: &Arc<Port>) {
     if pset.is_some() {
         leave_sets(proc, port);
     }
+    #[cfg(unix)]
+    crate::user::darwin::syscall::bsd::ptrace::callback_port_died(proc, port);
     // The host's rights to an exported port die with it.
     proc.bridge.unexport(port);
     proc.ipc.port_died(port);
@@ -289,6 +313,16 @@ pub fn deliver(ctx: &mut Ctx<'_>, m: Message) {
         destroy(ctx.proc, m);
         return;
     }
+    #[cfg(unix)]
+    if crate::user::darwin::syscall::bsd::ptrace::is_remote_resume_port(ctx.proc, &port) {
+        crate::user::darwin::syscall::bsd::ptrace::deliver_resume_port(ctx.proc, m);
+        return;
+    }
+    #[cfg(unix)]
+    if crate::user::darwin::syscall::bsd::ptrace::is_remote_mach_port(ctx.proc, &port) {
+        crate::user::darwin::syscall::bsd::ptrace::deliver_remote_mach(ctx, m);
+        return;
+    }
     if port.is_kernel() {
         if let Some(reply) = crate::user::darwin::mig::serve(ctx, &port, m) {
             deliver(ctx, reply);
@@ -328,6 +362,18 @@ fn revoucher(
 
 /// Queues `m` on its (user) destination port and wakes its receivers.
 pub fn enqueue(proc: &mut Proc, m: Message) {
+    #[cfg(unix)]
+    if m.dest.port().is_some_and(|port| {
+        crate::user::darwin::syscall::bsd::ptrace::is_remote_resume_port(proc, port)
+    }) {
+        crate::user::darwin::syscall::bsd::ptrace::deliver_resume_port(proc, m);
+        return;
+    }
+    #[cfg(unix)]
+    let m = match crate::user::darwin::syscall::bsd::ptrace::deliver_callback(proc, m) {
+        Ok(()) => return,
+        Err(m) => m,
+    };
     let port = m
         .dest
         .port()

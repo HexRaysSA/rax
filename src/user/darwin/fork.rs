@@ -43,8 +43,14 @@ const VM_INHERIT_NONE: u32 = 2;
 #[cfg(unix)]
 pub fn fork(ctx: &mut Ctx<'_>) -> SysResult {
     let parent = ctx.proc.pid;
+    let links = super::syscall::bsd::ptrace::ForkPair::prepare()?;
+    links.set_parent_credentials((ctx.proc.creds.0, ctx.proc.creds.1));
+    let inherited =
+        super::syscall::bsd::ptrace::InheritedHandlers::capture(&ctx.proc.tracing, &ctx.proc.task);
     match signal::host::fork_host()? {
         Some(pid) => {
+            links.parent(&mut ctx.proc.tracing, pid, ctx.proc.pid);
+            inherited.parent(ctx.proc, pid);
             ctx.proc.children.insert(pid);
             // A pid the kernel reaped before is a new child now.
             ctx.proc.hidden.remove(&pid);
@@ -52,6 +58,11 @@ pub fn fork(ctx: &mut Ctx<'_>) -> SysResult {
         }
         None => {
             become_child(ctx, parent);
+            links.child(&mut ctx.proc.tracing, parent);
+            inherited.child(ctx.proc);
+            if let Some(signing) = &ctx.proc.codesign {
+                super::syscall::bsd::ptrace::publish_codesign(&ctx.proc.tracing, signing.flags);
+            }
             Ok(Rv(ctx.proc.pid as u64, 1))
         }
     }
@@ -73,6 +84,7 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
     proc.children.clear();
     proc.hidden.clear();
     proc.execed = false;
+    proc.tracing = Default::default();
 
     // The caller is the only thread (the others were never copied).
     proc.threads.clear();

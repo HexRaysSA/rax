@@ -971,6 +971,7 @@ pub fn kobject_type(k: &KObject) -> u32 {
         KObject::Clock(_) => 25,
         KObject::Voucher(_) => 37,
         KObject::TaskIdToken(_) => 50,
+        KObject::TaskResume(_) => 36,
         KObject::TaskInspect => 44,
         KObject::TaskRead => 45,
         // What the host says of the port behind it.

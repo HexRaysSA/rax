@@ -7,17 +7,17 @@
 //! exec and the code-signing policy that decides which flags a platform
 //! binary, a hardened runtime, or an entitlement brings. The emulated
 //! process is a host process, so the answers are the host kernel's own for
-//! the same executable: the first query of an image spawns the executable
-//! (the slice loaded) suspended on the host, asks every question `csops`
-//! answers about it, and kills it before any of its code runs. The
+//! the same executable: the first query of an image, or trace setup, spawns
+//! the executable (the slice loaded) suspended on the host, asks every
+//! question `csops` answers about it, and kills it before any of its code runs. The
 //! process's flags then change as `csops` asks (marking it invalid, hard,
 //! killable, or restricted, setting flags, clearing library validation or
 //! the installer flag). Without a macOS host, or when the host refuses to
 //! spawn the executable, the process is reported as an ad hoc, linker-signed
 //! program without entitlements.
 //!
-//! A query about another process is the host's: another emulated process
-//! is a host process running the emulator, whose signature it reports.
+//! A status query about a connected guest child uses published guest flags
+//! when available. Other cross-process queries are the host's.
 
 use std::sync::Arc;
 
@@ -52,19 +52,23 @@ pub mod ops {
 pub mod cs {
     pub const VALID: u32 = 0x0000_0001;
     pub const ADHOC: u32 = 0x0000_0002;
+    pub const GET_TASK_ALLOW: u32 = 0x0000_0004;
     pub const INSTALLER: u32 = 0x0000_0008;
     pub const FORCED_LV: u32 = 0x0000_0010;
+    pub const INVALID_ALLOWED: u32 = 0x0000_0020;
     pub const HARD: u32 = 0x0000_0100;
     pub const KILL: u32 = 0x0000_0200;
     pub const RESTRICT: u32 = 0x0000_0800;
     pub const ENFORCEMENT: u32 = 0x0000_1000;
     pub const REQUIRE_LV: u32 = 0x0000_2000;
+    pub const RUNTIME: u32 = 0x0001_0000;
     pub const LINKER_SIGNED: u32 = 0x0002_0000;
     pub const EXEC_SET_HARD: u32 = 0x0010_0000;
     pub const EXEC_SET_KILL: u32 = 0x0020_0000;
     pub const EXEC_SET_ENFORCEMENT: u32 = 0x0040_0000;
     pub const EXEC_INHERIT_SIP: u32 = 0x0080_0000;
     pub const KILLED: u32 = 0x0100_0000;
+    pub const PLATFORM_BINARY: u32 = 0x0400_0000;
     pub const DEBUGGED: u32 = 0x1000_0000;
     pub const SIGNED: u32 = 0x2000_0000;
     pub const DATAVAULT_CONTROLLER: u32 = 0x8000_0000;
@@ -151,7 +155,107 @@ fn state(proc: &mut Proc) -> &mut CodeSign {
             sig: Arc::new(sig),
         });
     }
+    #[cfg(unix)]
+    if let Some(signing) = &proc.codesign {
+        super::syscall::bsd::ptrace::publish_codesign(&proc.tracing, signing.flags);
+    }
+    #[cfg(unix)]
+    super::syscall::bsd::ptrace::sync_codesign(proc);
     proc.codesign.as_mut().expect("just set")
+}
+
+/// Makes the new image's signing status visible before a traced exec stop.
+pub(crate) fn prepare_traced_exec(proc: &mut Proc) {
+    let _ = state(proc);
+}
+
+/// Loads signing state before `PT_TRACE_ME` checks, returning only flags
+/// obtained from the host rather than from the fallback signature.
+pub(crate) fn prepare_trace_me(proc: &mut Proc) -> Option<u32> {
+    let observed = harvest(proc);
+    prepare_trace_signing(proc, observed)
+}
+
+fn prepare_trace_signing(proc: &mut Proc, observed: Option<Signature>) -> Option<u32> {
+    let observed_flags = observed.as_ref().and_then(|signature| {
+        if let Some(current) = &proc.codesign
+            && let (Ok(original), Ok(fresh)) = (&current.sig.cdhash, &signature.cdhash)
+            && original != fresh
+        {
+            // The path now names a different image; its policy is not
+            // evidence for the image already running in the guest.
+            return None;
+        }
+        Some(signature.flags)
+    });
+    if proc.codesign.is_none() {
+        let signature = observed.unwrap_or_else(Signature::fallback);
+        proc.codesign = Some(CodeSign {
+            flags: signature.flags,
+            sig: Arc::new(signature),
+        });
+    }
+    #[cfg(unix)]
+    if let Some(current) = &proc.codesign {
+        super::syscall::bsd::ptrace::publish_codesign(&proc.tracing, current.flags);
+    }
+    #[cfg(unix)]
+    super::syscall::bsd::ptrace::sync_codesign(proc);
+    observed_flags
+}
+
+/// Applies the observed `cs_allow_invalid` transition after `PT_TRACE_ME`.
+/// Policy admission generalizes limited host probes; a fallback signature
+/// is not evidence that the hook would allow the transition.
+pub(crate) fn trace_me_allow_invalid(proc: &mut Proc, observed_flags: Option<u32>) {
+    let Some(observed_flags) = observed_flags else {
+        return;
+    };
+    let rosetta_zero = cfg!(all(target_os = "macos", target_arch = "aarch64"))
+        && proc.abi == crate::user::darwin::abi::DarwinAbi::X86_64
+        && observed_flags == 0;
+    let Some(current) = &mut proc.codesign else {
+        return;
+    };
+    let allowed = observed_trace_policy(observed_flags, rosetta_zero)
+        && current.flags & cs::PLATFORM_BINARY == 0
+        && (current.flags & cs::RESTRICT == 0 || current.flags & cs::GET_TASK_ALLOW != 0);
+    if allowed {
+        current.flags = trace_invalid_flags(current.flags);
+    }
+    #[cfg(unix)]
+    super::syscall::bsd::ptrace::publish_codesign(&proc.tracing, current.flags);
+    #[cfg(unix)]
+    super::syscall::bsd::ptrace::sync_codesign(proc);
+}
+
+fn observed_trace_policy(signature_flags: u32, rosetta_zero: bool) -> bool {
+    let platform = signature_flags & cs::PLATFORM_BINARY != 0;
+    let restricted = signature_flags & cs::RESTRICT != 0;
+    !platform
+        && (signature_flags & cs::GET_TASK_ALLOW != 0
+            || (!restricted
+                && ((signature_flags & cs::VALID != 0 && signature_flags & cs::RUNTIME == 0)
+                    || (rosetta_zero && signature_flags == 0))))
+}
+
+/// The flags after the policy hook permits debugging invalid pages.
+fn trace_invalid_flags(flags: u32) -> u32 {
+    let mut result = (flags & !(cs::KILL | cs::HARD)) | cs::INVALID_ALLOWED;
+    if flags & cs::VALID != 0 {
+        result |= cs::DEBUGGED;
+    }
+    result
+}
+
+/// `CS_OPS_STATUS` reports forced library validation without the redundant
+/// ordinary library-validation bit.
+fn shown_flags(flags: u32) -> u32 {
+    if flags & cs::FORCED_LV != 0 {
+        flags & !cs::REQUIRE_LV
+    } else {
+        flags
+    }
 }
 
 /// `csops(pid, ops, useraddr, usersize)`, and `csops_audittoken` with the
@@ -185,7 +289,18 @@ pub fn csops(
         return Err(Errno::EPERM);
     }
     if !forself {
-        return host_csops(ctx, pid, op, uaddr, usize, token);
+        let result = host_csops(ctx, pid, op, uaddr, usize, token);
+        #[cfg(unix)]
+        if result.is_ok()
+            && op == ops::STATUS
+            && uaddr != 0
+            && usize >= 4
+            && let Some(flags) =
+                super::syscall::bsd::ptrace::known_child_codesign(&ctx.proc.tracing, pid)
+        {
+            ctx.write_u32(uaddr, shown_flags(flags))?;
+        }
+        return result;
     }
     if let Some(t) = token {
         let b = ctx.read(t, 32)?;
@@ -201,17 +316,17 @@ pub fn csops(
         if let Some(c) = &mut ctx.proc.codesign {
             c.flags = f;
         }
+        #[cfg(unix)]
+        super::syscall::bsd::ptrace::publish_codesign(&ctx.proc.tracing, f);
+        #[cfg(unix)]
+        super::syscall::bsd::ptrace::sync_codesign(ctx.proc);
     };
     let signed = flags & (cs::VALID | cs::DEBUGGED) != 0;
     match op {
         ops::STATUS => {
             // Library validation the kernel forced on is reported only as
             // forced.
-            let shown = if flags & cs::FORCED_LV != 0 {
-                flags & !cs::REQUIRE_LV
-            } else {
-                flags
-            };
+            let shown = shown_flags(flags);
             if uaddr != 0 {
                 ctx.write(uaddr, &shown.to_le_bytes())?;
             }
@@ -571,6 +686,87 @@ fn ask(pid: i32) -> Option<Signature> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn trace_preparation_initializes_signing_without_replacing_existing_flags() {
+        use crate::user::darwin::abi::DarwinAbi;
+        use crate::user::darwin::process::bounded_tests::process;
+
+        let mut guest = process(DarwinAbi::Arm64);
+        let mut signature = Signature::fallback();
+        signature.flags = cs::VALID | cs::RESTRICT;
+        assert_eq!(
+            prepare_trace_signing(&mut guest.proc, Some(signature.clone())),
+            Some(cs::VALID | cs::RESTRICT)
+        );
+        assert_eq!(
+            guest.proc.codesign.as_ref().unwrap().flags,
+            cs::VALID | cs::RESTRICT
+        );
+        guest.proc.codesign.as_mut().unwrap().flags |= cs::HARD;
+        assert_eq!(
+            prepare_trace_signing(&mut guest.proc, Some(signature)),
+            Some(cs::VALID | cs::RESTRICT)
+        );
+        assert_eq!(
+            guest.proc.codesign.as_ref().unwrap().flags,
+            cs::VALID | cs::RESTRICT | cs::HARD
+        );
+        let mut unknown = process(DarwinAbi::Arm64);
+        assert_eq!(prepare_trace_signing(&mut unknown.proc, None), None);
+        assert!(unknown.proc.codesign.is_some());
+
+        let mut original = Signature::fallback();
+        original.cdhash = Ok([1; 20]);
+        let mut replacement = original.clone();
+        replacement.cdhash = Ok([2; 20]);
+        let mut replaced = process(DarwinAbi::Arm64);
+        assert_eq!(
+            prepare_trace_signing(&mut replaced.proc, Some(original)),
+            Some(Signature::fallback().flags)
+        );
+        assert_eq!(
+            prepare_trace_signing(&mut replaced.proc, Some(replacement)),
+            None
+        );
+    }
+
+    #[test]
+    fn trace_flags_change_only_the_observed_fields() {
+        let initial = 0x2202_0201;
+        assert_eq!(trace_invalid_flags(initial), 0x3202_0021);
+        assert_eq!(trace_invalid_flags(0), cs::INVALID_ALLOWED);
+        assert_eq!(
+            trace_invalid_flags(cs::HARD | cs::KILL | cs::RUNTIME),
+            cs::RUNTIME | cs::INVALID_ALLOWED
+        );
+        assert!(observed_trace_policy(cs::VALID | cs::LINKER_SIGNED, false));
+        assert!(observed_trace_policy(cs::VALID | cs::SIGNED, false));
+        assert!(!observed_trace_policy(
+            cs::VALID | cs::LINKER_SIGNED | cs::RUNTIME,
+            false
+        ));
+        assert!(!observed_trace_policy(
+            cs::VALID | cs::PLATFORM_BINARY,
+            false
+        ));
+        assert!(!observed_trace_policy(cs::VALID | cs::RESTRICT, false));
+        assert!(observed_trace_policy(
+            cs::RESTRICT | cs::GET_TASK_ALLOW,
+            false
+        ));
+        assert!(!observed_trace_policy(
+            cs::GET_TASK_ALLOW | cs::PLATFORM_BINARY,
+            false
+        ));
+        assert!(observed_trace_policy(
+            cs::GET_TASK_ALLOW | cs::RUNTIME,
+            false
+        ));
+        assert!(!observed_trace_policy(0, false));
+        assert!(observed_trace_policy(0, true));
+        assert!(!observed_trace_policy(cs::RUNTIME, true));
+    }
 
     #[test]
     fn entitlements_are_found_by_key_and_value() {

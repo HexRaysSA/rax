@@ -90,6 +90,17 @@ fn swap_or_kill(
 ) -> SysResult {
     match built {
         Ok(mut proc) => {
+            // Only an exec replaces this process. A true spawn builds its
+            // child separately and must not inherit the tracing flags.
+            #[cfg(unix)]
+            super::syscall::bsd::ptrace::remote_before_exec(ctx.proc);
+            proc.tracing = ctx.proc.tracing.for_exec();
+            proc.tracing.take_connections(&mut ctx.proc.tracing);
+            proc.tracing
+                .update_children_parent_credentials((proc.creds.0, proc.creds.1));
+            if proc.tracing.tracer.is_some() {
+                super::codesign::prepare_traced_exec(&mut proc);
+            }
             // The same host process: its host rights stay; the old image's
             // exported ports go with it.
             proc.bridge = std::mem::take(&mut ctx.proc.bridge);

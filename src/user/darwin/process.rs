@@ -38,11 +38,14 @@ use crate::user::mm::{AddressSpace, MmError, SpaceConfig};
 pub(crate) mod embedding;
 
 #[cfg(test)]
-mod bounded_tests;
+pub(crate) mod bounded_tests;
 #[cfg(test)]
 mod exclusive_tests;
 #[cfg(test)]
 mod pauth_tests;
+#[cfg(test)]
+mod step_tests;
+mod stepping;
 
 /// Instructions per scheduling slice for arm64 threads (x86-64 threads
 /// yield on the core's own ~1 ms timer).
@@ -89,10 +92,9 @@ pub struct DarwinConfig {
     pub arena_bytes: u64,
     /// Instructions per slice (arm64).
     pub slice_insns: u64,
-    /// The host process is the guest's and takes its job control: a stop
-    /// signal's default action stops the host process
-    /// ([`signal::host::stop`]). Off by default (a library caller's
-    /// process must not stop).
+    /// Enable job-control stops. Connected guest children stop cooperatively;
+    /// otherwise the guest's default stop action stops the host process
+    /// ([`signal::host::stop`]). Off by default for library callers.
     pub host_job_control: bool,
     /// Signal state inherited across `exec` (`None`: a process's initial
     /// state, `siginit`).
@@ -455,6 +457,8 @@ pub struct Proc {
     /// `P_EXEC`: the process has executed an image (not so for a forked
     /// child until it does).
     pub execed: bool,
+    /// Process tracing flags (`P_LTRACED`, `P_LNOATTACH`, and related state).
+    pub(crate) tracing: syscall::bsd::ptrace::State,
     /// A guard violation the running thread raised, for its way back to
     /// user mode.
     pub guard_ast: Option<super::exception::GuardAst>,
@@ -661,6 +665,32 @@ impl DarwinProcess {
                 return RunStatus::Complete(status.clone());
             }
             if let Some(status) = self.proc.exit.clone() {
+                #[cfg(unix)]
+                if let Some(fds) = syscall::bsd::ptrace::exit_wait(&mut self.proc) {
+                    if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+                        return RunStatus::Cancelled;
+                    }
+                    if turns.is_some() {
+                        return RunStatus::Blocked;
+                    }
+                    super::wait::sleep(&fds, None);
+                    continue;
+                }
+                #[cfg(unix)]
+                if let Some(fd) = syscall::bsd::ptrace::flush_exit_output(&mut self.proc) {
+                    if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+                        return RunStatus::Cancelled;
+                    }
+                    if turns.is_some() {
+                        return RunStatus::Blocked;
+                    }
+                    super::wait::sleep(&[(fd, false, true)], None);
+                    continue;
+                }
+                #[cfg(unix)]
+                syscall::bsd::ptrace::record_exit(&self.proc.tracing, &status);
+                #[cfg(unix)]
+                syscall::bsd::ptrace::finalize_registry(&mut self.proc.tracing);
                 self.terminal = Some(status.clone());
                 return RunStatus::Complete(status);
             }
@@ -678,19 +708,41 @@ impl DarwinProcess {
                 // The host catches SIGCONT only while the guest does (after
                 // a sigaction, an exec, or a spawn's defaults).
                 signal::host::sync_sigcont(
-                    self.proc.sigacts.catch & signal::bit(signal::SIGCONT) != 0,
+                    self.proc.sigacts.catch & signal::bit(signal::SIGCONT) != 0
+                        || syscall::bsd::ptrace::job_stopped(&self.proc.tracing),
                 );
             }
             #[cfg(unix)]
-            for (sig, origin) in if self.proc.config.host_services {
+            let host_signals = if self.proc.config.host_services {
                 signal::host::take()
             } else {
                 Vec::new()
-            } {
+            };
+            #[cfg(unix)]
+            if host_signals.iter().any(|(sig, _)| *sig == signal::SIGCONT) {
+                syscall::bsd::ptrace::poll_discovery(&mut self.proc);
+            }
+            #[cfg(unix)]
+            for (sig, origin) in host_signals {
+                if sig == signal::SIGCONT
+                    && syscall::bsd::ptrace::consume_host_wake(&mut self.proc.tracing, origin.pid)
+                {
+                    continue;
+                }
                 if sig == signal::SIGCHLD {
                     // A child changed state: waiters look again.
                     self.proc.post(WaitKey::Child);
                     if self.proc.hidden.remove(&origin.pid)
+                        || syscall::bsd::ptrace::host_child_event(
+                            &mut self.proc,
+                            origin.pid,
+                            origin.code,
+                        )
+                        || (origin.code == 5
+                            && syscall::bsd::ptrace::duplicate_host_stop(
+                                &mut self.proc.tracing,
+                                origin.pid,
+                            ))
                         || !signal::child_changed(&mut self.proc, &origin)
                     {
                         continue;
@@ -700,6 +752,11 @@ impl DarwinProcess {
             }
             signal::timer::expire_real(&mut self.proc);
             syscall::mach::timer::expire(&mut self.proc);
+            #[cfg(unix)]
+            syscall::bsd::ptrace::pump(&mut self.proc, None);
+            if self.proc.exit.is_some() {
+                continue;
+            }
             // Kernel event sources of the workqueue kqueue and workloops,
             // then threads for the work queue's requests.
             super::kevent::pump(&mut self.proc);
@@ -729,21 +786,62 @@ impl DarwinProcess {
             clear_exclusive_on_switch(previous, tid, &mut thread.cpu);
             thread.woken = false;
             thread.wait = None;
+            #[cfg(unix)]
+            if thread.mach.exception.is_none()
+                && !syscall::bsd::ptrace::resume_before_verdict(&self.proc, &mut thread)
+                && (syscall::bsd::ptrace::needs_signal_ast(&self.proc.tracing, &thread)
+                    || (thread.resume.is_none() && thread.sig.pending & !thread.sig.mask != 0))
+            {
+                signal::ast(&mut self.proc, &mut thread);
+                if self.proc.task.suspension.is_stopped()
+                    || syscall::bsd::ptrace::thread_suspended(&self.proc.tracing, &thread)
+                    || thread.wait.is_some()
+                    || self.proc.exit.is_some()
+                    || thread.exited
+                {
+                    if !thread.exited {
+                        self.proc.threads.insert(tid, thread);
+                    }
+                    continue;
+                }
+            }
             thread.mach.csw += 1;
             // A workqueue thread given a request sets itself up first.
             super::workq::run_pending(&mut self.proc, &mut thread);
             let t0 = thread_cpu_ns();
+            let step = stepping::Step::capture(&self.proc, &thread);
+            let stepping = step.enabled(&thread);
             // A thread whose exception a handler had goes on with the
             // handler's reply first.
             let trap = if thread.mach.exception.is_some() {
                 None
+            } else if stepping {
+                step.enter_user(&mut thread);
+                Some(thread.cpu.step())
             } else {
                 Some(thread.cpu.run(self.proc.config.slice_insns))
             };
             let t1 = thread_cpu_ns();
+            let stepped_instruction = step.completed(&thread, trap.as_ref());
             match trap {
+                Some(Trap::Yield) if stepping => {}
                 Some(trap) => self.handle(&mut thread, trap),
                 None => super::exception::resume(&mut self.proc, &mut thread),
+            }
+            if stepped_instruction
+                && thread.wait.is_none()
+                && !thread.exited
+                && self.proc.exit.is_none()
+                && self.proc.exec.is_none()
+                && step.enabled(&thread)
+            {
+                #[cfg(unix)]
+                syscall::bsd::ptrace::stepped(&mut self.proc.tracing, &mut thread);
+                super::exception::raise_single_step_with_syndrome(
+                    &mut self.proc,
+                    &mut thread,
+                    step.arm_syndrome,
+                );
             }
             if let Some(g) = self.proc.guard_ast.take() {
                 super::exception::post_guard(&mut thread.mach.guard_ast, g);
@@ -806,25 +904,55 @@ impl DarwinProcess {
         let old = std::mem::replace(&mut self.proc, swap.proc);
         drop(old);
         self.last = 0;
+        #[cfg(unix)]
+        if self.proc.tracing.tracer.is_some() {
+            let origin = signal::Origin::own(&self.proc);
+            signal::psignal(&mut self.proc, None, signal::SIGTRAP, origin);
+            let tid = self.proc.threads.iter().find_map(|(&tid, thread)| {
+                (thread.sig.pending & !thread.sig.mask & signal::bit(signal::SIGTRAP) != 0)
+                    .then_some(tid)
+            });
+            if let Some(tid) = tid {
+                let mut thread = self.proc.threads.remove(&tid).expect("listed thread");
+                signal::ast(&mut self.proc, &mut thread);
+                if !thread.exited {
+                    self.proc.threads.insert(tid, thread);
+                }
+            }
+        }
         if swap.suspend {
             // POSIX_SPAWN_START_SUSPENDED: stopped before it runs.
-            signal::stop(&mut self.proc);
+            let tid = self.proc.threads.keys().next().copied().unwrap_or(0);
+            signal::stop(&mut self.proc, signal::SIGSTOP, tid);
         }
     }
 
     /// The next runnable thread after the one that ran last.
     fn next_runnable(&self) -> Option<u64> {
+        if self.proc.task.suspension.is_stopped() {
+            return None;
+        }
+        let runnable = |thread: &Thread| {
+            if !thread.runnable() {
+                return false;
+            }
+            #[cfg(unix)]
+            if syscall::bsd::ptrace::thread_suspended(&self.proc.tracing, thread) {
+                return false;
+            }
+            true
+        };
         let after = self
             .proc
             .threads
             .range(self.last + 1..)
-            .find(|(_, t)| t.runnable())
+            .find(|(_, t)| runnable(t))
             .map(|(&id, _)| id);
         after.or_else(|| {
             self.proc
                 .threads
                 .range(..=self.last)
-                .find(|(_, t)| t.runnable())
+                .find(|(_, t)| runnable(t))
                 .map(|(&id, _)| id)
         })
     }
@@ -847,7 +975,13 @@ impl DarwinProcess {
     /// Sleeps until some thread's wait may be over.
     fn idle(&mut self) {
         let mut fds = Vec::new();
+        #[cfg(unix)]
+        fds.extend(syscall::bsd::ptrace::wait_fds(&self.proc.tracing));
         let mut deadline: Option<Instant> = self.proc.itimers.real_at;
+        #[cfg(unix)]
+        if let Some(d) = syscall::bsd::ptrace::connection_deadline(&self.proc.tracing) {
+            deadline = Some(deadline.map_or(d, |c| c.min(d)));
+        }
         if let Some(d) = self.proc.mk_timers.next_deadline() {
             deadline = Some(deadline.map_or(d, |c| c.min(d)));
         }
@@ -1152,6 +1286,7 @@ pub(crate) fn start(
             audit: c.audit,
             exec: None,
             execed: true,
+            tracing: Default::default(),
             bridge: Default::default(),
             codesign: None,
         },
@@ -1272,6 +1407,7 @@ pub(crate) fn start(
                 audit,
                 exec: None,
                 execed: true,
+                tracing: Default::default(),
                 bridge,
                 codesign: None,
             };

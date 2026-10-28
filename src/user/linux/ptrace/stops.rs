@@ -386,6 +386,9 @@ impl LinuxProcess {
     /// (`exc_debug_user`'s `DR_STEP`, `single_step_handler`): `SIGTRAP`,
     /// `TRAP_TRACE`, at the next instruction.
     pub fn step_trap(&mut self, idx: usize) {
+        if let GuestCpu::X86_64(cpu) = &mut self.threads[idx].cpu {
+            cpu.vcpu_mut().report_user_single_step();
+        }
         // The adapter reported the retired instruction as a plain Yield;
         // this synthesized debug exception still discards an Arm reservation.
         if let GuestCpu::Aarch64(cpu) = &mut self.threads[idx].cpu {

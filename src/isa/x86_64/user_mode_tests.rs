@@ -6,6 +6,7 @@
 //! the implementation under test. Instruction bytes were produced with
 //! `llvm-mc -triple=x86_64 -x86-asm-syntax=intel -show-encoding`.
 
+mod debug_step;
 mod rip_relative;
 
 use std::collections::BTreeMap;
@@ -141,7 +142,8 @@ fn user_mode_installs_linux_ring3_state() {
 fn syscall_exits_with_sysret_equivalent_state() {
     // mov eax, 60 ; syscall
     let mut h = harness(&[0xB8, 0x3C, 0x00, 0x00, 0x00, 0x0F, 0x05]);
-    // CF | ZF | TF-free flags plus RF (bit 16), which SYSRET's mask clears.
+    // CF | ZF | TF-free flags plus RF (bit 16). The first MOV clears RF
+    // at instruction start (SDM Vol. 3B 19.3.1.1), before SYSCALL saves it.
     h.vcpu.set_user_rflags(0x202 | 0x41 | (1 << 16));
     let exit = run(&mut h.vcpu).expect("syscall exit");
     assert!(matches!(exit, VcpuExit::SystemCall));
@@ -156,11 +158,7 @@ fn syscall_exits_with_sysret_equivalent_state() {
     assert_eq!(regs.rax, 60);
     assert_eq!(regs.rip, CODE + 7, "RIP = return address");
     assert_eq!(regs.rcx, CODE + 7, "SYSCALL saves the return RIP in RCX");
-    assert_eq!(
-        regs.r11,
-        0x202 | 0x41 | (1 << 16),
-        "SYSCALL saves RFLAGS in R11"
-    );
+    assert_eq!(regs.r11, 0x202 | 0x41, "SYSCALL saves RFLAGS in R11");
     // SYSRET loads RFLAGS from R11 & 0x3C7FD7 | 2 (SDM Vol. 2B SYSRET).
     assert_eq!(h.vcpu.user_rflags(), (0x202 | 0x41) & 0x3C7FD7 | 2);
     assert_eq!(h.vcpu.sregs.cs.selector, 0x33, "CS stays the user selector");
@@ -288,7 +286,7 @@ fn assert_x87_exception(h: &mut Harness, vector: u8, error_code: Option<u64>) {
         (vector, error_code, X86EventSource::Exception, CODE, CODE,)
     );
     assert_eq!(h.vcpu.regs.rip, CODE);
-    assert_eq!(h.vcpu.user_rflags(), flags);
+    assert_eq!(h.vcpu.user_rflags(), flags | (1 << 16));
     assert_eq!(x87_image(&h.vcpu), before, "fault committed x87 state");
 }
 

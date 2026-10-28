@@ -95,6 +95,32 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             KObject::TaskRead | KObject::TaskInspect | KObject::TaskName
         );
     match req.id {
+        t::TASK_SUSPEND2 => {
+            req.simple(24)?;
+            if !task && req.port.kobject != KObject::TaskRead {
+                return Err(kr::KERN_INVALID_ARGUMENT);
+            }
+            let token = crate::user::darwin::mach::suspend::token(ctx.proc)?;
+            Ok(Out::Complex(
+                vec![super::OutDesc::Port(Some(token), disp::MOVE_SEND_ONCE)],
+                Vec::new(),
+            ))
+        }
+        t::TASK_RESUME2 => {
+            req.simple(24)?;
+            if !crate::user::darwin::mach::suspend::is_resume_port(ctx.proc, &req.port) {
+                return Err(kr::KERN_INVALID_ARGUMENT);
+            }
+            ctx.proc
+                .task
+                .suspension
+                .release(crate::user::darwin::mach::suspend::Hold::Normal)?;
+            Ok(Out::Simple(Vec::new()))
+        }
+        t::TASK_SUSPEND | t::TASK_RESUME => {
+            let effect = super::suspension::perform(ctx, req)?;
+            super::suspension::finish_local(ctx.proc, effect)
+        }
         t::TASK_INFO => {
             req.simple(40)?;
             if !readable {
@@ -278,14 +304,17 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
                 .then(|| exception::view(&ctx.proc.task.exc, mask));
             let replaced =
                 exception::install(&mut ctx.proc.task.exc, mask, &handler, behavior, flv);
+            // Retain the old sends in the reply before releasing the action
+            // holds; otherwise a transient zero fires no-senders too early.
+            let output = match old {
+                None => Out::Simple(Vec::new()),
+                Some(o) => exception::ports_reply(&o),
+            };
             exception::release(ctx.proc, &handler);
             for p in replaced {
                 kmsg::release_send(ctx.proc, &p);
             }
-            match old {
-                None => Ok(Out::Simple(Vec::new())),
-                Some(o) => Ok(exception::ports_reply(&o)),
-            }
+            Ok(output)
         }
         t::TASK_CREATE_IDENTITY_TOKEN => {
             // A new token for the task, a send right to its port
@@ -703,7 +732,7 @@ fn task_info(ctx: &Ctx<'_>, f: i32, count: u32) -> Result<Vec<u32>, KernReturn> 
             need(8)?;
             let t = [time_value(du), time_value(ds)];
             w.extend_from_slice(&[
-                0,
+                ctx.proc.task.suspension.count() as u32,
                 vsize.min(u64::from(u32::MAX)) as u32,
                 resident.min(u64::from(u32::MAX)) as u32,
             ]);
@@ -721,7 +750,7 @@ fn task_info(ctx: &Ctx<'_>, f: i32, count: u32) -> Result<Vec<u32>, KernReturn> 
                 return Err(kr::KERN_INVALID_ARGUMENT);
             }
             need(10)?;
-            w.push(0);
+            w.push(ctx.proc.task.suspension.count() as u32);
             w.extend_from_slice(&u64s(vsize));
             w.extend_from_slice(&u64s(resident));
             w.extend_from_slice(&time_value(du));
@@ -736,7 +765,7 @@ fn task_info(ctx: &Ctx<'_>, f: i32, count: u32) -> Result<Vec<u32>, KernReturn> 
             w.extend_from_slice(&time_value(du));
             w.extend_from_slice(&time_value(ds));
             w.push(POLICY_TIMESHARE);
-            w.push(0);
+            w.push(ctx.proc.task.suspension.count() as u32);
         }
         flavor::THREAD_TIMES_INFO => {
             need(4)?;

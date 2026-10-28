@@ -216,6 +216,15 @@ pub fn raise(p: &mut Proc, t: &mut Thread, rec: ExceptionRecord, ctx: RegContext
             STATUS_BAD_STACK
         });
     }
+    // Preserve the interrupted flags in CONTEXT, then enter the dispatcher
+    // without the interrupted instruction's trace/resume controls. Retaining
+    // TF here would single-step the exception handler recursively.
+    if let Some(cpu) = t.cpu.x86_mut() {
+        let flags = cpu.vcpu().user_rflags();
+        cpu.vcpu_mut().set_user_rflags(
+            flags & !(crate::isa::x86_64::flags::bits::TF | crate::isa::x86_64::flags::bits::RF),
+        );
+    }
     let recs = Records {
         record: record_addr,
         context: context_addr,
@@ -341,6 +350,45 @@ mod tests {
     use crate::user::windows::hle::ApiErr;
     use crate::user::windows::memory::prot;
     use crate::user::windows::process::{WindowsConfig, WindowsProcess};
+
+    #[test]
+    fn debug_exception_clears_live_tf_and_rf_but_retains_the_saved_context() {
+        use crate::isa::x86_64::flags::bits::{RF, TF};
+
+        for arch in [WinArch::X86, WinArch::X64] {
+            with_records(arch, |c, _, _| {
+                let handler = c.t.cpu.pc();
+                c.p.seh.veh.push((1, handler));
+                c.t.cpu
+                    .x86_mut()
+                    .unwrap()
+                    .vcpu_mut()
+                    .set_user_rflags(0x202 | TF | RF);
+                let saved = RegContext::capture(&c.t.cpu);
+                let result = raise(
+                    c.p,
+                    c.t,
+                    ExceptionRecord::new(STATUS_SINGLE_STEP, handler, Vec::new()),
+                    saved,
+                );
+                assert!(matches!(result, Outcome::Continue));
+                assert_eq!(c.t.cpu.pc(), handler);
+                let live = c.t.cpu.x86_mut().unwrap().vcpu().user_rflags();
+                assert_eq!(live & (TF | RF), 0, "{arch}: handler flags");
+                let pointers = if arch == WinArch::X64 {
+                    c.t.cpu.gpr(1)
+                } else {
+                    u64::from(c.p.space.u32(c.t.cpu.sp() + 4).unwrap())
+                };
+                let context =
+                    c.p.space
+                        .ptr(pointers + arch.ptr_size(), arch.ptr_size())
+                        .unwrap();
+                let stored = RegContext::read(&c.p.space, arch, context).unwrap();
+                assert_eq!(u64::from(stored.flags_register()) & (TF | RF), TF | RF);
+            });
+        }
+    }
 
     fn with_records(arch: WinArch, test: impl FnOnce(&mut Ctx, ExceptionRecord, Records)) {
         let image: &[u8] = match arch {

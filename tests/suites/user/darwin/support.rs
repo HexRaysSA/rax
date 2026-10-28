@@ -328,7 +328,11 @@ pub fn emulated_cmd(
     env: &[(&str, &str)],
     cwd: Option<&Path>,
 ) -> Command {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_rax-user"));
+    // A long oracle campaign can pin a copied engine while other workspace
+    // builds replace Cargo's normal output. Native runs remain unchanged.
+    let runner = std::env::var_os("RAX_USER_DARWIN_RUNNER")
+        .unwrap_or_else(|| env!("CARGO_BIN_EXE_rax-user").into());
+    let mut cmd = Command::new(runner);
     cmd.args(["--arch", arch]).arg(program).args(args);
     for (k, v) in env {
         cmd.env(k, v);

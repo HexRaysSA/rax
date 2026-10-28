@@ -68,6 +68,12 @@ pub fn die_by_signal(sig: Signal) {
     let Some(host) = to_host(sig).filter(|&h| h != 0) else {
         return;
     };
+    // A substituted signal can terminate a guest even when its normal host
+    // action is to stop, continue, or ignore. Raising such a host signal
+    // cannot report that death and may instead stop the emulator forever.
+    if super::props(sig) & super::prop::KILL == 0 {
+        return;
+    }
     // SAFETY: integer arguments and a fully initialized sigset; the process
     // is about to terminate.
     unsafe {

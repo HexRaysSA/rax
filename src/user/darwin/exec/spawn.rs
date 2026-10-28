@@ -736,6 +736,12 @@ fn fork_child(
         unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) };
     }
     let parent = ctx.proc.pid;
+    let links = crate::user::darwin::syscall::bsd::ptrace::ForkPair::prepare()?;
+    links.set_parent_credentials((ctx.proc.creds.0, ctx.proc.creds.1));
+    let inherited = crate::user::darwin::syscall::bsd::ptrace::InheritedHandlers::capture(
+        &ctx.proc.tracing,
+        &new.task,
+    );
     match signal::host::fork_host()? {
         Some(pid) => {
             drop(wr);
@@ -748,6 +754,8 @@ fn fork_child(
                 ctx.proc.hidden.insert(pid);
                 return Err(e);
             }
+            links.parent(&mut ctx.proc.tracing, pid, ctx.proc.pid);
+            inherited.parent(ctx.proc, pid);
             ctx.proc.children.insert(pid);
             if pid_addr != 0 {
                 let _ = ctx.write_u32(pid_addr, pid as u32);
@@ -760,6 +768,8 @@ fn fork_child(
             let pid = unsafe { libc::getpid() };
             new.pid = pid;
             new.ppid = parent;
+            links.child(&mut new.tracing, parent);
+            inherited.child(&mut new);
             new.audit = process::host_audit_token(pid, new.creds);
             new.next_tid = ((pid as u64) << 20) | 1;
             // The child owns the parent's bridge state, but its kqueue was

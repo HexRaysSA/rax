@@ -25,7 +25,7 @@ fn segment(name: &[u8], address: u64, size: u64, file_size: u64, protection: u32
     }
     command(LC_SEGMENT_64, &body)
 }
-fn process(abi: DarwinAbi) -> DarwinProcess {
+pub(crate) fn process(abi: DarwinAbi) -> DarwinProcess {
     process_with_profile(abi, true)
 }
 
@@ -122,6 +122,103 @@ fn finish(p: &mut DarwinProcess) {
         }
     }
     panic!("exit did not complete within 100 turns");
+}
+
+#[cfg(unix)]
+#[test]
+fn ptrace_step_state_preserves_other_architectural_bits() {
+    use crate::user::darwin::syscall::bsd::ptrace::set_step_state;
+    let mut x86 = process(DarwinAbi::X86_64);
+    let thread = x86.proc.threads.values_mut().next().unwrap();
+    let DarwinCpu::X86_64(cpu) = &mut thread.cpu else {
+        unreachable!()
+    };
+    cpu.vcpu_mut().set_user_rflags(0x203);
+    set_step_state(thread, true);
+    let DarwinCpu::X86_64(cpu) = &thread.cpu else {
+        unreachable!()
+    };
+    assert_eq!(cpu.vcpu().user_rflags(), 0x303);
+    set_step_state(thread, false);
+    let DarwinCpu::X86_64(cpu) = &thread.cpu else {
+        unreachable!()
+    };
+    assert_eq!(cpu.vcpu().user_rflags(), 0x203);
+
+    let mut arm = process(DarwinAbi::Arm64);
+    let thread = arm.proc.threads.values_mut().next().unwrap();
+    thread.mach.debug_state = vec![0; 130];
+    thread.mach.debug_state[3] = 0x1234;
+    thread.mach.debug_state[128] = 0x10;
+    set_step_state(thread, true);
+    assert_eq!(thread.mach.debug_state[128], 0x11);
+    set_step_state(thread, false);
+    assert_eq!(thread.mach.debug_state[128], 0x10);
+    assert_eq!(thread.mach.debug_state[3], 0x1234);
+}
+
+#[test]
+fn x86_single_step_reports_debug_exception_entry() {
+    let mut process = process(DarwinAbi::X86_64);
+    let tid = *process.proc.threads.keys().next().unwrap();
+    let mut thread = process.proc.threads.remove(&tid).unwrap();
+    thread.sig.entry.trapno = 0xdd;
+    thread.sig.entry.err = 0x42;
+    crate::user::darwin::exception::raise_single_step(&mut process.proc, &mut thread);
+    assert_eq!(thread.sig.entry.trapno, 1);
+    assert_eq!(thread.sig.entry.err, 0);
+    assert_ne!(thread.sig.pending & signal::bit(signal::SIGTRAP), 0);
+}
+
+#[test]
+fn ptrace_self_requests_and_exec_flag_projection() {
+    use crate::user::darwin::{
+        abi::Errno,
+        arch::Rv,
+        syscall::{Ctx, bsd},
+    };
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut p = process(abi);
+        let (_, mut thread) = p.proc.threads.pop_first().unwrap();
+        let pid = p.proc.pid;
+        let mut ctx = Ctx {
+            proc: &mut p.proc,
+            thread: &mut thread,
+            nr: i64::from(crate::user::darwin::abi::tables::nr::PTRACE),
+            pc: ENTRY,
+        };
+        let call =
+            |ctx: &mut Ctx<'_>, request, target| bsd::ptrace::ptrace(ctx, request, target, 1, 0);
+        assert_eq!(call(&mut ctx, 12, 0), Err(Errno::EINVAL));
+        assert_eq!(call(&mut ctx, 7, 1), Err(Errno::EPERM));
+        assert_eq!(call(&mut ctx, 7, pid), Err(Errno::EPERM));
+        assert_eq!(call(&mut ctx, 14, pid), Err(Errno::EINVAL));
+        assert_eq!(call(&mut ctx, 31, 0), Ok(Rv::one(0)));
+        assert_eq!(call(&mut ctx, 31, 0), Ok(Rv::one(0)));
+        assert!(ctx.proc.tracing.deny_attach);
+        assert_eq!(call(&mut ctx, 14, pid), Err(Errno::EINVAL));
+        assert_ne!(ctx.thread.sig.pending & signal::bit(signal::SIGSEGV), 0);
+        let after_exec = ctx.proc.tracing.for_exec();
+        assert!(after_exec.deny_attach);
+
+        ctx.proc.creds.1 = 1;
+        assert_eq!(call(&mut ctx, 30, 0), Err(Errno::EPERM));
+        assert!(!ctx.proc.tracing.force_quota);
+        ctx.proc.creds.1 = 0;
+        ctx.thread.assumed = Some((1, 1));
+        assert_eq!(call(&mut ctx, 30, 0), Err(Errno::EPERM));
+        ctx.thread.assumed = None;
+        assert_eq!(call(&mut ctx, 30, 0), Ok(Rv::one(0)));
+        assert!(ctx.proc.tracing.force_quota);
+        let after_exec = ctx.proc.tracing.for_exec();
+        assert!(!after_exec.force_quota);
+        ctx.proc.tracing.tracer = Some(42);
+        assert_eq!(call(&mut ctx, 12, 0), Ok(Rv::one(0)));
+        assert!(ctx.proc.tracing.signal_exceptions);
+        assert_eq!(call(&mut ctx, 31, 0), Err(Errno::EJUSTRETURN));
+        assert_eq!(ctx.proc.exit, Some(ExitStatus::Exited(Errno::ENOTSUP.0)));
+        assert!(ctx.thread.exited);
+    }
 }
 
 #[test]

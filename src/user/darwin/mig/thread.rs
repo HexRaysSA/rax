@@ -28,7 +28,6 @@ mod flavor {
 
 /// `TH_STATE_*`.
 const TH_STATE_RUNNING: u32 = 1;
-const TH_STATE_STOPPED: u32 = 2;
 const TH_STATE_WAITING: u32 = 3;
 /// `POLICY_TIMESHARE`.
 const POLICY_TIMESHARE: u32 = 1;
@@ -92,7 +91,10 @@ fn with_thread<R>(
         return Err(kr::KERN_INVALID_ARGUMENT);
     };
     if tid == ctx.thread.tid {
-        return Ok(f(ctx.thread, true));
+        // A remote task request may borrow a sleeping thread from the
+        // scheduler to run its MIG server; borrowing it does not wake it.
+        let running = ctx.thread.runnable();
+        return Ok(f(ctx.thread, running));
     }
     match ctx.proc.threads.get_mut(&tid) {
         Some(t) if !t.exited => Ok(f(t, false)),
@@ -109,11 +111,18 @@ fn time_value(ns: u64) -> [u32; 2] {
 }
 
 /// `retrieve_thread_basic_info`.
-pub(crate) fn basic_info(t: &Thread, running: bool) -> [u32; 10] {
-    let run_state = if running || t.runnable() {
+pub(crate) fn basic_info(
+    t: &Thread,
+    running: bool,
+    task_stopped: bool,
+    signal_waiting: bool,
+) -> [u32; 10] {
+    let run_state = if signal_waiting || task_stopped || t.mach.suspend_count > 0 {
+        // User holds park a quiescent thread in thread_apc_ast's
+        // assert_wait (thread_act.c), rather than a debugger's TH_SUSP.
+        TH_STATE_WAITING
+    } else if running || t.runnable() {
         TH_STATE_RUNNING
-    } else if t.mach.suspend_count > 0 {
-        TH_STATE_STOPPED
     } else {
         TH_STATE_WAITING
     };
@@ -142,6 +151,17 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             let fl = req.i32(32);
             let count = req.u32(36).min(32);
             let dispatch_offset = ctx.proc.pthread_dispatch_offset();
+            let task_stopped = ctx.proc.task.suspension.is_stopped();
+            #[cfg(unix)]
+            let signal_waiting = match req.port.kobject {
+                KObject::Thread(tid) => crate::user::darwin::syscall::bsd::ptrace::signal_waiting(
+                    &ctx.proc.tracing,
+                    tid,
+                ),
+                _ => false,
+            };
+            #[cfg(not(unix))]
+            let signal_waiting = false;
             let words = with_thread(ctx, req, |th, running| -> Result<Vec<u32>, KernReturn> {
                 let need = |n: u32| {
                     if count < n {
@@ -153,7 +173,7 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
                 let mut w: Vec<u32> = match fl {
                     flavor::BASIC_INFO => {
                         need(10)?;
-                        basic_info(th, running).to_vec()
+                        basic_info(th, running, task_stopped, signal_waiting).to_vec()
                     }
                     flavor::IDENTIFIER_INFO => {
                         need(6)?;
@@ -174,7 +194,7 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
                         // policy, run_state, flags, sleep_time, curpri,
                         // priority, maxpriority, pth_name[64].
                         need(28)?;
-                        let b = basic_info(th, running);
+                        let b = basic_info(th, running, task_stopped, signal_waiting);
                         let mut v = Vec::with_capacity(28);
                         for x in [th.mach.user_ns, th.mach.system_ns] {
                             v.extend_from_slice(&[x as u32, (x >> 32) as u32]);

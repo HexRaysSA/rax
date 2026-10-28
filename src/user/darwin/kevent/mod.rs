@@ -21,6 +21,8 @@
 mod call;
 pub mod filters;
 pub mod host;
+mod process_exit;
+pub(crate) use process_exit::guest_exit;
 pub mod workloop;
 pub mod workq;
 

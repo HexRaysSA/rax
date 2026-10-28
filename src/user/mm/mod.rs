@@ -1050,6 +1050,15 @@ impl AddressSpace {
         self.inner.arena.available()
     }
 
+    /// Publish explicit instruction-cache synchronization by a personality.
+    /// Consumers invalidate this range at their next user-entry boundary.
+    /// The caller validates its architectural address range first.
+    pub(crate) fn synchronize_code(&self, start: u64, len: u64) {
+        if len != 0 {
+            self.log_code_change(start, len);
+        }
+    }
+
     /// The current code-change epoch.
     #[inline]
     pub fn code_epoch(&self) -> u64 {

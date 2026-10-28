@@ -182,7 +182,7 @@ is the child's copy of the host region, as the host fork gives it.
 | `bsdthread_register`: the main thread's QoS is the one the host kernel gave the emulator's own primordial thread at its exec (from the task's application type and QoS clamp, which fork and exec keep; a host fork's thread is not given it again), legacy when it has none | `syscall::bsd::thread` | libpthread `kern_support.c` (`_bsdthread_register`), `task_set_main_thread_qos` |
 | `bsdthread_create`: a thread with its own control port, the TSD base, and libpthread's `thread_start(pthread, kport, func, arg, stack, flags)` state; QoS requests validated; `PTHREAD_START_SUSPENDED` | `syscall::bsd::pthread` | libpthread `kern_support.c` |
 | `bsdthread_terminate`: the stack freed (the main thread's made inaccessible), the joiner's semaphore signalled or its ulock woken once the thread is gone, the control port dead | `syscall::bsd::pthread` | `pthread_shims.c`, `uthread_joiner_wake` |
-| Thread state by flavor (`thread_get_state`, `thread_set_state`): the flavors a 64-bit thread has and their counts, the flavor lists, the unified states with their headers, the exception state (set: accepted and ignored on arm64, refused on x86-64), NEON, VFP, float, and AVX state (a float state clears the upper YMM halves; no AVX-512 on the emulated Haswell); the debug registers are checked, masked, and kept but not applied (the CPUs have no hardware breakpoints); the saved-state, full-state, SME, and SVE flavors are refused | `thread_status`, `mig::thread` | `status.c`, `pcb.c`, `fpu.c`, `thread_act.c` |
+| Thread state by flavor (`thread_get_state`, `thread_set_state`): the flavors a 64-bit thread has and their counts, the flavor lists, the unified states with their headers, the exception state (set: accepted and ignored on arm64, refused on x86-64), NEON, VFP, float, and AVX state (a float state clears the upper YMM halves; no AVX-512 on the emulated Haswell); the debug registers are checked, masked, and kept, Arm SS controls stepping, and hardware breakpoint/watchpoint event generation remains unsupported; the saved-state, full-state, SME, and SVE flavors are refused | `thread_status`, `mig::thread` | `status.c`, `pcb.c`, `fpu.c`, `thread_act.c` |
 | Cancellation: `__pthread_markcancel`, `__pthread_canceled`, `__disable_threadsignal`, and the calls that are cancellation points (`EINTR` when a cancellation is pending) | `syscall::bsd::pthread` | `kern_sig.c` |
 | psynch: kernel wait queues per object address for contended mutexes (first-fit and fair-share), condition variables (signals, broadcasts, directed signals, timed waits, preposts), and read-write locks (overlapping readers, writer hand-off) | `psynch` | libpthread `kern_synch.c` |
 
@@ -210,6 +210,961 @@ Closing a descriptor drops its knotes (or reports `EV_VANISHED` for those
 that asked); closing a kqueue's last descriptor drops the kqueue.
 
 ## Processes
+
+`ptrace` (BSD call 26) is incomplete in the host-services profile and is
+not admitted in the embedded profile. Self-directed `PT_DENY_ATTACH` and
+`PT_FORCEQUOTA` maintain process flags and perform their local checks. A
+connected child's no-attach flag rejects its parent's attach request. A
+connected, non-root tracer can use `PT_ATTACH` or `PT_ATTACHEXC` when its
+real and effective UIDs match the target's and the target's observed signature
+has `get-task-allow`. Independently launched host-backed RAX instances discover
+each other through a per-user registry; the tracer need not be a guest ancestor. This policy extrapolates the tested macOS 27.2 case;
+it does not evaluate all MAC hooks, set-ID state, sandbox restrictions, or
+task-access policy. Other unmodeled cases return `ENOSYS` after the local
+rejection checks. The quota
+flag is not enforced against filesystem operations. For processes connected at fork, spawn, or through the per-user registry,
+the implementation has a tracing path for
+`PT_TRACE_ME`, signal
+stops, `wait4`/`waitid`, `PT_CONTINUE`, `PT_KILL`, `PT_STEP`, `PT_DETACH`,
+task-level `PT_SIGEXC`, and traced exec. That path is incomplete: its
+security checks, signal edge cases, code-signing flag transitions, remote
+exception-port control, and failure handling do not yet establish full XNU
+behavior. x86-64 `RFLAGS.TF` is preserved on detach and now generates
+architectural trace events through the ordinary direct user CPU. The shared
+x86 segment-load helper still sets interrupt inhibition for `LSS`, although
+the [pinned Intel SDM](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf),
+Vol. 3A section 7.8.3 specifies no such inhibition. That separate interrupt
+shadow discrepancy remains; TF suppression now uses its own MOV/POP SS marker. A signal sent to a connected traced
+child by positive pid uses the guest link. A `SIGKILL` sent to a traced stop
+stays pending until continuation or the exception handler's reply. In the
+observed soft-exception case, the pending kill took effect after the suspended
+handler resumed and replied. In the hard-stop mode, `SIGKILL` sent while a
+traced child is running produces a trace stop and is delivered when that stop
+is released. If all guest threads have explicit thread suspensions, a running
+hard-stop tracee instead exits for `SIGKILL`; `PT_KILL` and a continuation
+carrying `SIGKILL` also terminate a suspended tracee. On macOS 27.2 arm64, the
+running case either terminated directly or first reported a `SIGKILL` trace
+stop; a Rosetta run also reported a stop. Physical Intel behavior is unknown.
+Process-group signals and signals from external
+host processes still use host delivery, including host `SIGSTOP`. Discovery
+can wake a host-stopped RAX target while retaining its guest stop. An ancestral
+parent retains ordinary POSIX signal permission after a different tracer
+becomes the guest parent; its ptrace controls and waits remain excluded.
+For a connected target, `task_for_pid` requests an authenticated target-side grant independently of BSD attach and stop state. The target checks the
+represented credentials, image epoch, and host-observed get-task-allow
+signing state before retaining a task send and replying. The caller then
+receives a proxy control port; `task_info`, `task_threads`, `thread_info`,
+`thread_get_state`, `thread_set_state`, `thread_suspend`, and `thread_resume`
+run in the target process. Remote
+`mach_vm` allocation, deallocation,
+protection, read, read-overwrite, write, copy, page query, region, and
+recursive-region calls operate on the target's map. The corresponding
+`vm_map` read, read-overwrite, write, copy, page-query, and 64-bit region
+calls use the same path. `task_set_exception_ports` and
+`task_swap_exception_ports` can install a connected tracer's live handler for
+`EXCEPTION_DEFAULT`, `EXCEPTION_STATE`, and
+`EXCEPTION_STATE_IDENTITY`, with 32-bit or 64-bit exception codes. The target
+runs the shared MIG validation before changing its actions. Protected-identity
+layouts remain unsupported and are rejected before mutation. Kernel exception
+requests travel back to the tracer with task/thread capability descriptors and
+a single-use reply token; replies return to the target's waiting thread.
+Handler death, last-send release, abandoned replies, disconnect, and exec have
+explicit lifecycle controls. Target actions retain their handler across exec,
+while the old image's pending replies and guest IPC names are retired.
+Inherited state-only RPCs can relay through their parent's connection after
+fork or spawn; relayed replies and handler sends also survive an intermediary
+exec. This requires the ancestry connections to remain live. Inherited
+identity-bearing exceptions and loss of an intermediary still need broader
+capability routing. `ptrace_inherited_state` compares the arm64 fork case
+with native behavior. The corresponding Rosetta probe cleared the inherited
+action; physical Intel behavior remains unknown.
+`task_set_exception_ports` and `task_swap_exception_ports` can also install a
+null or dead-name handler. The swap path rejects a live previous handler
+whose receiver is outside the represented connected-tracer capability set
+before changing the action.
+`task_get_exception_ports_info` can inspect target actions,
+and `task_get_exception_ports` and swap can return null, dead-name, and
+connected-tracer-owned live handlers. Live sends return to the original port
+identity in the tracer. Return frames precede the last-send release of a
+replaced handler; a receive right destroyed while its send is in transit
+becomes a dead name.
+The info identities use the emulator's synthetic port and receiver values, not
+XNU's hashes, and receiver identities can collide. On macOS 27.2 arm64,
+`tools/darwin/ptrace_remote_exception_probe.c` installed a handler in the tracer,
+received a child's software exception, replied successfully, and observed its
+normal exit; the x86-64 probe under Rosetta did the same. The
+`ptrace_attach_exception_live` fixture exercises that cross-process handler
+installation and reply path. `ptrace_attach_exception_live_ports` adds get,
+live-to-live swap, swap back, and clear, checking that each returned live
+right has the original port name. A separate
+macOS 27.2 arm64 probe confirmed that the child's
+software action is cleared. An x86-64 probe under Rosetta reported success
+but the child still observed a non-null handler; physical Intel behavior is
+unknown. The dead-name set/get fixture agrees with native macOS 27.2 arm64 and
+x86-64 under Rosetta, including invalid flavor and `MACH_PORT_DEAD` inputs.
+Large out-of-line transfers
+use an anonymous host file passed over the family link; they retain a complete
+memory snapshot and consume a host descriptor, and snapshot creation or
+allocation can return `KERN_RESOURCE_SHORTAGE`. Other remote operations return
+`KERN_NOT_SUPPORTED`. Legacy `task_suspend` and `task_resume` use the task's
+user and legacy hold counters (`osfmk/kern/task.c`: `place_task_hold`,
+`release_task_hold`, `task_suspend`, `task_resume`). A suspend installs one
+hidden resume-port send uref in the caller's IPC space; repeated calls coalesce
+the physical send. Deallocating its last uref releases all remaining legacy
+holds, while resuming consumes one uref on success and destroys stale urefs on
+failure. The family transport carries this caller-space effect separately
+from the RPC result, including for a message without a reply right. Caller
+exec releases sends owned only by its old IPC namespace; registered ports and
+inherited task special ports retain their sends. A disconnect releases the
+connection's exported send; target exec invalidates its proxy. A canceled
+suspend reply refreshes an existing retained send's generation without
+releasing its shared physical export. Generation checks protect a reacquired
+send from a stale release, and
+last-send controls share the callback FIFO so a new RPC cannot overtake them.
+Hard ptrace stops and cooperative job stops take normal holds. A hard ptrace
+resume uses the legacy release rule and consumes the tracer's hidden uref
+before returning its BSD reply; `SIGCONT` uses the normal release rule.
+Task-info suspend counts include these user holds, and a held task remains
+able to service kernel requests while guest execution is blocked.
+`task_suspend2` returns an independent send-once suspension token. Both
+`task_resume2` and token abandonment release a normal hold; using its
+send-once destination for a malformed RPC consumes the right without
+releasing that hold, as XNU does. Token calls remain valid after releasing
+the separate task-control name. This link retains trace stops and replies in order under output backpressure. A
+process with a `PT_TRACE_ME` announcement or synchronous tracing or remote Mach
+reply still queued waits for the ordered backlog to enter the socket before
+host-process teardown, including when the guest has already exited. If the
+tracer holds the socket open without reading, this can delay host-process exit;
+bounded execution reports a blocked state. In the opposite direction, a full
+tracer-to-tracee output queue can still cause a tracing request to return
+`EAGAIN` or a remote Mach call to receive `KERN_RESOURCE_SHORTAGE` instead of
+waiting for capacity.
+
+### Independent instances, parentage, and exit waits
+
+The host-services profile publishes an endpoint under
+`/tmp/rax-darwin-<effective-host-uid>/`, independently of the launcher's
+`TMPDIR`. The directory must be account-owned with mode `0700`; records and
+leases must be account-owned, single-link regular files with mode `0600`.
+Symlinks, unexpected file types, writable ancestors, and replacement of the
+registry directory are rejected. A per-PID `flock` lease serializes publication;
+a 128-bit random process-instance identifier names the socket and binds the
+handshake. Current discovery uses `RAXREG02`, a fixed 32-byte identity record
+and a 33-byte framed hello. A prior protocol version is rejected before a
+tracing relationship can be created. Under its own exclusive PID lease, a new
+publisher may replace a valid stale version-1 record. Lease files remain in
+place to preserve lock-inode identity. Abnormal host termination can leave
+stale record/socket files; there is no directory-wide garbage collector.
+
+On macOS, `getpeereid`, `LOCAL_PEERPID`, and `LOCAL_PEERTOKEN` establish the
+socket peer's kernel identity. Discovering a stopped peer sends `SIGCONT`
+through `proc_signal_with_audittoken`, which checks the audit token's PID
+version. It does not signal a running peer. The validated hello identifies this
+internal wake so the target retains its guest `SIGSTOP` without invoking a
+caught guest `SIGCONT` handler. Losing the last controller returns an untraced
+cooperative stop to host job control. Setup is nonblocking: at most 32 pending
+setups and 32 incoming established peers, with a 5 s setup deadline. Each
+scheduler pass accepts at most eight peers. The underlying tracing transport
+bounds an ordinary frame to 1 MiB and its queued payload to 4 MiB; the existing
+Mach out-of-line path has separate resource accounting.
+
+Registry discovery grants no ptrace or Mach authority. Connection identities
+select independent target export, suspension-token, callback, reply, and
+backpressure namespaces. Tracer PID, original parent (`p_oppid`), and physical
+host ancestry are distinct. An original guest parent can observe another
+tracer's ownership without acquiring its controls. It cannot consume that
+tracer's stop, continuation, or exit waits. Target exec retires prior-image
+rights, advances an image epoch, and republishes signing state; status replies
+from an earlier epoch cannot replace the new projection. A successful attach
+publishes its guest signing transition before its acknowledgement.
+
+A guest exit can precede physical engine exit. The cooperative zombie reports
+its status and a 144-byte `user64_rusage` while the engine pins the host PID.
+`wait4` and `waitid` copy requested output before committing the reap; an
+`EFAULT` leaves the zombie waitable. A reap acknowledgement changes parentage
+before the caller returns. As in `reap_child_locked`, a nonzero `p_oppid`
+returns the zombie to its original parent even when that parent is also the
+tracer: `PT_TRACE_ME` can therefore require two successful exit waits for the
+same PID. The final guest reap permits host exit, and a physical RAX parent
+collects its host child. `SA_NOCLDWAIT` performs the same handoff and host
+collection automatically. Ordinary untraced child exits retain host
+`SIGCHLD`; only foreign-owned children and cooperative exit/reap exchanges
+suppress that internal host notification.
+
+Debugger memory writes support both `mach_vm_machine_attribute` (4812) and
+`vm_machine_attribute` (3813). For `MATTR_CACHE`, the RPC preserves the input
+value and publishes the page-rounded range to the address-space code-change
+log. CPU adapters consume that log before entering guest code. Zero size
+returns success before address/attribute validation; range overflow, invalid
+map bounds, unsupported attributes, and unmapped pages retain distinct error
+paths. The SDK debugserver uses this RPC after `vm_write`; an unsupported RPC
+previously reported a failed breakpoint or memory write after modifying bytes.
+The implementation follows pinned XNU
+[`vm_user.c`](https://github.com/apple-oss-distributions/xnu/blob/xnu-12377.121.6/osfmk/vm/vm_user.c)
+and
+[`vm_map.c`](https://github.com/apple-oss-distributions/xnu/blob/xnu-12377.121.6/osfmk/vm/vm_map.c),
+with native macOS 27.2 cache-value and error-precedence comparisons. This is
+instruction-cache synchronization of the flat guest map; physical cache
+placement and migration attributes are not represented.
+
+Task, thread, legacy-resume and send-once suspension-token rights are retired
+at guest exit while the PID and
+BSD reap transport remain live. Native teardown can make a task send become a
+dead name shortly after the process event, before any `waitpid` call; the
+fixture polls for this transition with a 5 s observation bound. The primary
+source is `ipc_task_terminate` / `ipc_thread_terminate` in pinned XNU
+[`ipc_tt.c`](https://github.com/apple-oss-distributions/xnu/blob/xnu-12377.121.6/osfmk/kern/ipc_tt.c).
+
+New task acquisition on the zombie returns `KERN_FAILURE` with a null name.
+The dying server completes queued grants and rejects Mach/callback, token and
+ptrace requests without executing guest work; the connection remains open for
+the BSD reap acknowledgement.
+
+The cooperative exit report also activates matching `EVFILT_PROC` knotes in
+the current guest parent before it can reap the target. `NOTE_EXITSTATUS`
+contains the guest wait status; `NOTE_EXIT` forces `EV_EOF | EV_ONESHOT`
+unless the knote retains `NOTE_REAP`. Disabled knotes keep their event until
+enabled. The eventual physical engine exit does not produce a second
+`NOTE_EXIT`; retained `NOTE_REAP` and unrelated host process events remain
+available. New process-knote registration on a known guest zombie returns
+`ESRCH`, as `proc_find` excludes zombies. This follows `filt_procevent` in
+pinned XNU `kern_event.c`, including
+its suppression of exit notifications to an original parent while a foreign
+tracer owns the zombie. Publishing an exit scans K knotes in O(K) time and
+uses O(K) temporary space. This notification is required by SDK debugserver,
+which waits on a process knote before issuing its exit wait.
+
+Architectural basis: pinned XNU `bsd/kern/kern_exit.c`
+(`reap_child_locked`, `wait4`, `waitid`), `bsd/kern/mach_process.c`
+(`PT_TRACE_ME`, `proc_reparentlocked`), and
+[`uipc_usrreq.c`](https://github.com/apple-oss-distributions/xnu/blob/xnu-12377.121.6/bsd/kern/uipc_usrreq.c)
+(peer socket identity); SDK `sys/un.h` and `libproc.h` define the audit-token
+interfaces. The observed host is macOS 27.2; the pinned XNU revision is a
+source baseline rather than a claim about that host's exact kernel binary.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+|---|---|---|---|---|---|---|
+| REG1 | The host-backed Darwin process profile uses one guest PID equal to its host PID; closed embeddings do not publish. | process::start/fork PID assignment and existing host-backed profile. | Per-PID lookup, kernel peer authentication, and fork/exec publication ownership. | Fork, failed spawn construction, exec, multiple embedded Proc objects, PID reuse. | An active host-backed Proc intentionally has a different PID or an uncommitted image becomes discoverable. | Retained host-services identity contract; closed embeddings do not publish. |
+| REG2 | A per-user host registry is the selected process-isolation boundary; guest credentials remain separate policy inputs. | Explicit user choice: Per-user registry for independent RAX instances; verified XNU uipc_usrreq.c and SDK LOCAL_PEERPID/getpeereid interface. | Private account-owned directory, authenticated PID/UID, generation handshake. | Foreign/mismatching PID or UID, insecure/symlink/hardlink/FIFO records, stale generations and directory replacement. | A direct foreign-account socket is admitted, a mismatched kernel identity is accepted, or stale setup promotes a replacement process. | User-selected per-user contract; private-path, peer-identity, stale-generation, malformed-handshake and bounded-setup tests pass. |
+| REG3 | The same-credential, entitled-target attach profile works for an unrelated unentitled tracer on the observed host. | Independent sibling native PT_ATTACH/stop/PT_KILL probes pass on macOS 27.2 arm64 and Rosetta with a get-task-allow target and unentitled tracer. | An evidence-backed initial independent-attach authorization path. | Deny attach, already traced, UID change, image change, unsigned/restricted target and tracer death. | A bounded native probe disagrees for an admitted credential/signing combination. | Confirmed for the observed same-credential, non-platform get-task-allow profile; complete native MAC/taskgated policy remains unknown. |
+| REG4 | Observation of traced state and ownership of ptrace controls must be separate. | XNU mach_process.c cantrace/proc_reparentlocked/PT_TRACE_ME; PT_TRACE_ME can overwrite p_oppid with the current tracer-parent. | Atomic tracer+original-parent snapshot and explicit Child.owner_pid. | Ancestral parent observes an external tracer, p_oppid overwritten by trace-me, clear on exit, output backpressure. | The original parent gains a foreign tracer control or observes a torn owner/parent pair. | Ownership, sibling signalling, parent metadata and exit/wait tests pass; v4 full Darwin campaign passed 375 tests. |
+| REG5 | An unrelated emulated tracer needs a cooperative exit report and reap acknowledgment rather than host wait4. | Host wait4 requires a real host child; native attach reparents the target, while a guest registry connection does not change host ancestry. | Virtual wait4/waitid exit/rusage delivery and target zombie lifetime. | WNOHANG/WNOWAIT, tracer exits without reaping, original parent waits concurrently, guest SIGKILL. | Independent RAX wait falls through to ECHILD or exposes/reuses a target PID before the emulated tracer reaps it. | Revised to cover family and registered tracing; native/RAX copyout, double-wait, waitid and reparent fixtures pass. |
+| REG6 | Independently launched Rosetta tasks are not a native oracle for x86 architectural thread state on this Apple Silicon host. | /tmp/rax-registry-state-diagnostic.json: two threads reject flavor 4 with KERN_INVALID_ARGUMENT and accept ARM64 flavor 6; arm64 native and RAX x86 state queries are tested separately. | The independent x86 Mach comparison excludes that host-only state observation; RAX must independently return its x86 state. | Physical Intel macOS, translated helper thread ordering and count, wrong guest flavor. | An independent native Rosetta target exposes x86_THREAD_STATE64 successfully under the same stopped profile. | Confirmed for the observed Rosetta profile; physical Intel execution remains unknown. |
+| REG7 | A host wait result is terminal only for WIFEXITED or WIFSIGNALED. | Frozen detach campaign iteration 2 reports native status 4991 (0x137f, continued), not a death; the original harness incorrectly treated it as terminal. | Native orchestration must ignore continued transitions and retain PID ownership until a terminal reap. | SIGCONT races with retained PT_DETACH SIGSTOP; WNOHANG and WUNTRACED statuses arrive in either order. | A nonterminal status is cached as a completed Child or an owned live target is leaked. | Native harness ignores nonterminal statuses; both-architecture independent detach/continue fixtures pass. |
+| REG8 | A caught debugger-supplied signal must complete the interrupted kernel continuation before its user handler frame is saved. | Pinned XNU kern_sig.c sigsuspend_nocancel always returns EINTR; actual RAX strace showed sigreturn resuming sigsuspend again before correction. | Exact restart-PC guard replays the original syscall instruction before the caught-signal AST; indirect arguments and syscall-specific restart semantics are preserved. | ARM64/x86-64, zero/fatal/masked/default verdicts, debugger PC edit, Mach traps, noninterruptible waits and read SA_RESTART. | After PT_CONTINUE with SIGUSR1, a pause handler returns to a new sigsuspend instead of its caller; a PC-edited or uncaught verdict enters replay. | Exact syscall-frontier replay is covered by focused units and the passing v4 full Darwin campaign. |
+| REG9 | A stopped peer can be awakened without targeting a reused host PID by using the socket audit token. | /tmp/rax-registry-wake-audit-current.json and /tmp/rax-registry-wake-stage-current.json; SDK LOCAL_PEERTOKEN/proc_signal_with_audittoken and pinned XNU proc_info.c validate exact process identity. | Discovery of independently launched targets that were stopped before connecting. | Stale pidversion, running peer, false hello claim, peer death before wake and ordinary native SIGCONT. | A stale audit token wakes a replacement process, a running target receives an unsolicited SIGCONT, or an unauthenticated hello claims an internal wake. | Stale audit-token API probe and native/RAX self-stopped, externally stopped and caught-CONT fixtures pass. |
+| REG10 | Guest exit ownership follows p_oppid before physical host reaping, including when tracer and original parent coincide. | Pinned XNU kern_exit.c:2849-2918 and native double-wait/EFAULT probes on macOS 27.2 arm64 and Rosetta. | Reap acknowledgement protocol, current-parent shared snapshot, wait eligibility and zombie metadata. | Two successive WNOHANG waits, status/rusage EFAULT, foreign controller ack, original parent waits concurrently, tracer EOF, SA_NOCLDWAIT. | Native/RAX ptrace_reap or ptrace_reparent fixture differs, or a nonowner controller can advance a zombie. | Native/RAX EFAULT, WNOWAIT, double-wait, reparent and parent-ownership fixtures pass; new process-event assertions also pass on both architectures. |
+| REG11 | On the observed macOS 27.2 profile, MATTR_CACHE preserves tested input values; code-range invalidation supplies the flat guest map cache synchronization effect. | Pinned XNU vm_user.c/vm_map.c; native /tmp/rax-vm-attribute-native-arm64.log; LLVM MachVMMemory.cpp explains SDK post-write RPC. | Local and remote RPC 4812/3813 and successful debugger breakpoint/memory write acknowledgement. | Zero size with invalid attributes/address, integer overflow, unmapped/cross-page ranges, arbitrary signed values, read-only maps, both RPC variants and guest architectures. | Native/RAX vm_attribute output differs, code log lacks affected pages, or actual SDK breakpoint insertion still reports E09 after memory write. | Both cache RPC variants, range/error and code-log units, native/RAX cache fixtures, and actual SDK breakpoint/memory writes pass. |
+| REG12 | A cooperative guest zombie must publish its process knote exit before physical engine exit; proc_find excludes that zombie from new registrations. | Pinned XNU kern_event.c:filt_procattach/filt_procevent; native arm64 and Rosetta ptrace_registry_event comparisons; v4 SDK timeout at final continuation. | EVFILT_PROC guest exit/status, NOTE_REAP retention, physical-event suppression, and zombie registration ESRCH. | Disabled knote, wrong PID/filter, missing NOTE_EXITSTATUS, NOTE_REAP retained, p_oppid handoff, duplicate host exit, and new registration after guest exit. | The native/RAX event fixture differs, or SDK debugserver cannot observe target exit42 after successful continue. | Confirmed for covered units and both native/RAX guest architectures; final debug and optimized SDK workflows complete attach, software breakpoint, PC+4 step, memory write and exit42. |
+| REG13 | Native task/thread and resume rights become dead independently of BSD zombie reaping; task-port death can follow the process knote asynchronously. | Pinned XNU ipc_task_terminate/ipc_thread_terminate and task_deallocate; native macOS 27.2 probe /tmp/rax-process-exit-rights-poll-current.json observes a live initial send then a dead name before waitpid. | Retire all controller exports at cooperative guest exit while retaining PID lease and BSD reap transport. | Family and independent registry links, task and thread exports, multiple controllers, queued calls, task death observed before a reap acknowledgement. | cooperative_zombie_retires_task_and_thread_rights_before_any_reap_ack fails, or native/RAX event fixture cannot observe a dead task name without reaping. | Task/thread and resume-token baseline defects reproduced; final units and native/RAX pre-reap port-death fixtures pass on both guest architectures. |
+| REG14 | A request delivered after guest exit must complete with a terminal failure rather than wait for BSD zombie reaping. | Native macOS 27.2 probe returns KERN_FAILURE and MACH_PORT_NULL when reacquiring an unreaped zombie task; baseline unit retained Mach RESTART indefinitely. | Dying-frontier grant, Mach/callback, token and ptrace replies; resume-right retirement without closing the reap transport. | Request queued before exit but received afterwards, retained send-once token, fresh task acquisition after port death, no reap acknowledgement. | cooperative_zombie_rejects_an_inflight_task_grant_without_waiting_for_reap returns Mach RESTART, or ptrace_registry_event reacquisition differs from native. | Final 417-test Darwin unit gate and both-architecture native/RAX lifecycle comparisons pass, including token death and task reacquisition failure before reap. |
+
+The additional registry change affects the Darwin process/syscall scheduler,
+IPC routing, metadata, explicit address-space code synchronization, and tests.
+It adds no ISA decode or execute operation,
+SMIR operation, optimizer/native-lowering admission, device behavior, or public
+C ABI layout. Its remaining bounded limitations include unmodeled MAC policy
+(high impact for unsupported authorization profiles), host `SIGCONT`
+coalescing with an internal wake (medium impact under simultaneous external
+continues), and stale registry files after abnormal termination (low impact).
+These limits do not extend the admitted policy profile.
+
+Registry validation on macOS 27.2 arm64 (28 October 2026) passed 417 Darwin
+library tests and all 377 Darwin integration tests, with no ignored or filtered
+integration cases. The integration campaign required native oracles with
+`RAX_USER_DARWIN_REQUIRE_ORACLE=1`, used a frozen optimized runner through
+`RAX_USER_DARWIN_RUNNER`, and ran serially. The runner was built with
+`--no-default-features --features x86_64-suite,smir-jit`; its SHA-256 was
+`d525691e54172b2128f345704d05bf910231c124879e51502923948fc2dca0e6`.
+
+The actual SDK arm64 debugserver, launched independently from its RAX target,
+completed attach, a software breakpoint, single-step with a 4-byte PC advance,
+a debugger memory write, and target exit status 42. Native and RAX controls
+both finished with LLDB/debugserver status 0. This is separate from the C
+fixtures. Native x86-64 controls used Rosetta; physical Intel execution remains
+unknown. Clippy passed for all targets with the runner's features, and the
+portable AArch64 Linux/musl library and `rax-user` compiled; the latter is not
+Linux runtime validation. The build and runtime results cover the combined
+dirty checkout. No installed executable, Git index, commit, or remote was
+changed.
+
+Final platform review added a Unix conditional to the private zombie-RPC
+module declaration, matching its transport dependencies. This changes only
+non-Unix admission of that module. Current-source all-target Clippy and
+Windows/GNU and Windows/MSVC Rust checks pass. The GNU check used cross-compiled
+C dependencies; the MSVC check used host zstd metadata. Neither establishes
+Windows linking or runtime behavior.
+
+The native `ptrace_task_suspend_probe.c` observes two hidden urefs after two
+suspends, two holds after dropping one uref, and zero holds after dropping the
+last; an extra resume returns `KERN_FAILURE`. The exec fixtures check that
+the hidden right disappears, then use `SIGKILL` to bound child cleanup. Unit
+tests separately verify that caller exec releases the target's legacy holds.
+The diagnostic tool also attempts normal child completion after exec. Native
+stress runs sometimes left the child in `read` even with task user holds at
+zero; an extra pipe byte did not release one such stall. Its cause is unknown.
+Consequently, ordinary read completion is not used as the hold-count oracle.
+`ptrace_task_resume_registered_probe.c` independently obtains a child task port,
+registers the resume send, and execs. Native macOS 27.2 arm64 retains both holds
+until the new image drops its lookup rights and clears the registration; the
+child then exits with status 42. The engine preserves these sends across the
+same connection. Inheritance of a remote resume send through another fork or
+spawn connection still needs capability routing.
+The fixtures wait for child readiness before attachment, detach from an ignored
+`SIGUSR1` stop to avoid re-delivering the initial `SIGSTOP`, and retain a bounded
+watchdog across exec. The counter/namespace fixtures passed 160 native runs
+across arm64 and x86-64 under Rosetta after these controls and bounded cleanup.
+`ptrace_task_suspend_trace_probe.c` observes
+the following sequence on macOS 27.2 arm64 and x86-64 under Rosetta; this is
+not physical Intel runtime evidence:
+
+| Event | Task user holds | Hidden send urefs |
+| --- | ---: | ---: |
+| Hard ptrace stop | 1 | 0 |
+| Legacy suspend | 2 | 1 |
+| `PT_CONTINUE` | 1 | 0 |
+| Out-of-band `task_resume` | 0 | 0 |
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| S1 | Nonnegative signed 32-bit hold counts bound the modeled state. | Pinned XNU [`task.h`](https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-12377.121.6/osfmk/kern/task.h) declares `integer_t` user and legacy counters; native overflow behavior is unknown. | Before either counter exceeds `i32::MAX`, the engine returns `KERN_RESOURCE_SHORTAGE` without mutation. | Either counter already at capacity; stale legacy credits exceeding the total. | Unit boundary cases disprove atomic accounting; an independent native overflow oracle would determine whether the engine bound matches XNU. | Retained engine bound. |
+| S2 | One family connection represents the immediate caller's physical resume send. | Remote task calls currently route only over connected parent-child links. | Hidden urefs coalesce per caller and target resume-port identity. | Multiple calls, last-send then reacquisition, queued reply at exec, full socket, disconnect. | Lifecycle tests or native comparison report a stranded hold, premature release, or a hidden uref in the target IPC space. | Retained scope restriction. |
+| S3 | The exec task projection and connection-held exports enumerate the surviving resume sends. | `exec::carry` uses `exec_task`; pending old-image reply rights are released before resume counts are rebased. | Registered and special-port sends survive caller exec without retaining old IPC urefs. | A registered send with a late suspend reply or a borrowed invalid-handler send; owned versus borrowed kernel receive rights. | The registered-exec unit/native probes report a premature hold release, a dead retained port, or a count remaining after the final retained send is cleared. | Confirmed for the covered holders; adding another holder requires an ownership audit. |
+
+High-impact remaining scope includes capability routing outside the immediate
+family connection, complete task/tracing policy, and hardware
+breakpoint/watchpoint event generation. The hard-sigwait and job-stop interactions below are implemented;
+their covered additional-hold combinations are characterized independently.
+These limits prevent a claim of complete Mach debugging support.
+`tools/darwin/ptrace_oob_resume_probe.c` isolates the corrected hard-sigwait case:
+a shared counter is visible before the stop, and its worker increment gate
+opens only after `task_resume` returns. On macOS 27.2 arm64 and x86-64 under
+Rosetta, resuming the single task hold lets the worker increment while the
+thread that raised `SIGSTOP` remains blocked in BSD sigwait. The previous frozen
+resume-port runner reported the same hold count transition (1 to 0), but no
+worker progress. The new scheduler now matches both guest architectures in
+all six normal, queued-signal, and signal-mode-switch comparisons. Both native
+and engine children exit with status 42 after `PT_CONTINUE`. Forty native normal-mode repetitions per architecture completed
+(80 runs). A native `signal` mode instead makes the worker raise
+`SIGUSR1`: it remains blocked until the first stop is continued, then the
+parent observes a separate `SIGUSR1` stop; ten repetitions per architecture
+completed (20 runs). Pinned
+[`kern_sig.c`](https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-12377.121.6/bsd/kern/kern_sig.c)
+blocks other signal-processing threads in `sig_try_locked` while the original
+`p->sigwait` is set. This requires per-thread scheduling and signal-wait
+serialization; simply removing the scheduler's global tracing-stop check
+would permit another thread to overwrite the active stop.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| OOB1 | The gated shared counter distinguishes worker execution from pre-stop stores or failed interprocess visibility. | The parent verifies the worker's ready value before releasing the child to stop; an acquire/release gate opens only after the resume call. | The diagnostic's worker-progress result. | Native/engine shared visibility, two guest architectures, and a worker entering signal processing during sigwait. | `shared-visible=0`, a worker increment before the post-resume gate, or disagreement after normal `PT_CONTINUE` falsifies this measurement. | Confirmed for the covered diagnostic paths and the corrected hard-sigwait scheduler. |
+| OOB2 | The active BSD sigwait lifetime is separate from retained SSTOP/p_xstat metadata and from the task's global user hold. | Pinned `kern_sig.c` sets/clears `p->sigwait` around blocking or `do_bsdexception`, and `sig_try_locked` serializes other signal-processing threads. | Per-thread scheduling, pending-signal preservation, and verdict processing before user execution. | Out-of-band resume; a second pending signal; missing/dead exception handler; thread termination and exec. | Native/engine probes disagree about worker progress or stop order, or unit tests expose an overwritten stop, consumed pending bit, or orphan active wait. | Confirmed for the ten local tests and six hard-sigwait native comparisons; broader combinations remain bounded separately. |
+
+The implementation keeps the active wait owner/kind and entered signal
+waiters in private ptrace state. A task hold still blocks every guest thread;
+a hard BSD sigwait blocks its selected thread independently. Other threads
+can run after an out-of-band task resume, then park before consuming a
+pending signal if another thread still owns sigwait. A pending signal alone
+does not mark the thread as having entered that wait. The selected thread
+consumes its continuation verdict before returning to guest instructions;
+failed/returned signal exceptions and terminated wait owners release the
+serialization state. Exec starts with neither an active wait nor waiters.
+`THREAD_BASIC_INFO`, extended thread information, proc thread records, and
+proc task running counts share the resulting wait-state projection. The
+native probe reports the selected thread as `TH_STATE_WAITING` (3) with the
+original task hold and after that hold drains.
+
+A third native probe mode, `sigexc`, lets the worker enable `PT_SIGEXC`
+after the task hold drains. The already-active hard sigwait still wakes on
+`PT_CONTINUE`. Pinned
+[`mach_process.c`](https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-12377.121.6/bsd/kern/mach_process.c)
+wakes `p->sigwait` independently of the current `P_LSIGEXC` flag; that flag
+controls whether it also calls `task_resume`. The engine retains the wait's
+original kind when creating its continuation verdict. Ten native repetitions
+of this mode per architecture completed; the three modes total 120 native
+runs. The selected thread remains `TH_STATE_WAITING` before and after the
+resume in all three modes.
+
+A separate job-stop correction is characterized by
+`tools/darwin/ptrace_oob_job_probe.c`. This process does not call
+`PT_TRACE_ME`; its shared counter and post-stop gate otherwise provide the
+same observations. Native arm64 and Rosetta report `TH_STATE_WAITING` before
+resume, then a zero task hold count, progress in both threads, and a running
+main thread. The previous frozen hard-sigwait runner reported `TH_STATE_STOPPED`
+before resume and no progress in either thread after the count reaches zero,
+even though its thread-info projection reported running. Job-stop metadata
+now remains independent of execution: task holds block the scheduler, and
+signal processing resumes when the last hold drains. The probe gates normal completion;
+it kills and reaps a stalled emulated child through the untraced host
+`SIGKILL` path. An extra independent hold still blocks both threads until
+the final release. Both the child's own BSD record and its parent's query
+retain `SSTOP` (4) after out-of-band resume, while the threads execute and
+a caught `SIGUSR1` is delivered. `SIGCONT` changes both records to `SRUN`
+(2). Another `SIGSTOP` before `SIGCONT` does not add a new task hold.
+
+The quiescent APC-state correction applies independently of job
+control. `tools/darwin/task_suspend_state_probe.c` publishes main-thread
+readiness before a legacy `task_suspend`, then permits a bounded poll for
+the asynchronous APC to park. Native arm64 and Rosetta report state 3 while
+the task hold is 1; the previous frozen hard-sigwait runner reported state 2. Both
+resume and complete normally. `tools/darwin/thread_suspend_state_probe.c`
+observes state 3 for a per-thread suspension while the task hold remains
+zero. The pinned
+[`thread_act.c`](https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-12377.121.6/osfmk/kern/thread_act.c)
+uses `thread_hold`/`thread_apc_ast` to park suspended threads with
+`assert_wait`; `thread.c::retrieve_thread_basic_info` maps the resulting
+`TH_WAIT` to `TH_STATE_WAITING`. The canonical thread-info projection now
+reports this wait for task and thread user holds, including a temporarily
+borrowed running thread; it preserves the independent suspend-count field.
+This describes settled user-suspension APC waits, not every asynchronous
+native transition or debugger-specific `TH_SUSP` state.
+
+The job probe's normal-completion output passed 40 native repetitions per
+architecture (80 runs); status/signal, extra-hold, and repeated-stop variants
+each passed 20 repetitions per architecture (120 more runs).
+The independent task and thread suspension probes
+passed 40 repetitions per architecture and API (160 runs). The latter
+probes use a pipe acknowledgment before suspension, so pre-hold user
+progress is not inferred from a scheduling delay. These six probe variants
+total 360 native runs. The job probe bounds each progress observation at
+60 s and the entire process at 180 s. Its former 2 s bounds failed on the
+debug interpreter's default 2^20-instruction slice; the same ARM64 binary
+passed at a 4096-instruction slice and at the default slice with the longer
+observation bound. The comparison asserts progress and status, not a native
+wall-clock scheduling guarantee.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| JOB1 | Draining the task user hold permits both untraced job-stopped threads to execute without a BSD tracing verdict. | Arm64/Rosetta job-resume probe; `kern_sig.c::stop` and normal task holds. | Job-stop scheduling and signal delivery; BSD status remains a separate projection. | Extra independent holds, repeated stops, SIGCONT, and pending signals. | The gated native probe reports either thread blocked after the final hold drains, or broader probes require metadata alone to prevent execution. | Confirmed for 200 covered native runs and the implemented correction; arbitrary external stop sources remain outside the connection scope. |
+| APC1 | A quiescent user suspension is represented by an APC wait in the covered task/thread probes. | `thread_hold`/`thread_apc_ast`, `retrieve_thread_basic_info`, and 160 native repetitions. | General held-thread state projection. | An already sleeping thread; nested holds; release to zero followed by a new hold. | A settled native query of these cases consistently reports another scheduler state or the projection changes suspend counts. | Confirmed for the covered probes and local state/count tests; asynchronous transitions and broader combinations remain bounded separately. |
+| JOB2 | A bounded wall-clock poll observes eventual progress rather than imposing native scheduling latency on the interpreter. | The former 2 s probe failed at the default 2^20-instruction slice and passed at 4096 instructions; a 60 s bound passes at the default slice. | Probe progress and signal-delivery measurements. | Concurrent test load, long interpreter slices, and a genuinely held thread. | Progress still fails within 60 s under the recorded campaign, or an unreleased hold spuriously crosses the gate. | Revised to 60 s per observation with an independent 180 s watchdog; no real-time guarantee is inferred. |
+
+Attachment also preserves the distinction between stop metadata and an active
+BSD signal wait. `PT_ATTACH` clears `p_xstat`, posts `SIGSTOP`, and releases
+one existing task user hold. It does not itself enter `sigwait`. The engine
+retains the old `SSTOP` metadata with status 0 until the pending signal reaches
+`issignal`; that path creates and announces the new trace stop. Creating a
+synthetic wait at attachment previously prevented this AST after a job-stopped
+thread had resumed user instructions. The arm64 and x86-64 diagnostic children
+both remained blocked after successful attach in the frozen job-stop runner.
+The parent separately tracks the expected attach-generated stop so its new
+notification replaces an older job-stop record, whether that record has been
+waited or not. Consuming this transition clears the marker; ordinary duplicate
+hard-stop messages retain their previous handling.
+`PT_CONTINUE`, `PT_STEP`, `PT_DETACH`, and `PT_KILL` now distinguish this metadata
+from an active wait: metadata alone neither consumes an independent task hold
+nor supplies a signal-wait verdict. Posted signals still enter signal processing.
+
+`ptrace_oob_job_attach_probe.c` checks attachment after a post-resume user gate.
+Its `JOB_ATTACH_HELD` variant instead adds a second hold before attachment.
+Native attachment leaves one hold, `SSTOP` (4), and status 0; an early
+`PT_CONTINUE` changes the BSD state to `SRUN` (2) while leaving that hold at 1.
+Only the later Mach resume permits the queued `SIGSTOP` to create its own
+hard trace stop. Both variants continue the new stop and exit with status 42.
+
+The native stop notifications have two relevant timing windows. In the pinned
+`kern_sig.c`, `stop` wakes the parent before installing the job task hold, and
+hard tracing notifies the parent before `assert_wait(p->sigwait)`. A native
+self-stop/attach diagnostic stalled with two task holds; another continuation
+stalled with zero holds and a waiting main thread. These observations are
+consistent with those source orderings; they do not establish every native
+stall's cause. The fixtures now wait for the initial job hold and selected
+thread's wait before attaching, and for the new hard-stop hold and selected
+thread's wait before continuing. They identify the thread by its published
+`pthread_threadid_np` value, including under Rosetta. The two attach probes and
+the settled self-stop fixture passed 80 repetitions per architecture and case
+(480 native runs), with 60 s observation bounds and 180 s watchdogs.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| JOB3 | Retained SSTOP metadata does not imply an active BSD sigwait. | `mach_process.c` tests `t->sigwait` before waking or resuming; the native held-attach probe leaves a hold at 1 across an early continuation. | Attach status 0, deferred stop publication, and continuation hold/verdict accounting. | Attach after user progress; an independent hold; continue, step, detach, and kill before signal-wait entry. | A native held-attach continuation drains the remaining hold, or the metadata-only unit cases create a verdict, consume a hold, or terminate before processing the posted signal. | Confirmed for the covered native accounting and local continuation cases; general concurrent-controller policy remains outside the family scope. |
+| JOB4 | The probe's one-hold and selected-thread WAITING observations delimit the settled stop needed for its continuation oracle. | Pinned notification order, native stalled-state inspection, and 480 runs with the two observation gates. | Stable native attach/self-stop comparisons. | Initial job notification before hold installation; hard-stop notification before parking; translated x86-64 threads. | A gated native run still stalls or observes an unexpected hold/state transition. | Confirmed for the recorded runs; this is a bounded oracle synchronization condition, not a general kernel scheduling guarantee. |
+
+For T threads and W entered signal waiters, the private wait set uses O(W)
+space, lookups take O(log(W + 2)), and scheduler scans take O(T log(W + 2)).
+Waiter cleanup takes O(W log(T + 2)); no public Rust signal-state field or
+C ABI layout changes are needed. This change affects Darwin scheduling,
+signal delivery, ptrace lifecycle, and thread/process-info projection.
+ISA decode/execute, architectural register state, MMU/SMIR, native lowering,
+JIT admission, VM backends/devices, and oracle layouts are unaffected.
+
+
+`tools/darwin/ptrace_resume_port_probe.c` also tests shared-port dispatch:
+native arm64 and x86-64 under Rosetta accept a raw `task_resume2` kobject
+call with either `COPY_SEND` or `MOVE_SEND` on the legacy resume send,
+returning success and reducing the hold count from 1 to 0. The previous
+foreign legacy-send proxy dispatched locally and returned
+`KERN_INVALID_ARGUMENT` with count 1. The family-link path now dispatches
+both right kinds on the target's actual resume port. It queues the call
+before consuming its destination so a final `MOVE_SEND` cannot release
+the legacy hold through no-senders before the method runs. All four
+architecture/disposition comparisons match native output; 40 native repetitions
+of each combination completed (160 runs), with child exit status 42. The typed
+`task_resume2` client uses `MOVE_SEND_ONCE`, covered separately below.
+`tools/darwin/ptrace_task_suspend2_probe.c` characterizes the token path
+without BSD tracing: on macOS 27.2 arm64 and x86-64 under Rosetta, two
+`task_suspend2` calls returned distinct send-once names and a user hold count
+of 2; abandoning one reduced the count to 1, and `task_resume2` consumed the
+other and reduced it to 0. An out-of-band legacy resume drained another
+normal hold; subsequently consuming its still-live token returned
+`KERN_FAILURE` with count 0. This agrees with the pinned
+[`task.defs`](https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-12377.121.6/osfmk/mach/task.defs),
+[`ipc_tt.c`](https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-12377.121.6/osfmk/kern/ipc_tt.c),
+and [`task.c`](https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-12377.121.6/osfmk/kern/task.c):
+tokens use `MOVE_SEND_ONCE`, while legacy suspensions use send rights on the
+same task resume port. The previous engine returned `KERN_NOT_SUPPORTED`.
+The implemented local and family-link paths now match the normal and caller-exec
+fixtures on both architectures. Forty native repetitions of each mode per
+architecture completed (160 runs); the children exited normally with status
+42 after their gates were opened. Caller exec discarded both token rights
+and released their holds before the new image queried the child.
+
+The extended native probe sends correctly classified kobject calls through
+`mach_msg2_internal`: the public `mach_msg` wrapper classifies queue calls
+and triggered `EXC_GUARD/INVALID_OPTIONS` in the initial malformed-message
+probe. With the kobject-call flag, an unknown RPC ID returned `MIG_BAD_ID`
+and a bad `task_resume2` request size returned `MIG_BAD_ARGUMENTS`. Both
+consumed the token but left the hold at 1. A 2 MiB malformed request also
+returned `MIG_BAD_ARGUMENTS` with count 1. The old transport instead returned
+`KERN_RESOURCE_SHORTAGE` and abandoned the hold at its 1 MiB frame limit.
+The token path now represents nonempty `task_resume2` bodies by a bounded
+bad-size request; that routine checks exact size before any field access,
+so the MIG result and hold ownership are preserved without transmitting
+unused bytes. The kernel server's destination
+consumption in pinned
+[`ipc_kobject.c`](https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-12377.121.6/osfmk/kern/ipc_kobject.c)
+explicitly suppresses send-once notification. The engine follows that
+distinction, including when a token is used as a kernel RPC's reply right.
+Reply IDs wrap in their 32-bit field rather than panicking on an unknown high
+request ID.
+
+The target retains one actual send-once per exported token, using a distinct
+connection-scoped cookie. The caller inserts a send-once proxy, not a hidden
+send uref. Abandonment and calls use separate ordered controls; there is no
+per-token copy of the global user-hold count. A discarded or canceled token
+reply releases its actual send-once. Caller exec/disconnect releases owned
+tokens; target exec invalidates them. Resume replies remain pending across
+backpressure and are retired on caller exec or peer death. The protocol
+uses 25-byte offers, 9-byte drop/death controls, 13-byte results, and a
+30-byte call header plus its bounded body, with distinct call tags for
+send and send-once destinations. Token lookup is O(log N) for N token
+records; legacy-send routing scans O(P) retained resume ports; offer duplicate checks and lifecycle scans are O(N), in addition
+to ordinary IPC release and transport costs. Codec work and temporary
+space are O(B) for B payload bytes; retained capability state is O(N).
+The affected planes are MIG dispatch, IPC ownership and family-link
+lifecycle. Architectural decoders/executors, CPU register state, MMU/SMIR,
+optimizers/lowerers/JIT, VM backends/devices, oracle output and public C ABI
+layouts are unaffected.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| TK1 | A token handoff represents one independently owned send-once reference, while its normal hold remains part of the task's global count. | Pinned `mach_types.defs`, `ipc_tt.c`, `task.c`, and `ipc_kobject.c`; arm64/Rosetta probes. | Separate use and abandonment paths; out-of-band resume may drain a hold before token use. | Independent tokens, stale token after legacy resume, malformed RPC, ignored reply, and mixed legacy holds. | Native or transport tests show double release, a leaked abandoned hold, or a malformed call releasing a hold. | Confirmed for the covered local and family-link operations. |
+| TK2 | The immediate family connection owns each represented foreign token until use, abandonment, or namespace teardown. | Existing ordered transport; send-once rights cannot be copied into registered send arrays. | Per-cookie exports and exec/disconnect cleanup, independent of the task-control name. | Full output queue, late offer at caller exec, token used as a reply right, shared-port send calls, final-send ordering, and target exec/death. | Lifecycle tests reveal an orphan export, premature release, a live stale name, or a stranded reply. | Retained routing bound; arbitrary interprocess right transfers require broader capability routing. |
+
+Task holds require O(1)
+accounting; proxy last-send and lifecycle scans take O(P) time for P retained
+ports, with O(P) proxy state. No ISA decoder, CPU state layout, SMIR,
+native lowerer, VM backend, or C ABI changes are required for this accounting.
+The task-port policy extrapolates the same observed case and does not implement
+the complete saved-credential, group, MAC, or taskgated checks.
+LLVM debugserver's
+[`AttachForDebug`](https://raw.githubusercontent.com/llvm/llvm-project/main/lldb/tools/debugserver/source/MacOSX/MachProcess.mm)
+starts its exception thread before `PT_ATTACHEXC`; its
+[`StartExceptionThread`](https://raw.githubusercontent.com/llvm/llvm-project/main/lldb/tools/debugserver/source/MacOSX/MachTask.mm)
+first obtains and validates the task port and installs its exception handler
+(source inspected on 27 October 2026):
+
+```text
+task_for_pid -> exception-port setup -> PT_ATTACHEXC -> initial SIGSTOP exception
+```
+
+`tools/darwin/ptrace_pre_attach_probe.c` completes this sequence on macOS 27.2
+arm64 and x86-64 under Rosetta, including 40 native repetitions per
+architecture. The prior engine returned `KERN_FAILURE` at the first call.
+The new target-side grant path removes the attach-state prerequisite;
+`ptrace_pre_attach` exercises this ordering as a native comparison. This
+fixture passed both native comparisons after the grant change (302-case
+driver; two selected cases). It does not run the debugserver executable. An ad hoc
+arm64 build of this same parent/child probe without the fixture entitlement
+also fails at the first call natively; because both processes use that image,
+this paired case does not isolate caller policy from target policy.
+The grant request and reply carry 41 bytes and 29 bytes, respectively,
+with strict framing and a nonzero image/instance identity. Caller-issued
+export generations use bit 63 clear; target-issued exception-capability
+generations use bit 63 set. A queued last-send notice from one endpoint
+therefore cannot consume a newer handoff from the other endpoint when their
+sequence counters coincide. A regression reproduced that premature release
+before the namespaces were separated. The target retains
+a physical send before acknowledging. Each successful pending reply owns a
+local send until IPC copyout or cancellation, so concurrent callers coalesce
+their port names without losing a grant when one caller releases its name.
+Caller exec and terminated threads retire outstanding grants; late replies
+retain an existing live send or release an orphan by its generation. Target
+exec rejects requests for its previous image. Link death wakes pending traps
+with failure. Grant lookup takes O(G + P) time and O(G + P) retained state
+for G outstanding grants and P peer capabilities. A live-waiter scheduler
+scan takes O(G log T) time for T guest threads; retirement additionally
+performs IPC right release and connection cleanup. These changes affect Mach traps, IPC
+ownership, and family-link scheduling; ISA decoding/execution, SMIR, native
+lowering, VM backends, and public ABI layouts are unaffected.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| G1 | Equal represented user/group IDs and a host-observed non-platform get-task-allow image describe the admitted ordinary family case. | Native pre-attach probe; pinned XNU `task_for_pid_posix_check` and `task_for_pid` in `bsd/kern/kern_proc.c`. Saved IDs, supplementary groups, prior credential transitions, and general MAC/taskgated state are not represented completely. | The target grants this bounded case and rejects mismatches or unobserved signing. | Target credential change in flight, stale parent identity, missing entitlement, platform binary, or assumed thread identity. | The native comparison disagrees, or policy unit cases export a send after denial. | Retained policy approximation; complete native authorization remains unknown. |
+| G2 | The immediate private family connection identifies the caller and preserves control-frame order. | Existing transport and callback FIFO; grant requests validate the shared parent credentials and target image epoch. | A grant cannot be redirected to another peer/image; canceled generations do not release another live owner. | Caller/target exec, delayed replies, concurrent copyout, and disconnect. | Lifecycle tests expose a leaked export, dead retained send, reused pending instance, or unawakened waiter. | Originally limited to the family connection; the independent-instance registry described above now supplies authenticated connection-specific acquisition for the admitted profile. |
+
+The link holds
+target send rights while their proxies have send rights, and forwards target
+thread death. At target exec it invalidates old proxies before serving the new
+image and permits a fresh task proxy at the traced exec stop. On native macOS
+27.2 arm64, old task and thread operations failed at that stop, but the port
+type sometimes still reported a send right before becoming a dead name; the
+emulator invalidates those rights earlier and does not reproduce that timing.
+Other cross-process right transfers are not yet fully modeled. A native macOS
+27.2 arm64 probe read and changed a
+stopped child's callee-saved register. The x86-64 run under Rosetta returned
+`KERN_INVALID_ARGUMENT` for the x86 thread-state flavor on both reported
+threads; its fixture checks the emulated register result, leaving native
+Intel behavior unverified. Connected guest children use a cooperative job stop
+for their own default stop actions and for positive-PID `SIGSTOP` from their
+parent. Their parent can wait for the stop, attach, and continue. The emulator
+reports the pending attach-generated stop separately. Self-stopped fixtures
+settle the initial job hold before attaching and the new hard-stop wait before
+continuing; ungated native probes also observed direct exit, a stop with signal
+0, or a stalled child, so that notification timing is not an oracle for the
+new stop's precise readiness. A child stopped directly
+by the host cannot process an attach request until the host resumes it. The tracing and
+no-attach flags are retained by exec; all of these flags are cleared for a new
+process, and the quota flag is cleared on exec.
+
+`PT_THUPDATE` validates the signal and the caller's thread-port name. For a
+hard-stopped connected child, it accepts a live thread right in the tracer's
+own task, queues the requested signal on that thread, and marks the child
+running without releasing its task suspension. It also accepts that right
+for `PT_SIGEXC` stops, including while a task exception handler is waiting
+on an `EXC_SOFT_SIGNAL` reply. It also accepts a thread right returned by
+`task_threads` for that connected child. Connected processes reserve the stop,
+record the signal on the selected thread, and then commit the tracee's state
+change, preserving XNU's order between those two effects. The remote path
+rechecks the exported right at commit, so concurrent deallocation can fail
+where XNU has already acquired a reference. The reservation serializes competing
+tracing requests and can return `EBUSY` where concurrent XNU calls race.
+
+The traced flag in `proc_pidinfo` BSD records and `kern.proc` sysctl records
+is projected from guest state for the current process and connected children.
+Trace stops and their `p_xstat` are projected into these records when known.
+The `kern.proc` projection also carries the saved original parent PID,
+including after exit and before reaping. Information about other processes
+still comes from the host. The XNU
+development-kernel option that hides the `kern.proc` traced flag is not
+modeled.
+
+Guest fork and spawn establish private parent-child control connections. An
+exec retains them, and reaping a child releases its parent endpoint. The
+connections carry only the traced task and thread proxies described above;
+they do not connect unrelated processes or preserve ancestor connections
+through an intermediate process's exit. Each new process
+requires a host socket pair, so host descriptor exhaustion can fail fork or
+spawn even when the guest has descriptor capacity.
+
+Before a connected child exits from a guest signal, it records the guest wait
+status in memory shared with its parent. This preserves the signal in guest
+`wait4` and `waitid` when the host must exit with a numeric fallback,
+including cases where the guest signal would not normally terminate a host
+process. The same mapping carries the traced flag and saved parent PID, so
+process-info queries do not depend on draining the control socket. The
+handoff does not report a core dump, and an external host parent cannot
+consume the guest status from this mapping. Each fork or spawn also requires
+a shared host memory mapping for this status.
+
+Attachment and task-port authorization must account for the XNU credential and
+MAC checks as well as the host's code-signing policy. Apple documents the
+[debugging tool entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.debugger)
+and its relationship to target task access; that description alone does not
+specify every `mac_proc_check_debug` or `task_for_pid` decision.
+
+The native macOS 27.2 detach probe (`tools/darwin/ptrace_detach_probe.c`)
+observes a child stopped on `SIGTRAP` terminate with `SIGTRAP` after
+`PT_DETACH`, with either zero or `SIGUSR1` in `data`. A child stopped on
+`SIGUSR1` receives `SIGUSR1` after detach even with zero or `SIGUSR2` in
+`data`, whereas continue delivers the requested signal. The XNU 12377
+`ptrace` implementation assigns `data` to `p_xstat` on detach and the
+traced-signal path subsequently reads `p_xstat`. The reason for the observed
+difference is unknown. The current detach path follows those observations;
+other stopped signals and macOS versions have not been characterized.
+While a task exception handler waits, a macOS 27.2 probe observed `PT_KILL`
+leave the original `SIGUSR1` in `p_xstat` for data values `0`, `9`, `31`,
+and `0x12345678`; the pinned XNU resume path assigns the request's data.
+The current implementation retains the stopped signal for `PT_KILL` as well;
+the cause of the difference and other stop modes are unknown.
+
+In the `ptrace_sigexc_control` fixture, an exception handler delays its reply
+while the parent continues the stopped child with signal zero. On macOS 27.2
+the arm64 child suppresses `SIGUSR1`; an x86-64 child running under Rosetta
+receives it. The same difference was observed when `PT_THUPDATE` with the
+tracer's thread port and signal zero replaces the continue request. The
+current implementation follows the arm64 result on both
+guest architectures. Whether the difference also occurs on an Intel host
+and its underlying cause are unknown. On an Apple silicon test host, the
+x86-64 fixture checks the emulated result against the XNU signal path rather
+than comparing it with Rosetta.
+In `ptrace_attachexc_handler`, the task handler receives the initial
+`EXC_SOFT_SIGNAL` for `SIGSTOP` and the parent continues the child while
+the handler's reply is pending. The native arm64 child exits normally; in
+five direct x86-64 Rosetta runs the child instead died from `SIGSEGV` after
+the reply. The cause and physical Intel behavior are unknown. The x86-64
+fixture checks the emulated sequence without a Rosetta comparison on Apple
+silicon.
+In the tracer-exit fixture, the x86-64 process under Rosetta sometimes dies
+from `SIGUSR1` before its task exception handler receives the message. The
+Apple silicon test checks the emulated x86-64 lifecycle against the XNU
+tracer-exit path; native Intel behavior is not established here.
+In a probe where the original traced signal is `SIGKILL`, the arm64 handler
+receives the exception and the process dies after its reply; the x86-64
+Rosetta run ended before the handler reported a message. That fixture also
+checks the emulated x86-64 result without a Rosetta comparison.
+After `PT_THUPDATE` during the exception handler, one concurrent x86-64
+Rosetta run did not report `waitpid(..., WNOHANG)` returning zero after
+`SIGKILL`; its return value was not captured. Thirty later direct runs
+observed the kill pending until the handler replied. The reason for the
+nonzero result is unknown, so that fixture checks the emulated x86-64
+behavior without a Rosetta comparison on Apple silicon.
+
+`ptrace_step_boundary` steps through an explicit stopping syscall and
+subsequent instructions. Most native arm64 runs advanced the expected
+instructions, but some observed the write one stop later; the cause is
+unknown. Under Rosetta, repeated steps stopped without advancing the observed
+x86-64 memory write. This host-side observation does not establish physical
+Intel single-step behavior. On Apple silicon both fixtures check the explicit
+instruction sequence under emulation, rather than asserting native parity;
+the x86-64 case compares with native execution on an Intel test host.
+In a separate `ptrace_step` lifecycle probe on macOS 27.2 arm64, five of
+30 native runs reported another `SIGTRAP` stop after `PT_CONTINUE`; the cause
+is unknown. The lifecycle fixture continues a bounded number of such stops
+before checking the exit, while `ptrace_step_boundary` retains the explicit
+instruction-boundary check.
+Mach-only Arm stepping uses bit 0 (`SS`) of the saved `ARM_DEBUG_STATE64`
+`mdscr_el1`, independently of BSD `PT_STEP`. The Darwin scheduler executes
+one instruction through the direct user CPU when either controller arms SS;
+task/thread suspension and BSD signal waits still take precedence. A retired
+branch reports its target PC, and an instruction fault takes precedence over
+the synthetic step exception. Host preemption before execution leaves SS armed.
+Clearing SS through Mach also disarms a pending BSD step; BSD bookkeeping
+does not override the thread's saved debug control.
+The scheduler sets PSTATE.SS immediately before executing the armed user
+instruction, matching the kernel's exception return. Arming a held thread's
+Mach debug state alone leaves its saved PSTATE.SS unchanged. An instruction
+fault preserves both saved PSTATE.SS and stored MDSCR.SS; it does not perform
+the completed-step transition.
+[`status.c`](../../specifications/darwin/xnu-12377.121.6/osfmk/arm64/status.c)
+accepts this control bit;
+[`sleh.c::handle_sw_step_debug`](../../specifications/darwin/xnu-12377.121.6/osfmk/arm64/sleh.c)
+clears
+stored SS, saved PSTATE.SS (bit 21), and DAIF (bits 9:6) before emitting
+`EXC_BREAKPOINT` with codes `[1, 0]`. The engine applies the same transition
+through its existing exception-port chain, retaining NZCV and other debug
+registers. Debug arming and delivery discard the local exclusive reservation.
+
+`tools/darwin/arm_mach_step_probe.c` installs a task breakpoint handler in an
+untraced child, resumes its settled job stop through Mach, and inspects the
+stopped GPR, debug, and exception states. Six variants passed 80 native
+arm64 repetitions each on macOS 27.2 (480 runs). The five completed-step
+variants have these raw ESR observations; the fault case follows below:
+
+| First instruction / return path | Observed stop | ESR_EL1 |
+| --- | --- | --- |
+| `MOV X19,#0x1234` | Immediately after MOV | `0xcb000022` |
+| `LDXR X19,[X21]` | Immediately after LDXR; following STXR fails after the exception | `0xcb000062` |
+| `STXR W20,X19,[X21]`, no reservation | Immediately after failed STXR | `0xcb000022` |
+| Nonblocking `getpid` SVC | Immediately after SVC | `0xca000022` |
+| Blocking `read` SVC | After the following MOV, once the pipe is readable | `0xcb000022` |
+
+These five have EC `0x32`, IL 1, and FSC `0x22`; ISV is bit 24 and EX is bit 6,
+as defined in the pinned
+[`proc_reg.h`](../../specifications/darwin/xnu-12377.121.6/osfmk/arm64/proc_reg.h).
+The engine inspects at most 4 bytes
+before a stepped instruction to form this syndrome; guest fetch, access
+checks, and execution remain in the CPU. A saved syscall continuation is
+matched by both post-SVC PC and effective call number. Completing that
+replayed call leaves Arm stepping armed for the next user instruction,
+matching the blocking-read observation. No new syscall-progress field or
+guest CPU debug register is added. Step control and syndrome work take O(1)
+time and space per selected thread. The existing scan and private wait-set
+lookups remain O(T log(W + 2)) for T threads and W entered signal waiters.
+Direct ISA semantics, SMIR interpretation/lifting and
+lowering, JIT admission, VM backends/devices, oracle output, and C ABI are
+unaffected; this is a Darwin debug-state and scheduling change.
+
+The additional fault variant executes the unallocated word `0x00000000`.
+Native macOS reports `EXC_BAD_INSTRUCTION` (2), codes `[1, 0]`, the faulting
+PC, ESR `0x02000000`, stored MDSCR.SS 1, and saved PSTATE.SS 1. The first
+engine candidate agreed on the exception and PC but incorrectly reported
+saved SS as 0. Setting SS at user entry corrects this saved-state boundary;
+the fixture skips the invalid word and explicitly disarms before replying.
+
+The exception fixture explicitly clears SS before replying, following the
+debugger workflow. An earlier native prototype without that explicit clear
+stalled after its first successful exception reply despite querying stored
+SS as 0; its cause is unknown. The fixture does not establish the behavior
+of every exception-return controller sequence. Breakpoint/watchpoint
+registers remain stored state without hardware event generation.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| ARMSTEP1 | Mach SS controls the selected thread independently of BSD tracing; PSTATE.SS is armed on user entry and retained by an instruction fault. | Pinned status/step handlers and native Mach-only/fault probes. | One-instruction scheduling, saved state, and exception delivery. | Clear before resume, task/thread holds, branch targets, instruction faults, and exclusive accesses. | A native Mach-only probe does not stop at the covered frontier, or a local held/faulting thread retires an extra instruction or loses saved SS. | Revised after the native fault probe falsified the first candidate; confirmed for the corrected unit, native-comparison, and debugger cases below. |
+| ARMSTEP2 | A parked Arm syscall continuation returns with stepping armed for the next user instruction. | 80 native blocking-read runs versus 80 nonblocking-getpid runs. | Replay-frontier handling and ESR ISV. | Empty pipe, bounded receive timeout before readiness, and effective call/PC matching. | The gated native read reports an exception before readiness or stops at the SVC return PC. | Confirmed for these return paths; other kernel scheduling paths are not exhaustively characterized. |
+| ARMSTEP3 | Kernel instruction inspection and execution observe the same instruction bytes. | Requests for this process are dispatched between guest instruction steps. | Synthetic ESR instruction classification. | Instruction fault and code replacement before the step. | A concurrently writable shared code mapping changes between inspection and guest fetch. | Retained; unsynchronized external writes to shared executable mappings are outside this probe's evidence. |
+| ARMSTEP4 | A debug-control interruption may discard an earlier local exclusive reservation. | The user CPU already clears it on synchronous kernel exits; native exclusive-load step is followed by failed STXR. | Arming/delivery monitor reset and failed-store EX classification. | Exclusive load before the exception and store without a reservation. | A supported control writer preserves a reservation that allows a stepped store to succeed under this implementation. | Retained for control-boundary invalidation; no claim that native kernels always clear every reservation at every debug-state write. |
+
+The corrected implementation passed 361 Darwin library tests serially and
+all six Mach-step native comparisons in both debug and optimized runners.
+The optimized runner also passed the complete 338-test Darwin integration
+suite serially, with no failures, ignored tests, or filtered tests. The debug
+runner's broad serial run was stopped when switching profiles; it is not a
+completed debug integration gate. Linux AArch64 all-target compilation passed,
+without Linux runtime execution.
+
+A separate executable check uses Xcode LLDB (`lldb-2103.0.34.105`) and a
+strictly signature-verified arm64 slice of Xcode's debugserver. With
+`--no-stdio --kill-on-error --launch=posix-spawn` and no file-logging option,
+the server launches an entitled child, LLDB connects through `gdb-remote`,
+reads PC, runs `thread step-inst`, and reads PC again. Both native execution
+and the corrected debug/optimized runners stop after dyld's first
+`MOV X0,SP`, with an exact 4-byte PC advance. Continuing reaches the child's
+proof-file write and exit status 42; LLDB and server both exit 0. The earlier
+job/attach runner instead continued through to exit on `thread step-inst`.
+This check exercises the actual debugserver executable, separately from the
+pre-attach C fixture described above.
+
+Earlier checks with file logging reached the target's normal exit but then
+observed native `SIGABRT` and the earlier debug runner's `SIGBUS` during
+server teardown. Their cause and the corrected runner's file-logging teardown
+behavior are unknown; the clean executable checks above omit that option.
+This medium-impact finding does not block the covered no-file-logging
+workflow. Full non-family routing, native authorization, and hardware
+breakpoint/watchpoint behavior remain outside this Arm-step correction. The
+subsequent x86 TF implementation is described below.
+
+The earlier `tools/darwin/ptrace_tf_probe.c` and
+`ptrace_tf_boundary_probe.c` identified a missing x86 user-CPU TF retirement
+path: the frozen Arm-step runner reported no trace traps for guest-set TF.
+The direct user CPU now samples incoming `RFLAGS.TF` (bit 8), generates a
+post-instruction `#DB`, and sets `DR6.BS` (bit 14). `POPF` enabling TF arms the
+following instruction; `POPF` clearing an incoming TF still produces its own
+trace event. Faults and explicit software traps take priority. Only successful
+`MOV SS` and compatibility-mode `POP SS` suppress their own trace event;
+`LSS` and `STI` do not inherit that debug suppression. These rules derive from
+[pinned Intel SDM revision 086](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf),
+Vol. 3A section 7.8.3 and Vol. 3B section 19.3.1.4.
+
+Repeated memory strings execute one element per TF event. An unfinished REP
+retains the prefix PC, updated indexes/count, and saved RF (bit 16); its final
+or zero-count event reports the next instruction. REPE/REPNE termination also
+retires before reporting. RF clears at instruction start and is set in the
+covered fault frames, following Vol. 3B section 19.3.1.1. Tests cover MOVS,
+STOS, LODS, CMPS, and SCAS at 8-, 16-, 32-, and 64-bit element widths, both
+directions, 32-/64-bit addressing, early comparison termination, and a fault
+after a completed element. User I/O string operations at elevated IOPL are
+outside the fixed CPL 3 / IOPL 0 Darwin profile and this stepping campaign.
+System-mode CPU stepping is unchanged.
+
+Mach general-state writes and BSD `PT_STEP` use the same saved TF control.
+Clearing TF through Mach overrides BSD step bookkeeping. Darwin captures and
+clears the CPU's debug status on exception entry and updates DR6 only when
+an x86 Mach debug-state image already exists, following the pinned
+[`trap.c`](../../specifications/darwin/xnu-12377.121.6/osfmk/i386/trap.c).
+A debug trap does not allocate a previously absent debug-register image.
+Ordinary instruction boundaries belong to the CPU; the Darwin personality
+reports the post-SYSCALL boundary only after syscall service completes. The
+pinned XNU
+[`idt64.s`](https://github.com/apple-oss-distributions/xnu/blob/xnu-12377.121.6/osfmk/x86_64/idt64.s)
+selects SYSRET for the covered 64-bit syscall return.
+
+The shared CPU change also reaches Linux and Windows user mode. Linux maps
+BS to `TRAP_TRACE` (2), retains the trace status in both ptrace user-register
+views, and clears it before a later status-free ICEBP is classified as
+`TRAP_BRKPT` (1). Linux v6.19
+[`do_syscall_64`](https://github.com/torvalds/linux/blob/v6.19/arch/x86/entry/syscall_64.c)
+selects IRET when TF/RF prevents SYSRET, so guest TF steps the first user
+instruction after a syscall; forced `PTRACE_SINGLESTEP` syscall reporting
+retains its separate existing behavior. Windows preserves TF/RF in the saved
+`CONTEXT` and clears the live handler-entry controls before dispatching a
+guest exception callback, preventing recursive tracing of that handler.
+Windows validation here is local emulation/unit testing, without a native
+Windows execution claim.
+
+Native regions are rejected while user TF is armed, including cached entry,
+hot promotion, and explicit compilation/execution. A native POPF helper that
+would enable TF returns before publishing its stack, flags, or read trace;
+direct replay at the exact POPF frontier arms the next instruction. No SMIR
+operation, ISA encoding, public ABI, backend/device behavior, or optimizer
+rule changes. Debug bookkeeping uses O(1) time and space per instruction;
+a TF-controlled REP attempt performs one bounded-width memory element.
+
+`tools/darwin/x86_tf_probe.c` and the byte-identical `x86_tf` fixture assert
+one signal at the exact saved PC after NOP, POPF clearing TF, a fast getpid
+syscall, and a blocking read. A helper thread waits until Mach thread_info
+reports the reader as TH_STATE_WAITING with suspend count 0 before writing
+the byte; the signal handler rejects an event before that release. Native macOS 27.2 Rosetta and the debug runner
+agree in these four cases. Rosetta differs from the Intel-defined MOV SS
+suppression and per-iteration REP behavior: a separate native REP MOVSB
+probe copied all three bytes before its first trap. A diagnostic UD2 fault
+also reported RF 0 under Rosetta, whereas the implementation's fault-frame
+RF expectation follows the Intel manual. These observations are recorded
+separately; physical Intel results are unknown. Rosetta is not the parity
+oracle for these three architectural cases. The available Xcode debugserver
+contains arm64/arm64e slices only, so this campaign does not establish an
+x86 debugserver executable workflow.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| XTF1 | Incoming TF selects the instruction's trace event. | Intel Vol. 3B 19.3.1.4 and native NOP/POPF probes. | CPU retirement and native POPF replay. | Enable/clear TF, fault priority, cached native code, and promotion. | A documented encoding or covered native probe reports an extra/lost event or a different PC. | Confirmed for covered CPU, helper, native, and personality cases. |
+| XTF2 | Only MOV/POP SS use the relevant debug suppression. | Intel Vol. 3A 7.8.3; shared interrupt inhibition also includes STI/LSS. | Separate ephemeral debug marker. | Same-selector MOV SS, compatibility POP SS widths, STI, and LSS. | Primary semantics or physical Intel evidence contradicts the suppression boundary. | Specification-derived tests pass; Rosetta MOV SS differs; physical Intel unknown. |
+| XTF3 | Syscall trace boundaries depend on the personality's return instruction. | XNU idt64.s, Linux v6.19 syscall_64.c, and native Darwin fast/blocking probes. | Darwin post-service trace and Linux first-user-instruction trace. | Blocking replay, normal completion, and Mach disarming. | The covered native read traps before readiness or at a different return PC; a Linux unit reports a syscall-entry trace. | Confirmed for covered return paths; other kernel return paths remain uncharacterized. |
+| XTF4 | Defined Intel fault/REP frames govern the core where Rosetta differs. | Intel Vol. 3B 19.3.1.1, explicit partial-state unit expectations, and separately recorded Rosetta diagnostics. | REP PC/count/index/RF and fault-frame RF. | Width, direction, count zero, REPE/REPNE termination, and the next-element fault. | A primary architectural rule or physical Intel trace contradicts an asserted field. | Retained architectural basis; physical Intel execution unknown. |
+
+The frozen x86 TF runner passed all 339 Darwin integration tests serially,
+all 2,710 user-mode library tests serially, and the 52-test x86 user-CPU
+suite on both arm64 and Rosetta hosts. Ten x86-native stack-flags JIT tests
+also passed under Rosetta. The gated TF probe passed 80 native Rosetta and
+80 optimized-runner repetitions (320 trace events per campaign), with the
+reader observed waiting before release and no early read trap. Host
+all-target builds, Clippy, and Linux AArch64 all-target compilation passed.
+Linux/Windows native runtime and physical Intel execution were not exercised.
+Whole-workspace formatting still differs in six pre-existing unrelated files;
+owned-file formatting and whitespace checks pass.
+
+On macOS 27.2, `tools/darwin/ptrace_cs_probe.c` observed the arm64 child's
+code-signing status change from `0x22020201` to `0x32020021` after
+`PT_TRACE_ME`; its parent's reported flags did not change. The x86-64 probe
+under Rosetta observed `0x00000000` to `0x00000020`. The arm64 delta clears
+`CS_KILL` (`0x00000200`) and sets `CS_DEBUGGED` (`0x10000000`) and
+`CS_INVALID_ALLOWED` (`0x00000020`); the x86-64 delta sets only
+`CS_INVALID_ALLOWED`. The pinned XNU [`cs_allow_invalid`](https://github.com/apple-oss-distributions/xnu/blob/xnu-12377.121.6/bsd/kern/kern_cs.c)
+is conditional on a MAC policy hook. Additional ad hoc probes without the
+hardened runtime showed the same transition, while a hardened binary without
+`get-task-allow` did not change; a hardened binary with that entitlement did.
+For a successful `PT_TRACE_ME`, the tracing path generalizes these samples
+to non-platform, non-restricted, non-hardened signatures and to signatures
+with `get-task-allow`, and handles the observed zero-flags Rosetta case.
+The generalization has not been established for every signature or MAC
+policy. If both the cached and newly harvested signatures have a CDHash,
+a mismatch prevents the newly observed policy from changing guest flags.
+Replacement before the first harvest, or without comparable CDHashes,
+remains unknown. On macOS 27.2, a child without `get-task-allow` and with
+`CS_RESTRICT` set by its signature or by `csops` receives `EPERM` for
+`PT_TRACE_ME` when its connected parent has the same non-root real and
+effective UIDs. The tested `get-task-allow` children succeed with
+`CS_RESTRICT` and receive the signing-flag transition. These cases are
+modeled when the guest signing flags are known.
+The parent credentials are published at fork and updated on the parent's
+emulated exec. Other credential and restriction combinations remain unknown.
+Known guest flags replace the host result for a connected parent's
+`CS_OPS_STATUS` query when that host query succeeds; other cross-process
+signing queries still use the host. A traced exec publishes its new image's
+status before its exec stop.
+These flag projections do not implement the accompanying VM-map or
+code-signing enforcement changes.
 
 | Area | Module | Counterpart |
 |---|---|---|
@@ -676,7 +1631,22 @@ runs the target that way on a macOS 27 runner. Both runs of a comparison start
 with standard input, output, and error alone (inherited descriptors are closed
 at exec, as a guest starts with the emulator's three standard descriptors)
 in a process group of their own, which is killed when the run, or a process
-still holding its output, outlives the timeout. Library tests under
+still holding its output, outlives the timeout.
+`RAX_USER_DARWIN_RUNNER` can select a copied engine executable for an oracle
+campaign; otherwise the harness uses Cargo's `rax-user` output. Pinning a
+copy and recording its hash prevents concurrent builds from changing the
+engine halfway through a long comparison run.
+
+The spawn waitid and timer independence fixtures avoid fixed scheduling
+latency assumptions for their observations. The spawn waitid case waits for child post-fork readiness before
+observing default SIGCONT behavior. The timer independence case receives
+from both timer ports without comparing the other port's instantaneous
+queue count: native utility-QoS runs observed both 0 and 1 at that point
+across the 200 ms deadline gap. That medium-impact fixture instability did
+not identify a timer implementation difference; both timers delivered in
+the native and emulated runs.
+
+Library tests under
 `src/user/darwin/` cover the name space, message trailers, commpage and
 stack layout, slide info, sysctl walks, values, and copy-out, the
 host-information flavors, the host regions a service maps into the task

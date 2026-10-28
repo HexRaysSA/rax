@@ -333,12 +333,69 @@ fn passthrough(ctx: &Ctx<'_>, oid: &[i32], req: &mut Req) -> Result<(), Errno> {
         return Err(Errno::ENOENT);
     }
     let room = (req.oldptr != 0).then(|| req.oldlen.min(HOST_ROOM_MAX));
-    let r = host::sysctl(oid, room, None).ok_or(Errno::ENOENT)?;
+    let mut r = host::sysctl(oid, room, None).ok_or(Errno::ENOENT)?;
+    if matches!(oid, [1, 14, command, ..] if matches!(*command, 0 | 1 | 2 | 4 | 5 | 6)) {
+        project_kern_proc(&mut r.data, |pid| {
+            let (traced, parent, current_parent, exit) = super::ptrace::known_process_info(
+                &ctx.proc.tracing,
+                ctx.proc.pid,
+                ctx.proc.ppid,
+                pid,
+            )?;
+            let signal = super::ptrace::known_signal_status(&ctx.proc.tracing, ctx.proc.pid, pid);
+            Some((traced, parent, signal, current_parent, exit))
+        });
+    }
     if req.oldptr != 0 && !r.data.is_empty() {
         ctx.write(req.oldptr, &r.data)?;
     }
     req.oldidx = r.len;
     r.result
+}
+
+/// `user64_kinfo_proc`: project known guest trace state. Both supported guest
+/// ABIs use the 64-bit layout (648 bytes, p_flag at 32, p_pid at 40).
+fn project_kern_proc(
+    bytes: &mut [u8],
+    mut trace: impl FnMut(i32) -> Option<(bool, i32, Option<(bool, i32)>, Option<i32>, Option<i32>)>,
+) {
+    const SIZE: usize = 648;
+    const FLAG: usize = 32;
+    const STATUS: usize = 36;
+    const PID: usize = 40;
+    const ORIGINAL_PARENT: usize = 44;
+    const XSTATUS: usize = 280;
+    const P_TRACED: u32 = 0x800;
+    const SZOMB: u8 = 5;
+    for record in bytes.chunks_exact_mut(SIZE) {
+        let pid = i32::from_le_bytes(record[PID..PID + 4].try_into().expect("pid bytes"));
+        if let Some((traced, original_parent, signal, parent, exit)) = trace(pid) {
+            let flags = u32::from_le_bytes(record[FLAG..FLAG + 4].try_into().expect("flag bytes"));
+            // exit1 clears P_LTRACED before the process becomes a zombie;
+            // the host can observe exit before the link's EOF is pumped.
+            if let Some(parent) = parent {
+                record[560..564].copy_from_slice(&parent.to_le_bytes());
+            }
+            if let Some(status) = exit {
+                record[STATUS] = SZOMB;
+                record[XSTATUS..XSTATUS + 2].copy_from_slice(&(status as u16).to_le_bytes());
+            }
+            let zombie = record[STATUS] == SZOMB;
+            let traced = traced && !zombie;
+            let flags = (flags & !P_TRACED) | if traced { P_TRACED } else { 0 };
+            record[FLAG..FLAG + 4].copy_from_slice(&flags.to_le_bytes());
+            record[ORIGINAL_PARENT..ORIGINAL_PARENT + 4]
+                .copy_from_slice(&original_parent.to_le_bytes());
+            if let Some((stopped, xstatus)) = signal
+                && !zombie
+            {
+                if stopped {
+                    record[STATUS] = 4;
+                }
+                record[XSTATUS..XSTATUS + 2].copy_from_slice(&(xstatus as u16).to_le_bytes());
+            }
+        }
+    }
 }
 
 /// The OID of `name` (`name2oid`).
@@ -542,6 +599,68 @@ static OVERRIDES: &[Override] = &[
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn process_projection_changes_only_known_complete_records() {
+        let mut records = vec![0u8; 4 * 648 + 20];
+        records[40..44].copy_from_slice(&1001i32.to_le_bytes());
+        records[32..36].copy_from_slice(&0x55u32.to_le_bytes());
+        records[648 + 40..648 + 44].copy_from_slice(&1002i32.to_le_bytes());
+        records[648 + 32..648 + 36].copy_from_slice(&0x855u32.to_le_bytes());
+        records[2 * 648 + 40..2 * 648 + 44].copy_from_slice(&1003i32.to_le_bytes());
+        records[2 * 648 + 32..2 * 648 + 36].copy_from_slice(&0x123u32.to_le_bytes());
+        records[3 * 648 + 40..3 * 648 + 44].copy_from_slice(&1004i32.to_le_bytes());
+        records[3 * 648 + 32..3 * 648 + 36].copy_from_slice(&0x855u32.to_le_bytes());
+        records[3 * 648 + 36] = 5;
+        records[4 * 648..].fill(0xa5);
+        project_kern_proc(&mut records, |pid| match pid {
+            1001 => Some((true, 700, Some((true, 30)), Some(900), None)),
+            1002 => Some((false, 0, Some((false, 31)), Some(901), Some(0x2a00))),
+            1004 => Some((true, 701, Some((true, 30)), None, None)),
+            _ => None,
+        });
+        assert_eq!(
+            u32::from_le_bytes(records[32..36].try_into().unwrap()),
+            0x855
+        );
+        assert_eq!(
+            u32::from_le_bytes(records[680..684].try_into().unwrap()),
+            0x55
+        );
+        assert_eq!(
+            u32::from_le_bytes(records[1328..1332].try_into().unwrap()),
+            0x123
+        );
+        assert_eq!(
+            u32::from_le_bytes(records[1976..1980].try_into().unwrap()),
+            0x55
+        );
+        assert_eq!(i32::from_le_bytes(records[44..48].try_into().unwrap()), 700);
+        assert_eq!(
+            i32::from_le_bytes(records[1988..1992].try_into().unwrap()),
+            701
+        );
+        assert_eq!(records[36], 4);
+        assert_eq!(
+            i32::from_le_bytes(records[560..564].try_into().unwrap()),
+            900
+        );
+        assert_eq!(records[648 + 36], 5);
+        assert_eq!(
+            u16::from_le_bytes(records[648 + 280..648 + 282].try_into().unwrap()),
+            0x2a00
+        );
+        assert_eq!(
+            u16::from_le_bytes(records[280..282].try_into().unwrap()),
+            30
+        );
+        assert_eq!(
+            u16::from_le_bytes(records[928..930].try_into().unwrap()),
+            0x2a00
+        );
+        assert_eq!(records[1980], 5);
+        assert!(records[4 * 648..].iter().all(|&byte| byte == 0xa5));
+    }
 
     #[test]
     fn override_names_and_oids_are_unique() {
