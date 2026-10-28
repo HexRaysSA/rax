@@ -1,3 +1,15 @@
+pub(crate) mod reservations;
+
+/// Write physical RAM while invalidating registered software exclusive monitors.
+/// Raw mmap aliases require callers to provide equivalent writer coordination.
+pub fn write_guest_memory(
+    memory: &vm_memory::GuestMemoryMmap,
+    address: u64,
+    bytes: &[u8],
+) -> std::result::Result<(), vm_memory::GuestMemoryError> {
+    reservations::write(memory, address, bytes)
+}
+
 use crate::error::Result;
 #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
 use kvm_bindings::kvm_userspace_memory_region;
@@ -248,8 +260,7 @@ impl GuestMemoryWrapper {
     pub fn write_all(&self, data: &[u8]) -> Result<()> {
         use vm_memory::Bytes;
         self.validate_restore_len(data.len())?;
-        self.mem
-            .write_slice(data, GuestAddress(0))
+        reservations::write(&self.mem, 0, data)
             .map_err(|e| crate::error::Error::Emulator(format!("Failed to write memory: {e}")))
     }
 }

@@ -8,28 +8,22 @@ use crate::isa::arm::aarch64::cpu::AArch64Cpu;
 use crate::isa::arm::common::cpu::{AccessType, ArmError, MemoryFaultInfo, MemoryFaultType};
 
 pub(super) struct Aarch32Memory<'a> {
-    cpu: &'a mut AArch64Cpu,
+    cpu: RefCell<&'a mut AArch64Cpu>,
     pub fault: RefCell<Option<ArmError>>,
     pub access: Option<ExclusiveAccess>,
     pub exclusive_failed: bool,
     read_cache: Cell<Option<u64>>,
-    read_pa: Cell<Option<u64>>,
-    read_performed: Cell<bool>,
-    write_checked: bool,
     write_complete: bool,
 }
 
 impl<'a> Aarch32Memory<'a> {
     pub fn new(cpu: &'a mut AArch64Cpu) -> Self {
         Self {
-            cpu,
+            cpu: RefCell::new(cpu),
             fault: RefCell::new(None),
             access: None,
             exclusive_failed: false,
             read_cache: Cell::new(None),
-            read_pa: Cell::new(None),
-            read_performed: Cell::new(false),
-            write_checked: false,
             write_complete: false,
         }
     }
@@ -38,7 +32,7 @@ impl<'a> Aarch32Memory<'a> {
         &self,
         instruction: &crate::isa::arm::decoder::DecodedInsn,
     ) -> Result<(), ArmError> {
-        self.cpu.check_aarch32_instruction(instruction)
+        self.cpu.borrow().check_aarch32_instruction(instruction)
     }
 
     fn result<T>(&self, address: u32, result: Result<T, ArmError>) -> Result<T, MemoryError> {
@@ -48,34 +42,67 @@ impl<'a> Aarch32Memory<'a> {
         })
     }
 
+    fn big_endian(&self) -> bool {
+        self.cpu.borrow().aarch32.is_some_and(|state| state.e)
+    }
+
     fn swap(&self) -> bool {
-        self.cpu.aarch32.is_some_and(|state| state.e) != self.cpu.memory.is_big_endian()
+        self.big_endian() != self.cpu.borrow().memory.is_big_endian()
     }
 
-    fn exclusive_read(&self) -> Result<(), MemoryError> {
-        if let Some(access) = self.access.filter(|access| access.status.is_none()) {
-            if self.read_pa.get().is_none() {
-                let result = self
-                    .cpu
-                    .translate_address(u64::from(access.address), false, false);
-                self.read_pa.set(Some(self.result(access.address, result)?));
-            }
-            self.read_performed.set(true);
+    /// Read and reserve in one physical transaction. The instruction executor
+    /// reaches this method only after its operand/alignment admission checks.
+    fn exclusive_read(&self) -> Result<Option<u64>, MemoryError> {
+        let Some(access) = self.access.filter(|access| access.status.is_none()) else {
+            return Ok(None);
+        };
+        if let Some(value) = self.read_cache.get() {
+            return Ok(Some(value));
         }
-        Ok(())
+        let result = (|| {
+            let mut cpu = self.cpu.borrow_mut();
+            let pa = cpu.translate_address(u64::from(access.address), false, false)?;
+            cpu.memory
+                .read_exclusive(pa, usize::from(access.size))
+                .map_err(ArmError::from)
+        })();
+        let data = self.result(access.address, result)?;
+        let mut bytes = [0; 8];
+        let value = if self.big_endian() {
+            bytes[8 - data.len()..].copy_from_slice(&data);
+            u64::from_be_bytes(bytes)
+        } else {
+            bytes[..data.len()].copy_from_slice(&data);
+            u64::from_le_bytes(bytes)
+        };
+        self.read_cache.set(Some(value));
+        Ok(Some(value))
     }
 
+    /// Perform the complete conditional write once, including doublewords.
+    /// The local executor monitor remains an additional admission condition.
     fn exclusive_write(&mut self) -> Result<bool, MemoryError> {
-        if let Some(access) = self.access.filter(|access| access.status.is_some()) {
-            if !self.write_checked {
-                let result = self
-                    .cpu
-                    .translate_address(u64::from(access.address), true, false);
-                let pa = self.result(access.address, result)?;
-                self.exclusive_failed = !self.cpu.memory.check_exclusive(pa, access.size);
-                self.write_checked = true;
-            }
-            return Ok(!self.exclusive_failed);
+        let Some(access) = self.access.filter(|access| access.status.is_some()) else {
+            return Ok(false);
+        };
+        if !self.write_complete {
+            let bytes = if self.big_endian() {
+                access.value.to_be_bytes()
+            } else {
+                access.value.to_le_bytes()
+            };
+            let data = if self.big_endian() {
+                &bytes[8 - usize::from(access.size)..]
+            } else {
+                &bytes[..usize::from(access.size)]
+            };
+            let result = (|| {
+                let mut cpu = self.cpu.borrow_mut();
+                let pa = cpu.translate_address(u64::from(access.address), true, false)?;
+                cpu.memory.write_exclusive(pa, data).map_err(ArmError::from)
+            })();
+            self.exclusive_failed = !self.result(access.address, result)?;
+            self.write_complete = true;
         }
         Ok(true)
     }
@@ -83,43 +110,29 @@ impl<'a> Aarch32Memory<'a> {
     pub fn finish(&mut self, monitor: &mut ExclusiveMonitor, successful: bool, clear: bool) {
         if let Some(access) = self.access {
             if access.status.is_some() || !successful {
-                self.cpu.memory.clear_exclusive();
+                self.cpu.borrow_mut().memory.clear_exclusive();
                 monitor.clear();
-            } else if self.read_performed.get() {
-                if let Some(pa) = self.read_pa.get() {
-                    self.cpu.memory.mark_exclusive(pa, access.size);
-                }
             }
+            // A successful load has already established its physical lease.
+            // Re-marking here could resurrect a lease invalidated by a writer.
         } else if clear {
-            self.cpu.memory.clear_exclusive();
+            self.cpu.borrow_mut().memory.clear_exclusive();
         }
     }
 }
 
 impl ArmMemory for Aarch32Memory<'_> {
     fn read_word(&self, address: u32) -> Result<u32, MemoryError> {
-        self.exclusive_read()?;
-        if let Some(access) = self
-            .access
-            .filter(|access| access.status.is_none() && access.size == 8)
-        {
-            let value = if let Some(value) = self.read_cache.get() {
-                value
-            } else {
-                let result = self.cpu.mem_read_u64(u64::from(access.address));
-                let raw = self.result(access.address, result)?;
-                let value = if self.swap() { raw.swap_bytes() } else { raw };
-                self.read_cache.set(Some(value));
-                value
-            };
-            let high = (address != access.address) != self.cpu.aarch32.is_some_and(|state| state.e);
+        if let Some(value) = self.exclusive_read()? {
+            let access = self.access.unwrap();
+            let high = access.size == 8 && ((address != access.address) != self.big_endian());
             return Ok(if high {
                 (value >> 32) as u32
             } else {
                 value as u32
             });
         }
-        let result = self.cpu.mem_read_u32(u64::from(address));
+        let result = self.cpu.borrow().mem_read_u32(u64::from(address));
         self.result(address, result).map(|value| {
             if self.swap() {
                 value.swap_bytes()
@@ -129,8 +142,10 @@ impl ArmMemory for Aarch32Memory<'_> {
         })
     }
     fn read_halfword(&self, address: u32) -> Result<u16, MemoryError> {
-        self.exclusive_read()?;
-        let result = self.cpu.mem_read_u16(u64::from(address));
+        if let Some(value) = self.exclusive_read()? {
+            return Ok(value as u16);
+        }
+        let result = self.cpu.borrow().mem_read_u16(u64::from(address));
         self.result(address, result).map(|value| {
             if self.swap() {
                 value.swap_bytes()
@@ -140,28 +155,14 @@ impl ArmMemory for Aarch32Memory<'_> {
         })
     }
     fn read_byte(&self, address: u32) -> Result<u8, MemoryError> {
-        self.exclusive_read()?;
-        self.result(address, self.cpu.mem_read_u8(u64::from(address)))
+        if let Some(value) = self.exclusive_read()? {
+            return Ok(value as u8);
+        }
+        let result = self.cpu.borrow().mem_read_u8(u64::from(address));
+        self.result(address, result)
     }
     fn write_word(&mut self, address: u32, value: u32) -> Result<(), MemoryError> {
-        if !self.exclusive_write()? {
-            return Ok(());
-        }
-        if let Some(access) = self
-            .access
-            .filter(|access| access.status.is_some() && access.size == 8)
-        {
-            if self.write_complete {
-                return Ok(());
-            }
-            let value = if self.swap() {
-                access.value.swap_bytes()
-            } else {
-                access.value
-            };
-            let result = self.cpu.mem_write_u64(u64::from(access.address), value);
-            self.result(access.address, result)?;
-            self.write_complete = true;
+        if self.exclusive_write()? {
             return Ok(());
         }
         let value = if self.swap() {
@@ -169,11 +170,14 @@ impl ArmMemory for Aarch32Memory<'_> {
         } else {
             value
         };
-        let result = self.cpu.mem_write_u32(u64::from(address), value);
+        let result = self
+            .cpu
+            .borrow_mut()
+            .mem_write_u32(u64::from(address), value);
         self.result(address, result)
     }
     fn write_halfword(&mut self, address: u32, value: u16) -> Result<(), MemoryError> {
-        if !self.exclusive_write()? {
+        if self.exclusive_write()? {
             return Ok(());
         }
         let value = if self.swap() {
@@ -181,14 +185,20 @@ impl ArmMemory for Aarch32Memory<'_> {
         } else {
             value
         };
-        let result = self.cpu.mem_write_u16(u64::from(address), value);
+        let result = self
+            .cpu
+            .borrow_mut()
+            .mem_write_u16(u64::from(address), value);
         self.result(address, result)
     }
     fn write_byte(&mut self, address: u32, value: u8) -> Result<(), MemoryError> {
-        if !self.exclusive_write()? {
+        if self.exclusive_write()? {
             return Ok(());
         }
-        let result = self.cpu.mem_write_u8(u64::from(address), value);
+        let result = self
+            .cpu
+            .borrow_mut()
+            .mem_write_u8(u64::from(address), value);
         self.result(address, result)
     }
     fn allows_unaligned(&self) -> bool {

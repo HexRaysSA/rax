@@ -17,7 +17,7 @@ use crate::isa::arm::aarch64::sysregs::SystemRegisters;
 use crate::isa::arm::aarch64::{NUM_ELS, NUM_GPRS, NUM_SIMD_REGS, sctlr};
 
 use crate::isa::arm::common::cpu::{
-    ArmCpu, ArmError, ArmException, ArmProfile, ArmVersion, CpuExit, MemoryFaultInfo,
+    AccessType, ArmCpu, ArmError, ArmException, ArmProfile, ArmVersion, CpuExit, MemoryFaultInfo,
     MemoryFaultType, ProcessorState, WatchpointKind,
 };
 use crate::isa::arm::common::features::ArmFeatures;
@@ -656,139 +656,71 @@ impl AArch64Cpu {
         // Get address from base register
         let address = if rn == 31 {
             // SP - check alignment
-            self.checked_sp(crate::isa::arm::common::cpu::AccessType::Read)?
+            self.checked_sp(if is_load {
+                AccessType::Read
+            } else {
+                AccessType::Write
+            })?
         } else {
             self.get_x(rn)
         };
 
-        // Translate address (for physical memory access)
-        let pa = self.translate_address(address, !is_load, false)?;
-
-        if is_load {
-            // Load exclusive: LDXR, LDAXR, LDXP, LDAXP
-
-            // Set exclusive monitors for this address range
-            self.memory.mark_exclusive(pa, datasize as u8);
-
-            if is_pair {
-                // Load pair (LDXP, LDAXP)
-                if rt == rt2 {
-                    return Err(ArmError::UndefinedInstruction(insn));
-                }
-                if elsize == 4 {
-                    // 32-bit pair - atomic 64-bit load
-                    let data = self.memory.read_u64(pa)?;
-                    // Little-endian: lower register gets lower bits
-                    self.set_w(rt, data as u32);
-                    self.set_w(rt2, (data >> 32) as u32);
+        if address & (datasize as u64 - 1) != 0 {
+            return Err(ArmError::MemoryError(MemoryFaultInfo {
+                address,
+                access: if is_load {
+                    AccessType::Read
                 } else {
-                    // 64-bit pair - two 64-bit loads (128-bit aligned)
-                    if pa & 0xF != 0 {
-                        return Err(ArmError::MemoryError(MemoryFaultInfo {
-                            address,
-                            access: crate::isa::arm::common::cpu::AccessType::Read,
-                            fault_type: MemoryFaultType::Alignment,
-                            stage2: false,
-                        }));
-                    }
-                    let val1 = self.memory.read_u64(pa)?;
-                    let val2 = self.memory.read_u64(pa + 8)?;
-                    self.set_x(rt, val1);
-                    self.set_x(rt2, val2);
+                    AccessType::Write
+                },
+                fault_type: MemoryFaultType::Alignment,
+                stage2: false,
+            }));
+        }
+        if is_load && is_pair && rt == rt2 {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+        let pa = self.translate_address(address, !is_load, false)?;
+        // Arm ASL MemOp_LOAD/STORE and ExclusiveMonitorsPass require the
+        // monitor decision and associated memory transaction to agree. The
+        // bridge owns their shared physical-memory exclusion boundary.
+        let big_endian = self.memory.is_big_endian();
+        if is_ordered && !is_load {
+            std::sync::atomic::fence(std::sync::atomic::Ordering::Release);
+        }
+        if is_load {
+            let data = self.memory.read_exclusive(pa, datasize)?;
+            for (index, bytes) in data.chunks_exact(elsize).enumerate() {
+                let mut word = [0; 8];
+                let value = if big_endian {
+                    word[8 - elsize..].copy_from_slice(bytes);
+                    u64::from_be_bytes(word)
+                } else {
+                    word[..elsize].copy_from_slice(bytes);
+                    u64::from_le_bytes(word)
+                };
+                let register = if index == 0 { rt } else { rt2 };
+                if elsize == 8 {
+                    self.set_x(register, value);
+                } else {
+                    self.set_w(register, value as u32);
                 }
-            } else {
-                // Single register load (LDXR, LDAXR, LDXRB, LDXRH)
-                match elsize {
-                    1 => {
-                        let val = self.memory.read_u8(pa)?;
-                        self.set_w(rt, val as u32);
-                    }
-                    2 => {
-                        let val = self.memory.read_u16(pa)?;
-                        self.set_w(rt, val as u32);
-                    }
-                    4 => {
-                        let val = self.memory.read_u32(pa)?;
-                        self.set_w(rt, val);
-                    }
-                    8 => {
-                        let val = self.memory.read_u64(pa)?;
-                        self.set_x(rt, val);
-                    }
-                    _ => unreachable!(),
-                }
-            }
-
-            // Memory barrier for acquire semantics
-            if is_ordered {
-                // LDAXR has acquire semantics - barrier is implicit
-                // In our single-threaded emulator, this is a no-op
             }
         } else {
-            // Store exclusive: STXR, STLXR, STXP, STLXP
-
-            // Memory barrier for release semantics
-            if is_ordered {
-                // STLXR has release semantics - barrier is implicit
-                // In our single-threaded emulator, this is a no-op
-            }
-
-            // Check if exclusive monitors pass
-            let exclusive_held = self.memory.check_exclusive(pa, datasize as u8);
-
-            if exclusive_held {
-                // Exclusive access succeeded - perform the store
-                if is_pair {
-                    if elsize == 4 {
-                        // 32-bit pair - atomic 64-bit store
-                        let val1 = self.get_w(rt) as u64;
-                        let val2 = self.get_w(rt2) as u64;
-                        let data = val1 | (val2 << 32);
-                        self.memory.write_u64(pa, data)?;
-                    } else {
-                        // 64-bit pair
-                        if pa & 0xF != 0 {
-                            return Err(ArmError::MemoryError(MemoryFaultInfo {
-                                address,
-                                access: crate::isa::arm::common::cpu::AccessType::Write,
-                                fault_type: MemoryFaultType::Alignment,
-                                stage2: false,
-                            }));
-                        }
-                        let val1 = self.get_x(rt);
-                        let val2 = self.get_x(rt2);
-                        self.memory.write_u64(pa, val1)?;
-                        self.memory.write_u64(pa + 8, val2)?;
-                    }
+            let mut data = Vec::with_capacity(datasize);
+            for register in [rt, rt2].into_iter().take(if is_pair { 2 } else { 1 }) {
+                let value = self.get_x(register);
+                if big_endian {
+                    data.extend_from_slice(&value.to_be_bytes()[8 - elsize..]);
                 } else {
-                    // Single register store
-                    match elsize {
-                        1 => {
-                            let val = self.get_w(rt) as u8;
-                            self.memory.write_u8(pa, val)?;
-                        }
-                        2 => {
-                            let val = self.get_w(rt) as u16;
-                            self.memory.write_u16(pa, val)?;
-                        }
-                        4 => {
-                            let val = self.get_w(rt);
-                            self.memory.write_u32(pa, val)?;
-                        }
-                        8 => {
-                            let val = self.get_x(rt);
-                            self.memory.write_u64(pa, val)?;
-                        }
-                        _ => unreachable!(),
-                    }
+                    data.extend_from_slice(&value.to_le_bytes()[..elsize]);
                 }
-
-                // Store succeeded - write 0 to status register
-                self.set_w(rs, 0);
-            } else {
-                // Exclusive access failed - write 1 to status register
-                self.set_w(rs, 1);
             }
+            let written = self.memory.write_exclusive(pa, &data)?;
+            self.set_w(rs, u32::from(!written));
+        }
+        if is_ordered && is_load {
+            std::sync::atomic::fence(std::sync::atomic::Ordering::Acquire);
         }
 
         Ok(CpuExit::Continue)

@@ -165,11 +165,10 @@ impl A32AddressSpace for RegionMemory {
     }
     fn write(&self, address: u64, bytes: &[u8]) -> std::result::Result<(), GuestMemoryFault> {
         for (pa, offset, n) in self.spans(address, bytes.len(), MemoryAccessKind::Write)? {
-            self.mem
-                .write_slice(&bytes[offset..offset + n], GuestAddress(pa))
+            rax_engine::vm::memory::write_guest_memory(&self.mem, pa, &bytes[offset..offset + n])
                 .map_err(|_| {
-                    GuestMemoryFault::unmapped(address + offset as u64, n, MemoryAccessKind::Write)
-                })?;
+                GuestMemoryFault::unmapped(address + offset as u64, n, MemoryAccessKind::Write)
+            })?;
         }
         self.recorder
             .record(address, bytes, MemoryAccessKind::Write);

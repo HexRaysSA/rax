@@ -1,0 +1,344 @@
+//! Shared physical-memory exclusive monitors.
+//!
+//! Lock order is domain, then monitor. Only checked mmap reads/writes run under
+//! the domain lock; device and translation callbacks must run before entry.
+//! Raw aliases remain the caller's responsibility: RAX writers use `write`.
+
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, Weak};
+use vm_memory::{
+    Bytes, GuestAddress, GuestMemory, GuestMemoryError, GuestMemoryMmap, GuestMemoryRegion,
+};
+
+/// Matches the default AArch64 CTR_EL0.ERG=4: 2^4 words, or 64 bytes.
+const GRANULE: u64 = 64;
+type Identity = Vec<(u64, u64, usize)>;
+type Slot = Mutex<Option<Reservation>>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Reservation {
+    pub address: u64,
+    pub size: u8,
+}
+
+impl Reservation {
+    pub fn valid(self) -> bool {
+        matches!(self.size, 1 | 2 | 4 | 8 | 16)
+            && self.address & (u64::from(self.size) - 1) == 0
+            && self.address.checked_add(u64::from(self.size) - 1).is_some()
+    }
+
+    fn overlaps(self, address: u64, size: usize) -> bool {
+        let start = u128::from(self.address & !(GRANULE - 1));
+        u128::from(address) < start + u128::from(GRANULE)
+            && u128::from(address) + size as u128 > start
+    }
+}
+
+fn slot_lock(slot: &Slot) -> MutexGuard<'_, Option<Reservation>> {
+    match slot.lock() {
+        Ok(guard) => guard,
+        Err(error) => {
+            let mut guard = error.into_inner();
+            // A host panic cannot confer an exclusive-store right.
+            *guard = None;
+            slot.clear_poison();
+            guard
+        }
+    }
+}
+
+#[derive(Default)]
+struct State {
+    monitors: Vec<Weak<Slot>>,
+}
+
+pub(crate) struct MemoryDomain {
+    state: Mutex<State>,
+    // Retaining the backing prevents address reuse while this identity is live.
+    _backing: GuestMemoryMmap,
+}
+
+fn identity(memory: &GuestMemoryMmap) -> Identity {
+    memory
+        .iter()
+        .map(|region| {
+            (
+                region.start_addr().0,
+                region.len(),
+                region.as_ptr() as usize,
+            )
+        })
+        .collect()
+}
+
+fn registry() -> &'static Mutex<BTreeMap<Identity, Weak<MemoryDomain>>> {
+    static REGISTRY: OnceLock<Mutex<BTreeMap<Identity, Weak<MemoryDomain>>>> = OnceLock::new();
+    REGISTRY.get_or_init(Default::default)
+}
+
+impl MemoryDomain {
+    pub fn for_memory(memory: &GuestMemoryMmap) -> Arc<Self> {
+        let mut registry = registry()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        registry.retain(|_, value| value.strong_count() != 0);
+        let key = identity(memory);
+        if let Some(domain) = registry.get(&key).and_then(Weak::upgrade) {
+            return domain;
+        }
+        let domain = Arc::new(Self {
+            state: Mutex::new(State::default()),
+            _backing: memory.clone(),
+        });
+        registry.insert(key, Arc::downgrade(&domain));
+        domain
+    }
+
+    fn lock(&self) -> MutexGuard<'_, State> {
+        match self.state.lock() {
+            Ok(guard) => guard,
+            Err(error) => {
+                let guard = error.into_inner();
+                for monitor in guard.monitors.iter().filter_map(Weak::upgrade) {
+                    *slot_lock(&monitor) = None;
+                }
+                self.state.clear_poison();
+                guard
+            }
+        }
+    }
+
+    pub fn register(self: &Arc<Self>) -> Monitor {
+        let slot = Arc::new(Mutex::new(None));
+        let mut state = self.lock();
+        state.monitors.retain(|slot| slot.strong_count() != 0);
+        state.monitors.push(Arc::downgrade(&slot));
+        Monitor {
+            domain: self.clone(),
+            slot,
+        }
+    }
+
+    fn invalidate(state: &mut State, address: u64, size: usize) {
+        if size == 0 {
+            return;
+        }
+        state.monitors.retain(|monitor| {
+            let Some(monitor) = monitor.upgrade() else {
+                return false;
+            };
+            let mut slot = slot_lock(&monitor);
+            if slot.is_some_and(|reservation| reservation.overlaps(address, size)) {
+                *slot = None;
+            }
+            true
+        });
+    }
+
+    pub fn write(
+        &self,
+        memory: &GuestMemoryMmap,
+        address: u64,
+        bytes: &[u8],
+    ) -> Result<(), GuestMemoryError> {
+        preflight_write(memory, address, bytes.len())?;
+        let mut state = self.lock();
+        Self::invalidate(&mut state, address, bytes.len());
+        memory.write_slice(bytes, GuestAddress(address))
+    }
+}
+
+/// Invalidate even identical-value and ABA stores; comparing RAM values is not
+/// sufficient evidence that an exclusive reservation survived.
+pub(crate) fn write(
+    memory: &GuestMemoryMmap,
+    address: u64,
+    bytes: &[u8],
+) -> Result<(), GuestMemoryError> {
+    let domain = {
+        let registry = registry()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        registry.get(&identity(memory)).and_then(Weak::upgrade)
+    };
+    match domain {
+        Some(domain) => domain.write(memory, address, bytes),
+        None => memory.write_slice(bytes, GuestAddress(address)),
+    }
+}
+
+fn preflight_write(
+    memory: &GuestMemoryMmap,
+    address: u64,
+    size: usize,
+) -> Result<(), GuestMemoryError> {
+    let mut done = 0;
+    while done < size {
+        let current = address
+            .checked_add(done as u64)
+            .ok_or(GuestMemoryError::InvalidGuestAddress(GuestAddress(address)))?;
+        let region = memory
+            .find_region(GuestAddress(current))
+            .ok_or(GuestMemoryError::InvalidGuestAddress(GuestAddress(current)))?;
+        #[cfg(unix)]
+        if region.prot() & libc::PROT_WRITE == 0 {
+            return Err(GuestMemoryError::InvalidGuestAddress(GuestAddress(current)));
+        }
+        done += ((region.len() - (current - region.start_addr().0)) as usize).min(size - done);
+    }
+    Ok(())
+}
+
+#[derive(Clone)]
+pub(crate) struct Monitor {
+    domain: Arc<MemoryDomain>,
+    slot: Arc<Slot>,
+}
+
+impl std::fmt::Debug for Monitor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Monitor").finish_non_exhaustive()
+    }
+}
+
+impl Monitor {
+    pub fn get(&self) -> Option<Reservation> {
+        *slot_lock(&self.slot)
+    }
+    pub fn clear(&self) {
+        let _domain = self.domain.lock();
+        *slot_lock(&self.slot) = None;
+    }
+    pub fn mark(&self, address: u64, size: u8) {
+        let _domain = self.domain.lock();
+        let reservation = Reservation { address, size };
+        *slot_lock(&self.slot) = reservation.valid().then_some(reservation);
+    }
+    pub fn check(&self, address: u64, size: u8) -> bool {
+        let _domain = self.domain.lock();
+        slot_lock(&self.slot).take() == Some(Reservation { address, size })
+    }
+    pub fn read_exclusive(
+        &self,
+        memory: &GuestMemoryMmap,
+        address: u64,
+        size: usize,
+    ) -> Result<Vec<u8>, GuestMemoryError> {
+        let _domain = self.domain.lock();
+        *slot_lock(&self.slot) = None;
+        let reservation = Reservation {
+            address,
+            size: u8::try_from(size).unwrap_or(0),
+        };
+        if !reservation.valid() {
+            return Err(GuestMemoryError::InvalidGuestAddress(GuestAddress(address)));
+        }
+        let mut bytes = vec![0; size];
+        memory.read_slice(&mut bytes, GuestAddress(address))?;
+        *slot_lock(&self.slot) = Some(reservation);
+        Ok(bytes)
+    }
+    pub fn write_exclusive(
+        &self,
+        memory: &GuestMemoryMmap,
+        address: u64,
+        bytes: &[u8],
+    ) -> Result<bool, GuestMemoryError> {
+        let mut domain = self.domain.lock();
+        let expected = Reservation {
+            address,
+            size: u8::try_from(bytes.len()).unwrap_or(0),
+        };
+        if slot_lock(&self.slot).take() != Some(expected) {
+            return Ok(false);
+        }
+        preflight_write(memory, address, bytes.len())?;
+        MemoryDomain::invalidate(&mut domain, address, bytes.len());
+        memory.write_slice(bytes, GuestAddress(address))?;
+        Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MemoryDomain, write};
+    use std::sync::Arc;
+    use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
+
+    fn memory() -> GuestMemoryMmap {
+        GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 4096)]).unwrap()
+    }
+
+    #[test]
+    fn cloned_backings_share_monitors_but_equal_guest_addresses_do_not() {
+        let memory = memory();
+        let domain = MemoryDomain::for_memory(&memory);
+        assert!(Arc::ptr_eq(
+            &domain,
+            &MemoryDomain::for_memory(&memory.clone())
+        ));
+        let other = GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 4096)]).unwrap();
+        assert!(!Arc::ptr_eq(&domain, &MemoryDomain::for_memory(&other)));
+        let monitor = domain.register();
+        monitor.read_exclusive(&memory, 128, 8).unwrap();
+        write(&other, 128, &[0; 8]).unwrap();
+        assert!(monitor.write_exclusive(&memory, 128, &[1; 8]).unwrap());
+    }
+
+    #[test]
+    fn identical_and_aba_writes_invalidate_without_value_comparison() {
+        for writes in [vec![[0; 8]], vec![[9; 8], [0; 8]]] {
+            let memory = memory();
+            let monitor = MemoryDomain::for_memory(&memory).register();
+            monitor.read_exclusive(&memory, 128, 8).unwrap();
+            for bytes in writes {
+                write(&memory.clone(), 128, &bytes).unwrap();
+            }
+            assert!(!monitor.write_exclusive(&memory, 128, &[1; 8]).unwrap());
+            let mut bytes = [0; 8];
+            memory.read_slice(&mut bytes, GuestAddress(128)).unwrap();
+            assert_eq!(bytes, [0; 8]);
+        }
+    }
+
+    #[test]
+    fn granule_boundaries_and_failed_crossing_store_preserve_unrelated_leases() {
+        let memory = memory();
+        let monitor = MemoryDomain::for_memory(&memory).register();
+        monitor.read_exclusive(&memory, 128, 8).unwrap();
+        write(&memory, 192, &[9]).unwrap();
+        assert!(write(&memory, 4095, &[1, 2]).is_err());
+        assert!(monitor.write_exclusive(&memory, 128, &[1; 8]).unwrap());
+        monitor.read_exclusive(&memory, 128, 8).unwrap();
+        write(&memory, 191, &[0]).unwrap();
+        assert!(!monitor.write_exclusive(&memory, 128, &[2; 8]).unwrap());
+    }
+
+    #[test]
+    fn one_successful_store_cannot_leave_a_second_pe_exclusive() {
+        let memory = Arc::new(memory());
+        let domain = MemoryDomain::for_memory(&memory);
+        let a = domain.register();
+        let b = domain.register();
+        a.read_exclusive(&memory, 128, 8).unwrap();
+        b.read_exclusive(&memory, 128, 8).unwrap();
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let mut threads = Vec::new();
+        for (monitor, byte) in [(a, 1), (b, 2)] {
+            let barrier = barrier.clone();
+            let memory = memory.clone();
+            threads.push(std::thread::spawn(move || {
+                barrier.wait();
+                monitor.write_exclusive(&memory, 128, &[byte; 8]).unwrap()
+            }));
+        }
+        assert_eq!(
+            threads
+                .into_iter()
+                .map(|thread| usize::from(thread.join().unwrap()))
+                .sum::<usize>(),
+            1
+        );
+    }
+}

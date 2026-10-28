@@ -276,9 +276,7 @@ impl PhysicalMemorySnapshot {
                     return Ok(());
                 }
             }
-            memory
-                .write_slice(bytes, GuestAddress(address))
-                .map_err(invalid)
+            crate::vm::memory::reservations::write(memory, address, bytes).map_err(invalid)
         })
     }
     pub fn validate_target(&self, memory: &GuestMemoryMmap) -> Result<()> {

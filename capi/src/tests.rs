@@ -759,3 +759,6 @@ mod context_riscv;
 
 #[path = "tests/context_x86.rs"]
 mod context_x86;
+
+#[path = "tests/aarch64_reservations.rs"]
+mod aarch64_reservations;

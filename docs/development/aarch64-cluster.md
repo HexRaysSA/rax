@@ -49,7 +49,7 @@ CPU imports or every other device a whole-VM transaction. Software AArch64 SMP
 restoration rejects records missing required shared interrupt/power state.
 
 The graph payload complements architectural CPU projections. Complete CPU and
-bridge private context, exclusive reservation persistence/coherence, all-writer
+bridge private context, exclusive reservation persistence, all-writer
 quiescence, debugger/AP selection, deterministic clock/replay, native bounded
 entries, native SMP and Intel Mac HVF qualification remain in the audit scope.
 This change does not establish full C-STATE or C-SMP completion.
@@ -87,3 +87,7 @@ Primary references, archived under `docs/specifications/arm`, are Arm DEN0022D
 (PSCI1.1), sections 5.1.3–5.1.5, 5.2 and 5.5–5.7; Arm IHI0069H, affinity routing
 and ICC/GICR register descriptions; and the Arm A32/T32 ISA v2025-03 HVC A1/T1
 entry. `cluster-provenance.json` records exact source URLs, hashes and notices.
+
+Software reservation coherence for tracked RAM writers is described in
+[aarch64-reservations.md](aarch64-reservations.md). Its writer and alias
+boundaries do not establish complete checkpoint persistence or quiescence.

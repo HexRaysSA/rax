@@ -877,7 +877,8 @@
       ],
       "remaining_validation": [
         "Security/virtualization controls, reserved instruction-admission semantics and full CPU capability/profile consistency.",
-        "Physical A32 hardware and optional trapped profiles remain unverified."
+        "Physical A32 hardware and optional trapped profiles remain unverified.",
+        "Mandatory configured FEAT_FP16 admission and mixed-width FP capability identity are contradicted by an actual VMOVX.F16/VADD.F16 control; see a32-admission-study/feature-counterexample.json."
       ]
     },
     {
@@ -2344,7 +2345,8 @@
         "per-vcpu-lapic-ownership-mmio-transactions",
         "software-vmm-coordinator-startup-fault-retirement",
         "software-x86-private-context-and-immutable-resources",
-        "aarch64-shared-platform-psci-smp"
+        "aarch64-shared-platform-psci-smp",
+        "aarch64-tracked-reservation-coherence-2026-10-28"
       ]
     },
     {
@@ -2821,7 +2823,8 @@
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
         "software-vmm-coordinator-startup-fault-retirement",
-        "aarch64-shared-platform-psci-smp"
+        "aarch64-shared-platform-psci-smp",
+        "aarch64-tracked-reservation-coherence-2026-10-28"
       ]
     },
     {
@@ -128355,7 +128358,7 @@
         },
         "QG4": {
           "status": "passed-with-explicit-scope-limits",
-          "contract": "Table12+16Cbytes;record\u226416MiB;section\u22641GiB;O(C+P) bounded modeled packing and exact bytecounts."
+          "contract": "Table12+16Cbytes;record≤16MiB;section≤1GiB;O(C+P) bounded modeled packing and exact bytecounts."
         },
         "QG5": {
           "status": "passed-with-explicit-scope-limits",
@@ -191570,6 +191573,105 @@
           "status": "confirmed within represented software topology; full native/private-state boundaries remain separate"
         }
       ]
+    },
+    {
+      "id": "aarch64-tracked-reservation-coherence-2026-10-28",
+      "finding": "C-SMP",
+      "also_addresses": [
+        "C-STATE"
+      ],
+      "status": "validated",
+      "base": "d4d4e9b95ecef2dcf858cfb6a5bb6606576ce779",
+      "scope": "Shared physical exclusive transactions and tracked writer invalidation, including mixed AArch32, VMM DMA, C API and process frame arena. Private checkpoint producer/persistence and all-writer quiescence remain open.",
+      "owned_paths": [
+        "capi/src/arm_user.rs",
+        "capi/src/mem.rs",
+        "capi/src/tests.rs",
+        "capi/src/tests/aarch64_reservations.rs",
+        "docs/development/aarch64-cluster.md",
+        "docs/development/aarch64-reservations.md",
+        "docs/development/audit-remediation-2026-10.json",
+        "src/backend/emulator/aarch64.rs",
+        "src/backend/emulator/aarch64/exclusive.rs",
+        "src/isa/arm/aarch64/cpu/aarch32/memory.rs",
+        "src/isa/arm/aarch64/cpu/memory.rs",
+        "src/user/mm/arena.rs",
+        "src/vm/memory.rs",
+        "src/vm/memory/reservations.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/aarch64_cluster_tests.rs",
+        "src/vm/snapshot/physical_memory.rs",
+        "tests/suites/backend/aarch64_cluster.rs",
+        "tests/suites/backend/aarch64_reservations.rs"
+      ],
+      "parent_evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/next-cross-pe-reservation-final-v4/result.json",
+      "targeted_evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/cross-pe-reservation-fixed-final-v2/result.json",
+      "validation_attempts": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/compile-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/cluster-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/cluster-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/cluster-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/cluster-v5.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/cluster-v6.json"
+      ],
+      "assumption_register": [
+        {
+          "id": "R1",
+          "assumption": "Cloned GuestMemoryMmap regions retain the same backing identity.",
+          "basis": "vm_memory Arc-backed region clones; domain will retain a backing clone.",
+          "dependent_result": "CPU, DMA and wrapper stores select the same reservation domain.",
+          "stress_test": "Clone handles, distinct backings, handle drop/reuse and identical guest addresses.",
+          "falsification_probe": "A cloned mapping gets a different domain, or separate backings share reservations.",
+          "status": "Validated for cloned identical region layouts and distinct backings; independent aliases remain outside this proof."
+        },
+        {
+          "id": "R2",
+          "assumption": "Tracked RAX memory writers can publish through the shared memory domain.",
+          "basis": "CPU bridge, GuestDmaMem, debugger and wrapper/physical restore write paths identified.",
+          "dependent_result": "ABA and identical-value stores invalidate reservations.",
+          "stress_test": "Cross-PE, overlapping byte ranges, DMA, failed store, identical value, ABA, and unrelated granules.",
+          "falsification_probe": "An intervening tracked store permits a stale STXR.",
+          "status": "Validated for the selected VMM/bridge/DMA/C API/frame writer domains; UserArmMemory producer still uses local rights and remains a real counterexample."
+        },
+        {
+          "id": "R3",
+          "assumption": "A private producer must account for every core/adapter/bridge field and retain target-owned memory/controller/callback identities.",
+          "basis": "Current A64 register projection omits reservations, waits, counters and private execution state.",
+          "dependent_result": "Fresh file and C API/map continuation.",
+          "stress_test": "Malformed last CPU, absent shared graph, rejected profile, pending events and mode transitions.",
+          "falsification_probe": "Any guest-visible field or pending operation is lost, replayed or partially published on rejection.",
+          "status": "Not implemented; qualified fresh-file negative confirms the outstanding private-producer/publication requirement."
+        }
+      ],
+      "remaining_validation": [
+        "Actual UserArmMemory stale exclusive rights after a tracked peer write require domain binding.",
+        "Fresh AArch64 checkpoint loses an open reservation; complete private producer, all-writer quiescence and coordinated publication remain required.",
+        "Configured FEAT_FP16 absence does not prevent mixed A32 FP16 execution; mandatory feature/profile admission remains required.",
+        "All four full findings remain open, including physical Intel Mac HVF runtime validation."
+      ],
+      "remaining_full_findings": [
+        "A32-FP",
+        "C-STATE",
+        "C-SMP",
+        "C-HVF"
+      ],
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/qualification-v1.json",
+      "final_validation_summary": {
+        "native_owning": 47500,
+        "native_library": 10790,
+        "c_api_jit": 208,
+        "native_cluster_final": 26,
+        "rosetta_cluster_final": 26,
+        "local_gate_count": 15,
+        "ignored": "Two library tests, Docker/binfmt Linux oracle; Windows-host-only memory target0cases."
+      },
+      "negative_controls": {
+        "checkpoint": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/checkpoint-reservation-still-negative-final-v1/inspector-result.json",
+        "user_adapter": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-memory-negative-v1/result.json",
+        "fp16_admission": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/feature-counterexample.json"
+      },
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/commit-receipt.json",
+      "source_review": "Lock order domain then slot; translation/device/recording callbacks remain outside; RAM preflight precedes mutation; mapping/raw-alias boundaries explicit."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

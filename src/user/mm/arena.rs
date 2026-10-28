@@ -395,8 +395,7 @@ impl FrameArena {
     #[inline]
     pub fn write(&self, pa: u64, data: &[u8]) {
         debug_assert!((pa & (PAGE_SIZE - 1)) + data.len() as u64 <= PAGE_SIZE);
-        self.mem
-            .write_slice(data, GuestAddress(pa))
+        crate::vm::memory::write_guest_memory(&self.mem, pa, data)
             .expect("arena frame address lies inside the arena");
     }
 }

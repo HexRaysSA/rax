@@ -645,3 +645,6 @@ fn constrained_or_unprivileged_hvc_forms_take_undefined_without_retirement() {
         assert!(f.vm.take_cpu_power_requests().unwrap().is_empty());
     }
 }
+
+#[path = "aarch64_reservations.rs"]
+mod reservations;

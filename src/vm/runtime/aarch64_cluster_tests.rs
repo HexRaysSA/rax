@@ -127,3 +127,34 @@ fn complete_shared_platform_restores_and_missing_smp_state_rejects_before_mutati
         );
     }
 }
+
+#[test]
+fn dma_writes_invalidate_only_reservations_in_the_written_granule() {
+    use crate::backend::emulator::aarch64::Aarch64Vcpu;
+    use crate::devices::virtio::Mem;
+    for (address, valid, status) in [(0x80, true, 1), (0xc0, true, 0), (0x1000, false, 0)] {
+        let memory = Arc::new(
+            vm_memory::GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 0x1000)]).unwrap(),
+        );
+        memory
+            .write_slice(&0x885f_7c20u32.to_le_bytes(), GuestAddress(0))
+            .unwrap();
+        memory
+            .write_slice(&0x8802_7c20u32.to_le_bytes(), GuestAddress(4))
+            .unwrap();
+        let mut cpu = Aarch64Vcpu::new_micro(0, memory.clone());
+        let CpuState::Aarch64(mut state) = cpu.get_state().unwrap() else {
+            panic!()
+        };
+        state.regs.x[1] = 0x80;
+        cpu.update_state(&CpuState::Aarch64(state)).unwrap();
+        assert_eq!(cpu.run_retirement_budget(1).unwrap().retired, 1);
+        let mut dma = GuestDmaMem(Arc::new(memory.as_ref().clone()));
+        assert_eq!(dma.write(address, &[0]), valid);
+        assert_eq!(cpu.run_retirement_budget(1).unwrap().retired, 1);
+        let CpuState::Aarch64(state) = cpu.get_state().unwrap() else {
+            panic!()
+        };
+        assert_eq!(state.regs.x[2], status, "address={address:#x}");
+    }
+}

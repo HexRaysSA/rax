@@ -22,6 +22,7 @@
 //! EL1 (see [`A64UserTrap`]).
 
 pub(crate) mod cluster;
+mod exclusive;
 mod psci;
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -149,7 +150,7 @@ struct GuestBridge {
     /// one page at a time, before guest memory is touched.
     translation: Option<Arc<dyn FlatTranslation>>,
     /// Local exclusive monitor: (address, size) of the open reservation.
-    exclusive: Mutex<Option<(u64, u8)>>,
+    exclusive: crate::vm::memory::reservations::Monitor,
 }
 
 impl std::fmt::Debug for GuestBridge {
@@ -272,13 +273,13 @@ impl GuestBridge {
             len,
             MemoryAccessKind::Write,
             |target, range| {
-                self.mem
-                    .write_slice(&data[range], GuestAddress(target))
-                    .map_err(|error| MemoryError::Unmapped {
+                crate::vm::memory::reservations::write(&self.mem, target, &data[range]).map_err(
+                    |error| MemoryError::Unmapped {
                         addr: Self::failed_address(target, error),
                         size: len,
                         access: AccessType::Write,
-                    })
+                    },
+                )
             },
         )
     }
@@ -492,13 +493,13 @@ impl ArmMemory for GuestBridge {
             let available = region.len() - (current - region.start_addr().0);
             done += (available as usize).min(data.len() - done);
         }
-        self.mem
-            .write_slice(data, GuestAddress(addr))
-            .map_err(|error| MemoryError::Unmapped {
+        crate::vm::memory::reservations::write(&self.mem, addr, data).map_err(|error| {
+            MemoryError::Unmapped {
                 addr: Self::failed_address(addr, error),
                 access: AccessType::Write,
                 size: data.len(),
-            })?;
+            }
+        })?;
         self.recorder.record(MemAccess::Write, addr, data);
         Ok(())
     }
@@ -523,19 +524,42 @@ impl ArmMemory for GuestBridge {
     }
 
     fn mark_exclusive(&mut self, addr: u64, size: u8) {
-        *self.exclusive.lock().unwrap() = Some((addr, size));
+        self.exclusive.mark(addr, size);
     }
-
     fn check_exclusive(&mut self, addr: u64, size: u8) -> bool {
-        let mut excl = self.exclusive.lock().unwrap();
-        match excl.take() {
-            Some((a, s)) if a == addr && s == size => true,
-            _ => false,
-        }
+        self.exclusive.check(addr, size)
+    }
+    fn clear_exclusive(&mut self) {
+        self.exclusive.clear();
     }
 
-    fn clear_exclusive(&mut self) {
-        *self.exclusive.lock().unwrap() = None;
+    fn read_exclusive(&mut self, addr: u64, size: usize) -> MemResult<Vec<u8>> {
+        let physical = self.exclusive_physical(addr, size, MemoryAccessKind::Read)?;
+        let data = self
+            .exclusive
+            .read_exclusive(&self.mem, physical, size)
+            .map_err(|error| MemoryError::Unmapped {
+                addr: Self::failed_address(addr, error),
+                access: AccessType::Read,
+                size,
+            })?;
+        self.recorder.record(MemAccess::Read, addr, &data);
+        Ok(data)
+    }
+    fn write_exclusive(&mut self, addr: u64, data: &[u8]) -> MemResult<bool> {
+        let physical = self.exclusive_physical(addr, data.len(), MemoryAccessKind::Write)?;
+        let written = self
+            .exclusive
+            .write_exclusive(&self.mem, physical, data)
+            .map_err(|error| MemoryError::Unmapped {
+                addr: Self::failed_address(addr, error),
+                access: AccessType::Write,
+                size: data.len(),
+            })?;
+        if written {
+            self.recorder.record(MemAccess::Write, addr, data);
+        }
+        Ok(written)
     }
 
     fn requires_alignment(&self) -> bool {
@@ -640,6 +664,7 @@ impl Aarch64Vcpu {
         let late = Arc::new(LateBound::default());
         let recorder = Arc::new(MemRecorder::default());
         let physical_memory = mem.clone();
+        let monitor = crate::vm::memory::reservations::MemoryDomain::for_memory(&mem).register();
         let gic_cpus = binding.as_ref().map_or(1, |(cluster, _)| cluster.count());
         let gic_high_base = binding.as_ref().map_or(
             crate::machine::arm_virt::AARCH64_GICR_HIGH_BASE,
@@ -653,7 +678,7 @@ impl Aarch64Vcpu {
             gic_cpus,
             gic_high_base,
             translation,
-            exclusive: Mutex::new(None),
+            exclusive: monitor.clone(),
         };
         let mut cpu = AArch64Cpu::new_with_cpu_id(config, Box::new(bridge), id);
         if let Some((platform, line)) = &binding {

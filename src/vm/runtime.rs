@@ -158,9 +158,7 @@ impl crate::devices::virtio::Mem for GuestDmaMem {
         self.0.read_slice(buf, vm_memory::GuestAddress(gpa)).is_ok()
     }
     fn write(&mut self, gpa: u64, buf: &[u8]) -> bool {
-        self.0
-            .write_slice(buf, vm_memory::GuestAddress(gpa))
-            .is_ok()
+        crate::vm::memory::reservations::write(&self.0, gpa, buf).is_ok()
     }
 }
 
@@ -1356,10 +1354,7 @@ impl Vmm {
             }
             GdbCommand::WriteMemory { addr, data } => {
                 let mem = self.guest_mem.memory();
-                if mem
-                    .write_slice(&data, vm_memory::GuestAddress(addr))
-                    .is_ok()
-                {
+                if crate::vm::memory::reservations::write(mem, addr, &data).is_ok() {
                     if !data.is_empty() {
                         if let Some(vcpu) = self.vcpus.get_mut(0) {
                             let end = addr.saturating_add(data.len().saturating_sub(1) as u64);

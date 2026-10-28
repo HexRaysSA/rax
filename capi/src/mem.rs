@@ -107,7 +107,7 @@ impl Engine {
         if !self.range_mapped(addr, buf.len() as u64) {
             return RaxStatus::Map;
         }
-        match self.mem.write_slice(buf, GuestAddress(addr)) {
+        match rax_engine::vm::memory::write_guest_memory(&self.mem, addr, buf) {
             Ok(()) => RaxStatus::Ok,
             Err(_) => RaxStatus::Map,
         }
