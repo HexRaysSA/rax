@@ -111,6 +111,12 @@ preserves its output artifact; other hosts verify the retained producer set.
 Full affected Cargo test binaries and the other consumer gates remain separate
 from these focused commands.
 
+For an independent native observation without guest replay, pass
+`--capture-only`. Its summary reports `guest_replay: "not_requested"`; this
+does not qualify the emulator. The existing Windows 2022/2025 observation jobs
+use this mode to retain kernel-specific store behavior. The main Windows C API
+CI lane still requires capture and guest replay together.
+
 Primary references describe the signature and flags; the executable controls
 own the user-mode failure order and lifecycle observations above:
 

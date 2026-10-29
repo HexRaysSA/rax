@@ -29,6 +29,8 @@ on:
       - src/user/windows/process/sched/tests/services_tests/registry_key_open_ex*.rs
       - src/user/windows/process/sched/tests/services_tests/appmodel_registry_tests.rs
       - docs/specifications/windows/native-query-key/**
+      - docs/specifications/windows/native-key-notify/**
+      - tools/ci/windows_key_notify.py
       - src/user/windows/dll/native/registry.rs
       - src/user/windows/dll/native/registry/**
       - src/user/windows/objects.rs
@@ -77,6 +79,8 @@ on:
       - src/user/windows/process/sched/tests/services_tests/registry_key_open_ex*.rs
       - src/user/windows/process/sched/tests/services_tests/appmodel_registry_tests.rs
       - docs/specifications/windows/native-query-key/**
+      - docs/specifications/windows/native-key-notify/**
+      - tools/ci/windows_key_notify.py
       - src/user/windows/dll/native/registry.rs
       - src/user/windows/dll/native/registry/**
       - src/user/windows/objects.rs
@@ -115,6 +119,15 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Observe native notification admission and completion stores
+        run: python -B tools/ci/windows_key_notify.py --capture-only
+      - name: Preserve native notification kernel observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-key-notify-${{ matrix.os }}
+          path: target/native-key-notify-v1
+          if-no-files-found: error
       - name: Observe captured primary-user hive metadata and absence
         run: |
           python -B -m unittest discover -s docs/specifications/windows/native-primary-user-hive

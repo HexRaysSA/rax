@@ -58,7 +58,10 @@ def verify_sources(source):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--verify-corpus", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--verify-corpus", action="store_true")
+    mode.add_argument("--capture-only", action="store_true",
+                      help="capture native controls without running guest replay")
     parser.add_argument("--output", default="target/native-key-notify-v1")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
@@ -132,6 +135,11 @@ def main():
             "native notification producer inputs changed")
     path = output / "observations.json"
     path.write_text(json.dumps(corpus, separators=(",", ":")) + "\n", encoding="utf-8")
+    if args.capture_only:
+        print(json.dumps({"native_process_abis": len(architectures),
+                          "observations": sum(KINDS.values()) * len(architectures),
+                          "guest_replay": "not_requested"}))
+        return 0
     env["RAX_KEY_NOTIFY_CORPUS"] = str(path)
     log = output / "guest-replay.log"
     run(["cargo", "test", "--locked", "--no-default-features", "--lib",
