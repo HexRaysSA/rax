@@ -173,63 +173,39 @@ impl<'src> Parser<'src> {
                     }
                 }
 
-                // Bit slice: expr<slices>
-                // This is tricky because < can also be a comparison operator.
-                //
-                // Strategy: Try to parse as slice. If we parse content and find
-                // that it contains : or +: (Range or Offset slices), it's definitely
-                // a slice. If all elements are Single and we see >, it's still a slice.
-                // If all elements are Single and we DON'T see >, it was actually
-                // a comparison and we need to handle that.
+                // A less-than comparison shares its first token with a bit
+                // slice. Commit speculation only after the closing '>'; on
+                // failure restore every lexer field, including indentation and
+                // pending tokens, and let the Pratt parser consume '<'.
                 TokenKind::Lt => {
-                    self.advance(); // consume <
-
-                    // Parse the slice content
-                    let slices = self.parse_list1(|p| p.parse_inner_slice())?;
-
-                    // Check if any slice has : or +: (Range or Offset)
-                    let has_range_or_offset = slices
-                        .iter()
-                        .any(|s| matches!(s, Slice::Range { .. } | Slice::Offset { .. }));
-
-                    if self.eat(&TokenKind::Gt).is_some() {
-                        // Successfully closed with > - it's a slice
-                        let is_single_access =
-                            slices.len() == 1 && matches!(&slices[0], Slice::Single(_));
-                        if is_single_access {
-                            expr = Expr::Index {
-                                base: Box::new(expr),
-                                indices: slices,
-                            };
-                        } else {
-                            expr = Expr::Slice {
-                                base: Box::new(expr),
-                                slices,
+                    let start = self.current_span().start;
+                    if self.failed_angle_slices.contains(&start) {
+                        break;
+                    }
+                    let checkpoint = (self.lexer.clone(), self.current.clone(), self.prev_span);
+                    self.advance();
+                    let slices = self.parse_list1(|p| p.parse_inner_slice());
+                    match slices {
+                        Ok(slices) if self.eat(&TokenKind::Gt).is_some() => {
+                            let is_single =
+                                slices.len() == 1 && matches!(&slices[0], Slice::Single(_));
+                            expr = if is_single {
+                                Expr::Index {
+                                    base: Box::new(expr),
+                                    indices: slices,
+                                }
+                            } else {
+                                Expr::Slice {
+                                    base: Box::new(expr),
+                                    slices,
+                                }
                             };
                         }
-                    } else if has_range_or_offset {
-                        // Has : or +: but no > - syntax error
-                        return Err(self.error("expected '>' to close slice"));
-                    } else {
-                        // All Single slices and no > - this was actually a comparison
-                        // We need to reconstruct: expr < first_element ...
-                        // The first_element is in slices[0] as Single
-                        // Convert back to comparison expression
-                        if slices.len() == 1 {
-                            if let Slice::Single(inner) = slices.into_iter().next().unwrap() {
-                                // Reconstruct: expr < inner
-                                expr = Expr::Binary {
-                                    op: BinOp::Lt,
-                                    lhs: Box::new(expr),
-                                    rhs: inner,
-                                };
-                                // Now continue with the Pratt parser for the rest
-                                // The next token should be || or similar
-                                // Continue the postfix loop to pick up any remaining operators
-                                continue;
-                            }
+                        _ => {
+                            (self.lexer, self.current, self.prev_span) = checkpoint;
+                            self.failed_angle_slices.insert(start);
+                            break;
                         }
-                        return Err(self.error("ambiguous < - could be slice or comparison"));
                     }
                 }
 
@@ -476,68 +452,44 @@ impl<'src> Parser<'src> {
         }
     }
 
-    /// Parse a simple expression inside a slice (no postfix operators).
+    /// Parse arithmetic inside angle brackets without consuming the closing
+    /// '>' or the ':' / '+:' slice delimiters. Share normal expression binding.
     fn parse_inner_slice_expr(&mut self) -> Result<Expr> {
-        let mut expr = self.parse_inner_slice_unary()?;
+        self.parse_inner_slice_prec(0)
+    }
 
-        loop {
-            match self.current_kind() {
-                TokenKind::Plus => {
-                    self.advance();
-                    let rhs = self.parse_inner_slice_unary()?;
-                    expr = Expr::binary(BinOp::Add, expr, rhs);
-                }
-                TokenKind::Minus => {
-                    self.advance();
-                    let rhs = self.parse_inner_slice_unary()?;
-                    expr = Expr::binary(BinOp::Sub, expr, rhs);
-                }
-                TokenKind::Star => {
-                    self.advance();
-                    let rhs = self.parse_inner_slice_unary()?;
-                    expr = Expr::binary(BinOp::Mul, expr, rhs);
-                }
-                TokenKind::Caret => {
-                    self.advance();
-                    let rhs = self.parse_inner_slice_unary()?;
-                    expr = Expr::binary(BinOp::Pow, expr, rhs);
-                }
-                TokenKind::Slash => {
-                    self.advance();
-                    let rhs = self.parse_inner_slice_unary()?;
-                    expr = Expr::binary(BinOp::Div, expr, rhs);
-                }
-                TokenKind::Div => {
-                    self.advance();
-                    let rhs = self.parse_inner_slice_unary()?;
-                    expr = Expr::binary(BinOp::IntDiv, expr, rhs);
-                }
-                TokenKind::Mod => {
-                    self.advance();
-                    let rhs = self.parse_inner_slice_unary()?;
-                    expr = Expr::binary(BinOp::Mod, expr, rhs);
-                }
-                TokenKind::Shl => {
-                    self.advance();
-                    let rhs = self.parse_inner_slice_unary()?;
-                    expr = Expr::binary(BinOp::Shl, expr, rhs);
-                }
-                TokenKind::Shr => {
-                    self.advance();
-                    let rhs = self.parse_inner_slice_unary()?;
-                    expr = Expr::binary(BinOp::Shr, expr, rhs);
-                }
-                _ => break,
+    fn parse_inner_slice_prec(&mut self, min_prec: u8) -> Result<Expr> {
+        let mut lhs = self.parse_inner_slice_unary()?;
+        while let Some(op) = self.peek_binop() {
+            if !matches!(
+                op,
+                BinOp::Add
+                    | BinOp::Sub
+                    | BinOp::Mul
+                    | BinOp::Div
+                    | BinOp::IntDiv
+                    | BinOp::Quot
+                    | BinOp::Rem
+                    | BinOp::Mod
+                    | BinOp::Shl
+                    | BinOp::Shr
+                    | BinOp::Pow
+            ) || op.precedence() < min_prec
+            {
+                break;
             }
+            self.advance();
+            let next_prec = op.precedence() + u8::from(!op.is_right_assoc());
+            let rhs = self.parse_inner_slice_prec(next_prec)?;
+            lhs = Expr::binary(op, lhs, rhs);
         }
-
-        Ok(expr)
+        Ok(lhs)
     }
 
     /// Parse a unary expression in inner slice context.
     fn parse_inner_slice_unary(&mut self) -> Result<Expr> {
         if self.eat(&TokenKind::Minus).is_some() {
-            let operand = self.parse_inner_slice_primary()?;
+            let operand = self.parse_inner_slice_unary()?;
             Ok(Expr::Unary {
                 op: UnOp::Neg,
                 operand: Box::new(operand),

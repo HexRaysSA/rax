@@ -544,6 +544,7 @@ impl Token {
 ///
 /// This lexer wraps the base Logos-generated lexer and injects synthetic
 /// `Indent` and `Dedent` tokens based on changes in indentation level.
+#[derive(Clone)]
 pub struct Lexer<'src> {
     /// The source text
     source: &'src str,

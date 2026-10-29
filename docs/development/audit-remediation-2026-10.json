@@ -193851,6 +193851,69 @@
         }
       ],
       "published": false
+    },
+    {
+      "id": "asl-expression-binding-2026-10-29",
+      "status": "locally_validated",
+      "parent": "b2bd92170fed6b25dd6a1c57f720b624d7c4e7f2",
+      "scope": "Correct operator precedence, rollback ambiguous less-than/slice parsing, preserve arithmetic binding inside slices, and remember failed speculation. No CPU runtime or complete audit-finding closure.",
+      "owned_paths": [
+        "docs/development/asl-precedence-repair/README.md",
+        "docs/development/asl-precedence-repair/primary/asl-readers-guide-111069-A-a.pdf",
+        "docs/development/asl-precedence-repair/primary/provenance.json",
+        "docs/development/audit-remediation-2026-10.json",
+        "tools/asl-parser/asl-parser-rs/src/lexer.rs",
+        "tools/asl-parser/asl-parser-rs/src/parser.rs",
+        "tools/asl-parser/asl-parser-rs/src/parser/expr.rs",
+        "tools/asl-parser/asl-parser-rs/src/syntax.rs",
+        "tools/asl-parser/asl-parser-rs/tests/precedence.rs"
+      ],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-precedence-repair/parent-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-precedence-repair/primary-final-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-precedence-repair/speculation-stress-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-precedence-repair/speculation-stress-v2.json"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-precedence-repair/source-freeze-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-precedence-repair/qualification-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-precedence-repair/commit-receipt-v1.json",
+      "validation_summary": {
+        "default_passed": 69,
+        "serde_passed": 69,
+        "ignored_per_selection": 1,
+        "new_regression_tests": 7,
+        "operator_cross_class_pairs": 438,
+        "parenthesized_pairs": 1152,
+        "dynamic_slice_pairs": 121,
+        "primary_instructions": 1604,
+        "primary_definitions": 960,
+        "primary_registers": 926,
+        "allocation_decode_records": 562,
+        "clippy": "passed with existing warnings",
+        "formatting": "five owned Rust files passed"
+      },
+      "assumption_register": [
+        {
+          "id": "AP1",
+          "assumption": "The supported legacy ASL spellings use Arm operator precedence classes.",
+          "basis": "Arm 111069 A.a section4.4.5; parent demonstrably reverses multiplication/addition and comparison/Boolean binding.",
+          "dependent_result": "Precedence repair in the existing Pratt parser.",
+          "stress_test": "Every supported operator at differing classes in both orders; explicit parentheses, unary and instruction admission predicates.; rollback of failed slice speculation and identical binding inside dynamic slices",
+          "falsification_probe": "A parsed cross-class AST disagrees with the primary table or valid legacy primary files stop parsing.",
+          "status": "confirmed for supported operator classes and recorded legacy compatibility; not full ASL1 conformance"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Existing generated corpora were not regenerated or requalified by this parser fix. FP/SIMD allocation remains unfinished and all four full audit findings remain partial."
+        },
+        {
+          "impact": "medium",
+          "finding": "The existing legacy associativity policy remains permissive. ASL1 same-precedence ambiguity rejection and type checking are outside this repair."
+        }
+      ],
+      "published": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

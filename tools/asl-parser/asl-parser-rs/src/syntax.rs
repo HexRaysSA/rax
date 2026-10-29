@@ -294,36 +294,29 @@ pub enum BinOp {
 impl BinOp {
     /// Get the precedence of this operator (higher = binds tighter).
     ///
-    /// Precedence matches the Java ANTLR grammar (ASL.g4 lines 205-210):
-    /// 1. ^ (power) - lowest precedence
-    /// 2. *, /
-    /// 3. +, -
-    /// 4. >>, <<, QUOT, REM, DIV, MOD, OR, EOR, AND, ++, : (all same level)
-    /// 5. ==, !=, >, >=, <, <=
-    /// 6. &&, || - highest precedence (both same level)
+    /// Arm 111069 A.a, section 4.4.5 orders Boolean operators lowest and
+    /// exponentiation highest among binary operators. Legacy EOR, QUOT, REM,
+    /// ++ and : keep their spelling within the corresponding operator class.
+    /// Unary and membership expressions bind separately in the parser.
     #[rustfmt::skip]
     pub const fn precedence(self) -> u8 {
         match self {
-            // Lowest precedence (listed first in Java grammar)
-            Self::Pow                            => 1,
-            Self::Mul | Self::Div                => 2,
-            Self::Add | Self::Sub                => 3,
-            // All these operators at same level (Java grammar line 208)
-            Self::Shl | Self::Shr |
-            Self::Quot | Self::Rem |
-            Self::IntDiv | Self::Mod |
+            Self::Or | Self::And                 => 1,
+            Self::Eq | Self::Ne                  => 2,
+            Self::Lt | Self::Le |
+            Self::Gt | Self::Ge                  => 3,
+            Self::Add | Self::Sub |
             Self::BitOr | Self::BitXor |
             Self::BitAnd |
             Self::Concat | Self::BitConcat       => 4,
-            // Comparison operators
-            Self::Eq | Self::Ne |
-            Self::Lt | Self::Le |
-            Self::Gt | Self::Ge                  => 5,
-            // Logical operators - highest precedence (both same level)
-            Self::Or | Self::And                 => 6,
+            Self::Mul | Self::Div |
+            Self::Shl | Self::Shr |
+            Self::Quot | Self::Rem |
+            Self::IntDiv | Self::Mod             => 5,
+            Self::Pow                            => 6,
             // SliceOffset (+:) is not a general binary operator in expressions,
             // only used in slice syntax, but included here for completeness
-            Self::SliceOffset                    => 3,  // Same as Add/Sub
+            Self::SliceOffset                    => 4,  // Same as Add/Sub
         }
     }
 

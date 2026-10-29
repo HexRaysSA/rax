@@ -1,0 +1,12 @@
+{
+  "title": "Architecture Specification Language Readers\u2019 Guide",
+  "issuer": "Arm Limited",
+  "document": "111069",
+  "revision": "A.a",
+  "issue_date": "2025-10-29",
+  "source_url": "https://documentation-service.arm.com/static/6901ca9402789941c1920b3a?token=",
+  "retrieved_utc": "2026-10-29T02:39:18.067546+00:00",
+  "sha256": "5906cdc10c09a5e9557fc3e876115182e7a6131d2589404e86cfc7234af10695",
+  "section": "4.4.5 Precedence rules",
+  "role": "Primary binding-order reference; legacy spelling and associativity compatibility are documented separately."
+}

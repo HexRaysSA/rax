@@ -54,6 +54,9 @@ pub struct Parser<'src> {
     prev_span: Span,
     /// Set of known type identifiers (for disambiguation)
     type_idents: HashSet<SmolStr>,
+    /// Failed angle-slice attempts, keyed by the opening token's source byte.
+    /// Keep these across rollback to avoid repeated nested speculation.
+    failed_angle_slices: HashSet<usize>,
 }
 
 impl<'src> Parser<'src> {
@@ -75,6 +78,7 @@ impl<'src> Parser<'src> {
             current,
             prev_span: Span::new(0, 0),
             type_idents,
+            failed_angle_slices: HashSet::new(),
         }
     }
 
