@@ -39,6 +39,7 @@ pub(crate) fn nt_service(
         .chain(native::KEY_QUERY_EXPORTS)
         .chain(native::KEY_OPEN_EX_EXPORTS)
         .chain(native::KEY_ENUMERATION_EXPORTS)
+        .chain(native::KEY_SET_EXPORTS)
         .find_map(|export| {
             if export.name == name
                 && export.name.starts_with("Nt")
@@ -91,6 +92,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::KEY_QUERY_EXPORTS,
         native::KEY_OPEN_EX_EXPORTS,
         native::KEY_ENUMERATION_EXPORTS,
+        native::KEY_SET_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {

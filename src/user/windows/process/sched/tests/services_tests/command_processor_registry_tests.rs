@@ -562,7 +562,8 @@ fn command_processor_distinct_view_values_survive_nt_handles_and_namespace_repla
             .with_primary_hive(
                 &sid,
                 Some(HiveHeader {
-                    canonical: wide("\\REGISTRY\\USER\\S-1-5-18"),
+                    // Native SYSTEM SID opens traverse this captured alias.
+                    canonical: wide("\\REGISTRY\\USER\\.DEFAULT"),
                     children: 6,
                     values: vec![],
                 }),

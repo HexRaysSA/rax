@@ -402,6 +402,22 @@ impl Objects {
             .flatten()
     }
 
+    /// Replace the key body's captured-width tag field, including unknown
+    /// initial metadata. Duplicates retain the same object entry.
+    pub(crate) fn set_registry_tags(&mut self, handle: u64, tags: u16) -> bool {
+        let Some(id) = self.id(handle) else {
+            return false;
+        };
+        let Some(entry) = self.objs.get_mut(&id) else {
+            return false;
+        };
+        if !matches!(entry.obj, Object::Key(_)) {
+            return false;
+        }
+        entry.registry_tags = Some(u32::from(tags));
+        true
+    }
+
     pub(crate) fn set_registry_views(
         &mut self,
         id: ObjId,

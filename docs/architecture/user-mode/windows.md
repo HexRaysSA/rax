@@ -698,3 +698,18 @@ selects the compile-time OLE path, closes its HKEYs, and never forwards guest
 registry arguments. [Independent controls and current validation scope](../../specifications/windows/native-ole-registry/README.md)
 record 15,572 native open cases across ARM64, x64 and x86 on build 29695;
 broader native profiles and full installed-process behavior remain separate.
+
+`NtSetInformationKey` class 5 replaces the guest key body's 16-bit handle-tag
+field after capturing exactly four input bytes. Duplicate handles share this
+state; independent opens retain separate key bodies. The setter accepts a
+zero-access handle, while the tag query still requires a nonzero grant.
+Input faults and guard consumption precede handle validation. Other valid set
+classes remain explicit unsupported boundaries, and guest arguments never reach
+the host registry. [Native controls and scope](../../specifications/windows/native-key-set-information/README.md)
+cover validation, unaligned and protected input, tag widths, and close lifetime.
+Relative opens consume the replaced tags: native opens inherit key-body metadata,
+while WoW64 selects or suppresses redirection, converts view tags, and rejects an
+inherited contradictory view. Empty-name reopens own independent tag state.
+Traversal through the captured CurrentControlSet alias resets native inheritance;
+WoW64 can subsequently publish its converted tags. The fixed snapshot authority
+and host registry access boundary remain unchanged.

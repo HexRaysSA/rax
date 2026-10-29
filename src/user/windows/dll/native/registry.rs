@@ -23,6 +23,10 @@ pub(super) use key_enumeration::enumerate_key;
 mod key_query;
 pub(super) use key_query::query_key;
 
+#[path = "registry/key_set.rs"]
+mod key_set;
+pub(super) use key_set::set_key;
+
 enum Failure {
     Status(u32),
     Api(ApiErr),
@@ -222,56 +226,28 @@ fn open_grant(c: &Ctx, access: u32, options: u32, selected: &Key) -> Checked<u32
     }
 }
 
-// Captured WoW64 MACHINE rules distinguish reopening the root itself from
-// resolving a descendant. The parent view survives an empty relative open.
-// Finite key-body transitions from the native CMD self-open closure.
+#[path = "registry/key_tags.rs"]
+mod key_tags;
+use key_tags::RelativeOpen;
+
+// Retained native parent graphs also exercise this common conversion policy.
+#[cfg(test)]
 fn command_reopen_tags(
     wow: bool,
     parent: u32,
     parent_view: RegistryView,
     requested: u32,
 ) -> Option<u32> {
-    if !wow {
-        return matches!(parent, 0 | 0x100 | 0x600).then_some(parent);
-    }
-    if requested == 0x300 {
-        return None;
-    }
-    match (parent_view, parent) {
-        (RegistryView::Native64, 0x100) => Some(if requested == 0x200 { 0x600 } else { 0x100 }),
-        (RegistryView::Wow32, 0x100) => Some(if requested == 0x200 { 0xE00 } else { 0x100 }),
-        (RegistryView::Wow32, 0x400 | 0x500 | 0x600) => Some(if requested == 0 {
-            parent
-        } else {
-            0x400 | requested
-        }),
-        (RegistryView::Wow32, 0xE00) => Some(if requested == 0x100 { 0x500 } else { 0x600 }),
-        _ => None,
-    }
+    Some(RelativeOpen::new(wow, parent, requested)?.tags(
+        false,
+        parent_view == RegistryView::Wow32,
+        false,
+    ))
 }
 
 #[cfg(test)]
 #[path = "registry/system_command_tests.rs"]
 mod system_command_tests;
-
-fn machine_body_tags(parent: u32, requested: u32, self_open: bool) -> u32 {
-    if self_open {
-        return if requested == 0 {
-            parent & 0x300
-        } else {
-            requested
-        };
-    }
-    if parent == 0x100 && requested != 0x200 {
-        return 0;
-    }
-    let effective = if requested == 0 {
-        parent & 0x300
-    } else {
-        requested
-    };
-    effective | if effective == 0x100 { 0 } else { 0x400 }
-}
 
 pub(super) fn open(c: &mut Ctx) -> ApiResult {
     let result = open_checked(c, 0);
@@ -326,9 +302,9 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
             .into());
     }
     let views;
-    let mut machine_parent_tags = None;
-    let mut command_parent_tags = None;
-    let mut command_parent_view = None;
+    let mut relative = None;
+    let mut physical_wow = false;
+    let mut control_set_alias = false;
     let selected = if attrs.root != 0 {
         // The compatibility thunk rejects an absolute rooted name before the
         // native object manager checks the root handle's validity/type.
@@ -342,53 +318,40 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         if absolute {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
-        if root.command_access().is_some() {
-            let tags = c.p.objects.registry_tags(attrs.root).ok_or_else(|| {
-                c.unsupported("Command Processor parent key tags are not captured")
-            })?;
-            let parent_view = root
-                .redirected_view
-                .ok_or_else(|| c.unsupported("Command Processor parent view is not captured"))?;
-            if command_reopen_tags(wow, tags, parent_view, access & 0x300).is_none() {
-                return Err(c
-                    .unsupported("Command Processor parent tags outside captured profile")
-                    .into());
-            }
-            command_parent_view = Some(parent_view);
-            command_parent_tags = Some(tags);
+        if let Some(tags) = c.p.objects.registry_tags(attrs.root) {
+            relative = Some(match RelativeOpen::new(wow, tags, access & 0x300) {
+                Some(state) => state,
+                None => return status(STATUS_INVALID_PARAMETER),
+            });
+        }
+        physical_wow = root.redirected_view == Some(RegistryView::Wow32)
+            && root.command_physical_name(&root.path);
+        if root.is_machine_hive() {
+            let folded = root.fold(&attrs.name.units);
+            let mut parts = folded.split(|u| *u == 92).filter(|part| !part.is_empty());
+            control_set_alias = parts
+                .next()
+                .is_some_and(|part| part.iter().copied().eq("SYSTEM".encode_utf16()))
+                && parts.next().is_some_and(|part| {
+                    part.iter().copied().eq("CURRENTCONTROLSET".encode_utf16())
+                });
         }
         let selected = if let Some(catalog) = root.hive_views() {
             views = Some(catalog);
-            let parent = if wow {
-                let tags =
-                    c.p.objects
-                        .registry_tags(attrs.root)
-                        .ok_or_else(|| c.unsupported("MACHINE parent key tags are not captured"))?;
-                if root.is_machine_hive() && (tags & !0x300 != 0 || tags == 0x300) {
-                    return Err(c
-                        .unsupported("MACHINE parent tags outside captured root profile")
-                        .into());
-                }
-                tags
-            } else {
-                0
-            };
-            if root.is_machine_hive() {
-                machine_parent_tags = Some(parent);
-            }
-            let requested = access & 0x300;
-            let effective = if requested == 0 {
-                parent & 0x300
-            } else {
-                requested
-            };
-            let view = if wow && effective != 0x100 {
-                RegistryView::Wow32
+            let view = if wow {
+                relative
+                    .as_ref()
+                    .ok_or_else(|| c.unsupported("parent key tags are not captured"))?
+                    .view()
             } else {
                 RegistryView::Native64
             };
             root.relative_in_view(&attrs.name.units, view)
-        } else if wow && access & 0x200 != 0 && root.redirected_view == Some(RegistryView::Native64)
+        } else if wow
+            && relative.as_ref().map_or(access & 0x200 != 0, |state| {
+                state.view() == RegistryView::Wow32
+            })
+            && root.redirected_view == Some(RegistryView::Native64)
         {
             let captured = c.p.objects.registry_views(attrs.root).ok_or_else(|| {
                 c.unsupported("AppModel relative registry views are not captured")
@@ -431,49 +394,23 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     };
     // Native controls distinguish OBJ_OPENLINK above from OpenOptions bit8.
     // The admitted option alone retains the ordinary resolved-key behavior.
-    // Native64 opens retain zero tags for these shared selected keys. WoW64
-    // marks its default/32-bit view with 0x400; an explicit 64-bit view is 0x100.
-    // The contradictory x86 view request is rejected by grant before creation.
+    // Relative opens consume key-body state. Absolute opens establish native
+    // initial tags; contradictory WoW64 views were rejected before selection.
     let redirected = selected.redirected_view.is_some();
-    let tags = if selected.command_access().is_some() {
-        let requested = access & 0x300;
-        if let (Some(parent), Some(parent_view)) = (command_parent_tags, command_parent_view) {
-            command_reopen_tags(wow, parent, parent_view, requested)
-                .expect("validated CMD parent transition")
-        } else if wow {
-            if selected.command_physical_name(&attrs.name.units) {
-                let effective = if requested == 0 {
-                    machine_parent_tags.unwrap_or(0) & 0x300
-                } else {
-                    requested
-                };
-                if effective == 0x100 { 0x100 } else { 0xE00 }
-            } else {
-                let effective = if requested == 0 {
-                    machine_parent_tags.unwrap_or(0) & 0x300
-                } else {
-                    requested
-                };
-                effective
-                    | if selected.redirected_view == Some(RegistryView::Wow32) {
-                        0x400
-                    } else {
-                        0
-                    }
-            }
-        } else {
-            0
-        }
+    let tags = if let Some(relative) = &relative {
+        relative.tags(
+            selected.is_machine_hive(),
+            physical_wow || selected.command_physical_name(&attrs.name.units),
+            control_set_alias,
+        )
     } else if wow {
-        let view = access & 0x300;
-        if selected.is_machine_hive() || machine_parent_tags.is_some() {
-            machine_body_tags(
-                machine_parent_tags.unwrap_or(0),
-                view,
-                selected.is_machine_hive(),
-            )
+        let requested = access & 0x300;
+        if selected.is_machine_hive() || selected.logical_hive_alias(&attrs.name.units) {
+            requested
+        } else if selected.command_physical_name(&attrs.name.units) {
+            if requested == 0x100 { 0x100 } else { 0xE00 }
         } else {
-            view | if view == 0x100 { 0 } else { 0x400 }
+            requested | if requested == 0x100 { 0 } else { 0x400 }
         }
     } else {
         0

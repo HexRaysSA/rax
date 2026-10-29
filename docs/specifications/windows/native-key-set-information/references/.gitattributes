@@ -1,0 +1,2 @@
+# Preserve the retrieved primary source and its recorded hash byte for byte.
+key-set-information-class.html -text -diff

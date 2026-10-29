@@ -14,6 +14,23 @@ pub(crate) struct HiveHeader {
     pub(crate) values: Vec<Value>,
 }
 
+impl Key {
+    pub(crate) fn logical_hive_alias(&self, name: &[u16]) -> bool {
+        self.root_views.is_some()
+            && self.logical_path.as_deref().is_some_and(|logical| {
+                if self.fold(logical) == self.fold(&self.path) {
+                    return false;
+                }
+                let normalized: Vec<_> = name
+                    .split(|u| *u == 92)
+                    .filter(|part| !part.is_empty())
+                    .flat_map(|part| std::iter::once(92).chain(part.iter().copied()))
+                    .collect();
+                self.fold(&normalized) == self.fold(logical)
+            })
+    }
+}
+
 impl Registry {
     pub(super) fn check_primary_hive_sid(&self, sid: &[u8]) -> io::Result<()> {
         let path = user_policy::user_hive_path(sid)?;
@@ -91,8 +108,8 @@ impl Registry {
                     selected_child: None,
                     selected_paths: BTreeMap::new(),
                     command_access: None,
-                    logical_path: None,
-                    root_views: None,
+                    logical_path: Some(path.clone().into()),
+                    root_views: Some(self.views.clone()),
                     machine: None,
                 }))
             }

@@ -109,6 +109,9 @@ mod key_enumeration;
 #[path = "registry_key_query_tests.rs"]
 mod key_query;
 
+#[path = "registry_key_set_tests.rs"]
+mod key_set;
+
 #[path = "registry_key_open_ex_tests.rs"]
 mod key_open_ex;
 
