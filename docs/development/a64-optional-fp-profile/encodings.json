@@ -1,0 +1,247 @@
+{
+  "encoding_index": "docs/architecture/arm/opcodesDB/db/aarch64/fpsimd/encodings.pl",
+  "encoding_index_sha256": "ef2487bbb53af2681982b1a69e63524aa4147857385783dab1d9e91a975c438c",
+  "upstream_revision": "unknown",
+  "encoding_index_role": "Secondary bit-diagram index; not a semantic oracle.",
+  "primary_documents": "docs/development/a64-optional-fp-profile/primary/provenance.json",
+  "records": [
+    {
+      "name": "BFCVTN_asimdmisc_4S",
+      "feature": "BF16",
+      "pattern": "0x00111010100001011010xxxxxxxxxx",
+      "mask": 3221224448,
+      "value": 245458944
+    },
+    {
+      "name": "BFCVT_BS_floatdp1",
+      "feature": "BF16",
+      "pattern": "0001111001100011010000xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 509820928
+    },
+    {
+      "name": "BFDOT_asimdelem_E",
+      "feature": "BF16",
+      "pattern": "0x00111101xxxxxx1111x0xxxxxxxxxx",
+      "mask": 3217093632,
+      "value": 255913984
+    },
+    {
+      "name": "BFDOT_asimdsame2_D",
+      "feature": "BF16",
+      "pattern": "0x101110010xxxxx111111xxxxxxxxxx",
+      "mask": 3219192832,
+      "value": 776010752
+    },
+    {
+      "name": "BFMLAL_asimdelem_F",
+      "feature": "BF16",
+      "pattern": "0x00111111xxxxxx1111x0xxxxxxxxxx",
+      "mask": 3217093632,
+      "value": 264302592
+    },
+    {
+      "name": "BFMLAL_asimdsame2_F_",
+      "feature": "BF16",
+      "pattern": "0x101110110xxxxx111111xxxxxxxxxx",
+      "mask": 3219192832,
+      "value": 784399360
+    },
+    {
+      "name": "BFMMLA_asimdsame2_E",
+      "feature": "BF16",
+      "pattern": "01101110010xxxxx111011xxxxxxxxxx",
+      "mask": 4292934656,
+      "value": 1849748480
+    },
+    {
+      "name": "SDOT_asimdelem_D",
+      "feature": "DOTPROD",
+      "pattern": "0x001111xxxxxxxx1110x0xxxxxxxxxx",
+      "mask": 3204510720,
+      "value": 251715584
+    },
+    {
+      "name": "SDOT_asimdsame2_D",
+      "feature": "DOTPROD",
+      "pattern": "0x001110xx0xxxxx100101xxxxxxxxxx",
+      "mask": 3206609920,
+      "value": 234918912
+    },
+    {
+      "name": "UDOT_asimdelem_D",
+      "feature": "DOTPROD",
+      "pattern": "0x101111xxxxxxxx1110x0xxxxxxxxxx",
+      "mask": 3204510720,
+      "value": 788586496
+    },
+    {
+      "name": "UDOT_asimdsame2_D",
+      "feature": "DOTPROD",
+      "pattern": "0x101110xx0xxxxx100101xxxxxxxxxx",
+      "mask": 3206609920,
+      "value": 771789824
+    },
+    {
+      "name": "FCADD_asimdsame2_C",
+      "feature": "FCMA",
+      "pattern": "0x101110xx0xxxxx111x01xxxxxxxxxx",
+      "mask": 3206605824,
+      "value": 771810304
+    },
+    {
+      "name": "FCMLA_asimdelem_C_H",
+      "feature": "FCMA",
+      "pattern": "0x10111101xxxxxx0xx1x0xxxxxxxxxx",
+      "mask": 3217069056,
+      "value": 792727552
+    },
+    {
+      "name": "FCMLA_asimdelem_C_S",
+      "feature": "FCMA",
+      "pattern": "0x10111110xxxxxx0xx1x0xxxxxxxxxx",
+      "mask": 3217069056,
+      "value": 796921856
+    },
+    {
+      "name": "FCMLA_asimdsame2_C",
+      "feature": "FCMA",
+      "pattern": "0x101110xx0xxxxx110xx1xxxxxxxxxx",
+      "mask": 3206603776,
+      "value": 771802112
+    },
+    {
+      "name": "FRINT32X_D_floatdp1",
+      "feature": "FRINTTS",
+      "pattern": "0001111001101000110000xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 510181376
+    },
+    {
+      "name": "FRINT32X_S_floatdp1",
+      "feature": "FRINTTS",
+      "pattern": "0001111000101000110000xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 505987072
+    },
+    {
+      "name": "FRINT32X_asimdmisc_R",
+      "feature": "FRINTTS",
+      "pattern": "0x1011100x100001111010xxxxxxxxxx",
+      "mask": 3217030144,
+      "value": 773974016
+    },
+    {
+      "name": "FRINT32Z_D_floatdp1",
+      "feature": "FRINTTS",
+      "pattern": "0001111001101000010000xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 510148608
+    },
+    {
+      "name": "FRINT32Z_S_floatdp1",
+      "feature": "FRINTTS",
+      "pattern": "0001111000101000010000xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 505954304
+    },
+    {
+      "name": "FRINT32Z_asimdmisc_R",
+      "feature": "FRINTTS",
+      "pattern": "0x0011100x100001111010xxxxxxxxxx",
+      "mask": 3217030144,
+      "value": 237103104
+    },
+    {
+      "name": "FRINT64X_D_floatdp1",
+      "feature": "FRINTTS",
+      "pattern": "0001111001101001110000xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 510246912
+    },
+    {
+      "name": "FRINT64X_S_floatdp1",
+      "feature": "FRINTTS",
+      "pattern": "0001111000101001110000xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 506052608
+    },
+    {
+      "name": "FRINT64X_asimdmisc_R",
+      "feature": "FRINTTS",
+      "pattern": "0x1011100x100001111110xxxxxxxxxx",
+      "mask": 3217030144,
+      "value": 773978112
+    },
+    {
+      "name": "FRINT64Z_D_floatdp1",
+      "feature": "FRINTTS",
+      "pattern": "0001111001101001010000xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 510214144
+    },
+    {
+      "name": "FRINT64Z_S_floatdp1",
+      "feature": "FRINTTS",
+      "pattern": "0001111000101001010000xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 506019840
+    },
+    {
+      "name": "FRINT64Z_asimdmisc_R",
+      "feature": "FRINTTS",
+      "pattern": "0x0011100x100001111110xxxxxxxxxx",
+      "mask": 3217030144,
+      "value": 237107200
+    },
+    {
+      "name": "SMMLA_asimdsame2_G",
+      "feature": "I8MM",
+      "pattern": "01001110100xxxxx101001xxxxxxxxxx",
+      "mask": 4292934656,
+      "value": 1317053440
+    },
+    {
+      "name": "SUDOT_asimdelem_D",
+      "feature": "I8MM",
+      "pattern": "0x00111100xxxxxx1111x0xxxxxxxxxx",
+      "mask": 3217093632,
+      "value": 251719680
+    },
+    {
+      "name": "UMMLA_asimdsame2_G",
+      "feature": "I8MM",
+      "pattern": "01101110100xxxxx101001xxxxxxxxxx",
+      "mask": 4292934656,
+      "value": 1853924352
+    },
+    {
+      "name": "USDOT_asimdelem_D",
+      "feature": "I8MM",
+      "pattern": "0x00111110xxxxxx1111x0xxxxxxxxxx",
+      "mask": 3217093632,
+      "value": 260108288
+    },
+    {
+      "name": "USDOT_asimdsame2_D",
+      "feature": "I8MM",
+      "pattern": "0x001110100xxxxx100111xxxxxxxxxx",
+      "mask": 3219192832,
+      "value": 243309568
+    },
+    {
+      "name": "USMMLA_asimdsame2_G",
+      "feature": "I8MM",
+      "pattern": "01001110100xxxxx101011xxxxxxxxxx",
+      "mask": 4292934656,
+      "value": 1317055488
+    },
+    {
+      "name": "FJCVTZS_32D_float2int",
+      "feature": "JSCVT",
+      "pattern": "0001111001111110000000xxxxxxxxxx",
+      "mask": 4294966272,
+      "value": 511574016
+    }
+  ]
+}

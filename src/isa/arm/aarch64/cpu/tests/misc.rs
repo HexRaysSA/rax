@@ -436,6 +436,9 @@ fn simd_dot_rejects_non_word_size() {
         0x0e00_9c00, // USDOT size=0
     ] {
         let mut cpu = create_cpu_with_insn(insn);
+        cpu.config
+            .features
+            .insert(ArmFeatures::DOTPROD | ArmFeatures::I8MM);
         cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
         let exit = cpu.step();
         assert!(
@@ -443,6 +446,7 @@ fn simd_dot_rejects_non_word_size() {
                 || matches!(exit, Err(ArmError::UndefinedInstruction(got)) if got == insn),
             "expected {insn:#010x} to be undefined, got {exit:?}"
         );
+        assert_eq!((cpu.pc, cpu.insn_count), (0, 0));
     }
 
     for insn in [
@@ -451,6 +455,9 @@ fn simd_dot_rejects_non_word_size() {
         0x0e82_9c20, // USDOT V0.2S, V1.8B, V2.8B
     ] {
         let mut cpu = create_cpu_with_insn(insn);
+        cpu.config
+            .features
+            .insert(ArmFeatures::DOTPROD | ArmFeatures::I8MM);
         cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
         assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
     }

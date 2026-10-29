@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 15u
+#define RAX_API_MINOR 16u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -148,6 +148,28 @@ typedef struct rax_arm64_pauth_config {
     uint32_t profile;    /* RAX_ARM64_PAUTH_PROFILE_DEFAULT/BASE/... */
     uint32_t reserved[4]; /* must be zero */
 } rax_arm64_pauth_config;
+
+/* Optional AArch64 FP/AdvSIMD profile (ABI 1.16). Flags are independent of
+ * CPACR/CPTR access controls. FHM requires FP16. Defaults select none.
+ * Selection survives reset, context restore and memory-map reconstruction.
+ * Configure/query require an idle engine. Configure rejects unknown flags and
+ * nonzero reserved words. Only the 32-byte prefix is read/written. */
+#define RAX_ARM64_FEATURE_FP16    (1u << 0)
+#define RAX_ARM64_FEATURE_FHM     (1u << 1)
+#define RAX_ARM64_FEATURE_JSCVT   (1u << 2)
+#define RAX_ARM64_FEATURE_FCMA    (1u << 3)
+#define RAX_ARM64_FEATURE_FRINTTS (1u << 4)
+#define RAX_ARM64_FEATURE_BF16    (1u << 5)
+#define RAX_ARM64_FEATURE_I8MM    (1u << 6)
+#define RAX_ARM64_FEATURE_DOTPROD (1u << 7)
+#define RAX_ARM64_FP_FEATURES_SUPPORTED 0xffu
+
+typedef struct rax_arm64_fp_config {
+    uint32_t size;        /* >= sizeof(rax_arm64_fp_config) */
+    uint32_t features;    /* RAX_ARM64_FEATURE_* */
+    uint32_t reserved[6]; /* must be zero */
+} rax_arm64_fp_config;
+
 
 /* Memory protection flags (bitmask). */
 #define RAX_PROT_NONE  0u
@@ -374,6 +396,8 @@ RAX_API const char *rax_strerror(int status);
  * preserving the supplied size and any larger caller-owned tail. */
 RAX_API rax_status rax_arm64_pauth_configure(rax_engine *e, const rax_arm64_pauth_config *config);
 RAX_API rax_status rax_arm64_pauth_get_config(const rax_engine *e, rax_arm64_pauth_config *config);
+RAX_API rax_status rax_arm64_fp_configure(rax_engine *e, const rax_arm64_fp_config *config);
+RAX_API rax_status rax_arm64_fp_get_config(const rax_engine *e, rax_arm64_fp_config *config);
 
 /* Open an engine for `arch` in `mode`, pre-mapping a default RAM region.
  * Writes a non-NULL handle to *out on success. */

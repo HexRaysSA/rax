@@ -157,7 +157,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.15.0).
+C ABI version (currently 1.16.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -585,6 +585,30 @@ the restored backend counter remains available to the CPU implementation.
 RISC-V engines use format 6 and software x86 engines use format 7, as described
 below. Existing format 1/2 inputs remain supported with their original retained
 state. An older library cannot restore the newer context formats.
+
+ABI 1.16 adds `rax_arm64_fp_configure` and `rax_arm64_fp_get_config` for the
+software AArch64 optional FP/Advanced SIMD profile. The C++ methods are
+`configureFp` and `fpConfig`. The 32-byte `rax_arm64_fp_config` has a caller-set
+`size`, a `features` mask and six zero reserved words. The flags are
+`RAX_ARM64_FEATURE_FP16`, `FHM`, `JSCVT`, `FCMA`, `FRINTTS`, `BF16`, `I8MM` and
+`DOTPROD` (each name uses the same `RAX_ARM64_FEATURE_` prefix). FHM requires
+FP16; BF16 selects the base level, without enhanced BF16 behavior.
+
+```c
+rax_arm64_fp_config fp = {0};
+fp.size = sizeof(fp);
+fp.features = RAX_ARM64_FEATURE_BF16 | RAX_ARM64_FEATURE_I8MM;
+rax_status status = rax_arm64_fp_configure(engine, &fp);
+```
+
+The default v8.0 profile selects none of these optional capabilities. Configure
+an idle engine before executing code that requires them; unknown flags,
+incomplete FHM dependencies and nonzero reserved fields return `RAX_ERR_ARG`
+without changing CPU state. Feature selection updates guest ID fields while
+preserving registers, instruction counts, pending events and memory. CPACR/CPTR
+permissions still apply. Reset preserves the selection and resets architectural
+controls; context restore and memory-map reconstruction retain the selection.
+`examples/arm64_fp.cpp` exercises the public C++ interface and C ABI.
 
 ABI 1.15 adds AArch64 PAuth configuration and context format 4. The new
 `rax_arm64_pauth_configure` / `rax_arm64_pauth_get_config` functions use a

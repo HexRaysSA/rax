@@ -8,13 +8,18 @@ use crate::vm::memory::reservations::{Monitor, Reservation};
 use crate::vm::snapshot::{AARCH64_CONTEXT, BackendContext};
 use serde::{Deserialize, Serialize};
 
-const TAG: &[u8; 8] = b"RAXA6402";
+const TAG: &[u8; 8] = b"RAXA6403";
+const PREVIOUS_TAG: &[u8; 8] = b"RAXA6402";
 const LEGACY_TAG: &[u8; 8] = b"RAXA6401";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - TAG.len();
 
 #[cfg(test)]
 #[path = "checkpoint_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "optional_profile_tests.rs"]
+mod optional_profile_tests;
 
 pub(super) struct PendingActivation {
     completed: Arc<AtomicBool>,
@@ -123,6 +128,7 @@ impl Context {
     fn decode(raw: &[u8], target: &Aarch64Vcpu) -> Result<Self> {
         let payload = raw
             .strip_prefix(TAG)
+            .or_else(|| raw.strip_prefix(PREVIOUS_TAG))
             .or_else(|| raw.strip_prefix(LEGACY_TAG))
             .ok_or_else(|| invalid("invalid tag"))?;
         if payload.len() > MAX_PAYLOAD {
@@ -262,9 +268,14 @@ impl Aarch64Vcpu {
         // normalization, so migration cannot hide a conflicting source image.
         if raw.data.starts_with(LEGACY_TAG) {
             candidate.cpu.migrate_legacy_fp_profile();
-        } else {
-            candidate.cpu.validate_fp_profile().map_err(invalid)?;
         }
+        if !raw.data.starts_with(TAG) {
+            candidate
+                .cpu
+                .migrate_legacy_optional_fp_profile()
+                .map_err(invalid)?;
+        }
+        candidate.cpu.validate_fp_profile().map_err(invalid)?;
         Ok(candidate)
     }
 

@@ -3,6 +3,15 @@ use rax::isa::arm::{AArch64Config, ArmFeatures};
 
 pub(super) fn config() -> AArch64Config {
     let mut config = AArch64Config::v8_2();
-    config.features.insert(ArmFeatures::FP16 | ArmFeatures::FHM);
+    config.features.insert(
+        ArmFeatures::FP16
+            | ArmFeatures::FHM
+            | ArmFeatures::JSCVT
+            | ArmFeatures::FCMA
+            | ArmFeatures::FRINTTS
+            | ArmFeatures::BF16
+            | ArmFeatures::I8MM
+            | ArmFeatures::DOTPROD,
+    );
     config
 }

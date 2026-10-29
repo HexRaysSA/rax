@@ -1,0 +1,29 @@
+{
+  "sources": [
+    {
+      "file": "features-109697_2025_12_en.pdf",
+      "url": "https://documentation-service.arm.com/static/69402e206efc1635355c3bb2?token=",
+      "title": "Feature names in A-profile architecture",
+      "revision": "109697_2025_12_en, version 1.0, 12 December 2025",
+      "issuing_organization": "Arm Limited",
+      "retrieved": "2026-10-28T23:29:57.113277+00:00",
+      "sha256": "223e5c00d5a498ae3b8cab2d7b6237605efb291122d1d78897a69f80cf7f9a00",
+      "bytes": 1061190,
+      "scope": "Primary capability dependencies and exact ID-register field definitions needed for coherent profile admission and legacy state migration. No SME execution qualification is implied.",
+      "notices": "Canonical PDF retained unmodified with all notices."
+    },
+    {
+      "file": "arm-sme-id-registers.pdf",
+      "url": "https://documentation-service.arm.com/static/6526e1bd9e189a266cef8412",
+      "title": "Arm Architecture Reference Manual Supplement, The Scalable Matrix Extension (SME), for Armv9-A",
+      "revision": "DDI0616 B.a, 18 August 2023; build 5084c744, 22 August 2023",
+      "issuing_organization": "Arm Limited",
+      "retrieved": "2026-10-28T23:29:57.881703+00:00",
+      "sha256": "2679f84137f69370db2d1394d30d4afcfe4930ed7c434fc595175dc6666128a1",
+      "bytes": 9724361,
+      "scope": "Primary capability dependencies and exact ID-register field definitions needed for coherent profile admission and legacy state migration. No SME execution qualification is implied.",
+      "notices": "Canonical PDF retained unmodified with all notices.",
+      "relevant_section": "E3.2.11, ID_AA64ISAR1_EL1"
+    }
+  ]
+}

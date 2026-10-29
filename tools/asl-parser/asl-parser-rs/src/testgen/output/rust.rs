@@ -30,6 +30,12 @@ fn allocation_oracle_cpu() -> rax::isa::arm::AArch64Cpu {
             config.features |= rax::isa::arm::ArmFeatures::PACG;
             config.features |= rax::isa::arm::ArmFeatures::FP16;
             config.features |= rax::isa::arm::ArmFeatures::FHM;
+            config.features |= rax::isa::arm::ArmFeatures::JSCVT;
+            config.features |= rax::isa::arm::ArmFeatures::FCMA;
+            config.features |= rax::isa::arm::ArmFeatures::FRINTTS;
+            config.features |= rax::isa::arm::ArmFeatures::BF16;
+            config.features |= rax::isa::arm::ArmFeatures::I8MM;
+            config.features |= rax::isa::arm::ArmFeatures::DOTPROD;
             config
         },
         Box::new(rax::isa::arm::FlatMemory::new(0, 0x1000_0000)),
@@ -41,9 +47,9 @@ fn allocation_oracle_cpu() -> rax::isa::arm::AArch64Cpu {
     cpu
 }
 
-/// Run an A64 encoding through the real rax emulator (PAuth/FP16/FHM enabled, mirroring
+/// Run an A64 encoding through the real rax emulator (optional capabilities enabled, mirroring
 /// `create_test_cpu`) and return the matching expected result. Generated A64
-/// encoding tests use this so they characterize the verified-correct decoder
+/// encoding tests use this so they characterize the current decoder
 /// (the arm_diff hardware-differential suite remains the independent check),
 /// instead of stale hand-coded allocation heuristics.
 fn emulator_expected_a64(encoding: u32) -> ExpectedResult {
@@ -210,12 +216,18 @@ use rax::isa::arm::{AArch64Config, AArch64Cpu, ArmCpu, ArmError, CpuExit, FlatMe
 fn create_test_cpu() -> AArch64Cpu {
     let memory = FlatMemory::new(0, 0x1000_0000);
     let mut config = AArch64Config::default();
-    // Allocated PAuth/FHM forms require their capabilities enabled. Absence
+    // Allocated optional forms require their capabilities enabled. Absence
     // behavior is checked by dedicated profile tests, not this allocated corpus.
     config.features |= rax::isa::arm::ArmFeatures::PACA;
     config.features |= rax::isa::arm::ArmFeatures::PACG;
     config.features |= rax::isa::arm::ArmFeatures::FP16;
     config.features |= rax::isa::arm::ArmFeatures::FHM;
+    config.features |= rax::isa::arm::ArmFeatures::JSCVT;
+    config.features |= rax::isa::arm::ArmFeatures::FCMA;
+    config.features |= rax::isa::arm::ArmFeatures::FRINTTS;
+    config.features |= rax::isa::arm::ArmFeatures::BF16;
+    config.features |= rax::isa::arm::ArmFeatures::I8MM;
+    config.features |= rax::isa::arm::ArmFeatures::DOTPROD;
     let mut cpu = AArch64Cpu::new(config, Box::new(memory));
     let mut controls = cpu.pauth_controls();
     controls.hcr_el2 |= (1 << 40) | (1 << 41);

@@ -1,0 +1,255 @@
+{
+  "command": [
+    "/Users/int/local/bin/llvm-mc",
+    "-triple=aarch64",
+    "-mattr=+fullfp16,+fptoint,+bf16,+i8mm,+dotprod,+complxnum,+jsconv",
+    "-disassemble",
+    "-show-encoding"
+  ],
+  "code": 0,
+  "selected": [
+    {
+      "name": "BFCVTN_asimdmisc_4S",
+      "feature": "BF16",
+      "word": 245458976,
+      "word_hex": "0ea16820",
+      "disassembly": "bfcvtn\tv0.4h, v1.4s                    // encoding: [0x20,0x68,0xa1,0x0e]"
+    },
+    {
+      "name": "BFCVT_BS_floatdp1",
+      "feature": "BF16",
+      "word": 509820960,
+      "word_hex": "1e634020",
+      "disassembly": "bfcvt\th0, s1                          // encoding: [0x20,0x40,0x63,0x1e]"
+    },
+    {
+      "name": "BFDOT_asimdelem_E",
+      "feature": "BF16",
+      "word": 255914016,
+      "word_hex": "0f40f020",
+      "disassembly": "bfdot\tv0.2s, v1.4h, v0.2h[0]          // encoding: [0x20,0xf0,0x40,0x0f]"
+    },
+    {
+      "name": "BFDOT_asimdsame2_D",
+      "feature": "BF16",
+      "word": 776010784,
+      "word_hex": "2e40fc20",
+      "disassembly": "bfdot\tv0.2s, v1.4h, v0.4h             // encoding: [0x20,0xfc,0x40,0x2e]"
+    },
+    {
+      "name": "BFMLAL_asimdelem_F",
+      "feature": "BF16",
+      "word": 264302624,
+      "word_hex": "0fc0f020",
+      "disassembly": "bfmlalb\tv0.4s, v1.8h, v0.h[0]           // encoding: [0x20,0xf0,0xc0,0x0f]"
+    },
+    {
+      "name": "BFMLAL_asimdsame2_F_",
+      "feature": "BF16",
+      "word": 784399392,
+      "word_hex": "2ec0fc20",
+      "disassembly": "bfmlalb\tv0.4s, v1.8h, v0.8h             // encoding: [0x20,0xfc,0xc0,0x2e]"
+    },
+    {
+      "name": "BFMMLA_asimdsame2_E",
+      "feature": "BF16",
+      "word": 1849748512,
+      "word_hex": "6e40ec20",
+      "disassembly": "bfmmla\tv0.4s, v1.8h, v0.8h             // encoding: [0x20,0xec,0x40,0x6e]"
+    },
+    {
+      "name": "SDOT_asimdelem_D",
+      "feature": "DOTPROD",
+      "word": 260104224,
+      "word_hex": "0f80e020",
+      "disassembly": "sdot\tv0.2s, v1.8b, v0.4b[0]          // encoding: [0x20,0xe0,0x80,0x0f]"
+    },
+    {
+      "name": "SDOT_asimdsame2_D",
+      "feature": "DOTPROD",
+      "word": 243307552,
+      "word_hex": "0e809420",
+      "disassembly": "sdot\tv0.2s, v1.8b, v0.8b             // encoding: [0x20,0x94,0x80,0x0e]"
+    },
+    {
+      "name": "UDOT_asimdelem_D",
+      "feature": "DOTPROD",
+      "word": 796975136,
+      "word_hex": "2f80e020",
+      "disassembly": "udot\tv0.2s, v1.8b, v0.4b[0]          // encoding: [0x20,0xe0,0x80,0x2f]"
+    },
+    {
+      "name": "UDOT_asimdsame2_D",
+      "feature": "DOTPROD",
+      "word": 780178464,
+      "word_hex": "2e809420",
+      "disassembly": "udot\tv0.2s, v1.8b, v0.8b             // encoding: [0x20,0x94,0x80,0x2e]"
+    },
+    {
+      "name": "FCADD_asimdsame2_C",
+      "feature": "FCMA",
+      "word": 776004640,
+      "word_hex": "2e40e420",
+      "disassembly": "fcadd\tv0.4h, v1.4h, v0.4h, #90        // encoding: [0x20,0xe4,0x40,0x2e]"
+    },
+    {
+      "name": "FCMLA_asimdelem_C_H",
+      "feature": "FCMA",
+      "word": 792727584,
+      "word_hex": "2f401020",
+      "disassembly": "fcmla\tv0.4h, v1.4h, v0.h[0], #0       // encoding: [0x20,0x10,0x40,0x2f]"
+    },
+    {
+      "name": "FCMLA_asimdelem_C_S",
+      "feature": "FCMA",
+      "word": 1870663712,
+      "word_hex": "6f801020",
+      "disassembly": "fcmla\tv0.4s, v1.4s, v0.s[0], #0       // encoding: [0x20,0x10,0x80,0x6f]"
+    },
+    {
+      "name": "FCMLA_asimdsame2_C",
+      "feature": "FCMA",
+      "word": 775996448,
+      "word_hex": "2e40c420",
+      "disassembly": "fcmla\tv0.4h, v1.4h, v0.4h, #0         // encoding: [0x20,0xc4,0x40,0x2e]"
+    },
+    {
+      "name": "FRINT32X_D_floatdp1",
+      "feature": "FRINTTS",
+      "word": 510181408,
+      "word_hex": "1e68c020",
+      "disassembly": "frint32x\td0, d1                          // encoding: [0x20,0xc0,0x68,0x1e]"
+    },
+    {
+      "name": "FRINT32X_S_floatdp1",
+      "feature": "FRINTTS",
+      "word": 505987104,
+      "word_hex": "1e28c020",
+      "disassembly": "frint32x\ts0, s1                          // encoding: [0x20,0xc0,0x28,0x1e]"
+    },
+    {
+      "name": "FRINT32X_asimdmisc_R",
+      "feature": "FRINTTS",
+      "word": 773974048,
+      "word_hex": "2e21e820",
+      "disassembly": "frint32x\tv0.2s, v1.2s                    // encoding: [0x20,0xe8,0x21,0x2e]"
+    },
+    {
+      "name": "FRINT32Z_D_floatdp1",
+      "feature": "FRINTTS",
+      "word": 510148640,
+      "word_hex": "1e684020",
+      "disassembly": "frint32z\td0, d1                          // encoding: [0x20,0x40,0x68,0x1e]"
+    },
+    {
+      "name": "FRINT32Z_S_floatdp1",
+      "feature": "FRINTTS",
+      "word": 505954336,
+      "word_hex": "1e284020",
+      "disassembly": "frint32z\ts0, s1                          // encoding: [0x20,0x40,0x28,0x1e]"
+    },
+    {
+      "name": "FRINT32Z_asimdmisc_R",
+      "feature": "FRINTTS",
+      "word": 237103136,
+      "word_hex": "0e21e820",
+      "disassembly": "frint32z\tv0.2s, v1.2s                    // encoding: [0x20,0xe8,0x21,0x0e]"
+    },
+    {
+      "name": "FRINT64X_D_floatdp1",
+      "feature": "FRINTTS",
+      "word": 510246944,
+      "word_hex": "1e69c020",
+      "disassembly": "frint64x\td0, d1                          // encoding: [0x20,0xc0,0x69,0x1e]"
+    },
+    {
+      "name": "FRINT64X_S_floatdp1",
+      "feature": "FRINTTS",
+      "word": 506052640,
+      "word_hex": "1e29c020",
+      "disassembly": "frint64x\ts0, s1                          // encoding: [0x20,0xc0,0x29,0x1e]"
+    },
+    {
+      "name": "FRINT64X_asimdmisc_R",
+      "feature": "FRINTTS",
+      "word": 773978144,
+      "word_hex": "2e21f820",
+      "disassembly": "frint64x\tv0.2s, v1.2s                    // encoding: [0x20,0xf8,0x21,0x2e]"
+    },
+    {
+      "name": "FRINT64Z_D_floatdp1",
+      "feature": "FRINTTS",
+      "word": 510214176,
+      "word_hex": "1e694020",
+      "disassembly": "frint64z\td0, d1                          // encoding: [0x20,0x40,0x69,0x1e]"
+    },
+    {
+      "name": "FRINT64Z_S_floatdp1",
+      "feature": "FRINTTS",
+      "word": 506019872,
+      "word_hex": "1e294020",
+      "disassembly": "frint64z\ts0, s1                          // encoding: [0x20,0x40,0x29,0x1e]"
+    },
+    {
+      "name": "FRINT64Z_asimdmisc_R",
+      "feature": "FRINTTS",
+      "word": 237107232,
+      "word_hex": "0e21f820",
+      "disassembly": "frint64z\tv0.2s, v1.2s                    // encoding: [0x20,0xf8,0x21,0x0e]"
+    },
+    {
+      "name": "SMMLA_asimdsame2_G",
+      "feature": "I8MM",
+      "word": 1317053472,
+      "word_hex": "4e80a420",
+      "disassembly": "smmla\tv0.4s, v1.16b, v0.16b           // encoding: [0x20,0xa4,0x80,0x4e]"
+    },
+    {
+      "name": "SUDOT_asimdelem_D",
+      "feature": "I8MM",
+      "word": 251719712,
+      "word_hex": "0f00f020",
+      "disassembly": "sudot\tv0.2s, v1.8b, v0.4b[0]          // encoding: [0x20,0xf0,0x00,0x0f]"
+    },
+    {
+      "name": "UMMLA_asimdsame2_G",
+      "feature": "I8MM",
+      "word": 1853924384,
+      "word_hex": "6e80a420",
+      "disassembly": "ummla\tv0.4s, v1.16b, v0.16b           // encoding: [0x20,0xa4,0x80,0x6e]"
+    },
+    {
+      "name": "USDOT_asimdelem_D",
+      "feature": "I8MM",
+      "word": 260108320,
+      "word_hex": "0f80f020",
+      "disassembly": "usdot\tv0.2s, v1.8b, v0.4b[0]          // encoding: [0x20,0xf0,0x80,0x0f]"
+    },
+    {
+      "name": "USDOT_asimdsame2_D",
+      "feature": "I8MM",
+      "word": 243309600,
+      "word_hex": "0e809c20",
+      "disassembly": "usdot\tv0.2s, v1.8b, v0.8b             // encoding: [0x20,0x9c,0x80,0x0e]"
+    },
+    {
+      "name": "USMMLA_asimdsame2_G",
+      "feature": "I8MM",
+      "word": 1317055520,
+      "word_hex": "4e80ac20",
+      "disassembly": "usmmla\tv0.4s, v1.16b, v0.16b           // encoding: [0x20,0xac,0x80,0x4e]"
+    },
+    {
+      "name": "FJCVTZS_32D_float2int",
+      "feature": "JSCVT",
+      "word": 511574048,
+      "word_hex": "1e7e0020",
+      "disassembly": "fjcvtzs\tw0, d1                          // encoding: [0x20,0x00,0x7e,0x1e]"
+    }
+  ],
+  "version": [
+    "LLVM (http://llvm.org/):",
+    "  LLVM version 23.0.0git",
+    "  Optimized build."
+  ]
+}

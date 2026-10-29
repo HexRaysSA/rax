@@ -249,13 +249,15 @@ fn simd_copy_ins_rejects_q0() {
 #[test]
 fn simd_indexed_sdot_rejects_scalar_form() {
     // SDOT/UDOT by element are vector-only. The scalar indexed-element form
-    // (bits[28:24]==11111, e.g. 0x5f82e020) is unallocated and must trap;
+    // (bits[28:24]==11111, e.g. 0x5f82e020) is unallocated;
     // the vector form (0x4f82e020) still executes.
     let mut bad = create_cpu_with_insn(0x5f82_e020);
+    bad.config.features.insert(ArmFeatures::DOTPROD);
     bad.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     assert_eq!(bad.step().unwrap(), CpuExit::Undefined(0x5f82_e020));
 
     let mut good = create_cpu_with_insn(0x4f82_e020);
+    good.config.features.insert(ArmFeatures::DOTPROD);
     good.sysregs.el1.cpacr |= 0b11 << 20;
     assert_eq!(good.step().unwrap(), CpuExit::Continue);
 }
@@ -452,18 +454,21 @@ fn simd_float_narrow_sets_fpsr_status() {
 #[test]
 fn simd_frintts_sets_fpsr_status() {
     let mut cpu = create_cpu_with_insn(0x0e21_e820); // FRINT32Z V0.2S, V1.2S
+    cpu.config.features.insert(ArmFeatures::FRINTTS);
     cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     cpu.v[1] = 0x3fc0_0000_3fc0_0000; // 1.5 in both f32 lanes
     assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
     assert_eq!(cpu.fpsr & FPSR_IXC, FPSR_IXC);
 
     let mut cpu = create_cpu_with_insn(0x0e21_e820); // FRINT32Z V0.2S, V1.2S
+    cpu.config.features.insert(ArmFeatures::FRINTTS);
     cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     cpu.v[1] = 0x7fc0_0001_5280_0000; // quiet NaN and finite out-of-range
     assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
     assert_eq!(cpu.fpsr & FPSR_IOC, FPSR_IOC);
 
     let mut cpu = create_cpu_with_insn(0x1e28_4020); // FRINT32Z S0, S1
+    cpu.config.features.insert(ArmFeatures::FRINTTS);
     cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     cpu.v[1] = 0x7fc0_0001; // quiet NaN
     assert_eq!(cpu.step().unwrap(), CpuExit::Continue);

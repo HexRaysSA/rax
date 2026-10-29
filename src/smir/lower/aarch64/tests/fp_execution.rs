@@ -1,4 +1,4 @@
-//! CPU reference for lowered SIMD/FP code with explicit FP16 availability.
+//! CPU reference for lowered SIMD/FP code with explicit optional arithmetic capabilities.
 use crate::isa::arm::aarch64::{AArch64Config, AArch64Cpu};
 use crate::isa::arm::common::cpu::{ArmCpu, CpuExit};
 use crate::isa::arm::common::features::ArmFeatures;
@@ -16,7 +16,16 @@ pub(super) fn run_aarch64_code_with_regs_simd_and_fpcr(
 
     let memory = FlatMemory::with_data(0, image);
     let mut config = AArch64Config::default();
-    config.features.insert(ArmFeatures::FP16);
+    config.features.insert(
+        ArmFeatures::FP16
+            | ArmFeatures::FHM
+            | ArmFeatures::JSCVT
+            | ArmFeatures::FCMA
+            | ArmFeatures::FRINTTS
+            | ArmFeatures::BF16
+            | ArmFeatures::I8MM
+            | ArmFeatures::DOTPROD,
+    );
     let mut cpu = AArch64Cpu::new(config, Box::new(memory));
     cpu.set_pc(0);
     cpu.set_current_sp(0x8000);

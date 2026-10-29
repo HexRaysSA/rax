@@ -58,15 +58,18 @@ bitflags! {
         /// Requires FP16; mandatory from ARMv8.4-A.
         const FHM = 1 << 45;
 
-        /// BFloat16 format (FEAT_BF16, ARMv8.6+).
+        /// AArch64 BFloat16 format (FEAT_BF16), optional from ARMv8.2.
+        /// Required with floating-point support from ARMv8.6.
         /// ML-optimized 16-bit format.
         const BF16 = 1 << 10;
 
-        /// Int8 matrix multiply (FEAT_I8MM, ARMv8.6+).
+        /// AArch64 Int8 matrix multiply (FEAT_I8MM), optional from ARMv8.1.
+        /// Required from ARMv8.6.
         /// SMMLA, UMMLA, USMMLA instructions.
         const I8MM = 1 << 11;
 
-        /// Dot product instructions (FEAT_DotProd, ARMv8.2+).
+        /// Dot product instructions (FEAT_DotProd), optional from ARMv8.1.
+        /// Required with Advanced SIMD from ARMv8.4.
         /// SDOT, UDOT for ML inference.
         const DOTPROD = 1 << 12;
 
@@ -104,14 +107,17 @@ bitflags! {
         /// SVE/BF16 8-bit exponent arithmetic (FEAT_SVE_B16B16).
         const SVE_B16B16 = 1 << 31;
 
-        /// FRINTTS - floating-point round to int (FEAT_FRINTTS).
+        /// Floating-point round to int (FEAT_FRINTTS), optional from ARMv8.4.
+        /// Required with floating-point support from ARMv8.5.
         const FRINTTS = 1 << 21;
 
-        /// JavaScript conversion (FEAT_JSCVT, ARMv8.3+).
+        /// JavaScript conversion (FEAT_JSCVT), optional from ARMv8.2.
+        /// Required with floating-point support from ARMv8.3.
         /// FJCVTZS instruction for JS number conversion.
         const JSCVT = 1 << 22;
 
-        /// Complex number instructions (FEAT_FCMA, ARMv8.3+).
+        /// Complex number instructions (FEAT_FCMA), optional from ARMv8.2.
+        /// Required with floating-point support from ARMv8.3.
         /// FCMLA, FCADD for complex multiply-add.
         const FCMA = 1 << 23;
 
@@ -312,14 +318,20 @@ impl ArmFeatures {
         Self::armv8_2_base() | Self::PACA | Self::PACG | Self::FCMA | Self::JSCVT
     }
 
-    /// Create a feature set for ARMv8.4-A (adds LSE2, DIT, NV2).
+    /// Create a feature set for ARMv8.4-A (adds LSE2, DIT, NV2, FHM, DotProd).
     pub fn armv8_4_base() -> Self {
-        Self::armv8_3_base() | Self::LSE2 | Self::DIT | Self::RCPC2 | Self::NV2 | Self::FHM
+        Self::armv8_3_base()
+            | Self::LSE2
+            | Self::DIT
+            | Self::RCPC2
+            | Self::NV2
+            | Self::FHM
+            | Self::DOTPROD
     }
 
-    /// Create a feature set for ARMv8.5-A (adds BTI, MTE, RNG, SB).
+    /// Create a feature set for ARMv8.5-A (adds BTI, RNG, SB, FRINTTS).
     pub fn armv8_5_base() -> Self {
-        Self::armv8_4_base() | Self::BTI | Self::RNG | Self::SB | Self::SSBS
+        Self::armv8_4_base() | Self::BTI | Self::RNG | Self::SB | Self::SSBS | Self::FRINTTS
     }
 
     /// Create a feature set for ARMv8.6-A (adds BF16, I8MM).

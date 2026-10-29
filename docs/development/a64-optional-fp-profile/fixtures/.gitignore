@@ -1,0 +1,2 @@
+# Preserve legacy context and guest input fixtures.
+!*.bin

@@ -1,0 +1,213 @@
+{
+  "parent": "84d43c272c270bcf1038020d90aa9593390bb902",
+  "time": "2026-10-28T23:35:33.517499+00:00",
+  "producer": "Actual unchanged parent engine through public VCpu capture_backend_context and codec helpers; no private record was synthesized.",
+  "engine_sha256": "513ebdb992eb3dd46306f134c3bb8eaa1be3807d865a84a6ffcb62de502f03fc",
+  "host_executable_sha256": "3c2bd336ad2db3caa4b3e7833c36dc74c2e9d50fdd21880338bfe2219f7fc1fd",
+  "harness_sha256": "e721fc84431be9136c94a3800b9a83f21bc4ef2bf5a3ca2b504d4b42b281a691",
+  "binaries": [
+    {
+      "path": "none.state.bin",
+      "bytes": 3624,
+      "sha256": "1d9f85b2ed38b5b38a92918fcc9fe3a7bba1f8f8579fbf5974d39ac5b8dfcae6"
+    },
+    {
+      "path": "flags-all-ids-none.backend.bin",
+      "bytes": 11631,
+      "sha256": "30bcd05c68c0091548ac82c39f60201eb91e4ea7a29318a29779eb43a11aa756"
+    },
+    {
+      "path": "bf16-level2.state.bin",
+      "bytes": 3624,
+      "sha256": "f1b69d4049d8f16e0761c92a06f9d55b9ae56c54e8d95fe9e0ed725bc9957f76"
+    },
+    {
+      "path": "alternating.state.bin",
+      "bytes": 3624,
+      "sha256": "d0c2dc17099e68f2fe791811e5710bbbba22fe39bab42df4173c693c2b402c59"
+    },
+    {
+      "path": "flags-all-ids-none.state.bin",
+      "bytes": 3624,
+      "sha256": "3ae6de81776e9ed05696bd6b902fe78536a57212f81845dfc839d4b582bee925"
+    },
+    {
+      "path": "bf16-level2.backend.bin",
+      "bytes": 11631,
+      "sha256": "630ed66f3384524331a0ed3208b62beb5d8ab51d876b55fa441163be4a891018"
+    },
+    {
+      "path": "all-enabled.state.bin",
+      "bytes": 3624,
+      "sha256": "efc9ff18ba6cab38c786169cbaa3ea8d507952bbb9451a8f85b8eb492f9f3b71"
+    },
+    {
+      "path": "parent-default.state.bin",
+      "bytes": 3624,
+      "sha256": "71dab5559bfebd7d40402d31572eda380b64dcfeb7ff0bfbb37f75395445fe9f"
+    },
+    {
+      "path": "alternating.backend.bin",
+      "bytes": 11631,
+      "sha256": "0c35678dbfd6c652608a10299ee97ac5f8ba7ef414b9823b6d78622a59093d7e"
+    },
+    {
+      "path": "none.backend.bin",
+      "bytes": 11631,
+      "sha256": "0bc451be2aa824cfe1d469245a8376b32242bf587aa34c761d02fc5f3247313c"
+    },
+    {
+      "path": "ids-all-flags-none.backend.bin",
+      "bytes": 11631,
+      "sha256": "013893a9a93b305693a316c40c0280ae8c6f60c4a626770f4544c8ef90d213a3"
+    },
+    {
+      "path": "fcma-reserved15.backend.bin",
+      "bytes": 11631,
+      "sha256": "7bdf6acc41e5985a4a2c62141028295666e3542d8fe5e7626b2e833050e9c56a"
+    },
+    {
+      "path": "parent-default.backend.bin",
+      "bytes": 11631,
+      "sha256": "f63598fd50799021cac1f0b2f0e0acaa3a270d822fa6d12877ba4580f3ad1159"
+    },
+    {
+      "path": "fcma-reserved15.state.bin",
+      "bytes": 3624,
+      "sha256": "4ec1c9c9cd566684651c3a8c3d3c4c15092c891361b05e884390eeb417712d1d"
+    },
+    {
+      "path": "ids-all-flags-none.state.bin",
+      "bytes": 3624,
+      "sha256": "5b1160af868bb1c3a3d248bd1aea960524dbef8d8aed0551ba381f6a8c81abb3"
+    },
+    {
+      "path": "flags-all-parent-ids.state.bin",
+      "bytes": 3624,
+      "sha256": "c0145afcb188f230d1ae461404729feb5e2932afcfaac1dc6b36ebd7fd57b1c6"
+    },
+    {
+      "path": "parent-guest.bin",
+      "bytes": 8,
+      "sha256": "576a4ab25e0cd8b761b2ff7d8b0a87701af4ee05cbffba132928be77916e0621"
+    },
+    {
+      "path": "flags-all-parent-ids.backend.bin",
+      "bytes": 11631,
+      "sha256": "0fc9e2e0598c85345c605d87cbdcd90244b3a4dc6424a6bcf78debdb555926d5"
+    },
+    {
+      "path": "all-enabled.backend.bin",
+      "bytes": 11631,
+      "sha256": "f4a74ab6086736ae127be7152eb13f282bd71037e96834bb4d7768ce76669c58"
+    }
+  ],
+  "fixtures": [
+    {
+      "flags": 0,
+      "ids": 55,
+      "kind": 5,
+      "name": "parent-default",
+      "override": null,
+      "pc": 4100,
+      "retired": 1,
+      "step": "Ok(None)",
+      "x0": 7
+    },
+    {
+      "flags": 0,
+      "ids": 0,
+      "kind": 5,
+      "name": "none",
+      "override": null,
+      "pc": 4100,
+      "retired": 1,
+      "step": "Ok(None)",
+      "x0": 7
+    },
+    {
+      "flags": 63,
+      "ids": 0,
+      "kind": 5,
+      "name": "flags-all-ids-none",
+      "override": null,
+      "pc": 4100,
+      "retired": 1,
+      "step": "Ok(None)",
+      "x0": 7
+    },
+    {
+      "flags": 0,
+      "ids": 63,
+      "kind": 5,
+      "name": "ids-all-flags-none",
+      "override": null,
+      "pc": 4100,
+      "retired": 1,
+      "step": "Ok(None)",
+      "x0": 7
+    },
+    {
+      "flags": 63,
+      "ids": 63,
+      "kind": 5,
+      "name": "all-enabled",
+      "override": null,
+      "pc": 4100,
+      "retired": 1,
+      "step": "Ok(None)",
+      "x0": 7
+    },
+    {
+      "flags": 63,
+      "ids": 55,
+      "kind": 5,
+      "name": "flags-all-parent-ids",
+      "override": null,
+      "pc": 4100,
+      "retired": 1,
+      "step": "Ok(None)",
+      "x0": 7
+    },
+    {
+      "flags": 21,
+      "ids": 42,
+      "kind": 5,
+      "name": "alternating",
+      "override": null,
+      "pc": 4100,
+      "retired": 1,
+      "step": "Ok(None)",
+      "x0": 7
+    },
+    {
+      "flags": 63,
+      "ids": 63,
+      "kind": 5,
+      "name": "bf16-level2",
+      "override": [
+        3,
+        2
+      ],
+      "pc": 4100,
+      "retired": 1,
+      "step": "Ok(None)",
+      "x0": 7
+    },
+    {
+      "flags": 63,
+      "ids": 63,
+      "kind": 5,
+      "name": "fcma-reserved15",
+      "override": [
+        1,
+        15
+      ],
+      "pc": 4100,
+      "retired": 1,
+      "step": "Ok(None)",
+      "x0": 7
+    }
+  ],
+  "boundary": "Flags and advertised fields are intentionally varied through the parent host-state setter. Unsupported field cases record what the old producer actually admitted; they do not assert architectural support."
+}

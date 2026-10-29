@@ -173,6 +173,7 @@ impl AArch64Cpu {
                     "unknown AArch64 feature bits in state".to_string(),
                 ));
             }
+            Self::validate_optional_fp_levels(&state.sysregs)?;
         }
         Ok(())
     }

@@ -90,7 +90,7 @@ fn checkpoint_before_and_after_fp_delivery_preserves_exact_handler_frontier() {
             }
             let state = source.get_state().unwrap();
             let raw = source.capture_backend_context().unwrap().unwrap();
-            assert!(raw.data.starts_with(b"RAXA6402"));
+            assert!(raw.data.starts_with(b"RAXA6403"));
             let mut target = Aarch64Vcpu::new(0, mem);
             target
                 .restore_checkpoint_context(&state, &Default::default(), Some(&raw))
@@ -169,7 +169,7 @@ fn fp16_admission_checkpoint_retains_undefined_fault_and_zero_retirement() {
         }
         let state = source.get_state().unwrap();
         let private = source.capture_backend_context().unwrap().unwrap();
-        assert!(private.data.starts_with(b"RAXA6402"));
+        assert!(private.data.starts_with(b"RAXA6403"));
         let mut target = Aarch64Vcpu::new(0, mem);
         target
             .restore_checkpoint_context(&state, &Default::default(), Some(&private))

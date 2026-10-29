@@ -233,6 +233,15 @@ public:
         check(rax_arm64_pauth_get_config(h_, &config), "arm64_pauth_get_config");
         return config;
     }
+    void configureFp(const rax_arm64_fp_config& config) {
+        check(rax_arm64_fp_configure(h_, &config), "arm64_fp_configure");
+    }
+    rax_arm64_fp_config fpConfig() const {
+        rax_arm64_fp_config config{};
+        config.size = sizeof(config);
+        check(rax_arm64_fp_get_config(h_, &config), "arm64_fp_get_config");
+        return config;
+    }
     Arch arch() const noexcept { return static_cast<Arch>(rax_engine_arch(h_)); }
     uint32_t mode() const noexcept { return rax_engine_mode(h_); }
     bool supportsStepping() const noexcept { return rax_engine_supports_stepping(h_) != 0; }

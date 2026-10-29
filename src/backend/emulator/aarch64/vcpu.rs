@@ -1,6 +1,7 @@
 //! Architecture-neutral vCPU operations over the AArch64 software adapter.
 
 use super::*;
+use crate::isa::arm::common::features::ArmFeatures;
 
 impl VCpu for Aarch64Vcpu {
     fn checkpoint_powered_off(&self) -> Option<bool> {
@@ -328,6 +329,18 @@ impl VCpu for Aarch64Vcpu {
         self.cpu.set_sp(state.regs.sp);
         self.shutdown = false;
         Ok(())
+    }
+
+    fn aarch64_fp_features(&self) -> Option<u64> {
+        Some(self.cpu.selected_fp_features().bits())
+    }
+
+    fn set_aarch64_fp_features(&mut self, features: u64) -> Result<()> {
+        let features = ArmFeatures::from_bits(features)
+            .ok_or_else(|| Error::InvalidConfig("unknown AArch64 feature bits".into()))?;
+        self.cpu
+            .select_fp_features(features)
+            .map_err(|error| Error::InvalidConfig(error.to_string()))
     }
 
     fn start_aarch64_cpu(&mut self, entry: u64, context: u64, pstate: u64) -> Result<()> {

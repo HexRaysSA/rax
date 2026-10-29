@@ -1,0 +1,423 @@
+{
+  "source": "QEMU 11.1.2 cortex-a710; EL0/EL1, FPEN=0/3",
+  "oracle_evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/oracle-v2/result.json",
+  "corpus_sha256": "c785a7732c06733798e7e49baa1a4d36a89bd711173921490e6e0a2d6658b61b",
+  "records": [
+    {
+      "word": 241297440,
+      "word_hex": "0e61e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 243442720,
+      "word_hex": "0e82a420",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 249653280,
+      "word_hex": "0ee16820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 505538592,
+      "word_hex": "1e21e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 505542688,
+      "word_hex": "1e21f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 505626656,
+      "word_hex": "1e234020",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 509732896,
+      "word_hex": "1e61e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 509736992,
+      "word_hex": "1e61f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 513927200,
+      "word_hex": "1ea1e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 513931296,
+      "word_hex": "1ea1f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 514015264,
+      "word_hex": "1ea34020",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 514342944,
+      "word_hex": "1ea84020",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 518121504,
+      "word_hex": "1ee1e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 518125600,
+      "word_hex": "1ee1f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 518209568,
+      "word_hex": "1ee34020",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 518537248,
+      "word_hex": "1ee84020",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 776137760,
+      "word_hex": "2e42ec20",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 782366752,
+      "word_hex": "2ea1f820",
+      "expected": {
+        "0": "D",
+        "3": "P"
+      }
+    },
+    {
+      "word": 784524320,
+      "word_hex": "2ec2e420",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 792860704,
+      "word_hex": "2f421820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 797052960,
+      "word_hex": "2f821020",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1042409504,
+      "word_hex": "3e21e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1042413600,
+      "word_hex": "3e21f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1046603808,
+      "word_hex": "3e61e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1046607904,
+      "word_hex": "3e61f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1050798112,
+      "word_hex": "3ea1e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1050802208,
+      "word_hex": "3ea1f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1054992416,
+      "word_hex": "3ee1e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1054996512,
+      "word_hex": "3ee1f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1579280416,
+      "word_hex": "5e21e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1579284512,
+      "word_hex": "5e21f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1583474720,
+      "word_hex": "5e61e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1583478816,
+      "word_hex": "5e61f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1587669024,
+      "word_hex": "5ea1e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1587673120,
+      "word_hex": "5ea1f820",
+      "expected": {
+        "0": "D",
+        "3": "P"
+      }
+    },
+    {
+      "word": 1591863328,
+      "word_hex": "5ee1e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1591867424,
+      "word_hex": "5ee1f820",
+      "expected": {
+        "0": "D",
+        "3": "P"
+      }
+    },
+    {
+      "word": 1845683232,
+      "word_hex": "6e02e420",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1845685280,
+      "word_hex": "6e02ec20",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1854057504,
+      "word_hex": "6e82ac20",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1856108576,
+      "word_hex": "6ea1f820",
+      "expected": {
+        "0": "D",
+        "3": "P"
+      }
+    },
+    {
+      "word": 1860302880,
+      "word_hex": "6ee1f820",
+      "expected": {
+        "0": "D",
+        "3": "P"
+      }
+    },
+    {
+      "word": 1872891936,
+      "word_hex": "6fa21020",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 1874989088,
+      "word_hex": "6fc21020",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 2116151328,
+      "word_hex": "7e21e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 2116155424,
+      "word_hex": "7e21f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 2120345632,
+      "word_hex": "7e61e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 2120349728,
+      "word_hex": "7e61f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 2124539936,
+      "word_hex": "7ea1e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 2124544032,
+      "word_hex": "7ea1f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 2128734240,
+      "word_hex": "7ee1e820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    },
+    {
+      "word": 2128738336,
+      "word_hex": "7ee1f820",
+      "expected": {
+        "0": "U",
+        "3": "U"
+      }
+    }
+  ]
+}

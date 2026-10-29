@@ -448,13 +448,21 @@ pub(crate) struct JitRegion {
     pauth_instruction: Option<u32>,
 }
 
+/// Native translation/control state and selected FP/SIMD capabilities.
+#[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct JitModeTag {
+    translation_and_controls: u64,
+    features: u64,
+}
+
 /// Per-CPU JIT tier state.
 #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
 #[derive(Default)]
 pub(crate) struct Aarch64JitState {
     /// Compiled regions keyed by (head guest PC, mode tag). `Some` ⇒ runnable;
     /// `None` ⇒ memoized-ineligible (skipped until an SMC cache wipe).
-    cache: std::collections::HashMap<(u64, u64), Option<std::sync::Arc<JitRegion>>>,
+    cache: std::collections::HashMap<(u64, JitModeTag), Option<std::sync::Arc<JitRegion>>>,
     /// Per-head back-edge hit counter (promotion trigger).
     hot: std::collections::HashMap<u64, u32>,
     /// 4 KiB page bases covered by some cached region's guest code. A guest

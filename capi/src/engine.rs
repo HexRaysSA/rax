@@ -116,6 +116,9 @@ impl Engine {
             let mut target = vcpu.get_state()?;
             crate::pauth::inherit_configuration(&source, &mut target);
             vcpu.update_state(&target)?;
+            if let Some(features) = self.vcpu.aarch64_fp_features() {
+                vcpu.set_aarch64_fp_features(features)?;
+            }
         }
         Ok(vcpu)
     }

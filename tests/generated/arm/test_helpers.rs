@@ -15,12 +15,18 @@ pub use rax::isa::arm::{ArmCpu, ArmError, CpuExit};
 pub fn create_test_cpu() -> AArch64Cpu {
     let memory = FlatMemory::new(0, 0x1000_0000);
     let mut config = AArch64Config::default();
-    // Allocated PAuth/FHM forms require their capabilities enabled. Absence
+    // Allocated optional forms require their capabilities enabled. Absence
     // behavior is checked by dedicated profile tests, not this allocated corpus.
     config.features |= rax::isa::arm::ArmFeatures::PACA;
     config.features |= rax::isa::arm::ArmFeatures::PACG;
     config.features |= rax::isa::arm::ArmFeatures::FP16;
     config.features |= rax::isa::arm::ArmFeatures::FHM;
+    config.features |= rax::isa::arm::ArmFeatures::JSCVT;
+    config.features |= rax::isa::arm::ArmFeatures::FCMA;
+    config.features |= rax::isa::arm::ArmFeatures::FRINTTS;
+    config.features |= rax::isa::arm::ArmFeatures::BF16;
+    config.features |= rax::isa::arm::ArmFeatures::I8MM;
+    config.features |= rax::isa::arm::ArmFeatures::DOTPROD;
     let mut cpu = AArch64Cpu::new(config, Box::new(memory));
     let mut controls = cpu.pauth_controls();
     controls.hcr_el2 |= (1 << 40) | (1 << 41);

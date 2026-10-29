@@ -471,6 +471,18 @@ pub trait VCpu: Send {
         None
     }
 
+    /// Selected software AArch64 FP/SIMD ArmFeatures bits, when configurable.
+    fn aarch64_fp_features(&self) -> Option<u64> {
+        None
+    }
+
+    /// Select backend-owned capability flags without replacing execution state.
+    fn set_aarch64_fp_features(&mut self, _features: u64) -> Result<()> {
+        Err(Error::InvalidConfig(
+            "backend has no configurable AArch64 FP/SIMD profile".into(),
+        ))
+    }
+
     fn x86_configuration(&self) -> Option<crate::isa::x86_64::X86_64Config> {
         None
     }

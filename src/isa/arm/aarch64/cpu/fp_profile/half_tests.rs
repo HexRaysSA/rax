@@ -214,9 +214,12 @@ fn half_legacy_conversion_storage_and_integer_vectors_need_no_fp16_arithmetic() 
             }
         }
     }
-    for word in [0xce42_0c20, 0x1e63_4020] {
-        assert_eq!(instruction_features(word), Some(ArmFeatures::empty()));
-    }
+    assert_eq!(
+        instruction_features(0xce42_0c20),
+        Some(ArmFeatures::empty())
+    );
+    // BFCVT has an H destination but needs BF16, independently of FP16.
+    assert_eq!(instruction_features(0x1e63_4020), Some(ArmFeatures::BF16));
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]

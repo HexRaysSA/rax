@@ -330,9 +330,9 @@ impl AArch64Cpu {
     /// and effective data/system FP permission. Denied cold-cache memos cannot
     /// suppress promotion after CPTR or host-control permissions are enabled.
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-    pub(crate) fn jit_mode_tag(&self) -> u64 {
+    pub(crate) fn jit_mode_tag(&self) -> JitModeTag {
         let fp = self.fp_access_controls();
-        (self.sysregs.el1.ttbr0 & !0xFFF)
+        let translation_and_controls = (self.sysregs.el1.ttbr0 & !0xFFF)
             | (self.current_el as u64)
             | (((self.sysregs.el1.sctlr & 1) as u64) << 2)
             | (((self.sysregs.el1.cpacr >> 20) & 0x3) << 3)
@@ -344,9 +344,11 @@ impl AArch64Cpu {
             | (u64::from(
                 fp.fault(crate::isa::arm::common::fp_access::FpAccessClass::System)
                     .is_some(),
-            ) << 7)
-            | (u64::from(self.config.features.contains(ArmFeatures::FP16)) << 8)
-            | (u64::from(self.fhm_supported()) << 9)
+            ) << 7);
+        JitModeTag {
+            translation_and_controls,
+            features: self.fp_profile_key(),
+        }
     }
 
     /// Read up to `max` bytes of guest instruction stream from `entry`, stopping

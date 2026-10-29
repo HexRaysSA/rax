@@ -937,20 +937,53 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/final-engine-parity-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/consumers-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/portability-final-v3.json",
-        "docs/development/a64-half-admission/README.md"
+        "docs/development/a64-half-admission/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/parent-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/parent-production-source-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/ownership-review-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/self-review-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fixture-tracking-amendment-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/oracle-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/llvm-optional-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/primary-overlap-decodes-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/direct-current-v4/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/scope-disposition-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/scoped-system-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/remaining-neighbor-defects-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fp-profile-targeted-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/backend-targeted-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/cpu-fixtures-v5.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fixture-epoch-v5.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/positive-profile-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/cancel-invalid-fixtures-broad-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/driver-cache-correction-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/version-assertion-repair-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-remainder-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/library-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-targeted-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-phase-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-public-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-core-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-backend-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/capi-extension-plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/portability-final-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/consumers-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-final-v1.json",
+        "docs/development/a64-optional-fp-profile/README.md"
       ],
       "remaining_validation": [
-        "Remaining security/virtualization controls, non-half capability/profile consistency and reserved instruction-admission semantics.",
+        "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions and generic unallocated-neighbor admission remain open.",
         "Physical A32 hardware and optional trapped profiles remain unverified.",
-        "FPCR/FPSR admission and represented CPTR/security/VHE routing are corrected, including optimized-away native reads. Full SVE/SME, architectural halting-debug and other unrepresented/profile controls remain open.",
-        "A64 optional FP16 and represented reserved-field admission are corrected, including preoptimization native feature requirements. Full non-half capability/profile coherence (including FCMA/JSCVT flags versus IDs), SVE/SME, newer/unimplemented features and halting-debug controls remain open. Native FP16 execution is not newly implemented."
+        "The represented A64 six-capability flags/IDs/admission and supported legacy migration are corrected. Full cross-state feature consistency and generic Undefined-exit retirement/system delivery remain open. No new native optional-instruction execution support."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
         "arm-fhm-profile-and-legacy-wire-2026-10-28",
         "aarch64-fp-access-nonretirement-2026-10-28",
         "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
-        "aarch64-fp16-reserved-admission-2026-10-28"
+        "aarch64-fp16-reserved-admission-2026-10-28",
+        "aarch64-optional-fp-profile-2026-10-29"
       ]
     },
     {
@@ -2473,7 +2506,40 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/final-engine-parity-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/consumers-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/portability-final-v3.json",
-        "docs/development/a64-half-admission/README.md"
+        "docs/development/a64-half-admission/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/parent-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/parent-production-source-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/ownership-review-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/self-review-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fixture-tracking-amendment-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/oracle-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/llvm-optional-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/primary-overlap-decodes-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/direct-current-v4/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/scope-disposition-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/scoped-system-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/remaining-neighbor-defects-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fp-profile-targeted-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/backend-targeted-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/cpu-fixtures-v5.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fixture-epoch-v5.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/positive-profile-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/cancel-invalid-fixtures-broad-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/driver-cache-correction-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/version-assertion-repair-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-remainder-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/library-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-targeted-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-phase-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-public-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-core-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-backend-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/capi-extension-plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/portability-final-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/consumers-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-final-v1.json",
+        "docs/development/a64-optional-fp-profile/README.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2484,7 +2550,8 @@
         "Inherited RISC-V CLI oracle still verifies all physical/projection bytes and actual missing-kernel UART/shutdown execution.",
         "Complete per-vCPU/private/inflight/device/topology checkpoint state, including coherent LAPIC ownership",
         "Native Intel HVF state effects are unverified",
-        "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open."
+        "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open.",
+        "Generic A64 CpuExit::Undefined can advance PC and retire once; context/coordinator delivery and zero-retirement conservation for this representation remain required. Selected optional-class/context fixes do not close full backend/in-flight/platform state or bounded SMP native execution."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2499,7 +2566,8 @@
         "arm-fhm-profile-and-legacy-wire-2026-10-28",
         "aarch64-fp-access-nonretirement-2026-10-28",
         "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
-        "aarch64-fp16-reserved-admission-2026-10-28"
+        "aarch64-fp16-reserved-admission-2026-10-28",
+        "aarch64-optional-fp-profile-2026-10-29"
       ]
     },
     {
@@ -3019,14 +3087,48 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/final-engine-parity-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/consumers-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-half-admission/portability-final-v3.json",
-        "docs/development/a64-half-admission/README.md"
+        "docs/development/a64-half-admission/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/parent-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/parent-production-source-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/ownership-review-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/self-review-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fixture-tracking-amendment-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/oracle-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/llvm-optional-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/primary-overlap-decodes-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/direct-current-v4/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/scope-disposition-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/scoped-system-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/remaining-neighbor-defects-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fp-profile-targeted-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/backend-targeted-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/cpu-fixtures-v5.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fixture-epoch-v5.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/positive-profile-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/cancel-invalid-fixtures-broad-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/driver-cache-correction-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/version-assertion-repair-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-remainder-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/library-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-targeted-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-phase-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-public-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-core-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-backend-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/capi-extension-plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/portability-final-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/consumers-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-final-v1.json",
+        "docs/development/a64-optional-fp-profile/README.md"
       ],
       "remaining_validation": [
         "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
         "Native entry remains unbounded;physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
         "Additional ARM startup/control profiles and RISC-V SBI startup/controller topology remain required; software AArch64 PSCI/shared-platform execution is locally validated.",
         "Complete backend/private/in-flight/platform state,writer quiescence and transactional late-failure restoration remain required.",
-        "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required."
+        "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required.",
+        "Generic A64 CpuExit::Undefined can advance PC and retire once; context/coordinator delivery and zero-retirement conservation for this representation remain required. Selected optional-class/context fixes do not close full backend/in-flight/platform state or bounded SMP native execution."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3037,7 +3139,8 @@
         "tracked-ram-first-domain-publication-2026-10-28",
         "aarch64-fp-access-nonretirement-2026-10-28",
         "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
-        "aarch64-fp16-reserved-admission-2026-10-28"
+        "aarch64-fp16-reserved-admission-2026-10-28",
+        "aarch64-optional-fp-profile-2026-10-29"
       ]
     },
     {
@@ -193221,6 +193324,300 @@
           "finding": "Four full audit findings remain partial; other unfinished FP/profile changes are preserved outside this commit."
         }
       ],
+      "published": false
+    },
+    {
+      "id": "aarch64-optional-fp-profile-2026-10-29",
+      "status": "locally_validated",
+      "scope": "Represented A64 JSCVT/FCMA/FRINTTS/BF16/I8MM/DotProd flags, IDs, direct/native admission, actual legacy private-context migration and ABI 1.16 public selection of FP16/FHM plus six capabilities with pending-state preservation. Generic neighboring allocation/retirement defects and all four full findings remain open.",
+      "parent": "e6e084072e11ee3ae197ba1a4a9866d2ab7ead4d",
+      "owned_paths": [
+        "capi/Makefile",
+        "capi/README.md",
+        "capi/examples/arm64_fp.cpp",
+        "capi/include/rax.h",
+        "capi/include/rax.hpp",
+        "capi/src/arm64_fp.rs",
+        "capi/src/engine.rs",
+        "capi/src/lib.rs",
+        "capi/src/tests.rs",
+        "capi/src/tests/arm64_fp.rs",
+        "capi/src/tests/context_pauth.rs",
+        "capi/src/tests/header_sync.rs",
+        "capi/tests/arm64_fp_abi.c",
+        "docs/development/a64-optional-fp-profile/README.md",
+        "docs/development/a64-optional-fp-profile/encodings.json",
+        "docs/development/a64-optional-fp-profile/fixtures/.gitignore",
+        "docs/development/a64-optional-fp-profile/fixtures/all-enabled.backend.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/all-enabled.state.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/alternating.backend.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/alternating.state.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/bf16-level2.backend.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/bf16-level2.state.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/fcma-reserved15.backend.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/fcma-reserved15.state.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/flags-all-ids-none.backend.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/flags-all-ids-none.state.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/flags-all-parent-ids.backend.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/flags-all-parent-ids.state.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/ids-all-flags-none.backend.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/ids-all-flags-none.state.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/manifest.json",
+        "docs/development/a64-optional-fp-profile/fixtures/none.backend.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/none.state.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/parent-default.backend.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/parent-default.state.bin",
+        "docs/development/a64-optional-fp-profile/fixtures/parent-guest.bin",
+        "docs/development/a64-optional-fp-profile/native-witnesses.json",
+        "docs/development/a64-optional-fp-profile/primary/arm-sme-id-registers.pdf",
+        "docs/development/a64-optional-fp-profile/primary/features-109697_2025_12_en.pdf",
+        "docs/development/a64-optional-fp-profile/primary/provenance.json",
+        "docs/development/a64-optional-fp-profile/reserved-controls.json",
+        "docs/development/audit-remediation-2026-10.json",
+        "src/backend/emulator/aarch64/checkpoint.rs",
+        "src/backend/emulator/aarch64/optional_profile_tests.rs",
+        "src/backend/emulator/aarch64/vcpu.rs",
+        "src/backend/emulator/aarch64_step/fp_access_tests.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/half_tests.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/optional.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/optional_admission.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/optional_encodings.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/optional_tests.rs",
+        "src/isa/arm/aarch64/cpu/mod.rs",
+        "src/isa/arm/aarch64/cpu/state.rs",
+        "src/isa/arm/aarch64/cpu/system_step.rs",
+        "src/isa/arm/aarch64/cpu/tests/misc.rs",
+        "src/isa/arm/aarch64/cpu/tests/simd.rs",
+        "src/isa/arm/common/features.rs",
+        "src/smir/lower/aarch64/tests/fp_execution.rs",
+        "src/vm/vcpu/mod.rs",
+        "tests/generated/arm/test_helpers.rs",
+        "tests/generated/manifest.toml",
+        "tests/suites/differential/arm/aarch64/profile.rs",
+        "tools/asl-parser/asl-parser-rs/src/main.rs",
+        "tools/asl-parser/asl-parser-rs/src/testgen/output/rust.rs",
+        "tools/execution/a64_optional_fp_profile.py"
+      ],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/parent-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/parent-production-source-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/ownership-review-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/self-review-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fixture-tracking-amendment-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/oracle-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/llvm-optional-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/primary-overlap-decodes-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/direct-current-v4/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/scope-disposition-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/scoped-system-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/remaining-neighbor-defects-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fp-profile-targeted-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/backend-targeted-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/cpu-fixtures-v5.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/fixture-epoch-v5.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/positive-profile-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/cancel-invalid-fixtures-broad-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/driver-cache-correction-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/version-assertion-repair-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-remainder-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/library-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-targeted-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-phase-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-public-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-core-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/api-backend-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/capi-extension-plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/portability-final-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/consumers-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-final-v1.json"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/source-freeze-final-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/commit-receipt.json",
+      "validation_summary": {
+        "library": {
+          "passed": 11226,
+          "failed": 0,
+          "ignored": 2,
+          "binaries": 1
+        },
+        "owning": {
+          "passed": 47706,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 23
+        },
+        "capi": {
+          "passed": 222,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "doc": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "binaries": 1
+        },
+        "generator-package": {
+          "passed": 62,
+          "failed": 0,
+          "ignored": 1,
+          "binaries": 5
+        },
+        "portable": {
+          "portable-optional-rosetta-v2": {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-optional-context-rosetta-v2": {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-half-rosetta-v2": {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-lowering-fp16-rosetta-v2": {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-fp-control-rosetta-v2": {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-shared-fp-rosetta-v2": {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-fp-access-rosetta-v2": {
+            "passed": 15,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-fhm-rosetta-v2": {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-a64-context-rosetta-v2": {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-a32-fp-rosetta-v2": {
+            "passed": 453,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-fp-profile-capi-rosetta-v2": {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-fp-access-capi-rosetta-v2": {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          }
+        },
+        "version_assertion_repair": "One test-only expected ABI tuple changed from 1.15.0 to 1.16.0. Existing integration/portability results retain identical runtime and selected tests; full C API rerun follows the correction.",
+        "public_fp_targeted": {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "core_profile_targeted": {
+          "passed": 24,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "backend_targeted": {
+          "passed": 37,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "consumers": 19,
+        "strict_abi_objects": 7,
+        "independent_neighborhood_qemu_events": 66304,
+        "represented_scoped_direct_events": 7416,
+        "represented_scoped_system_events": 7416,
+        "full_neighborhood_passed": false,
+        "sampled_optional_native_shapes": 34,
+        "sampled_optional_native_shapes_rejected": 34
+      },
+      "assumption_register": [
+        {
+          "id": "OP1",
+          "assumption": "Old advertised capability fields define the legacy guest-visible contract when inactive configuration flags were ignored.",
+          "basis": "Current parent publishes enabled IDs with disabled flags; existing FHM migration already derives legacy support from advertised state.",
+          "dependent_result": "Legacy optional capability migration.",
+          "stress_test": "Real old exports with opposing flags/IDs, zero/one field values, unsupported values and conflicting public/private projections.",
+          "falsification_probe": "A supported advertised capability is lost, conflicting source images become accepted, or target state changes on failed admission.",
+          "status": "confirmed for the supported legacy advertised contract; broader accidental old execution is not preserved"
+        },
+        {
+          "id": "OP2",
+          "assumption": "A64 extension support does not by itself prove AArch32 instruction support.",
+          "basis": "Arm distinguishes AA32BF16/AA32I8MM; current A32 code has no JSCVT/FCMA/DotProd decoder implementations.",
+          "dependent_result": "Per-execution-state IDs and explicit remaining scope.",
+          "stress_test": "Trace all A32 aliases and common-feature handoffs; verify feature dependencies from pinned primary source.",
+          "falsification_probe": "An unsupported A32 instruction is advertised or a claimed whole-CPU identity depends on missing A32 behavior.",
+          "status": "confirmed as an explicit execution-state boundary; full AArch32 conformance remains open"
+        },
+        {
+          "id": "OP3",
+          "assumption": "Host capability selection preserves an already pending execution event.",
+          "basis": "The generic host-state overlay clears pending faults; selection uses a dedicated backend operation.",
+          "dependent_result": "New ABI 1.16 setters/getters and reset/rebuild behavior.",
+          "stress_test": "Invalid unrelated selection leaves the entire private checkpoint unchanged; valid selection retains a synthetic delayed fault across private checkpoint restore, then delivers it once with zero retirement.",
+          "falsification_probe": "Changed non-profile state, dropped/repeated pending fault, premature retirement, or reset/map reconstruction losing selected flags.",
+          "status": "confirmed for tested synthetic pending event and public reset/map workflows"
+        }
+      ],
+      "failure_disposition": "passed within recorded host and selected-profile scope",
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Preserve exact fault PC, BTYPE and architectural state with zero retirement for undefined exits."
+        },
+        {
+          "impact": "high",
+          "finding": "Deliver EC=0 through the system/backend paths; preserve the documented public direct-step result contract deliberately."
+        },
+        {
+          "impact": "high",
+          "finding": "Validate full decode priority against actual model capabilities; do not derive allocation expectations from the implementation under test."
+        },
+        {
+          "impact": "high",
+          "finding": "Cover context/file continuation and coordinator budgets across both representations of undefined instructions."
+        }
+      ],
+      "native_frontier": "All 34 sampled optional shapes remain unsupported; real integer code with synthetic capability metadata verifies each entry/cache guard. No new optional native execution claim.",
       "published": false
     }
   ],

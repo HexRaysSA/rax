@@ -155,3 +155,24 @@ fn process_abi_constants_match_the_header() {
     assert_eq!(std::mem::offset_of!(RaxProcessResult, turns_started), 16);
     assert_eq!(std::mem::offset_of!(RaxProcessResult, elapsed_us), 24);
 }
+
+#[test]
+fn arm64_fp_feature_constants_match_the_header() {
+    use crate::arm64_fp::*;
+    for (name, value) in [
+        ("RAX_ARM64_FEATURE_FP16", RAX_ARM64_FEATURE_FP16),
+        ("RAX_ARM64_FEATURE_FHM", RAX_ARM64_FEATURE_FHM),
+        ("RAX_ARM64_FEATURE_JSCVT", RAX_ARM64_FEATURE_JSCVT),
+        ("RAX_ARM64_FEATURE_FCMA", RAX_ARM64_FEATURE_FCMA),
+        ("RAX_ARM64_FEATURE_FRINTTS", RAX_ARM64_FEATURE_FRINTTS),
+        ("RAX_ARM64_FEATURE_BF16", RAX_ARM64_FEATURE_BF16),
+        ("RAX_ARM64_FEATURE_I8MM", RAX_ARM64_FEATURE_I8MM),
+        ("RAX_ARM64_FEATURE_DOTPROD", RAX_ARM64_FEATURE_DOTPROD),
+        (
+            "RAX_ARM64_FP_FEATURES_SUPPORTED",
+            RAX_ARM64_FP_FEATURES_SUPPORTED,
+        ),
+    ] {
+        assert_eq!(define(name), u64::from(value), "{name}");
+    }
+}
