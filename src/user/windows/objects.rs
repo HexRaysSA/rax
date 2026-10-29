@@ -290,7 +290,7 @@ struct Entry {
     /// Registry key-body tags survive duplicated handles, independently of
     /// immutable snapshot identity and the caller's low handle bits.
     registry_tags: Option<u32>,
-    registry_views: Option<std::sync::Arc<super::registry::AppModelViews>>,
+    registry_views: Option<std::sync::Arc<super::registry::RegistryViews>>,
     /// Read-only installed-library authority, retained independently of a catalog.
     runtime_library: bool,
     refs: u32,
@@ -358,7 +358,7 @@ impl Objects {
                 .ok()?;
         }
         let registry_tags = match &obj {
-            Object::Key(key) if key.appmodel_view.is_some() => None,
+            Object::Key(key) if key.redirected_view.is_some() => None,
             _ => Some(0),
         };
         self.objs.insert(
@@ -405,7 +405,7 @@ impl Objects {
     pub(crate) fn set_registry_views(
         &mut self,
         id: ObjId,
-        views: std::sync::Arc<super::registry::AppModelViews>,
+        views: std::sync::Arc<super::registry::RegistryViews>,
     ) {
         self.objs
             .get_mut(&id)
@@ -415,7 +415,7 @@ impl Objects {
     pub(crate) fn registry_views(
         &self,
         handle: u64,
-    ) -> Option<std::sync::Arc<super::registry::AppModelViews>> {
+    ) -> Option<std::sync::Arc<super::registry::RegistryViews>> {
         self.objs.get(&self.id(handle)?)?.registry_views.clone()
     }
 

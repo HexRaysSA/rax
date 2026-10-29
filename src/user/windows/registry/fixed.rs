@@ -29,7 +29,7 @@ impl Registry {
                 }
                 Some(Arc::new(Key {
                     path: SEGMENT_HEAP_KEY.encode_utf16().collect(),
-                    appmodel_view: None,
+                    redirected_view: None,
                     children: selected.children,
                     upcase: self.upcase.clone(),
                     values: Arc::new(bounded_values(
@@ -40,6 +40,9 @@ impl Registry {
                     subkeys: None,
                     selected_child: None,
                     selected_paths: BTreeMap::new(),
+                    command_access: None,
+                    logical_path: None,
+                    root_views: None,
                     machine: None,
                 }))
             }
@@ -47,7 +50,7 @@ impl Registry {
         };
         let key = Key {
             path: parent.path.clone(),
-            appmodel_view: None,
+            redirected_view: None,
             children: parent.children,
             upcase: parent.upcase.clone(),
             values: parent.values.clone(),
@@ -57,6 +60,9 @@ impl Registry {
                 child,
             )),
             selected_paths: BTreeMap::new(),
+            command_access: None,
+            logical_path: None,
+            root_views: None,
             machine: None,
         };
         self.keys.insert(name, Arc::new(key));

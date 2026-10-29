@@ -51,7 +51,7 @@ fn installed_machine_capture_matches_native_values_and_access() {
     assert_eq!(root.path, canonical);
     assert_eq!(root.children, metadata.children);
     assert_eq!(
-        root.machine_access().unwrap().grant(0x02000000),
+        root.captured_access().unwrap().grant(0x02000000),
         Ok(maximum)
     );
     assert_eq!(root.values.len(), raw.len());

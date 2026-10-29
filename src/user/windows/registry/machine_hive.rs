@@ -1,62 +1,20 @@
 //! The fixed MACHINE header and handle-owned routes to already selected keys.
 //! No descendant walk, native handle, or host callback is retained.
-use super::super::nt::status::STATUS_ACCESS_DENIED;
 use super::*;
 
 pub(crate) const MACHINE_HIVE_KEY: &str = "\\Registry\\Machine";
-const KEY_ALL_ACCESS: u32 = 0x000F_003F;
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct MachineAccess {
-    pub(crate) maximum_access: u32,
-    pub(crate) system_security_status: u32,
-}
-impl MachineAccess {
-    pub(crate) fn grant(self, access: u32) -> Result<u32, u32> {
-        let mut requested = access & !(0xF200_0300);
-        // Native key-object mappings, including the observed CREATE_LINK bit
-        // in generic execute. View bits select routes, not granted rights.
-        for (generic, specific) in [
-            (0x8000_0000, 0x0002_0019),
-            (0x4000_0000, 0x0002_0006),
-            (0x2000_0000, 0x0002_0039),
-            (0x1000_0000, KEY_ALL_ACCESS),
-        ] {
-            if access & generic != 0 {
-                requested |= specific;
-            }
-        }
-        if requested & !(KEY_ALL_ACCESS | 0x0100_0000) != 0
-            || requested & KEY_ALL_ACCESS & !self.maximum_access != 0
-        {
-            return Err(STATUS_ACCESS_DENIED);
-        }
-        if requested & 0x0100_0000 != 0 && self.system_security_status != 0 {
-            return Err(self.system_security_status);
-        }
-        if access & 0x0200_0000 != 0 {
-            requested |= self.maximum_access;
-        }
-        if requested == 0 {
-            Err(STATUS_ACCESS_DENIED)
-        } else {
-            Ok(requested)
-        }
-    }
-}
-
 pub(crate) struct MachineHeader {
     pub(crate) canonical: Vec<u16>,
     pub(crate) children: u32,
     pub(crate) values: Vec<Value>,
-    pub(crate) access: MachineAccess,
+    pub(crate) access: KeyAccess,
 }
 
 #[derive(Debug)]
 pub(super) struct MachineKey {
-    access: MachineAccess,
+    access: KeyAccess,
     paths: BTreeMap<Vec<u16>, Option<Arc<Key>>>,
-    appmodel: Arc<AppModelViews>,
+    views: Arc<RegistryViews>,
 }
 
 fn prefix(path: &[u16]) -> bool {
@@ -76,7 +34,7 @@ impl Registry {
             || self.machine_hive.is_some()
             || header.canonical.len() != expected
             || !prefix(&header.canonical)
-            || header.access.maximum_access & !KEY_ALL_ACCESS != 0
+            || header.access.maximum_access & !super::access::KEY_ALL_ACCESS != 0
             || (header.access.system_security_status != 0
                 && header.access.system_security_status & 0x8000_0000 == 0)
         {
@@ -86,19 +44,22 @@ impl Registry {
         let machine = self.machine_paths(header.access, header.children)?;
         self.machine_hive = Some(Arc::new(Key {
             path: header.canonical,
-            appmodel_view: None,
+            redirected_view: None,
             children: header.children,
             upcase: self.upcase.clone(),
             values: Arc::new(values),
             subkeys: None,
             selected_child: None,
             selected_paths: BTreeMap::new(),
+            command_access: None,
+            logical_path: None,
+            root_views: None,
             machine: Some(machine),
         }));
         Ok(self)
     }
 
-    fn machine_paths(&self, access: MachineAccess, children: u32) -> io::Result<MachineKey> {
+    fn machine_paths(&self, access: KeyAccess, children: u32) -> io::Result<MachineKey> {
         let length = MACHINE_HIVE_KEY.encode_utf16().count();
         let fold = |name: &[u16]| {
             name.iter()
@@ -122,7 +83,13 @@ impl Registry {
             let name: Vec<_> = selected.path().encode_utf16().skip(length + 1).collect();
             paths.entry(fold(&name)).or_insert(None);
         }
-        if self.appmodel.roots.values().any(Option::is_some) {
+        if self
+            .views
+            .roots
+            .values()
+            .flatten()
+            .any(|key| prefix(&key.path))
+        {
             present.insert(fold(&"Software".encode_utf16().collect::<Vec<_>>()));
         }
         if present.len() > children as usize {
@@ -131,7 +98,7 @@ impl Registry {
         Ok(MachineKey {
             access,
             paths,
-            appmodel: self.appmodel.clone(),
+            views: self.views.clone(),
         })
     }
 
@@ -143,13 +110,16 @@ impl Registry {
         let machine = self.machine_paths(access, root.children)?;
         self.machine_hive = Some(Arc::new(Key {
             path: root.path.clone(),
-            appmodel_view: None,
+            redirected_view: None,
             children: root.children,
             upcase: root.upcase.clone(),
             values: root.values.clone(),
             subkeys: None,
             selected_child: None,
             selected_paths: BTreeMap::new(),
+            command_access: None,
+            logical_path: None,
+            root_views: None,
             machine: Some(machine),
         }));
         Ok(())
@@ -177,17 +147,36 @@ impl Registry {
 }
 
 impl Key {
-    pub(crate) fn machine_access(&self) -> Option<MachineAccess> {
-        self.machine.as_ref().map(|machine| machine.access)
+    pub(crate) fn is_machine_hive(&self) -> bool {
+        self.machine.is_some()
     }
-    pub(crate) fn machine_views(&self) -> Option<Arc<AppModelViews>> {
-        self.machine
-            .as_ref()
-            .map(|machine| machine.appmodel.clone())
+    pub(crate) fn captured_access(&self) -> Option<KeyAccess> {
+        self.command_access
+            .or_else(|| self.machine.as_ref().map(|machine| machine.access))
+    }
+    pub(crate) fn hive_views(&self) -> Option<Arc<RegistryViews>> {
+        self.root_views
+            .clone()
+            .or_else(|| self.machine.as_ref().map(|machine| machine.views.clone()))
     }
     pub(crate) fn relative_in_view(self: &Arc<Self>, name: &[u16], view: RegistryView) -> Lookup {
         let Some(machine) = &self.machine else {
-            return self.relative(name);
+            if let Some(views) = &self.root_views {
+                let absolute: Vec<_> = self
+                    .logical_path
+                    .as_deref()
+                    .unwrap_or(&self.path)
+                    .iter()
+                    .copied()
+                    .chain(Some(92))
+                    .chain(name.iter().copied())
+                    .collect();
+                match views.lookup(&absolute, view) {
+                    Lookup::Unselected => {}
+                    result => return result,
+                }
+            }
+            return self.relative_selected(name);
         };
         let mut normalized = Vec::with_capacity(name.len());
         for component in name.split(|u| *u == 92).filter(|part| !part.is_empty()) {
@@ -204,7 +193,7 @@ impl Key {
             .chain(Some(92))
             .chain(normalized.iter().copied())
             .collect();
-        match machine.appmodel.lookup(&absolute, view) {
+        match machine.views.lookup(&absolute, view) {
             Lookup::Unselected => {}
             selected => return selected,
         }

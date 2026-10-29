@@ -51,14 +51,14 @@ fn appmodel_independent_views_absence_and_handle_owned_pair() {
         )
         .unwrap();
     let root = present(&registry, MACHINE_KEY, RegistryView::Native64);
-    let pair = registry.appmodel.clone();
+    let pair = registry.views.clone();
     let weak = Arc::downgrade(&root);
     drop(registry);
     let Lookup::Present(child) = pair.relative(&root, &units("Child"), RegistryView::Wow32) else {
         panic!()
     };
     assert_eq!(child.value(&units("view")).unwrap().data, [32]);
-    assert_eq!(child.appmodel_view, Some(RegistryView::Wow32));
+    assert_eq!(child.redirected_view, Some(RegistryView::Wow32));
     drop(root);
     assert!(weak.upgrade().is_some());
     drop(pair);
@@ -322,7 +322,7 @@ fn appmodel_sibling_roots_keep_independent_views_and_retained_catalogs() {
     }
     let machine = present(&registry, MACHINE_KEY, RegistryView::Native64);
     let user = present(&registry, &USER_KEY.to_lowercase(), RegistryView::Native64);
-    let catalog = registry.appmodel.clone();
+    let catalog = registry.views.clone();
     drop(registry);
     for (root, expected) in [(&machine, 32), (&user, 132)] {
         let Lookup::Present(child) = catalog.relative(root, &units("child"), RegistryView::Wow32)

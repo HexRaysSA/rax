@@ -3440,3 +3440,26 @@ installed-product qualification remain separate gates.
 Present AppModel WoW64 body tags and key
 information classes other than the existing implemented class remain explicit
 boundaries; this change does not establish complete process execution.
+
+### Fixed Command Processor headers and retained paired views (2026-10-29)
+
+Installed selection captures the fixed machine CMD leaf through both Win32
+views, then captures the same suffix below the validated creator SID after its
+primary hive and policy selection. Captured canonical identity, values, child
+count, ordinary maximum access and security-access status stay immutable.
+Missing-name and missing-path results remain distinct. No guest name reaches a
+host registry operation, and native handles close before execution.
+
+The common view catalogue preserves AppModel's existing selection behavior.
+MACHINE and creator-hive handles retain both CMD views across namespace
+replacement and handle duplication. Explicit physical machine paths and
+asymmetric empty-name WoW64 reopens follow the native state closure rather than
+an unconditional view switch. Present AppModel body tags remain uncaptured.
+
+The six producers and retained corpus under
+`docs/specifications/windows/native-command-processor/` cover 1,144 NT opens
+and reopens on kernel 29695 across ARM64/x64/x86, including all reachable
+self-open states. The current user's leaf is absent in that context; a present
+user leaf is implemented and controlled-fixture tested without claiming an
+independent native present-user result. The owning library, native Windows
+adapter, fresh AMD64 corpus and actual CMD comparison are separate gates.

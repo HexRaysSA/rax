@@ -1,4 +1,5 @@
 use super::*;
+use crate::user::windows::nt::status::STATUS_ACCESS_DENIED;
 
 fn units(s: &str) -> Vec<u16> {
     s.encode_utf16().collect()
@@ -34,7 +35,7 @@ fn header(children: u32) -> MachineHeader {
             kind: 4,
             data: 2u32.to_le_bytes().to_vec(),
         }],
-        access: MachineAccess {
+        access: KeyAccess {
             maximum_access: 0xF003F,
             system_security_status: STATUS_ACCESS_DENIED,
         },
@@ -100,7 +101,7 @@ fn machine_ordinary_access_matches_the_native_root_controls() {
             assert_eq!(profile.grant(denied | view), Err(STATUS_ACCESS_DENIED));
         }
     }
-    let limited = MachineAccess {
+    let limited = KeyAccess {
         maximum_access: 1,
         system_security_status: 0xC0000061,
     };
@@ -151,7 +152,7 @@ fn machine_routes_keep_both_views_and_survive_selection_replacement() {
                 panic!("view");
             };
             assert_eq!(child.value(&units("Data")).unwrap().data, [data]);
-            let catalog = key.machine_views().unwrap();
+            let catalog = key.hive_views().unwrap();
             let Lookup::Present(paired) = catalog.relative(
                 &child,
                 &[],

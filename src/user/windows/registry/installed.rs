@@ -3,8 +3,12 @@
 //! selection returns, and the kernel reads the resulting immutable records.
 #[path = "installed/appmodel.rs"]
 mod appmodel;
+#[path = "installed/command_processor.rs"]
+mod command_processor;
 #[path = "installed/machine_hive.rs"]
 mod machine_hive;
+#[path = "installed/native_key.rs"]
+mod native_key;
 #[path = "installed/primary_hive.rs"]
 mod primary_hive;
 #[path = "installed/tree.rs"]
@@ -371,7 +375,9 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let root = super::TreeRoot::LanguageOverlayPackages;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;
-    machine_hive::capture(appmodel::capture(registry)?)
+    machine_hive::capture(command_processor::capture_machine(appmodel::capture(
+        registry,
+    )?)?)
 }
 
 #[cfg(test)]

@@ -3,6 +3,9 @@ use super::*;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::registry::{NLS_KEY, Registry, Value};
 
+#[path = "command_processor_registry_tests.rs"]
+mod command_processor;
+
 #[test]
 fn native_registry_selected_namespace_query_and_handle_lifetime_all_abis() {
     use crate::user::windows::registry::{SESSION_MANAGER_KEY, SelectedKey};

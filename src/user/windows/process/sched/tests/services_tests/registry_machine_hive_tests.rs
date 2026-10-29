@@ -1,7 +1,7 @@
 //! MACHINE-root controls reach the guest NT dispatcher on every guest ABI.
 use super::*;
 use crate::user::windows::registry::{
-    AppModelRoot, KeyTree, MACHINE_HIVE_KEY, MachineAccess, MachineHeader, RegistryView,
+    AppModelRoot, KeyAccess, KeyTree, MACHINE_HIVE_KEY, MachineHeader, RegistryView,
 };
 
 #[path = "registry_machine_hive_replay.rs"]
@@ -37,7 +37,7 @@ fn captured(p: &mut Proc, present_appmodel: bool) {
                 kind: 4,
                 data: 2u32.to_le_bytes().to_vec(),
             }],
-            access: MachineAccess {
+            access: KeyAccess {
                 maximum_access: 0x000F_003F,
                 system_security_status: STATUS_ACCESS_DENIED,
             },

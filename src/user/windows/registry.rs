@@ -35,14 +35,23 @@ pub(crate) use primary_hive::HiveHeader;
 use primary_hive::PrimaryHive;
 #[path = "registry/appmodel.rs"]
 mod appmodel;
-pub(crate) use appmodel::{AppModelRoot, AppModelViews, RegistryView};
+pub(crate) use appmodel::AppModelRoot;
+#[path = "registry/redirected.rs"]
+mod redirected;
+pub(crate) use redirected::{RegistryView, RegistryViews, ViewRoot};
+#[path = "registry/command_processor.rs"]
+mod command_processor;
+pub(crate) use command_processor::{COMMAND_PROCESSOR_KEY, CommandHeader, CommandRoot};
 #[path = "registry/fixed.rs"]
 mod fixed;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;
 #[path = "registry/machine_hive.rs"]
 mod machine_hive;
 use machine_hive::MachineKey;
-pub(crate) use machine_hive::{MACHINE_HIVE_KEY, MachineAccess, MachineHeader};
+pub(crate) use machine_hive::{MACHINE_HIVE_KEY, MachineHeader};
+#[path = "registry/access.rs"]
+mod access;
+pub(crate) use access::KeyAccess;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Value {
@@ -62,13 +71,16 @@ pub(crate) struct SelectedKey {
 #[derive(Debug)]
 pub struct Key {
     pub(crate) path: Vec<u16>,
-    pub(crate) appmodel_view: Option<RegistryView>,
+    pub(crate) redirected_view: Option<RegistryView>,
     pub(crate) children: u32,
     upcase: Arc<[u16]>,
     values: Arc<BTreeMap<Vec<u16>, Value>>,
     subkeys: Option<BTreeMap<Vec<u16>, Arc<Key>>>,
     selected_child: Option<(Vec<u16>, Option<Arc<Key>>)>,
     selected_paths: BTreeMap<Vec<u16>, Option<Arc<Key>>>,
+    command_access: Option<KeyAccess>,
+    logical_path: Option<Arc<[u16]>>,
+    root_views: Option<Arc<RegistryViews>>,
     machine: Option<MachineKey>,
 }
 impl Key {
@@ -92,7 +104,7 @@ pub(crate) struct Registry {
     user_policies: BTreeMap<UserPolicyRoot, Arc<[u16]>>,
     primary_hive: Option<PrimaryHive>,
     machine_hive: Option<Arc<Key>>,
-    pub(crate) appmodel: Arc<AppModelViews>,
+    pub(crate) views: Arc<RegistryViews>,
 }
 impl Registry {
     #[cfg(test)]
@@ -117,7 +129,7 @@ impl Registry {
             user_policies: BTreeMap::new(),
             primary_hive: None,
             machine_hive: None,
-            appmodel: Arc::default(),
+            views: Arc::default(),
         };
         let mut budget = ValueBudget::default();
         for selected in selected {
@@ -126,7 +138,7 @@ impl Registry {
             }
             let key = Key {
                 path: selected.path.encode_utf16().collect(),
-                appmodel_view: None,
+                redirected_view: None,
                 children: selected.children,
                 upcase: result.upcase.clone(),
                 values: Arc::new(bounded_values(
@@ -137,6 +149,9 @@ impl Registry {
                 subkeys: None,
                 selected_child: None,
                 selected_paths: BTreeMap::new(),
+                command_access: None,
+                logical_path: None,
+                root_views: None,
                 machine: None,
             };
             if result
@@ -181,7 +196,7 @@ impl Registry {
         self.lookup_view(name, RegistryView::Native64)
     }
     pub(crate) fn lookup_view(&self, name: &[u16], view: RegistryView) -> Lookup {
-        match self.appmodel.lookup(name, view) {
+        match self.views.lookup(name, view) {
             Lookup::Unselected => {}
             selected => return selected,
         }
@@ -202,7 +217,7 @@ impl Registry {
             selected => return selected,
         }
         match self.tree_lookup(&folded, name) {
-            Lookup::Unselected => match self.primary_hive_lookup(&folded, name) {
+            Lookup::Unselected => match self.primary_hive_lookup(&folded, name, view) {
                 Lookup::Unselected => self.segment_heap_lookup(&folded, name),
                 selected => selected,
             },

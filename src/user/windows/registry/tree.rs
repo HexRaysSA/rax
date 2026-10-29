@@ -79,6 +79,7 @@ impl TreeRoot {
 pub(crate) enum Lookup {
     Present(Arc<Key>),
     Missing,
+    MissingPath,
     Unselected,
 }
 #[derive(Default)]
@@ -128,7 +129,7 @@ impl Registry {
         for key in self.keys.values() {
             charge_key(key, &mut budget, &mut seen)?;
         }
-        for key in self.appmodel.roots.values().flatten() {
+        for key in self.views.roots.values().flatten() {
             charge_key(key, &mut budget, &mut seen)?;
         }
         if let Some(root) = &self.machine_hive {
@@ -224,9 +225,12 @@ fn charge_key(
 }
 impl Key {
     pub(crate) fn relative(self: &Arc<Self>, name: &[u16]) -> Lookup {
-        if self.machine.is_some() {
+        if self.machine.is_some() || self.root_views.is_some() {
             return self.relative_in_view(name, RegistryView::Native64);
         }
+        self.relative_selected(name)
+    }
+    pub(super) fn relative_selected(self: &Arc<Self>, name: &[u16]) -> Lookup {
         if !self.selected_paths.is_empty() {
             let mut normalized = Vec::with_capacity(name.len());
             for component in name.split(|u| *u == 92).filter(|part| !part.is_empty()) {
@@ -284,7 +288,7 @@ pub(super) fn build(
     depth: usize,
     values: &mut ValueBudget,
     metadata: &mut TreeBudget,
-    appmodel_view: Option<RegistryView>,
+    redirected_view: Option<RegistryView>,
 ) -> io::Result<Arc<Key>> {
     metadata.charge(&path, depth)?;
     if tree.children.len() >= MAX_TREE_KEYS {
@@ -293,13 +297,16 @@ pub(super) fn build(
     let raw_values = bounded_values(&upcase, tree.values, values)?;
     let mut key = Key {
         path,
-        appmodel_view,
+        redirected_view,
         children: tree.children.len() as u32,
         upcase,
         values: Arc::new(raw_values),
         subkeys: None,
         selected_child: None,
         selected_paths: BTreeMap::new(),
+        command_access: None,
+        logical_path: None,
+        root_views: None,
         machine: None,
     };
     let mut children = BTreeMap::new();
@@ -313,7 +320,7 @@ pub(super) fn build(
             depth + 1,
             values,
             metadata,
-            appmodel_view,
+            redirected_view,
         )?;
         if children.insert(name, child).is_some() {
             return Err(invalid("duplicate ordinal runtime registry child"));

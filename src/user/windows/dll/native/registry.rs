@@ -189,7 +189,7 @@ fn open_grant(c: &Ctx, access: u32, options: u32, selected: &Key) -> Checked<u32
         return status(STATUS_INVALID_PARAMETER);
     }
     if options & 4 == 0 {
-        if let Some(profile) = selected.machine_access() {
+        if let Some(profile) = selected.captured_access() {
             return match profile.grant(access) {
                 Ok(granted) => Ok(granted),
                 Err(code) => status(code),
@@ -220,14 +220,48 @@ fn open_grant(c: &Ctx, access: u32, options: u32, selected: &Key) -> Checked<u32
 
 // Captured WoW64 MACHINE rules distinguish reopening the root itself from
 // resolving a descendant. The parent view survives an empty relative open.
+// Finite key-body transitions from the native CMD self-open closure.
+fn command_reopen_tags(
+    wow: bool,
+    parent: u32,
+    parent_view: RegistryView,
+    requested: u32,
+) -> Option<u32> {
+    if !wow {
+        return matches!(parent, 0 | 0x100 | 0x600).then_some(parent);
+    }
+    if requested == 0x300 {
+        return None;
+    }
+    match (parent_view, parent) {
+        (RegistryView::Native64, 0x100) => Some(if requested == 0x200 { 0x600 } else { 0x100 }),
+        (RegistryView::Wow32, 0x100) => Some(if requested == 0x200 { 0xE00 } else { 0x100 }),
+        (RegistryView::Wow32, 0x400 | 0x500 | 0x600) => Some(if requested == 0 {
+            parent
+        } else {
+            0x400 | requested
+        }),
+        (RegistryView::Wow32, 0xE00) => Some(if requested == 0x100 { 0x500 } else { 0x600 }),
+        _ => None,
+    }
+}
+
 fn machine_body_tags(parent: u32, requested: u32, self_open: bool) -> u32 {
     if self_open {
-        return if requested == 0 { parent } else { requested };
+        return if requested == 0 {
+            parent & 0x300
+        } else {
+            requested
+        };
     }
     if parent == 0x100 && requested != 0x200 {
         return 0;
     }
-    let effective = if requested == 0 { parent } else { requested };
+    let effective = if requested == 0 {
+        parent & 0x300
+    } else {
+        requested
+    };
     effective | if effective == 0x100 { 0 } else { 0x400 }
 }
 
@@ -285,6 +319,8 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     }
     let views;
     let mut machine_parent_tags = None;
+    let mut command_parent_tags = None;
+    let mut command_parent_view = None;
     let selected = if attrs.root != 0 {
         // The compatibility thunk rejects an absolute rooted name before the
         // native object manager checks the root handle's validity/type.
@@ -298,14 +334,29 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         if absolute {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
-        let selected = if let Some(catalog) = root.machine_views() {
+        if root.command_access().is_some() {
+            let tags = c.p.objects.registry_tags(attrs.root).ok_or_else(|| {
+                c.unsupported("Command Processor parent key tags are not captured")
+            })?;
+            let parent_view = root
+                .redirected_view
+                .ok_or_else(|| c.unsupported("Command Processor parent view is not captured"))?;
+            if command_reopen_tags(wow, tags, parent_view, access & 0x300).is_none() {
+                return Err(c
+                    .unsupported("Command Processor parent tags outside captured profile")
+                    .into());
+            }
+            command_parent_view = Some(parent_view);
+            command_parent_tags = Some(tags);
+        }
+        let selected = if let Some(catalog) = root.hive_views() {
             views = Some(catalog);
             let parent = if wow {
                 let tags =
                     c.p.objects
                         .registry_tags(attrs.root)
                         .ok_or_else(|| c.unsupported("MACHINE parent key tags are not captured"))?;
-                if tags & !0x300 != 0 || tags == 0x300 {
+                if root.is_machine_hive() && (tags & !0x300 != 0 || tags == 0x300) {
                     return Err(c
                         .unsupported("MACHINE parent tags outside captured root profile")
                         .into());
@@ -314,16 +365,23 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
             } else {
                 0
             };
-            machine_parent_tags = Some(parent);
+            if root.is_machine_hive() {
+                machine_parent_tags = Some(parent);
+            }
             let requested = access & 0x300;
-            let effective = if requested == 0 { parent } else { requested };
+            let effective = if requested == 0 {
+                parent & 0x300
+            } else {
+                requested
+            };
             let view = if wow && effective != 0x100 {
                 RegistryView::Wow32
             } else {
                 RegistryView::Native64
             };
             root.relative_in_view(&attrs.name.units, view)
-        } else if wow && access & 0x200 != 0 && root.appmodel_view == Some(RegistryView::Native64) {
+        } else if wow && access & 0x200 != 0 && root.redirected_view == Some(RegistryView::Native64)
+        {
             let captured = c.p.objects.registry_views(attrs.root).ok_or_else(|| {
                 c.unsupported("AppModel relative registry views are not captured")
             })?;
@@ -337,6 +395,7 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         match selected {
             Lookup::Present(key) => key,
             Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
+            Lookup::MissingPath => return status(STATUS_OBJECT_PATH_NOT_FOUND),
             Lookup::Unselected => {
                 return Err(c.unsupported("unsnapshotted registry subkey").into());
             }
@@ -350,10 +409,11 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         } else {
             RegistryView::Native64
         };
-        views = Some(c.p.registry.appmodel.clone());
+        views = Some(c.p.registry.views.clone());
         match c.p.registry.lookup_view(&attrs.name.units, view) {
             Lookup::Present(key) => key,
             Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
+            Lookup::MissingPath => return status(STATUS_OBJECT_PATH_NOT_FOUND),
             Lookup::Unselected => {
                 return Err(c
                     .unsupported("registry key outside selected runtime snapshot")
@@ -366,14 +426,43 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     // Native64 opens retain zero tags for these shared selected keys. WoW64
     // marks its default/32-bit view with 0x400; an explicit 64-bit view is 0x100.
     // The contradictory x86 view request is rejected by grant before creation.
-    let redirected = selected.appmodel_view.is_some();
-    let tags = if c.arch() == WinArch::X86 {
+    let redirected = selected.redirected_view.is_some();
+    let tags = if selected.command_access().is_some() {
+        let requested = access & 0x300;
+        if let (Some(parent), Some(parent_view)) = (command_parent_tags, command_parent_view) {
+            command_reopen_tags(wow, parent, parent_view, requested)
+                .expect("validated CMD parent transition")
+        } else if wow {
+            if selected.command_physical_name(&attrs.name.units) {
+                let effective = if requested == 0 {
+                    machine_parent_tags.unwrap_or(0) & 0x300
+                } else {
+                    requested
+                };
+                if effective == 0x100 { 0x100 } else { 0xE00 }
+            } else {
+                let effective = if requested == 0 {
+                    machine_parent_tags.unwrap_or(0) & 0x300
+                } else {
+                    requested
+                };
+                effective
+                    | if selected.redirected_view == Some(RegistryView::Wow32) {
+                        0x400
+                    } else {
+                        0
+                    }
+            }
+        } else {
+            0
+        }
+    } else if wow {
         let view = access & 0x300;
-        if selected.machine_access().is_some() || machine_parent_tags.is_some() {
+        if selected.is_machine_hive() || machine_parent_tags.is_some() {
             machine_body_tags(
                 machine_parent_tags.unwrap_or(0),
                 view,
-                selected.machine_access().is_some(),
+                selected.is_machine_hive(),
             )
         } else {
             view | if view == 0x100 { 0 } else { 0x400 }
@@ -384,7 +473,7 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     let access = open_grant(c, access, options, &selected)?;
     // Redirected WoW64 key-body metadata is not inferred from the shared-key
     // formula. Keep it explicitly uncaptured until a present-root oracle exists.
-    let id = if redirected && wow {
+    let id = if redirected && wow && selected.command_access().is_none() {
         c.p.objects.create_registry_key_metadata(selected, None)
     } else {
         c.p.objects.create_registry_key(selected, tags)

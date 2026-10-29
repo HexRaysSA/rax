@@ -5,8 +5,12 @@ use super::super::user_policy::user_hive_path;
 use super::*;
 
 pub(crate) fn capture(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
-    let registry = capture_with(registry, sid, |path| open(sid, path))?;
-    super::user_policy::capture(registry, sid)
+    let registry = capture_header(registry, sid)?;
+    super::command_processor::capture_user(super::user_policy::capture(registry, sid)?, sid)
+}
+
+pub(super) fn capture_header(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
+    capture_with(registry, sid, |path| open(sid, path))
 }
 
 fn capture_with(

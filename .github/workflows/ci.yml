@@ -211,6 +211,18 @@ jobs:
           name: native-machine-hive-${{ matrix.name }}
           path: target/native-machine-hive-v1
           if-no-files-found: error
+      - name: Verify retained Command Processor producer identity
+        run: python tools/ci/windows_command_processor.py --verify-corpus
+      - name: Native Command Processor controls and guest replay
+        if: runner.os == 'Windows'
+        run: python tools/ci/windows_command_processor.py
+      - name: Preserve native Command Processor controls
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-command-processor-${{ matrix.name }}
+          path: target/native-command-processor-v1
+          if-no-files-found: error
       - name: Shared NT clock and CPU execution boundaries
         run: python tools/ci/system_time.py
       - name: Verify native WoW64 CSR evidence projection

@@ -54,7 +54,7 @@ fn selected(p: &mut Proc, report: &Json) {
                 kind: number(root, "value_type"),
                 data: bytes(root["value_data_hex"].as_str().unwrap()),
             }],
-            access: MachineAccess {
+            access: KeyAccess {
                 maximum_access: number(ordinary(0x02000000), "granted_access"),
                 system_security_status: number(ordinary(0x01000000), "status"),
             },

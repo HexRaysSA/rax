@@ -4,8 +4,8 @@ use super::*;
 
 #[derive(Debug, Clone)]
 pub(super) struct PrimaryHive {
-    path: Vec<u16>,
-    root: Option<Arc<Key>>,
+    pub(super) path: Vec<u16>,
+    pub(super) root: Option<Arc<Key>>,
 }
 
 pub(crate) struct HiveHeader {
@@ -17,6 +17,23 @@ pub(crate) struct HiveHeader {
 impl Registry {
     pub(super) fn check_primary_hive_sid(&self, sid: &[u8]) -> io::Result<()> {
         let path = user_policy::user_hive_path(sid)?;
+        if self
+            .views
+            .paths
+            .get(&ViewRoot::CommandUser)
+            .is_some_and(|selected| {
+                let expected: Vec<_> = path
+                    .iter()
+                    .copied()
+                    .chain(super::command_processor::COMMAND_SUFFIX.encode_utf16())
+                    .collect();
+                selected.as_ref() != expected
+            })
+        {
+            return Err(invalid(
+                "primary hive and Command Processor select different subjects",
+            ));
+        }
         if self
             .primary_hive
             .as_ref()
@@ -65,13 +82,16 @@ impl Registry {
                     bounded_values(&self.upcase, header.values, &mut self.value_budget()?)?;
                 Some(Arc::new(Key {
                     path: header.canonical,
-                    appmodel_view: None,
+                    redirected_view: None,
                     children: header.children,
                     upcase: self.upcase.clone(),
                     values: Arc::new(values),
                     subkeys: None,
                     selected_child: None,
                     selected_paths: BTreeMap::new(),
+                    command_access: None,
+                    logical_path: None,
+                    root_views: None,
                     machine: None,
                 }))
             }
@@ -94,8 +114,20 @@ impl Registry {
         let Some(hive) = &self.primary_hive else {
             return Ok(());
         };
-        if self.user_policies.is_empty() {
+        let command_selected = self.views.paths.contains_key(&ViewRoot::CommandUser);
+        if self.user_policies.is_empty() && !command_selected {
             return Ok(());
+        }
+        if self
+            .views
+            .roots
+            .iter()
+            .any(|((kind, _), key)| *kind == ViewRoot::CommandUser && key.is_some())
+            && hive.root.as_ref().is_none_or(|root| root.children == 0)
+        {
+            return Err(invalid(
+                "selected Command Processor exists below an absent or childless primary hive",
+            ));
         }
         let mut routes = BTreeMap::new();
         for (selection, policy) in &self.user_policies {
@@ -119,13 +151,16 @@ impl Registry {
         };
         let root = Arc::new(Key {
             path: root.path.clone(),
-            appmodel_view: None,
+            redirected_view: None,
             children: root.children,
             upcase: root.upcase.clone(),
             values: root.values.clone(),
             subkeys: None,
             selected_child: None,
             selected_paths: routes,
+            command_access: None,
+            logical_path: Some(hive.path.clone().into()),
+            root_views: Some(self.views.clone()),
             machine: None,
         });
         let path = hive.path.clone();
@@ -134,7 +169,12 @@ impl Registry {
         Ok(())
     }
 
-    pub(super) fn primary_hive_lookup(&self, folded: &[u16], name: &[u16]) -> Lookup {
+    pub(super) fn primary_hive_lookup(
+        &self,
+        folded: &[u16],
+        name: &[u16],
+        view: RegistryView,
+    ) -> Lookup {
         let Some(hive) = &self.primary_hive else {
             return Lookup::Unselected;
         };
@@ -155,7 +195,7 @@ impl Registry {
         for prefix in [&hive.path, &root.path] {
             let selected = root.fold(prefix);
             if folded.starts_with(&selected) && name.get(prefix.len()) == Some(&92) {
-                return root.relative(&name[prefix.len()..]);
+                return root.relative_in_view(&name[prefix.len()..], view);
             }
         }
         Lookup::Unselected
