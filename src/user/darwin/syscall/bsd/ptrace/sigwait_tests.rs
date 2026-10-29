@@ -51,7 +51,17 @@ fn an_out_of_band_task_resume_runs_the_other_thread_without_a_signal_verdict() {
         );
         assert_eq!(process.proc.exit, Some(ExitStatus::Exited(37)));
         assert_eq!(process.proc.threads[&selected].cpu.pc(), pc);
+        // Another host fork can retain this endpoint while tests run in
+        // parallel. Dropping our local owner alone then does not deliver EOF.
+        let retained = peer.duplicate_empty().unwrap();
         drop(peer);
+        assert_eq!(
+            process.run_slice(1, &AtomicBool::new(false)),
+            RunStatus::Blocked
+        );
+        // SAFETY: retained owns a live socket. Shutting down its endpoint
+        // disconnects every duplicate without closing another owner's fd.
+        assert_eq!(unsafe { libc::shutdown(retained.fd(), libc::SHUT_RDWR) }, 0);
         assert_eq!(
             process.run_slice(1, &AtomicBool::new(false)),
             RunStatus::Complete(ExitStatus::Exited(37))
