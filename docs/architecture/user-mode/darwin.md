@@ -59,10 +59,26 @@ from `bsd/kern/syscalls.master` (`abi::tables`, `tools/darwin/gen_abi.py`),
 Mach traps through the table generated from `osfmk/kern/syscall_sw.c`, and
 the machine-dependent calls (thread pointers: `thread_fast_set_cthread_self64`
 on x86-64, `TPIDRRO_EL0` on arm64). Results follow each call's
-`sy_return_type`. A call that must sleep records a `Wait` and returns
-`ERESTART`, which backs the PC up over the trap so the call runs again when
-its thread wakes; all guest threads run on one host thread (one emulated
-CPU, `hw.ncpu` = 1). The host descriptors the sleeping threads wait on are
+`sy_return_type`. An ARM64 BSD entry owns its effective call number, at most
+eight decoded scalar arguments and original post-SVC context PC. A parked
+service records a `Wait` and keeps that entry without rewinding saved user
+state. On wake the scheduler continues the service without fetching another
+guest instruction or decoding registers again. Mach state writes independently
+select user registers and the eventual return PC. Existing `Resume` records
+retain per-service deadlines and progress; this does not snapshot every
+pointed-to user payload. Final return clears the entry. A final signal-induced
+`ERESTART` still rewinds the current saved PC by 4 bytes before user signal
+delivery. x86-64 and Mach traps retain their existing instruction-restart
+paths; their saved-state behavior is not inferred from ARM64 BSD controls.
+Apple's [ARM entry and return implementation](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/dev/arm/systemcalls.c)
+provides the reference separation between copied arguments, retained syscall
+identity and saved user state. That source revision is not the installed
+macOS 27 kernel's exact source; the native read controls establish the covered
+runtime behavior independently. Descriptor close/reuse during pending I/O
+remains separately unqualified: scalar entry retention alone does not retain
+every referenced kernel object across service attempts.
+All guest threads run on one host thread (one emulated CPU, `hw.ncpu` = 1).
+The host descriptors the sleeping threads wait on are
 polled together, each once for every readiness asked of it (the host
 answers a descriptor listed twice in only one entry), and each waiter is
 woken for the direction it waits for.
@@ -451,7 +467,7 @@ source baseline rather than a claim about that host's exact kernel binary.
 | REG5 | An unrelated emulated tracer needs a cooperative exit report and reap acknowledgment rather than host wait4. | Host wait4 requires a real host child; native attach reparents the target, while a guest registry connection does not change host ancestry. | Virtual wait4/waitid exit/rusage delivery and target zombie lifetime. | WNOHANG/WNOWAIT, tracer exits without reaping, original parent waits concurrently, guest SIGKILL. | Independent RAX wait falls through to ECHILD or exposes/reuses a target PID before the emulated tracer reaps it. | Revised to cover family and registered tracing; native/RAX copyout, double-wait, waitid and reparent fixtures pass. |
 | REG6 | Independently launched Rosetta tasks are not a native oracle for x86 architectural thread state on this Apple Silicon host. | /tmp/rax-registry-state-diagnostic.json: two threads reject flavor 4 with KERN_INVALID_ARGUMENT and accept ARM64 flavor 6; arm64 native and RAX x86 state queries are tested separately. | The independent x86 Mach comparison excludes that host-only state observation; RAX must independently return its x86 state. | Physical Intel macOS, translated helper thread ordering and count, wrong guest flavor. | An independent native Rosetta target exposes x86_THREAD_STATE64 successfully under the same stopped profile. | Confirmed for the observed Rosetta profile; physical Intel execution remains unknown. |
 | REG7 | A host wait result is terminal only for WIFEXITED or WIFSIGNALED. | Frozen detach campaign iteration 2 reports native status 4991 (0x137f, continued), not a death; the original harness incorrectly treated it as terminal. | Native orchestration must ignore continued transitions and retain PID ownership until a terminal reap. | SIGCONT races with retained PT_DETACH SIGSTOP; WNOHANG and WUNTRACED statuses arrive in either order. | A nonterminal status is cached as a completed Child or an owned live target is leaked. | Native harness ignores nonterminal statuses; both-architecture independent detach/continue fixtures pass. |
-| REG8 | A caught debugger-supplied signal must complete the interrupted kernel continuation before its user handler frame is saved. | Pinned XNU kern_sig.c sigsuspend_nocancel always returns EINTR; actual RAX strace showed sigreturn resuming sigsuspend again before correction. | Exact restart-PC guard replays the original syscall instruction before the caught-signal AST; indirect arguments and syscall-specific restart semantics are preserved. | ARM64/x86-64, zero/fatal/masked/default verdicts, debugger PC edit, Mach traps, noninterruptible waits and read SA_RESTART. | After PT_CONTINUE with SIGUSR1, a pause handler returns to a new sigsuspend instead of its caller; a PC-edited or uncaught verdict enters replay. | Exact syscall-frontier replay is covered by focused units and the passing v4 full Darwin campaign. |
+| REG8 | A caught debugger-supplied signal completes the interrupted kernel continuation before its user handler frame is saved. | Pinned XNU kern_sig.c sigsuspend_nocancel returns EINTR; the ARM syscall source retains entry arguments and identity separately from user state. | ARM64 BSD uses its owned entry despite saved-PC changes; x86/Mach paths keep the exact restart-PC guard. | Indirect arguments, edited return PC, mismatched owner, zero/fatal/masked verdicts, Mach traps and EINTR/ERESTART. | An unrelated owner is admitted or a caught handler is saved before its pending service reaches kernel return. | Covered by focused continuation/verdict units; complete platform and native campaigns qualify each implementation. |
 | REG9 | A stopped peer can be awakened without targeting a reused host PID by using the socket audit token. | /tmp/rax-registry-wake-audit-current.json and /tmp/rax-registry-wake-stage-current.json; SDK LOCAL_PEERTOKEN/proc_signal_with_audittoken and pinned XNU proc_info.c validate exact process identity. | Discovery of independently launched targets that were stopped before connecting. | Stale pidversion, running peer, false hello claim, peer death before wake and ordinary native SIGCONT. | A stale audit token wakes a replacement process, a running target receives an unsolicited SIGCONT, or an unauthenticated hello claims an internal wake. | Stale audit-token API probe and native/RAX self-stopped, externally stopped and caught-CONT fixtures pass. |
 | REG10 | Guest exit ownership follows p_oppid before physical host reaping, including when tracer and original parent coincide. | Pinned XNU kern_exit.c:2849-2918 and native double-wait/EFAULT probes on macOS 27.2 arm64 and Rosetta. | Reap acknowledgement protocol, current-parent shared snapshot, wait eligibility and zombie metadata. | Two successive WNOHANG waits, status/rusage EFAULT, foreign controller ack, original parent waits concurrently, tracer EOF, SA_NOCLDWAIT. | Native/RAX ptrace_reap or ptrace_reparent fixture differs, or a nonowner controller can advance a zombie. | Native/RAX EFAULT, WNOWAIT, double-wait, reparent and parent-ownership fixtures pass; new process-event assertions also pass on both architectures. |
 | REG11 | On the observed macOS 27.2 profile, MATTR_CACHE preserves tested input values; code-range invalidation supplies the flat guest map cache synchronization effect. | Pinned XNU vm_user.c/vm_map.c; native /tmp/rax-vm-attribute-native-arm64.log; LLVM MachVMMemory.cpp explains SDK post-write RPC. | Local and remote RPC 4812/3813 and successful debugger breakpoint/memory write acknowledgement. | Zero size with invalid attributes/address, integer overflow, unmapped/cross-page ranges, arbitrary signed values, read-only maps, both RPC variants and guest architectures. | Native/RAX vm_attribute output differs, code log lacks affected pages, or actual SDK breakpoint insertion still reports E09 after memory write. | Both cache RPC variants, range/error and code-log units, native/RAX cache fixtures, and actual SDK breakpoint/memory writes pass. |
@@ -984,16 +1000,34 @@ as defined in the pinned
 [`proc_reg.h`](../../specifications/darwin/xnu-12377.121.6/osfmk/arm64/proc_reg.h).
 The engine inspects at most 4 bytes
 before a stepped instruction to form this syndrome; guest fetch, access
-checks, and execution remain in the CPU. A saved syscall continuation is
-matched by both post-SVC PC and effective call number. Completing that
-replayed call leaves Arm stepping armed for the next user instruction,
-matching the blocking-read observation. No new syscall-progress field or
-guest CPU debug register is added. Step control and syndrome work take O(1)
+checks, and execution remain in the CPU. A retained ARM64 BSD entry is
+matched to its original post-SVC context PC and effective call number,
+independently of debugger changes to the user return PC. Continuing its service
+does not retire a user instruction or complete an Arm instruction step. Final
+return leaves stepping armed for the next user instruction, matching the
+blocking-read observation. No guest CPU debug register is added. Entry storage,
+step control and syndrome work take O(1)
 time and space per selected thread. The existing scan and private wait-set
 lookups remain O(T log(W + 2)) for T threads and W entered signal waiters.
 Direct ISA semantics, SMIR interpretation/lifting and
 lowering, JIT admission, VM backends/devices, oracle output, and C ABI are
 unaffected; this is a Darwin debug-state and scheduling change.
+
+The read fixture now proves entry before supplying pipe input: zero task holds,
+`TH_STATE_WAITING`, saved PC at the read SVC's successor and `X16 == 3` must
+all hold. It then observes an empty exception receive before writing. A
+separate ready-data fixture queues the byte before resume and requires the
+fast-return `0xca000022` stop; the proved-blocked fixture requires the following
+instruction's `0xcb000022` stop. State-write variants preserve an unrelated
+`X19` change, replace saved `X0` with an invalid descriptor, or redirect the
+saved user PC past the following MOV. The entered read still completes with
+its original arguments and result, returning at the selected user PC.
+
+The earlier WAITING-only barrier did not prove read entry: a controlled
+pre-entry thread hold passed it while PC still named SVC. The original CI
+mismatch did not record prewrite saved state, so its exact scheduling cause
+remains unknown. These separate preconditions retain the distinct ESR/PC
+expectations rather than accepting either output.
 
 The additional fault variant executes the unallocated word `0x00000000`.
 Native macOS reports `EXC_BAD_INSTRUCTION` (2), codes `[1, 0]`, the faulting
@@ -1012,7 +1046,7 @@ registers remain stored state without hardware event generation.
 | ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | ARMSTEP1 | Mach SS controls the selected thread independently of BSD tracing; PSTATE.SS is armed on user entry and retained by an instruction fault. | Pinned status/step handlers and native Mach-only/fault probes. | One-instruction scheduling, saved state, and exception delivery. | Clear before resume, task/thread holds, branch targets, instruction faults, and exclusive accesses. | A native Mach-only probe does not stop at the covered frontier, or a local held/faulting thread retires an extra instruction or loses saved SS. | Revised after the native fault probe falsified the first candidate; confirmed for the corrected unit, native-comparison, and debugger cases below. |
-| ARMSTEP2 | A parked Arm syscall continuation returns with stepping armed for the next user instruction. | 80 native blocking-read runs versus 80 nonblocking-getpid runs. | Replay-frontier handling and ESR ISV. | Empty pipe, bounded receive timeout before readiness, and effective call/PC matching. | The gated native read reports an exception before readiness or stops at the SVC return PC. | Confirmed for these return paths; other kernel scheduling paths are not exhaustively characterized. |
+| ARMSTEP2 | A proved-blocked Arm BSD read returns with stepping armed for the next user instruction. | Earlier blocking/getpid observations plus separate ready, entered-read and state-write controls. | Owned service continuation and distinct fast/slow ESR frontiers. | Entry PC and WAITING precondition, empty pipe, changed argument registers and selected return PC. | A proved-entered native read is retargeted by a scalar state write, or its return stops at the wrong instruction. | Confirmed for the measured read cases; the old WAITING-only precondition was insufficient, and other kernel paths remain bounded separately. |
 | ARMSTEP3 | Kernel instruction inspection and execution observe the same instruction bytes. | Requests for this process are dispatched between guest instruction steps. | Synthetic ESR instruction classification. | Instruction fault and code replacement before the step. | A concurrently writable shared code mapping changes between inspection and guest fetch. | Retained; unsynchronized external writes to shared executable mappings are outside this probe's evidence. |
 | ARMSTEP4 | A debug-control interruption may discard an earlier local exclusive reservation. | The user CPU already clears it on synchronous kernel exits; native exclusive-load step is followed by failed STXR. | Arming/delivery monitor reset and failed-store EX classification. | Exclusive load before the exception and store without a reservation. | A supported control writer preserves a reservation that allows a stepped store to succeed under this implementation. | Retained for control-boundary invalidation; no claim that native kernels always clear every reservation at every debug-state write. |
 

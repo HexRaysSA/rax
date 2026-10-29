@@ -263,3 +263,45 @@ fn a_substituted_signal_completes_the_exact_kernel_continuation_before_its_handl
         }
     }
 }
+
+#[test]
+fn a_caught_verdict_uses_owned_bsd_entry_identity_after_saved_user_pc_changes() {
+    use crate::user::darwin::syscall::PendingUnix;
+    use crate::user::darwin::wait::Resume;
+    let (mut process, selected, _, _peer) = stopped_pair(DarwinAbi::Arm64);
+    let mut thread = process.proc.threads.remove(&selected).unwrap();
+    let original = thread.cpu.pc() + 4;
+    process.proc.sigacts.handler[signal::SIGUSR1 as usize] = original;
+    thread.resume = Some(Resume {
+        pc: original,
+        call: 111,
+        deadline: None,
+        step: 0,
+    });
+    thread.pending_unix = Some(PendingUnix {
+        pc: original,
+        nr: 111,
+        args: [0; 8],
+    });
+    process.proc.tracing.verdict = Some(Verdict {
+        thread: selected,
+        signal: signal::SIGUSR1,
+        original: signal::SIGSTOP,
+    });
+    thread.cpu.set_pc(original + 128);
+    assert!(resume_before_verdict(&process.proc, &mut thread));
+    assert_eq!(thread.cpu.pc(), original + 128);
+    assert_eq!(thread.resume.unwrap().pc, original);
+    // An unrelated record cannot regain admission through the legacy PC path.
+    thread.pending_unix.as_mut().unwrap().nr = 112;
+    thread.cpu.set_pc(original - 4);
+    assert!(!resume_before_verdict(&process.proc, &mut thread));
+    thread.pending_unix.as_mut().unwrap().nr = 111;
+    thread.sig.mask |= signal::bit(signal::SIGUSR1);
+    assert!(!resume_before_verdict(&process.proc, &mut thread));
+    thread.sig.mask = 0;
+    for sig in [0, signal::SIGKILL] {
+        process.proc.tracing.verdict.as_mut().unwrap().signal = sig;
+        assert!(!resume_before_verdict(&process.proc, &mut thread));
+    }
+}

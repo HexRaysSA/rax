@@ -4,8 +4,9 @@
 //! from the registers, fetches the arguments the call's `sysent` entry
 //! declares, runs the handler with a [`Ctx`], and writes the result back in
 //! the machine's convention ([`DarwinCpu::set_unix_result`]). A handler
-//! that must sleep registers a [`Wait`] and returns `ERESTART`, which backs
-//! the PC up so the call runs again when the thread wakes.
+//! that must sleep registers a [`Wait`]. ARM64 BSD calls retain a decoded
+//! kernel entry independently of saved user registers; other entry paths
+//! retain their existing instruction-restart behavior.
 //!
 //! [`DarwinCpu::set_unix_result`]: super::arch::DarwinCpu::set_unix_result
 
@@ -14,6 +15,9 @@ pub mod mach;
 pub mod mdep;
 pub mod mem;
 pub mod util;
+
+mod continuation;
+pub(crate) use continuation::{PendingUnix, resume_unix};
 
 use super::abi::{self, Errno, Kind};
 use super::arch::{SysResult, Trap};
@@ -87,33 +91,7 @@ fn unix(proc: &mut Proc, thread: &mut Thread, code: u32) {
         Kind::Enosys => Err(Errno::ENOSYS),
         Kind::Call => match thread.cpu.unix_args(sc.nargs as usize, indirect) {
             Err(e) => Err(e),
-            Ok(args) => {
-                // A restarted call keeps its progress only if it is the
-                // same call at the same place.
-                if thread
-                    .resume
-                    .is_some_and(|r| r.pc != pc || r.call != i64::from(nr))
-                {
-                    thread.resume = None;
-                }
-                // Not a cancellation point unless the call says so
-                // (__pthread_testcancel clears the flag).
-                thread.sig.uflags |= super::signal::uflag::NOTCANCELPT;
-                let mut ctx = Ctx {
-                    proc,
-                    thread,
-                    nr: i64::from(nr),
-                    pc,
-                };
-                let r = bsd::call(&mut ctx, nr, &args);
-                if ctx.thread.wait.is_none() {
-                    ctx.thread.sig.uflags &= !super::signal::uflag::NOTCANCELPT;
-                }
-                if ctx.proc.config.strace {
-                    util::trace_unix(&ctx, sc.name, &args[..sc.nargs as usize], &r);
-                }
-                r
-            }
+            Ok(args) => return continuation::start_unix(proc, thread, nr, args, pc),
         },
     };
     finish(thread, sc.ret, result);
@@ -121,6 +99,12 @@ fn unix(proc: &mut Proc, thread: &mut Thread, code: u32) {
 
 /// Writes a BSD call's result and parks the thread when it sleeps.
 fn finish(thread: &mut Thread, ret: abi::Ret, result: SysResult) {
+    // A parked kernel service has not returned ERESTART to user mode. Its
+    // saved state remains independently writable by a Mach debugger.
+    if result == Err(Errno::ERESTART) && thread.wait.is_some() && thread.pending_unix.is_some() {
+        return;
+    }
+    thread.pending_unix = None;
     if result != Err(Errno::ERESTART) || thread.wait.is_none() {
         thread.resume = None;
     }

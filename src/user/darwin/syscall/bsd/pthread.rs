@@ -139,6 +139,7 @@ pub fn bsdthread_create(
         },
         wait: None,
         resume: None,
+        pending_unix: None,
         pthread,
         exited: false,
         woken: false,

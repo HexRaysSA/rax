@@ -52,6 +52,26 @@ fn arm_mach_step_read() {
 }
 
 #[test]
+fn arm_mach_step_read_ready() {
+    handler_fixture("arm_mach_step_read_ready", "arm64");
+}
+
+#[test]
+fn arm_mach_step_read_state() {
+    handler_fixture("arm_mach_step_read_state", "arm64");
+}
+
+#[test]
+fn arm_mach_step_read_argument() {
+    handler_fixture("arm_mach_step_read_argument", "arm64");
+}
+
+#[test]
+fn arm_mach_step_read_pc() {
+    handler_fixture("arm_mach_step_read_pc", "arm64");
+}
+
+#[test]
 fn arm_mach_step_fault() {
     handler_fixture("arm_mach_step_fault", "arm64");
 }

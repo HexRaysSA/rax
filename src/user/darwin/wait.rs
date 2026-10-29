@@ -2,12 +2,13 @@
 //!
 //! Every thread of a process runs on one host thread, so a call that must
 //! sleep cannot block the host while another guest thread could run. Its
-//! handler records what it waits for (a [`Wait`]) and returns
-//! `ERESTART`: the thread's PC is backed up over the trap instruction and
-//! the thread parks. When the wait can end — a descriptor is ready, the
+//! handler records what it waits for (a [`Wait`]) and parks. An entered ARM64
+//! BSD call retains its decoded scalar arguments independently of mutable
+//! saved user registers. Other paths keep their existing instruction restart.
+//! When the wait can end — a descriptor is ready, the
 //! deadline passed, a signal arrived, or another thread posted the event it
-//! waits for ([`WaitKey`]) — the thread runs again and executes the same
-//! trap, re-evaluating its condition. A deadline survives the re-execution
+//! waits for ([`WaitKey`]) — the thread continues its service, re-evaluating
+//! its condition. A deadline survives continuation
 //! in the thread's [`Resume`] record, so a timed call waits for its whole
 //! timeout once.
 //!
@@ -95,11 +96,11 @@ impl Wait {
     }
 }
 
-/// Progress a restarted call keeps: the trap it belongs to and the absolute
+/// Progress a parked call keeps: the entry it belongs to and the absolute
 /// deadline computed on its first execution.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Resume {
-    /// PC of the trap instruction.
+    /// Original trap successor, matching the syscall context's PC.
     pub pc: u64,
     /// The call's number (BSD number, or negative Mach trap).
     pub call: i64,
