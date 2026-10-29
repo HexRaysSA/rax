@@ -1,4 +1,6 @@
 //! Native CMD leaf controls replayed through the actual guest NT dispatcher.
+#[path = "ole_registry_replay.rs"]
+mod ole;
 #[path = "command_processor_tree_replay.rs"]
 mod subtree;
 #[path = "system_command_processor_replay.rs"]

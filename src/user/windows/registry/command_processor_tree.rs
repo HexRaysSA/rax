@@ -7,24 +7,30 @@ pub(crate) struct CommandTree {
     pub(crate) children: Vec<(Vec<u16>, CommandTree)>,
 }
 
-pub(super) struct Builder {
+pub(in crate::user::windows::registry) struct Builder {
     upcase: Arc<[u16]>,
     view: RegistryView,
+    label: &'static str,
     values: ValueBudget,
     metadata: TreeBudget,
 }
 
 impl Builder {
-    pub(super) fn new(registry: &Registry, view: RegistryView) -> io::Result<Self> {
+    pub(in crate::user::windows::registry) fn new(
+        registry: &Registry,
+        view: RegistryView,
+        label: &'static str,
+    ) -> io::Result<Self> {
         Ok(Self {
             upcase: registry.upcase.clone(),
             view,
+            label,
             values: registry.value_budget()?,
             metadata: registry.view_budget()?,
         })
     }
 
-    pub(super) fn build(
+    pub(in crate::user::windows::registry) fn build(
         &mut self,
         logical: Vec<u16>,
         header: CommandHeader,
@@ -32,7 +38,10 @@ impl Builder {
         depth: usize,
     ) -> io::Result<Arc<Key>> {
         if header.canonical.len() > MAX_NAME_UNITS || header.canonical.contains(&0) {
-            return Err(invalid("Command Processor canonical name exceeds bounds"));
+            return Err(invalid(&format!(
+                "{} canonical name exceeds bounds",
+                self.label
+            )));
         }
         if header.access.maximum_access & !super::super::access::KEY_ALL_ACCESS != 0
             || header.access.system_security_status != 0
@@ -44,7 +53,10 @@ impl Builder {
             children.len() != header.children as usize
                 || children.len() >= super::super::tree::MAX_TREE_KEYS
         }) {
-            return Err(invalid("Command Processor complete child count differs"));
+            return Err(invalid(&format!(
+                "{} complete child count differs",
+                self.label
+            )));
         }
         self.metadata.charge(&header.canonical, depth)?;
         let values = bounded_values(&self.upcase, header.values, &mut self.values)?;
@@ -74,7 +86,10 @@ impl Builder {
             for (name, child) in children {
                 let physical = child_path(&key.path, &name)?;
                 if key.fold(&physical) != key.fold(&child.header.canonical) {
-                    return Err(invalid("Command Processor child escapes captured parent"));
+                    return Err(invalid(&format!(
+                        "{} child escapes captured parent",
+                        self.label
+                    )));
                 }
                 let logical = child_path(&logical, &name)?;
                 let child = self.build(logical, child.header, Some(child.children), depth + 1)?;
@@ -87,9 +102,10 @@ impl Builder {
                     .iter()
                     .any(|entry| !selected.contains_key(&key.fold(&entry.name)))
             }) {
-                return Err(invalid(
-                    "Command Processor enumeration differs from captured children",
-                ));
+                return Err(invalid(&format!(
+                    "{} enumeration differs from captured children",
+                    self.label
+                )));
             }
             key.subkeys = Some(selected);
         }
@@ -97,7 +113,7 @@ impl Builder {
     }
 }
 
-pub(super) fn same_physical_contents(left: &Key, right: &Key) -> bool {
+pub(in crate::user::windows::registry) fn same_physical_contents(left: &Key, right: &Key) -> bool {
     if left.children != right.children
         || left.values != right.values
         || left.command_access != right.command_access

@@ -1,5 +1,6 @@
 //! Acquire complete fixed CMD subtrees, with a captured creator SID for HKU.
 //! No guest path, view, access mask, callback or native handle survives capture.
+use super::super::SnapshotRoot;
 use super::super::{CommandHeader, CommandRoot, KeyAccess, RegistryView};
 use super::*;
 use crate::user::windows::nt::status::{
@@ -20,10 +21,28 @@ pub(super) fn capture_user(registry: Registry, sid: &[u8]) -> io::Result<Registr
 }
 
 fn capture_with(
-    mut registry: Registry,
+    registry: Registry,
     root: CommandRoot,
     sid: &[u8],
     mut opener: impl FnMut(CommandRoot, &[u8], RegistryView) -> io::Result<OwnedKey>,
+) -> io::Result<Registry> {
+    capture_snapshot_with(
+        registry,
+        SnapshotRoot::Command(root),
+        sid,
+        |_, sid, view| opener(root, sid, view),
+    )
+}
+
+pub(super) fn capture_ole(registry: Registry) -> io::Result<Registry> {
+    capture_snapshot_with(registry, SnapshotRoot::Ole, &[], open_snapshot)
+}
+
+fn capture_snapshot_with(
+    mut registry: Registry,
+    root: SnapshotRoot,
+    sid: &[u8],
+    mut opener: impl FnMut(SnapshotRoot, &[u8], RegistryView) -> io::Result<OwnedKey>,
 ) -> io::Result<Registry> {
     if registry.upcase.len() != 65_536
         || [RegistryView::Native64, RegistryView::Wow32]
@@ -35,14 +54,14 @@ fn capture_with(
         ));
     }
     root.path(sid)?;
-    if root == CommandRoot::User {
+    if root.is_user() {
         registry.check_primary_hive_sid(sid)?;
     }
     for view in [RegistryView::Native64, RegistryView::Wow32] {
         let key = match opener(root, sid, view) {
             Ok(key) => key,
             Err(error) if error.raw_os_error() == Some(2) => {
-                registry = registry.with_command_view(
+                registry = registry.with_snapshot_selection(
                     root,
                     sid,
                     view,
@@ -51,7 +70,7 @@ fn capture_with(
                 continue;
             }
             Err(error) if error.raw_os_error() == Some(3) => {
-                registry = registry.with_command_view(
+                registry = registry.with_snapshot_selection(
                     root,
                     sid,
                     view,
@@ -62,18 +81,34 @@ fn capture_with(
             Err(error) => return Err(error),
         };
         let selected = subtree::capture(&registry, root, sid, view, key)?;
-        registry = registry.with_command_tree(root, sid, view, Ok(selected))?;
+        registry = registry.with_snapshot_selection(
+            root,
+            sid,
+            view,
+            Ok((selected.header, Some(selected.children))),
+        )?;
     }
     Ok(registry)
 }
 
 fn open(root: CommandRoot, sid: &[u8], view: RegistryView) -> io::Result<OwnedKey> {
-    let fixed = root.path(sid)?;
-    open_path(root, sid, view, &fixed)
+    open_snapshot(SnapshotRoot::Command(root), sid, view)
 }
-
 fn open_path(
     root: CommandRoot,
+    sid: &[u8],
+    view: RegistryView,
+    path: &[u16],
+) -> io::Result<OwnedKey> {
+    open_snapshot_path(SnapshotRoot::Command(root), sid, view, path)
+}
+fn open_snapshot(root: SnapshotRoot, sid: &[u8], view: RegistryView) -> io::Result<OwnedKey> {
+    let path = root.path(sid)?;
+    open_snapshot_path(root, sid, view, &path)
+}
+
+fn open_snapshot_path(
+    root: SnapshotRoot,
     sid: &[u8],
     view: RegistryView,
     path: &[u16],
@@ -86,10 +121,10 @@ fn open_path(
         return Err(invalid("Command Processor path escapes fixed subtree"));
     }
     let (hive, prefix) = match root {
-        CommandRoot::Machine | CommandRoot::System => {
+        SnapshotRoot::Command(CommandRoot::Machine | CommandRoot::System) | SnapshotRoot::Ole => {
             (-2_147_483_646isize, "\\Registry\\Machine\\")
         }
-        CommandRoot::User => (-2_147_483_645isize, "\\Registry\\User\\"),
+        SnapshotRoot::Command(CommandRoot::User) => (-2_147_483_645isize, "\\Registry\\User\\"),
     };
     let prefix: Vec<_> = prefix.encode_utf16().collect();
     let relative = path
@@ -129,3 +164,7 @@ mod tests;
 #[cfg(test)]
 #[path = "command_processor_system_tests.rs"]
 mod system_tests;
+
+#[cfg(test)]
+#[path = "ole_tests.rs"]
+mod ole_tests;

@@ -5,7 +5,7 @@ use crate::user::windows::registry::{CommandTree, ValueBudget};
 
 struct Capture<'a, F> {
     registry: &'a Registry,
-    root: CommandRoot,
+    root: SnapshotRoot,
     sid: &'a [u8],
     view: RegistryView,
     values: ValueBudget,
@@ -16,19 +16,38 @@ struct Capture<'a, F> {
 
 pub(super) fn capture(
     registry: &Registry,
-    root: CommandRoot,
+    root: SnapshotRoot,
     sid: &[u8],
     view: RegistryView,
     key: OwnedKey,
 ) -> io::Result<CommandTree> {
-    capture_with(registry, root, sid, view, key, |path| {
-        open_path(root, sid, view, path)
+    capture_snapshot_with(registry, root, sid, view, key, |path| {
+        open_snapshot_path(root, sid, view, path)
     })
 }
 
+#[cfg(test)]
 pub(super) fn capture_with(
     registry: &Registry,
     root: CommandRoot,
+    sid: &[u8],
+    view: RegistryView,
+    key: OwnedKey,
+    opener: impl FnMut(&[u16]) -> io::Result<OwnedKey>,
+) -> io::Result<CommandTree> {
+    capture_snapshot_with(
+        registry,
+        SnapshotRoot::Command(root),
+        sid,
+        view,
+        key,
+        opener,
+    )
+}
+
+fn capture_snapshot_with(
+    registry: &Registry,
+    root: SnapshotRoot,
     sid: &[u8],
     view: RegistryView,
     key: OwnedKey,
@@ -77,8 +96,8 @@ impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
                     return Err(invalid("Command Processor child escapes captured parent"));
                 }
             } else {
-                self.registry
-                    .check_command_name(self.root, self.sid, self.view, &canonical)?;
+                self.root
+                    .check_name(self.registry, self.sid, self.view, &canonical)?;
             }
             self.metadata.charge(&canonical, depth)?;
             let access = access(&key, &canonical)?;

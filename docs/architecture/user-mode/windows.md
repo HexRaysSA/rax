@@ -688,3 +688,13 @@ x86_64-suite,smir-jit`. Formatting and diff checks passed. No compiled PE32
 guard-repair witness or native Windows x86 comparison was run; the scratch
 layout, private retry frontier, nested-handler precedence and overflow recovery
 are a tested RAX policy, not an established native equivalence claim.
+
+
+The fixed HKLM `Software\Microsoft\OLE` subject uses the same complete
+immutable subtree machinery. Both explicit views must agree on existence and
+physical contents. Captured grants, child metadata and values remain owned by
+guest handles after duplication and catalog replacement. Native acquisition
+selects the compile-time OLE path, closes its HKEYs, and never forwards guest
+registry arguments. [Independent controls and current validation scope](../../specifications/windows/native-ole-registry/README.md)
+record 15,572 native open cases across ARM64, x64 and x86 on build 29695;
+broader native profiles and full installed-process behavior remain separate.

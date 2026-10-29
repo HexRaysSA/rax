@@ -10,7 +10,7 @@ fn tree_corpus() -> Json {
     .unwrap()
 }
 
-fn tree_node(report: &Json, id: usize) -> CommandTree {
+pub(super) fn tree_node(report: &Json, id: usize) -> CommandTree {
     let raw = &report["nodes"][id];
     let state = &report["states"][n(raw, "state") as usize];
     let children = report["nodes"]
@@ -128,6 +128,14 @@ fn check_tree_handle(p: &mut Proc, t: &mut Thread, base: u64, handle: u64, expec
 }
 
 fn replay_trees(corpus: &Json, installed: bool) -> usize {
+    replay_trees_with(corpus, installed, tree_selection)
+}
+
+pub(super) fn replay_trees_with(
+    corpus: &Json,
+    installed: bool,
+    selection: fn(&Json, bool) -> Registry,
+) -> usize {
     assert_eq!(corpus["state"], "complete");
     let mut checked = 0;
     for report in corpus["reports"].as_array().unwrap() {
@@ -139,7 +147,7 @@ fn replay_trees(corpus: &Json, installed: bool) -> usize {
         };
         let (mut process, mut thread, base) = setup(arch);
         let p = process.state_mut();
-        p.registry = tree_selection(report, installed);
+        p.registry = selection(report, installed);
         let states = report["states"].as_array().unwrap();
         for node in report["nodes"].as_array().unwrap() {
             let captured = &states[n(node, "state") as usize];

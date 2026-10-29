@@ -3,7 +3,7 @@ use super::super::nt::status::{STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_
 use super::*;
 
 #[path = "command_processor_tree.rs"]
-mod subtree;
+pub(super) mod subtree;
 pub(crate) use subtree::CommandTree;
 
 pub(crate) const COMMAND_PROCESSOR_KEY: &str =
@@ -73,89 +73,13 @@ impl Registry {
     }
 
     fn with_command_selection(
-        mut self,
+        self,
         root: CommandRoot,
         sid: &[u8],
         view: RegistryView,
         selected_tree: Result<(CommandHeader, Option<Vec<(Vec<u16>, CommandTree)>>), u32>,
     ) -> io::Result<Self> {
-        let selected = root.selection();
-        if self.upcase.len() != 65_536 || self.views.roots.contains_key(&(selected, view)) {
-            return Err(invalid(
-                "invalid or duplicate Command Processor registry view",
-            ));
-        }
-        if root == CommandRoot::User {
-            self.check_primary_hive_sid(sid)?;
-        }
-        let logical = root.path(sid)?;
-        if self
-            .views
-            .paths
-            .get(&selected)
-            .is_some_and(|path| path.as_ref() != logical)
-        {
-            return Err(invalid("Command Processor views select different subjects"));
-        }
-        let missing_path =
-            matches!(&selected_tree, Err(status) if *status == STATUS_OBJECT_PATH_NOT_FOUND);
-        let key = match selected_tree {
-            Ok((header, children)) => {
-                self.check_command_name(root, sid, view, &header.canonical)?;
-                let mut builder = subtree::Builder::new(&self, view)?;
-                Some(builder.build(logical.clone(), header, children, 0)?)
-            }
-            Err(STATUS_OBJECT_NAME_NOT_FOUND | STATUS_OBJECT_PATH_NOT_FOUND) => None,
-            Err(_) => {
-                return Err(invalid(
-                    "Command Processor absence is not a native not-found result",
-                ));
-            }
-        };
-        // This fixed SYSTEM route admits one canonical physical subject,
-        // unlike the independently redirected Software views. A race cannot
-        // leave its two records disagreeing about existence or absence class.
-        if root == CommandRoot::System {
-            for (&(kind, captured_view), other) in &self.views.roots {
-                if kind != selected {
-                    continue;
-                }
-                if key.is_some() != other.is_some()
-                    || key.is_none()
-                        && missing_path != self.views.missing_paths.contains(&(kind, captured_view))
-                {
-                    return Err(invalid(
-                        "System Command Processor existence changed between view captures",
-                    ));
-                }
-            }
-        }
-        if let Some(key) = &key {
-            for ((kind, _), other) in &self.views.roots {
-                if *kind != selected {
-                    continue;
-                }
-                if let Some(other) = other {
-                    if key.fold(&key.path) == other.fold(&other.path)
-                        && !subtree::same_physical_contents(key, other)
-                    {
-                        return Err(invalid(
-                            "Command Processor shared physical key changed between view captures",
-                        ));
-                    }
-                }
-            }
-        }
-        let views = Arc::make_mut(&mut self.views);
-        views.upcase = self.upcase.clone();
-        views.paths.insert(selected, logical.into());
-        views.roots.insert((selected, view), key);
-        if missing_path {
-            views.missing_paths.insert((selected, view));
-        }
-        self.relink_machine_hive()?;
-        self.link_primary_hive_policy()?;
-        Ok(self)
+        self.with_snapshot_selection(SnapshotRoot::Command(root), sid, view, selected_tree)
     }
 
     pub(super) fn check_command_name(

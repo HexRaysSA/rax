@@ -44,6 +44,9 @@ mod command_processor;
 pub(crate) use command_processor::{
     COMMAND_PROCESSOR_KEY, CommandHeader, CommandRoot, CommandTree,
 };
+#[path = "registry/snapshot_root.rs"]
+mod snapshot_root;
+pub(crate) use snapshot_root::{OLE_KEY, SnapshotRoot};
 #[path = "registry/fixed.rs"]
 mod fixed;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;
