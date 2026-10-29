@@ -3463,3 +3463,36 @@ self-open states. The current user's leaf is absent in that context; a present
 user leaf is implemented and controlled-fixture tested without claiming an
 independent native present-user result. The owning library, native Windows
 adapter, fresh AMD64 corpus and actual CMD comparison are separate gates.
+
+### Complete fixed Command Processor subtrees (2026-10-29)
+
+Installed acquisition now enumerates every bounded descendant of both fixed
+CMD roots and views. Each node owns its observed canonical identity, raw
+values, complete child map and access profile. Native parents close before
+descendant opens. Shared aggregate key, depth, path and value budgets also
+cover pending sibling names. Partial-header fixtures remain explicitly partial.
+Redirecting descendant aliases outside the captured parent fail acquisition.
+
+The independent producer and corpus under
+`docs/specifications/windows/native-command-processor-tree/` retain 7,040
+relative/self/missing-name opens from ARM64/x64/x86 on kernel 29695. Portable
+dispatcher replay passed every row after handle duplication, original-handle
+closure and namespace replacement. Six model tests cover per-node grants,
+physical-path classification, malformed trees and aggregate bounds. The
+existing Windows CI runner captures fresh subtree data and requires replay
+through the actual installed snapshot; no additional CI job is introduced.
+
+The preceding header/view candidate completed its Windows library gate with
+8,121 passed, zero failed, two ignored and zero filtered tests; all 6,411 inputs
+were unchanged. Its unchanged installed ARM64 CMD still stopped before stdout
+at relative `KnownPackageManagers` below the machine CMD key. This request is
+the subtree change's measured regression target, rather than evidence that
+the new executable completes CMD. Native acquisition, actual CMD and complete
+platform qualification of this subtree change remain separate gates.
+
+Fresh AMD64 header/view controls from CI run 40800064800 exposed a fixture
+classification error for the native `Wow6432Node` spelling. Case-independent
+physical-view classification and the retained AMD64 corpus now cover that
+failure on every host. Raw native report hashes and the creator-name projection
+remain recorded. This fixture correction does not change product registry
+case-folding policy.

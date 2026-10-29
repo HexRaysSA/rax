@@ -130,7 +130,7 @@ fn names(key: &OwnedKey, metadata: &Info) -> io::Result<Vec<Vec<u16>>> {
 fn changed(error: &io::Error) -> bool {
     matches!(error.raw_os_error(), Some(234 | 259))
 }
-fn stable(
+pub(super) fn stable(
     key: &OwnedKey,
     budget: &ValueBudget,
     reserved: usize,

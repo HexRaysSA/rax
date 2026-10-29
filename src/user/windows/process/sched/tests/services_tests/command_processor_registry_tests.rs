@@ -1,4 +1,7 @@
 //! Native CMD leaf controls replayed through the actual guest NT dispatcher.
+#[path = "command_processor_tree_replay.rs"]
+mod subtree;
+
 use super::*;
 use crate::user::windows::objects::Object;
 use crate::user::windows::registry::{
@@ -31,6 +34,27 @@ fn corpus() -> Json {
         "/docs/specifications/windows/native-command-processor/controls-v1.json"
     )))
     .unwrap()
+}
+
+fn amd64_corpus() -> Json {
+    serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-command-processor/controls-amd64-v1.json"
+    )))
+    .unwrap()
+}
+
+fn physical_view(name: &[u16], tags: u32) -> RegistryView {
+    if tags & 0x400 != 0
+        || String::from_utf16(name)
+            .unwrap()
+            .to_ascii_uppercase()
+            .contains("\\WOW6432NODE\\")
+    {
+        RegistryView::Wow32
+    } else {
+        RegistryView::Native64
+    }
 }
 fn capture(report: &Json, view: RegistryView) -> &Json {
     &report["family"]["hives"][0]["captures"][if view == RegistryView::Native64 { 1 } else { 2 }]
@@ -364,15 +388,7 @@ fn replay(corpus: &Json, installed: bool) {
                 .filter(|row| n(row, "open_status") == 0)
             {
                 let name = units(raw["name_hex"].as_str().unwrap());
-                let view = if n(raw, "tags") & 0x400 != 0
-                    || name
-                        .windows(wide("\\WOW6432Node\\").len())
-                        .any(|part| part == wide("\\WOW6432Node\\"))
-                {
-                    RegistryView::Wow32
-                } else {
-                    RegistryView::Native64
-                };
+                let view = physical_view(&name, n(raw, "tags"));
                 let root = if n(hive, "hive") == 0 {
                     CommandRoot::Machine
                 } else {
@@ -413,6 +429,7 @@ fn replay(corpus: &Json, installed: bool) {
 #[test]
 fn command_processor_replays_retained_and_fresh_native_open_controls() {
     replay(&corpus(), false);
+    replay(&amd64_corpus(), false);
     if let Some(path) = std::env::var_os("RAX_COMMAND_PROCESSOR_CORPUS") {
         let fresh: Json = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
         replay(&fresh, true);
@@ -445,15 +462,7 @@ fn replay_graph(corpus: &Json, installed: bool) -> usize {
             };
             for state in graph["states"].as_array().unwrap() {
                 let name = units(state["name_hex"].as_str().unwrap());
-                let view = if n(state, "tags") & 0x400 != 0
-                    || name
-                        .windows(wide("\\WOW6432Node\\").len())
-                        .any(|part| part == wide("\\WOW6432Node\\"))
-                {
-                    RegistryView::Wow32
-                } else {
-                    RegistryView::Native64
-                };
+                let view = physical_view(&name, n(state, "tags"));
                 let Lookup::Present(key) = p.registry.lookup_view(&root.path(&sid).unwrap(), view)
                 else {
                     panic!("state identity");
@@ -508,6 +517,7 @@ fn replay_graph(corpus: &Json, installed: bool) -> usize {
 #[test]
 fn command_processor_closed_self_graph_survives_duplicates_and_namespace_replacement() {
     assert_eq!(replay_graph(&corpus(), false), 112);
+    assert_eq!(replay_graph(&amd64_corpus(), false), 80);
     if let Some(path) = std::env::var_os("RAX_COMMAND_PROCESSOR_CORPUS") {
         let fresh: Json = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
         assert!(

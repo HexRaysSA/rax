@@ -32,7 +32,81 @@ def verify_sources(source):
         normalized = (source / name).read_bytes().replace(b"\r\n", b"\n")
         require(sha(normalized) == digest, "retained producer changed: " + name)
     require(len(corpus["reports"]) == 3, "retained process ABI count")
+    amd64 = json.loads((source / "controls-amd64-v1.json").read_text(encoding="utf-8"))
+    require(amd64["normalized_source_hashes"] == corpus["source_hashes"],
+            "AMD64 producer identity differs")
     return corpus["source_hashes"]
+
+
+def verify_tree_sources(root):
+    source = root / "docs/specifications/windows"
+    corpus = json.loads((source / "native-command-processor-tree/controls-v1.json")
+                        .read_text(encoding="utf-8"))
+    require(set(corpus["source_hashes"]) == {
+        "native-command-processor-tree/tree-v1.c",
+        "native-command-processor-tree/CMakeLists.txt",
+        "native-command-processor/absolute-v1.c"}, "tree producer input set differs")
+    for name, digest in corpus["source_hashes"].items():
+        require(sha((source / name).read_bytes().replace(b"\r\n", b"\n")) == digest,
+                "retained tree producer changed: " + name)
+    require(len(corpus["reports"]) == 3, "retained tree process ABI count")
+    return corpus["source_hashes"]
+
+
+def capture_trees(root, output, architectures, env, normalized):
+    source = root / "docs/specifications/windows"
+    raw_hashes = {name: sha((source / name).read_bytes()) for name in normalized}
+    reports = []
+    for label, generator_arch, machine, width in architectures:
+        build = output / ("tree-build-" + label)
+        run(["cmake", "-S", str(source / "native-command-processor-tree"),
+             "-B", str(build), "-A", generator_arch], root, env,
+            output / (label + "-tree-configure.log"))
+        run(["cmake", "--build", str(build), "--config", "Release", "--", "/nr:false"],
+            root, env, output / (label + "-tree-build.log"))
+        paths = (build / "probe-paths-Release.txt").read_text(encoding="utf-8").splitlines()
+        require(len(paths) == 1, "native tree target path count")
+        image = Path(paths[0]).resolve()
+        require(image.is_relative_to(build.resolve()), "native tree image leaves build")
+        raw = image.read_bytes()
+        require(raw[:2] == b"MZ", "native tree DOS header")
+        pe = struct.unpack_from("<I", raw, 0x3C)[0]
+        require(raw[pe:pe+4] == b"PE\0\0" and struct.unpack_from("<H", raw, pe+4)[0] == machine,
+                "native tree PE machine")
+        result = subprocess.run([str(image)], cwd=build, env=env, stdin=subprocess.DEVNULL,
+                                capture_output=True, check=True)
+        (output / (label + "-tree.json")).write_bytes(result.stdout)
+        (output / (label + "-tree.stderr")).write_bytes(result.stderr)
+        report = json.loads(result.stdout)
+        require(report["pointer_bytes"] == width, "native tree pointer width")
+        require(report["handles_before"] == report["handles_after"], "native tree handle leak")
+        require(len(report["roots"]) == 4 and 0 < len(report["nodes"]) <= 1024
+                and 0 < len(report["states"]) <= 32768, "native tree selection bounds")
+        rows = 0
+        for index, node in enumerate(report["nodes"]):
+            require(node["id"] == index and 0 <= node["state"] < len(report["states"]),
+                    "native tree node identity")
+            for opened in node["opens"]:
+                for row in opened["rows"]:
+                    rows += 1
+                    require(0 <= row["source"] < len(report["states"]), "native tree row source")
+                    require((row["status"] == 0 and 0 <= row["target"] < len(report["states"]))
+                            or (row["status"] != 0 and row["target"] == -1), "native tree target")
+        require(rows > 0, "empty native tree controls")
+        require(sha(image.read_bytes()) == sha(raw), "native tree image changed")
+        report.update(architecture=label, image={"machine": machine, "bytes": len(raw),
+                      "sha256": sha(raw), "report_sha256": sha(result.stdout)})
+        reports.append(report)
+        require(build.resolve().is_relative_to(output), "native tree cleanup containment")
+        shutil.rmtree(build)
+    require(all(sha((source / name).read_bytes()) == value for name, value in raw_hashes.items()),
+            "native tree producer inputs changed")
+    corpus = output / "tree-observations.json"
+    corpus.write_text(json.dumps({"state": "complete", "schema": "rax-native-command-tree-v1",
+        "source_hashes": raw_hashes, "normalized_source_hashes": normalized,
+        "host": {"system": platform.system(), "release": platform.release(),
+                 "machine": platform.machine()}, "reports": reports}, indent=2) + "\n", encoding="utf-8")
+    return corpus
 
 
 def run(argv, root, env, log):
@@ -87,8 +161,10 @@ def main():
     root = Path(__file__).resolve().parents[2]
     source = root / "docs/specifications/windows/native-command-processor"
     normalized = verify_sources(source)
+    tree_normalized = verify_tree_sources(root)
     if args.verify_corpus:
-        print(json.dumps({"verified_producers": len(normalized), "retained_process_abis": 3}))
+        print(json.dumps({"verified_producers": len(normalized),
+                          "verified_tree_inputs": len(tree_normalized), "retained_process_abis": 3}))
         return 0
     require(sys.platform == "win32", "native Windows is required")
     output = (root / args.output).resolve()
@@ -147,9 +223,11 @@ def main():
         "release": platform.release(), "machine": platform.machine()}, "reports": reports}, indent=2)
         + "\n", encoding="utf-8")
     env["RAX_COMMAND_PROCESSOR_CORPUS"] = str(corpus)
+    env["RAX_COMMAND_TREE_CORPUS"] = str(
+        capture_trees(root, output, architectures, env, tree_normalized))
     try:
         for name, selection, minimum in [
-            ("guest-replay", "services_tests::registry_tests::command_processor::", 3),
+            ("guest-replay", "services_tests::registry_tests::command_processor::", 4),
             ("native-acquisition", "registry::installed::command_processor::tests::", 3),
         ]:
             log = output / (name + ".log")

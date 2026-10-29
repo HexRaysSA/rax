@@ -1,7 +1,7 @@
 # Fixed Command Processor snapshots and NT open controls
 
 The engine captures the fixed HKLM `Software\Microsoft\Command Processor`
-header and values through both Win32 views. After acquiring the creator's
+complete bounded subtree through both Win32 views. After acquiring the creator's
 primary hive, it captures the same fixed suffix below that validated SID in
 HKU. It does not substitute the host thread's HKCU for the captured creator.
 Every native handle closes during selection. Runtime opens and value queries
@@ -9,17 +9,20 @@ use immutable records; guest names, rights and handles never reach a host
 registry API.
 
 The shared view catalogue retains AppModel's existing independent trees and
-adds the two CMD leaves. MACHINE and primary-hive handles retain their original
+adds the two CMD selections. MACHINE and primary-hive handles retain their original
 catalogue across namespace replacement and duplication. Canonical names,
 ordinary maximum grants and security-access results are captured per view.
 Native file-not-found and path-not-found remain distinct NT results. Captures
 of one physical key through two views must agree on values, child count and
-access. Values and metadata share the existing aggregate snapshot budgets.
+access. Complete captures also compare every retained descendant. Values and
+metadata share the existing aggregate snapshot budgets.
 
-CMD descendants are not enumerated: a present header's child count does not
-select its unknown descendants. The observed `KnownPackageManagers` child
-therefore remains unselected. This is a fixed header/value selection, not an
-arbitrary HKLM or HKU traversal or a registry mutation interface.
+The installed adapter now enumerates every descendant within the fixed CMD
+roots. Per-node values, canonical identity and access ceilings are retained;
+no provider names or empty success records are synthesized. See
+[complete subtree controls](../native-command-processor-tree/README.md) for
+the bounded acquisition and descendant-open evidence. The internal partial
+header representation still makes no claim about unknown descendants.
 
 ## Native evidence
 
@@ -69,13 +72,23 @@ physical x86 open has tags `0xE00` unless its effective view is `0x100`.
 These rules differ from the already measured shared NLS descendant rules.
 Present AppModel WoW64 tags retain their prior uncaptured boundary.
 
-The corpus preserves every observed result field except
+`controls-amd64-v1.json` retains the two process ABIs from GitHub Actions run
+40800064800, job 123205762565, on Windows Server 2022/AMD64. Its source hashes
+are recorded both as checked out and LF-normalized. This corpus exposed a
+replay fixture classification bug: the native physical component is spelled
+`Wow6432Node`, while the fixture recognized only `WOW6432Node`. Physical-view
+classification now ignores ASCII case in that fixed component. The retained
+AMD64 corpus is replayed on every host, including all 80 graph edges.
+
+The original ARM-host corpus preserves every observed result field except
 `family.hives[1].root.name_hex`, the creator-hive canonical name. Its original
 UTF-16 byte count and SHA-256 remain in `name_projection`. Raw report hashes,
 producer hashes, compiler options, PE machines and executable hashes are
 retained. Full unprojected reports are privately archived. Portable replay
 uses a declared synthetic parent hive and tests the recorded leaf behavior;
 fresh Windows replay uses the actual installed snapshot and creator SID.
+The AMD64 corpus applies the same creator-name projection and retains the
+original artifact identity and raw report hashes.
 
 ## Reproduction and qualification
 
@@ -95,8 +108,9 @@ python tools/ci/windows_command_processor.py
 
 The runner obtains executable paths from CMake, validates PE machines, retains
 raw observations, removes completed native builds, and sets
-`RAX_COMMAND_PROCESSOR_CORPUS` for fresh dispatcher and graph replay. Native
-capture, parsing or replay failures fail the command. Three dispatcher and
+`RAX_COMMAND_PROCESSOR_CORPUS` for fresh dispatcher and graph replay, and
+`RAX_COMMAND_TREE_CORPUS` for the complete subtree controls. Native
+capture, parsing or replay failures fail the command. Four dispatcher and
 three Windows acquisition tests must run with zero failures and ignored tests.
 Its output stays under `target/native-command-processor-v1`; the existing
 Windows CI job uploads it. A new in-tree `--output` preserves prior evidence.
@@ -119,5 +133,5 @@ execution or qualify an unobserved kernel/token context.
 High impact, qualification gates: native Windows acquisition and fresh AMD64
 CMD controls remain required. Actual CMD progress must be measured against the
 new executable before claiming its next boundary or success. Medium impact,
-existing boundary: unknown descendants and uncaptured AppModel body tags stay
-explicit; no successful empty stub is substituted for them.
+existing boundary: uncaptured AppModel body tags stay explicit. Complete CMD
+subtrees have separate native controls and qualification requirements.

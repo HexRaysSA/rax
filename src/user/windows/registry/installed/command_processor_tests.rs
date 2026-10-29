@@ -20,6 +20,74 @@ fn sid() -> Vec<u8> {
         .clone()
 }
 
+fn compare_node(
+    selected: &Registry,
+    root: CommandRoot,
+    sid: &[u8],
+    view: RegistryView,
+    logical: Vec<u16>,
+    native: OwnedKey,
+) -> usize {
+    let metadata = info(&native).unwrap();
+    let raw = values(&native, &metadata, super::super::super::MAX_TOTAL_BYTES).unwrap();
+    let canonical = canonical_hive_name(&native, "Command Processor").unwrap();
+    let Lookup::Present(key) = selected.lookup_view(&logical, view) else {
+        panic!("present native subtree node");
+    };
+    assert_eq!(key.path, canonical);
+    assert_eq!(key.children, metadata.children);
+    assert_eq!(
+        key.subkeys.as_ref().unwrap().len(),
+        metadata.children as usize
+    );
+    assert_eq!(key.values.len(), raw.len());
+    let access = key.captured_access().unwrap();
+    assert_eq!(
+        access.grant(0x02000000),
+        Ok(super::super::native_key::basic(&native, "Command Processor").unwrap())
+    );
+    let security = super::super::native_key::open(&canonical, 0x01000000).map(|security| {
+        super::super::native_key::basic(&security, "Command Processor security").unwrap()
+    });
+    assert_eq!(access.grant(0x01000000), security);
+    for value in raw {
+        assert_eq!(key.value(&value.name), Some(&value));
+    }
+    let mut names = vec![];
+    for index in 0..metadata.children {
+        let mut buffer = vec![0; metadata.max_child as usize + 1];
+        let mut length = buffer.len() as u32;
+        // SAFETY: owned enumerate-capable key and exclusive bounded outputs;
+        // optional native outputs are NULL and returned length is checked.
+        assert_eq!(
+            unsafe {
+                RegEnumKeyExW(
+                    native.0,
+                    index,
+                    buffer.as_mut_ptr(),
+                    &mut length,
+                    null_mut(),
+                    null_mut(),
+                    null_mut(),
+                    null_mut(),
+                )
+            },
+            0
+        );
+        assert!((length as usize) < buffer.len());
+        buffer.truncate(length as usize);
+        names.push(buffer);
+    }
+    drop(native);
+    let mut count = 1;
+    for name in names {
+        let next = crate::user::windows::registry::tree::child_path(&logical, &name).unwrap();
+        let native = open_path(root, sid, view, &next).unwrap();
+        count += compare_node(selected, root, sid, view, next, native);
+    }
+    count
+}
+
 #[test]
 fn installed_command_capture_validates_subject_and_preserves_native_absence_errors() {
     assert!(
@@ -101,25 +169,16 @@ fn installed_command_capture_matches_independent_native_values_and_access() {
         for view in [RegistryView::Native64, RegistryView::Wow32] {
             match open(root, &sid, view) {
                 Ok(native) => {
-                    let metadata = info(&native).unwrap();
-                    let raw =
-                        values(&native, &metadata, super::super::super::MAX_TOTAL_BYTES).unwrap();
-                    let canonical = canonical_hive_name(&native, "Command Processor").unwrap();
-                    let Lookup::Present(key) =
-                        selected.lookup_view(&root.path(&sid).unwrap(), view)
-                    else {
-                        panic!("present native leaf");
-                    };
-                    assert_eq!(key.path, canonical);
-                    assert_eq!(key.children, metadata.children);
-                    assert_eq!(key.values.len(), raw.len());
-                    assert_eq!(
-                        key.captured_access().unwrap().grant(0x02000000),
-                        Ok(super::super::native_key::basic(&native, "Command Processor").unwrap())
+                    let count = compare_node(
+                        &selected,
+                        root,
+                        &sid,
+                        view,
+                        root.path(&sid).unwrap(),
+                        native,
                     );
-                    for value in raw {
-                        assert_eq!(key.value(&value.name), Some(&value));
-                    }
+                    assert!(count > 0);
+                    eprintln!("native CMD {root:?}/{view:?}: {count} complete nodes");
                 }
                 Err(error) => match error.raw_os_error() {
                     Some(2) => assert!(matches!(
@@ -190,6 +249,35 @@ fn installed_command_capture_closes_owned_handles() {
             .is_err()
         );
         assert_eq!(calls, 2);
+        for view in [RegistryView::Native64, RegistryView::Wow32] {
+            let key = open(CommandRoot::Machine, &[], view).unwrap();
+            if info(&key).unwrap().children != 0 {
+                let mut descendants = 0;
+                let error =
+                    subtree::capture_with(&base, CommandRoot::Machine, &[], view, key, |path| {
+                        // No parent HKEY may survive into a descendant open.
+                        assert_eq!(count(), before);
+                        descendants += 1;
+                        assert!(path.len() > CommandRoot::Machine.path(&[]).unwrap().len());
+                        Err(io::Error::from_raw_os_error(5))
+                    })
+                    .err()
+                    .unwrap();
+                assert_eq!(error.raw_os_error(), Some(5));
+                assert_eq!(descendants, 1);
+            }
+        }
+        assert!(
+            open_path(
+                CommandRoot::Machine,
+                &[],
+                RegistryView::Native64,
+                &"\\Registry\\Machine\\Software\\Microsoft\\Command ProcessorOther"
+                    .encode_utf16()
+                    .collect::<Vec<_>>(),
+            )
+            .is_err()
+        );
     }
     assert_eq!(count(), before);
 }

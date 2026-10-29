@@ -1,6 +1,10 @@
-//! Fixed machine and creator-SID CMD headers. Descendants remain unselected.
+//! Fixed machine and creator-SID CMD headers and complete bounded subtrees.
 use super::super::nt::status::{STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND};
 use super::*;
+
+#[path = "command_processor_tree.rs"]
+mod subtree;
+pub(crate) use subtree::CommandTree;
 
 pub(crate) const COMMAND_PROCESSOR_KEY: &str =
     "\\Registry\\Machine\\Software\\Microsoft\\Command Processor";
@@ -38,11 +42,36 @@ pub(crate) struct CommandHeader {
 
 impl Registry {
     pub(crate) fn with_command_view(
-        mut self,
+        self,
         root: CommandRoot,
         sid: &[u8],
         view: RegistryView,
         header: Result<CommandHeader, u32>,
+    ) -> io::Result<Self> {
+        self.with_command_selection(root, sid, view, header.map(|header| (header, None)))
+    }
+
+    pub(crate) fn with_command_tree(
+        self,
+        root: CommandRoot,
+        sid: &[u8],
+        view: RegistryView,
+        tree: Result<CommandTree, u32>,
+    ) -> io::Result<Self> {
+        self.with_command_selection(
+            root,
+            sid,
+            view,
+            tree.map(|tree| (tree.header, Some(tree.children))),
+        )
+    }
+
+    fn with_command_selection(
+        mut self,
+        root: CommandRoot,
+        sid: &[u8],
+        view: RegistryView,
+        selected_tree: Result<(CommandHeader, Option<Vec<(Vec<u16>, CommandTree)>>), u32>,
     ) -> io::Result<Self> {
         let selected = root.selection();
         if self.upcase.len() != 65_536 || self.views.roots.contains_key(&(selected, view)) {
@@ -63,34 +92,12 @@ impl Registry {
             return Err(invalid("Command Processor views select different subjects"));
         }
         let missing_path =
-            matches!(&header, Err(status) if *status == STATUS_OBJECT_PATH_NOT_FOUND);
-        let key = match header {
-            Ok(header) => {
+            matches!(&selected_tree, Err(status) if *status == STATUS_OBJECT_PATH_NOT_FOUND);
+        let key = match selected_tree {
+            Ok((header, children)) => {
                 self.check_command_name(root, sid, view, &header.canonical)?;
-                if header.access.maximum_access & !super::access::KEY_ALL_ACCESS != 0
-                    || header.access.system_security_status != 0
-                        && header.access.system_security_status & 0x8000_0000 == 0
-                {
-                    return Err(invalid("invalid Command Processor access ceiling"));
-                }
-                let mut metadata = self.view_budget()?;
-                metadata.charge(&header.canonical, 0)?;
-                let values =
-                    bounded_values(&self.upcase, header.values, &mut self.value_budget()?)?;
-                Some(Arc::new(Key {
-                    path: header.canonical,
-                    redirected_view: Some(view),
-                    children: header.children,
-                    upcase: self.upcase.clone(),
-                    values: Arc::new(values),
-                    subkeys: None,
-                    selected_child: None,
-                    selected_paths: BTreeMap::new(),
-                    command_access: Some(header.access),
-                    logical_path: Some(logical.clone().into()),
-                    root_views: None,
-                    machine: None,
-                }))
+                let mut builder = subtree::Builder::new(&self, view)?;
+                Some(builder.build(logical.clone(), header, children, 0)?)
             }
             Err(STATUS_OBJECT_NAME_NOT_FOUND | STATUS_OBJECT_PATH_NOT_FOUND) => None,
             Err(_) => {
@@ -106,9 +113,7 @@ impl Registry {
                 }
                 if let Some(other) = other {
                     if key.fold(&key.path) == other.fold(&other.path)
-                        && (key.children != other.children
-                            || key.values != other.values
-                            || key.command_access != other.command_access)
+                        && !subtree::same_physical_contents(key, other)
                     {
                         return Err(invalid(
                             "Command Processor shared physical key changed between view captures",
@@ -200,9 +205,39 @@ impl Key {
             normalized.push(92);
             normalized.extend_from_slice(part);
         }
-        let suffix: Vec<_> = "\\Software\\WOW6432Node\\Microsoft\\Command Processor"
+        let physical_suffix: Vec<_> = "\\Software\\WOW6432Node\\Microsoft\\Command Processor"
             .encode_utf16()
             .collect();
-        self.fold(&normalized).ends_with(&self.fold(&suffix))
+        let Some(logical) = self.logical_path.as_deref() else {
+            return false;
+        };
+        let command_suffix: Vec<_> = COMMAND_SUFFIX.encode_utf16().collect();
+        let folded_suffix = self.fold(&command_suffix);
+        let Some(root) = self
+            .fold(logical)
+            .windows(command_suffix.len())
+            .position(|part| part == folded_suffix)
+        else {
+            return false;
+        };
+        let descendants = logical.len() - root - command_suffix.len();
+        let Some(root_end) = self.path.len().checked_sub(descendants) else {
+            return false;
+        };
+        let physical_root = &self.path[..root_end];
+        if !self
+            .fold(physical_root)
+            .ends_with(&self.fold(&physical_suffix))
+        {
+            return false;
+        }
+        let normalized = self.fold(&normalized);
+        [physical_root, physical_suffix.as_slice()]
+            .into_iter()
+            .any(|prefix| {
+                normalized.starts_with(&self.fold(prefix))
+                    && (normalized.len() == prefix.len()
+                        || normalized.get(prefix.len()) == Some(&92))
+            })
     }
 }

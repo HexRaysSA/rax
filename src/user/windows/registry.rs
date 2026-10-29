@@ -41,7 +41,9 @@ mod redirected;
 pub(crate) use redirected::{RegistryView, RegistryViews, ViewRoot};
 #[path = "registry/command_processor.rs"]
 mod command_processor;
-pub(crate) use command_processor::{COMMAND_PROCESSOR_KEY, CommandHeader, CommandRoot};
+pub(crate) use command_processor::{
+    COMMAND_PROCESSOR_KEY, CommandHeader, CommandRoot, CommandTree,
+};
 #[path = "registry/fixed.rs"]
 mod fixed;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;
