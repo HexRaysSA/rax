@@ -17,6 +17,8 @@ pub mod mem;
 pub mod util;
 
 mod continuation;
+#[cfg(unix)]
+pub(crate) use continuation::ready_file_io;
 pub(crate) use continuation::{PendingUnix, complete_unix, resume_unix, user_state_written};
 
 use super::abi::{self, Errno, Kind};
@@ -105,6 +107,7 @@ fn finish(thread: &mut Thread, ret: abi::Ret, result: SysResult) {
         return;
     }
     thread.pending_unix = None;
+    thread.file_io = None;
     if result != Err(Errno::ERESTART) || thread.wait.is_none() {
         thread.resume = None;
     }

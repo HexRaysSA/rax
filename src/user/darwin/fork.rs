@@ -88,6 +88,7 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
 
     // The caller is the only thread (the others were never copied).
     proc.threads.clear();
+    proc.closers = Default::default();
     let tid = ((pid as u64) << 20) | 1;
     proc.next_tid = tid + 1;
 
@@ -126,6 +127,7 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
     thread.wait = None;
     thread.resume = None;
     thread.pending_unix = None;
+    thread.file_io = None;
     thread.woken = false;
     thread.wake_event = false;
 

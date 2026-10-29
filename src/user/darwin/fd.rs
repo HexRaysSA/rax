@@ -109,6 +109,8 @@ pub struct Fd {
 #[derive(Clone, Debug, Default)]
 pub struct FdTable {
     slots: Vec<Option<Fd>>,
+    /// Slots detached by close while entered operations retain their fileproc.
+    reserved: std::collections::BTreeSet<usize>,
 }
 
 impl FdTable {
@@ -178,7 +180,7 @@ impl FdTable {
     /// The lowest free descriptor at or above `min` below `limit`.
     pub fn lowest_free(&self, min: usize, limit: u64) -> Result<usize, Errno> {
         let mut i = min;
-        while i < self.slots.len() && self.slots[i].is_some() {
+        while self.slots.get(i).is_some_and(Option::is_some) || self.reserved.contains(&i) {
             i += 1;
         }
         if i as u64 >= limit {
@@ -217,6 +219,10 @@ impl FdTable {
     /// Installs `file` at descriptor `i` (not close-on-fork), returning
     /// what was there.
     pub fn install_at(&mut self, i: usize, file: FileRef, cloexec: bool) -> Option<Fd> {
+        assert!(
+            !self.reserved.contains(&i),
+            "installation into a closing descriptor"
+        );
         if self.slots.len() <= i {
             self.slots.resize(i + 1, None);
         }
@@ -236,6 +242,27 @@ impl FdTable {
             self.slots.pop();
         }
         Ok(fd)
+    }
+
+    /// Detaches a closing descriptor without making its slot allocatable.
+    pub(crate) fn reserve(&mut self, fd: i32) -> Result<Fd, Errno> {
+        let old = self.remove(fd)?;
+        assert!(self.reserved.insert(fd as usize));
+        Ok(old)
+    }
+
+    pub(crate) fn is_reserved(&self, fd: i32) -> bool {
+        usize::try_from(fd).is_ok_and(|i| self.reserved.contains(&i))
+    }
+
+    /// The final entered use drained; the slot may be allocated again.
+    pub(crate) fn release(&mut self, fd: i32) {
+        assert!(self.reserved.remove(&(fd as usize)));
+    }
+
+    /// Fork/exec inherit open slots, never another thread's close reservation.
+    pub(crate) fn clear_reservations(&mut self) {
+        self.reserved.clear();
     }
 
     /// Closes every close-on-exec descriptor (`fdt_exec`).

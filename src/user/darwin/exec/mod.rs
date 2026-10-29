@@ -160,6 +160,7 @@ fn build_errno(e: &SpawnError) -> Errno {
 /// keep only their close-on-exec flag.
 pub fn fdt_fork(fds: &FdTable, in_exec: bool) -> FdTable {
     let mut t = fds.clone();
+    t.clear_reservations();
     let dropped: Vec<i32> = t
         .iter()
         .filter(|(_, f)| matches!(f.file.kind, FileKind::Kqueue(_)) || (f.clofork && !in_exec))

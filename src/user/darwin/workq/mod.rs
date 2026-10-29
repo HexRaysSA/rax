@@ -711,6 +711,7 @@ fn create_thread(proc: &mut Proc) -> Option<u64> {
         wait: Some(park_wait(tid)),
         resume: None,
         pending_unix: None,
+        file_io: None,
         pthread: 0,
         exited: false,
         woken: false,

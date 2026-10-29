@@ -1813,11 +1813,9 @@ writer's subsequent `EPIPE` result when no read endpoint remains.
 
 Anonymous-pipe classification uses macOS `PROC_PIDFDPIPEINFO` and Linux pipefs
 identity. Descriptor reporting shares this classification. Named FIFOs remain
-vnodes while linked and after unlink. Native named-FIFO controls show a
-different close path: close waits for the active read, and the read can receive
-the original data. The anonymous-pipe EOF rule excludes that path. Retaining a
-named FIFO's entered I/O object and reserving its closing slot remain separate
-requirements for complete concurrent descriptor semantics.
+vnodes while linked and after unlink. Their entered reads retain their original
+open object and use the closing-reservation path below. The anonymous-pipe EOF
+rule excludes that path.
 
 Apple's pinned
 [descriptor close and I/O-drain implementation](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/kern/kern_descrip.c#L1517)
@@ -1842,3 +1840,39 @@ on Apple Silicon uses Rosetta and does not establish physical Intel behavior.
 | PIPE2 | Kernel object type distinguishes anonymous pipes from named FIFOs. | Native FIFO close waits, while anonymous close produces EOF; shared host classification. | Linked and unlinked FIFOs with the same `S_IFIFO` mode; reporting either as an anonymous pipe falsifies classification. | Enforced by real-object host tests. |
 | PIPE3 | A BSD continuation preserves entered arguments independently of mutable saved user state. | Native successor-PC observations and direct/indirect x86 and ARM64 scheduler tests. | Changed arguments, syscall number, instruction bytes and selected return PC; refetching the entry or retiring another instruction falsifies ownership. | Enforced by continuation and native comparison tests; pointed-to payload ownership is separate. |
 | PIPE4 | Completed saved state and later successful general-state writes have architecture-specific ownership. | Suspended ARM64/Rosetta controls distinguish prepared EOF from deferred x86 return and unchanged snapshot writes. | Scalar/vector reads, all three close/replacement routes, unchanged/edited snapshots, invalid and unrelated state flavors; a native output difference falsifies the covered profile. | Measured on macOS 27.2 ARM64 and Rosetta; physical Intel equivalence remains unknown. |
+
+### Entered FIFO reads and closing reservations
+
+An entered blocking FIFO read owns a reference to the descriptor it acquired,
+independently of its duplicate aliases. `readv` and `readv_nocancel` also retain
+the vector copied before sleeping: rewriting the user vector array cannot
+redirect the entered transfer. At most 1,024 vectors are retained, each two
+64-bit words (16,384 bytes of vector metadata per entered vector read).
+
+Closing the descriptor detaches it from ordinary lookup immediately and
+reserves its number until entered uses finish. New reads, `F_GETFD`, and
+same-descriptor duplication then fail with `EBADF`; allocation skips the
+reserved number. Close waits uninterruptibly for the entered read, which can
+receive the original FIFO's data. Another `dup2` targeting the reserved number
+waits for that reservation. Duplicating another descriptor keeps a source use
+while draining its target, but revalidates that source before installation:
+closing the source during the wait makes the duplication fail with `EBADF`.
+
+Kernel I/O and close completion progress independently of Mach user-thread
+suspension. A held reader can receive its data and release the close barrier;
+a held closer can release the reservation before returning to user mode.
+ARM64 prepares the completed result in its saved general state, while the
+measured Rosetta route keeps the entered state until return. A parked Rosetta
+FIFO `read` exposes carry set; the noncancelable and vector entries retain
+their incoming flags. Thread termination drops the entered use. Fork and exec
+inherit open descriptors, excluding another thread's closing reservations.
+
+`fd_fifo_lifetime.c` runs 200 isolated cases per ABI across linked and unlinked
+FIFOs: four read entries, both close entries, replacement, concurrent descriptor
+lookups and allocation, source close, held readers and closers, and vector-array
+rewrites. Each case establishes the exact saved syscall successor and number
+before the competing operation. The registered tests compare the complete
+native and emulated transcripts from the same executable. Native observations
+cover macOS 27.2 ARM64 and Rosetta x86-64; physical Intel equivalence remains
+unknown. Other blocking object types and write-side operation ownership require
+their own native qualification.

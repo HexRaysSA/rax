@@ -171,6 +171,7 @@ fn add_peer(process: &mut DarwinProcess, peer: Peer) -> u64 {
         wait: None,
         resume: None,
         pending_unix: None,
+        file_io: None,
         pthread: 0,
         exited: false,
         woken: false,

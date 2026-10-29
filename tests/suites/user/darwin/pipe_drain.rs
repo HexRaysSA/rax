@@ -18,3 +18,21 @@ fn entered_pipe_reads_arm64() {
 fn entered_pipe_reads_x86_64() {
     pipe_drain("x86_64");
 }
+
+fn fifo_lifetime(arch: &str) {
+    if !comparable("fd_fifo_lifetime", arch) {
+        return;
+    }
+    let program = build("fd_fifo_lifetime", arch);
+    compare("fd_fifo_lifetime", &program, arch, &[], &[], None);
+}
+
+#[test]
+fn entered_fifo_reads_arm64() {
+    fifo_lifetime("arm64");
+}
+
+#[test]
+fn entered_fifo_reads_x86_64() {
+    fifo_lifetime("x86_64");
+}

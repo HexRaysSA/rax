@@ -38,6 +38,7 @@ pub(crate) fn resume_unix(proc: &mut Proc, thread: &mut Thread) {
     if entry.result_prepared {
         // A later Mach state write is authoritative after return preparation.
         thread.pending_unix = None;
+        thread.file_io = None;
         return;
     }
     service(proc, thread, entry);
@@ -46,6 +47,7 @@ pub(crate) fn resume_unix(proc: &mut Proc, thread: &mut Thread) {
 /// Commit an entered operation completed by another thread. Native ARM64
 /// exposes its prepared result while held; x86 prepares it on kernel return.
 pub(crate) fn complete_unix(thread: &mut Thread, result: SysResult) {
+    thread.file_io = None;
     let entry = thread
         .pending_unix
         .as_mut()
@@ -61,6 +63,23 @@ pub(crate) fn complete_unix(thread: &mut Thread, result: SysResult) {
     }
     thread.wait = None;
     thread.woken = true;
+}
+
+/// Kernel FIFO I/O can finish even when a Mach suspension holds user return.
+#[cfg(unix)]
+pub(crate) fn ready_file_io(proc: &mut Proc, thread: &mut Thread) {
+    let entry = thread.pending_unix.expect("entered FIFO operation");
+    let mut ctx = Ctx {
+        proc,
+        thread,
+        nr: i64::from(entry.nr),
+        pc: entry.pc,
+    };
+    let result = bsd::call(&mut ctx, entry.nr, &entry.args);
+    if result == Err(super::super::abi::Errno::ERESTART) && ctx.thread.wait.is_some() {
+        return;
+    }
+    complete_unix(ctx.thread, result);
 }
 
 /// A successful general-register write after completion supplies the user

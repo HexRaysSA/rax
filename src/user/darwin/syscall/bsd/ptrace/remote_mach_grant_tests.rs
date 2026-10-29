@@ -52,6 +52,7 @@ fn second_thread(parent: &mut DarwinProcess, first: u64) -> u64 {
             wait: None,
             resume: None,
             pending_unix: None,
+            file_io: None,
             pthread: 0,
             exited: false,
             woken: false,

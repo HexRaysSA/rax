@@ -43,6 +43,8 @@ pub(crate) mod bounded_tests;
 mod continuation_tests;
 #[cfg(test)]
 mod exclusive_tests;
+#[cfg(all(test, unix))]
+mod fifo_lifetime_tests;
 #[cfg(test)]
 mod pauth_tests;
 #[cfg(all(test, unix))]
@@ -327,6 +329,8 @@ pub struct Thread {
     pub resume: Option<Resume>,
     /// An entered BSD service, independent of mutable saved user state.
     pub(crate) pending_unix: Option<syscall::PendingUnix>,
+    /// The descriptor reference owned by entered I/O or a waiting dup2.
+    pub(crate) file_io: Option<syscall::bsd::file::lifetime::Use>,
     /// The thread's `pthread_t` (its user stack's top), zero for the main
     /// thread until libpthread registers.
     pub pthread: u64,
@@ -394,6 +398,7 @@ pub struct Proc {
     pub cwd: Vec<u8>,
     /// Descriptors.
     pub fds: FdTable,
+    pub(crate) closers: syscall::bsd::file::lifetime::Closers,
     /// Process ID (the host's).
     pub pid: i32,
     /// Parent process ID.
@@ -771,6 +776,7 @@ impl DarwinProcess {
             super::workq::redrive(&mut self.proc);
             self.deliver_posted();
             self.poll_waits();
+            syscall::bsd::file::lifetime::progress(&mut self.proc);
             let Some(tid) = self.next_runnable() else {
                 if self.proc.threads.values().all(|t| t.exited) {
                     self.proc.exit_with(ExitStatus::Exited(0));
@@ -1239,6 +1245,7 @@ pub(crate) fn start(
         wait: None,
         resume: None,
         pending_unix: None,
+        file_io: None,
         pthread: 0,
         exited: false,
         woken: false,
@@ -1265,6 +1272,7 @@ pub(crate) fn start(
             vfs,
             cwd,
             fds: c.fds,
+            closers: Default::default(),
             pid,
             ppid: c.ppid,
             creds: c.creds,
@@ -1386,6 +1394,7 @@ pub(crate) fn start(
                 vfs,
                 cwd,
                 fds,
+                closers: Default::default(),
                 pid,
                 ppid,
                 creds,
