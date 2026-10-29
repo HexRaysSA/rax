@@ -326,6 +326,28 @@ fn independent_detach_arm64() {
 fn independent_detach_x86_64() {
     registry("x86_64", "detach");
 }
+
+fn pending_finish(arch: &str) {
+    if !comparable("ptrace_registry_pending_finish", arch) {
+        return;
+    }
+    let image = build_as("ptrace_registry", arch, "ptrace_registry_pending_finish");
+    let (emulated, diagnostics) = emulated(&image, arch, &["target-pending-finish"], &[], None);
+    let native = native(&image, arch, &["target-pending-finish"], &[], None);
+    assert_eq!(native.status, Some(42));
+    assert_eq!(native.stdout, b"ready\n");
+    assert_eq!(emulated, native, "{diagnostics}");
+}
+
+#[test]
+fn pending_finish_signal_arm64() {
+    pending_finish("arm64");
+}
+
+#[test]
+fn pending_finish_signal_x86_64() {
+    pending_finish("x86_64");
+}
 #[test]
 fn independent_tracer_exit_arm64() {
     registry("arm64", "tracer-exit");
