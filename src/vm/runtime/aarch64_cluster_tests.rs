@@ -12,6 +12,8 @@ const CODE: u64 = 0x4008_0000;
 #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
 #[path = "aarch64_bounded_native_tests.rs"]
 mod bounded_native;
+#[path = "aarch64_event_tests.rs"]
+mod events;
 #[path = "aarch64_undefined_tests.rs"]
 mod undefined;
 

@@ -51,7 +51,7 @@ fn assert_state(actual: &AArch64Cpu, expected: &AArch64Cpu) {
     assert_eq!(actual.v, expected.v);
     assert_eq!(actual.fpcr, expected.fpcr);
     assert_eq!(actual.fpsr, expected.fpsr);
-    assert_eq!(actual.event_register, expected.event_register);
+    assert_eq!(actual.event_pending(), expected.event_pending());
     assert_eq!(actual.insn_count, expected.insn_count);
     assert_eq!(actual.cycle_count, expected.cycle_count);
     assert_eq!(
@@ -81,7 +81,7 @@ fn pauth_jit_system_step_all_forms_algorithms_profiles_and_features_match_direct
                         cpu.set_x(1, 1);
                         cpu.nzcv = 10;
                         cpu.btype = 3;
-                        cpu.event_register = true;
+                        cpu.set_event();
                         cpu
                     };
                     let mut direct = make();
@@ -384,4 +384,79 @@ fn pauth_jit_vhe_tagged_load_fault_retains_far_stage_level_and_exception_target(
             }
         }
     }
+}
+
+#[derive(Debug)]
+struct EventDuringLoad {
+    inner: Box<dyn ArmMemory>,
+    event: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    loads: std::sync::Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl ArmMemory for EventDuringLoad {
+    fn mark_exclusive(&mut self, address: u64, size: u8) {
+        self.inner.mark_exclusive(address, size);
+    }
+    fn check_exclusive(&mut self, address: u64, size: u8) -> bool {
+        self.inner.check_exclusive(address, size)
+    }
+    fn clear_exclusive(&mut self) {
+        self.inner.clear_exclusive();
+    }
+    fn register_mmio(&mut self, base: u64, size: u64, handler: Box<dyn MmioHandler>) {
+        self.inner.register_mmio(base, size, handler);
+    }
+    fn unregister_mmio(&mut self, base: u64) {
+        self.inner.unregister_mmio(base);
+    }
+
+    fn read(&self, address: u64, bytes: &mut [u8]) -> MemResult<()> {
+        self.inner.read(address, bytes)?;
+        if address == 0x200 {
+            self.event.store(true, std::sync::atomic::Ordering::Release);
+            self.loads
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+        Ok(())
+    }
+
+    fn write(&mut self, address: u64, bytes: &[u8]) -> MemResult<()> {
+        self.inner.write(address, bytes)
+    }
+
+    fn fetch(&self, address: u64, bytes: &mut [u8]) -> MemResult<()> {
+        self.inner.fetch(address, bytes)
+    }
+}
+
+#[test]
+fn pauth_native_load_preserves_a_peer_event_received_after_frame_export() {
+    use crate::isa::arm::aarch64::pauth::PauthKeyKind;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    let raw = 0xf820_0fe6; // LDRAA X6,[SP,#0]!
+    let mut cpu = keyed_cpu(raw, PauthAlgorithm::Qarma5, PauthProfile::FpacCombine);
+    cpu.write_memory(0x200, &0x0123_4567_89ab_cdefu64.to_le_bytes())
+        .unwrap();
+    let signed = cpu
+        .pauth_value(0x200, 0, PauthKeyKind::Da, false, false)
+        .unwrap();
+    cpu.set_current_sp(signed);
+    let region = install(&mut cpu);
+    let loads = Arc::new(AtomicU64::new(0));
+    let inner = std::mem::replace(&mut cpu.memory, Box::new(FlatMemory::new(0, 0)));
+    cpu.memory = Box::new(EventDuringLoad {
+        inner,
+        event: cpu.event_register_handle(),
+        loads: loads.clone(),
+    });
+    assert!(!cpu.event_pending());
+    assert!(cpu.jit_run_pauth_instruction(&region, raw));
+    assert_eq!(loads.load(Ordering::Relaxed), 1);
+    assert_eq!(cpu.execution.pauth_native_runs, 1);
+    assert!(cpu.execution.native_fault.is_none());
+    assert_eq!((cpu.pc, cpu.insn_count), (4, 1));
+    assert_eq!(cpu.get_x(6), 0x0123_4567_89ab_cdef);
+    assert_eq!(cpu.current_sp(), 0x200);
+    assert!(cpu.event_pending());
 }

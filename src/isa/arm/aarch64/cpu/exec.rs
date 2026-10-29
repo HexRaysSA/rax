@@ -86,7 +86,7 @@ impl AArch64Cpu {
             halted: false,
             wfi: false,
             wfe: false,
-            event_register: false,
+            event_register: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             pending_exceptions: Vec::new(),
 
             breakpoints: HashSet::new(),

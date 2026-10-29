@@ -225,6 +225,13 @@ pub enum BarrierKind {
 
 /// Production-grade ARM memory interface.
 pub trait ArmMemory: Send + Sync + Debug {
+    /// Signal event latches on the other PEs in this memory's platform. The CPU
+    /// sets its own latch after this succeeds. A single-PE embedding needs no
+    /// additional action; failure must precede all platform event effects.
+    fn send_event(&self) -> Result<(), ArmError> {
+        Ok(())
+    }
+
     // =========================================================================
     // Basic Access
     // =========================================================================

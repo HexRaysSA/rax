@@ -225,7 +225,7 @@ impl CoreCheckpoint {
             halted: *halted,
             wfi: *wfi,
             wfe: *wfe,
-            event_register: *event_register,
+            event_register: event_register.load(std::sync::atomic::Ordering::Acquire),
             pending_exceptions: pending_exceptions.clone(),
             config: ConfigCheckpoint::capture(config),
             mmu: mmu.config().clone(),
@@ -352,7 +352,8 @@ impl CoreCheckpoint {
         cpu.halted = self.halted;
         cpu.wfi = self.wfi;
         cpu.wfe = self.wfe;
-        cpu.event_register = self.event_register;
+        cpu.event_register
+            .store(self.event_register, std::sync::atomic::Ordering::Release);
         cpu.pending_exceptions = self.pending_exceptions.clone();
         cpu.config = self.config.materialize();
         cpu.mmu = Mmu::with_config(self.mmu.clone());

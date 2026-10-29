@@ -36,6 +36,9 @@ pub use branch::*;
 mod checkpoint;
 pub(crate) use checkpoint::CoreCheckpoint;
 mod entry;
+#[cfg(test)]
+mod event_tests;
+mod events;
 mod exception_return;
 mod exec;
 mod fp_access;
@@ -319,7 +322,7 @@ pub struct AArch64Cpu {
     wfe: bool,
 
     /// Event signaled.
-    event_register: bool,
+    event_register: std::sync::Arc<std::sync::atomic::AtomicBool>,
 
     /// Pending exceptions.
     pending_exceptions: Vec<ArmException>,
@@ -676,8 +679,7 @@ impl ArmCpu for AArch64Cpu {
         }
 
         if self.wfe {
-            if self.event_register {
-                self.event_register = false;
+            if self.take_event() {
                 self.wfe = false;
             } else {
                 return Ok(CpuExit::Wfe);
@@ -750,7 +752,7 @@ impl ArmCpu for AArch64Cpu {
         self.halted = false;
         self.wfi = false;
         self.wfe = false;
-        self.event_register = false;
+        self.clear_event();
         self.pending_exceptions.clear();
         self.execution.native_fault = None;
         self.clear_jit_cache();

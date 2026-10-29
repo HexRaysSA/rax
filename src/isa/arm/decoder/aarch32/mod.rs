@@ -512,6 +512,7 @@ impl Aarch32Decoder {
                 2 => Mnemonic::WFE,
                 3 => Mnemonic::WFI,
                 4 => Mnemonic::SEV,
+                5 => Mnemonic::SEVL,
                 _ => Mnemonic::HINT,
             };
 
@@ -708,6 +709,7 @@ impl Aarch32Decoder {
                 2 => Mnemonic::WFE,
                 3 => Mnemonic::WFI,
                 4 => Mnemonic::SEV,
+                5 => Mnemonic::SEVL,
                 _ => Mnemonic::HINT,
             };
             return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4));

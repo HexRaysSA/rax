@@ -139,6 +139,7 @@ impl MemRecorder {
 /// Guest memory bridge: RAM via [`GuestMemoryMmap`], GIC and UART windows
 /// intercepted.
 struct GuestBridge {
+    cluster: Option<Arc<cluster::ArmCluster>>,
     mem: Arc<GuestMemoryMmap>,
     late: Arc<LateBound>,
     recorder: Arc<MemRecorder>,
@@ -430,6 +431,15 @@ impl GuestBridge {
 }
 
 impl ArmMemory for GuestBridge {
+    fn send_event(&self) -> std::result::Result<(), ArmError> {
+        if let Some(cluster) = &self.cluster {
+            cluster
+                .broadcast_event()
+                .map_err(|error| ArmError::Internal(error.to_string()))?;
+        }
+        Ok(())
+    }
+
     fn read(&self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
         match self.translation.as_deref() {
             Some(translation) => self.user_read(translation, addr, buf, MemoryAccessKind::Read)?,
@@ -675,6 +685,7 @@ impl Aarch64Vcpu {
             |(cluster, _)| cluster.high_redist_base,
         );
         let bridge = GuestBridge {
+            cluster: binding.as_ref().map(|(cluster, _)| cluster.clone()),
             mem,
             late: late.clone(),
             recorder: recorder.clone(),
@@ -687,6 +698,8 @@ impl Aarch64Vcpu {
         let mut cpu = AArch64Cpu::new_with_cpu_id(config, Box::new(bridge), id);
         if let Some((platform, line)) = &binding {
             cpu.bind_platform_gic(platform.gic.clone(), id as usize, line.clone());
+            // new_in_cluster validates the CPU index before this private build.
+            cpu.bind_event_register(platform.event_handle(id).expect("validated cluster CPU"));
             cpu.configure_nonsecure_reset();
         }
         // The CPU owns the GIC; hand the bridge a reference to the same

@@ -4,6 +4,7 @@
 //! control lock across memory callbacks nor a GIC lock across firmware calls.
 
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::error::{Error, Result};
@@ -37,6 +38,7 @@ pub struct ArmClusterCheckpoint {
 pub struct ArmCluster {
     pub(super) gic: Arc<Mutex<Gic>>,
     control: Mutex<Control>,
+    events: Vec<Arc<AtomicBool>>,
     count: u8,
     pub(super) high_redist_base: u64,
 }
@@ -62,6 +64,9 @@ impl ArmCluster {
                 requests: VecDeque::new(),
             }),
             count,
+            events: (0..count)
+                .map(|_| Arc::new(AtomicBool::new(false)))
+                .collect(),
             high_redist_base: crate::machine::arm_virt::aarch64_redist_high_base(ram_end)?,
         })
     }
@@ -75,6 +80,26 @@ impl ArmCluster {
             gic.set_pending(irq);
         } else {
             gic.clear_pending(irq);
+        }
+        Ok(())
+    }
+
+    pub(super) fn event_handle(&self, id: u32) -> Result<Arc<AtomicBool>> {
+        self.events
+            .get(id as usize)
+            .cloned()
+            .ok_or_else(|| invalid("unknown event CPU"))
+    }
+
+    /// Serialize fanout with cohort capture/restoration. No GIC lock or guest
+    /// callback is taken here. One bit per configured PE coalesces repeated SEV.
+    pub(super) fn broadcast_event(&self) -> Result<()> {
+        let _control = self
+            .control
+            .lock()
+            .map_err(|_| invalid("control lock poisoned"))?;
+        for event in &self.events {
+            event.store(true, Ordering::Release);
         }
         Ok(())
     }
@@ -386,3 +411,7 @@ mod tests {
 #[cfg(test)]
 #[path = "cluster/retirement_error_tests.rs"]
 mod retirement_error_tests;
+
+#[cfg(test)]
+#[path = "cluster/event_tests.rs"]
+mod event_tests;

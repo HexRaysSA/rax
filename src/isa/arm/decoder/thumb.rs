@@ -799,6 +799,7 @@ impl ThumbDecoder {
                     0b0010 => Mnemonic::WFE,
                     0b0011 => Mnemonic::WFI,
                     0b0100 => Mnemonic::SEV,
+                    0b0101 => Mnemonic::SEVL,
                     _ => Mnemonic::HINT,
                 };
 

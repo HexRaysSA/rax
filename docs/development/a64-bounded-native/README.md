@@ -144,3 +144,9 @@ integration tests passed across 22 complete binaries; 223 C API tests passed.
 The 16 targeted tests passed. Workspace Clippy/build/format, interpreter-only
 and x86-64 cross-compilation, and source checks passed. Doctests ran zero
 cases with five ignored. Physical Intel runtime validation did not run.
+
+The subsequent [software event repair](../a64-events/README.md) implements the
+cluster SEV/SEVL distinction and conditional A32 event effects at this existing
+interpreter frontier. Its typed native PAuth merge preserves an event arriving
+during a memory helper; event instructions themselves remain outside native
+admission. The broader wait/trap and physical-hardware boundaries remain open.

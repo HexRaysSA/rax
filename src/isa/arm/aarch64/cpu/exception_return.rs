@@ -63,7 +63,7 @@ impl AArch64Cpu {
         }
         self.set_pstate_bits(restored)?;
         self.clear_exclusive_monitor();
-        self.event_register = true;
+        self.set_event();
         self.pc = if self.aarch32.is_some() {
             super::super::aarch32_state::return_address(target, restored)
         } else {

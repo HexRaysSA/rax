@@ -2613,7 +2613,13 @@
         "src/vm/vcpu/budget.rs",
         "src/vm/vcpu/budget/error_tests.rs",
         "src/backend/emulator/aarch64/cluster/retirement_error_tests.rs",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/qualification-final-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/qualification-final-v1.json",
+        "docs/development/a64-events/README.md",
+        "src/isa/arm/aarch64/cpu/events.rs",
+        "src/backend/emulator/aarch64/cluster/event_tests.rs",
+        "src/backend/emulator/aarch64/event_checkpoint_tests.rs",
+        "src/vm/runtime/aarch64_event_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/qualification-final-v1.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2653,7 +2659,8 @@
         "a64-bounded-native-scheduler-entry-2026-10-29",
         "a64-public-system-entry-publication-2026-10-29",
         "a64-private-retirement-counter-wrap-2026-10-29",
-        "a64-host-completion-error-retirement-2026-10-29"
+        "a64-host-completion-error-retirement-2026-10-29",
+        "a64-shared-event-latches-and-checkpoint-publication-2026-10-29"
       ]
     },
     {
@@ -3249,12 +3256,18 @@
         "docs/development/retirement-errors/README.md",
         "src/vm/vcpu/budget/error_tests.rs",
         "src/backend/emulator/aarch64/cluster/retirement_error_tests.rs",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/qualification-final-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/qualification-final-v1.json",
+        "docs/development/a64-events/README.md",
+        "src/isa/arm/aarch64/cpu/events.rs",
+        "src/backend/emulator/aarch64/cluster/event_tests.rs",
+        "src/backend/emulator/aarch64/event_checkpoint_tests.rs",
+        "src/vm/runtime/aarch64_event_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/qualification-final-v1.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
         "Hardware backend entry remains unbounded; physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
-        "Additional ARM startup/control, architectural wait-trap/event-broadcast profiles, and RISC-V SBI startup/controller topology remain required.",
+        "Represented software A64/ARM/Thumb SEV broadcast, SEVL locality, WFE consumption and target event restoration are locally qualified. Additional ARM startup/control and architectural wait/trap profiles, plus RISC-V SBI startup/controller topology, remain required.",
         "Complete backend/private/in-flight/platform state, all-writer quiescence and transactional late-failure restoration remain required.",
         "GDB AP/thread selection, complete deterministic clock coordination and record/replay remain required.",
         "The shared A64 Undefined-result delivery and tested native/software/user/backend/file/coordinator continuations are corrected within recorded scopes; full C-SMP and C-STATE remain incomplete."
@@ -3274,7 +3287,8 @@
         "a64-bounded-native-scheduler-entry-2026-10-29",
         "a64-public-system-entry-publication-2026-10-29",
         "a64-private-retirement-counter-wrap-2026-10-29",
-        "a64-host-completion-error-retirement-2026-10-29"
+        "a64-host-completion-error-retirement-2026-10-29",
+        "a64-shared-event-latches-and-checkpoint-publication-2026-10-29"
       ]
     },
     {
@@ -194585,6 +194599,146 @@
         {
           "impact": "medium",
           "finding": "Other backend completion-error classifications require evidence before selecting committed-counter accounting; no general host-failure recovery or physical PMU claim."
+        }
+      ],
+      "published": false
+    },
+    {
+      "id": "a64-shared-event-latches-and-checkpoint-publication-2026-10-29",
+      "status": "locally_validated",
+      "parent": "14f9da8e68aa38bdb1f97de395d7b3e4df31faca",
+      "scope": "Software A64/ARM/Thumb SEV broadcast and local SEVL, failed-predicate suppression, atomic WFE consumption, stable admitted checkpoint latch publication, idempotent activation, native PAuth event merge, and actual 2/4-CPU file/scheduler continuation. Existing core/cluster bytes unchanged. Full findings remain incomplete.",
+      "owned_paths": [
+        "docs/development/a64-bounded-native/README.md",
+        "docs/development/a64-events/README.md",
+        "docs/development/aarch64-cluster.md",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/execution-coordinator.md",
+        "src/backend/emulator/aarch64.rs",
+        "src/backend/emulator/aarch64/checkpoint.rs",
+        "src/backend/emulator/aarch64/cluster.rs",
+        "src/backend/emulator/aarch64/cluster/event_tests.rs",
+        "src/backend/emulator/aarch64/event_checkpoint_tests.rs",
+        "src/isa/arm/aarch64/cpu/aarch32.rs",
+        "src/isa/arm/aarch64/cpu/checkpoint.rs",
+        "src/isa/arm/aarch64/cpu/checkpoint_tests.rs",
+        "src/isa/arm/aarch64/cpu/event_tests.rs",
+        "src/isa/arm/aarch64/cpu/events.rs",
+        "src/isa/arm/aarch64/cpu/exception_return.rs",
+        "src/isa/arm/aarch64/cpu/exec.rs",
+        "src/isa/arm/aarch64/cpu/mod.rs",
+        "src/isa/arm/aarch64/cpu/pauth_jit.rs",
+        "src/isa/arm/aarch64/cpu/system.rs",
+        "src/isa/arm/aarch64/cpu/system_step.rs",
+        "src/isa/arm/aarch64/cpu/tests/native_retirement.rs",
+        "src/isa/arm/aarch64/cpu/tests/pauth_aarch32_smir.rs",
+        "src/isa/arm/aarch64/cpu/tests/pauth_jit.rs",
+        "src/isa/arm/aarch64/cpu/user_mode.rs",
+        "src/isa/arm/common/memory/mod.rs",
+        "src/isa/arm/decoder/aarch32/mod.rs",
+        "src/isa/arm/decoder/thumb.rs",
+        "src/vm/memory/checkpoint.rs",
+        "src/vm/runtime/aarch64_cluster_tests.rs",
+        "src/vm/runtime/aarch64_event_tests.rs"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/source-qualified-final-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/qualification-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/commit-receipt-v1.json",
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/parent-negative-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/publication-parent-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/additional-negative-result-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/wire-compatibility-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/core-final-result-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/qualification-broad-final-v1.json"
+      ],
+      "validation_summary": {
+        "library-final-v1": {
+          "passed": 11311,
+          "failed": 0,
+          "ignored": 2,
+          "binaries": 1
+        },
+        "owning-final-v1": {
+          "passed": 47745,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 24
+        },
+        "capi-final-v1": {
+          "passed": 223,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "doc-final-v1": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "binaries": 1
+        },
+        "core-v4": {
+          "passed": 108,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "publication-core-v4": {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "native-serial-final-v1": {
+          "passed": 126,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 3
+        },
+        "oracle-final-v1": {
+          "passed": 102,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        }
+      },
+      "assumption_register": [
+        {
+          "id": "EV1",
+          "assumption": "SEV sets every configured PE event latch, while SEVL sets only the current PE latch.",
+          "basis": "Pinned arm_defs.asl SendEvent and SendEventLocal; arm_instrs.asl system hints.",
+          "dependent_result": "Shared stable per-PE atomic latch handles and synchronous platform fanout.",
+          "stress_test": "2/4 CPUs, BSP/AP senders, one-bit consumption, hot native-ineligible hints and local-only controls.",
+          "falsification_probe": "A fresh peer WFE waits after SEV or consumes an event after peer SEVL.",
+          "status": "confirmed within recorded A64/ARM/Thumb software-cluster, publication and native PAuth cases"
+        },
+        {
+          "id": "EV2",
+          "assumption": "A failed A32 instruction predicate suppresses event effects while retiring the instruction and advancing IT normally.",
+          "basis": "Executor.condition_matches returns false before instruction effects; enclosing event code currently discards that result.",
+          "dependent_result": "Carry the executed predicate to enclosing-PE event publication.",
+          "stress_test": "ARM conditional and Thumb IT SEV/SEVL, true and false predicates and both widths.",
+          "falsification_probe": "A skipped event instruction sets any local or peer latch.",
+          "status": "confirmed within recorded A64/ARM/Thumb software-cluster, publication and native PAuth cases"
+        },
+        {
+          "id": "EV3",
+          "assumption": "Serialized event values remain bools; stable target latch bindings publish only at the admitted checkpoint boundary.",
+          "basis": "Existing CoreCheckpoint bool field and detached CpuPublication protocol.",
+          "dependent_result": "Preserve wire tags/bytes and target ownership without live mutation during preparation.",
+          "stress_test": "Canonical parent/current bytes, cancelled permits, failed final admission, 2/4-CPU file restoration and native PAuth interleaving.; repeated publication permits cannot replay stale reservation or latch state",
+          "falsification_probe": "Preparation changes a live latch, restored CPUs detach from peer signals, or native writeback loses a new event.",
+          "status": "confirmed within recorded A64/ARM/Thumb software-cluster, publication and native PAuth cases"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Complete private/in-flight state, all-writer quiescence, transactional late-failure restoration, remaining ARM wait/trap/startup profiles, debugger/replay, other ISA and hardware entries, and physical Intel HVF remain unqualified."
+        },
+        {
+          "impact": "medium",
+          "finding": "Linear fanout has no throughput qualification; standalone SMIR does not gain platform event topology; cohort consistency assumes the existing stopped-VM entry contract."
         }
       ],
       "published": false

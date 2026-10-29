@@ -185,3 +185,9 @@ little-endian u32 byte length and codec body. Other producers retain RAXEXE01.
 See [AArch64 cluster ownership](aarch64-cluster.md) for admission, implementation
 limits and actual 1/2/4-CPU validation. Full native scheduling and CPU/bridge
 private-state closure remain separate audit requirements.
+
+Software ARM [event delivery](a64-events/README.md) now distinguishes SEV fanout
+from SEVL and consumes latches at CPU instruction boundaries. Cohort restoration
+publishes saved latch values only after admission and retains peer bindings.
+This does not extend the coordinator's existing spurious-wakeup policy into a
+complete WFE trap or timer event-stream model.

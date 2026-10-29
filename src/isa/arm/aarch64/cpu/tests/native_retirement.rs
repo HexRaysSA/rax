@@ -34,13 +34,13 @@ fn native_control_wait_instructions_reject_before_erasing_scheduler_exits() {
         assert_eq!(matches!(exit, CpuExit::Wfe | CpuExit::Wfi), waiting);
         if word == 0xd503_205f {
             let mut ready = control_cpu(word);
-            ready.event_register = true;
+            ready.set_event();
             ready.jit.hot.insert(0x100, A64_JIT_HOT_THRESHOLD - 1);
             assert!(matches!(
                 ready.step_system_bounded(true).unwrap(),
                 CpuExit::Continue
             ));
-            assert!(!ready.event_register);
+            assert!(!ready.event_pending());
             assert_eq!(ready.jit.bounded_runs, 0);
             assert_eq!((ready.pc, ready.insn_count), (0x104, 1));
         }
@@ -51,7 +51,7 @@ fn native_control_wait_instructions_reject_before_erasing_scheduler_exits() {
 fn native_control_event_instructions_reject_before_erasing_cpu_event_state() {
     for word in [0xd503_209f, 0xd503_20bf] {
         let mut cpu = control_cpu(word);
-        assert!(!cpu.event_register);
+        assert!(!cpu.event_pending());
         assert!(
             cpu.jit_compile_region().is_none(),
             "event instruction {word:08x} must not become a native NOP"
@@ -61,7 +61,7 @@ fn native_control_event_instructions_reject_before_erasing_cpu_event_state() {
             cpu.step_system_bounded(true).unwrap(),
             CpuExit::Continue
         ));
-        assert!(cpu.event_register);
+        assert!(cpu.event_pending());
         assert_eq!(cpu.jit.bounded_runs, 0);
         assert_eq!((cpu.pc, cpu.insn_count), (0x104, 1));
     }

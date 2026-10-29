@@ -55,6 +55,7 @@ enum Activation {
         monitor: Monitor,
         reservation: Option<Reservation>,
         gic: Option<(usize, GicCheckpoint)>,
+        event: (Arc<AtomicBool>, bool),
         completed: Arc<AtomicBool>,
     },
 }
@@ -91,6 +92,7 @@ impl<'bindings> CheckpointPublication<'bindings> {
         monitor: Monitor,
         reservation: Option<Reservation>,
         owned_gic: Option<(Arc<Mutex<Gic>>, GicCheckpoint)>,
+        event: (Arc<AtomicBool>, bool),
         completed: Arc<AtomicBool>,
     ) -> Result<CpuPublication<'_, 'bindings>> {
         let memory = self.memory.borrow();
@@ -112,6 +114,7 @@ impl<'bindings> CheckpointPublication<'bindings> {
                 monitor,
                 reservation,
                 gic,
+                event,
                 completed,
             },
         })
@@ -136,14 +139,21 @@ impl CpuPublication<'_, '_> {
                 monitor,
                 reservation,
                 gic,
+                event,
                 completed,
             } => {
+                // Multiple admitted permits can exist in this thread-confined
+                // scope. Only the first may publish the saved activation.
+                if completed.load(Ordering::Acquire) {
+                    return;
+                }
                 if let Some((index, state)) = gic {
                     self.scope.gics[index]
                         .borrow_mut()
                         .restore_checkpoint(state);
                 }
                 self.scope.memory.borrow().restore(&monitor, reservation);
+                event.0.store(event.1, Ordering::Release);
                 completed.store(true, Ordering::Release);
             }
         }
@@ -190,7 +200,13 @@ mod tests {
             let active = Arc::new(AtomicBool::new(false));
             assert!(
                 scope
-                    .prepare_aarch64(target, right, None, active.clone())
+                    .prepare_aarch64(
+                        target,
+                        right,
+                        None,
+                        (Arc::new(AtomicBool::new(false)), false),
+                        active.clone()
+                    )
                     .is_err()
             );
             assert!(!active.load(Ordering::Acquire));
@@ -202,6 +218,44 @@ mod tests {
                 })
             );
         }
+    }
+
+    #[test]
+    fn duplicate_publication_cannot_restore_consumed_reservation_rights() {
+        let memory = memory();
+        let monitor = MemoryDomain::for_memory(&memory).register();
+        let bindings = CheckpointBindings::new(&memory, vec![]);
+        let scope = bindings.enter().unwrap();
+        let active = Arc::new(AtomicBool::new(false));
+        let event = Arc::new(AtomicBool::new(false));
+        let prepare = || {
+            scope
+                .prepare_aarch64(
+                    monitor.clone(),
+                    Some(Reservation {
+                        address: 64,
+                        size: 4,
+                    }),
+                    None,
+                    (event.clone(), true),
+                    active.clone(),
+                )
+                .unwrap()
+        };
+        let first = prepare();
+        let duplicate = prepare();
+        first.commit();
+        assert!(active.load(Ordering::Acquire));
+        assert!(monitor.get().is_some());
+        scope.write(64, &[9]).unwrap();
+        assert!(monitor.get().is_none());
+        event.store(false, Ordering::Release);
+        duplicate.commit();
+        assert!(
+            !event.load(Ordering::Acquire),
+            "duplicate activation must not replay an event"
+        );
+        assert!(monitor.get().is_none(), "activation must publish only once");
     }
 
     #[test]
@@ -219,6 +273,7 @@ mod tests {
                     size: 4,
                 }),
                 None,
+                (Arc::new(AtomicBool::new(false)), false),
                 active.clone(),
             )
             .unwrap();
@@ -257,6 +312,7 @@ mod tests {
                     size: 4,
                 }),
                 None,
+                (Arc::new(AtomicBool::new(false)), false),
                 active.clone(),
             )
             .unwrap();

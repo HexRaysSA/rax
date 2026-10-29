@@ -71,7 +71,7 @@ impl AArch64Cpu {
             pstate: self.pstate_bits() & !0xf000_0000,
             system: Some(Box::new(self.export_sregs())),
             instruction_guarded: None,
-            event_register: self.event_register,
+            event_register: self.event_pending(),
         }
     }
 
@@ -140,7 +140,11 @@ impl AArch64Cpu {
         self.sp_el[2] = exported.sregs.execution.as_ref().unwrap().sp_el2;
         self.sp_el[3] = exported.sregs.execution.as_ref().unwrap().sp_el3;
         self.pc = state.pc;
-        self.event_register = state.event_register;
+        // Typed PAuth can set the latch (ERET), but cannot consume it. A
+        // false exported frame must preserve a peer event received in a helper.
+        if state.event_register {
+            self.set_event();
+        }
         self.insn_count = self.insn_count.wrapping_add(retired);
         self.cycle_count = self.cycle_count.wrapping_add(retired);
         self.execution.native_fault = match result {

@@ -28,7 +28,7 @@ impl AArch64Cpu {
         self.halted = false;
         self.wfi = false;
         self.wfe = false;
-        self.event_register = false;
+        self.clear_event();
         self.pending_exceptions.clear();
         self.update_mmu_config();
     }
@@ -101,7 +101,7 @@ impl AArch64Cpu {
         let waiting = self.wfi || self.wfe;
         self.wfi = false;
         self.wfe = false;
-        self.event_register = false;
+        self.clear_event();
         waiting
     }
 

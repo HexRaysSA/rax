@@ -331,8 +331,7 @@ impl AArch64Cpu {
                 0b001 => Ok(CpuExit::Continue), // YIELD
                 0b010 => {
                     // WFE
-                    if self.event_register {
-                        self.event_register = false;
+                    if self.take_event() {
                         Ok(CpuExit::Continue)
                     } else {
                         self.wfe = true;
@@ -345,13 +344,14 @@ impl AArch64Cpu {
                     Ok(CpuExit::Wfi)
                 }
                 0b100 => {
-                    // SEV
-                    self.event_register = true;
+                    // Publish the platform fanout before the local architectural effect.
+                    self.memory.send_event()?;
+                    self.set_event();
                     Ok(CpuExit::Continue)
                 }
                 0b101 => {
                     // SEVL
-                    self.event_register = true;
+                    self.set_event();
                     Ok(CpuExit::Continue)
                 }
                 _ => Ok(CpuExit::Continue),

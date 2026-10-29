@@ -49,7 +49,7 @@ fn independently_decoded_core_maps_and_all_private_fields_roundtrip_semantically
     source.halted = true;
     source.wfi = true;
     source.wfe = true;
-    source.event_register = true;
+    source.set_event();
     source.pending_exceptions = vec![ArmException::SError(0x1234), ArmException::VIrq];
     source.breakpoints = [0x3000, 0x1000, 0x2000].into_iter().collect();
     source.watchpoints = vec![

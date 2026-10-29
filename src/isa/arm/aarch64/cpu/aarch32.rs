@@ -91,7 +91,7 @@ impl AArch64Cpu {
             return self.execute_aarch32_hvc(raw, pstate.t, in_it);
         }
         let mut monitor = std::mem::take(&mut self.aarch32_monitor);
-        let (result, fault, status) = {
+        let (result, fault, status, executes) = {
             let mut memory = memory::Aarch32Memory::new(self);
             let mut executor = Executor::new(&mut state, &mut memory);
             executor.exclusive_monitor = monitor;
@@ -115,7 +115,7 @@ impl AArch64Cpu {
                 matches!(result, ExecResult::Continue),
                 executes && decoded.mnemonic == Mnemonic::CLREX,
             );
-            (result, memory.fault.take(), status)
+            (result, memory.fault.take(), status, executes)
         };
         self.aarch32_monitor = monitor;
         if let Some(status) = status {
@@ -159,8 +159,7 @@ impl AArch64Cpu {
             ExecResult::Halt => {
                 state.regs[15] = next_pc;
                 if decoded.mnemonic == Mnemonic::WFE {
-                    if self.event_register {
-                        self.event_register = false;
+                    if self.take_event() {
                         CpuExit::Continue
                     } else {
                         self.wfe = true;
@@ -188,9 +187,6 @@ impl AArch64Cpu {
                 )));
             }
         };
-        if matches!(decoded.mnemonic, Mnemonic::SEV | Mnemonic::SEVL) {
-            self.event_register = true;
-        }
         if in_it {
             state.cpsr.advance_it_state();
         }
@@ -198,7 +194,15 @@ impl AArch64Cpu {
         if destination.is_none_or(|el| el > self.current_el) || state.cpsr.mode == 0x16 {
             return Err(ArmError::UndefinedInstruction(raw));
         }
+        if executes && decoded.mnemonic == Mnemonic::SEV {
+            self.memory.send_event()?;
+        }
+        // The destination mode was admitted above. The remaining register
+        // commit cannot fail or invoke a platform callback for these hints.
         self.commit_aarch32_register_state(&mut state)?;
+        if executes && matches!(decoded.mnemonic, Mnemonic::SEV | Mnemonic::SEVL) {
+            self.set_event();
+        }
         self.insn_count = self.insn_count.wrapping_add(1);
         self.cycle_count = self.cycle_count.wrapping_add(1);
         Ok(exit)

@@ -98,3 +98,9 @@ entry. `cluster-provenance.json` records exact source URLs, hashes and notices.
 Software reservation coherence for tracked RAM writers is described in
 [aarch64-reservations.md](aarch64-reservations.md). Its writer and alias
 boundaries do not establish complete checkpoint persistence or quiescence.
+
+The [event-latch repair](a64-events/README.md) adds synchronous SEV broadcast,
+local SEVL, atomic WFE consumption and conditional ARM/Thumb publication. It
+retains the serialized Boolean and each target's stable handle across admitted
+CPU restoration. Native PAuth writeback preserves a signal received in a helper.
+Its event qualification does not close the remaining full audit findings.

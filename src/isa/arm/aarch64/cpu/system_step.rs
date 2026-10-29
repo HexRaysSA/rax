@@ -61,13 +61,14 @@ impl AArch64Cpu {
             .map(|l| l.load(std::sync::atomic::Ordering::Acquire))
             .unwrap_or(false);
 
-        // WFE may complete spuriously (real hardware wakes it via the timer
-        // event stream, which is not modelled): never actually sleep on it,
-        // just yield once so spin loops (LDXR; WFE) keep making progress.
+        // A pending event completes the previous WFE. Without one, retain the
+        // existing single-yield spurious-wakeup policy. Atomic consumption must
+        // not erase a signal arriving after the test.
         if self.wfe {
             self.wfe = false;
-            self.event_register = false;
-            return Ok(CpuExit::Wfe);
+            if !self.take_event() {
+                return Ok(CpuExit::Wfe);
+            }
         }
 
         if self.wfi {

@@ -25,6 +25,7 @@ pub(super) struct PendingActivation {
     completed: Arc<AtomicBool>,
     reservation: Option<Reservation>,
     owned_gic: Option<GicCheckpoint>,
+    event: (Arc<AtomicBool>, bool),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -162,6 +163,7 @@ impl Context {
             crate::vm::memory::reservations::MemoryDomain::for_memory(&target.physical_memory)
                 .register();
         let bridge = GuestBridge {
+            cluster: target.cluster.clone(),
             mem: target.physical_memory.clone(),
             late: late.clone(),
             recorder: recorder.clone(),
@@ -194,6 +196,7 @@ impl Context {
             (None, None) => None,
             _ => return Err(invalid("user binding differs")),
         };
+        let event = (target.cpu.event_register_handle(), cpu.event_pending());
         Ok(Aarch64Vcpu {
             id: self.id,
             cpu,
@@ -214,6 +217,7 @@ impl Context {
                 completed: Arc::new(AtomicBool::new(false)),
                 reservation: self.reservation,
                 owned_gic: self.owned_gic,
+                event,
             }),
         })
     }
@@ -299,12 +303,15 @@ impl Aarch64Vcpu {
                     .ok_or_else(|| invalid("missing owned controller"))
             })
             .transpose()?;
-        scope.prepare_aarch64(
+        let permit = scope.prepare_aarch64(
             self.exclusive.clone(),
             pending.reservation,
             owned,
+            pending.event.clone(),
             pending.completed.clone(),
-        )
+        )?;
+        self.cpu.bind_event_register(pending.event.0.clone());
+        Ok(permit)
     }
 
     pub(super) fn ensure_checkpoint_active(&mut self) -> Result<()> {
@@ -329,3 +336,7 @@ impl Aarch64Vcpu {
 #[cfg(test)]
 #[path = "retirement_counter_tests.rs"]
 mod retirement_counters;
+
+#[cfg(test)]
+#[path = "event_checkpoint_tests.rs"]
+mod event_tests;
