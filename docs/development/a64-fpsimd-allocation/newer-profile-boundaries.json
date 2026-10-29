@@ -1,0 +1,28 @@
+{
+  "role": "QEMU max accepts these words; the represented legacy/BF16/I8MM base CPU profile has no corresponding selected extension. These are not claimed to be permanently unallocated encodings.",
+  "source": "retained a64-optional-fp-profile/oracle-v2 QEMU max capture",
+  "words": [
+    247602208,
+    506855456,
+    507117600,
+    507248672,
+    511049760,
+    511311904,
+    511442976,
+    519438368,
+    519700512,
+    519831584,
+    782367776,
+    782433312,
+    784473120,
+    1312952352,
+    1317146656,
+    1321340960,
+    1321344032,
+    1856109600,
+    1856175136,
+    1858214944,
+    1860303904,
+    1860369440
+  ]
+}

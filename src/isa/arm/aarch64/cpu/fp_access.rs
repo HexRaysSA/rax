@@ -58,6 +58,9 @@ impl AArch64Cpu {
             };
             if let Some(word) = bytes.get(offset..end) {
                 let word = u32::from_le_bytes(word.try_into().unwrap());
+                if !self.fp_instruction_version_supported(word) {
+                    return None;
+                }
                 requirements.observe(word);
                 features |= super::fp_profile::instruction_features(word)?;
             }

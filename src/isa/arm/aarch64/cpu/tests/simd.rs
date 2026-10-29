@@ -254,7 +254,7 @@ fn simd_indexed_sdot_rejects_scalar_form() {
     let mut bad = create_cpu_with_insn(0x5f82_e020);
     bad.config.features.insert(ArmFeatures::DOTPROD);
     bad.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
-    assert_eq!(bad.step().unwrap(), CpuExit::Undefined(0x5f82_e020));
+    assert_eq!(bad.step(), Err(ArmError::UndefinedInstruction(0x5f82_e020)));
 
     let mut good = create_cpu_with_insn(0x4f82_e020);
     good.config.features.insert(ArmFeatures::DOTPROD);

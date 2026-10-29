@@ -1,0 +1,19 @@
+{
+  "class": "FMLALB/FMLALT (by element), FEAT_FP8FMA",
+  "mask": 3217093632,
+  "value": 264241152,
+  "primary": "DDI0602 ID032025, printed page1412, PDF page1415",
+  "primary_sha256": "b7baa6869789722df70da60170d999a62810409aaabbb6db1ef729ed68686bdf",
+  "selection": "Existing RAX policy: config.version >= ArmVersion::V9_4A. This is not a claim that every Arm v9.4 CPU implements the feature.",
+  "scope": "Preserve existing structural admission and move the existing version gate before FP access and native optimization. No general FP8 arithmetic or FPMR qualification.",
+  "remaining": [
+    {
+      "impact": "high",
+      "finding": "Existing FP8 execution uses a fixed E5M2-like widening path with intermediate multiply/add rounding; current primary semantics use FPMR-controlled source formats, scaling and fused accumulation."
+    },
+    {
+      "impact": "high",
+      "finding": "Existing executor uses a four-bit source register and omits Rm[3] from the element index. The primary defines Vm in0..7 and index=H:L:M:Rm[3]. These data semantics remain unresolved."
+    }
+  ]
+}

@@ -1,0 +1,3675 @@
+{
+  "primary_source": "docs/architecture/arm/asl/arm_instrs.asl",
+  "primary_sha256": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+  "scope": "Generated legacy/BF16/I8MM base allocation. CPU feature/version policy and the explicit indexed FP8 implementation supplement remain required.",
+  "newer_optional_corpus": "docs/development/a64-optional-fp-profile/encodings.json",
+  "newer_optional_sha256": "c65ab483ef449fc55f1e5348aa25ab30821092e98b5e44490c0627c030081ad8",
+  "descriptions": 562,
+  "assignments": 73718,
+  "distinct_cubes": 523,
+  "bucket_entries": 1886,
+  "maximum_bucket_entries": 21,
+  "records": [
+    {
+      "mask": 2137455616,
+      "value": 509607936,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 2138766336,
+      "value": 509607936,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 2138897408,
+      "value": 509607936,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 2138996736,
+      "value": 507674624,
+      "names": [
+        "aarch64_float_convert_fix"
+      ]
+    },
+    {
+      "mask": 2138996736,
+      "value": 509116416,
+      "names": [
+        "aarch64_float_convert_fix"
+      ]
+    },
+    {
+      "mask": 2139028480,
+      "value": 511574016,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 2141649920,
+      "value": 505413632,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 2142960640,
+      "value": 505413632,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 2143091712,
+      "value": 505413632,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 2143191040,
+      "value": 503480320,
+      "names": [
+        "aarch64_float_convert_fix"
+      ]
+    },
+    {
+      "mask": 2143191040,
+      "value": 504922112,
+      "names": [
+        "aarch64_float_convert_fix"
+      ]
+    },
+    {
+      "mask": 2143222784,
+      "value": 507379712,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 2147023872,
+      "value": 517996544,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 2673925120,
+      "value": 236978176,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_add_sub_long"
+      ]
+    },
+    {
+      "mask": 2673925120,
+      "value": 236982272,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_add_sub_wide"
+      ]
+    },
+    {
+      "mask": 2673925120,
+      "value": 236994560,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_add_sub_narrow"
+      ]
+    },
+    {
+      "mask": 2673925120,
+      "value": 236998656,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_diff"
+      ]
+    },
+    {
+      "mask": 2673925120,
+      "value": 237010944,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_accum"
+      ]
+    },
+    {
+      "mask": 2673927168,
+      "value": 236995584,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_shift_simd"
+      ]
+    },
+    {
+      "mask": 2673931264,
+      "value": 236991488,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_int_simd"
+      ]
+    },
+    {
+      "mask": 2673931264,
+      "value": 237003776,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_max_min_single"
+      ]
+    },
+    {
+      "mask": 2673931264,
+      "value": 237007872,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_diff"
+      ]
+    },
+    {
+      "mask": 2673931264,
+      "value": 237020160,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_max_min_pair"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 236979200,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_halving_truncating"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 236981248,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_saturating_simd"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 236983296,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_halving_rounding"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 236987392,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_sub_int"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 236989440,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_sub_saturating_simd"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 237011968,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_wrapping_single_simd"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 237014016,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_bitwise_simd"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 237016064,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_accum"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 237027328,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_product"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 237028352,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_max_min_fp_2008"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 237040640,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_max_min_fp_1985"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 239076352,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_max_min_fp16_2008"
+      ]
+    },
+    {
+      "mask": 2673933312,
+      "value": 239088640,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_max_min_fp16_1985"
+      ]
+    },
+    {
+      "mask": 2675948544,
+      "value": 236988416,
+      "names": [
+        "aarch64_vector_arithmetic_unary_add_pairwise"
+      ]
+    },
+    {
+      "mask": 2675960832,
+      "value": 237012992,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_int_bulk_simd"
+      ]
+    },
+    {
+      "mask": 2675960832,
+      "value": 237086720,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_conv_float_bulk_simd"
+      ]
+    },
+    {
+      "mask": 2675960832,
+      "value": 242853888,
+      "names": [
+        "aarch64_vector_arithmetic_unary_fp16_conv_float_bulk_simd"
+      ]
+    },
+    {
+      "mask": 2675964928,
+      "value": 236992512,
+      "names": [
+        "aarch64_vector_arithmetic_unary_add_saturating_simd"
+      ]
+    },
+    {
+      "mask": 2675964928,
+      "value": 236996608,
+      "names": [
+        "aarch64_vector_arithmetic_unary_clsz"
+      ]
+    },
+    {
+      "mask": 2675964928,
+      "value": 237008896,
+      "names": [
+        "aarch64_vector_arithmetic_unary_diff_neg_sat_simd"
+      ]
+    },
+    {
+      "mask": 2675964928,
+      "value": 237025280,
+      "names": [
+        "aarch64_vector_arithmetic_unary_diff_neg_int_simd"
+      ]
+    },
+    {
+      "mask": 2675964928,
+      "value": 237062144,
+      "names": [
+        "aarch64_vector_arithmetic_unary_extract_sat_simd"
+      ]
+    },
+    {
+      "mask": 2675964928,
+      "value": 237082624,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_round"
+      ]
+    },
+    {
+      "mask": 2675964928,
+      "value": 242849792,
+      "names": [
+        "aarch64_vector_arithmetic_unary_fp16_round"
+      ]
+    },
+    {
+      "mask": 2678119424,
+      "value": 236978176,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_add_sub_long"
+      ]
+    },
+    {
+      "mask": 2678119424,
+      "value": 236982272,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_add_sub_wide"
+      ]
+    },
+    {
+      "mask": 2678119424,
+      "value": 236994560,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_add_sub_narrow"
+      ]
+    },
+    {
+      "mask": 2678119424,
+      "value": 236998656,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_diff"
+      ]
+    },
+    {
+      "mask": 2678119424,
+      "value": 237010944,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_accum"
+      ]
+    },
+    {
+      "mask": 2678121472,
+      "value": 236995584,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_shift_simd"
+      ]
+    },
+    {
+      "mask": 2678125568,
+      "value": 236991488,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_int_simd"
+      ]
+    },
+    {
+      "mask": 2678125568,
+      "value": 237003776,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_max_min_single"
+      ]
+    },
+    {
+      "mask": 2678125568,
+      "value": 237007872,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_diff"
+      ]
+    },
+    {
+      "mask": 2678125568,
+      "value": 237020160,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_max_min_pair"
+      ]
+    },
+    {
+      "mask": 2678127616,
+      "value": 236979200,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_halving_truncating"
+      ]
+    },
+    {
+      "mask": 2678127616,
+      "value": 236981248,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_saturating_simd"
+      ]
+    },
+    {
+      "mask": 2678127616,
+      "value": 236983296,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_halving_rounding"
+      ]
+    },
+    {
+      "mask": 2678127616,
+      "value": 236987392,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_sub_int"
+      ]
+    },
+    {
+      "mask": 2678127616,
+      "value": 236989440,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_sub_saturating_simd"
+      ]
+    },
+    {
+      "mask": 2678127616,
+      "value": 237011968,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_wrapping_single_simd"
+      ]
+    },
+    {
+      "mask": 2678127616,
+      "value": 237014016,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_bitwise_simd"
+      ]
+    },
+    {
+      "mask": 2678127616,
+      "value": 237016064,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_accum"
+      ]
+    },
+    {
+      "mask": 2678127616,
+      "value": 237027328,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_product"
+      ]
+    },
+    {
+      "mask": 2680093696,
+      "value": 238069760,
+      "names": [
+        "aarch64_vector_reduce_int_max"
+      ]
+    },
+    {
+      "mask": 2680142848,
+      "value": 236988416,
+      "names": [
+        "aarch64_vector_arithmetic_unary_add_pairwise"
+      ]
+    },
+    {
+      "mask": 2680155136,
+      "value": 237012992,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_int_bulk_simd"
+      ]
+    },
+    {
+      "mask": 2680159232,
+      "value": 236980224,
+      "names": [
+        "aarch64_vector_arithmetic_unary_rev"
+      ]
+    },
+    {
+      "mask": 2680159232,
+      "value": 236992512,
+      "names": [
+        "aarch64_vector_arithmetic_unary_add_saturating_simd"
+      ]
+    },
+    {
+      "mask": 2680159232,
+      "value": 236996608,
+      "names": [
+        "aarch64_vector_arithmetic_unary_clsz"
+      ]
+    },
+    {
+      "mask": 2680159232,
+      "value": 237008896,
+      "names": [
+        "aarch64_vector_arithmetic_unary_diff_neg_sat_simd"
+      ]
+    },
+    {
+      "mask": 2680159232,
+      "value": 237025280,
+      "names": [
+        "aarch64_vector_arithmetic_unary_diff_neg_int_simd"
+      ]
+    },
+    {
+      "mask": 2680159232,
+      "value": 237062144,
+      "names": [
+        "aarch64_vector_arithmetic_unary_extract_sat_simd"
+      ]
+    },
+    {
+      "mask": 2680159232,
+      "value": 238041088,
+      "names": [
+        "aarch64_vector_reduce_add_long"
+      ]
+    },
+    {
+      "mask": 2680206336,
+      "value": 255860736,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_long"
+      ]
+    },
+    {
+      "mask": 2680206336,
+      "value": 260055040,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_long"
+      ]
+    },
+    {
+      "mask": 2680222720,
+      "value": 251695104,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_fp16_simd"
+      ]
+    },
+    {
+      "mask": 2680222720,
+      "value": 255893504,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_long"
+      ]
+    },
+    {
+      "mask": 2680222720,
+      "value": 260083712,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_fp_simd"
+      ]
+    },
+    {
+      "mask": 2680222720,
+      "value": 260087808,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_long"
+      ]
+    },
+    {
+      "mask": 2680222720,
+      "value": 260104192,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_dotp"
+      ]
+    },
+    {
+      "mask": 2680736768,
+      "value": 252183552,
+      "names": [
+        "aarch64_vector_shift_right_simd"
+      ]
+    },
+    {
+      "mask": 2680747008,
+      "value": 252220416,
+      "names": [
+        "aarch64_vector_shift_right_narrow_uniform_simd"
+      ]
+    },
+    {
+      "mask": 2680749056,
+      "value": 252212224,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 2680749056,
+      "value": 252224512,
+      "names": [
+        "aarch64_vector_shift_left_long"
+      ]
+    },
+    {
+      "mask": 2681261056,
+      "value": 252707840,
+      "names": [
+        "aarch64_vector_shift_right_simd"
+      ]
+    },
+    {
+      "mask": 2681271296,
+      "value": 252744704,
+      "names": [
+        "aarch64_vector_shift_right_narrow_uniform_simd"
+      ]
+    },
+    {
+      "mask": 2681273344,
+      "value": 252736512,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 2681273344,
+      "value": 252748800,
+      "names": [
+        "aarch64_vector_shift_left_long"
+      ]
+    },
+    {
+      "mask": 2681273344,
+      "value": 252765184,
+      "names": [
+        "aarch64_vector_shift_conv_int_simd"
+      ]
+    },
+    {
+      "mask": 2681273344,
+      "value": 252771328,
+      "names": [
+        "aarch64_vector_shift_conv_float_simd"
+      ]
+    },
+    {
+      "mask": 2682309632,
+      "value": 253756416,
+      "names": [
+        "aarch64_vector_shift_right_simd"
+      ]
+    },
+    {
+      "mask": 2682319872,
+      "value": 253793280,
+      "names": [
+        "aarch64_vector_shift_right_narrow_uniform_simd"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 237018112,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_product"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 237032448,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_fp"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 237036544,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_fp_simd"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 239080448,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_fp16"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 239084544,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_fp16_simd"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 241218560,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_doubling_simd"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 243307520,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_dotp"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 245412864,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_doubling_simd"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 245421056,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_sub_fp_simd"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 247469056,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_sub_fp16_simd"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 253785088,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 253797376,
+      "names": [
+        "aarch64_vector_shift_left_long"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 253813760,
+      "names": [
+        "aarch64_vector_shift_conv_int_simd"
+      ]
+    },
+    {
+      "mask": 2682321920,
+      "value": 253819904,
+      "names": [
+        "aarch64_vector_shift_conv_float_simd"
+      ]
+    },
+    {
+      "mask": 2683837440,
+      "value": 251659264,
+      "names": [
+        "aarch64_vector_logical"
+      ]
+    },
+    {
+      "mask": 2683841536,
+      "value": 251659264,
+      "names": [
+        "aarch64_vector_logical"
+      ]
+    },
+    {
+      "mask": 2683849728,
+      "value": 251659264,
+      "names": [
+        "aarch64_vector_logical"
+      ]
+    },
+    {
+      "mask": 2683866112,
+      "value": 251659264,
+      "names": [
+        "aarch64_vector_logical"
+      ]
+    },
+    {
+      "mask": 2684349440,
+      "value": 237078528,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_round"
+      ]
+    },
+    {
+      "mask": 2684349440,
+      "value": 237103104,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_round_frint_32_64"
+      ]
+    },
+    {
+      "mask": 2684349440,
+      "value": 242845696,
+      "names": [
+        "aarch64_vector_arithmetic_unary_fp16_round"
+      ]
+    },
+    {
+      "mask": 2684349440,
+      "value": 245417984,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_float_bulk_simd"
+      ]
+    },
+    {
+      "mask": 2684349440,
+      "value": 251185152,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_fp16_bulk_simd"
+      ]
+    },
+    {
+      "mask": 2684353536,
+      "value": 237094912,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_conv_float_tieaway_simd"
+      ]
+    },
+    {
+      "mask": 2684353536,
+      "value": 237099008,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_conv_int_simd"
+      ]
+    },
+    {
+      "mask": 2684353536,
+      "value": 242862080,
+      "names": [
+        "aarch64_vector_arithmetic_unary_fp16_conv_float_tieaway_simd"
+      ]
+    },
+    {
+      "mask": 2684353536,
+      "value": 242866176,
+      "names": [
+        "aarch64_vector_arithmetic_unary_fp16_conv_int_simd"
+      ]
+    },
+    {
+      "mask": 2684353536,
+      "value": 245430272,
+      "names": [
+        "aarch64_vector_arithmetic_unary_diff_neg_float"
+      ]
+    },
+    {
+      "mask": 2684353536,
+      "value": 251197440,
+      "names": [
+        "aarch64_vector_arithmetic_unary_diff_neg_fp16"
+      ]
+    },
+    {
+      "mask": 3206609920,
+      "value": 236985344,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_logical_and_orr"
+      ]
+    },
+    {
+      "mask": 3206609920,
+      "value": 773856256,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_logical_bsl_eor"
+      ]
+    },
+    {
+      "mask": 3210787840,
+      "value": 234887168,
+      "names": [
+        "aarch64_vector_transfer_vector_permute_unzip"
+      ]
+    },
+    {
+      "mask": 3210787840,
+      "value": 234891264,
+      "names": [
+        "aarch64_vector_transfer_vector_permute_transpose"
+      ]
+    },
+    {
+      "mask": 3210787840,
+      "value": 234895360,
+      "names": [
+        "aarch64_vector_transfer_vector_permute_zip"
+      ]
+    },
+    {
+      "mask": 3210802176,
+      "value": 773907456,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_fp_simd"
+      ]
+    },
+    {
+      "mask": 3210802176,
+      "value": 775955456,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_fp16_simd"
+      ]
+    },
+    {
+      "mask": 3210804224,
+      "value": 237018112,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_product"
+      ]
+    },
+    {
+      "mask": 3210804224,
+      "value": 237026304,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_wrapping_pair"
+      ]
+    },
+    {
+      "mask": 3210804224,
+      "value": 237030400,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_fused"
+      ]
+    },
+    {
+      "mask": 3210804224,
+      "value": 237038592,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_mul_norounding_lower"
+      ]
+    },
+    {
+      "mask": 3210804224,
+      "value": 239078400,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp16_fused"
+      ]
+    },
+    {
+      "mask": 3210804224,
+      "value": 773901312,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_mul_norounding_upper"
+      ]
+    },
+    {
+      "mask": 3212831744,
+      "value": 237078528,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_round"
+      ]
+    },
+    {
+      "mask": 3212831744,
+      "value": 242845696,
+      "names": [
+        "aarch64_vector_arithmetic_unary_fp16_round"
+      ]
+    },
+    {
+      "mask": 3212835840,
+      "value": 236980224,
+      "names": [
+        "aarch64_vector_arithmetic_unary_rev"
+      ]
+    },
+    {
+      "mask": 3212835840,
+      "value": 237021184,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_int_lessthan_simd"
+      ]
+    },
+    {
+      "mask": 3212835840,
+      "value": 237053952,
+      "names": [
+        "aarch64_vector_arithmetic_unary_extract_nosat"
+      ]
+    },
+    {
+      "mask": 3212835840,
+      "value": 238077952,
+      "names": [
+        "aarch64_vector_reduce_fp16_maxnm_simd"
+      ]
+    },
+    {
+      "mask": 3212835840,
+      "value": 238090240,
+      "names": [
+        "aarch64_vector_reduce_fp16_max_simd"
+      ]
+    },
+    {
+      "mask": 3212835840,
+      "value": 773924864,
+      "names": [
+        "aarch64_vector_arithmetic_unary_extract_sqxtun_simd"
+      ]
+    },
+    {
+      "mask": 3212835840,
+      "value": 773928960,
+      "names": [
+        "aarch64_vector_arithmetic_unary_shift"
+      ]
+    },
+    {
+      "mask": 3214982144,
+      "value": 234887168,
+      "names": [
+        "aarch64_vector_transfer_vector_permute_unzip"
+      ]
+    },
+    {
+      "mask": 3214982144,
+      "value": 234891264,
+      "names": [
+        "aarch64_vector_transfer_vector_permute_transpose"
+      ]
+    },
+    {
+      "mask": 3214982144,
+      "value": 234895360,
+      "names": [
+        "aarch64_vector_transfer_vector_permute_zip"
+      ]
+    },
+    {
+      "mask": 3214998528,
+      "value": 237018112,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_product"
+      ]
+    },
+    {
+      "mask": 3214998528,
+      "value": 237026304,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_wrapping_pair"
+      ]
+    },
+    {
+      "mask": 3217030144,
+      "value": 237021184,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_int_lessthan_simd"
+      ]
+    },
+    {
+      "mask": 3217030144,
+      "value": 237053952,
+      "names": [
+        "aarch64_vector_arithmetic_unary_extract_nosat"
+      ]
+    },
+    {
+      "mask": 3217030144,
+      "value": 237070336,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_narrow"
+      ]
+    },
+    {
+      "mask": 3217030144,
+      "value": 237074432,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_widen"
+      ]
+    },
+    {
+      "mask": 3217030144,
+      "value": 238139392,
+      "names": [
+        "aarch64_vector_reduce_add_simd"
+      ]
+    },
+    {
+      "mask": 3217030144,
+      "value": 773924864,
+      "names": [
+        "aarch64_vector_arithmetic_unary_extract_sqxtun_simd"
+      ]
+    },
+    {
+      "mask": 3217030144,
+      "value": 773928960,
+      "names": [
+        "aarch64_vector_arithmetic_unary_shift"
+      ]
+    },
+    {
+      "mask": 3217071104,
+      "value": 792727552,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_complex"
+      ]
+    },
+    {
+      "mask": 3217077248,
+      "value": 251662336,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_fp16_simd"
+      ]
+    },
+    {
+      "mask": 3217077248,
+      "value": 255864832,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_double_simd"
+      ]
+    },
+    {
+      "mask": 3217077248,
+      "value": 260046848,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_mul_norounding_i_lower"
+      ]
+    },
+    {
+      "mask": 3217077248,
+      "value": 260050944,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_fp_simd"
+      ]
+    },
+    {
+      "mask": 3217077248,
+      "value": 260059136,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_double_simd"
+      ]
+    },
+    {
+      "mask": 3217077248,
+      "value": 792723456,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_int"
+      ]
+    },
+    {
+      "mask": 3217077248,
+      "value": 796917760,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_int"
+      ]
+    },
+    {
+      "mask": 3217077248,
+      "value": 796950528,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_mul_norounding_i_upper"
+      ]
+    },
+    {
+      "mask": 3217085440,
+      "value": 792776704,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_high_simd"
+      ]
+    },
+    {
+      "mask": 3217085440,
+      "value": 796971008,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_high_simd"
+      ]
+    },
+    {
+      "mask": 3217089536,
+      "value": 255901696,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_high_simd"
+      ]
+    },
+    {
+      "mask": 3217089536,
+      "value": 260096000,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_high_simd"
+      ]
+    },
+    {
+      "mask": 3217093632,
+      "value": 251719680,
+      "names": [
+        "SUDOT_asimdelem_D"
+      ]
+    },
+    {
+      "mask": 3217093632,
+      "value": 255885312,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_int"
+      ]
+    },
+    {
+      "mask": 3217093632,
+      "value": 255897600,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_double_simd"
+      ]
+    },
+    {
+      "mask": 3217093632,
+      "value": 255913984,
+      "names": [
+        "BFDOT_asimdelem_E"
+      ]
+    },
+    {
+      "mask": 3217093632,
+      "value": 260079616,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_int"
+      ]
+    },
+    {
+      "mask": 3217093632,
+      "value": 260091904,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_double_simd"
+      ]
+    },
+    {
+      "mask": 3217093632,
+      "value": 260108288,
+      "names": [
+        "USDOT_asimdelem_D"
+      ]
+    },
+    {
+      "mask": 3217093632,
+      "value": 264302592,
+      "names": [
+        "BFMLAL_asimdelem_F"
+      ]
+    },
+    {
+      "mask": 3217615872,
+      "value": 789079040,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 3217617920,
+      "value": 252216320,
+      "names": [
+        "aarch64_vector_shift_right_narrow_logical"
+      ]
+    },
+    {
+      "mask": 3217617920,
+      "value": 789087232,
+      "names": [
+        "aarch64_vector_shift_right_narrow_nonuniform_simd"
+      ]
+    },
+    {
+      "mask": 3217619968,
+      "value": 252204032,
+      "names": [
+        "aarch64_vector_shift_left_simd"
+      ]
+    },
+    {
+      "mask": 3217619968,
+      "value": 789070848,
+      "names": [
+        "aarch64_vector_shift_right_insert_simd"
+      ]
+    },
+    {
+      "mask": 3217619968,
+      "value": 789074944,
+      "names": [
+        "aarch64_vector_shift_left_insert_simd"
+      ]
+    },
+    {
+      "mask": 3218140160,
+      "value": 789603328,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 3218142208,
+      "value": 252740608,
+      "names": [
+        "aarch64_vector_shift_right_narrow_logical"
+      ]
+    },
+    {
+      "mask": 3218142208,
+      "value": 789611520,
+      "names": [
+        "aarch64_vector_shift_right_narrow_nonuniform_simd"
+      ]
+    },
+    {
+      "mask": 3218144256,
+      "value": 252728320,
+      "names": [
+        "aarch64_vector_shift_left_simd"
+      ]
+    },
+    {
+      "mask": 3218144256,
+      "value": 789595136,
+      "names": [
+        "aarch64_vector_shift_right_insert_simd"
+      ]
+    },
+    {
+      "mask": 3218144256,
+      "value": 789599232,
+      "names": [
+        "aarch64_vector_shift_left_insert_simd"
+      ]
+    },
+    {
+      "mask": 3219164160,
+      "value": 234881024,
+      "names": [
+        "aarch64_vector_transfer_vector_table"
+      ]
+    },
+    {
+      "mask": 3219178496,
+      "value": 771751936,
+      "names": [
+        "aarch64_vector_transfer_vector_extract"
+      ]
+    },
+    {
+      "mask": 3219184640,
+      "value": 241209344,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_dmacc_simd"
+      ]
+    },
+    {
+      "mask": 3219184640,
+      "value": 245403648,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_dmacc_simd"
+      ]
+    },
+    {
+      "mask": 3219186688,
+      "value": 775996416,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_complex"
+      ]
+    },
+    {
+      "mask": 3219186688,
+      "value": 780190720,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_complex"
+      ]
+    },
+    {
+      "mask": 3219188736,
+      "value": 776004608,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_fp_complex"
+      ]
+    },
+    {
+      "mask": 3219188736,
+      "value": 780198912,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_fp_complex"
+      ]
+    },
+    {
+      "mask": 3219188736,
+      "value": 790651904,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 3219190784,
+      "value": 253789184,
+      "names": [
+        "aarch64_vector_shift_right_narrow_logical"
+      ]
+    },
+    {
+      "mask": 3219190784,
+      "value": 775980032,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_doubling_accum_simd"
+      ]
+    },
+    {
+      "mask": 3219190784,
+      "value": 780174336,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_doubling_accum_simd"
+      ]
+    },
+    {
+      "mask": 3219190784,
+      "value": 790660096,
+      "names": [
+        "aarch64_vector_shift_right_narrow_nonuniform_simd"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 237034496,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_extended_simd"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 237035520,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_poly"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 237042688,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_recps_simd"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 239082496,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp16_extended_simd"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 239090688,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_recps_fp16_simd"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 241225728,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_double_simd"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 243309568,
+      "names": [
+        "USDOT_asimdsame2_D"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 245420032,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_double_simd"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 245431296,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_rsqrts_simd"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 247479296,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_rsqrts_fp16_simd"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 249618432,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_poly"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 253776896,
+      "names": [
+        "aarch64_vector_shift_left_simd"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 773905408,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_product"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 773913600,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_div"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 775953408,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp16_product"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 775961600,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_div_fp16"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 776010752,
+      "names": [
+        "BFDOT_asimdsame2_D"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 784399360,
+      "names": [
+        "BFMLAL_asimdsame2_F_"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 790643712,
+      "names": [
+        "aarch64_vector_shift_right_insert_simd"
+      ]
+    },
+    {
+      "mask": 3219192832,
+      "value": 790647808,
+      "names": [
+        "aarch64_vector_shift_left_insert_simd"
+      ]
+    },
+    {
+      "mask": 3219258368,
+      "value": 234947584,
+      "names": [
+        "aarch64_vector_transfer_vector_cpy_dup_simd"
+      ]
+    },
+    {
+      "mask": 3219258368,
+      "value": 234949632,
+      "names": [
+        "aarch64_vector_transfer_integer_dup"
+      ]
+    },
+    {
+      "mask": 3219258368,
+      "value": 234957824,
+      "names": [
+        "aarch64_vector_transfer_integer_move_signed"
+      ]
+    },
+    {
+      "mask": 3219323904,
+      "value": 235013120,
+      "names": [
+        "aarch64_vector_transfer_vector_cpy_dup_simd"
+      ]
+    },
+    {
+      "mask": 3219323904,
+      "value": 235015168,
+      "names": [
+        "aarch64_vector_transfer_integer_dup"
+      ]
+    },
+    {
+      "mask": 3219323904,
+      "value": 235023360,
+      "names": [
+        "aarch64_vector_transfer_integer_move_signed"
+      ]
+    },
+    {
+      "mask": 3219454976,
+      "value": 235144192,
+      "names": [
+        "aarch64_vector_transfer_vector_cpy_dup_simd"
+      ]
+    },
+    {
+      "mask": 3219454976,
+      "value": 235146240,
+      "names": [
+        "aarch64_vector_transfer_integer_dup"
+      ]
+    },
+    {
+      "mask": 3220704256,
+      "value": 251659264,
+      "names": [
+        "aarch64_vector_logical"
+      ]
+    },
+    {
+      "mask": 3220765696,
+      "value": 251722752,
+      "names": [
+        "aarch64_vector_fp16_movi"
+      ]
+    },
+    {
+      "mask": 3221220352,
+      "value": 236980224,
+      "names": [
+        "aarch64_vector_arithmetic_unary_rev"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 237000704,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cnt"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 245426176,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_float_lessthan_simd"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 245458944,
+      "names": [
+        "BFCVTN_asimdmisc_4S"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 245483520,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_recip_int"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 245487616,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_recip_float_simd"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 251193344,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_fp16_lessthan_simd"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 251254784,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_recip_fp16_simd"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 773871616,
+      "names": [
+        "aarch64_vector_arithmetic_unary_not"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 778065920,
+      "names": [
+        "aarch64_vector_arithmetic_unary_rbit"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 778135552,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_xtn_simd"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 782354432,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_sqrt_est_int"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 782358528,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_sqrt_est_float_simd"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 782366720,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_sqrt"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 788125696,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_sqrt_est_fp16_simd"
+      ]
+    },
+    {
+      "mask": 3221224448,
+      "value": 788133888,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_sqrt_fp16"
+      ]
+    },
+    {
+      "mask": 3743474688,
+      "value": 1310737408,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_shift_simd"
+      ]
+    },
+    {
+      "mask": 3743476736,
+      "value": 1579174912,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_shift_sisd"
+      ]
+    },
+    {
+      "mask": 3743478784,
+      "value": 1310733312,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_int_simd"
+      ]
+    },
+    {
+      "mask": 3743480832,
+      "value": 1310723072,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_saturating_simd"
+      ]
+    },
+    {
+      "mask": 3743480832,
+      "value": 1310731264,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_sub_saturating_simd"
+      ]
+    },
+    {
+      "mask": 3743480832,
+      "value": 1310753792,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_wrapping_single_simd"
+      ]
+    },
+    {
+      "mask": 3743480832,
+      "value": 1310755840,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_bitwise_simd"
+      ]
+    },
+    {
+      "mask": 3743480832,
+      "value": 1310770176,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_max_min_fp_2008"
+      ]
+    },
+    {
+      "mask": 3743480832,
+      "value": 1310782464,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_max_min_fp_1985"
+      ]
+    },
+    {
+      "mask": 3743480832,
+      "value": 1579158528,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_saturating_sisd"
+      ]
+    },
+    {
+      "mask": 3743480832,
+      "value": 1579166720,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_sub_saturating_sisd"
+      ]
+    },
+    {
+      "mask": 3745508352,
+      "value": 1310754816,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_int_bulk_simd"
+      ]
+    },
+    {
+      "mask": 3745508352,
+      "value": 1310828544,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_conv_float_bulk_simd"
+      ]
+    },
+    {
+      "mask": 3745508352,
+      "value": 1579264000,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_conv_float_bulk_sisd"
+      ]
+    },
+    {
+      "mask": 3745512448,
+      "value": 1310734336,
+      "names": [
+        "aarch64_vector_arithmetic_unary_add_saturating_simd"
+      ]
+    },
+    {
+      "mask": 3745512448,
+      "value": 1310750720,
+      "names": [
+        "aarch64_vector_arithmetic_unary_diff_neg_sat_simd"
+      ]
+    },
+    {
+      "mask": 3745512448,
+      "value": 1310767104,
+      "names": [
+        "aarch64_vector_arithmetic_unary_diff_neg_int_simd"
+      ]
+    },
+    {
+      "mask": 3745512448,
+      "value": 1310824448,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_round"
+      ]
+    },
+    {
+      "mask": 3745512448,
+      "value": 1579169792,
+      "names": [
+        "aarch64_vector_arithmetic_unary_add_saturating_sisd"
+      ]
+    },
+    {
+      "mask": 3745512448,
+      "value": 1579186176,
+      "names": [
+        "aarch64_vector_arithmetic_unary_diff_neg_sat_sisd"
+      ]
+    },
+    {
+      "mask": 3749641216,
+      "value": 1311811584,
+      "names": [
+        "aarch64_vector_reduce_int_max"
+      ]
+    },
+    {
+      "mask": 3749702656,
+      "value": 1585031168,
+      "names": [
+        "aarch64_vector_arithmetic_unary_fp16_conv_float_bulk_sisd"
+      ]
+    },
+    {
+      "mask": 3749706752,
+      "value": 1311782912,
+      "names": [
+        "aarch64_vector_reduce_add_long"
+      ]
+    },
+    {
+      "mask": 3749706752,
+      "value": 1579239424,
+      "names": [
+        "aarch64_vector_arithmetic_unary_extract_sat_sisd"
+      ]
+    },
+    {
+      "mask": 3750284288,
+      "value": 1325925376,
+      "names": [
+        "aarch64_vector_shift_right_simd"
+      ]
+    },
+    {
+      "mask": 3750296576,
+      "value": 1325954048,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 3750296576,
+      "value": 1594389504,
+      "names": [
+        "aarch64_vector_shift_left_sat_sisd"
+      ]
+    },
+    {
+      "mask": 3750808576,
+      "value": 1326449664,
+      "names": [
+        "aarch64_vector_shift_right_simd"
+      ]
+    },
+    {
+      "mask": 3750820864,
+      "value": 1326478336,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 3750820864,
+      "value": 1326507008,
+      "names": [
+        "aarch64_vector_shift_conv_int_simd"
+      ]
+    },
+    {
+      "mask": 3750820864,
+      "value": 1326513152,
+      "names": [
+        "aarch64_vector_shift_conv_float_simd"
+      ]
+    },
+    {
+      "mask": 3750820864,
+      "value": 1594913792,
+      "names": [
+        "aarch64_vector_shift_left_sat_sisd"
+      ]
+    },
+    {
+      "mask": 3750820864,
+      "value": 1594942464,
+      "names": [
+        "aarch64_vector_shift_conv_int_sisd"
+      ]
+    },
+    {
+      "mask": 3750820864,
+      "value": 1594948608,
+      "names": [
+        "aarch64_vector_shift_conv_float_sisd"
+      ]
+    },
+    {
+      "mask": 3751857152,
+      "value": 1327498240,
+      "names": [
+        "aarch64_vector_shift_right_simd"
+      ]
+    },
+    {
+      "mask": 3751867392,
+      "value": 1333825536,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_fp_simd"
+      ]
+    },
+    {
+      "mask": 3751867392,
+      "value": 1602260992,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_fp_sisd"
+      ]
+    },
+    {
+      "mask": 3751869440,
+      "value": 1310774272,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_fp"
+      ]
+    },
+    {
+      "mask": 3751869440,
+      "value": 1310778368,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_fp_simd"
+      ]
+    },
+    {
+      "mask": 3751869440,
+      "value": 1319162880,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_sub_fp_simd"
+      ]
+    },
+    {
+      "mask": 3751869440,
+      "value": 1327526912,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 3751869440,
+      "value": 1327555584,
+      "names": [
+        "aarch64_vector_shift_conv_int_simd"
+      ]
+    },
+    {
+      "mask": 3751869440,
+      "value": 1327561728,
+      "names": [
+        "aarch64_vector_shift_conv_float_simd"
+      ]
+    },
+    {
+      "mask": 3751869440,
+      "value": 1579213824,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_fp_sisd"
+      ]
+    },
+    {
+      "mask": 3751869440,
+      "value": 1595962368,
+      "names": [
+        "aarch64_vector_shift_left_sat_sisd"
+      ]
+    },
+    {
+      "mask": 3751869440,
+      "value": 1595991040,
+      "names": [
+        "aarch64_vector_shift_conv_int_sisd"
+      ]
+    },
+    {
+      "mask": 3751869440,
+      "value": 1595997184,
+      "names": [
+        "aarch64_vector_shift_conv_float_sisd"
+      ]
+    },
+    {
+      "mask": 3753896960,
+      "value": 1310820352,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_round"
+      ]
+    },
+    {
+      "mask": 3753896960,
+      "value": 1310844928,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_round_frint_32_64"
+      ]
+    },
+    {
+      "mask": 3753896960,
+      "value": 1319159808,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_float_bulk_simd"
+      ]
+    },
+    {
+      "mask": 3753896960,
+      "value": 1587595264,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_float_bulk_sisd"
+      ]
+    },
+    {
+      "mask": 3753901056,
+      "value": 1310836736,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_conv_float_tieaway_simd"
+      ]
+    },
+    {
+      "mask": 3753901056,
+      "value": 1310840832,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_conv_int_simd"
+      ]
+    },
+    {
+      "mask": 3753901056,
+      "value": 1319172096,
+      "names": [
+        "aarch64_vector_arithmetic_unary_diff_neg_float"
+      ]
+    },
+    {
+      "mask": 3753901056,
+      "value": 1579239424,
+      "names": [
+        "aarch64_vector_arithmetic_unary_extract_sat_sisd"
+      ]
+    },
+    {
+      "mask": 3753901056,
+      "value": 1579272192,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_conv_float_tieaway_sisd"
+      ]
+    },
+    {
+      "mask": 3753901056,
+      "value": 1579276288,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_conv_int_sisd"
+      ]
+    },
+    {
+      "mask": 3753954304,
+      "value": 1329595392,
+      "names": [
+        "aarch64_vector_shift_right_simd"
+      ]
+    },
+    {
+      "mask": 3753954304,
+      "value": 1598030848,
+      "names": [
+        "aarch64_vector_shift_right_sisd"
+      ]
+    },
+    {
+      "mask": 3753964544,
+      "value": 1593872384,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_fp16_sisd"
+      ]
+    },
+    {
+      "mask": 3753964544,
+      "value": 1602260992,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_fp_sisd"
+      ]
+    },
+    {
+      "mask": 3753966592,
+      "value": 1329624064,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 3753966592,
+      "value": 1329652736,
+      "names": [
+        "aarch64_vector_shift_conv_int_simd"
+      ]
+    },
+    {
+      "mask": 3753966592,
+      "value": 1329658880,
+      "names": [
+        "aarch64_vector_shift_conv_float_simd"
+      ]
+    },
+    {
+      "mask": 3753966592,
+      "value": 1598059520,
+      "names": [
+        "aarch64_vector_shift_left_sat_sisd"
+      ]
+    },
+    {
+      "mask": 3753966592,
+      "value": 1598088192,
+      "names": [
+        "aarch64_vector_shift_conv_int_sisd"
+      ]
+    },
+    {
+      "mask": 3753966592,
+      "value": 1598094336,
+      "names": [
+        "aarch64_vector_shift_conv_float_sisd"
+      ]
+    },
+    {
+      "mask": 3754488832,
+      "value": 1594397696,
+      "names": [
+        "aarch64_vector_shift_right_narrow_uniform_sisd"
+      ]
+    },
+    {
+      "mask": 3755013120,
+      "value": 1594921984,
+      "names": [
+        "aarch64_vector_shift_right_narrow_uniform_sisd"
+      ]
+    },
+    {
+      "mask": 3756057600,
+      "value": 1591755776,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_shift_sisd"
+      ]
+    },
+    {
+      "mask": 3756061696,
+      "value": 1591751680,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_int_sisd"
+      ]
+    },
+    {
+      "mask": 3756061696,
+      "value": 1595970560,
+      "names": [
+        "aarch64_vector_shift_right_narrow_uniform_sisd"
+      ]
+    },
+    {
+      "mask": 3756063744,
+      "value": 1581261824,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_fp16_sisd"
+      ]
+    },
+    {
+      "mask": 3756063744,
+      "value": 1583395840,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_doubling_sisd"
+      ]
+    },
+    {
+      "mask": 3756063744,
+      "value": 1587590144,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_doubling_sisd"
+      ]
+    },
+    {
+      "mask": 3756063744,
+      "value": 1591772160,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_wrapping_single_sisd"
+      ]
+    },
+    {
+      "mask": 3756063744,
+      "value": 1591774208,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_bitwise_sisd"
+      ]
+    },
+    {
+      "mask": 3757575168,
+      "value": 1325401088,
+      "names": [
+        "aarch64_vector_logical"
+      ]
+    },
+    {
+      "mask": 3758091264,
+      "value": 1591773184,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_int_bulk_sisd"
+      ]
+    },
+    {
+      "mask": 3758091264,
+      "value": 1593362432,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_fp16_bulk_sisd"
+      ]
+    },
+    {
+      "mask": 3758095360,
+      "value": 1585039360,
+      "names": [
+        "aarch64_vector_arithmetic_unary_fp16_conv_float_tieaway_sisd"
+      ]
+    },
+    {
+      "mask": 3758095360,
+      "value": 1585043456,
+      "names": [
+        "aarch64_vector_arithmetic_unary_fp16_conv_int_sisd"
+      ]
+    },
+    {
+      "mask": 3758095360,
+      "value": 1591785472,
+      "names": [
+        "aarch64_vector_arithmetic_unary_diff_neg_int_sisd"
+      ]
+    },
+    {
+      "mask": 4280335360,
+      "value": 1308628992,
+      "names": [
+        "aarch64_vector_transfer_vector_permute_unzip"
+      ]
+    },
+    {
+      "mask": 4280335360,
+      "value": 1308633088,
+      "names": [
+        "aarch64_vector_transfer_vector_permute_transpose"
+      ]
+    },
+    {
+      "mask": 4280335360,
+      "value": 1308637184,
+      "names": [
+        "aarch64_vector_transfer_vector_permute_zip"
+      ]
+    },
+    {
+      "mask": 4280349696,
+      "value": 1847649280,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_fp_simd"
+      ]
+    },
+    {
+      "mask": 4280349696,
+      "value": 2116084736,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_fp_sisd"
+      ]
+    },
+    {
+      "mask": 4280351744,
+      "value": 1310768128,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_wrapping_pair"
+      ]
+    },
+    {
+      "mask": 4280351744,
+      "value": 1310772224,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_fused"
+      ]
+    },
+    {
+      "mask": 4282379264,
+      "value": 1310820352,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_round"
+      ]
+    },
+    {
+      "mask": 4282383360,
+      "value": 1310763008,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_int_lessthan_simd"
+      ]
+    },
+    {
+      "mask": 4282383360,
+      "value": 2117126144,
+      "names": [
+        "aarch64_vector_reduce_fp_maxnm_sisd"
+      ]
+    },
+    {
+      "mask": 4282383360,
+      "value": 2117138432,
+      "names": [
+        "aarch64_vector_reduce_fp_max_sisd"
+      ]
+    },
+    {
+      "mask": 4282384384,
+      "value": 524288000,
+      "names": [
+        "aarch64_float_arithmetic_mul_add_sub"
+      ]
+    },
+    {
+      "mask": 4284484608,
+      "value": 509608960,
+      "names": [
+        "aarch64_float_compare_cond"
+      ]
+    },
+    {
+      "mask": 4284484608,
+      "value": 509611008,
+      "names": [
+        "aarch64_float_move_fp_select"
+      ]
+    },
+    {
+      "mask": 4284489696,
+      "value": 509612032,
+      "names": [
+        "aarch64_float_move_fp_imm"
+      ]
+    },
+    {
+      "mask": 4284513280,
+      "value": 509609984,
+      "names": [
+        "aarch64_float_arithmetic_mul_product"
+      ]
+    },
+    {
+      "mask": 4284533760,
+      "value": 509626368,
+      "names": [
+        "aarch64_float_arithmetic_max_min"
+      ]
+    },
+    {
+      "mask": 4284539904,
+      "value": 1849738240,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_complex"
+      ]
+    },
+    {
+      "mask": 4284541952,
+      "value": 509618176,
+      "names": [
+        "aarch64_float_arithmetic_add_sub"
+      ]
+    },
+    {
+      "mask": 4284541952,
+      "value": 1849746432,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_fp_complex"
+      ]
+    },
+    {
+      "mask": 4284544000,
+      "value": 2118132736,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_cmp_fp16_sisd"
+      ]
+    },
+    {
+      "mask": 4284546048,
+      "value": 509614080,
+      "names": [
+        "aarch64_float_arithmetic_div"
+      ]
+    },
+    {
+      "mask": 4284546055,
+      "value": 509616128,
+      "names": [
+        "aarch64_float_compare_uncond"
+      ]
+    },
+    {
+      "mask": 4286118912,
+      "value": 2657091584,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 4286381056,
+      "value": 509886464,
+      "names": [
+        "aarch64_float_arithmetic_round_frint"
+      ]
+    },
+    {
+      "mask": 4286413824,
+      "value": 509952000,
+      "names": [
+        "aarch64_float_arithmetic_round_frint"
+      ]
+    },
+    {
+      "mask": 4286447616,
+      "value": 2655125504,
+      "names": [
+        "aarch64_float_convert_fix"
+      ]
+    },
+    {
+      "mask": 4286447616,
+      "value": 2656567296,
+      "names": [
+        "aarch64_float_convert_fix"
+      ]
+    },
+    {
+      "mask": 4286479360,
+      "value": 509624320,
+      "names": [
+        "aarch64_float_arithmetic_unary"
+      ]
+    },
+    {
+      "mask": 4286479360,
+      "value": 509886464,
+      "names": [
+        "aarch64_float_arithmetic_round_frint"
+      ]
+    },
+    {
+      "mask": 4286577664,
+      "value": 509755392,
+      "names": [
+        "aarch64_float_convert_fp"
+      ]
+    },
+    {
+      "mask": 4286577664,
+      "value": 1311881216,
+      "names": [
+        "aarch64_vector_reduce_add_simd"
+      ]
+    },
+    {
+      "mask": 4286577664,
+      "value": 1580255232,
+      "names": [
+        "aarch64_vector_reduce_fp16_maxnm_sisd"
+      ]
+    },
+    {
+      "mask": 4286577664,
+      "value": 1580267520,
+      "names": [
+        "aarch64_vector_reduce_fp16_max_sisd"
+      ]
+    },
+    {
+      "mask": 4286577664,
+      "value": 1848690688,
+      "names": [
+        "aarch64_vector_reduce_fp_maxnm_simd"
+      ]
+    },
+    {
+      "mask": 4286577664,
+      "value": 1848702976,
+      "names": [
+        "aarch64_vector_reduce_fp_max_simd"
+      ]
+    },
+    {
+      "mask": 4286577664,
+      "value": 2116102144,
+      "names": [
+        "aarch64_vector_arithmetic_unary_extract_sqxtun_sisd"
+      ]
+    },
+    {
+      "mask": 4286578688,
+      "value": 520093696,
+      "names": [
+        "aarch64_float_arithmetic_mul_add_sub"
+      ]
+    },
+    {
+      "mask": 4287163392,
+      "value": 1862820864,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 4287163392,
+      "value": 2131256320,
+      "names": [
+        "aarch64_vector_shift_left_sat_sisd"
+      ]
+    },
+    {
+      "mask": 4287167488,
+      "value": 1325945856,
+      "names": [
+        "aarch64_vector_shift_left_simd"
+      ]
+    },
+    {
+      "mask": 4287167488,
+      "value": 1862812672,
+      "names": [
+        "aarch64_vector_shift_right_insert_simd"
+      ]
+    },
+    {
+      "mask": 4287167488,
+      "value": 1862816768,
+      "names": [
+        "aarch64_vector_shift_left_insert_simd"
+      ]
+    },
+    {
+      "mask": 4287687680,
+      "value": 1863345152,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 4287687680,
+      "value": 2131780608,
+      "names": [
+        "aarch64_vector_shift_left_sat_sisd"
+      ]
+    },
+    {
+      "mask": 4287691776,
+      "value": 1326470144,
+      "names": [
+        "aarch64_vector_shift_left_simd"
+      ]
+    },
+    {
+      "mask": 4287691776,
+      "value": 1863336960,
+      "names": [
+        "aarch64_vector_shift_right_insert_simd"
+      ]
+    },
+    {
+      "mask": 4287691776,
+      "value": 1863341056,
+      "names": [
+        "aarch64_vector_shift_left_insert_simd"
+      ]
+    },
+    {
+      "mask": 4288678912,
+      "value": 505414656,
+      "names": [
+        "aarch64_float_compare_cond"
+      ]
+    },
+    {
+      "mask": 4288678912,
+      "value": 505416704,
+      "names": [
+        "aarch64_float_move_fp_select"
+      ]
+    },
+    {
+      "mask": 4288684000,
+      "value": 505417728,
+      "names": [
+        "aarch64_float_move_fp_imm"
+      ]
+    },
+    {
+      "mask": 4288707584,
+      "value": 505415680,
+      "names": [
+        "aarch64_float_arithmetic_mul_product"
+      ]
+    },
+    {
+      "mask": 4288721920,
+      "value": 1333792768,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_fp_simd"
+      ]
+    },
+    {
+      "mask": 4288721920,
+      "value": 1602228224,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_fp_sisd"
+      ]
+    },
+    {
+      "mask": 4288728064,
+      "value": 505432064,
+      "names": [
+        "aarch64_float_arithmetic_max_min"
+      ]
+    },
+    {
+      "mask": 4288734208,
+      "value": 1853932544,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_complex"
+      ]
+    },
+    {
+      "mask": 4288736256,
+      "value": 505423872,
+      "names": [
+        "aarch64_float_arithmetic_add_sub"
+      ]
+    },
+    {
+      "mask": 4288736256,
+      "value": 1853940736,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_add_fp_complex"
+      ]
+    },
+    {
+      "mask": 4288736256,
+      "value": 1864393728,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 4288736256,
+      "value": 2132829184,
+      "names": [
+        "aarch64_vector_shift_left_sat_sisd"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 505419776,
+      "names": [
+        "aarch64_float_arithmetic_div"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 1310776320,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_extended_simd"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 1310784512,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_recps_simd"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 1319173120,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_rsqrts_simd"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 1327518720,
+      "names": [
+        "aarch64_vector_shift_left_simd"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 1579211776,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_extended_sisd"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 1579219968,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_recps_sisd"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 1587608576,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_rsqrts_sisd"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 1847647232,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp_product"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 1847655424,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_div"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 1864385536,
+      "names": [
+        "aarch64_vector_shift_right_insert_simd"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 1864389632,
+      "names": [
+        "aarch64_vector_shift_left_insert_simd"
+      ]
+    },
+    {
+      "mask": 4288740352,
+      "value": 2124469248,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_sub_fp_sisd"
+      ]
+    },
+    {
+      "mask": 4288740359,
+      "value": 505421824,
+      "names": [
+        "aarch64_float_compare_uncond"
+      ]
+    },
+    {
+      "mask": 4290575360,
+      "value": 505692160,
+      "names": [
+        "aarch64_float_arithmetic_round_frint"
+      ]
+    },
+    {
+      "mask": 4290608128,
+      "value": 505757696,
+      "names": [
+        "aarch64_float_arithmetic_round_frint"
+      ]
+    },
+    {
+      "mask": 4290641920,
+      "value": 2650931200,
+      "names": [
+        "aarch64_float_convert_fix"
+      ]
+    },
+    {
+      "mask": 4290641920,
+      "value": 2652372992,
+      "names": [
+        "aarch64_float_convert_fix"
+      ]
+    },
+    {
+      "mask": 4290673664,
+      "value": 505430016,
+      "names": [
+        "aarch64_float_arithmetic_unary"
+      ]
+    },
+    {
+      "mask": 4290673664,
+      "value": 505692160,
+      "names": [
+        "aarch64_float_arithmetic_round_frint"
+      ]
+    },
+    {
+      "mask": 4290673664,
+      "value": 505954304,
+      "names": [
+        "aarch64_float_arithmetic_round_frint_32_64"
+      ]
+    },
+    {
+      "mask": 4290771968,
+      "value": 505659392,
+      "names": [
+        "aarch64_float_convert_fp"
+      ]
+    },
+    {
+      "mask": 4290771968,
+      "value": 1319168000,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_float_lessthan_simd"
+      ]
+    },
+    {
+      "mask": 4290771968,
+      "value": 1319229440,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_recip_float_simd"
+      ]
+    },
+    {
+      "mask": 4290771968,
+      "value": 1587603456,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_float_lessthan_sisd"
+      ]
+    },
+    {
+      "mask": 4290771968,
+      "value": 1587664896,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_recip_float_sisd"
+      ]
+    },
+    {
+      "mask": 4290771968,
+      "value": 1587673088,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_frecpx"
+      ]
+    },
+    {
+      "mask": 4290771968,
+      "value": 1856100352,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_sqrt_est_float_simd"
+      ]
+    },
+    {
+      "mask": 4290771968,
+      "value": 1856108544,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_sqrt"
+      ]
+    },
+    {
+      "mask": 4290771968,
+      "value": 2116102144,
+      "names": [
+        "aarch64_vector_arithmetic_unary_extract_sqxtun_sisd"
+      ]
+    },
+    {
+      "mask": 4290771968,
+      "value": 2117130240,
+      "names": [
+        "aarch64_vector_reduce_fp_add_sisd"
+      ]
+    },
+    {
+      "mask": 4290771968,
+      "value": 2124535808,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_sqrt_est_float_sisd"
+      ]
+    },
+    {
+      "mask": 4290810880,
+      "value": 1866469376,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_complex"
+      ]
+    },
+    {
+      "mask": 4290819072,
+      "value": 1593839616,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_fp16_sisd"
+      ]
+    },
+    {
+      "mask": 4290819072,
+      "value": 1598042112,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_double_sisd"
+      ]
+    },
+    {
+      "mask": 4290819072,
+      "value": 1602228224,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_fp_sisd"
+      ]
+    },
+    {
+      "mask": 4290819072,
+      "value": 1602236416,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_double_sisd"
+      ]
+    },
+    {
+      "mask": 4290827264,
+      "value": 2134953984,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_high_sisd"
+      ]
+    },
+    {
+      "mask": 4290827264,
+      "value": 2139148288,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_high_sisd"
+      ]
+    },
+    {
+      "mask": 4290831360,
+      "value": 1598078976,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_high_sisd"
+      ]
+    },
+    {
+      "mask": 4290831360,
+      "value": 1602273280,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_high_sisd"
+      ]
+    },
+    {
+      "mask": 4290833408,
+      "value": 1866490880,
+      "names": [
+        "aarch64_vector_shift_left_sat_simd"
+      ]
+    },
+    {
+      "mask": 4290833408,
+      "value": 2134926336,
+      "names": [
+        "aarch64_vector_shift_left_sat_sisd"
+      ]
+    },
+    {
+      "mask": 4290835456,
+      "value": 1598074880,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_double_sisd"
+      ]
+    },
+    {
+      "mask": 4290835456,
+      "value": 1602269184,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_double_sisd"
+      ]
+    },
+    {
+      "mask": 4290837504,
+      "value": 1329615872,
+      "names": [
+        "aarch64_vector_shift_left_simd"
+      ]
+    },
+    {
+      "mask": 4290837504,
+      "value": 1598051328,
+      "names": [
+        "aarch64_vector_shift_left_sisd"
+      ]
+    },
+    {
+      "mask": 4290837504,
+      "value": 1866482688,
+      "names": [
+        "aarch64_vector_shift_right_insert_simd"
+      ]
+    },
+    {
+      "mask": 4290837504,
+      "value": 1866486784,
+      "names": [
+        "aarch64_vector_shift_left_insert_simd"
+      ]
+    },
+    {
+      "mask": 4290837504,
+      "value": 2134918144,
+      "names": [
+        "aarch64_vector_shift_right_insert_sisd"
+      ]
+    },
+    {
+      "mask": 4290837504,
+      "value": 2134922240,
+      "names": [
+        "aarch64_vector_shift_left_insert_sisd"
+      ]
+    },
+    {
+      "mask": 4291359744,
+      "value": 2131264512,
+      "names": [
+        "aarch64_vector_shift_right_narrow_nonuniform_sisd"
+      ]
+    },
+    {
+      "mask": 4291884032,
+      "value": 2131788800,
+      "names": [
+        "aarch64_vector_shift_right_narrow_nonuniform_sisd"
+      ]
+    },
+    {
+      "mask": 4292870144,
+      "value": 3464495104,
+      "names": [
+        "aarch64_vector_crypto_sha3_xar"
+      ]
+    },
+    {
+      "mask": 4292902912,
+      "value": 3456106496,
+      "names": [
+        "aarch64_vector_crypto_sha3_eor3"
+      ]
+    },
+    {
+      "mask": 4292902912,
+      "value": 3458203648,
+      "names": [
+        "aarch64_vector_crypto_sha3_bcax"
+      ]
+    },
+    {
+      "mask": 4292902912,
+      "value": 3460300800,
+      "names": [
+        "aarch64_vector_crypto_sm3_sm3ss1"
+      ]
+    },
+    {
+      "mask": 4292903936,
+      "value": 1845493760,
+      "names": [
+        "aarch64_vector_transfer_vector_extract"
+      ]
+    },
+    {
+      "mask": 4292908032,
+      "value": 1870663680,
+      "names": [
+        "aarch64_vector_arithmetic_binary_element_mul_acc_complex"
+      ]
+    },
+    {
+      "mask": 4292922368,
+      "value": 3460333568,
+      "names": [
+        "aarch64_vector_crypto_sm3_sm3tt1a"
+      ]
+    },
+    {
+      "mask": 4292922368,
+      "value": 3460334592,
+      "names": [
+        "aarch64_vector_crypto_sm3_sm3tt1b"
+      ]
+    },
+    {
+      "mask": 4292922368,
+      "value": 3460335616,
+      "names": [
+        "aarch64_vector_crypto_sm3_sm3tt2a"
+      ]
+    },
+    {
+      "mask": 4292922368,
+      "value": 3460336640,
+      "names": [
+        "aarch64_vector_crypto_sm3_sm3tt2b"
+      ]
+    },
+    {
+      "mask": 4292926464,
+      "value": 1583386624,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_dmacc_sisd"
+      ]
+    },
+    {
+      "mask": 4292926464,
+      "value": 1587580928,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_dmacc_sisd"
+      ]
+    },
+    {
+      "mask": 4292930560,
+      "value": 1577074688,
+      "names": [
+        "aarch64_vector_crypto_sha3op_sha256_hash"
+      ]
+    },
+    {
+      "mask": 4292932608,
+      "value": 2118157312,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_doubling_accum_sisd"
+      ]
+    },
+    {
+      "mask": 4292932608,
+      "value": 2122351616,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_int_doubling_accum_sisd"
+      ]
+    },
+    {
+      "mask": 4292932608,
+      "value": 2132837376,
+      "names": [
+        "aarch64_vector_shift_right_narrow_nonuniform_sisd"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1317053440,
+      "names": [
+        "SMMLA_asimdsame2_G"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1317055488,
+      "names": [
+        "USMMLA_asimdsame2_G"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1577058304,
+      "names": [
+        "aarch64_vector_crypto_sha3op_sha1_hash_choose"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1577062400,
+      "names": [
+        "aarch64_vector_crypto_sha3op_sha1_hash_parity"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1577066496,
+      "names": [
+        "aarch64_vector_crypto_sha3op_sha1_hash_majority"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1577070592,
+      "names": [
+        "aarch64_vector_crypto_sha3op_sha1_sched0"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1577082880,
+      "names": [
+        "aarch64_vector_crypto_sha3op_sha256_sched1"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1581259776,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_mul_fp16_extended_sisd"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1581267968,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_recps_fp16_sisd"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1583403008,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_double_sisd"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1587597312,
+      "names": [
+        "aarch64_vector_arithmetic_binary_disparate_mul_double_sisd"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1589656576,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_rsqrts_fp16_sisd"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1849748480,
+      "names": [
+        "BFMMLA_asimdsame2_E"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 1853924352,
+      "names": [
+        "UMMLA_asimdsame2_G"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 2126517248,
+      "names": [
+        "aarch64_vector_arithmetic_binary_uniform_sub_fp16_sisd"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 3462430720,
+      "names": [
+        "aarch64_vector_crypto_sha512_sha512h"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 3462431744,
+      "names": [
+        "aarch64_vector_crypto_sha512_sha512h2"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 3462432768,
+      "names": [
+        "aarch64_vector_crypto_sha512_sha512su1"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 3462433792,
+      "names": [
+        "aarch64_vector_crypto_sha3_rax1"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 3462447104,
+      "names": [
+        "aarch64_vector_crypto_sm3_sm3partw1"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 3462448128,
+      "names": [
+        "aarch64_vector_crypto_sm3_sm3partw2"
+      ]
+    },
+    {
+      "mask": 4292934656,
+      "value": 3462449152,
+      "names": [
+        "aarch64_vector_crypto_sm4_sm4enckey"
+      ]
+    },
+    {
+      "mask": 4292969472,
+      "value": 1845560320,
+      "names": [
+        "aarch64_vector_transfer_vector_insert"
+      ]
+    },
+    {
+      "mask": 4293000192,
+      "value": 234961920,
+      "names": [
+        "aarch64_vector_transfer_integer_move_unsigned"
+      ]
+    },
+    {
+      "mask": 4293000192,
+      "value": 1308695552,
+      "names": [
+        "aarch64_vector_transfer_integer_insert"
+      ]
+    },
+    {
+      "mask": 4293000192,
+      "value": 1577124864,
+      "names": [
+        "aarch64_vector_transfer_vector_cpy_dup_sisd"
+      ]
+    },
+    {
+      "mask": 4293035008,
+      "value": 1845625856,
+      "names": [
+        "aarch64_vector_transfer_vector_insert"
+      ]
+    },
+    {
+      "mask": 4293065728,
+      "value": 235027456,
+      "names": [
+        "aarch64_vector_transfer_integer_move_unsigned"
+      ]
+    },
+    {
+      "mask": 4293065728,
+      "value": 1308761088,
+      "names": [
+        "aarch64_vector_transfer_integer_insert"
+      ]
+    },
+    {
+      "mask": 4293065728,
+      "value": 1577190400,
+      "names": [
+        "aarch64_vector_transfer_vector_cpy_dup_sisd"
+      ]
+    },
+    {
+      "mask": 4293166080,
+      "value": 1845756928,
+      "names": [
+        "aarch64_vector_transfer_vector_insert"
+      ]
+    },
+    {
+      "mask": 4293196800,
+      "value": 235158528,
+      "names": [
+        "aarch64_vector_transfer_integer_move_unsigned"
+      ]
+    },
+    {
+      "mask": 4293196800,
+      "value": 1308892160,
+      "names": [
+        "aarch64_vector_transfer_integer_insert"
+      ]
+    },
+    {
+      "mask": 4293196800,
+      "value": 1308896256,
+      "names": [
+        "aarch64_vector_transfer_integer_move_signed"
+      ]
+    },
+    {
+      "mask": 4293196800,
+      "value": 1577321472,
+      "names": [
+        "aarch64_vector_transfer_vector_cpy_dup_sisd"
+      ]
+    },
+    {
+      "mask": 4293428224,
+      "value": 1846019072,
+      "names": [
+        "aarch64_vector_transfer_vector_insert"
+      ]
+    },
+    {
+      "mask": 4293458944,
+      "value": 1309148160,
+      "names": [
+        "aarch64_vector_transfer_vector_cpy_dup_simd"
+      ]
+    },
+    {
+      "mask": 4293458944,
+      "value": 1309150208,
+      "names": [
+        "aarch64_vector_transfer_integer_dup"
+      ]
+    },
+    {
+      "mask": 4293458944,
+      "value": 1309154304,
+      "names": [
+        "aarch64_vector_transfer_integer_insert"
+      ]
+    },
+    {
+      "mask": 4293458944,
+      "value": 1577583616,
+      "names": [
+        "aarch64_vector_transfer_vector_cpy_dup_sisd"
+      ]
+    },
+    {
+      "mask": 4293917696,
+      "value": 1309162496,
+      "names": [
+        "aarch64_vector_transfer_integer_move_unsigned"
+      ]
+    },
+    {
+      "mask": 4294507520,
+      "value": 505413632,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 4294900736,
+      "value": 505593856,
+      "names": [
+        "aarch64_float_convert_fp"
+      ]
+    },
+    {
+      "mask": 4294900736,
+      "value": 2662203392,
+      "names": [
+        "aarch64_float_convert_int"
+      ]
+    },
+    {
+      "mask": 4294933504,
+      "value": 518144000,
+      "names": [
+        "aarch64_float_convert_fp"
+      ]
+    },
+    {
+      "mask": 4294962176,
+      "value": 1311262720,
+      "names": [
+        "aarch64_vector_crypto_aes_round"
+      ]
+    },
+    {
+      "mask": 4294962176,
+      "value": 1311270912,
+      "names": [
+        "aarch64_vector_crypto_aes_mix"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 509820928,
+      "names": [
+        "BFCVT_BS_floatdp1"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 1579681792,
+      "names": [
+        "aarch64_vector_crypto_sha2op_sha1_hash"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 1579685888,
+      "names": [
+        "aarch64_vector_crypto_sha2op_sha1_sched1"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 1579689984,
+      "names": [
+        "aarch64_vector_crypto_sha2op_sha256_sched0"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 1580259328,
+      "names": [
+        "aarch64_vector_reduce_fp16_add_sisd"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 1591781376,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_int_lessthan_sisd"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 1592899584,
+      "names": [
+        "aarch64_vector_reduce_add_sisd"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 1593370624,
+      "names": [
+        "aarch64_vector_arithmetic_unary_cmp_fp16_lessthan_sisd"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 1593432064,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_recip_fp16_sisd"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 1593440256,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_frecpx_fp16"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 2120312832,
+      "names": [
+        "aarch64_vector_arithmetic_unary_float_xtn_sisd"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 2130302976,
+      "names": [
+        "aarch64_vector_arithmetic_unary_special_sqrt_est_fp16_sisd"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 3468722176,
+      "names": [
+        "aarch64_vector_crypto_sha512_sha512su0"
+      ]
+    },
+    {
+      "mask": 4294966272,
+      "value": 3468723200,
+      "names": [
+        "aarch64_vector_crypto_sm4_sm4enc"
+      ]
+    }
+  ]
+}

@@ -995,9 +995,9 @@
         "docs/development/a64-undefined-retirement/README.md"
       ],
       "remaining_validation": [
-        "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions and generic unallocated-neighbor admission remain open.",
+        "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
         "Physical A32 hardware and optional trapped profiles remain unverified.",
-        "The represented A64 six-capability flags/IDs/admission and supported legacy migration are corrected. Full cross-state feature consistency and wider generic unallocated-neighbor FP-access priority remain open. No new native optional-instruction execution support."
+        "The represented A64 six-capability flags/IDs/admission and supported legacy migration are corrected. Full cross-state feature consistency and remaining capability, FP8/FPMR and security/debug controls remain open; represented A64 structural FP-access priority is locally validated. No new native optional-instruction execution support."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1006,7 +1006,14 @@
         "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
         "aarch64-fp16-reserved-admission-2026-10-28",
         "aarch64-optional-fp-profile-2026-10-29",
-        "aarch64-undefined-retirement-2026-10-29"
+        "aarch64-undefined-retirement-2026-10-29",
+        {
+          "id": "a64-profile-structural-admission-2026-10-29",
+          "status": "locally_validated",
+          "scope": "Represented A64 FP/SIMD allocation before FP access and native optimization; preserve existing indexed-FP8 version selection, neutral decoder bytes and state-format compatibility. Older full-profile selection, FP8/FPMR data/state semantics and all four full findings remain partial.",
+          "validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/qualification-final-v1.json",
+          "documentation": "docs/development/a64-fpsimd-allocation/README.md"
+        }
       ]
     },
     {
@@ -2613,7 +2620,14 @@
         "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
         "aarch64-fp16-reserved-admission-2026-10-28",
         "aarch64-optional-fp-profile-2026-10-29",
-        "aarch64-undefined-retirement-2026-10-29"
+        "aarch64-undefined-retirement-2026-10-29",
+        {
+          "id": "a64-profile-structural-admission-2026-10-29",
+          "status": "locally_validated",
+          "scope": "Represented A64 FP/SIMD allocation before FP access and native optimization; preserve existing indexed-FP8 version selection, neutral decoder bytes and state-format compatibility. Older full-profile selection, FP8/FPMR data/state semantics and all four full findings remain partial.",
+          "validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/qualification-final-v1.json",
+          "documentation": "docs/development/a64-fpsimd-allocation/README.md"
+        }
       ]
     },
     {
@@ -193911,6 +193925,130 @@
         {
           "impact": "medium",
           "finding": "The existing legacy associativity policy remains permissive. ASL1 same-precedence ambiguity rejection and type checking are outside this repair."
+        }
+      ],
+      "published": false
+    },
+    {
+      "id": "a64-profile-structural-admission-2026-10-29",
+      "status": "locally_validated",
+      "parent": "bedb938f54006cd8a84a43a065ca31f533badf71",
+      "scope": "Represented A64 FP/SIMD allocation before FP access and native optimization; preserve existing indexed-FP8 version selection, neutral decoder bytes and state-format compatibility. Older full-profile selection, FP8/FPMR data/state semantics and all four full findings remain partial.",
+      "owned_paths": [
+        "docs/development/a64-fpsimd-allocation/README.md",
+        "docs/development/a64-fpsimd-allocation/encodings.json",
+        "docs/development/a64-fpsimd-allocation/fp8-policy.json",
+        "docs/development/a64-fpsimd-allocation/newer-profile-boundaries.json",
+        "docs/development/a64-fpsimd-allocation/oracle-corpus.json",
+        "docs/development/a64-fpsimd-allocation/primary/a64-isa-2025-03.pdf",
+        "docs/development/a64-fpsimd-allocation/primary/provenance.json",
+        "docs/development/a64-fpsimd-allocation/structural-proof.json",
+        "docs/development/a64-undefined-retirement/README.md",
+        "docs/development/audit-remediation-2026-10.json",
+        "src/isa/arm/aarch64/cpu/fp_access.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/admission.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/allocation.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/allocation_encodings.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/allocation_tests.rs",
+        "src/isa/arm/aarch64/cpu/tests/simd.rs",
+        "src/isa/arm/aarch64/cpu/tests/undefined.rs",
+        "tools/execution/a64_fpsimd_allocation.py",
+        "tools/execution/a64_fpsimd_allocation_tests.py",
+        "tools/execution/a64_fpsimd_oracle.py",
+        "tools/execution/asl_decode_allocation.py"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/source-qualified-final-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/qualification-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/commit-receipt-v1.json",
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/parent-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/primary-oracle-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/runtime-oracle-final-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/fp8-llvm-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/oracle-reproducer-equality-v1.json"
+      ],
+      "validation_summary": {
+        "library-final-v1": {
+          "passed": 11241,
+          "failed": 0,
+          "ignored": 2,
+          "result_summaries": 1
+        },
+        "owning-final-v1": {
+          "passed": 47694,
+          "failed": 0,
+          "ignored": 0,
+          "result_summaries": 22
+        },
+        "capi-final-v1": {
+          "passed": 223,
+          "failed": 0,
+          "ignored": 0,
+          "result_summaries": 1
+        },
+        "doc-final-v1": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "result_summaries": 1
+        },
+        "portable-profile-final-v1": {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "result_summaries": 1
+        },
+        "new_core_tests": 6,
+        "existing_regressions": 6,
+        "python_derivation_tests": 8,
+        "primary_descriptions": 562,
+        "field_assignments": 73718,
+        "oracle_events": 161868,
+        "direct_and_kernel_a710_events": 107912,
+        "a710_mismatches": 0
+      },
+      "assumption_register": [
+        {
+          "id": "FA1",
+          "assumption": "Pinned primary ASL covers structural allocation of the legacy A64 FP/SIMD namespace; newer BF16/I8MM encodings require explicit supplements.",
+          "basis": "562 primary descriptions,13 BF16/I8MM supplements, retained scalar-conversion refinement and the qualified existing indexed-FP8 class.",
+          "dependent_result": "Allocation derivation and its domain.",
+          "stress_test": "All retained independent oracle positives and negatives, primary field boundary enumeration, newer forms and aliased registers.",
+          "falsification_probe": "Any independently valid encoding missing from generated allocation or reserved encoding accepted.",
+          "status": "confirmed within the recorded implemented-profile domains and finite corpus"
+        },
+        {
+          "id": "FA2",
+          "assumption": "Decode rejection predicates depend on instruction bits rather than runtime architectural data.",
+          "basis": "Primary decode blocks place access checks in execute.",
+          "dependent_result": "Pure admission before access control and architectural mutation.",
+          "stress_test": "Backward dependency analysis of every rejection and redirect with unknown constructs rejected.",
+          "falsification_probe": "A rejection condition depends on FPCR, register contents or another runtime value.",
+          "status": "confirmed for all562 primary descriptions"
+        },
+        {
+          "id": "FA3",
+          "assumption": "The existing RAX selection policy makes indexed FP8 FMLALB/FMLALT available at V9_4A and later.",
+          "basis": "Existing exec_simd_fp implementation and the preserved version-control regression; this is a RAX policy, not a claim that every Arm v9.4 CPU has FEAT_FP8FMA.",
+          "dependent_result": "Preserve existing high-profile admission and reject the absent class before FP access on earlier profiles.",
+          "stress_test": "Version boundary, EL0/1, FPEN disabled/enabled, Q and operand/index boundaries, native original-word rejection.",
+          "falsification_probe": "An existing admitted class becomes inaccessible, or an earlier profile receives FP access instead of Undefined.",
+          "status": "confirmed as existing RAX policy; general FP8/FPMR data semantics remain pending"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "A53/A76 raw counterexamples require missing RDM/crypto capability admission in addition to this structural repair; they remain open and are not normalized away."
+        },
+        {
+          "impact": "high",
+          "finding": "QEMU max includes newer extensions beyond the represented base profile. Its 22 additional accepted words remain a diagnostic boundary, not evidence of structural correctness for unrepresented extensions."
+        },
+        {
+          "impact": "high",
+          "finding": "Existing FP8 source/index, fused arithmetic, format/scaling and FPMR semantics remain unresolved; this group preserves admission policy without claiming data conformance."
         }
       ],
       "published": false

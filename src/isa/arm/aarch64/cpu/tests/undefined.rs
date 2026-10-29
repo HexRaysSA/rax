@@ -63,7 +63,7 @@ fn direct_undefined_preserves_complete_private_state_and_memory_without_retireme
                 let memory = cpu.read_memory(0, 0x8000).unwrap();
                 let result = cpu.step();
                 let after = CoreCheckpoint::capture(&cpu).unwrap();
-                if result != Ok(CpuExit::Undefined(word)) || after != before {
+                if result != Err(ArmError::UndefinedInstruction(word)) || after != before {
                     failures.push(format!(
                         "word={word:08x} EL{el} BTYPE={btype}: {result:?}, pc={:x}, retired={}, cycles={}, btype={}",
                         cpu.pc, cpu.insn_count, cpu.cycle_count, cpu.btype
@@ -88,7 +88,7 @@ fn undefined_retry_preserves_saturated_counters_and_executes_a_replacement_once(
         cpu.cycle_count = u64::MAX;
         let before = CoreCheckpoint::capture(&cpu).unwrap();
         for _ in 0..2 {
-            assert_eq!(cpu.step().unwrap(), CpuExit::Undefined(word));
+            assert_eq!(cpu.step(), Err(ArmError::UndefinedInstruction(word)));
             assert_eq!(CoreCheckpoint::capture(&cpu).unwrap(), before);
         }
         cpu.insn_count = 17;

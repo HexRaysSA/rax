@@ -4,6 +4,7 @@ use super::*;
 const HALF_FIELDS: u64 = (15 << 16) | (15 << 20);
 const FHM_FIELD: u64 = 15 << 48;
 mod admission;
+mod allocation;
 mod fp16;
 mod optional;
 
@@ -60,7 +61,7 @@ pub(super) fn fhm_encoding(insn: u32) -> Option<bool> {
 /// Feature dependencies of an original instruction, before IR optimization.
 /// None denotes a reserved encoding that must never be promoted.
 pub(super) fn instruction_features(insn: u32) -> Option<ArmFeatures> {
-    if admission::reserved(insn) {
+    if !allocation::allocated(insn) || admission::reserved(insn) {
         return None;
     }
     let mut features = optional::instruction_features(insn)?;
@@ -106,9 +107,18 @@ impl AArch64Cpu {
 
     pub(super) fn check_fp_instruction(&self, insn: u32) -> Result<(), ArmError> {
         match instruction_features(insn) {
-            Some(features) if self.config.features.contains(features) => Ok(()),
+            Some(features)
+                if self.fp_instruction_version_supported(insn)
+                    && self.config.features.contains(features) =>
+            {
+                Ok(())
+            }
             _ => Err(ArmError::UndefinedInstruction(insn)),
         }
+    }
+
+    pub(super) fn fp_instruction_version_supported(&self, insn: u32) -> bool {
+        !allocation::indexed_fp8_fma(insn) || self.config.version >= ArmVersion::V9_4A
     }
 
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
@@ -171,3 +181,6 @@ mod half_tests;
 mod optional_tests;
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod allocation_tests;

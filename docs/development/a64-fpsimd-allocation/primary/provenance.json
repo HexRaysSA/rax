@@ -1,0 +1,53 @@
+{
+  "issuer": "Arm Limited",
+  "title": "Arm A64 Instruction Set for A-profile architecture",
+  "revision": "2025-03",
+  "source_url": "https://documentation-service.arm.com/static/67e40f3398aa3c3b6eea6a85",
+  "retrieved_utc": "2026-10-29T03:02:31.776946+00:00",
+  "sha256": "b7baa6869789722df70da60170d999a62810409aaabbb6db1ef729ed68686bdf",
+  "bytes": 15314151,
+  "section": "FJCVTZS, printed page1359; complete reference also qualifies BF16/I8MM supplements.",
+  "size_justification": "Retained unchanged primary reference for allocation bit diagrams and decode restrictions absent from the older ASL, including the fixed FJCVTZS width and opcode. This is reference material, not a build cache.",
+  "document": "DDI 0602",
+  "document_id": "ID032025",
+  "pdf_pages": 6079,
+  "pdf_encoding_pages_1_based": {
+    "FJCVTZS": [
+      1362
+    ],
+    "BFCVT": [
+      1116
+    ],
+    "BFCVTN": [
+      1117
+    ],
+    "BFDOT": [
+      1118,
+      1120
+    ],
+    "BFMLAL": [
+      1122,
+      1124
+    ],
+    "BFMMLA": [
+      1126
+    ],
+    "SMMLA": [
+      1801
+    ],
+    "UMMLA": [
+      2071
+    ],
+    "USMMLA": [
+      2124
+    ],
+    "USDOT": [
+      2113,
+      2115
+    ],
+    "SUDOT": [
+      1995
+    ]
+  },
+  "page_scope": "A64 SIMD&FP variants of the selected instruction families; later SVE/SME variants in the same document are outside this represented base profile."
+}

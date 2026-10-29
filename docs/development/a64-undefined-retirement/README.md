@@ -105,3 +105,10 @@ continuation; remaining bounded native SMP and physical Intel HVF validation.
 Other helpers that return Undefined still require instruction-specific admission
 and data-effect verification. The recorded full neighborhood is not reported as
 passing from this 62-case result. All four active full findings remain partial.
+
+## Later profile-allocation refinement
+
+The profile allocation follow-up rejects these 62 encodings at decode admission,
+returning `Err(ArmError::UndefinedInstruction)` before FP access. Their earlier
+non-retirement, exception-delivery and retained legacy-context invariants remain
+tested. See `../a64-fpsimd-allocation/README.md` for the qualified current scope.
