@@ -2608,7 +2608,12 @@
         "src/isa/arm/aarch64/cpu/aarch32.rs",
         "src/isa/arm/aarch64/cpu/retirement_counter_tests.rs",
         "src/backend/emulator/aarch64/retirement_counter_tests.rs",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-retirement-counters/qualification-final-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-retirement-counters/qualification-final-v1.json",
+        "docs/development/retirement-errors/README.md",
+        "src/vm/vcpu/budget.rs",
+        "src/vm/vcpu/budget/error_tests.rs",
+        "src/backend/emulator/aarch64/cluster/retirement_error_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/qualification-final-v1.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2647,7 +2652,8 @@
         },
         "a64-bounded-native-scheduler-entry-2026-10-29",
         "a64-public-system-entry-publication-2026-10-29",
-        "a64-private-retirement-counter-wrap-2026-10-29"
+        "a64-private-retirement-counter-wrap-2026-10-29",
+        "a64-host-completion-error-retirement-2026-10-29"
       ]
     },
     {
@@ -3239,7 +3245,11 @@
         "src/isa/arm/aarch64/cpu/aarch32.rs",
         "src/isa/arm/aarch64/cpu/retirement_counter_tests.rs",
         "src/backend/emulator/aarch64/retirement_counter_tests.rs",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-retirement-counters/qualification-final-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-retirement-counters/qualification-final-v1.json",
+        "docs/development/retirement-errors/README.md",
+        "src/vm/vcpu/budget/error_tests.rs",
+        "src/backend/emulator/aarch64/cluster/retirement_error_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/qualification-final-v1.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3263,7 +3273,8 @@
         "aarch64-undefined-retirement-2026-10-29",
         "a64-bounded-native-scheduler-entry-2026-10-29",
         "a64-public-system-entry-publication-2026-10-29",
-        "a64-private-retirement-counter-wrap-2026-10-29"
+        "a64-private-retirement-counter-wrap-2026-10-29",
+        "a64-host-completion-error-retirement-2026-10-29"
       ]
     },
     {
@@ -194479,6 +194490,101 @@
         {
           "impact": "medium",
           "finding": "Other implementation counters and optimized-release execution are outside this arithmetic-profile qualification."
+        }
+      ],
+      "published": false
+    },
+    {
+      "id": "a64-host-completion-error-retirement-2026-10-29",
+      "status": "locally_validated",
+      "parent": "e494313b9097fd9a8382de64b3ba55ad0190715a",
+      "scope": "Actual A64 HVC/SMC host-completion errors retain already published retirement and its clock units, original error payloads, observation-counter wrap, budget-edge precedence and continuation without replay. Explicit internal default policy preserves charged failed meters. All four full findings remain incomplete.",
+      "owned_paths": [
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/execution-coordinator.md",
+        "docs/development/retirement-errors/README.md",
+        "src/backend/emulator/aarch64/cluster.rs",
+        "src/backend/emulator/aarch64/cluster/retirement_error_tests.rs",
+        "src/backend/emulator/aarch64/vcpu.rs",
+        "src/vm/vcpu/budget.rs",
+        "src/vm/vcpu/budget/error_tests.rs",
+        "src/vm/vcpu/mod.rs"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/source-qualified-final-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/qualification-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/commit-receipt-v1.json",
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/parent-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/firmware-encoding-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/core-final-result-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-host-error-retirement/qualification-broad-final-v1.json"
+      ],
+      "validation_summary": {
+        "library-final-v1": {
+          "passed": 11288,
+          "failed": 0,
+          "ignored": 2,
+          "binaries": 1
+        },
+        "owning-final-v1": {
+          "passed": 47694,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 22
+        },
+        "capi-final-v1": {
+          "passed": 223,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "doc-final-v1": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "binaries": 1
+        },
+        "core-final-v1": {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "budget-controls-final-v1": {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        }
+      },
+      "assumption_register": [
+        {
+          "id": "ER1",
+          "assumption": "A real firmware instruction may complete before a host-side completion error; its published retirement must remain in the budget and clock.",
+          "basis": "A64 step_system_cpu publishes private retirement before handle_psci, which can fail on a cluster control lock.",
+          "dependent_result": "Count completed work before returning the original host error.",
+          "stress_test": "Actual HVC/SMC, healthy and failed firmware queries, prior work, zero budgets and continuation without replay.",
+          "falsification_probe": "A real admitted call does not retire before the injected host failure, or returned budget/clock units diverge from the published CPU count.",
+          "status": "confirmed within recorded software A64 firmware and default-meter accounting cases"
+        },
+        {
+          "id": "ER2",
+          "assumption": "A charged instruction meter on a failed attempt does not imply retirement.",
+          "basis": "Existing eBPF/SBPF integration and default fault-count contract.",
+          "dependent_result": "Use explicit internal per-backend error accounting without changing default meter behavior or public error shapes.",
+          "stress_test": "Default charged and uncharged errors, prior work, wrap, zero delta and invalid multiple-retirement reports.",
+          "falsification_probe": "A charged failed eBPF/SBPF attempt adds a retirement-clock unit or the sentinel host error changes.",
+          "status": "confirmed within recorded software A64 firmware and default-meter accounting cases"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Complete private/in-flight state, pending completion frames, writer quiescence, transactional late-failure restoration, hardware/other-ISA native entry, additional ARM/wait/event profiles and physical Intel HVF remain unqualified."
+        },
+        {
+          "impact": "medium",
+          "finding": "Other backend completion-error classifications require evidence before selecting committed-counter accounting; no general host-failure recovery or physical PMU claim."
         }
       ],
       "published": false

@@ -369,6 +369,18 @@ impl VCpu for Aarch64Vcpu {
         self.insn_count.load(Ordering::Relaxed)
     }
 
+    fn run_retirement_budget(&mut self, budget: u64) -> Result<crate::vm::vcpu::RetirementRun> {
+        use crate::vm::vcpu::budget::{self, ErrorRetirement};
+        let policy = if self.user.is_some() {
+            ErrorRetirement::NoRetirement
+        } else {
+            // System stepping publishes only completed CPU retirement before
+            // firmware completion can fail. Preserve that work and its clock.
+            ErrorRetirement::CounterDelta
+        };
+        budget::run(self, budget, policy)
+    }
+
     fn supports_stepping(&self) -> bool {
         true
     }

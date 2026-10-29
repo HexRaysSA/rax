@@ -37,6 +37,11 @@ Cold A64 and mixed ARM/Thumb private retirement counters use explicit wrapping
 addition, matching the native and budget contracts across restored maxima.
 See [private retirement counters](a64-retirement-counters/README.md) for
 instruction/cycle boundary, tagged-record, observation-phase and clock tests.
+Software AArch64 system budgets also retain completed retirement when host
+firmware completion returns an error. The original error is preserved; default
+charged-attempt meters keep their existing nonretiring fault policy. See
+[retirement before completion errors](retirement-errors/README.md) for the actual
+HVC/SMC reproduction, internal policy and remaining transaction boundaries.
 
 Debugger commands are serviced before guest interrupt injection. A stopped CPU
 retains its registers, stack, and pending interrupt until execution resumes.

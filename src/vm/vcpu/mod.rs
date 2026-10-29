@@ -2,7 +2,7 @@
 //!
 //! This module provides backend-agnostic types and traits for CPU emulation.
 
-mod budget;
+pub(crate) mod budget;
 pub use budget::{DEFAULT_RETIREMENT_QUANTUM, RetirementRun, RetirementStop};
 pub mod exit;
 mod power;
@@ -73,7 +73,7 @@ pub trait VCpu: Send {
     /// A backend fault retains previously retired work in RetirementRun instead
     /// of losing that progress through an outer error. See RetirementStop.
     fn run_retirement_budget(&mut self, budget: u64) -> Result<RetirementRun> {
-        budget::run(self, budget)
+        budget::run(self, budget, budget::ErrorRetirement::NoRetirement)
     }
 
     /// Execute exactly one guest instruction.

@@ -382,3 +382,7 @@ mod tests {
         ));
     }
 }
+
+#[cfg(test)]
+#[path = "cluster/retirement_error_tests.rs"]
+mod retirement_error_tests;
