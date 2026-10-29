@@ -59,6 +59,7 @@ __asm__(".text\n.globl _entered_read\n_entered_read:\n"
 
 static int original[2], replacement[2];
 static _Atomic unsigned read_done, close_done;
+static _Atomic unsigned read_prepared;
 static long read_result, close_result;
 static unsigned read_carry, close_carry;
 static unsigned char byte;
@@ -152,6 +153,7 @@ static void timed_out(int signal_number) {
 static void *reader(void *unused) {
   (void)unused;
   read_vector = (struct iovec){&byte, 1};
+  atomic_store_explicit(&read_prepared, 1, memory_order_release);
   read_result = entered_read(
       reading_fd,
       (read_number == 120 || read_number == 411) ? (void *)&read_vector : &byte,
@@ -292,7 +294,9 @@ static int run_case(int argc, char **argv) {
   int read_entered = classify(reading, (uintptr_t)entered_read_return,
                               read_number, &read_done);
   printf("read-entered=%d\n", read_entered);
-  if (read_entered != 1 || pthread_create(&closing, NULL, closer, NULL))
+  if (read_entered != 1 ||
+      !atomic_load_explicit(&read_prepared, memory_order_acquire) ||
+      pthread_create(&closing, NULL, closer, NULL))
     return 1;
   if (held_kind == 3) {
     read_vector.iov_base = &redirected_byte;
