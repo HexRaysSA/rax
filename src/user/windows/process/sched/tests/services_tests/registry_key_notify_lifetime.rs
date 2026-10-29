@@ -10,6 +10,7 @@ fn native_notify_key_replays_duplicate_independent_and_last_handle_lifetimes_all
         let arch = architecture(report);
         let (mut process, mut t, base) = setup(arch);
         let p = process.state_mut();
+        profile(p, &data, report);
         let handles = p.objects.handle_count();
         let objects = p.objects.iter().count();
         for row in rows(&data, report, "lifetime") {
@@ -108,6 +109,7 @@ fn native_notify_key_replays_late_store_faults_and_retained_event_identity_all_a
         let arch = architecture(report);
         let (mut process, mut t, base) = setup(arch);
         let p = process.state_mut();
+        profile(p, &data, report);
         let handles = p.objects.handle_count();
         let objects = p.objects.iter().count();
         for kind in ["completion", "completion_stores"] {

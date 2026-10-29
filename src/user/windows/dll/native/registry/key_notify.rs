@@ -42,7 +42,13 @@ fn checked(c: &mut Ctx) -> Checked<Flow> {
             }
             probe_write(c, buffer, length as usize)?;
         }
-        c.mem().wptr(io, c.psize(), STATUS_PENDING.into())?;
+        let stores = crate::user::windows::process::registry_notify::io_stores(c.p)
+            .map_err(|error| Failure::Api(c.unsupported(error)))?;
+        if stores == crate::user::windows::process::registry_notify::IoStores::Status32 {
+            c.mem().w32(io, STATUS_PENDING)?;
+        } else {
+            c.mem().wptr(io, c.psize(), STATUS_PENDING.into())?;
+        }
         c.mem().wptr(io + c.psize(), c.psize(), 0)?;
     }
     if filter & !(THREAD_AGNOSTIC | 15) != 0 {

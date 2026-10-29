@@ -18,6 +18,9 @@ KINDS = {"lifetime": 32, "admission": 184, "thread": 24, "flags": 208,
 SOURCES = ("CMakeLists.txt", "probe-lifetime-v1.c", "probe-admission-v2.c",
            "probe-thread-v3.c", "probe-flags-v4.c", "probe-completion-v5.c",
            "probe-completion-stores-v6.c")
+CORPORA = (("controls-v1.json", 29695, 0xAA64, {"arm64", "x64", "x86"}),
+           ("controls-amd64-20348-v1.json", 20348, 0x8664, {"x64", "x86"}),
+           ("controls-amd64-26100-v1.json", 26100, 0x8664, {"x64", "x86"}))
 
 
 def compact(report):
@@ -34,25 +37,32 @@ def validate(report, kind, width):
 
 
 def verify_sources(source):
-    corpus = json.loads((source / "controls-v1.json").read_text(encoding="utf-8"))
-    require(corpus["schema"] == "rax-native-key-notify-v1"
-            and corpus["state"] == "complete", "native notification corpus schema")
-    expected = corpus["source_hashes"]
+    expected = None
+    for filename, build, machine, architectures in CORPORA:
+        corpus = json.loads((source / filename).read_text(encoding="utf-8"))
+        require(corpus["schema"] == "rax-native-key-notify-v1"
+                and corpus["state"] == "complete", "native notification corpus schema")
+        require(corpus["kernel"] == [10, 0, build] and corpus["native_machine"] == machine,
+                "retained native kernel identity")
+        if expected is None:
+            expected = corpus["source_hashes"]
+        require(corpus["source_hashes"] == expected, "native producer set differs by kernel")
+        require({r["architecture"] for r in corpus["reports"]} == architectures
+                and len(corpus["reports"]) == len(architectures), "retained native ABI set")
+        for identity, data in corpus["datasets"].items():
+            require(sha(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()) == identity,
+                    "native notification dataset hash")
+        for report in corpus["reports"]:
+            require(set(report["datasets"]) == set(KINDS), "native notification report kinds")
+            for kind in KINDS:
+                before, after = report["handles"][kind]
+                require(before == after, "retained native handle leak")
+                data = corpus["datasets"][report["datasets"][kind]]
+                require(len(data["rows"]) == KINDS[kind], "retained native matrix dimensions")
     require(set(expected) == set(SOURCES), "native notification producer input set")
     for name, digest in expected.items():
         require(sha((source / name).read_bytes().replace(b"\r\n", b"\n")) == digest,
                 "native notification producer changed: " + name)
-    require(len(corpus["reports"]) == 3, "retained native process ABI count")
-    for identity, data in corpus["datasets"].items():
-        require(sha(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()) == identity,
-                "native notification dataset hash")
-    for report in corpus["reports"]:
-        require(set(report["datasets"]) == set(KINDS), "native notification report kinds")
-        for kind in KINDS:
-            before, after = report["handles"][kind]
-            require(before == after, "retained native handle leak")
-            data = corpus["datasets"][report["datasets"][kind]]
-            require(len(data["rows"]) == KINDS[kind], "retained native matrix dimensions")
     return expected
 
 
@@ -69,7 +79,10 @@ def main():
     expected = verify_sources(source)
     if args.verify_corpus:
         print(json.dumps({"verified_producers": len(expected), "retained_process_abis": 3,
-                          "observations": sum(KINDS.values()) * 3}))
+                          "retained_kernel_profiles": len(CORPORA),
+                          "retained_reports": sum(len(a) for _, _, _, a in CORPORA),
+                          "observations": sum(KINDS.values()) *
+                          sum(len(a) for _, _, _, a in CORPORA)}))
         return 0
     require(sys.platform == "win32", "native Windows is required")
     machine = native_machine()
@@ -144,7 +157,7 @@ def main():
     log = output / "guest-replay.log"
     run(["cargo", "test", "--locked", "--no-default-features", "--lib",
          "registry_tests::key_notify::", "--", "--test-threads=1", "--nocapture"], root, env, log)
-    require_tests(log, 9)
+    require_tests(log, 10)
     print(json.dumps({"native_process_abis": len(architectures),
                       "observations": sum(KINDS.values()) * len(architectures)}))
     return 0

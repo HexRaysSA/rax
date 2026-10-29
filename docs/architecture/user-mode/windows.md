@@ -722,9 +722,12 @@ lifetime. Ordinary requests retire with their issuing thread; thread-agnostic
 requests survive it. Synchronous calls park on a private event without adding
 a caller-visible handle. I/O APCs share the existing FIFO with ordinary APCs,
 carry all three native callback arguments, and publish their IOSB/event at
-delivery. Late completion-store faults preserve prior native64 writes, while
-WoW64 publishes its 8-byte record in one checked store. Reached guards are
-consumed, and store faults do not prevent event completion.
+delivery. Captured ARM64 and AMD64 kernels have distinct IOSB stores. ARM64
+uses a pointer-sized status and an atomic 8-byte WoW64 record. AMD64 preserves
+native64 status padding and publishes separate status/information fields,
+including partial WoW64 stores before a late fault. Reached guards are consumed,
+and store faults do not prevent event completion. The immutable native kernel
+identity selects these recipes; the reported guest version does not.
 
 The snapshot remains immutable: notifications do not import later host registry
 changes, and this service adds no registry content writer. The public C ABI is

@@ -62,3 +62,48 @@ fn native_notify_key_appends_ten_slot_family_without_moving_prior_exports_all_ab
         );
     }
 }
+
+#[test]
+fn native_notify_key_uncaptured_io_profile_keeps_memory_events_and_objects_unarmed_all_abis() {
+    for arch in WinArch::ALL {
+        for (build, machine) in [
+            (20347, Some(0x8664)),
+            (20348, Some(0xAA64)),
+            (20348, Some(0x14c)),
+            (20348, None),
+            (29694, Some(0xAA64)),
+            (29695, Some(0x8664)),
+        ] {
+            let (mut process, mut t, base) = setup(arch);
+            let p = process.state_mut();
+            super::super::native_profile::kernel_profile(p, build, machine.unwrap_or(0));
+            p.native.as_mut().unwrap().object_namespace.native_machine = machine;
+            let key = replay::body(p);
+            let event = replay::event(p);
+            let before = (p.objects.handle_count(), p.objects.iter().count());
+            let initial = vec![0xcc; arch.ptr_size() as usize * 2];
+            p.space.wr(base, &initial).unwrap();
+            let module = p.modules.nt_services.as_ref().unwrap().0;
+            p.modules.nt_services = Some((module, table(arch, "NtNotifyChangeKey", 0x12)));
+            arguments(p, &mut t, &[key, event, 0, 0, base, 1, 0, 0, 0, 1]);
+            assert!(matches!(dispatch(p, &mut t), Outcome::Fail(message)
+                if message.contains("registry notification kernel profile is not captured")));
+            assert_eq!(p.space.bytes(base, initial.len()).unwrap(), initial);
+            assert_eq!(replay::signal(p, event), 0);
+            assert_eq!((p.objects.handle_count(), p.objects.iter().count()), before);
+            // Thread-agnostic registrations do not use the caller IOSB.
+            assert_eq!(
+                call(
+                    p,
+                    &mut t,
+                    "NtNotifyChangeKey",
+                    &[key, event, 0, 0, 0, 0x10000001, 0, 0, 0, 1]
+                ),
+                STATUS_PENDING
+            );
+            assert_eq!(call(p, &mut t, "NtClose", &[key]), 0);
+            assert_eq!(replay::signal(p, event), 0);
+            assert_eq!(call(p, &mut t, "NtClose", &[event]), 0);
+        }
+    }
+}

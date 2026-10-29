@@ -55,6 +55,7 @@ fn native_notify_key_replays_thread_exit_sync_cleanup_and_io_apc_arguments_all_a
         let arch = architecture(report);
         let (mut process, mut t, base) = setup(arch);
         let p = process.state_mut();
+        profile(p, &data, report);
         let handles = p.objects.handle_count();
         let objects = p.objects.iter().count();
         for row in rows(&data, report, "thread") {

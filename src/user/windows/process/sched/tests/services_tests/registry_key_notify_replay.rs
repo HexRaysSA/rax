@@ -7,18 +7,49 @@ pub(super) fn number(row: &Json, field: &str) -> u64 {
 }
 
 pub(super) fn corpus() -> Json {
-    let text = std::env::var_os("RAX_KEY_NOTIFY_CORPUS")
-        .map(|path| std::fs::read_to_string(path).unwrap())
-        .unwrap_or_else(|| {
+    let texts = if let Some(path) = std::env::var_os("RAX_KEY_NOTIFY_CORPUS") {
+        vec![std::fs::read_to_string(path).unwrap()]
+    } else {
+        [
             include_str!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 "/docs/specifications/windows/native-key-notify/controls-v1.json"
-            ))
-            .to_owned()
-        });
-    let result: Json = serde_json::from_str(&text).unwrap();
-    assert_eq!(result["schema"], "rax-native-key-notify-v1");
-    assert_eq!(result["state"], "complete");
+            )),
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-key-notify/controls-amd64-20348-v1.json"
+            )),
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-key-notify/controls-amd64-26100-v1.json"
+            )),
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+    };
+    let mut result = serde_json::json!({
+        "schema": "rax-native-key-notify-v1", "state": "complete",
+        "datasets": {}, "reports": []
+    });
+    for text in texts {
+        let profile: Json = serde_json::from_str(&text).unwrap();
+        assert_eq!(profile["schema"], "rax-native-key-notify-v1");
+        assert_eq!(profile["state"], "complete");
+        for (identity, dataset) in profile["datasets"].as_object().unwrap() {
+            if let Some(existing) = result["datasets"].get(identity) {
+                assert_eq!(existing, dataset, "shared native dataset identity");
+            } else {
+                result["datasets"][identity] = dataset.clone();
+            }
+        }
+        for source in profile["reports"].as_array().unwrap() {
+            let mut report = source.clone();
+            report["kernel"] = profile["kernel"].clone();
+            report["native_machine"] = profile["native_machine"].clone();
+            result["reports"].as_array_mut().unwrap().push(report);
+        }
+    }
     result
 }
 
@@ -34,6 +65,20 @@ pub(super) fn architecture(report: &Json) -> WinArch {
         "x86" => WinArch::X86,
         _ => panic!("unknown native process ABI"),
     }
+}
+
+pub(super) fn profile(p: &mut Proc, corpus: &Json, report: &Json) {
+    let kernel = report.get("kernel").unwrap_or(&corpus["kernel"]);
+    let machine = report
+        .get("native_machine")
+        .unwrap_or(&corpus["native_machine"]);
+    assert_eq!(kernel[0], 10);
+    assert_eq!(kernel[1], 0);
+    super::super::super::native_profile::kernel_profile(
+        p,
+        kernel[2].as_u64().unwrap().try_into().unwrap(),
+        machine.as_u64().unwrap().try_into().unwrap(),
+    );
 }
 
 pub(super) fn bytes(text: &str) -> Vec<u8> {
@@ -82,6 +127,7 @@ fn native_notify_key_replays_input_probe_order_flags_grants_and_async_admission_
         let arch = architecture(report);
         let (mut process, mut t, base) = setup(arch);
         let p = process.state_mut();
+        profile(p, &data, report);
         let original_handles = p.objects.handle_count();
         let original_objects = p.objects.iter().count();
         for kind in ["admission", "flags"] {

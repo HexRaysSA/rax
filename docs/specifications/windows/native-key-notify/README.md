@@ -1,8 +1,9 @@
 # Native registry notification controls
 
-These controls measure user-mode `NtNotifyChangeKey` on Windows 10.0.29695,
-running ARM64, x64, and x86 processes on an ARM64 kernel. The retained corpus
-contains 496 observations per process ABI, or 1,488 observations in total.
+These controls measure user-mode `NtNotifyChangeKey` on Windows 10.0.29695
+(ARM64 kernel, ARM64/x64/x86 processes) and Windows 10.0.20348/26100
+(AMD64 kernels, x64/x86 processes). The retained corpora contain 496
+observations per ABI report, seven reports and 3,472 observations in total.
 Every executable reports its actual process handle count before and after the
 matrix; all retained counts match. The corpus records producer hashes, PE
 machine identifiers, image hashes, and original report hashes.
@@ -50,10 +51,13 @@ asynchronous APC requests retain their completion until APC delivery and call
 the guest routine with `(ApcContext, IoStatusBlock, 0)`. Those callbacks share
 the FIFO with ordinary `QueueUserAPC` callbacks.
 
-IOSBs contain two pointer-sized fields: 16 bytes for ARM64/x64 and 8 bytes for
-x86. Native64 completion stores occur in order. A late access fault preserves
-preceding stores; WoW64 publishes its whole 8-byte record in one checked store.
-A reached guard is consumed. The retained event still completes even
+IOSBs occupy 16 bytes for ARM64/x64 and 8 bytes for x86. The captured ARM64
+kernel writes pointer-sized status and information fields; its WoW64 path
+publishes the whole 8-byte record in one checked store. Both captured AMD64
+kernels write a 32-bit status, preserving the native64 union padding, followed
+by the pointer-sized information field. Their WoW64 path also uses separate
+32-bit stores. A late fault preserves completed stores, including the first
+WoW64 field on AMD64. A reached guard is consumed. The event still completes even
 if the IOSB store cannot finish. The controls distinguish immediate samples
 from final states: cross-thread `event_closed` samples can race with completion
 delivery and are not fixed replay expectations.
@@ -72,11 +76,19 @@ before it can coexist with these requests.
 | N1 | User-mode behavior needs direct controls; kernel-mode Zw prose is insufficient | Probe order, optional arguments, completion | Re-run all six producers in each native process ABI | Confirmed for the retained samples |
 | N2 | Guest registry contents remain immutable; the dispatch table contains no content writer | No content-change completion source | Add or locate a guest content writer, then require matching/change-event controls | Retained implementation boundary |
 | N3 | Immediate cross-thread observations can race; native runs differ in signal timing | Final-state assertions | Compare repeated native runs before treating any transient sample as fixed | Retained |
+| N4 | The native runtime's captured kernel identity remains fixed during a process | Admission and deferred IOSB store recipe | Conflicting reported configuration version, wrong native machine, adjacent unmeasured builds | Confirmed for captured identities; uncaptured I/O profiles fail explicitly before arming |
 
 These are finite observations on the recorded kernel profile. They do not
 establish behavior for every Windows build, mutable registry operations, or
 complete command-processor execution. The Rust `Thread.apcs` payload now uses
 explicit ordinary/I/O variants; the public C ABI is unchanged.
+
+The built-in personality retains its original ARM64-derived store recipe.
+Native-library processes select the recipe from captured kernel metadata,
+independently of their reported configuration version and execution ISA.
+The AMD64 controls are retained verbatim from
+[20348 CI](https://github.com/HexRaysSA/rax/actions/runs/40936333974) and
+the [existing 2022/2025 observation jobs](https://github.com/HexRaysSA/rax/actions/runs/40941334269).
 
 ## Reproduce and verify
 
@@ -86,8 +98,8 @@ Verify producer identities and retained dataset hashes on any host:
 python tools/ci/windows_key_notify.py --verify-corpus
 ```
 
-Expected totals are seven producer inputs, three retained process ABIs, and
-1,488 observations. Replay the retained observations through the guest NT
+Expected totals are seven producer inputs, three kernel profiles, three process
+ABIs, seven ABI reports and 3,472 observations. Replay them through the guest NT
 dispatcher:
 
 ```console
