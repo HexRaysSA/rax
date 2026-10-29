@@ -199,8 +199,8 @@ impl AArch64Cpu {
             return Err(ArmError::UndefinedInstruction(raw));
         }
         self.commit_aarch32_register_state(&mut state)?;
-        self.insn_count += 1;
-        self.cycle_count += 1;
+        self.insn_count = self.insn_count.wrapping_add(1);
+        self.cycle_count = self.cycle_count.wrapping_add(1);
         Ok(exit)
     }
 

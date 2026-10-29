@@ -325,3 +325,7 @@ impl Aarch64Vcpu {
         self.checkpoint_in_scope(&scope)
     }
 }
+
+#[cfg(test)]
+#[path = "retirement_counter_tests.rs"]
+mod retirement_counters;

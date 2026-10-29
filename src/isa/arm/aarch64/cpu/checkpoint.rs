@@ -402,3 +402,7 @@ impl AArch64Cpu {
 #[cfg(test)]
 #[path = "checkpoint_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "retirement_counter_tests.rs"]
+mod retirement_counters;

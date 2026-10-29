@@ -46,8 +46,8 @@ impl AArch64Cpu {
                 Ok(exit)
             }
             Ok(exit) => {
-                self.insn_count += 1;
-                self.cycle_count += 1;
+                self.insn_count = self.insn_count.wrapping_add(1);
+                self.cycle_count = self.cycle_count.wrapping_add(1);
                 Ok(exit)
             }
             Err(mut e) => {

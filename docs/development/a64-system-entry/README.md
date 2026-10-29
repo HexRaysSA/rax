@@ -90,17 +90,17 @@ High impact: hardware and other-ISA native entry, complete private/in-flight
 state, external-writer quiescence, late host-failure rollback, full event/wait
 profiles, and physical Intel HVF validation remain open. This publication helper
 does not establish a transaction spanning device effects and host failures.
-The observation-counter wrap fixture does not qualify private-counter overflow
-in cold interpreter paths. Those paths still use ordinary `u64` addition; a
-separate restored-state boundary probe is required before claiming identical
-overflow behavior across interpreted and native execution.
+The original observation-counter fixture did not qualify private-counter
+overflow in cold interpreter paths. The subsequent
+[private-counter repair](../a64-retirement-counters/README.md) covers that
+separate boundary through actual restored records and both arithmetic profiles.
 Medium impact: instruction-sized native execution retains dispatcher overhead;
 there is no throughput claim. Lookup and publication use expected O(1) time and
 O(1) auxiliary space per attempt; the existing cache cap bounds retained entries.
 
 All four full findings, A32-FP, C-STATE, C-SMP and C-HVF, remain incomplete.
 
-Final qualified source: 11,263 library tests passed with two ignored;
+Original system-entry qualified source: 11,263 library tests passed with two ignored;
 47,694 integration tests passed across 22 complete binaries; 223 C API tests
 passed. Workspace Clippy/build/format, interpreter-only and x86-64 compile
 checks, frozen-source checks and the recorded targeted matrix passed. Doctests
