@@ -7,13 +7,13 @@ impl AArch64Cpu {
 
     /// Execute one instruction with full system semantics.
     pub fn step_system(&mut self) -> Result<CpuExit, ArmError> {
-        self.step_system_fault_policy(false, true)
+        self.step_system_policy(false, true)
     }
 
     /// Retain IRQ, timer and system-call semantics but expose instruction
     /// errors to an embedding caller at the faulting PC for diagnosis/retry.
     pub fn step_system_with_fault_exit(&mut self) -> Result<CpuExit, ArmError> {
-        self.step_system_fault_policy(true, true)
+        self.step_system_policy(true, true)
     }
 
     /// One interpreter instruction attempt, even when a cached region is hot.
@@ -21,27 +21,19 @@ impl AArch64Cpu {
         &mut self,
         fault_exit: bool,
     ) -> Result<CpuExit, ArmError> {
-        self.step_system_fault_policy(fault_exit, false)
+        self.step_system_policy(fault_exit, false)
     }
 
-    /// One instruction attempt, permitting only bounded native cache entries.
+    /// Test alias for the public instruction-sized native system entry.
+    #[cfg(test)]
     pub(crate) fn step_system_bounded(&mut self, fault_exit: bool) -> Result<CpuExit, ArmError> {
-        self.step_system_policy(fault_exit, false, true)
-    }
-
-    fn step_system_fault_policy(
-        &mut self,
-        fault_exit: bool,
-        allow_jit: bool,
-    ) -> Result<CpuExit, ArmError> {
-        self.step_system_policy(fault_exit, allow_jit, false)
+        self.step_system_policy(fault_exit, true)
     }
 
     fn step_system_policy(
         &mut self,
         fault_exit: bool,
-        allow_jit: bool,
-        bounded_jit: bool,
+        allow_native: bool,
     ) -> Result<CpuExit, ArmError> {
         // Native entry already advanced this attempt's time before producing
         // the event. A resumed interpreter must neither re-execute it nor
@@ -95,7 +87,7 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
-        if bounded_jit {
+        if allow_native {
             #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
             if self.jit_step_bounded() {
                 return if let Some(error) = self.execution.native_fault.take() {
@@ -110,32 +102,9 @@ impl AArch64Cpu {
             }
         }
 
-        // SMIR JIT fast path: if a compiled region covers the current PC, run it
-        // (it advances PC to its recorded exit) and continue — bypassing the
-        // per-instruction interpreter and its PC pre-increment. IRQ/timer state
-        // is re-checked on the next step.
-        if allow_jit {
-            #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-            if let Some(region) = self.jit_lookup(self.pc) {
-                let ran = self.jit_run_region(&region);
-                if let Some(error) = self.execution.native_fault.take() {
-                    return if fault_exit {
-                        Err(error)
-                    } else {
-                        self.deliver_fault(error)
-                    };
-                }
-                if ran {
-                    return Ok(CpuExit::Continue);
-                }
-            }
-        }
-
         self.pc_ring[self.pc_ring_idx] = self.pc;
         self.pc_ring_idx = (self.pc_ring_idx + 1) % self.pc_ring.len();
 
-        #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-        let pc_before = self.pc;
         match self.execute_instruction() {
             Ok(CpuExit::Undefined(instruction)) => {
                 let error = ArmError::UndefinedInstruction(instruction);
@@ -167,15 +136,7 @@ impl AArch64Cpu {
                 self.enter_sync_exception(SyndromeRegister::brk(imm as u16), None)?;
                 Ok(CpuExit::Continue)
             }
-            Ok(exit) => {
-                // Loop-head hotness sampling: a backward branch (PC decreased)
-                // is a loop back-edge; promote + run the head once it is hot.
-                if allow_jit {
-                    #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-                    self.jit_sample_backedge(pc_before);
-                }
-                Ok(exit)
-            }
+            Ok(exit) => Ok(exit),
             Err(err) if fault_exit => Err(err),
             Err(err) => self.deliver_fault(err),
         }
@@ -392,7 +353,7 @@ impl AArch64Cpu {
 
     /// Read up to `max` bytes of guest instruction stream from `entry`, stopping
     /// at the first unmapped word (fault-free; tolerates a short mapped tail).
-    #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+    #[cfg(all(test, feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_read_window(&self, entry: u64, max: usize) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(max);
         let mut a = entry;
@@ -462,80 +423,6 @@ impl AArch64Cpu {
                 Some(r.clone())
             }
             _ => None,
-        }
-    }
-
-    /// After an interpreted instruction: if it was a backward branch (PC
-    /// decreased — a loop back-edge), bump the head's hotness and, once hot,
-    /// compile + run the region. RAX_NO_JIT disables promotion.
-    #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-    pub(crate) fn jit_sample_backedge(&mut self, pc_before: u64) {
-        if self.aarch32.is_some() {
-            return;
-        }
-        {
-            use std::sync::OnceLock;
-            static OFF: OnceLock<bool> = OnceLock::new();
-            if *OFF.get_or_init(|| std::env::var_os("RAX_NO_JIT").is_some()) {
-                return;
-            }
-        }
-        if self.execution.disabled {
-            return;
-        }
-        let head = self.pc;
-        if head >= pc_before {
-            return; // forward / fallthrough — not a loop back-edge
-        }
-        let mt = self.jit_mode_tag();
-        if self.jit.cache.contains_key(&(head, mt)) {
-            return; // already promoted or memoized-ineligible
-        }
-        let hot = {
-            let c = self.jit.hot.entry(head).or_insert(0);
-            *c = c.saturating_add(1);
-            *c
-        };
-        if hot < A64_JIT_HOT_THRESHOLD {
-            return;
-        }
-        self.jit.hot.remove(&head);
-        let region = self.jit_compile_region().map(std::sync::Arc::new);
-        if std::env::var_os("RAX_JIT_LOG").is_some() {
-            eprintln!(
-                "[JIT-a64] promote @ {head:#x} -> {}",
-                if region.is_some() {
-                    "compiled"
-                } else {
-                    "ineligible"
-                }
-            );
-        }
-        match &region {
-            Some(r) => {
-                let r = r.clone();
-                self.jit.cache.insert((head, mt), region);
-                // Track the guest-code pages this region covers (its ≤512 B lift
-                // window), so a later write into them invalidates it (SMC). Add
-                // the next page only when the window can straddle into it.
-                self.jit.code_pages.insert(head & !0xFFF);
-                if (head & 0xFFF) + 512 > 0x1000 {
-                    self.jit.code_pages.insert((head & !0xFFF) + 0x1000);
-                }
-                // A PAuth region retires exactly one instruction per system
-                // step. Promotion happens after the backedge instruction has
-                // already retired; execute the new region on the next step.
-                if r.pauth_instruction.is_none() {
-                    self.jit_run_region(&r);
-                }
-            }
-            None => {
-                // Soft-cap the memo so a long run can't grow it unbounded.
-                if self.jit.cache.len() >= 16384 {
-                    self.jit.cache.clear();
-                }
-                self.jit.cache.insert((head, mt), None);
-            }
         }
     }
 }

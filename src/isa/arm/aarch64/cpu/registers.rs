@@ -852,7 +852,7 @@ impl AArch64Cpu {
     /// V-register-marshaling trampoline; integer-only regions the cheaper one.
     /// Return false without changing architectural state when FP access must
     /// be interpreted. Callers then resume at the unchanged guest PC.
-    #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+    #[cfg(all(test, feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_run_region(&mut self, region: &JitRegion) -> bool {
         if self.execution.native_fault.is_some() {
             return false;
@@ -893,7 +893,7 @@ impl AArch64Cpu {
     /// Lift+optimize+lower the region at the current PC. `None` if ineligible
     /// (lift/lower failure, no frontier, entry-is-frontier, clobber-unsafe, or
     /// a relocation slipped through).
-    #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+    #[cfg(all(test, feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_compile_region(&mut self) -> Option<JitRegion> {
         if self.aarch32.is_some() {
             return None;

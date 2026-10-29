@@ -121,7 +121,7 @@ impl VCpu for Aarch64Vcpu {
 
         if self.fault_exits {
             for _ in 0..BATCH {
-                if let Some(exit) = self.step_micro(true)? {
+                if let Some(exit) = self.step_micro()? {
                     return Ok(exit);
                 }
             }
@@ -132,7 +132,7 @@ impl VCpu for Aarch64Vcpu {
         self.sync_uart_irq();
 
         for _ in 0..BATCH {
-            match self.cpu.step_system() {
+            match self.step_system_cpu(false) {
                 Ok(CpuExit::Continue) => {
                     if let Some((reg, start, end)) = trace_reg() {
                         let n = self.cpu.instruction_count();
@@ -174,8 +174,6 @@ impl VCpu for Aarch64Vcpu {
                 }
                 Ok(CpuExit::Wfi) | Ok(CpuExit::Wfe) => {
                     // Idle: give the VMM loop a turn (console, checkpoints).
-                    self.insn_count
-                        .store(self.cpu.instruction_count(), Ordering::Relaxed);
                     self.heartbeat();
                     return Ok(VcpuExit::Hlt);
                 }
@@ -204,8 +202,6 @@ impl VCpu for Aarch64Vcpu {
                 }
             }
         }
-        self.insn_count
-            .store(self.cpu.instruction_count(), Ordering::Relaxed);
         self.heartbeat();
         Ok(VcpuExit::Hlt)
     }

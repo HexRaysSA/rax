@@ -41,6 +41,8 @@ mod simd;
 mod sve;
 #[cfg(test)]
 mod system;
+#[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+mod system_entry;
 mod undefined;
 use crate::isa::arm::common::memory::{ArmMemory, FlatMemory, MemResult, MmioHandler};
 

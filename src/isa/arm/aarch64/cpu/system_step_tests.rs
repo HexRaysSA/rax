@@ -1,11 +1,11 @@
-//! Prove one interpreted step bypasses a runnable cache without disabling it.
+//! Explicit lowering tests retain their cache across an interpreted step.
 use super::*;
 use crate::isa::arm::common::memory::FlatMemory;
 
 #[path = "fp_access_tests.rs"]
 mod fp_access;
 #[test]
-fn interpreted_step_preserves_cached_region_and_unbounded_native_execution() {
+fn interpreted_step_preserves_test_region_for_explicit_native_execution() {
     const ENTRY: u64 = 0x1000;
     let mut cpu = AArch64Cpu::new(
         AArch64Config::default(),
@@ -55,7 +55,7 @@ fn interpreted_step_preserves_cached_region_and_unbounded_native_execution() {
         cpu.set_x(0, 0);
         cpu.set_x(1, 0);
         assert!(cpu.jit_lookup(ENTRY).is_some());
-        assert!(matches!(cpu.step_system().unwrap(), CpuExit::Continue));
+        assert!(cpu.jit_run_region(&region));
         assert_eq!(
             (cpu.get_pc(), cpu.get_x(0), cpu.get_x(1)),
             (ENTRY + 16, 4095, 4095)

@@ -24,9 +24,9 @@ impl AArch64Cpu {
                 && self.pending_exceptions.is_empty();
             if eligible {
                 if let Some(region) = self.jit_lookup(self.pc)
-                    && region.pauth_instruction.is_some()
+                    && let Some(raw) = region.pauth_instruction
                 {
-                    let ran = self.jit_run_region(&region);
+                    let ran = self.jit_run_pauth_instruction(&region, raw);
                     if let Some(error) = self.execution.native_fault.take() {
                         return Err(error);
                     }

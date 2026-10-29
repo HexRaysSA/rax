@@ -7,8 +7,9 @@ is a dispatcher exit stub. Native execution therefore returns before a second
 guest instruction, timer poll, interrupt check, or platform request can be skipped.
 
 This extends the existing software multi-CPU scheduler. It does not complete
-C-SMP, C-STATE, A32-FP, or C-HVF. Legacy direct AArch64 region entry outside
-the scheduler, hardware virtualization entries, other guest ISA
+C-SMP, C-STATE, A32-FP, or C-HVF. Public software system entry and finite batch
+publication are covered by the subsequent
+[system-entry repair](../a64-system-entry/README.md). Hardware virtualization entries, other guest ISA
 native tiers, additional startup profiles, debugger AP selection, full replay,
 external-writer quiescence, and physical Intel HVF validation remain separate
 requirements.
@@ -130,7 +131,7 @@ architectural state and coordinator state against uninterrupted execution.
 | BN3 | The physical fixture executes the supplied original encodings independently of RAX. | Rebuild the C/assembly fixture and compare its nonempty capture and checksums. | Observed on the recorded Apple Silicon host; finite sample only. |
 | BN4 | Stateful system words must retain CPU-owned effects even if their lift is NOP-shaped. | Hot wait/event instructions, both WFE event states, and original-word rejection before O2; native NOP admission falsifies it. | A pre-guard failure is retained; the final qualification receipt controls acceptance. |
 
-High impact: legacy direct AArch64 and hardware entries, complete private/in-flight rollback,
+High impact: hardware entries, complete private/in-flight rollback,
 all-writer quiescence, other startup profiles, full replay, and physical Intel
 validation remain open. The cache revalidates source bytes before each entry;
 this is not an atomic exclusion protocol against concurrent external writers.
@@ -138,7 +139,7 @@ Medium impact: instruction-sized native entries retain dispatcher overhead and
 do not establish a throughput improvement. No additional worktrees or per-test
 Cargo target directories are required.
 
-Final qualified source: 11,257 library tests passed with two ignored; 47,694
+Original bounded-entry qualified source: 11,257 library tests passed with two ignored; 47,694
 integration tests passed across 22 complete binaries; 223 C API tests passed.
 The 16 targeted tests passed. Workspace Clippy/build/format, interpreter-only
 and x86-64 cross-compilation, and source checks passed. Doctests ran zero

@@ -33,6 +33,13 @@ impl AArch64Cpu {
         if *OFF.get_or_init(|| std::env::var_os("RAX_NO_JIT").is_some()) {
             return false;
         }
+        // Existing EL0/system PAuth caches contain exactly one checked
+        // instruction. Ordinary legacy regions must never enter a system step.
+        if let Some(region) = self.jit_lookup(self.pc)
+            && region.pauth_instruction.is_some()
+        {
+            return self.jit_run_bounded(&region);
+        }
         let mut mode = self.jit_mode_tag();
         mode.bounded = true;
         let key = (self.pc, mode);

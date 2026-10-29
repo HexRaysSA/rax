@@ -28,6 +28,11 @@ retains interpretation and its exact observation stream. See
 [AArch64 bounded native execution](a64-bounded-native/README.md) for native-entry,
 independent physical AArch64, and 2/4-CPU checkpoint tests. Hardware backend
 entries and other guest ISA native tiers remain separate SMP requirements.
+Public software AArch64 system steps also use this instruction-sized entry.
+The adapter publishes retirement deltas before exits, preserves separately saved
+observation-counter phase, and bounds ordinary batches by their attempt count.
+See [AArch64 public system entry](a64-system-entry/README.md) for the contract,
+parent failures and qualification boundaries.
 
 Debugger commands are serviced before guest interrupt injection. A stopped CPU
 retains its registers, stack, and pending interrupt until execution resumes.

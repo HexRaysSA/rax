@@ -298,7 +298,6 @@ fn pauth_jit_promotion_preserves_one_retirement_and_16_counter_ticks_per_system_
     assert_eq!(cpu.insn_count, 1);
     assert_eq!(cpu.sysregs.cntpct_el0, 16);
     assert_eq!(cpu.execution.pauth_native_runs, 0);
-    assert!(cpu.jit_lookup(0).is_some());
     cpu.step_system().unwrap();
     assert_eq!(cpu.pc, 4);
     assert_eq!(cpu.get_x(0), 0xf916_0000_0000_0000);
@@ -306,7 +305,6 @@ fn pauth_jit_promotion_preserves_one_retirement_and_16_counter_ticks_per_system_
     assert_eq!(cpu.cycle_count, 2);
     assert_eq!(cpu.sysregs.cntpct_el0, 32);
     assert_eq!(cpu.execution.pauth_native_runs, 1);
-    assert!(cpu.jit_lookup(0).is_some());
 }
 
 #[test]

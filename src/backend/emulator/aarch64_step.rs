@@ -7,22 +7,38 @@ mod bounded_jit_tests;
 #[cfg(test)]
 #[path = "aarch64_step/fp_access_tests.rs"]
 mod fp_access_tests;
+#[cfg(all(test, feature = "smir-jit", target_arch = "aarch64"))]
+#[path = "aarch64_step/system_entry_tests.rs"]
+mod system_entry_tests;
 #[cfg(test)]
 #[path = "aarch64_step/undefined_tests.rs"]
 mod undefined_tests;
 
 impl Aarch64Vcpu {
-    pub(super) fn step_micro(&mut self, allow_jit: bool) -> Result<Option<VcpuExit>> {
-        self.sync_uart_irq();
-        let step = if allow_jit {
-            self.cpu.step_system_with_fault_exit()
-        } else if self.recorder.enabled.load(Ordering::Relaxed) {
+    /// Preserve the separately saved observation phase and publish completed
+    /// CPU retirement before an adapter exit, firmware callback, or error.
+    pub(super) fn step_system_cpu(
+        &mut self,
+        fault_exit: bool,
+    ) -> core::result::Result<CpuExit, ArmError> {
+        let before = self.cpu.instruction_count();
+        let result = if self.recorder.enabled.load(Ordering::Relaxed) {
             // Compilation and source revalidation perform extra fetches. The
             // access-recording API promises the interpreter's exact accesses.
-            self.cpu.step_system_interpreted(true)
+            self.cpu.step_system_interpreted(fault_exit)
+        } else if fault_exit {
+            self.cpu.step_system_with_fault_exit()
         } else {
-            self.cpu.step_system_bounded(true)
+            self.cpu.step_system()
         };
+        let delta = self.cpu.instruction_count().wrapping_sub(before);
+        self.insn_count.fetch_add(delta, Ordering::Relaxed);
+        result
+    }
+
+    pub(super) fn step_micro(&mut self) -> Result<Option<VcpuExit>> {
+        self.sync_uart_irq();
+        let step = self.step_system_cpu(true);
         let result = match step {
             Ok(CpuExit::Continue) => Ok(None),
             Ok(CpuExit::Wfi | CpuExit::Wfe) => Ok(Some(VcpuExit::Hlt)),
@@ -72,8 +88,6 @@ impl Aarch64Vcpu {
                 self.cpu.get_pc()
             ))),
         };
-        self.insn_count
-            .store(self.cpu.instruction_count(), Ordering::Relaxed);
         result
     }
 
@@ -88,15 +102,11 @@ impl Aarch64Vcpu {
             return self.step_user();
         }
         if self.fault_exits {
-            return self.step_micro(false);
+            return self.step_micro();
         }
         // Pick up console input the VMM queued (mirrors one run() iteration).
         self.sync_uart_irq();
-        let step = if self.recorder.enabled.load(Ordering::Relaxed) {
-            self.cpu.step_system_interpreted(false)
-        } else {
-            self.cpu.step_system_bounded(false)
-        };
+        let step = self.step_system_cpu(false);
         let r = match step {
             Ok(CpuExit::Continue) => Ok(None),
             Ok(CpuExit::Wfi) | Ok(CpuExit::Wfe) => Ok(Some(VcpuExit::Hlt)),
@@ -122,8 +132,6 @@ impl Aarch64Vcpu {
                 self.cpu.get_pc()
             )))),
         };
-        self.insn_count
-            .store(self.cpu.instruction_count(), Ordering::Relaxed);
         r
     }
 }

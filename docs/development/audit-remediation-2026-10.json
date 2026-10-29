@@ -2597,7 +2597,12 @@
         "src/isa/arm/aarch64/cpu/native_admission.rs",
         "src/backend/emulator/aarch64_step/bounded_jit_tests.rs",
         "src/vm/runtime/aarch64_bounded_native_tests.rs",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/qualification-final-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/qualification-final-v1.json",
+        "docs/development/a64-system-entry/README.md",
+        "src/isa/arm/aarch64/cpu/system_step.rs",
+        "src/isa/arm/aarch64/cpu/tests/system_entry.rs",
+        "src/backend/emulator/aarch64_step/system_entry_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-system-entry/qualification-final-v1.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2634,7 +2639,8 @@
           "validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/qualification-final-v1.json",
           "documentation": "docs/development/a64-fpsimd-allocation/README.md"
         },
-        "a64-bounded-native-scheduler-entry-2026-10-29"
+        "a64-bounded-native-scheduler-entry-2026-10-29",
+        "a64-public-system-entry-publication-2026-10-29"
       ]
     },
     {
@@ -3215,10 +3221,15 @@
         "src/isa/arm/aarch64/cpu/native_admission.rs",
         "src/backend/emulator/aarch64_step/bounded_jit_tests.rs",
         "src/vm/runtime/aarch64_bounded_native_tests.rs",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/qualification-final-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/qualification-final-v1.json",
+        "docs/development/a64-system-entry/README.md",
+        "src/isa/arm/aarch64/cpu/system_step.rs",
+        "src/isa/arm/aarch64/cpu/tests/system_entry.rs",
+        "src/backend/emulator/aarch64_step/system_entry_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-system-entry/qualification-final-v1.json"
       ],
       "remaining_validation": [
-        "Software AArch64 bounded native entries, tested wait/event admission, exact retirement, and 2/4-CPU file continuations are locally qualified; legacy direct AArch64 region entry outside the scheduler and other guest ISA native tiers still need bounded integration.",
+        "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
         "Hardware backend entry remains unbounded; physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
         "Additional ARM startup/control, architectural wait-trap/event-broadcast profiles, and RISC-V SBI startup/controller topology remain required.",
         "Complete backend/private/in-flight/platform state, all-writer quiescence and transactional late-failure restoration remain required.",
@@ -3237,7 +3248,8 @@
         "aarch64-fp16-reserved-admission-2026-10-28",
         "aarch64-optional-fp-profile-2026-10-29",
         "aarch64-undefined-retirement-2026-10-29",
-        "a64-bounded-native-scheduler-entry-2026-10-29"
+        "a64-bounded-native-scheduler-entry-2026-10-29",
+        "a64-public-system-entry-publication-2026-10-29"
       ]
     },
     {
@@ -194214,6 +194226,149 @@
         {
           "impact": "medium",
           "finding": "Instruction-sized native execution retains dispatcher costs; no throughput improvement is claimed."
+        }
+      ],
+      "published": false
+    },
+    {
+      "id": "a64-public-system-entry-publication-2026-10-29",
+      "status": "locally_validated",
+      "parent": "82c9f43e7b1cd2a40ac1703528015310e086f88b",
+      "scope": "Public software AArch64 system entry attempts one original instruction; finite batch limits, early-exit retirement publication, restored observation phase, exact access recording, checked single-PAuth reuse and test-only legacy region helpers. All four full findings remain incomplete.",
+      "owned_paths": [
+        "docs/development/a64-bounded-native/README.md",
+        "docs/development/a64-system-entry/README.md",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/execution-coordinator.md",
+        "src/backend/emulator/aarch64/vcpu.rs",
+        "src/backend/emulator/aarch64_step.rs",
+        "src/backend/emulator/aarch64_step/system_entry_tests.rs",
+        "src/isa/arm/aarch64/cpu/bounded_jit.rs",
+        "src/isa/arm/aarch64/cpu/pauth_user_jit.rs",
+        "src/isa/arm/aarch64/cpu/registers.rs",
+        "src/isa/arm/aarch64/cpu/system_step.rs",
+        "src/isa/arm/aarch64/cpu/system_step_tests.rs",
+        "src/isa/arm/aarch64/cpu/tests/mod.rs",
+        "src/isa/arm/aarch64/cpu/tests/pauth_jit.rs",
+        "src/isa/arm/aarch64/cpu/tests/system_entry.rs"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-system-entry/source-qualified-final-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-system-entry/qualification-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-system-entry/commit-receipt-v1.json",
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-system-entry/parent-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-system-entry/recording-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-system-entry/core-final-result-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-system-entry/qualification-broad-final-v1.json"
+      ],
+      "validation_summary": {
+        "library-final-v1": {
+          "passed": 11263,
+          "failed": 0,
+          "ignored": 2,
+          "binaries": 1
+        },
+        "owning-final-v1": {
+          "passed": 47694,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 22
+        },
+        "capi-final-v1": {
+          "passed": 223,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "doc-final-v1": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "binaries": 1
+        },
+        "public-final-v2": {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "pauth-v1": {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "pauth-a32-v1": {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "legacy-helper-v1": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "bounded-core-v1": {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "fault-core-v1": {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "control-core-v1": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "smp-core-v1": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "counter-final-v2": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        }
+      },
+      "assumption_register": [
+        {
+          "id": "SE1",
+          "assumption": "Public system-step APIs must complete at most one instruction and cannot enter an ordinary unbounded cached region.",
+          "basis": "Their documented one-instruction API and backend batch iteration contract.",
+          "dependent_result": "Bound both public CPU methods and backend run batches.",
+          "stress_test": "Preinstalled legacy regions, real hot public stepping, clocks, faults and batch boundaries.",
+          "falsification_probe": "One public step changes more than one original instruction or a batch bypasses its maximum attempts.",
+          "status": "confirmed within the recorded software system-entry and restored-counter cases"
+        },
+        {
+          "id": "SE2",
+          "assumption": "The backend observation counter may retain an offset from the private CPU counter in valid saved contexts.",
+          "basis": "Context stores both counters separately and restores observed_instructions without an equality constraint.",
+          "dependent_result": "Publish successful retirement deltas before every exit while preserving saved observation phase.",
+          "stress_test": "Early shutdown/fault, private record restoration with independent counter values, wraparound and recording.",
+          "falsification_probe": "A single retirement produces a delta greater than one or loses earlier work through an exit.",
+          "status": "confirmed within the recorded software system-entry and restored-counter cases"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Hardware and other-ISA native entry, complete private/in-flight state, external-writer quiescence, late host-failure rollback, cold private-counter overflow boundaries, event/wait profiles, and physical Intel HVF remain unqualified."
+        },
+        {
+          "impact": "medium",
+          "finding": "Instruction-sized native entries retain dispatcher overhead; no throughput improvement is claimed."
         }
       ],
       "published": false
