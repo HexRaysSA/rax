@@ -4,8 +4,8 @@
 //! from the registers, fetches the arguments the call's `sysent` entry
 //! declares, runs the handler with a [`Ctx`], and writes the result back in
 //! the machine's convention ([`DarwinCpu::set_unix_result`]). A handler
-//! that must sleep registers a [`Wait`]. ARM64 BSD calls retain a decoded
-//! kernel entry independently of saved user registers; other entry paths
+//! that must sleep registers a [`Wait`]. BSD calls retain a decoded
+//! kernel entry independently of saved user registers; Mach and other entry paths
 //! retain their existing instruction-restart behavior.
 //!
 //! [`DarwinCpu::set_unix_result`]: super::arch::DarwinCpu::set_unix_result
@@ -17,7 +17,7 @@ pub mod mem;
 pub mod util;
 
 mod continuation;
-pub(crate) use continuation::{PendingUnix, resume_unix};
+pub(crate) use continuation::{PendingUnix, complete_unix, resume_unix, user_state_written};
 
 use super::abi::{self, Errno, Kind};
 use super::arch::{SysResult, Trap};

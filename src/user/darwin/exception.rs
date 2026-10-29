@@ -649,14 +649,9 @@ fn take_reply(proc: &mut Proc, thread: &mut Thread, f: &InFlight, mut m: Message
     let dest = std::mem::replace(&mut m.dest, Right::Dead);
     kmsg::consume_dest(proc, dest);
     let kr = match check_reply(&m, f) {
-        Ok(Some((flavor, state))) => thread_status::set(
-            &mut thread.cpu,
-            &mut thread.mach.debug_state,
-            flavor,
-            &state,
-        )
-        .err()
-        .unwrap_or(kr::KERN_SUCCESS),
+        Ok(Some((flavor, state))) => thread_status::set_thread(thread, flavor, &state)
+            .err()
+            .unwrap_or(kr::KERN_SUCCESS),
         Ok(None) => kr::KERN_SUCCESS,
         Err(kr) => kr,
     };

@@ -45,6 +45,8 @@ mod continuation_tests;
 mod exclusive_tests;
 #[cfg(test)]
 mod pauth_tests;
+#[cfg(all(test, unix))]
+mod pipe_drain_tests;
 #[cfg(test)]
 mod step_tests;
 mod stepping;
@@ -323,7 +325,7 @@ pub struct Thread {
     pub wait: Option<Wait>,
     /// Progress of a restarted call.
     pub resume: Option<Resume>,
-    /// An entered ARM64 BSD service, independent of mutable saved user state.
+    /// An entered BSD service, independent of mutable saved user state.
     pub(crate) pending_unix: Option<syscall::PendingUnix>,
     /// The thread's `pthread_t` (its user stack's top), zero for the main
     /// thread until libpthread registers.

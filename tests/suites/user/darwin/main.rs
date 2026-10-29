@@ -28,6 +28,7 @@
 mod fixtures;
 mod generators;
 mod layouts;
+mod pipe_drain;
 mod programs;
 mod ptrace_exception_fixtures;
 mod ptrace_registry;

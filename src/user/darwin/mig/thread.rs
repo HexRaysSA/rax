@@ -432,7 +432,7 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             let flavor = req.i32(32);
             let state: Vec<u32> = (0..n).map(|i| req.u32(40 + 4 * i)).collect();
             with_thread(ctx, req, |th, _| {
-                thread_status::set(&mut th.cpu, &mut th.mach.debug_state, flavor, &state)
+                thread_status::set_thread(th, flavor, &state)
             })??;
             Ok(Out::Simple(Vec::new()))
         }

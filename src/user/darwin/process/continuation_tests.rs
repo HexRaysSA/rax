@@ -50,6 +50,161 @@ fn wake(p: &mut DarwinProcess, tid: u64, targeted: bool) {
 }
 
 #[test]
+fn completed_bsd_return_preserves_only_successful_general_state_writes() {
+    use crate::user::darwin::arch::Rv;
+    use crate::user::darwin::{syscall, thread_status as ts};
+
+    for abi in [DarwinAbi::Arm64, DarwinAbi::X86_64] {
+        for mutation in 0..8 {
+            let mut process = bounded_tests::process(abi);
+            let (_, mut thread) = process.proc.threads.pop_first().unwrap();
+            let (general, unified, float, debug, flags, carry) = match abi {
+                DarwinAbi::Arm64 => (6, 1, 17, 15, 66, 1 << 29),
+                DarwinAbi::X86_64 => (4, 7, 5, 11, 34, 1),
+            };
+            let entry_value = match abi {
+                DarwinAbi::Arm64 => 3,
+                DarwinAbi::X86_64 => 0x200_0003,
+            };
+            thread.cpu.set_reg(0, entry_value);
+            thread.cpu.set_pc(ENTRY + 16);
+            thread.pending_unix = Some(syscall::PendingUnix {
+                nr: nr::READ,
+                args: [0; 8],
+                pc: ENTRY + 4,
+                completed: None,
+                result_prepared: false,
+            });
+            syscall::complete_unix(&mut thread, Ok(Rv::one(0)));
+            let arm = abi == DarwinAbi::Arm64;
+            assert_eq!(thread.cpu.reg(0), if arm { 0 } else { entry_value });
+            assert_eq!(thread.pending_unix.unwrap().result_prepared, arm);
+            let flavor = match mutation {
+                3 | 4 => unified,
+                5 => float,
+                6 => debug,
+                _ => general,
+            };
+            let view = ts::View {
+                cpu: &thread.cpu,
+                entry: &thread.sig.entry,
+                debug: &thread.mach.debug_state,
+                ptrauth: false,
+            };
+            let mut state = ts::get(&view, flavor, ts::machine_state_count(abi, flavor)).unwrap();
+            let offset = if matches!(mutation, 3 | 4) { 2 } else { 0 };
+            if matches!(mutation, 1 | 3) {
+                state[offset] = 0x1234;
+                state[offset + 1] = 0;
+                state[offset + flags] |= carry;
+            }
+            if mutation == 7 {
+                state.pop();
+                assert!(ts::set_thread(&mut thread, flavor, &state).is_err());
+            } else if mutation != 0 {
+                ts::set_thread(&mut thread, flavor, &state).unwrap();
+            }
+            let written = matches!(mutation, 1..=4);
+            assert_eq!(thread.pending_unix.unwrap().result_prepared, arm || written);
+            syscall::resume_unix(&mut process.proc, &mut thread);
+            let expected = if matches!(mutation, 1 | 3) {
+                0x1234
+            } else if written && !arm {
+                entry_value
+            } else {
+                0
+            };
+            assert_eq!(thread.cpu.reg(0), expected, "{abi:?}/{mutation}");
+            let view = ts::View {
+                cpu: &thread.cpu,
+                entry: &thread.sig.entry,
+                debug: &thread.mach.debug_state,
+                ptrauth: false,
+            };
+            let state = ts::get(&view, general, ts::machine_state_count(abi, general)).unwrap();
+            assert_eq!(state[flags] & carry != 0, matches!(mutation, 1 | 3));
+            assert_eq!(thread.cpu.pc(), ENTRY + 16, "independent return PC");
+            assert!(thread.pending_unix.is_none());
+        }
+    }
+}
+
+#[test]
+fn entered_x86_bsd_call_keeps_decoded_arguments_and_independent_return_state() {
+    for indirect in [false, true] {
+        for mutation in 0..5 {
+            let mut process = bounded_tests::process(DarwinAbi::X86_64);
+            let (&tid, thread) = process.proc.threads.first_key_value().unwrap();
+            let value = thread.cpu.sp() - 1024;
+            process
+                .proc
+                .space
+                .write(value, &7u32.to_le_bytes())
+                .unwrap();
+            process
+                .proc
+                .space
+                .write_raw(ENTRY, &[0x0f, 0x05, 0x90, 0x90, 0x90, 0x90])
+                .unwrap();
+            let thread = process.proc.threads.get_mut(&tid).unwrap();
+            thread.cpu.set_reg(
+                0,
+                if indirect {
+                    0x200_0000
+                } else {
+                    0x200_0000 | u64::from(nr::ULOCK_WAIT)
+                },
+            );
+            let arguments = [1, value, 7, 60_000_000];
+            let registers = [7, 6, 2, 10, 8, 9];
+            if indirect {
+                thread.cpu.set_reg(7, u64::from(nr::ULOCK_WAIT));
+            }
+            for (index, argument) in arguments.into_iter().enumerate() {
+                thread
+                    .cpu
+                    .set_reg(registers[index + usize::from(indirect)], argument);
+            }
+            thread.cpu.set_pc(ENTRY);
+            assert_eq!(
+                process.run_slice(1, &AtomicBool::new(false)),
+                RunStatus::BudgetExhausted
+            );
+            let thread = process.proc.threads.get_mut(&tid).unwrap();
+            assert!(thread.wait.is_some());
+            assert_eq!(thread.cpu.pc(), ENTRY + 2);
+            let entered = thread.pending_unix.unwrap();
+            assert_eq!(entered.nr, nr::ULOCK_WAIT);
+            assert_eq!(&entered.args[..4], &arguments);
+            let selected = if mutation == 4 { ENTRY + 4 } else { ENTRY + 2 };
+            thread.cpu.set_reg(12, 0x3456);
+            match mutation {
+                1 => thread
+                    .cpu
+                    .set_reg(registers[1 + usize::from(indirect)], u64::MAX),
+                2 => thread.cpu.set_reg(0, 0x200_0014),
+                3 => process.proc.space.write_raw(ENTRY, &[0x0f, 0x0b]).unwrap(),
+                4 => thread.cpu.set_pc(selected),
+                _ => {}
+            }
+            wake(&mut process, tid, true);
+            assert_eq!(
+                process.run_slice(1, &AtomicBool::new(false)),
+                RunStatus::BudgetExhausted
+            );
+            let thread = &process.proc.threads[&tid];
+            assert_eq!(thread.cpu.reg(0), 0, "{indirect}/{mutation}");
+            assert_eq!(thread.cpu.reg(12), 0x3456);
+            assert_eq!(thread.cpu.pc(), selected);
+            assert!(
+                thread.wait.is_none() && thread.resume.is_none() && thread.pending_unix.is_none()
+            );
+            assert_eq!(process.proc.task.syscalls.1, 1);
+        }
+    }
+}
+
+#[test]
 fn entered_arm_bsd_call_keeps_arguments_number_and_return_pc_without_refetching_svc() {
     for mutation in 0..5 {
         let (mut p, tid) = blocked();

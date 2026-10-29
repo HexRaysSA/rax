@@ -2,9 +2,9 @@
 //!
 //! Every thread of a process runs on one host thread, so a call that must
 //! sleep cannot block the host while another guest thread could run. Its
-//! handler records what it waits for (a [`Wait`]) and parks. An entered ARM64
+//! handler records what it waits for (a [`Wait`]) and parks. An entered
 //! BSD call retains its decoded scalar arguments independently of mutable
-//! saved user registers. Other paths keep their existing instruction restart.
+//! saved user registers. Mach and other paths keep their existing instruction restart.
 //! When the wait can end — a descriptor is ready, the
 //! deadline passed, a signal arrived, or another thread posted the event it
 //! waits for ([`WaitKey`]) — the thread continues its service, re-evaluating

@@ -25,6 +25,7 @@ use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{self, Wait};
 
 mod embedded;
+mod pipe_drain;
 
 /// The largest single transfer (`read`/`write` fail larger `nbyte` with
 /// `EINVAL`, as `rd_uio`/`wr_uio` do).
@@ -71,7 +72,12 @@ fn block_until_ready(ctx: &mut Ctx<'_>, h: i32, read: bool) -> Option<SysResult>
     if wait::ready_now(&[(h, read, !read)])[0] || nonblocking(h) {
         return None;
     }
-    Some(syscall::sleep(ctx, Wait::fds(vec![(h, read, !read)], None)))
+    let first = ctx.thread.resume.is_none();
+    let result = syscall::sleep(ctx, Wait::fds(vec![(h, read, !read)], None));
+    if first && read && ctx.thread.wait.is_some() {
+        pipe_drain::parked(ctx, h);
+    }
+    Some(result)
 }
 
 /// `read(fd, cbuf, nbyte)` and `pread` (`offset` given).
@@ -401,6 +407,7 @@ fn host_seek_data() -> i32 {
 /// `close(fd)`.
 pub fn close(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
     let removed = ctx.proc.fds.remove(fd)?;
+    pipe_drain::closed(ctx.proc, fd, &removed.file);
     crate::user::darwin::kevent::fd_closed(ctx.proc, fd, Some(removed.file));
     Ok(Rv::one(0))
 }
@@ -452,6 +459,7 @@ fn replace(ctx: &mut Ctx<'_>, to: i32, file: FileRef, cloexec: bool, clofork: bo
     let replaced = ctx.proc.fds.install_at(to as usize, file, cloexec);
     ctx.proc.fds.get_mut(to).expect("just installed").clofork = clofork;
     if let Some(old) = replaced {
+        pipe_drain::closed(ctx.proc, to, &old.file);
         crate::user::darwin::kevent::fd_closed(ctx.proc, to, Some(old.file));
     }
 }

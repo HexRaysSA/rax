@@ -282,6 +282,8 @@ fn a_caught_verdict_uses_owned_bsd_entry_identity_after_saved_user_pc_changes() 
         pc: original,
         nr: 111,
         args: [0; 8],
+        completed: None,
+        result_prepared: false,
     });
     process.proc.tracing.verdict = Some(Verdict {
         thread: selected,

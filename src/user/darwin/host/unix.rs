@@ -99,6 +99,43 @@ pub fn fstat(fd: i32) -> Result<libc::stat, Errno> {
     }
 }
 
+/// Whether this descriptor is a kernel anonymous pipe. A named FIFO remains a
+/// vnode after unlink; `S_IFIFO` and path availability do not identify its type.
+pub fn anonymous_pipe(fd: i32) -> bool {
+    if !fstat(fd).is_ok_and(|stat| stat.st_mode & libc::S_IFMT == libc::S_IFIFO) {
+        return false;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        // PROC_PIDFDPIPEINFO (6) accepts DTYPE_PIPE and returns pipe_fdinfo
+        // (184 bytes). Query only this process's already-owned descriptor.
+        let mut info = [0u64; 23];
+        // SAFETY: the aligned initialized buffer holds all 184 writable bytes.
+        unsafe { libc::proc_pidfdinfo(libc::getpid(), fd, 6, info.as_mut_ptr().cast(), 184) == 184 }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // Anonymous Linux pipes live on PIPEFS_MAGIC; a named FIFO lives on
+        // its containing filesystem, including after its pathname is removed.
+        let mut filesystem = std::mem::MaybeUninit::<libc::statfs>::uninit();
+        // SAFETY: live descriptor and a complete writable statfs output.
+        if unsafe { libc::fstatfs(fd, filesystem.as_mut_ptr()) } != 0 {
+            return false;
+        }
+        // SAFETY: successful fstatfs initialized the complete structure.
+        let filesystem = unsafe { filesystem.assume_init() };
+        u32::try_from(filesystem.f_type).ok() == Some(0x5049_5045)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    {
+        false
+    }
+}
+
+#[cfg(test)]
+#[path = "pipe_tests.rs"]
+mod pipe_tests;
+
 /// `fstatat` on the host.
 pub fn fstatat(dirfd: i32, path: &CString, flags: i32) -> Result<libc::stat, Errno> {
     // SAFETY: `path` is NUL-terminated; fstatat writes a complete struct

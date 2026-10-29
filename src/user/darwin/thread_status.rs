@@ -453,6 +453,48 @@ pub fn set(
     }
 }
 
+/// Install a state on its owning thread, retiring an already-completed BSD
+/// return in favor of a successful general-register state write.
+/// General-state flavors validate their count and address/authentication
+/// constraints before changing registers. Rejected writes leave completion
+/// ownership unchanged. Other flavors retain their existing state contract.
+pub(crate) fn set_thread(
+    thread: &mut super::process::Thread,
+    flavor: i32,
+    state: &[u32],
+) -> Result<(), KernReturn> {
+    set(&mut thread.cpu, &mut thread.mach.debug_state, flavor, state)?;
+    let general = match &thread.cpu {
+        DarwinCpu::Arm64(_) => matches!(flavor, arm::THREAD_STATE | arm::THREAD_STATE64),
+        DarwinCpu::X86_64(_) => matches!(flavor, x86::THREAD_STATE | x86::THREAD_STATE64),
+    };
+    if general {
+        super::syscall::user_state_written(thread);
+    }
+    Ok(())
+}
+
+/// Installs a complete `THREAD_STATE64` context transactionally. The CPU is
+/// cloned as for the process context API, preserving its established treatment
+/// of transient execution state. Failed validation leaves the original thread
+/// untouched; a successful write owns an already-completed BSD return.
+pub fn set_general_context(
+    thread: &mut super::process::Thread,
+    state: &[u32],
+) -> Result<(), KernReturn> {
+    let (mut cpu, flavor) = match &thread.cpu {
+        DarwinCpu::Arm64(cpu) => (DarwinCpu::Arm64(cpu.clone_thread()), arm::THREAD_STATE64),
+        DarwinCpu::X86_64(cpu) => (DarwinCpu::X86_64(cpu.clone_thread()), x86::THREAD_STATE64),
+    };
+    let mut debug = thread.mach.debug_state.clone();
+    set(&mut cpu, &mut debug, flavor, state)?;
+    cpu.discard_native_code();
+    thread.cpu = cpu;
+    thread.mach.debug_state = debug;
+    super::syscall::user_state_written(thread);
+    Ok(())
+}
+
 fn exactly(count: u32, n: u32) -> Result<(), KernReturn> {
     if count != n {
         Err(kr::KERN_INVALID_ARGUMENT)

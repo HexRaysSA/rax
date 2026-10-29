@@ -6,6 +6,7 @@ use crate::user::darwin::{exception, thread_status, wait::Resume};
 
 pub(super) struct Step {
     arm: bool,
+    entered_bsd: bool,
     restart: Option<Resume>,
     pub(super) arm_syndrome: Option<u32>,
 }
@@ -16,6 +17,7 @@ impl Step {
             && thread_status::arm_step_enabled(&thread.mach.debug_state);
         Self {
             arm,
+            entered_bsd: thread.mach.exception.is_none() && thread.pending_unix.is_some(),
             restart: thread.resume,
             arm_syndrome: arm
                 .then(|| exception::single_step_syndrome(proc, thread))
@@ -49,18 +51,19 @@ impl Step {
                 // CPU. The personality completes SYSRET's debug frontier only
                 // after its syscall service has returned.
                 self.enabled(thread)
-                    && matches!(
-                        trap,
-                        Some(
-                            Trap::Unix { .. }
-                                | Trap::Mach { .. }
-                                | Trap::Machdep { .. }
-                                | Trap::Platform { .. }
-                                | Trap::Diag { .. }
-                                | Trap::AbsoluteTime
-                                | Trap::ContinuousTime
-                        )
-                    )
+                    && ((trap.is_none() && self.entered_bsd)
+                        || matches!(
+                            trap,
+                            Some(
+                                Trap::Unix { .. }
+                                    | Trap::Mach { .. }
+                                    | Trap::Machdep { .. }
+                                    | Trap::Platform { .. }
+                                    | Trap::Diag { .. }
+                                    | Trap::AbsoluteTime
+                                    | Trap::ContinuousTime
+                            )
+                        ))
             }
             DarwinCpu::Arm64(_) => {
                 // A slow Arm kernel return steps the next user instruction,
