@@ -250,6 +250,10 @@ fn command_reopen_tags(
     }
 }
 
+#[cfg(test)]
+#[path = "registry/system_command_tests.rs"]
+mod system_command_tests;
+
 fn machine_body_tags(parent: u32, requested: u32, self_open: bool) -> u32 {
     if self_open {
         return if requested == 0 {

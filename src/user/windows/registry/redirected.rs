@@ -19,6 +19,7 @@ impl RegistryView {
 pub(crate) enum ViewRoot {
     AppModel(AppModelRoot),
     CommandMachine,
+    CommandSystem,
     CommandUser,
 }
 

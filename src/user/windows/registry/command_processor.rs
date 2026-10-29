@@ -8,23 +8,28 @@ pub(crate) use subtree::CommandTree;
 
 pub(crate) const COMMAND_PROCESSOR_KEY: &str =
     "\\Registry\\Machine\\Software\\Microsoft\\Command Processor";
+pub(crate) const SYSTEM_COMMAND_PROCESSOR_KEY: &str =
+    "\\Registry\\Machine\\System\\Software\\Microsoft\\Command Processor";
 pub(super) const COMMAND_SUFFIX: &str = "\\Software\\Microsoft\\Command Processor";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CommandRoot {
     Machine,
+    System,
     User,
 }
 impl CommandRoot {
     pub(super) fn selection(self) -> ViewRoot {
         match self {
             Self::Machine => ViewRoot::CommandMachine,
+            Self::System => ViewRoot::CommandSystem,
             Self::User => ViewRoot::CommandUser,
         }
     }
     pub(crate) fn path(self, sid: &[u8]) -> io::Result<Vec<u16>> {
         match self {
             Self::Machine => Ok(COMMAND_PROCESSOR_KEY.encode_utf16().collect()),
+            Self::System => Ok(SYSTEM_COMMAND_PROCESSOR_KEY.encode_utf16().collect()),
             Self::User => Ok(user_policy::user_hive_path(sid)?
                 .into_iter()
                 .chain(COMMAND_SUFFIX.encode_utf16())
@@ -107,6 +112,24 @@ impl Registry {
                 ));
             }
         };
+        // This fixed SYSTEM route admits one canonical physical subject,
+        // unlike the independently redirected Software views. A race cannot
+        // leave its two records disagreeing about existence or absence class.
+        if root == CommandRoot::System {
+            for (&(kind, captured_view), other) in &self.views.roots {
+                if kind != selected {
+                    continue;
+                }
+                if key.is_some() != other.is_some()
+                    || key.is_none()
+                        && missing_path != self.views.missing_paths.contains(&(kind, captured_view))
+                {
+                    return Err(invalid(
+                        "System Command Processor existence changed between view captures",
+                    ));
+                }
+            }
+        }
         if let Some(key) = &key {
             for ((kind, _), other) in &self.views.roots {
                 if *kind != selected {
@@ -159,7 +182,7 @@ impl Registry {
                 }
             }
         }
-        if view == RegistryView::Wow32 {
+        if view == RegistryView::Wow32 && root != CommandRoot::System {
             let redirected: Vec<Vec<u16>> = bases
                 .iter()
                 .map(|base| {
@@ -192,6 +215,10 @@ impl Registry {
 #[cfg(test)]
 #[path = "command_processor_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "command_processor_system_tests.rs"]
+mod system_tests;
 
 impl Key {
     pub(crate) fn command_access(&self) -> Option<KeyAccess> {

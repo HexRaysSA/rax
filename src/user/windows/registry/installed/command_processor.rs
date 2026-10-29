@@ -12,6 +12,9 @@ mod subtree;
 pub(super) fn capture_machine(registry: Registry) -> io::Result<Registry> {
     capture_with(registry, CommandRoot::Machine, &[], open)
 }
+pub(super) fn capture_system(registry: Registry) -> io::Result<Registry> {
+    capture_with(registry, CommandRoot::System, &[], open)
+}
 pub(super) fn capture_user(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
     capture_with(registry, CommandRoot::User, sid, open)
 }
@@ -83,7 +86,9 @@ fn open_path(
         return Err(invalid("Command Processor path escapes fixed subtree"));
     }
     let (hive, prefix) = match root {
-        CommandRoot::Machine => (-2_147_483_646isize, "\\Registry\\Machine\\"),
+        CommandRoot::Machine | CommandRoot::System => {
+            (-2_147_483_646isize, "\\Registry\\Machine\\")
+        }
         CommandRoot::User => (-2_147_483_645isize, "\\Registry\\User\\"),
     };
     let prefix: Vec<_> = prefix.encode_utf16().collect();
@@ -120,3 +125,7 @@ fn open_path(
 #[cfg(test)]
 #[path = "command_processor_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "command_processor_system_tests.rs"]
+mod system_tests;

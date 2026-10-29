@@ -92,14 +92,14 @@ impl Registry {
             let name: Vec<_> = selected.path().encode_utf16().skip(length + 1).collect();
             paths.entry(fold(&name)).or_insert(None);
         }
-        if self
-            .views
-            .roots
-            .values()
-            .flatten()
-            .any(|key| prefix(&key.path))
-        {
-            present.insert(fold(&"Software".encode_utf16().collect::<Vec<_>>()));
+        for key in self.views.roots.values().flatten() {
+            if prefix(&key.path) && key.path.get(length) == Some(&92) {
+                let child = key.path[length + 1..]
+                    .split(|u| *u == 92)
+                    .next()
+                    .unwrap_or_default();
+                present.insert(fold(child));
+            }
         }
         if present.len() > children as usize {
             return Err(invalid("selected keys contradict MACHINE child count"));

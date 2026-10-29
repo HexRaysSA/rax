@@ -1,6 +1,8 @@
 //! Native CMD leaf controls replayed through the actual guest NT dispatcher.
 #[path = "command_processor_tree_replay.rs"]
 mod subtree;
+#[path = "system_command_processor_replay.rs"]
+mod system;
 
 use super::*;
 use crate::user::windows::objects::Object;

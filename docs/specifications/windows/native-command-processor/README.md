@@ -8,6 +8,10 @@ Every native handle closes during selection. Runtime opens and value queries
 use immutable records; guest names, rights and handles never reach a host
 registry API.
 
+The additional fixed System path has its own
+[source-preserving native campaign](../native-system-command-processor/README.md).
+Its inputs and evidence do not alter the retained producers below.
+
 The shared view catalogue retains AppModel's existing independent trees and
 adds the two CMD selections. MACHINE and primary-hive handles retain their original
 catalogue across namespace replacement and duplication. Canonical names,

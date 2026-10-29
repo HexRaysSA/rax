@@ -32,6 +32,16 @@ occupy readable non-executable trap slots; the CPU's fetch fault enters checked
 host implementations with the guest's original calling-convention state.
 Unknown DLLs and imports produce explicit loader or execution failures.
 
+Installed registry selection includes the fixed machine
+`System\Software\Microsoft\Command Processor` path. Its immutable record
+retains native absence or a complete bounded subtree and captured access.
+Both shared views must agree on presence and physical contents; retained
+MACHINE handles preserve routing across duplication and namespace replacement.
+Other System paths remain outside that selection. The
+[independent native campaign](../../specifications/windows/native-system-command-processor/README.md)
+separates measured absence and parent-handle mechanics from synthetic positive
+leaf contents and from complete CMD startup qualification.
+
 `GetCommandLineA` converts the process's UTF-16 command line with the named
 Windows-1252 best-fit process-code-page profile and returns one process-owned
 guest buffer on repeated calls. This includes mappings that can change narrow

@@ -20,7 +20,7 @@ fn sid() -> Vec<u8> {
         .clone()
 }
 
-fn compare_node(
+pub(super) fn compare_node(
     selected: &Registry,
     root: CommandRoot,
     sid: &[u8],

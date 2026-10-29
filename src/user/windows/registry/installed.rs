@@ -377,9 +377,9 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let root = super::TreeRoot::LanguageOverlayPackages;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;
-    machine_hive::capture(command_processor::capture_machine(appmodel::capture(
-        registry,
-    )?)?)
+    machine_hive::capture(command_processor::capture_system(
+        command_processor::capture_machine(appmodel::capture(registry)?)?,
+    )?)
 }
 
 #[cfg(test)]
