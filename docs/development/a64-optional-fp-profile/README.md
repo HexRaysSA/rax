@@ -51,8 +51,8 @@ requires FP16; an H destination alone does not make BFCVT require FP16.
 
 New private AArch64 contexts use `RAXA6403` with the existing payload shape.
 Actual `RAXA6401` and `RAXA6402` records remain decodable. The public C API
-retains outer context format 4; libraries that do not recognize the new private
-payload tag reject these newer records. Restoration compares
+uses outer context format 8 and reads legacy format 4. Libraries that do not
+recognize the new private payload tag reject these newer records. Restoration compares
 the original public/private images before migration. For supported old fields,
 migration derives the six flags from the old advertised IDs and retains those
 ID values. This preserves the advertised old guest contract; it does not
@@ -132,9 +132,10 @@ profile.
 The full sweep intentionally includes neighboring instructions outside these
 six descriptions. Its raw outputs and all mismatches are retained. It exposed
 additional generic unallocated-encoding/access-priority and undefined-exit
-retirement defects. Those defects remain open under the original audit goal;
-results for the selected capability classes must not be represented as a clean
-result for the entire neighborhood or the whole ISA.
+retirement defects. The shared Undefined-result retirement path is corrected by the follow-up
+component; wider allocation/FP-access priority remains open under the original
+audit goal. Selected capability results are not a clean result for the entire
+neighborhood or the whole ISA.
 
 `reserved-controls.json` contains independent results for 52 boundary words,
 including scalar AdvSIMD slots, base FRECPX/FSQRT overlaps and invalid optional
@@ -145,9 +146,10 @@ syndrome, precise fault PC and an unchanged denied-instruction sentinel; all
 
 The broader diagnostic run includes explicit `Unimplemented` frontiers; these
 are not by themselves proof of execution or incorrect system exception delivery.
-There are 62 separately observed `Undefined` exits that retire once and advance
-PC. Their remaining restoration/retirement behavior is not covered up by the
-selected-class result.
+The original sweep separately observed 62 `Undefined` exits that retired once
+and advanced PC. The [follow-up retirement component](../a64-undefined-retirement/README.md)
+corrects that shared exit path and its tested continuations. Wider allocation
+and FP-access priority remain open.
 Positive generated tests select their optional capabilities explicitly in both
 helper templates and the allocation-characterization factory. Historical full
 ASL corpus inputs and generator revision remain unknown; this change does not

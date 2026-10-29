@@ -41,6 +41,7 @@ mod fp_access;
 mod fp_control_tests;
 mod fp_profile;
 mod identity;
+mod instruction;
 mod interrupt_binding;
 mod native_execution;
 mod psci_entry;

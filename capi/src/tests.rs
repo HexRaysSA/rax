@@ -4,6 +4,7 @@
 
 #![allow(clippy::missing_safety_doc)]
 
+mod aarch64_undefined;
 mod fp_access;
 
 use std::os::raw::c_void;

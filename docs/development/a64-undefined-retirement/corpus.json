@@ -1,0 +1,652 @@
+{
+  "kind": "Actual independent QEMU admission observations; not generated from RAX expectations.",
+  "records": [
+    {
+      "word": 1044252704,
+      "hex": "0x3e3e0820",
+      "original_index": 1672,
+      "names": [
+        "FJCVTZS_32D_float2int"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1048447008,
+      "hex": "0x3e7e0820",
+      "original_index": 1742,
+      "names": [
+        "FJCVTZS_32D_float2int"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1052641312,
+      "hex": "0x3ebe0820",
+      "original_index": 1812,
+      "names": [
+        "FJCVTZS_32D_float2int"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1311336480,
+      "hex": "0x4e296820",
+      "original_index": 2022,
+      "names": [
+        "BFCVTN_asimdmisc_4S"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1311369248,
+      "hex": "0x4e29e820",
+      "original_index": 2023,
+      "names": [
+        "FRINT32X_asimdmisc_R",
+        "FRINT32Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1311373344,
+      "hex": "0x4e29f820",
+      "original_index": 2024,
+      "names": [
+        "FRINT64X_asimdmisc_R",
+        "FRINT64Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1315530784,
+      "hex": "0x4e696820",
+      "original_index": 2138,
+      "names": [
+        "BFCVTN_asimdmisc_4S"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1315563552,
+      "hex": "0x4e69e820",
+      "original_index": 2139,
+      "names": [
+        "FRINT32X_asimdmisc_R",
+        "FRINT32Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1315567648,
+      "hex": "0x4e69f820",
+      "original_index": 2140,
+      "names": [
+        "FRINT64X_asimdmisc_R",
+        "FRINT64Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1319725088,
+      "hex": "0x4ea96820",
+      "original_index": 2254,
+      "names": [
+        "BFCVTN_asimdmisc_4S"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1319757856,
+      "hex": "0x4ea9e820",
+      "original_index": 2255,
+      "names": [
+        "FRINT32X_asimdmisc_R",
+        "FRINT32Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1319761952,
+      "hex": "0x4ea9f820",
+      "original_index": 2256,
+      "names": [
+        "FRINT64X_asimdmisc_R",
+        "FRINT64Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1323919392,
+      "hex": "0x4ee96820",
+      "original_index": 2370,
+      "names": [
+        "BFCVTN_asimdmisc_4S"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1323952160,
+      "hex": "0x4ee9e820",
+      "original_index": 2371,
+      "names": [
+        "FRINT32X_asimdmisc_R",
+        "FRINT32Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1323956256,
+      "hex": "0x4ee9f820",
+      "original_index": 2372,
+      "names": [
+        "FRINT64X_asimdmisc_R",
+        "FRINT64Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1579698208,
+      "hex": "0x5e284820",
+      "original_index": 2588,
+      "names": [
+        "FRINT32Z_D_floatdp1",
+        "FRINT32Z_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1579730976,
+      "hex": "0x5e28c820",
+      "original_index": 2594,
+      "names": [
+        "FRINT32X_D_floatdp1",
+        "FRINT32X_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1579763744,
+      "hex": "0x5e294820",
+      "original_index": 2600,
+      "names": [
+        "FRINT64Z_D_floatdp1",
+        "FRINT64Z_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1579796512,
+      "hex": "0x5e29c820",
+      "original_index": 2606,
+      "names": [
+        "FRINT64X_D_floatdp1",
+        "FRINT64X_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1583892512,
+      "hex": "0x5e684820",
+      "original_index": 2658,
+      "names": [
+        "FRINT32Z_D_floatdp1",
+        "FRINT32Z_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1583925280,
+      "hex": "0x5e68c820",
+      "original_index": 2664,
+      "names": [
+        "FRINT32X_D_floatdp1",
+        "FRINT32X_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1583958048,
+      "hex": "0x5e694820",
+      "original_index": 2670,
+      "names": [
+        "FRINT64Z_D_floatdp1",
+        "FRINT64Z_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1583990816,
+      "hex": "0x5e69c820",
+      "original_index": 2676,
+      "names": [
+        "FRINT64X_D_floatdp1",
+        "FRINT64X_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1588086816,
+      "hex": "0x5ea84820",
+      "original_index": 2728,
+      "names": [
+        "FRINT32Z_D_floatdp1",
+        "FRINT32Z_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1588119584,
+      "hex": "0x5ea8c820",
+      "original_index": 2734,
+      "names": [
+        "FRINT32X_D_floatdp1",
+        "FRINT32X_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1588152352,
+      "hex": "0x5ea94820",
+      "original_index": 2740,
+      "names": [
+        "FRINT64Z_D_floatdp1",
+        "FRINT64Z_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1588185120,
+      "hex": "0x5ea9c820",
+      "original_index": 2746,
+      "names": [
+        "FRINT64X_D_floatdp1",
+        "FRINT64X_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1592281120,
+      "hex": "0x5ee84820",
+      "original_index": 2798,
+      "names": [
+        "FRINT32Z_D_floatdp1",
+        "FRINT32Z_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1592313888,
+      "hex": "0x5ee8c820",
+      "original_index": 2804,
+      "names": [
+        "FRINT32X_D_floatdp1",
+        "FRINT32X_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1592346656,
+      "hex": "0x5ee94820",
+      "original_index": 2810,
+      "names": [
+        "FRINT64Z_D_floatdp1",
+        "FRINT64Z_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 1592379424,
+      "hex": "0x5ee9c820",
+      "original_index": 2816,
+      "names": [
+        "FRINT64X_D_floatdp1",
+        "FRINT64X_S_floatdp1"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3456275488,
+      "hex": "0xce029420",
+      "original_index": 3984,
+      "names": [
+        "SDOT_asimdsame2_D",
+        "UDOT_asimdsame2_D"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3456277536,
+      "hex": "0xce029c20",
+      "original_index": 3985,
+      "names": [
+        "USDOT_asimdsame2_D"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3456279584,
+      "hex": "0xce02a420",
+      "original_index": 3986,
+      "names": [
+        "SMMLA_asimdsame2_G",
+        "UMMLA_asimdsame2_G"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3456281632,
+      "hex": "0xce02ac20",
+      "original_index": 3987,
+      "names": [
+        "USMMLA_asimdsame2_G"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3456287776,
+      "hex": "0xce02c420",
+      "original_index": 3988,
+      "names": [
+        "FCMLA_asimdsame2_C"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3456295968,
+      "hex": "0xce02e420",
+      "original_index": 3989,
+      "names": [
+        "FCADD_asimdsame2_C"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3456298016,
+      "hex": "0xce02ec20",
+      "original_index": 3990,
+      "names": [
+        "BFMMLA_asimdsame2_E"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3456302112,
+      "hex": "0xce02fc20",
+      "original_index": 3991,
+      "names": [
+        "BFDOT_asimdsame2_D",
+        "BFMLAL_asimdsame2_F_"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3458328608,
+      "hex": "0xce21e820",
+      "original_index": 3993,
+      "names": [
+        "FRINT32X_asimdmisc_R",
+        "FRINT32Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3458332704,
+      "hex": "0xce21f820",
+      "original_index": 3994,
+      "names": [
+        "FRINT64X_asimdmisc_R",
+        "FRINT64Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3460482080,
+      "hex": "0xce42c420",
+      "original_index": 3999,
+      "names": [
+        "FCMLA_asimdsame2_C"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3460490272,
+      "hex": "0xce42e420",
+      "original_index": 4000,
+      "names": [
+        "FCADD_asimdsame2_C"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3460492320,
+      "hex": "0xce42ec20",
+      "original_index": 4001,
+      "names": [
+        "BFMMLA_asimdsame2_E"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3460496416,
+      "hex": "0xce42fc20",
+      "original_index": 4002,
+      "names": [
+        "BFDOT_asimdsame2_D",
+        "BFMLAL_asimdsame2_F_"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3462490144,
+      "hex": "0xce616820",
+      "original_index": 4003,
+      "names": [
+        "BFCVTN_asimdmisc_4S"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3462522912,
+      "hex": "0xce61e820",
+      "original_index": 4004,
+      "names": [
+        "FRINT32X_asimdmisc_R",
+        "FRINT32Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3462527008,
+      "hex": "0xce61f820",
+      "original_index": 4005,
+      "names": [
+        "FRINT64X_asimdmisc_R",
+        "FRINT64Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3466684448,
+      "hex": "0xcea16820",
+      "original_index": 4014,
+      "names": [
+        "BFCVTN_asimdmisc_4S"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3466717216,
+      "hex": "0xcea1e820",
+      "original_index": 4015,
+      "names": [
+        "FRINT32X_asimdmisc_R",
+        "FRINT32Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3466721312,
+      "hex": "0xcea1f820",
+      "original_index": 4016,
+      "names": [
+        "FRINT64X_asimdmisc_R",
+        "FRINT64Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3468858400,
+      "hex": "0xcec29420",
+      "original_index": 4017,
+      "names": [
+        "SDOT_asimdsame2_D",
+        "UDOT_asimdsame2_D"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3468860448,
+      "hex": "0xcec29c20",
+      "original_index": 4018,
+      "names": [
+        "USDOT_asimdsame2_D"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3468862496,
+      "hex": "0xcec2a420",
+      "original_index": 4019,
+      "names": [
+        "SMMLA_asimdsame2_G",
+        "UMMLA_asimdsame2_G"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3468864544,
+      "hex": "0xcec2ac20",
+      "original_index": 4020,
+      "names": [
+        "USMMLA_asimdsame2_G"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3468870688,
+      "hex": "0xcec2c420",
+      "original_index": 4021,
+      "names": [
+        "FCMLA_asimdsame2_C"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3468878880,
+      "hex": "0xcec2e420",
+      "original_index": 4022,
+      "names": [
+        "FCADD_asimdsame2_C"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3468880928,
+      "hex": "0xcec2ec20",
+      "original_index": 4023,
+      "names": [
+        "BFMMLA_asimdsame2_E"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3468885024,
+      "hex": "0xcec2fc20",
+      "original_index": 4024,
+      "names": [
+        "BFDOT_asimdsame2_D",
+        "BFMLAL_asimdsame2_F_"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3470878752,
+      "hex": "0xcee16820",
+      "original_index": 4025,
+      "names": [
+        "BFCVTN_asimdmisc_4S"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3470911520,
+      "hex": "0xcee1e820",
+      "original_index": 4026,
+      "names": [
+        "FRINT32X_asimdmisc_R",
+        "FRINT32Z_asimdmisc_R"
+      ],
+      "event": "U"
+    },
+    {
+      "word": 3470915616,
+      "hex": "0xcee1f820",
+      "original_index": 4027,
+      "names": [
+        "FRINT64X_asimdmisc_R",
+        "FRINT64Z_asimdmisc_R"
+      ],
+      "event": "U"
+    }
+  ],
+  "captures": [
+    {
+      "path": "docs/development/a64-undefined-retirement/oracle/el0-fpen3-cortex-a53.output.txt",
+      "sha256": "20bec074ce95e3e92118fb2184e5b5fa1f7b8571c96bcf20a6fbf31d9f89e398",
+      "events": 4144,
+      "selected_undefined": 62,
+      "key": "el0-fpen3",
+      "model": "cortex-a53"
+    },
+    {
+      "path": "docs/development/a64-undefined-retirement/oracle/el0-fpen3-cortex-a76.output.txt",
+      "sha256": "7fed883a37b683a68955ede609bb98a0a4fcd9f8540f0c5a908df08c4dbfab69",
+      "events": 4144,
+      "selected_undefined": 62,
+      "key": "el0-fpen3",
+      "model": "cortex-a76"
+    },
+    {
+      "path": "docs/development/a64-undefined-retirement/oracle/el0-fpen3-cortex-a710.output.txt",
+      "sha256": "9af42933c918fb687ce1862ebe6013d5e725024f3d28d184c708caa9428bfda7",
+      "events": 4144,
+      "selected_undefined": 62,
+      "key": "el0-fpen3",
+      "model": "cortex-a710"
+    },
+    {
+      "path": "docs/development/a64-undefined-retirement/oracle/el1-fpen3-cortex-a53.output.txt",
+      "sha256": "20bec074ce95e3e92118fb2184e5b5fa1f7b8571c96bcf20a6fbf31d9f89e398",
+      "events": 4144,
+      "selected_undefined": 62,
+      "key": "el1-fpen3",
+      "model": "cortex-a53"
+    },
+    {
+      "path": "docs/development/a64-undefined-retirement/oracle/el1-fpen3-cortex-a76.output.txt",
+      "sha256": "7fed883a37b683a68955ede609bb98a0a4fcd9f8540f0c5a908df08c4dbfab69",
+      "events": 4144,
+      "selected_undefined": 62,
+      "key": "el1-fpen3",
+      "model": "cortex-a76"
+    },
+    {
+      "path": "docs/development/a64-undefined-retirement/oracle/el1-fpen3-cortex-a710.output.txt",
+      "sha256": "9af42933c918fb687ce1862ebe6013d5e725024f3d28d184c708caa9428bfda7",
+      "events": 4144,
+      "selected_undefined": 62,
+      "key": "el1-fpen3",
+      "model": "cortex-a710"
+    }
+  ]
+}

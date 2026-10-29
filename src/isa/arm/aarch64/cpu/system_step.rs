@@ -108,6 +108,14 @@ impl AArch64Cpu {
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
         let pc_before = self.pc;
         match self.execute_instruction() {
+            Ok(CpuExit::Undefined(instruction)) => {
+                let error = ArmError::UndefinedInstruction(instruction);
+                if fault_exit {
+                    Err(error)
+                } else {
+                    self.deliver_fault(error)
+                }
+            }
             Ok(CpuExit::Svc(imm)) => {
                 // PC already points past the SVC: that is the preferred
                 // return address.

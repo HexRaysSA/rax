@@ -1,0 +1,2 @@
+# Preserve original producer context inputs.
+!*.bin

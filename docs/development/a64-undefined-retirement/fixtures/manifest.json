@@ -1,0 +1,115 @@
+{
+  "producer_commit": "1f1d33e4c628ed9fa0662d5b0cf4632aea2a99de",
+  "engine_sha256": "f0027254c8e722930d152768df69722142a9472d071332e9b79f25aff8491b13",
+  "harness_sha256": "ce8ac168a9fa6bcc0e681a968d79dd017343e35d79e505f598acb1e725b1dc84",
+  "time": "2026-10-29T02:01:03.128356+00:00",
+  "actual_parent_exports": true,
+  "compiled_tracked_root_sources_equal_head": true,
+  "source_sha256": {
+    "src/backend/emulator/aarch64_step.rs": "868176f9c294a7ae45bf74c54a9abd3138559ae2eff63726a4d07b6393a639de",
+    "src/backend/emulator/aarch64_user_tests.rs": "baf2bbfee531f4f5c7acf1dcf73e43d5ba591176941a0fb63af1b201965998f9",
+    "src/isa/arm/aarch64/cpu/exec.rs": "6b993c824fa46048b573551355196b8a43717b5cb9c6672e4df71b40a00ea848",
+    "src/isa/arm/aarch64/cpu/mod.rs": "73950b784e4f669ace307e351c797b5c989a4e0e1e2517fb03d97440b9c0b447",
+    "src/isa/arm/aarch64/cpu/system_step.rs": "966b21b6485f1cee9cebcf94c26db350873827f138b9f17d8db360611407a85a",
+    "src/isa/arm/aarch64/cpu/tests/mod.rs": "29393c0b93c84181236cdff1d28e7aa68d5e5acdf28b3af3b0c7e09c1d688b39",
+    "src/vm/runtime/aarch64_cluster_tests.rs": "79446c32ba7dfa0c068f471918a6e2e9ebb739482ff3a445779131faf6f16344"
+  },
+  "fixtures": [
+    {
+      "name": "prefix0-faults1",
+      "prefix": 0,
+      "failed_attempts": 1,
+      "pc": 256,
+      "public_retired": 0,
+      "pending_user_event": {
+        "ec": 0,
+        "iss": 0,
+        "pc": 256
+      },
+      "images": {
+        "state": {
+          "path": "prefix0-faults1.state.bin",
+          "bytes": 3624,
+          "sha256": "ad10fdbaccc219e793c44b5be5153753c4e91069edc694d9856ba9ff7bc8c4ed"
+        },
+        "backend": {
+          "path": "prefix0-faults1.backend.bin",
+          "bytes": 4272,
+          "sha256": "7c6746801f597897234945925e0475409136e6789acae9b963a69a6f977456d9"
+        }
+      }
+    },
+    {
+      "name": "prefix0-faults3",
+      "prefix": 0,
+      "failed_attempts": 3,
+      "pc": 256,
+      "public_retired": 0,
+      "pending_user_event": {
+        "ec": 0,
+        "iss": 0,
+        "pc": 256
+      },
+      "images": {
+        "state": {
+          "path": "prefix0-faults3.state.bin",
+          "bytes": 3624,
+          "sha256": "ad10fdbaccc219e793c44b5be5153753c4e91069edc694d9856ba9ff7bc8c4ed"
+        },
+        "backend": {
+          "path": "prefix0-faults3.backend.bin",
+          "bytes": 4272,
+          "sha256": "7bc3d0b31f5b8b2564b99e26c1287bb29e2f790a6bed6147282869d5d2d0fd14"
+        }
+      }
+    },
+    {
+      "name": "prefix1-faults1",
+      "prefix": 1,
+      "failed_attempts": 1,
+      "pc": 260,
+      "public_retired": 1,
+      "pending_user_event": {
+        "ec": 0,
+        "iss": 0,
+        "pc": 260
+      },
+      "images": {
+        "state": {
+          "path": "prefix1-faults1.state.bin",
+          "bytes": 3624,
+          "sha256": "ca489ac150fda91498aa1204f487ce5e3817befe88e450c22650c66a49c34e1c"
+        },
+        "backend": {
+          "path": "prefix1-faults1.backend.bin",
+          "bytes": 4272,
+          "sha256": "ccf705de5283bb29dcbb3b9cabe8a832b9affe4e72d653a281b32519167f3c54"
+        }
+      }
+    },
+    {
+      "name": "prefix1-faults3",
+      "prefix": 1,
+      "failed_attempts": 3,
+      "pc": 260,
+      "public_retired": 1,
+      "pending_user_event": {
+        "ec": 0,
+        "iss": 0,
+        "pc": 260
+      },
+      "images": {
+        "state": {
+          "path": "prefix1-faults3.state.bin",
+          "bytes": 3624,
+          "sha256": "ca489ac150fda91498aa1204f487ce5e3817befe88e450c22650c66a49c34e1c"
+        },
+        "backend": {
+          "path": "prefix1-faults3.backend.bin",
+          "bytes": 4272,
+          "sha256": "5bbd3030bb6b89b5cf290a459d6f5c5ff2ee2e4e9771c57b8f80ac855ca121fe"
+        }
+      }
+    }
+  ]
+}

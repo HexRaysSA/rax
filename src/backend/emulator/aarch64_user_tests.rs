@@ -2,6 +2,8 @@
 
 #[path = "aarch64_user_tests/fp_access.rs"]
 mod fp_access;
+#[path = "aarch64_user_tests/undefined.rs"]
+mod undefined;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};

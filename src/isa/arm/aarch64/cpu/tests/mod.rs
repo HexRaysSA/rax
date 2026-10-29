@@ -39,6 +39,7 @@ mod simd;
 mod sve;
 #[cfg(test)]
 mod system;
+mod undefined;
 use crate::isa::arm::common::memory::{ArmMemory, FlatMemory, MemResult, MmioHandler};
 
 #[derive(Debug)]

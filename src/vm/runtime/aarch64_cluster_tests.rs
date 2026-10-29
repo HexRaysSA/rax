@@ -9,6 +9,9 @@ use vm_memory::GuestAddress;
 static NEXT: AtomicU64 = AtomicU64::new(0);
 const CODE: u64 = 0x4008_0000;
 
+#[path = "aarch64_undefined_tests.rs"]
+mod undefined;
+
 struct Fixture {
     kernel: std::path::PathBuf,
     vm: Vmm,

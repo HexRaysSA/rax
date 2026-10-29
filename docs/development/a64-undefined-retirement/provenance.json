@@ -1,0 +1,76 @@
+{
+  "retrieved": "2026-10-29T01:40:48.396997+00:00",
+  "primary": {
+    "path": "docs/architecture/arm/asl/arm_defs.asl",
+    "sha256": "1ade68e5dacfff1b63a42ad3ee1c426aae5d36ed5dfcbf39de4baab478a190f8",
+    "sections": [
+      "UnallocatedEncoding()",
+      "AArch64.UndefinedFault()",
+      "AArch64.TakeException()"
+    ],
+    "upstream_revision": "unknown"
+  },
+  "oracle": {
+    "version": "QEMU 11.1.2",
+    "original_result": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/oracle-v2/result.json",
+    "original_result_sha256": "9c62009575df954d43f9d2484403f7835a8940fff60bc65735ce6e13b07efe48",
+    "binary_sha256": "7299ef807db462f913be5d1b89a71ea12590416175be0be5e87c2349594c6542",
+    "captures": [
+      {
+        "path": "docs/development/a64-undefined-retirement/oracle/el0-fpen3-cortex-a53.output.txt",
+        "sha256": "20bec074ce95e3e92118fb2184e5b5fa1f7b8571c96bcf20a6fbf31d9f89e398",
+        "events": 4144,
+        "selected_undefined": 62,
+        "key": "el0-fpen3",
+        "model": "cortex-a53"
+      },
+      {
+        "path": "docs/development/a64-undefined-retirement/oracle/el0-fpen3-cortex-a76.output.txt",
+        "sha256": "7fed883a37b683a68955ede609bb98a0a4fcd9f8540f0c5a908df08c4dbfab69",
+        "events": 4144,
+        "selected_undefined": 62,
+        "key": "el0-fpen3",
+        "model": "cortex-a76"
+      },
+      {
+        "path": "docs/development/a64-undefined-retirement/oracle/el0-fpen3-cortex-a710.output.txt",
+        "sha256": "9af42933c918fb687ce1862ebe6013d5e725024f3d28d184c708caa9428bfda7",
+        "events": 4144,
+        "selected_undefined": 62,
+        "key": "el0-fpen3",
+        "model": "cortex-a710"
+      },
+      {
+        "path": "docs/development/a64-undefined-retirement/oracle/el1-fpen3-cortex-a53.output.txt",
+        "sha256": "20bec074ce95e3e92118fb2184e5b5fa1f7b8571c96bcf20a6fbf31d9f89e398",
+        "events": 4144,
+        "selected_undefined": 62,
+        "key": "el1-fpen3",
+        "model": "cortex-a53"
+      },
+      {
+        "path": "docs/development/a64-undefined-retirement/oracle/el1-fpen3-cortex-a76.output.txt",
+        "sha256": "7fed883a37b683a68955ede609bb98a0a4fcd9f8540f0c5a908df08c4dbfab69",
+        "events": 4144,
+        "selected_undefined": 62,
+        "key": "el1-fpen3",
+        "model": "cortex-a76"
+      },
+      {
+        "path": "docs/development/a64-undefined-retirement/oracle/el1-fpen3-cortex-a710.output.txt",
+        "sha256": "9af42933c918fb687ce1862ebe6013d5e725024f3d28d184c708caa9428bfda7",
+        "events": 4144,
+        "selected_undefined": 62,
+        "key": "el1-fpen3",
+        "model": "cortex-a710"
+      }
+    ]
+  },
+  "parent": {
+    "commit": "1f1d33e4c628ed9fa0662d5b0cf4632aea2a99de",
+    "actual_result": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/direct-current-v4/result.json",
+    "engine_sha256": "f0027254c8e722930d152768df69722142a9472d071332e9b79f25aff8491b13",
+    "proof_source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/source-freeze-final-v1.json"
+  },
+  "scope": "62 observed Undefined exits, FPEN=3, EL0/EL1 and three actual QEMU profiles. Wider FP-access priority and unimplemented frontiers are retained outside this component."
+}

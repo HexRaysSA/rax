@@ -970,12 +970,34 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/portability-final-v2.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/consumers-v2.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-final-v1.json",
-        "docs/development/a64-optional-fp-profile/README.md"
+        "docs/development/a64-optional-fp-profile/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/portable-backend-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/portable-backend-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/self-review-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-production-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/core-targeted-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/all-undefined-targeted-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/capi-targeted-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-reversal-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-source-restoration-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-producer.stdout",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-engine-preserved-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/targeted-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-compatibility-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/capi-targeted-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/current-engine-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/kernel-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-broad-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-final-v1.json",
+        "docs/development/a64-undefined-retirement/README.md"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions and generic unallocated-neighbor admission remain open.",
         "Physical A32 hardware and optional trapped profiles remain unverified.",
-        "The represented A64 six-capability flags/IDs/admission and supported legacy migration are corrected. Full cross-state feature consistency and generic Undefined-exit retirement/system delivery remain open. No new native optional-instruction execution support."
+        "The represented A64 six-capability flags/IDs/admission and supported legacy migration are corrected. Full cross-state feature consistency and wider generic unallocated-neighbor FP-access priority remain open. No new native optional-instruction execution support."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -983,7 +1005,8 @@
         "aarch64-fp-access-nonretirement-2026-10-28",
         "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
         "aarch64-fp16-reserved-admission-2026-10-28",
-        "aarch64-optional-fp-profile-2026-10-29"
+        "aarch64-optional-fp-profile-2026-10-29",
+        "aarch64-undefined-retirement-2026-10-29"
       ]
     },
     {
@@ -2539,7 +2562,29 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/portability-final-v2.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/consumers-v2.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-final-v1.json",
-        "docs/development/a64-optional-fp-profile/README.md"
+        "docs/development/a64-optional-fp-profile/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/portable-backend-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/portable-backend-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/self-review-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-production-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/core-targeted-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/all-undefined-targeted-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/capi-targeted-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-reversal-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-source-restoration-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-producer.stdout",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-engine-preserved-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/targeted-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-compatibility-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/capi-targeted-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/current-engine-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/kernel-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-broad-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-final-v1.json",
+        "docs/development/a64-undefined-retirement/README.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2551,7 +2596,7 @@
         "Complete per-vCPU/private/inflight/device/topology checkpoint state, including coherent LAPIC ownership",
         "Native Intel HVF state effects are unverified",
         "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open.",
-        "Generic A64 CpuExit::Undefined can advance PC and retire once; context/coordinator delivery and zero-retirement conservation for this representation remain required. Selected optional-class/context fixes do not close full backend/in-flight/platform state or bounded SMP native execution."
+        "The shared A64 Undefined-result retirement/delivery and tested user/backend/file/coordinator continuations are corrected. Complete backend/in-flight/platform state and bounded SMP native execution remain required."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2567,7 +2612,8 @@
         "aarch64-fp-access-nonretirement-2026-10-28",
         "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
         "aarch64-fp16-reserved-admission-2026-10-28",
-        "aarch64-optional-fp-profile-2026-10-29"
+        "aarch64-optional-fp-profile-2026-10-29",
+        "aarch64-undefined-retirement-2026-10-29"
       ]
     },
     {
@@ -3120,7 +3166,29 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/portability-final-v2.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/consumers-v2.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-optional-fp-profile/qualification-final-v1.json",
-        "docs/development/a64-optional-fp-profile/README.md"
+        "docs/development/a64-optional-fp-profile/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/portable-backend-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/portable-backend-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/self-review-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-production-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/core-targeted-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/all-undefined-targeted-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/capi-targeted-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-reversal-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-source-restoration-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-producer.stdout",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-engine-preserved-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/targeted-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-compatibility-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/capi-targeted-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/current-engine-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/kernel-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-broad-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-final-v1.json",
+        "docs/development/a64-undefined-retirement/README.md"
       ],
       "remaining_validation": [
         "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
@@ -3128,7 +3196,7 @@
         "Additional ARM startup/control profiles and RISC-V SBI startup/controller topology remain required; software AArch64 PSCI/shared-platform execution is locally validated.",
         "Complete backend/private/in-flight/platform state,writer quiescence and transactional late-failure restoration remain required.",
         "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required.",
-        "Generic A64 CpuExit::Undefined can advance PC and retire once; context/coordinator delivery and zero-retirement conservation for this representation remain required. Selected optional-class/context fixes do not close full backend/in-flight/platform state or bounded SMP native execution."
+        "The shared A64 Undefined-result retirement/delivery and tested user/backend/file/coordinator continuations are corrected. Complete backend/in-flight/platform state and bounded SMP native execution remain required."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3140,7 +3208,8 @@
         "aarch64-fp-access-nonretirement-2026-10-28",
         "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
         "aarch64-fp16-reserved-admission-2026-10-28",
-        "aarch64-optional-fp-profile-2026-10-29"
+        "aarch64-optional-fp-profile-2026-10-29",
+        "aarch64-undefined-retirement-2026-10-29"
       ]
     },
     {
@@ -193618,6 +193687,169 @@
         }
       ],
       "native_frontier": "All 34 sampled optional shapes remain unsupported; real integer code with synthetic capability metadata verifies each entry/cache guard. No new optional native execution claim.",
+      "published": false
+    },
+    {
+      "id": "aarch64-undefined-retirement-2026-10-29",
+      "status": "locally_validated",
+      "parent": "1f1d33e4c628ed9fa0662d5b0cf4632aea2a99de",
+      "scope": "Preserve direct Undefined result shape with zero retirement and precise PC/BTYPE; architectural and diagnostic delivery, actual pre-fix user compensation records, pending-event continuation, public API and actual two/four-CPU VMM file scheduling. Wider allocation/profile/platform/native requirements remain open.",
+      "owned_paths": [
+        "capi/src/tests.rs",
+        "capi/src/tests/aarch64_undefined.rs",
+        "docs/development/a64-optional-fp-profile/README.md",
+        "docs/development/a64-undefined-retirement/README.md",
+        "docs/development/a64-undefined-retirement/corpus.json",
+        "docs/development/a64-undefined-retirement/fixtures/.gitignore",
+        "docs/development/a64-undefined-retirement/fixtures/manifest.json",
+        "docs/development/a64-undefined-retirement/fixtures/prefix0-faults1.backend.bin",
+        "docs/development/a64-undefined-retirement/fixtures/prefix0-faults1.state.bin",
+        "docs/development/a64-undefined-retirement/fixtures/prefix0-faults3.backend.bin",
+        "docs/development/a64-undefined-retirement/fixtures/prefix0-faults3.state.bin",
+        "docs/development/a64-undefined-retirement/fixtures/prefix1-faults1.backend.bin",
+        "docs/development/a64-undefined-retirement/fixtures/prefix1-faults1.state.bin",
+        "docs/development/a64-undefined-retirement/fixtures/prefix1-faults3.backend.bin",
+        "docs/development/a64-undefined-retirement/fixtures/prefix1-faults3.state.bin",
+        "docs/development/a64-undefined-retirement/oracle/el0-fpen3-cortex-a53.output.txt",
+        "docs/development/a64-undefined-retirement/oracle/el0-fpen3-cortex-a710.output.txt",
+        "docs/development/a64-undefined-retirement/oracle/el0-fpen3-cortex-a76.output.txt",
+        "docs/development/a64-undefined-retirement/oracle/el1-fpen3-cortex-a53.output.txt",
+        "docs/development/a64-undefined-retirement/oracle/el1-fpen3-cortex-a710.output.txt",
+        "docs/development/a64-undefined-retirement/oracle/el1-fpen3-cortex-a76.output.txt",
+        "docs/development/a64-undefined-retirement/provenance.json",
+        "docs/development/audit-remediation-2026-10.json",
+        "src/backend/emulator/aarch64_step.rs",
+        "src/backend/emulator/aarch64_step/undefined_tests.rs",
+        "src/backend/emulator/aarch64_user_tests.rs",
+        "src/backend/emulator/aarch64_user_tests/undefined.rs",
+        "src/isa/arm/aarch64/cpu/exec.rs",
+        "src/isa/arm/aarch64/cpu/instruction.rs",
+        "src/isa/arm/aarch64/cpu/mod.rs",
+        "src/isa/arm/aarch64/cpu/system_step.rs",
+        "src/isa/arm/aarch64/cpu/tests/mod.rs",
+        "src/isa/arm/aarch64/cpu/tests/undefined.rs",
+        "src/vm/runtime/aarch64_cluster_tests.rs",
+        "src/vm/runtime/aarch64_undefined_tests.rs"
+      ],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/portable-backend-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/portable-backend-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/self-review-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/plan-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-production-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-proof-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/core-targeted-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/all-undefined-targeted-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/capi-targeted-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-reversal-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-source-restoration-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-context-producer.stdout",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-engine-preserved-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/targeted-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/parent-compatibility-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/capi-targeted-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/current-engine-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/kernel-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-broad-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-final-v1.json"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/source-freeze-final-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/commit-receipt.json",
+      "validation_summary": {
+        "library": {
+          "passed": 11235,
+          "failed": 0,
+          "ignored": 2,
+          "binaries": 1
+        },
+        "owning": {
+          "passed": 47694,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 22
+        },
+        "capi": {
+          "passed": 223,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "doc": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "binaries": 1
+        },
+        "portable-core": {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "portable-backend": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "portable-user": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "portable-parent": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "portable-capi": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "parent_negative_cases": 496,
+        "independent_kernel_events": 372,
+        "actual_parent_context_pairs": 4,
+        "capi_mode_encoding_cases": 124,
+        "actual_vmm_file_frontiers": 6,
+        "full_neighborhood_passed": false,
+        "new_native_instruction_support": false
+      },
+      "assumption_register": [
+        {
+          "id": "UR1",
+          "assumption": "The direct-step Undefined result variant is an existing observable contract.",
+          "basis": "Existing public ArmCpu callers and tests explicitly match CpuExit::Undefined.",
+          "dependent_result": "Preserve its return shape, correct nonretirement and translate only at the system boundary.",
+          "stress_test": "Both Undefined representations; EL0/EL1; nonzero BTYPE; repeated retry and following valid instruction.",
+          "falsification_probe": "Existing callers change variant or invalid instruction advances any private architectural state.",
+          "status": "confirmed within the tested direct/system/backend/context/coordinator scope"
+        },
+        {
+          "id": "UR2",
+          "assumption": "A system instruction attempt may advance timers without retiring an instruction.",
+          "basis": "Existing full-system attempt timer versus retired TimingContext clock policy.",
+          "dependent_result": "Zero retirement and exact event continuation without removing the existing attempt clock.",
+          "stress_test": "Immediate and saved pending-native event, diagnostic and architectural delivery, then one handler instruction.",
+          "falsification_probe": "Retired virtual time advances on fault, or pending completion ticks twice.",
+          "status": "confirmed within the tested direct/system/backend/context/coordinator scope"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Wider generic unallocated-neighbor FP-access priority, remaining profile controls, complete private/platform state, bounded native SMP and physical Intel HVF remain open."
+        },
+        {
+          "impact": "medium",
+          "finding": "SVE helpers also emit the shared Undefined variant; shared retirement semantics apply, but full SVE architectural admission remains separate."
+        }
+      ],
       "published": false
     }
   ],

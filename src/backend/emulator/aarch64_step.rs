@@ -4,6 +4,9 @@ use super::*;
 #[cfg(test)]
 #[path = "aarch64_step/fp_access_tests.rs"]
 mod fp_access_tests;
+#[cfg(test)]
+#[path = "aarch64_step/undefined_tests.rs"]
+mod undefined_tests;
 
 impl Aarch64Vcpu {
     pub(super) fn step_micro(&mut self, allow_jit: bool) -> Result<Option<VcpuExit>> {
