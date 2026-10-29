@@ -343,7 +343,11 @@ impl AArch64Cpu {
             | (u64::from(
                 fp.fault(crate::isa::arm::common::fp_access::FpAccessClass::System)
                     .is_some(),
-            ) << 7);
+            ) << 7)
+            | (u64::from(
+                fp.fault(crate::isa::arm::common::fp_access::FpAccessClass::Sve)
+                    .is_some(),
+            ) << 8);
         JitModeTag {
             translation_and_controls,
             features: self.fp_profile_key(),

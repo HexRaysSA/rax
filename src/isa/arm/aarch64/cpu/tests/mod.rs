@@ -116,6 +116,12 @@ fn create_wrapping_memory_cpu() -> AArch64Cpu {
 /// Helper to create a CPU and write an instruction at PC
 fn create_cpu_with_insn(insn: u32) -> AArch64Cpu {
     let mut cpu = create_test_cpu();
+    if (insn >> 25) & 15 == 2 {
+        cpu.config.features.insert(ArmFeatures::SVE);
+        cpu.sysregs
+            .impl_defined
+            .insert(Aarch64SysRegEncoding::new(3, 6, 1, 1, 2).encode(), 1 << 8);
+    }
     cpu.write_memory(0, &insn.to_le_bytes()).unwrap();
     cpu
 }

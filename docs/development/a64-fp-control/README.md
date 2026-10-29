@@ -28,8 +28,9 @@ memo under the enabled key.
 
 Collecting requirements takes O(N) time over original IR operations and O(1) additional space.
 These permission requirements are derived native caches. No public API, ABI,
-or checkpoint wire layout changes. The software A64 private tag remains
-`RAXA6402`; restored architectural controls determine access after restore.
+or checkpoint wire layout changes. This original group's software A64 private
+tag was `RAXA6402`; later private-state work uses `RAXA6403`. Restored
+architectural controls determine access after restore.
 
 ## Primary provenance and source discrepancy
 
@@ -117,6 +118,13 @@ capability/profile coherence, full SVE/SME access behavior, unrepresented haltin
 checkpoint/in-flight, multi-vCPU/native/debug/clock/replay requirements. These
 remain open full findings. QEMU is a software oracle; Apple Silicon native
 execution and Rosetta do not establish physical Intel Mac HVF behavior.
+
+The subsequent [normal-execution SVE access group](../a64-sve-access/README.md)
+adds represented scalable and FP control ordering, selected base capability,
+SME-only non-streaming exceptions, native admission dependencies, and
+multi-CPU file-restoration checks. It also fixes CPU0 coherence when independently
+decoded system-register maps serialize in different orders. Its scope and
+remaining SVE/SME requirements are recorded separately.
 
 ## Qualified implementation evidence
 

@@ -36,6 +36,7 @@ fn allocation_oracle_cpu() -> rax::isa::arm::AArch64Cpu {
             config.features |= rax::isa::arm::ArmFeatures::BF16;
             config.features |= rax::isa::arm::ArmFeatures::I8MM;
             config.features |= rax::isa::arm::ArmFeatures::DOTPROD;
+            config.features |= rax::isa::arm::ArmFeatures::SVE;
             config
         },
         Box::new(rax::isa::arm::FlatMemory::new(0, 0x1000_0000)),
@@ -44,6 +45,16 @@ fn allocation_oracle_cpu() -> rax::isa::arm::AArch64Cpu {
     controls.hcr_el2 |= (1 << 40) | (1 << 41);
     controls.scr_el3 |= (1 << 16) | (1 << 17);
     cpu.set_pauth_controls(controls).unwrap();
+    let mut system = cpu.export_sregs();
+    let encoding = rax::isa::arm::common::sysreg::Aarch64SysRegEncoding::new(3, 6, 1, 1, 2);
+    system
+        .execution
+        .as_mut()
+        .unwrap()
+        .sysregs
+        .impl_defined
+        .insert(encoding.encode(), 1 << 8);
+    cpu.import_sregs(&system).unwrap();
     cpu
 }
 
@@ -61,6 +72,17 @@ fn emulator_expected_a64(encoding: u32) -> ExpectedResult {
         controls.hcr_el2 |= (1 << 40) | (1 << 41);
         controls.scr_el3 |= (1 << 16) | (1 << 17);
         cpu.set_pauth_controls(controls).unwrap();
+        let mut system = cpu.export_sregs();
+        let cptr_encoding =
+            rax::isa::arm::common::sysreg::Aarch64SysRegEncoding::new(3, 6, 1, 1, 2);
+        system
+            .execution
+            .as_mut()
+            .unwrap()
+            .sysregs
+            .impl_defined
+            .insert(cptr_encoding.encode(), 1 << 8);
+        cpu.import_sregs(&system).unwrap();
         if cpu.write_memory(0, &encoding.to_le_bytes()).is_err() {
             return ExpectedResult::Pass;
         }
@@ -102,6 +124,16 @@ fn characterize_a64_execution(test: &ExecutionTest) -> A64ExecOutcome {
         controls.hcr_el2 |= (1 << 40) | (1 << 41);
         controls.scr_el3 |= (1 << 16) | (1 << 17);
         cpu.set_pauth_controls(controls).unwrap();
+        let mut system = cpu.export_sregs();
+        let encoding = rax::isa::arm::common::sysreg::Aarch64SysRegEncoding::new(3, 6, 1, 1, 2);
+        system
+            .execution
+            .as_mut()
+            .unwrap()
+            .sysregs
+            .impl_defined
+            .insert(encoding.encode(), 1 << 8);
+        cpu.import_sregs(&system).unwrap();
         for (&reg, &val) in &test.initial_state.gp_regs {
             cpu.set_gpr(reg, val);
         }
@@ -228,11 +260,22 @@ fn create_test_cpu() -> AArch64Cpu {
     config.features |= rax::isa::arm::ArmFeatures::BF16;
     config.features |= rax::isa::arm::ArmFeatures::I8MM;
     config.features |= rax::isa::arm::ArmFeatures::DOTPROD;
+    config.features |= rax::isa::arm::ArmFeatures::SVE;
     let mut cpu = AArch64Cpu::new(config, Box::new(memory));
     let mut controls = cpu.pauth_controls();
     controls.hcr_el2 |= (1 << 40) | (1 << 41);
     controls.scr_el3 |= (1 << 16) | (1 << 17);
     cpu.set_pauth_controls(controls).unwrap();
+    let mut system = cpu.export_sregs();
+    let encoding = rax::isa::arm::common::sysreg::Aarch64SysRegEncoding::new(3, 6, 1, 1, 2);
+    system
+        .execution
+        .as_mut()
+        .unwrap()
+        .sysregs
+        .impl_defined
+        .insert(encoding.encode(), 1 << 8);
+    cpu.import_sregs(&system).unwrap();
     cpu
 }
 

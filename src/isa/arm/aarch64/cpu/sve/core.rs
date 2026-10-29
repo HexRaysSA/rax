@@ -24,63 +24,13 @@ use crate::vm::vcpu::Aarch64SystemRegisters;
 
 impl AArch64Cpu {
     pub(crate) fn exec_sve(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
-        // Check if SVE is enabled (CPACR_EL1.ZEN)
-        let cpacr = self.sysregs.el1.cpacr;
-        let zen = (cpacr >> 16) & 0x3;
-
-        if self.current_el == 0 && zen != 0x3 {
+        self.check_fp_instruction(insn)?;
+        if super::admission::reserved(insn) {
             return Ok(CpuExit::Undefined(insn));
         }
-        if self.current_el == 1 && zen == 0x0 {
-            return Ok(CpuExit::Undefined(insn));
-        }
-
-        // Early rejects for reserved field combinations that broader dispatch
-        // arms below would otherwise accept.
-        let top = (insn >> 24) & 0xFF;
+        self.check_sve_access(insn)?;
+        let top = (insn >> 24) & 0xff;
         let has_sve2p1 = self.config.features.contains(ArmFeatures::SVE2P1);
-        // SVE2 PMUL is byte-only. For word/doubleword encodings the size bits
-        // alter op1 enough that the broad arithmetic fallback below can catch
-        // them unless they are rejected here.
-        if top == 0b0000_0100
-            && (insn >> 21) & 1 == 1
-            && (insn >> 12) & 0xF == 0b0110
-            && (insn >> 10) & 0x3 == 0b01
-            && (insn >> 22) & 0x3 != 0
-        {
-            return Ok(CpuExit::Undefined(insn));
-        }
-        // 0x04, bit21==1, bits[15:13]==100, bit12==0: unpredicated shift by
-        // wide elements (ASR/LSR/LSL Zd, Zn, Zm.D). The wide operand is .D, so
-        // doubleword element size is unallocated.
-        if top == 0b0000_0100
-            && (insn >> 21) & 1 == 1
-            && (insn >> 13) & 0x7 == 0b100
-            && (insn >> 12) & 1 == 0
-            && (insn >> 22) & 0x3 == 0b11
-        {
-            return Ok(CpuExit::Undefined(insn));
-        }
-        // 0x25 integer arith with shifted immediate (bits[21:19]==100,
-        // bits[15:14]==11): sh=1 with byte elements is unallocated.
-        if top == 0b0010_0101
-            && (insn >> 19) & 0x7 == 0b100
-            && (insn >> 14) & 0x3 == 0b11
-            && (insn >> 13) & 1 == 1
-            && (insn >> 22) & 0x3 == 0
-        {
-            return Ok(CpuExit::Undefined(insn));
-        }
-        // 0x05 bitwise logical with immediate (AND/EOR/ORR/DUPM space,
-        // bits[21:18]==x00000 family): a reserved imm13 pattern is unallocated.
-        if top == 0b0000_0101 && (insn >> 18) & 0xF == 0b0000 {
-            let n = (insn >> 17) & 1 == 1;
-            let immr = (insn >> 11) & 0x3F;
-            let imms = (insn >> 5) & 0x3F;
-            if decode_bitmask(n, imms, immr, true).is_err() {
-                return Ok(CpuExit::Undefined(insn));
-            }
-        }
 
         // Extract primary classification bits
         let op0 = (insn >> 29) & 0x7;

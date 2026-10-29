@@ -8,6 +8,10 @@ const TAG: &[u8; 8] = b"RAXCPU01";
 const MAX_CPUS: usize = u8::MAX as usize;
 const MAX_RECORD: u64 = 16 * 1024 * 1024;
 const MAX_SECTION: u64 = 1024 * 1024 * 1024;
+
+#[cfg(test)]
+#[path = "cpu_coherence_tests.rs"]
+mod tests;
 fn invalid(message: impl std::fmt::Display) -> Error {
     Error::Emulator(format!("CPU checkpoint set: {message}"))
 }
@@ -61,7 +65,16 @@ impl CpuSnapshots {
             Snapshot::validate_cpu_payload(&entry.state)?;
         }
         let first = entries.first().ok_or_else(|| invalid("empty CPU set"))?;
-        if encode(&first.state)? != encode(cpu)? || encode(&first.emulator)? != encode(emulator)? {
+        // Retain both bounded encodes for admission, but compare AArch64's
+        // typed state: independently decoded implementation-defined register
+        // maps can serialize in different orders while holding equal entries.
+        let first_state = encode(&first.state)?;
+        let base_state = encode(cpu)?;
+        let same_state = match (&first.state, cpu) {
+            (CpuState::Aarch64(first), CpuState::Aarch64(base)) => first == base,
+            _ => first_state == base_state,
+        };
+        if !same_state || encode(&first.emulator)? != encode(emulator)? {
             return Err(invalid("CPU0 disagrees with base checkpoint"));
         }
         Ok(())

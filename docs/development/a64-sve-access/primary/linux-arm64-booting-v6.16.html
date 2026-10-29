@@ -1,0 +1,801 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Booting AArch64 Linux &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="ARM64 CPU Feature Registers" href="cpu-feature-registers.html" />
+    <link rel="prev" title="Asymmetric 32-bit SoCs" href="asymmetric-32bit.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.16.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../process/development-process.html">Development process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/submitting-patches.html">Submitting patches</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../maintainer/index.html">Maintainer handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../core-api/index.html">Core API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../driver-api/index.html">Driver APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Subsystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../process/license-rules.html">Licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../doc-guide/index.html">Writing documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dev-tools/index.html">Development tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dev-tools/testing-overview.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../kernel-hacking/index.html">Hacking guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../trace/index.html">Tracing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../fault-injection/index.html">Fault injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../livepatch/index.html">Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../admin-guide/index.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../kbuild/index.html">Build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tools/index.html">Userspace tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../userspace-api/index.html">Userspace API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../firmware-guide/index.html">Firmware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../devicetree/index.html">Firmware and Devicetree</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">CPU architectures</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../arc/index.html">ARC architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arm/index.html">ARM Architecture</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">ARM64 Architecture</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="acpi_object_usage.html">ACPI Tables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="amu.html">Activity Monitors Unit (AMU) extension in AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="arm-acpi.html">ACPI on Arm systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="arm-cca.html">Arm Confidential Compute Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="asymmetric-32bit.html">Asymmetric 32-bit SoCs</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Booting AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cpu-feature-registers.html">ARM64 CPU Feature Registers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cpu-hotplug.html">CPU Hotplug and ACPI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="elf_hwcaps.html">ARM64 ELF hwcaps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gcs.html">Guarded Control Stack support for AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugetlbpage.html">HugeTLBpage on ARM64</a></li>
+<li class="toctree-l3"><a class="reference internal" href="kdump.html">crashkernel memory reservation on arm64</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legacy_instructions.html">Legacy instructions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="memory.html">Memory Layout on AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="memory-tagging-extension.html">Memory Tagging Extension (MTE) in AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mops.html">Memory copy/set instructions (MOPS)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="perf.html">Perf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pointer-authentication.html">Pointer authentication in AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ptdump.html">Kernel page table dump</a></li>
+<li class="toctree-l3"><a class="reference internal" href="silicon-errata.html">Silicon Errata and Software Workarounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sme.html">Scalable Matrix Extension support for AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sve.html">Scalable Vector Extension support for AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tagged-address-abi.html">AArch64 TAGGED ADDRESS ABI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tagged-pointers.html">Tagged virtual addresses in AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="features.html">Feature status on arm64 architecture</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../loongarch/index.html">LoongArch Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../m68k/index.html">m68k Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mips/index.html">MIPS-specific Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../nios2/index.html">Nios II Specific Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../openrisc/index.html">OpenRISC Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../parisc/index.html">PA-RISC Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../powerpc/index.html">powerpc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../riscv/index.html">RISC-V architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../s390/index.html">s390 Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sh/index.html">SuperH Interfaces Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sparc/index.html">Sparc Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../x86/index.html">x86-specific Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../xtensa/index.html">Xtensa Architecture</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/arch/arm64/booting.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="booting-aarch64-linux">
+<h1>Booting AArch64 Linux<a class="headerlink" href="#booting-aarch64-linux" title="Permalink to this heading">¶</a></h1>
+<p>Author: Will Deacon &lt;<a class="reference external" href="mailto:will&#46;deacon&#37;&#52;&#48;arm&#46;com">will<span>&#46;</span>deacon<span>&#64;</span>arm<span>&#46;</span>com</a>&gt;</p>
+<p>Date  : 07 September 2012</p>
+<p>This document is based on the ARM booting document by Russell King and
+is relevant to all public releases of the AArch64 Linux kernel.</p>
+<p>The AArch64 exception model is made up of a number of exception levels
+(EL0 - EL3), with EL0, EL1 and EL2 having a secure and a non-secure
+counterpart.  EL2 is the hypervisor level, EL3 is the highest priority
+level and exists only in secure mode. Both are architecturally optional.</p>
+<p>For the purposes of this document, we will use the term <cite>boot loader</cite>
+simply to define all software that executes on the CPU(s) before control
+is passed to the Linux kernel.  This may include secure monitor and
+hypervisor code, or it may just be a handful of instructions for
+preparing a minimal boot environment.</p>
+<p>Essentially, the boot loader should provide (as a minimum) the
+following:</p>
+<ol class="arabic simple">
+<li><p>Setup and initialise the RAM</p></li>
+<li><p>Setup the device tree</p></li>
+<li><p>Decompress the kernel image</p></li>
+<li><p>Call the kernel image</p></li>
+</ol>
+<section id="setup-and-initialise-ram">
+<h2>1. Setup and initialise RAM<a class="headerlink" href="#setup-and-initialise-ram" title="Permalink to this heading">¶</a></h2>
+<p>Requirement: MANDATORY</p>
+<p>The boot loader is expected to find and initialise all RAM that the
+kernel will use for volatile data storage in the system.  It performs
+this in a machine dependent manner.  (It may use internal algorithms
+to automatically locate and size all RAM, or it may use knowledge of
+the RAM in the machine, or any other method the boot loader designer
+sees fit.)</p>
+<p>For Arm Confidential Compute Realms this includes ensuring that all
+protected RAM has a Realm IPA state (RIPAS) of “RAM”.</p>
+</section>
+<section id="setup-the-device-tree">
+<h2>2. Setup the device tree<a class="headerlink" href="#setup-the-device-tree" title="Permalink to this heading">¶</a></h2>
+<p>Requirement: MANDATORY</p>
+<p>The device tree blob (dtb) must be placed on an 8-byte boundary and must
+not exceed 2 megabytes in size. Since the dtb will be mapped cacheable
+using blocks of up to 2 megabytes in size, it must not be placed within
+any 2M region which must be mapped with any specific attributes.</p>
+<p>NOTE: versions prior to v4.2 also require that the DTB be placed within
+the 512 MB region starting at text_offset bytes below the kernel Image.</p>
+</section>
+<section id="decompress-the-kernel-image">
+<h2>3. Decompress the kernel image<a class="headerlink" href="#decompress-the-kernel-image" title="Permalink to this heading">¶</a></h2>
+<p>Requirement: OPTIONAL</p>
+<p>The AArch64 kernel does not currently provide a decompressor and
+therefore requires decompression (gzip etc.) to be performed by the boot
+loader if a compressed Image target (e.g. Image.gz) is used.  For
+bootloaders that do not implement this requirement, the uncompressed
+Image target is available instead.</p>
+</section>
+<section id="call-the-kernel-image">
+<h2>4. Call the kernel image<a class="headerlink" href="#call-the-kernel-image" title="Permalink to this heading">¶</a></h2>
+<p>Requirement: MANDATORY</p>
+<p>The decompressed kernel image contains a 64-byte header as follows:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>u32 code0;                    /* Executable code */
+u32 code1;                    /* Executable code */
+u64 text_offset;              /* Image load offset, little endian */
+u64 image_size;               /* Effective Image size, little endian */
+u64 flags;                    /* kernel flags, little endian */
+u64 res2      = 0;            /* reserved */
+u64 res3      = 0;            /* reserved */
+u64 res4      = 0;            /* reserved */
+u32 magic     = 0x644d5241;   /* Magic number, little endian, &quot;ARM\x64&quot; */
+u32 res5;                     /* reserved (used for PE COFF offset) */
+</pre></div>
+</div>
+<p>Header notes:</p>
+<ul>
+<li><p>As of v3.17, all fields are little endian unless stated otherwise.</p></li>
+<li><p>code0/code1 are responsible for branching to stext.</p></li>
+<li><p>when booting through EFI, code0/code1 are initially skipped.
+res5 is an offset to the PE header and the PE header has the EFI
+entry point (efi_stub_entry).  When the stub has done its work, it
+jumps to code0 to resume the normal boot process.</p></li>
+<li><p>Prior to v3.17, the endianness of text_offset was not specified.  In
+these cases image_size is zero and text_offset is 0x80000 in the
+endianness of the kernel.  Where image_size is non-zero image_size is
+little-endian and must be respected.  Where image_size is zero,
+text_offset can be assumed to be 0x80000.</p></li>
+<li><p>The flags field (introduced in v3.17) is a little-endian 64-bit field
+composed as follows:</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Bit 0</p></td>
+<td><p>Kernel endianness.  1 if BE, 0 if LE.</p></td>
+</tr>
+<tr class="row-even"><td><p>Bit 1-2</p></td>
+<td><p>Kernel Page size.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>0 - Unspecified.</p></li>
+<li><p>1 - 4K</p></li>
+<li><p>2 - 16K</p></li>
+<li><p>3 - 64K</p></li>
+</ul>
+</div></blockquote>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Bit 3</p></td>
+<td><p>Kernel physical placement</p>
+<blockquote>
+<div><dl class="simple">
+<dt>0</dt><dd><p>2MB aligned base should be as close as possible
+to the base of DRAM, since memory below it is not
+accessible via the linear mapping</p>
+</dd>
+<dt>1</dt><dd><p>2MB aligned base such that all image_size bytes
+counted from the start of the image are within
+the 48-bit addressable range of physical memory</p>
+</dd>
+</dl>
+</div></blockquote>
+</td>
+</tr>
+<tr class="row-even"><td><p>Bits 4-63</p></td>
+<td><p>Reserved.</p></td>
+</tr>
+</tbody>
+</table>
+</li>
+<li><p>When image_size is zero, a bootloader should attempt to keep as much
+memory as possible free for use by the kernel immediately after the
+end of the kernel image. The amount of space required will vary
+depending on selected features, and is effectively unbound.</p></li>
+</ul>
+<p>The Image must be placed text_offset bytes from a 2MB aligned base
+address anywhere in usable system RAM and called there. The region
+between the 2 MB aligned base address and the start of the image has no
+special significance to the kernel, and may be used for other purposes.
+At least image_size bytes from the start of the image must be free for
+use by the kernel.
+NOTE: versions prior to v4.6 cannot make use of memory below the
+physical offset of the Image so it is recommended that the Image be
+placed as close as possible to the start of system RAM.</p>
+<p>If an initrd/initramfs is passed to the kernel at boot, it must reside
+entirely within a 1 GB aligned physical memory window of up to 32 GB in
+size that fully covers the kernel Image as well.</p>
+<p>Any memory described to the kernel (even that below the start of the
+image) which is not marked as reserved from the kernel (e.g., with a
+memreserve region in the device tree) will be considered as available to
+the kernel.</p>
+<p>Before jumping into the kernel, the following conditions must be met:</p>
+<ul>
+<li><p>Quiesce all DMA capable devices so that memory does not get
+corrupted by bogus network packets or disk data.  This will save
+you many hours of debug.</p></li>
+<li><p>Primary CPU general-purpose register settings:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>x0 = physical address of device tree blob (dtb) in system RAM.</p></li>
+<li><p>x1 = 0 (reserved for future use)</p></li>
+<li><p>x2 = 0 (reserved for future use)</p></li>
+<li><p>x3 = 0 (reserved for future use)</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>CPU mode</p>
+<p>All forms of interrupts must be masked in PSTATE.DAIF (Debug, SError,
+IRQ and FIQ).
+The CPU must be in non-secure state, either in EL2 (RECOMMENDED in order
+to have access to the virtualisation extensions), or in EL1.</p>
+</li>
+<li><p>Caches, MMUs</p>
+<p>The MMU must be off.</p>
+<p>The instruction cache may be on or off, and must not hold any stale
+entries corresponding to the loaded kernel image.</p>
+<p>The address range corresponding to the loaded kernel image must be
+cleaned to the PoC. In the presence of a system cache or other
+coherent masters with caches enabled, this will typically require
+cache maintenance by VA rather than set/way operations.
+System caches which respect the architected cache maintenance by VA
+operations must be configured and may be enabled.
+System caches which do not respect architected cache maintenance by VA
+operations (not recommended) must be configured and disabled.</p>
+</li>
+<li><p>Architected timers</p>
+<p>CNTFRQ must be programmed with the timer frequency and CNTVOFF must
+be programmed with a consistent value on all CPUs.  If entering the
+kernel at EL1, CNTHCTL_EL2 must have EL1PCTEN (bit 0) set where
+available.</p>
+</li>
+<li><p>Coherency</p>
+<p>All CPUs to be booted by the kernel must be part of the same coherency
+domain on entry to the kernel.  This may require IMPLEMENTATION DEFINED
+initialisation to enable the receiving of maintenance operations on
+each CPU.</p>
+</li>
+<li><p>System registers</p>
+<p>All writable architected system registers at or below the exception
+level where the kernel image will be entered must be initialised by
+software at a higher exception level to prevent execution in an UNKNOWN
+state.</p>
+<p>For all systems:
+- If EL3 is present:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>SCR_EL3.FIQ must have the same value across all CPUs the kernel is
+executing on.</p></li>
+<li><p>The value of SCR_EL3.FIQ must be the same as the one present at boot
+time whenever the kernel is executing.</p></li>
+</ul>
+</div></blockquote>
+<ul class="simple">
+<li><p>If EL3 is present and the kernel is entered at EL2:</p>
+<ul>
+<li><p>SCR_EL3.HCE (bit 8) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+</ul>
+<p>For systems with a GICv3 interrupt controller to be used in v3 mode:
+- If EL3 is present:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>ICC_SRE_EL3.Enable (bit 3) must be initialised to 0b1.</p></li>
+<li><p>ICC_SRE_EL3.SRE (bit 0) must be initialised to 0b1.</p></li>
+<li><p>ICC_CTLR_EL3.PMHE (bit 6) must be set to the same value across
+all CPUs the kernel is executing on, and must stay constant
+for the lifetime of the kernel.</p></li>
+</ul>
+</div></blockquote>
+<ul>
+<li><p>If the kernel is entered at EL1:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>ICC_SRE_EL2.Enable (bit 3) must be initialised to 0b1</p></li>
+<li><p>ICC_SRE_EL2.SRE (bit 0) must be initialised to 0b1.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>The DT or ACPI tables must describe a GICv3 interrupt controller.</p></li>
+</ul>
+<p>For systems with a GICv3 interrupt controller to be used in
+compatibility (v2) mode:</p>
+<ul>
+<li><p>If EL3 is present:</p>
+<blockquote>
+<div><p>ICC_SRE_EL3.SRE (bit 0) must be initialised to 0b0.</p>
+</div></blockquote>
+</li>
+<li><p>If the kernel is entered at EL1:</p>
+<blockquote>
+<div><p>ICC_SRE_EL2.SRE (bit 0) must be initialised to 0b0.</p>
+</div></blockquote>
+</li>
+<li><p>The DT or ACPI tables must describe a GICv2 interrupt controller.</p></li>
+</ul>
+<p>For CPUs with pointer authentication functionality:</p>
+<ul class="simple">
+<li><p>If EL3 is present:</p>
+<ul>
+<li><p>SCR_EL3.APK (bit 16) must be initialised to 0b1</p></li>
+<li><p>SCR_EL3.API (bit 17) must be initialised to 0b1</p></li>
+</ul>
+</li>
+<li><p>If the kernel is entered at EL1:</p>
+<ul>
+<li><p>HCR_EL2.APK (bit 40) must be initialised to 0b1</p></li>
+<li><p>HCR_EL2.API (bit 41) must be initialised to 0b1</p></li>
+</ul>
+</li>
+</ul>
+<p>For CPUs with Activity Monitors Unit v1 (AMUv1) extension present:</p>
+<ul class="simple">
+<li><p>If EL3 is present:</p>
+<ul>
+<li><p>CPTR_EL3.TAM (bit 30) must be initialised to 0b0</p></li>
+<li><p>CPTR_EL2.TAM (bit 30) must be initialised to 0b0</p></li>
+<li><p>AMCNTENSET0_EL0 must be initialised to 0b1111</p></li>
+<li><p>AMCNTENSET1_EL0 must be initialised to a platform specific value
+having 0b1 set for the corresponding bit for each of the auxiliary
+counters present.</p></li>
+</ul>
+</li>
+<li><p>If the kernel is entered at EL1:</p>
+<ul>
+<li><p>AMCNTENSET0_EL0 must be initialised to 0b1111</p></li>
+<li><p>AMCNTENSET1_EL0 must be initialised to a platform specific value
+having 0b1 set for the corresponding bit for each of the auxiliary
+counters present.</p></li>
+</ul>
+</li>
+</ul>
+<p>For CPUs with the Fine Grained Traps (FEAT_FGT) extension present:</p>
+<ul class="simple">
+<li><p>If EL3 is present and the kernel is entered at EL2:</p>
+<ul>
+<li><p>SCR_EL3.FGTEn (bit 27) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+</ul>
+<p>For CPUs with the Fine Grained Traps 2 (FEAT_FGT2) extension present:</p>
+<ul class="simple">
+<li><p>If EL3 is present and the kernel is entered at EL2:</p>
+<ul>
+<li><p>SCR_EL3.FGTEn2 (bit 59) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+</ul>
+<p>For CPUs with support for HCRX_EL2 (FEAT_HCX) present:</p>
+<ul class="simple">
+<li><p>If EL3 is present and the kernel is entered at EL2:</p>
+<ul>
+<li><p>SCR_EL3.HXEn (bit 38) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+</ul>
+<p>For CPUs with Advanced SIMD and floating point support:</p>
+<ul class="simple">
+<li><p>If EL3 is present:</p>
+<ul>
+<li><p>CPTR_EL3.TFP (bit 10) must be initialised to 0b0.</p></li>
+</ul>
+</li>
+<li><p>If EL2 is present and the kernel is entered at EL1:</p>
+<ul>
+<li><p>CPTR_EL2.TFP (bit 10) must be initialised to 0b0.</p></li>
+</ul>
+</li>
+</ul>
+<p>For CPUs with the Scalable Vector Extension (FEAT_SVE) present:</p>
+<ul class="simple">
+<li><p>if EL3 is present:</p>
+<ul>
+<li><p>CPTR_EL3.EZ (bit 8) must be initialised to 0b1.</p></li>
+<li><p>ZCR_EL3.LEN must be initialised to the same value for all CPUs the
+kernel is executed on.</p></li>
+</ul>
+</li>
+<li><p>If the kernel is entered at EL1 and EL2 is present:</p>
+<ul>
+<li><p>CPTR_EL2.TZ (bit 8) must be initialised to 0b0.</p></li>
+<li><p>CPTR_EL2.ZEN (bits 17:16) must be initialised to 0b11.</p></li>
+<li><p>ZCR_EL2.LEN must be initialised to the same value for all CPUs the
+kernel will execute on.</p></li>
+</ul>
+</li>
+</ul>
+<p>For CPUs with the Scalable Matrix Extension (FEAT_SME):</p>
+<ul class="simple">
+<li><p>If EL3 is present:</p>
+<ul>
+<li><p>CPTR_EL3.ESM (bit 12) must be initialised to 0b1.</p></li>
+<li><p>SCR_EL3.EnTP2 (bit 41) must be initialised to 0b1.</p></li>
+<li><p>SMCR_EL3.LEN must be initialised to the same value for all CPUs the
+kernel will execute on.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<div><ul>
+<li><p>If the kernel is entered at EL1 and EL2 is present:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>CPTR_EL2.TSM (bit 12) must be initialised to 0b0.</p></li>
+<li><p>CPTR_EL2.SMEN (bits 25:24) must be initialised to 0b11.</p></li>
+<li><p>SCTLR_EL2.EnTP2 (bit 60) must be initialised to 0b1.</p></li>
+<li><p>SMCR_EL2.LEN must be initialised to the same value for all CPUs the
+kernel will execute on.</p></li>
+<li><p>HWFGRTR_EL2.nTPIDR2_EL0 (bit 55) must be initialised to 0b01.</p></li>
+<li><p>HWFGWTR_EL2.nTPIDR2_EL0 (bit 55) must be initialised to 0b01.</p></li>
+<li><p>HWFGRTR_EL2.nSMPRI_EL1 (bit 54) must be initialised to 0b01.</p></li>
+<li><p>HWFGWTR_EL2.nSMPRI_EL1 (bit 54) must be initialised to 0b01.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<blockquote>
+<div><p>For CPUs with the Scalable Matrix Extension FA64 feature (FEAT_SME_FA64):</p>
+<ul class="simple">
+<li><p>If EL3 is present:</p>
+<ul>
+<li><p>SMCR_EL3.FA64 (bit 31) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+<ul>
+<li><p>If the kernel is entered at EL1 and EL2 is present:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>SMCR_EL2.FA64 (bit 31) must be initialised to 0b1.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<blockquote>
+<div><p>For CPUs with the Memory Tagging Extension feature (FEAT_MTE2):</p>
+<ul class="simple">
+<li><p>If EL3 is present:</p>
+<ul>
+<li><p>SCR_EL3.ATA (bit 26) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+<li><p>If the kernel is entered at EL1 and EL2 is present:</p>
+<ul>
+<li><p>HCR_EL2.ATA (bit 56) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+</ul>
+<p>For CPUs with the Scalable Matrix Extension version 2 (FEAT_SME2):</p>
+<ul class="simple">
+<li><p>If EL3 is present:</p>
+<ul>
+<li><p>SMCR_EL3.EZT0 (bit 30) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+<ul>
+<li><p>If the kernel is entered at EL1 and EL2 is present:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>SMCR_EL2.EZT0 (bit 30) must be initialised to 0b1.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<blockquote>
+<div><p>For CPUs with the Performance Monitors Extension (FEAT_PMUv3p9):</p>
+</div></blockquote>
+<ul>
+<li><p>If EL3 is present:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>MDCR_EL3.EnPM2 (bit 7) must be initialised to 0b1.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>If the kernel is entered at EL1 and EL2 is present:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>HDFGRTR2_EL2.nPMICNTR_EL0 (bit 2) must be initialised to 0b1.</p></li>
+<li><p>HDFGRTR2_EL2.nPMICFILTR_EL0 (bit 3) must be initialised to 0b1.</p></li>
+<li><p>HDFGRTR2_EL2.nPMUACR_EL1 (bit 4) must be initialised to 0b1.</p></li>
+<li><p>HDFGWTR2_EL2.nPMICNTR_EL0 (bit 2) must be initialised to 0b1.</p></li>
+<li><p>HDFGWTR2_EL2.nPMICFILTR_EL0 (bit 3) must be initialised to 0b1.</p></li>
+<li><p>HDFGWTR2_EL2.nPMUACR_EL1 (bit 4) must be initialised to 0b1.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<blockquote>
+<div><p>For CPUs with Memory Copy and Memory Set instructions (FEAT_MOPS):</p>
+<ul class="simple">
+<li><p>If the kernel is entered at EL1 and EL2 is present:</p>
+<ul>
+<li><p>HCRX_EL2.MSCEn (bit 11) must be initialised to 0b1.</p></li>
+<li><p>HCRX_EL2.MCE2 (bit 10) must be initialised to 0b1 and the hypervisor
+must handle MOPS exceptions as described in <a class="reference internal" href="mops.html#arm64-mops-hyp"><span class="std std-ref">Hypervisor requirements</span></a>.</p></li>
+</ul>
+</li>
+</ul>
+<p>For CPUs with the Extended Translation Control Register feature (FEAT_TCR2):</p>
+<ul class="simple">
+<li><p>If EL3 is present:</p>
+<ul>
+<li><p>SCR_EL3.TCR2En (bit 43) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+<ul>
+<li><p>If the kernel is entered at EL1 and EL2 is present:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>HCRX_EL2.TCR2En (bit 14) must be initialised to 0b1.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<blockquote>
+<div><p>For CPUs with the Stage 1 Permission Indirection Extension feature (FEAT_S1PIE):</p>
+<ul class="simple">
+<li><p>If EL3 is present:</p>
+<ul>
+<li><p>SCR_EL3.PIEn (bit 45) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+<li><p>If the kernel is entered at EL1 and EL2 is present:</p>
+<ul>
+<li><p>HFGRTR_EL2.nPIR_EL1 (bit 58) must be initialised to 0b1.</p></li>
+<li><p>HFGWTR_EL2.nPIR_EL1 (bit 58) must be initialised to 0b1.</p></li>
+<li><p>HFGRTR_EL2.nPIRE0_EL1 (bit 57) must be initialised to 0b1.</p></li>
+<li><p>HFGRWR_EL2.nPIRE0_EL1 (bit 57) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+<ul class="simple">
+<li><p>For CPUs with Guarded Control Stacks (FEAT_GCS):</p></li>
+</ul>
+<blockquote>
+<div><ul class="simple">
+<li><p>GCSCR_EL1 must be initialised to 0.</p></li>
+<li><p>GCSCRE0_EL1 must be initialised to 0.</p></li>
+<li><p>If EL3 is present:</p>
+<ul>
+<li><p>SCR_EL3.GCSEn (bit 39) must be initialised to 0b1.</p></li>
+</ul>
+</li>
+<li><p>If EL2 is present:</p>
+<ul>
+<li><p>GCSCR_EL2 must be initialised to 0.</p></li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+<ul>
+<li><p>If the kernel is entered at EL1 and EL2 is present:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>HCRX_EL2.GCSEn must be initialised to 0b1.</p></li>
+<li><p>HFGITR_EL2.nGCSEPP (bit 59) must be initialised to 0b1.</p></li>
+<li><p>HFGITR_EL2.nGCSSTR_EL1 (bit 58) must be initialised to 0b1.</p></li>
+<li><p>HFGITR_EL2.nGCSPUSHM_EL1 (bit 57) must be initialised to 0b1.</p></li>
+<li><p>HFGRTR_EL2.nGCS_EL1 (bit 53) must be initialised to 0b1.</p></li>
+<li><p>HFGRTR_EL2.nGCS_EL0 (bit 52) must be initialised to 0b1.</p></li>
+<li><p>HFGWTR_EL2.nGCS_EL1 (bit 53) must be initialised to 0b1.</p></li>
+<li><p>HFGWTR_EL2.nGCS_EL0 (bit 52) must be initialised to 0b1.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>For CPUs with debug architecture i.e FEAT_Debugv8pN (all versions):</p></li>
+<li><p>If EL3 is present:</p>
+<ul class="simple">
+<li><p>MDCR_EL3.TDA (bit 9) must be initialized to 0b0</p></li>
+</ul>
+</li>
+<li><p>For CPUs with FEAT_PMUv3:</p></li>
+<li><p>If EL3 is present:</p>
+<ul class="simple">
+<li><p>MDCR_EL3.TPM (bit 6) must be initialized to 0b0</p></li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+<p>The requirements described above for CPU mode, caches, MMUs, architected
+timers, coherency and system registers apply to all CPUs.  All CPUs must
+enter the kernel in the same exception level.  Where the values documented
+disable traps it is permissible for these traps to be enabled so long as
+those traps are handled transparently by higher exception levels as though
+the values documented were set.</p>
+<p>The boot loader is expected to enter the kernel on each CPU in the
+following manner:</p>
+<ul>
+<li><p>The primary CPU must jump directly to the first instruction of the
+kernel image.  The device tree blob passed by this CPU must contain
+an ‘enable-method’ property for each cpu node.  The supported
+enable-methods are described below.</p>
+<p>It is expected that the bootloader will generate these device tree
+properties and insert them into the blob prior to kernel entry.</p>
+</li>
+<li><p>CPUs with a “spin-table” enable-method must have a ‘cpu-release-addr’
+property in their cpu node.  This property identifies a
+naturally-aligned 64-bit zero-initalised memory location.</p>
+<p>These CPUs should spin outside of the kernel in a reserved area of
+memory (communicated to the kernel by a /memreserve/ region in the
+device tree) polling their cpu-release-addr location, which must be
+contained in the reserved region.  A wfe instruction may be inserted
+to reduce the overhead of the busy-loop and a sev will be issued by
+the primary CPU.  When a read of the location pointed to by the
+cpu-release-addr returns a non-zero value, the CPU must jump to this
+value.  The value will be written as a single 64-bit little-endian
+value, so CPUs must convert the read value to their native endianness
+before jumping to it.</p>
+</li>
+<li><p>CPUs with a “psci” enable method should remain outside of
+the kernel (i.e. outside of the regions of memory described to the
+kernel in the memory node, or in a reserved area of memory described
+to the kernel by a /memreserve/ region in the device tree).  The
+kernel will issue CPU_ON calls as described in ARM document number ARM
+DEN 0022A (“Power State Coordination Interface System Software on ARM
+processors”) to bring CPUs into the kernel.</p>
+<p>The device tree should contain a ‘psci’ node, as described in
+Documentation/devicetree/bindings/arm/psci.yaml.</p>
+</li>
+<li><p>Secondary CPU general-purpose register settings</p>
+<ul class="simple">
+<li><p>x0 = 0 (reserved for future use)</p></li>
+<li><p>x1 = 0 (reserved for future use)</p></li>
+<li><p>x2 = 0 (reserved for future use)</p></li>
+<li><p>x3 = 0 (reserved for future use)</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &#169;The kernel development community.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../../_sources/arch/arm64/booting.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

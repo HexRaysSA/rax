@@ -992,12 +992,19 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/kernel-v1/result.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-broad-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-final-v1.json",
-        "docs/development/a64-undefined-retirement/README.md"
+        "docs/development/a64-undefined-retirement/README.md",
+        "docs/development/a64-sve-access/README.md",
+        "docs/development/a64-sve-access/provenance.json",
+        "src/isa/arm/aarch64/cpu/sve_profile_tests.rs",
+        "src/vm/snapshot/cpu_coherence_tests.rs",
+        "src/vm/runtime/aarch64_sve_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-profile-controls/qualification-final-v1.json"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
         "Physical A32 hardware and optional trapped profiles remain unverified.",
-        "The represented A64 six-capability flags/IDs/admission and supported legacy migration are corrected. Full cross-state feature consistency and remaining capability, FP8/FPMR and security/debug controls remain open; represented A64 structural FP-access priority is locally validated. No new native optional-instruction execution support."
+        "The represented A64 six-capability flags/IDs/admission and supported legacy migration are corrected. Full cross-state feature consistency and remaining capability, FP8/FPMR and security/debug controls remain open; represented A64 structural FP-access priority is locally validated. No new native optional-instruction execution support.",
+        "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1013,7 +1020,8 @@
           "scope": "Represented A64 FP/SIMD allocation before FP access and native optimization; preserve existing indexed-FP8 version selection, neutral decoder bytes and state-format compatibility. Older full-profile selection, FP8/FPMR data/state semantics and all four full findings remain partial.",
           "validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/qualification-final-v1.json",
           "documentation": "docs/development/a64-fpsimd-allocation/README.md"
-        }
+        },
+        "a64-scalable-access-and-cpu0-checkpoint-coherence-2026-10-29"
       ]
     },
     {
@@ -2619,7 +2627,13 @@
         "src/backend/emulator/aarch64/cluster/event_tests.rs",
         "src/backend/emulator/aarch64/event_checkpoint_tests.rs",
         "src/vm/runtime/aarch64_event_tests.rs",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/qualification-final-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/qualification-final-v1.json",
+        "docs/development/a64-sve-access/README.md",
+        "docs/development/a64-sve-access/provenance.json",
+        "src/isa/arm/aarch64/cpu/sve_profile_tests.rs",
+        "src/vm/snapshot/cpu_coherence_tests.rs",
+        "src/vm/runtime/aarch64_sve_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-profile-controls/qualification-final-v1.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2631,7 +2645,8 @@
         "Complete per-vCPU/private/inflight/device/topology checkpoint state, including coherent LAPIC ownership",
         "Native Intel HVF state effects are unverified",
         "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open.",
-        "The shared A64 Undefined-result retirement/delivery and tested user/backend/file/coordinator continuations are corrected. Complete backend/in-flight/platform state and bounded SMP native execution remain required."
+        "The shared A64 Undefined-result retirement/delivery and tested user/backend/file/coordinator continuations are corrected. Complete backend/in-flight/platform state and bounded SMP native execution remain required.",
+        "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2660,7 +2675,8 @@
         "a64-public-system-entry-publication-2026-10-29",
         "a64-private-retirement-counter-wrap-2026-10-29",
         "a64-host-completion-error-retirement-2026-10-29",
-        "a64-shared-event-latches-and-checkpoint-publication-2026-10-29"
+        "a64-shared-event-latches-and-checkpoint-publication-2026-10-29",
+        "a64-scalable-access-and-cpu0-checkpoint-coherence-2026-10-29"
       ]
     },
     {
@@ -3262,7 +3278,13 @@
         "src/backend/emulator/aarch64/cluster/event_tests.rs",
         "src/backend/emulator/aarch64/event_checkpoint_tests.rs",
         "src/vm/runtime/aarch64_event_tests.rs",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/qualification-final-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/qualification-final-v1.json",
+        "docs/development/a64-sve-access/README.md",
+        "docs/development/a64-sve-access/provenance.json",
+        "src/isa/arm/aarch64/cpu/sve_profile_tests.rs",
+        "src/vm/snapshot/cpu_coherence_tests.rs",
+        "src/vm/runtime/aarch64_sve_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-profile-controls/qualification-final-v1.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3270,7 +3292,8 @@
         "Represented software A64/ARM/Thumb SEV broadcast, SEVL locality, WFE consumption and target event restoration are locally qualified. Additional ARM startup/control and architectural wait/trap profiles, plus RISC-V SBI startup/controller topology, remain required.",
         "Complete backend/private/in-flight/platform state, all-writer quiescence and transactional late-failure restoration remain required.",
         "GDB AP/thread selection, complete deterministic clock coordination and record/replay remain required.",
-        "The shared A64 Undefined-result delivery and tested native/software/user/backend/file/coordinator continuations are corrected within recorded scopes; full C-SMP and C-STATE remain incomplete."
+        "The shared A64 Undefined-result delivery and tested native/software/user/backend/file/coordinator continuations are corrected within recorded scopes; full C-SMP and C-STATE remain incomplete.",
+        "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3288,7 +3311,8 @@
         "a64-public-system-entry-publication-2026-10-29",
         "a64-private-retirement-counter-wrap-2026-10-29",
         "a64-host-completion-error-retirement-2026-10-29",
-        "a64-shared-event-latches-and-checkpoint-publication-2026-10-29"
+        "a64-shared-event-latches-and-checkpoint-publication-2026-10-29",
+        "a64-scalable-access-and-cpu0-checkpoint-coherence-2026-10-29"
       ]
     },
     {
@@ -194742,6 +194766,157 @@
         }
       ],
       "published": false
+    },
+    {
+      "id": "a64-scalable-access-and-cpu0-checkpoint-coherence-2026-10-29",
+      "status": "locally_validated",
+      "parent": "a101db7619832444a0f0fde896b897c9859fdd76",
+      "scope": "Normal non-streaming SVE/SME access-control ordering, selected base capability, represented reserved encodings, original native requirements/cache keys, generator-owned SVE test setup, CPU0 typed map coherence, and actual two/four-CPU file/handler continuation. No checkpoint format changes; full findings remain incomplete.",
+      "owned_paths": [
+        "docs/development/a64-fp-control/README.md",
+        "docs/development/a64-sve-access/README.md",
+        "docs/development/a64-sve-access/fixtures/parent-core.bin",
+        "docs/development/a64-sve-access/guest.ld",
+        "docs/development/a64-sve-access/guest.s",
+        "docs/development/a64-sve-access/oracle-cases.json",
+        "docs/development/a64-sve-access/primary/.gitattributes",
+        "docs/development/a64-sve-access/primary/linux-arm64-booting-v6.16.html",
+        "docs/development/a64-sve-access/provenance.json",
+        "docs/development/a64-sve-access/reserved-oracle-cases.json",
+        "docs/development/audit-remediation-2026-10.json",
+        "src/backend/emulator/aarch64/checkpoint.rs",
+        "src/backend/emulator/aarch64/sve_profile_tests.rs",
+        "src/isa/arm/aarch64/cpu/fp_access.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile.rs",
+        "src/isa/arm/aarch64/cpu/mod.rs",
+        "src/isa/arm/aarch64/cpu/native_admission.rs",
+        "src/isa/arm/aarch64/cpu/sve/admission.rs",
+        "src/isa/arm/aarch64/cpu/sve/core.rs",
+        "src/isa/arm/aarch64/cpu/sve/mod.rs",
+        "src/isa/arm/aarch64/cpu/sve_profile_tests.rs",
+        "src/isa/arm/aarch64/cpu/system_step.rs",
+        "src/isa/arm/aarch64/cpu/tests/mod.rs",
+        "src/isa/arm/common/fp_access.rs",
+        "src/vm/runtime/aarch64_cluster_tests.rs",
+        "src/vm/runtime/aarch64_sve_tests.rs",
+        "src/vm/snapshot/cpu_coherence_tests.rs",
+        "src/vm/snapshot/cpus.rs",
+        "tests/generated/arm/test_helpers.rs",
+        "tests/generated/manifest.toml",
+        "tools/asl-parser/asl-parser-rs/src/main.rs",
+        "tools/asl-parser/asl-parser-rs/src/testgen/output/rust.rs"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-profile-controls/source-qualified-final-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-profile-controls/qualification-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-profile-controls/commit-receipt-v1.json",
+      "validation_summary": {
+        "core-v4": {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "coherence-core-v4": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "library-final-v1": {
+          "passed": 11331,
+          "failed": 0,
+          "ignored": 2,
+          "binaries": 1
+        },
+        "owning-final-v1": {
+          "passed": 47875,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 27
+        },
+        "capi-final-v1": {
+          "passed": 223,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "doc-final-v1": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "binaries": 1
+        },
+        "parser-final-v2": {
+          "passed": 70,
+          "failed": 0,
+          "ignored": 1,
+          "binaries": 6
+        },
+        "parser-serde-final-v1": {
+          "passed": 70,
+          "failed": 0,
+          "ignored": 1,
+          "binaries": 6
+        }
+      },
+      "assumption_register": [
+        {
+          "id": "SV1",
+          "assumption": "Normal non-streaming original SVE access follows interleaved local and higher ZEN/FPEN controls.",
+          "basis": "Pinned Arm XML 2025-12 CheckOriginalSVEEnabled and SVEAccessTrap.",
+          "dependent_result": "Shared interpreter/native access predicate and exact trap EC/target.",
+          "stress_test": "EL0-3, every local/VHE field, security and competing denials.",
+          "falsification_probe": "Wrong EC, target, local/higher priority, or retirement/side effect.",
+          "status": "confirmed within recorded normal-execution and checkpoint profiles"
+        },
+        {
+          "id": "SV2",
+          "assumption": "Absence of both SVE and SME rejects before permissions; an SME-only profile follows SME access controls and the non-streaming exception.",
+          "basis": "Instruction feature guards and default feature/ID absence. Retained oracle-v1 counterexample: SME remains enabled and produces EC=0x1d.",
+          "dependent_result": "Original-word feature admission and generated/helper provenance.",
+          "stress_test": "Feature absence with permissions both enabled and disabled; native and direct entries.",
+          "falsification_probe": "A featureless CPU executes SVE or produces an access trap instead of decode failure.",
+          "status": "revised against retained first-run counterexample; confirmed within recorded normal-execution and checkpoint profiles"
+        },
+        {
+          "id": "SV3",
+          "assumption": "Existing selected feature flags and CPTR/CPACR maps suffice for this normal-execution repair without serialized fields or tags.",
+          "basis": "Current exported system/private state and derived native requirements.",
+          "dependent_result": "Compatibility and checkpoint continuation.",
+          "stress_test": "Cancelled/restored contexts, 2/4-CPU file continuation, native cache changes.",
+          "falsification_probe": "Lost trap control, changed record layout, stale native admission or moved fault PC.",
+          "status": "confirmed within recorded normal-execution and checkpoint profiles"
+        },
+        {
+          "id": "SV4",
+          "assumption": "Independent decoding can change implementation-defined register-map iteration order without changing CPU state.",
+          "basis": "Full-file snapshot load failure and HashMap serialization in CPU0/base comparison.",
+          "dependent_result": "CPU0 coherence admission and coordinated checkpoint restoration.",
+          "stress_test": "Equivalent independently decoded maps versus genuine GPR, vector, control, feature, map, and private-state differences.",
+          "falsification_probe": "Equal maps fail admission or any real state difference is admitted.",
+          "status": "confirmed within recorded normal-execution and checkpoint profiles"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Full SVE/SME optional, ID, allocation, streaming and halting-debug profiles; complete backend/in-flight and coordinated transactional state; other ISA/hardware SMP and debug/clock/replay; physical Intel HVF remain unqualified."
+        },
+        {
+          "impact": "medium",
+          "finding": "No SVE hardware, throughput or scalability measurement. Four primary logical-immediate decode descriptions remain unresolved in the follow-up inventory; no derived admission table was installed."
+        }
+      ],
+      "evidence": [
+        "docs/development/a64-sve-access/README.md",
+        "docs/development/a64-sve-access/provenance.json",
+        "src/isa/arm/aarch64/cpu/sve_profile_tests.rs",
+        "src/vm/snapshot/cpu_coherence_tests.rs",
+        "src/vm/runtime/aarch64_sve_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-profile-controls/qualification-final-v1.json"
+      ],
+      "published": false,
+      "archive_whitespace": "Byte-preserving primary HTML with a whitespace attribute scoped to that file only."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

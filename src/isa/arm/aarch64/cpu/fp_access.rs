@@ -35,4 +35,28 @@ impl AArch64Cpu {
             }),
         }
     }
+    pub(super) fn check_sve_access(&self, instruction: u32) -> Result<(), ArmError> {
+        if self.config.features.contains(ArmFeatures::SVE) {
+            return self.check_fp_access(FpAccessClass::Sve);
+        }
+        if !self.config.features.contains(ArmFeatures::SME) {
+            return Err(ArmError::UndefinedInstruction(instruction));
+        }
+        // SME-only execution first checks SMEN/FPEN and higher controls. The
+        // current CPU state does not represent streaming mode, so permission
+        // cannot silently make an SME-only SVE instruction executable.
+        self.check_fp_access(FpAccessClass::Sme)?;
+        let controls = self.fp_access_controls();
+        let target =
+            if self.current_el == 0 && controls.el2_enabled && controls.hcr & (1 << 27) != 0 {
+                2
+            } else {
+                self.current_el.max(1)
+            };
+        Err(ArmError::ArchitecturalException {
+            ec: 0x1d,
+            iss: 2, // SMEExceptionType_NotStreaming, Arm XML 2025-12.
+            target_el: (target != 1).then_some(target),
+        })
+    }
 }

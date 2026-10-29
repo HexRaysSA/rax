@@ -321,3 +321,6 @@ fn capture_rejects_private_cpu_power_disagreement_with_psci_graph() {
     let error = source.vm.take_snapshot_bundle(0).unwrap_err();
     assert!(error.to_string().contains("power state differs"));
 }
+
+#[path = "aarch64_sve_tests.rs"]
+mod sve_profile;

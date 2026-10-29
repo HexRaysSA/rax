@@ -52,6 +52,8 @@ mod interrupt_binding;
 mod native_admission;
 mod native_execution;
 mod psci_entry;
+#[cfg(test)]
+mod sve_profile_tests;
 pub use exec::*;
 mod math;
 pub use math::*;

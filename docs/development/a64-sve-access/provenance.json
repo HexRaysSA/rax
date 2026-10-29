@@ -1,0 +1,52 @@
+{
+  "retrieved": "2026-10-29T08:37:41.096639+00:00",
+  "primary_sources": [
+    {
+      "path": "docs/specifications/arm/pauth/shared_pseudocode-2025-12.xml",
+      "sha256": "84c3572ef27cb9a7b12cba314d62d1b8afd71c770ee92d818cbdb4dc6ac37d6b",
+      "functions": [
+        "CheckOriginalSVEEnabled",
+        "CheckSVEEnabled",
+        "CheckStreamingSVEEnabled",
+        "CheckSMEEnabled",
+        "SVEAccessTrap",
+        "SMEAccessTrap"
+      ],
+      "status": "Existing unchanged pinned Arm XML 2025-12"
+    },
+    {
+      "path": "docs/development/a64-sve-access/primary/linux-arm64-booting-v6.16.html",
+      "title": "Booting AArch64 Linux",
+      "issuer": "Linux kernel documentation",
+      "revision": "v6.16",
+      "url": "https://www.kernel.org/doc/html/v6.16/arch/arm64/booting.html",
+      "sha256": "94b67bb2afe06f3da77d459a7394d2e117a2c99aae95a6499ba57b34c9267ebc",
+      "use": "Cross-check CPTR_EL3.EZ bit8/ESM bit12 and CPTR_EL2.TZ bit8/TSM bit12, ZEN/SMEN fields",
+      "notice": "Existing page license notices retained in downloaded HTML"
+    }
+  ],
+  "source_discrepancy": "Web PDF text extraction rendered EZ at bit9; Linux primary boot requirements and the actual QEMU guest confirm EZ at bit8. No extracted table alone is used to choose the bit.",
+  "oracle_replay": {
+    "source": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-profile-controls/oracle-v2/result-v2.json",
+    "profiles": 72,
+    "cases": 504,
+    "path": "docs/development/a64-sve-access/oracle-cases.json",
+    "sha256": "930ce01305c20833f678ee422a9400e911043a291f922bb99367216812a3f2fe",
+    "scope": "Exception class, target, original/next PC and low ISS subtype; no FP result or PMU comparison"
+  },
+  "legacy_core_fixture": {
+    "source": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-shared-events/parent-reference-v2/cpu0.bin",
+    "parent_commit": "14f9da8e68aa38bdb1f97de395d7b3e4df31faca",
+    "sha256": "15616969423eb55739400378055cca2930cfe04dda1d8be0135d6f31018527aa",
+    "bytes": 4220,
+    "scope": "Existing serialized CoreCheckpoint record, including a pending event bit; format re-encoding control"
+  },
+  "reserved_oracle_replay": {
+    "source": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-profile-controls/oracle-reserved-v1/result-reserved-v1.json",
+    "profiles": 4,
+    "cases": 40,
+    "path": "docs/development/a64-sve-access/reserved-oracle-cases.json",
+    "sha256": "989eb7b5c7551d8e7e3a1f778519ebacf86640f098eba71c110a4bf8f668446e",
+    "scope": "Ten represented reserved encodings, each under all four ZEN values; raw target/EC/PC/ISS observations."
+  }
+}

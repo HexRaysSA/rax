@@ -49,6 +49,15 @@ impl AArch64Cpu {
                 if !self.fp_instruction_version_supported(word) {
                     return None;
                 }
+                // This native register image has no streaming-mode state.
+                // SME-only SVE words must reach the interpreter's access and
+                // NotStreaming checks before any effects.
+                if (word >> 25) & 15 == 2
+                    && (super::sve::admission::reserved(word)
+                        || !self.config.features.contains(ArmFeatures::SVE))
+                {
+                    return None;
+                }
                 requirements.observe(word);
                 features |= super::fp_profile::instruction_features(word)?;
             }

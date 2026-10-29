@@ -22,6 +22,7 @@ use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
 use crate::vm::vcpu::Aarch64SystemRegisters;
 
 // ---- module tree (auto-split) ----
+pub(super) mod admission;
 mod core;
 pub(crate) use core::*;
 mod fp;

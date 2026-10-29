@@ -990,11 +990,22 @@ pub fn create_test_cpu() -> AArch64Cpu {
     config.features |= rax::isa::arm::ArmFeatures::BF16;
     config.features |= rax::isa::arm::ArmFeatures::I8MM;
     config.features |= rax::isa::arm::ArmFeatures::DOTPROD;
+    config.features |= rax::isa::arm::ArmFeatures::SVE;
     let mut cpu = AArch64Cpu::new(config, Box::new(memory));
     let mut controls = cpu.pauth_controls();
     controls.hcr_el2 |= (1 << 40) | (1 << 41);
     controls.scr_el3 |= (1 << 16) | (1 << 17);
     cpu.set_pauth_controls(controls).unwrap();
+    let mut system = cpu.export_sregs();
+    let encoding = rax::isa::arm::common::sysreg::Aarch64SysRegEncoding::new(3, 6, 1, 1, 2);
+    system
+        .execution
+        .as_mut()
+        .unwrap()
+        .sysregs
+        .impl_defined
+        .insert(encoding.encode(), 1 << 8);
+    cpu.import_sregs(&system).unwrap();
     cpu
 }
 
@@ -1324,4 +1335,21 @@ fn print_def_summary(def: &asl_parser::Definition) {
             println!("  decode {} ({} cases)", iset, cases.len());
         }
     }
+}
+
+#[cfg(test)]
+#[test]
+fn a64_generated_helper_matches_its_owning_template() {
+    let generated = generate_helper_files(&[asl_parser::syntax::InstructionSet::A64]);
+    let helper = generated
+        .iter()
+        .find(|(name, _)| *name == "test_helpers.rs")
+        .unwrap();
+    assert_eq!(
+        helper.1,
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../tests/generated/arm/test_helpers.rs"
+        ))
+    );
 }

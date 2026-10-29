@@ -340,3 +340,7 @@ mod retirement_counters;
 #[cfg(test)]
 #[path = "event_checkpoint_tests.rs"]
 mod event_tests;
+
+#[cfg(test)]
+#[path = "sve_profile_tests.rs"]
+mod sve_profile_tests;

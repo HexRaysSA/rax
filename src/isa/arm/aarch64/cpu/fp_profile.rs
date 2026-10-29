@@ -61,6 +61,9 @@ pub(super) fn fhm_encoding(insn: u32) -> Option<bool> {
 /// Feature dependencies of an original instruction, before IR optimization.
 /// None denotes a reserved encoding that must never be promoted.
 pub(super) fn instruction_features(insn: u32) -> Option<ArmFeatures> {
+    if (insn >> 25) & 15 == 2 {
+        return Some(ArmFeatures::SVE);
+    }
     if !allocation::allocated(insn) || admission::reserved(insn) {
         return None;
     }
@@ -109,7 +112,9 @@ impl AArch64Cpu {
         match instruction_features(insn) {
             Some(features)
                 if self.fp_instruction_version_supported(insn)
-                    && self.config.features.contains(features) =>
+                    && (self.config.features.contains(features)
+                        || features == ArmFeatures::SVE
+                            && self.config.features.contains(ArmFeatures::SME)) =>
             {
                 Ok(())
             }
@@ -123,7 +128,9 @@ impl AArch64Cpu {
 
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     pub(super) fn fp_profile_key(&self) -> u64 {
-        self.selected_fp_features().bits()
+        (self.selected_fp_features()
+            | (self.config.features & (ArmFeatures::SVE | ArmFeatures::SME)))
+            .bits()
     }
 
     pub(super) fn validate_optional_fp_levels(system: &SystemRegisters) -> Result<(), ArmError> {
