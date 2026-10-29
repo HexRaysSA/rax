@@ -4,16 +4,28 @@ use super::*;
 use crate::isa::arm::aarch64::cpu::*;
 
 #[test]
-fn test_sve2_dupq_quadword_no_panic() {
-    let mut cpu = create_cpu_with_insn(0x0530_2420); // DUPQ Z0.Q, Z1.Q[0]
-    cpu.config.features |= ArmFeatures::SVE2P1;
+fn test_sve2_dupq_rejects_unallocated_quadword_without_panicking() {
+    let mut cpu = create_cpu_with_insn(0x0530_2420); // Unallocated .Q form; Arm XML 2025-12.
+    cpu.config.features |= ArmFeatures::SVE2 | ArmFeatures::SVE2P1;
     let src_lo = 0x0123_4567_89ab_cdef;
     let src_hi = 0xfedc_ba98_7654_3210;
 
     cpu.set_simd_reg(1, src_lo, src_hi).unwrap();
 
+    let before = (cpu.pc, cpu.v, cpu.insn_count);
+    assert_eq!(cpu.step().unwrap(), CpuExit::Undefined(0x0530_2420));
+    assert_eq!((cpu.pc, cpu.v, cpu.insn_count), before);
+}
+
+#[test]
+fn test_sve2_dupq_doubleword_remains_allocated() {
+    // LLVM 23: DUPQ Z0.D, Z1.D[0], the largest allocated element width.
+    let mut cpu = create_cpu_with_insn(0x0528_2420);
+    cpu.config.features |= ArmFeatures::SVE2 | ArmFeatures::SVE2P1;
+    let value = 0x0123_4567_89ab_cdef;
+    cpu.set_simd_reg(1, value, !value).unwrap();
     assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
-    assert_eq!(cpu.get_simd_reg(0), Some((src_lo, src_hi)));
+    assert_eq!(cpu.get_simd_reg(0), Some((value, value)));
 }
 #[test]
 fn sve_pred_whole_register_ldst_address_wraps_no_panic() {
@@ -99,6 +111,7 @@ fn test_sve2_sqshl_s_positive_saturation_no_panic() {
     // enough to saturate took the `(1i32<<31)-1` path, which overflows i32
     // and panics in checked builds. It must instead saturate to i32::MAX.
     let mut cpu = create_cpu_with_insn(0x4488_8020);
+    cpu.config.features |= ArmFeatures::SVE2;
     cpu.sysregs.el1.cpacr |= (0b11 << 20) | (0b11 << 16); // FPEN + ZEN
     cpu.set_sve_pred(0, 0xffff); // all lanes active
     // Four 32-bit lanes of 0x4000_0000 (positive), each shifted left by 4.
@@ -120,6 +133,7 @@ fn test_sve2_flogb_double_no_panic() {
     // checked builds for *any* active lane. A NaN input drives the
     // most-negative result path, so the lane must come out as i64::MIN.
     let mut cpu = create_cpu_with_insn(0x651e_a020);
+    cpu.config.features |= ArmFeatures::SVE2;
     cpu.sysregs.el1.cpacr |= (0b11 << 20) | (0b11 << 16); // FPEN + ZEN
     cpu.set_sve_pred(0, 0xffff); // all lanes active
     let nan = 0x7ff8_0000_0000_0000u64; // quiet NaN (double)
@@ -139,6 +153,7 @@ fn test_sve2_bgrp_all_ones_mask_no_panic() {
     // guest could crash a checked build; the handler must guard the shift.
     // With every mask bit set the grouped result is just Zn unchanged.
     let mut cpu = create_cpu_with_insn(0x45c2_b820);
+    cpu.config.features |= ArmFeatures::SVE2 | ArmFeatures::SVE2_BITPERM;
     let src_lo = 0x0123_4567_89ab_cdef;
     let src_hi = 0xfedc_ba98_7654_3210;
     cpu.set_simd_reg(1, src_lo, src_hi).unwrap();

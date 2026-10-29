@@ -13,8 +13,11 @@ SMEN and FPEN, then raises the non-streaming SME
 exception with EC=0x1d and ISS=2. Absence of both SVE and SME produces an
 undefined instruction before permission checks. This does not introduce SME
 streaming execution or architectural streaming state.
-Complete instruction-specific SVE/SME capability and allocation admission
-remain open as described below.
+The [selected instruction profile](../a64-sve-profile/README.md) now derives
+allocation and capability alternatives from the 2025-12 primary XML and adds
+the distinct scalar-SME and conditional-predicate access policies. Its focused
+checks and full owning qualification pass within the recorded software/host scope. Complete streaming,
+feature/ID and architectural halting-debug profiles remain open.
 
 Denied instructions retain their original PC, register and memory state, and
 retire zero instructions. System stepping delivers the architectural exception;
@@ -129,7 +132,8 @@ Neither CPU halted state nor an HLT instruction substitutes for halting debug.
 
 This group does not establish completion of A32-FP, C-STATE, C-SMP, or C-HVF.
 
-Final qualification: all 18 scalable-access checks and both CPU0 coherence tests
+Qualification of the original scalable-control/coherence group: all 18
+scalable-access checks and both CPU0 coherence tests
 passed. The complete library passed 11,331 tests with two
 ignored; 47,875 tests passed across all 27 complete owning
 integration binaries, with native suites run serially. All 223 C API tests passed.

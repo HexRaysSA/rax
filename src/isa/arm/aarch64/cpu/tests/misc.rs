@@ -265,6 +265,7 @@ fn sve2_xtn_rejects_reserved_encodings() {
     // variant 11 are reserved and must trap, not execute as H/S forms.
     let setup = |insn: u32| {
         let mut cpu = create_cpu_with_insn(insn);
+        cpu.config.features |= ArmFeatures::SVE2;
         cpu.sysregs.el1.cpacr |= (0b11 << 20) | (0b11 << 16); // FPEN + ZEN
         cpu
     };
@@ -287,6 +288,7 @@ fn sve2_int_pairwise_rejects_reserved_encodings() {
     // (01,0) and (01,1) encodings must trap, not execute as ADDP/MINP.
     let setup = |insn: u32| {
         let mut cpu = create_cpu_with_insn(insn);
+        cpu.config.features |= ArmFeatures::SVE2;
         cpu.sysregs.el1.cpacr |= (0b11 << 20) | (0b11 << 16); // FPEN + ZEN
         cpu.set_sve_pred(0, 0xffff);
         cpu

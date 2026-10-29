@@ -23,12 +23,7 @@ use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
 use crate::vm::vcpu::Aarch64SystemRegisters;
 
 impl AArch64Cpu {
-    pub(crate) fn exec_sve(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
-        self.check_fp_instruction(insn)?;
-        if super::admission::reserved(insn) {
-            return Ok(CpuExit::Undefined(insn));
-        }
-        self.check_sve_access(insn)?;
+    pub(super) fn exec_sve_inner(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
         let top = (insn >> 24) & 0xff;
         let has_sve2p1 = self.config.features.contains(ArmFeatures::SVE2P1);
 

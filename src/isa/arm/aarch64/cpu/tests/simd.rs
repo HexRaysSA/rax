@@ -635,6 +635,7 @@ fn sve_fp_pairwise_rejects_reserved_encodings() {
     // values (001/010/011) must trap as UNDEFINED, not execute as FMINP.
     let setup = |insn: u32| {
         let mut cpu = create_cpu_with_insn(insn);
+        cpu.config.features |= ArmFeatures::SVE2;
         cpu.sysregs.el1.cpacr |= (0b11 << 20) | (0b11 << 16); // FPEN + ZEN
         cpu.set_sve_pred(0, 0xffff);
         cpu

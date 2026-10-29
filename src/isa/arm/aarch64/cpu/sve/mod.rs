@@ -39,5 +39,6 @@ mod reduce;
 pub(crate) use reduce::*;
 mod shift;
 pub(crate) use shift::*;
+mod sme_scalar;
 mod sve2;
 pub(crate) use sve2::*;

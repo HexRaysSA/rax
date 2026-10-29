@@ -1,0 +1,210 @@
+{
+  "time": "2026-10-29T23:22:26.452892+00:00",
+  "status": "qualified within the recorded software/host scope; all four full audit findings remain incomplete",
+  "primary": {
+    "issuer": "Arm Limited",
+    "title": "A-profile A64 Instruction Set Architecture XML",
+    "revision": "2025-12",
+    "url": "https://developer.arm.com/-/cdn-downloads/permalink/Exploration-Tools-A64-ISA/ISA_A64/ISA_A64_xml_A_profile-2025-12.tar.gz",
+    "package_provenance": "docs/specifications/arm/a64-sve-2025-12/provenance.json"
+  },
+  "source_sha256": {
+    "docs/specifications/arm/a64-sve-2025-12/primary-xml.tar.gz": "c556529ec751bd91e59038cf10faae1ff81c8fc5c4ae531df3c168a9e04ae81e",
+    "docs/specifications/arm/pauth/shared_pseudocode-2025-12.xml": "84c3572ef27cb9a7b12cba314d62d1b8afd71c770ee92d818cbdb4dc6ac37d6b",
+    "tools/execution/a64_sve_admission.py": "093ca8e350837759b35fa3cd87e657b24bf7b4eb8943372ffe5d3ee2b006e257",
+    "tools/execution/a64_sve_model.py": "d511bc2d8980c2bf28c78f478e1a8ba7bd6ab9968a280ce5c76a3b2da35cbf55",
+    "tools/execution/asl_decode_allocation.py": "8c4bbfc1aad6ce61aee7457e576b660ffd9f6de423bd816c6c7f98db1ec19ec5",
+    "tools/execution/a64_sve_profile_oracle.py": "3f5be466fc3b7077fa93cdfed692635f8e5d43aa6c7d7c544b3498b1186413e5",
+    "docs/specifications/arm/a64-sve-2025-12/feature-names-109697_2025_12_en.pdf": "223e5c00d5a498ae3b8cab2d7b6237605efb291122d1d78897a69f80cf7f9a00",
+    "tools/execution/a64_fpsimd_allocation_tests.py": "24494c25877c5ba95658cd8963813c86ebf540d05411a6c050513d0928e0763c",
+    "tools/execution/a64_sve_admission_tests.py": "99c098366e361a3c09c0da9f7118c600da9e9dcb06e49e4dc74c083fdd1a6101",
+    "src/isa/arm/aarch64/cpu/sve/admission.rs": "9da19aa7c298ce9d73c9509d6703129f8e2ce11aa3aa95605cd94ab514b4e268",
+    "src/isa/arm/aarch64/cpu/sve/core.rs": "9d606487a9f33cb278d1e3c6bbc4c402c2b3457763756976c9214017de998d1d",
+    "src/isa/arm/aarch64/cpu/native_admission.rs": "7fa5800dea3e7fb3f9d0cc6eb37313afe9092237b0693c9b62f771c451da430d",
+    "src/isa/arm/aarch64/cpu/fp_profile.rs": "71a9061155b29bc44d3bb79264d75fcc1040456348fd84d18e2861227fc217a3",
+    "src/isa/arm/aarch64/cpu/mod.rs": "5d2cff34b84f9c8d2292ed597b73e4321f3067b9608a114e59475f7d6005319c",
+    "src/isa/arm/aarch64/cpu/sve_admission_tests.rs": "ecf4b57d17e051960947380f98bc9d820c31c5d97288769de0a7a2ffec9ce296",
+    "tools/execution/a64_fpsimd_allocation.py": "1d4a2f0e85480f73c51925c34ab346707ad46cff9e75f2bad5472928537d2cab",
+    "src/isa/arm/common/features.rs": "da37dfc43a5ef216f421e1cd1dcd65f7dacb04353c90fc02471ab6f49dd5eeab",
+    "src/isa/arm/aarch64/cpu/fp_access.rs": "9a727f98d687196b8479e7b62bff2c07c921e61bfc91a8fbc8f51c571abd6ea7",
+    "src/isa/arm/aarch64/cpu/sve/profile_encodings.rs": "5df70a11ca7f6c63e1a31b9f87ecf98826f2a94b6527ffe48eef723d01b5b7f3",
+    "src/isa/arm/aarch64/cpu/sve/mod.rs": "88106acfa719d8b7377f2fd7616f01244e0e35d8ebdcf0459f31ffcff6c28f6f",
+    "src/isa/arm/aarch64/cpu/tests/misc.rs": "f5ed1833cfd67e7994940e3f17dc973b655cd9c53df9c96b2b3559e926c2f226",
+    "src/isa/arm/aarch64/cpu/tests/simd.rs": "6d146a0ed4def09ffad6560981c6999b592898d762cc970fecb51586381679b8",
+    "src/isa/arm/aarch64/cpu/tests/sve.rs": "f9a97fb69a206f970e1ed111199a244bc859c014f147c12bf2684cc54273c0dc",
+    "src/isa/arm/aarch64/cpu/sve/sme_scalar.rs": "fee6843f60390998f267aead4324367b88e51b0acbaff78378ee396cb68fbe24",
+    "src/vm/runtime/aarch64_sve_tests.rs": "570c8c4794898bee54727944d74a666a59c677888e20942a6695bdcc015aafc6",
+    "docs/development/a64-sve-profile/oracle-cases.json": "8b801c1f0d7519b57d5427db0c3cc53ec29f42d9e7782673f7451bfdcdd2fe65",
+    "docs/development/a64-sve-profile/encodings.json": "28e6761220013b56a70dc1372e7dbe5a2289bbb6198aad3147ee1bbdb5342597",
+    "docs/development/a64-sve-profile/admission-proof.json": "1efca75d07055b989a63f2a70697778f609150e7bf21a38dcbb828ec27717d6a",
+    "tests/generated/arm/a64/sve/other.rs": "dc5d215842c73690b55e5688e95094d6f3178300d7b69cf009d6911fb23abb33",
+    "tests/generated/manifest.toml": "1fba5ee6ea916cc97ada3e808aedc7a62e1829bae0ead37e1e31ee5bef94a02a",
+    "tools/testgen/a64_sve_dot_expectations.py": "f513363d87fd1385200fde4121ad8731d91e50afa720c882cf8ed350738b4586",
+    "docs/development/a64-sve-profile/legacy-dot-correction.json": "f8e9231a65bb4a54875358de4f35f700bb18ceaf4b906deef566dbf020917836"
+  },
+  "primary_class_accounting": {
+    "descriptions": 1328,
+    "derived": 1145,
+    "assignments": 148146,
+    "distinct_clauses": 3303,
+    "bucket_entries": 8095,
+    "maximum_bucket_entries": 207
+  },
+  "unselectable_classes": 183,
+  "evidence_root": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile",
+  "evidence": {
+    "runtime_parent": "scalar-parent-v1.json",
+    "generator": "modern-generator-check-v3.json",
+    "generator_regression_parent": "tools-modern-parent-v1.json",
+    "generator_regression_fixed": "tools-modern-green-v1.json",
+    "existing_fpsimd_byte_compatibility": "fpsimd-generator-compat-v2.json",
+    "tools": "tools-corrected-model-v1.json",
+    "access_oracle": "oracle-profile-v1/result.json",
+    "scalar_value_oracle": "oracle-scalar-values-v1/result.json",
+    "runtime": "conditional-green-v1.json",
+    "legacy_cpu": "legacy-profile-v2.json",
+    "backend": "backend-profile-v2.json",
+    "backend_zero_filter_correction": "backend-reachability-correction-v1.json",
+    "actual_two_four_cpu_files": "cluster-profile-v1.json",
+    "historical_llvm_sweep_classification": "sve2-sweep-primary-classification-v1.json",
+    "full_source_freeze": "source-broad-final-v2.json",
+    "conditional_native_parent": "conditional-parent-v1.json",
+    "conditional_predicate_oracle": "oracle-conditional-v1/result.json",
+    "change_surface_review": "change-surface-review-v1.json",
+    "workspace_build_diagnostics": "workspace-build-diagnostics-v1.json",
+    "legacy_dot_failures": "owning-final-v2.json",
+    "legacy_dot_oracle": "oracle-dot-v1/result.json",
+    "legacy_dot_correction": "dot-correction-check-v1.json",
+    "fixture_source_freeze": "source-fixture-correction-v1.json",
+    "owning_full_gate": "owning-final-v3.json",
+    "library_full_gate": "library-final-v2.json",
+    "capi_full_gate": "capi-final-v2.json",
+    "doc_full_gate": "doc-final-v2.json",
+    "fmt_full_gate": "fmt-final-v2.json",
+    "clippy_full_gate": "clippy-final-v2.json",
+    "build_full_gate": "build-final-v2.json",
+    "interpreter-check_full_gate": "interpreter-check-final-v2.json",
+    "portable-build_full_gate": "portable-build-final-v2.json",
+    "diff_full_gate": "diff-final-v2.json",
+    "final_qualification": "qualification-final-v1.json",
+    "commit_receipt": "commit-receipt-v1.json",
+    "cleanup_receipt": "group-cleanup-v1.json"
+  },
+  "pending": [
+    "Complete full feature dependency/ID/streaming/debug, backend/private/in-flight and remaining SMP requirements.",
+    "Obtain and perform physical Intel HVF validation; software and cross-build results do not provide that evidence."
+  ],
+  "boundaries": [
+    "QEMU evidence is independent software execution, not physical SVE/SME execution.",
+    "Optional-feature absence for individual flags is checked against primary predicates and RAX regressions; the QEMU max profile has those optional capabilities enabled.",
+    "Full streaming/ZA state, feature ID/system-register consistency, unrepresented extension semantics and security/debug controls remain open.",
+    "Static SVE disassembly and SVE/SME SMIR lifting remain partial/unsupported and unchanged; this group adds execution admission and scalar interpreter semantics, not new lifting or static-analysis coverage."
+  ],
+  "assumptions": [
+    {
+      "id": "SA1",
+      "assumption": "A decode-time intrinsic may reject even when its returned value is unused.",
+      "basis": "Pinned 2025-12 DecodeBitMasks Undefined conditions and four actual unsliced tuple assignments.",
+      "dependent_result": "Structural allocation derivation.",
+      "stress_test": "All 8192 immediate patterns in each of ORR/AND/EOR/DUPM and dead-result call mutations.",
+      "falsification_probe": "Any reserved pattern admitted or a valid logical immediate rejected.",
+      "status": "confirmed for the pinned input by exception-preserving slicing, 8192-pattern intrinsic tests, exact compression checks and primary decode derivation."
+    },
+    {
+      "id": "SA2",
+      "assumption": "The older 728-description corpus alone cannot qualify the newer implemented SVE2 surface.",
+      "basis": "Existing newer handlers, separate optional feature flags, and the 879-encoding sweep.",
+      "dependent_result": "Primary source selection and feature-qualified classification.",
+      "stress_test": "Match every sweep encoding to current primary descriptions, retain optional and streaming alternatives.",
+      "falsification_probe": "An implemented newer form loses admission or an absent feature still executes.",
+      "status": "confirmed: the modern source covers all 879 historical sweep words; 878 are admitted by represented features and the remaining FMMLA.D requires unrepresented FEAT_F64MM."
+    },
+    {
+      "id": "SA3",
+      "assumption": "Separate primary instruction predicates imply independent architectural features.",
+      "basis": "Separate IsFeatureImplemented names in the instruction XML.",
+      "dependent_result": "Proposed PMULL128 flag and initial independent-feature tests.",
+      "stress_test": "Cross-check the architecture feature dependency specification and ID register field semantics.",
+      "falsification_probe": "A primary dependency statement ties the supposedly independent features.",
+      "status": "falsified by Arm 109697_2025_12_en pages 119-120; remove the extra flag and bind both names to SVE2_AES."
+    },
+    {
+      "id": "SA4",
+      "assumption": "Scalar SME length execution represents a fixed implemented SVL of 128 bits, independently of normal SVE VL.",
+      "basis": "Existing vector storage is 128 bits; private-state validation rejects other represented SVE lengths. A fixed 128-bit SME maximum is an explicit implementation choice, not an inference that SVE and SME lengths must match.",
+      "dependent_result": "RDSVL, ADDSVL and ADDSPL scalar execution.",
+      "stress_test": "Signed six-bit immediate endpoints, SP/XZR, register overlap, wrapping and future length/profile writes.",
+      "falsification_probe": "Any accepted configuration or SMCR setting produces an effective implemented SME SVL other than 128 bits, or any of the 24 independent QEMU value cases differs.",
+      "status": "confirmed for the explicit fixed-128-bit implementation by 24 independent QEMU value replays and actual two/four-CPU file continuation; full variable-length/ID/system-register profiles remain open."
+    },
+    {
+      "id": "SA5",
+      "assumption": "A native region must retain the selected access-path capability in addition to its instruction allocation clause.",
+      "basis": "The primary conditional-predicate operation selects normal SVE access only with SVE2p1. Both the production bounded entry and the native test helper enforce region.fp_features independently of cache selection.",
+      "dependent_result": "Conditional-predicate native entry admission after selected-profile changes.",
+      "stress_test": "Allocate using the SME2 alternative with SVE2p1 present, establish a real integer-native positive control carrying those original requirements, then remove SVE2p1 and try the existing region.",
+      "falsification_probe": "The existing region executes, mutates guest state, or its requirements omit SVE2p1 after normal access was selected.",
+      "status": "confirmed within the tested native-entry profile: the frozen pre-fix source passed 16 tests and failed this guard; the corrected suite passed all 17. The fixture does not execute native SVE instructions."
+    },
+    {
+      "id": "SA6",
+      "assumption": "The historical base-SVE fixture profile cannot allocate every SDOT/UDOT destination-size pattern.",
+      "basis": "Pinned SDOT/UDOT base diagrams require 32/64-bit destinations. A separate 16-bit class requires SVE2p3 or SME2p3, neither selected by the historical helper. The 8-bit pattern has no matching canonical diagram.",
+      "dependent_result": "Correction of 68 generated allocation assertions without changing interpreter admission.",
+      "stress_test": "All 22 distinct rejected words under ZEN=0 and ZEN=3, four legal words under both controls, and 12 byte-identical positive test bodies.",
+      "falsification_probe": "A selected-profile primary class allocates a rejected word, QEMU executes it or reports an access trap, or a legal control is modified/rejected.",
+      "status": "confirmed by 52 independent QEMU observations and primary feature/diagram checks; the first full ARM run retained 68 failures. All corrected owning integration binaries passed."
+    }
+  ],
+  "superseded_model_evidence": "feature-model-counterexample-v1.json",
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "The initial independent PMULL feature assumption was falsified by the matching primary dependency specification; corrected using the existing shared AES bit.",
+      "blocks_current_group": false,
+      "evidence": "feature-model-counterexample-v1.json"
+    },
+    {
+      "impact": "high",
+      "finding": "Variable streaming/ZA state, complete profile/ID consistency and physical Intel HVF validation remain unverified.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "The static table has a maximum bucket of 207 entries; runtime performance is unmeasured.",
+      "blocks_current_group": false
+    }
+  ],
+  "validation_summary": {
+    "library": {
+      "passed": 11351,
+      "failed": 0,
+      "ignored": 2,
+      "binaries": 1
+    },
+    "owning": {
+      "passed": 47875,
+      "failed": 0,
+      "ignored": 0,
+      "binaries": 27
+    },
+    "capi": {
+      "passed": 223,
+      "failed": 0,
+      "ignored": 0,
+      "binaries": 1
+    },
+    "doc": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 5,
+      "binaries": 1
+    }
+  },
+  "qemu_cases": {
+    "oracle-profile-v1": 51,
+    "oracle-scalar-values-v1": 24,
+    "oracle-conditional-v1": 4,
+    "oracle-dot-v1": 52
+  }
+}

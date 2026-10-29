@@ -58,11 +58,12 @@ pub(super) fn fhm_encoding(insn: u32) -> Option<bool> {
     indexed.then_some(insn & (1 << 31) == 0)
 }
 
-/// Feature dependencies of an original instruction, before IR optimization.
-/// None denotes a reserved encoding that must never be promoted.
+/// FP/SIMD feature dependencies before IR optimization. SVE alternatives need
+/// the selected profile and are handled by sve_instruction_selection instead.
+/// None denotes an encoding that this path must never promote.
 pub(super) fn instruction_features(insn: u32) -> Option<ArmFeatures> {
     if (insn >> 25) & 15 == 2 {
-        return Some(ArmFeatures::SVE);
+        return None;
     }
     if !allocation::allocated(insn) || admission::reserved(insn) {
         return None;
@@ -109,12 +110,23 @@ impl AArch64Cpu {
     }
 
     pub(super) fn check_fp_instruction(&self, insn: u32) -> Result<(), ArmError> {
+        if (insn >> 25) & 15 == 2 {
+            // Preserve the direct CPU's Undefined exit for reserved SVE
+            // words. Feature absence still rejects before any access check.
+            if self
+                .config
+                .features
+                .intersects(ArmFeatures::SVE | ArmFeatures::SME)
+                && super::sve::admission::reserved(insn)
+            {
+                return Ok(());
+            }
+            return self.sve_instruction_selection(insn).map(|_| ());
+        }
         match instruction_features(insn) {
             Some(features)
                 if self.fp_instruction_version_supported(insn)
-                    && (self.config.features.contains(features)
-                        || features == ArmFeatures::SVE
-                            && self.config.features.contains(ArmFeatures::SME)) =>
+                    && self.config.features.contains(features) =>
             {
                 Ok(())
             }
@@ -128,8 +140,7 @@ impl AArch64Cpu {
 
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     pub(super) fn fp_profile_key(&self) -> u64 {
-        (self.selected_fp_features()
-            | (self.config.features & (ArmFeatures::SVE | ArmFeatures::SME)))
+        (self.selected_fp_features() | (self.config.features & super::sve::admission::FEATURES))
             .bits()
     }
 

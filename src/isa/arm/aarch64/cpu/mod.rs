@@ -54,6 +54,9 @@ mod native_execution;
 mod psci_entry;
 #[cfg(test)]
 mod sve_profile_tests;
+
+#[cfg(test)]
+mod sve_admission_tests;
 pub use exec::*;
 mod math;
 pub use math::*;

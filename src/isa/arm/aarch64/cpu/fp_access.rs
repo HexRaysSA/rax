@@ -39,6 +39,10 @@ impl AArch64Cpu {
         if self.config.features.contains(ArmFeatures::SVE) {
             return self.check_fp_access(FpAccessClass::Sve);
         }
+        self.check_streaming_sve_access(instruction)
+    }
+
+    pub(super) fn check_streaming_sve_access(&self, instruction: u32) -> Result<(), ArmError> {
         if !self.config.features.contains(ArmFeatures::SME) {
             return Err(ArmError::UndefinedInstruction(instruction));
         }

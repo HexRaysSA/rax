@@ -13,6 +13,9 @@ helper_sha256 = "184b483314f199b6794a1232d93fea61fdb4a58735046ddf2d2e62ecf08ccaf
 conversion_correction = "tools/testgen/a64_conversion_expectations.py"
 conversion_correction_input = "docs/development/a64-half-admission/legacy-conversion-correction.json"
 conversion_correction_sha256 = "a2e15b1ee3d2da7cd8f59f23d5fb49b4543a60a9bbe8de4e59c50a848d5668c8"
+sve_dot_correction = "tools/testgen/a64_sve_dot_expectations.py"
+sve_dot_correction_input = "docs/development/a64-sve-profile/legacy-dot-correction.json"
+sve_dot_correction_sha256 = "dc5d215842c73690b55e5688e95094d6f3178300d7b69cf009d6911fb23abb33"
 
 [corpora.arm_aarch32_oracle_cases]
 output = "tests/generated/arm/oracle_cases/aarch32_sweep.rs"

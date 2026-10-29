@@ -94,13 +94,13 @@ def parse(records, parser, saved_ast):
     return encodings
 
 
-def compress(mask, values):
+def compress(mask, values, *, bits=32):
     current = {(mask, value) for value in values}
     primes = set()
     while current:
         merged, used = set(), set()
         for mask, value in current:
-            for bit in range(32):
+            for bit in range(bits):
                 flag = 1 << bit
                 if mask & flag and (mask, value ^ flag) in current:
                     used.add((mask, value))

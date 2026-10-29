@@ -31559,9 +31559,9 @@ fn test_sdot_z_zzz_field_size_0_min_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31581,9 +31581,9 @@ fn test_sdot_z_zzz_field_size_1_poweroftwo_0_44400000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31647,9 +31647,9 @@ fn test_sdot_z_zzz_field_zm_0_min_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31669,9 +31669,9 @@ fn test_sdot_z_zzz_field_zm_1_poweroftwo_0_44010000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31691,9 +31691,9 @@ fn test_sdot_z_zzz_field_zm_30_poweroftwominusone_0_441e0000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31713,9 +31713,9 @@ fn test_sdot_z_zzz_field_zm_31_max_0_441f0000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31735,9 +31735,9 @@ fn test_sdot_z_zzz_field_zn_0_min_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31757,9 +31757,9 @@ fn test_sdot_z_zzz_field_zn_1_poweroftwo_0_44000020() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31779,9 +31779,9 @@ fn test_sdot_z_zzz_field_zn_30_poweroftwominusone_0_440003c0() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31801,9 +31801,9 @@ fn test_sdot_z_zzz_field_zn_31_max_0_440003e0() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31823,9 +31823,9 @@ fn test_sdot_z_zzz_field_zda_0_min_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31845,9 +31845,9 @@ fn test_sdot_z_zzz_field_zda_1_poweroftwo_0_44000001() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31867,9 +31867,9 @@ fn test_sdot_z_zzz_field_zda_15_poweroftwominusone_0_4400000f() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31889,9 +31889,9 @@ fn test_sdot_z_zzz_field_zda_31_max_0_4400001f() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31911,9 +31911,9 @@ fn test_sdot_z_zzz_combo_0_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31933,9 +31933,9 @@ fn test_sdot_z_zzz_combo_1_0_44400000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -31999,9 +31999,9 @@ fn test_sdot_z_zzz_combo_4_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32021,9 +32021,9 @@ fn test_sdot_z_zzz_combo_5_0_44010000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32043,9 +32043,9 @@ fn test_sdot_z_zzz_combo_6_0_441e0000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32065,9 +32065,9 @@ fn test_sdot_z_zzz_combo_7_0_441f0000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32087,9 +32087,9 @@ fn test_sdot_z_zzz_combo_8_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32109,9 +32109,9 @@ fn test_sdot_z_zzz_combo_9_0_44000020() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32131,9 +32131,9 @@ fn test_sdot_z_zzz_combo_10_0_440003c0() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32153,9 +32153,9 @@ fn test_sdot_z_zzz_combo_11_0_440003e0() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32175,9 +32175,9 @@ fn test_sdot_z_zzz_combo_12_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32197,9 +32197,9 @@ fn test_sdot_z_zzz_combo_13_0_44000001() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32219,9 +32219,9 @@ fn test_sdot_z_zzz_combo_14_0_4400000f() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32241,9 +32241,9 @@ fn test_sdot_z_zzz_combo_15_0_4400001f() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32263,9 +32263,9 @@ fn test_sdot_z_zzz_special_size_0_size_variant_0_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32285,9 +32285,9 @@ fn test_sdot_z_zzz_special_size_1_size_variant_1_0_44400000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32351,9 +32351,9 @@ fn test_sdot_z_zzz_invalid_0_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32373,9 +32373,9 @@ fn test_sdot_z_zzz_invalid_1_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32395,9 +32395,9 @@ fn test_sdot_z_zzz_invalid_2_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -32417,9 +32417,9 @@ fn test_sdot_z_zzz_invalid_3_0_44000000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46085,9 +46085,9 @@ fn test_udot_z_zzz_field_size_0_min_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46107,9 +46107,9 @@ fn test_udot_z_zzz_field_size_1_poweroftwo_400_44400400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46173,9 +46173,9 @@ fn test_udot_z_zzz_field_zm_0_min_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46195,9 +46195,9 @@ fn test_udot_z_zzz_field_zm_1_poweroftwo_400_44010400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46217,9 +46217,9 @@ fn test_udot_z_zzz_field_zm_30_poweroftwominusone_400_441e0400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46239,9 +46239,9 @@ fn test_udot_z_zzz_field_zm_31_max_400_441f0400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46261,9 +46261,9 @@ fn test_udot_z_zzz_field_zn_0_min_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46283,9 +46283,9 @@ fn test_udot_z_zzz_field_zn_1_poweroftwo_400_44000420() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46305,9 +46305,9 @@ fn test_udot_z_zzz_field_zn_30_poweroftwominusone_400_440007c0() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46327,9 +46327,9 @@ fn test_udot_z_zzz_field_zn_31_max_400_440007e0() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46349,9 +46349,9 @@ fn test_udot_z_zzz_field_zda_0_min_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46371,9 +46371,9 @@ fn test_udot_z_zzz_field_zda_1_poweroftwo_400_44000401() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46393,9 +46393,9 @@ fn test_udot_z_zzz_field_zda_15_poweroftwominusone_400_4400040f() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46415,9 +46415,9 @@ fn test_udot_z_zzz_field_zda_31_max_400_4400041f() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46437,9 +46437,9 @@ fn test_udot_z_zzz_combo_0_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46459,9 +46459,9 @@ fn test_udot_z_zzz_combo_1_400_44400400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46525,9 +46525,9 @@ fn test_udot_z_zzz_combo_4_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46547,9 +46547,9 @@ fn test_udot_z_zzz_combo_5_400_44010400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46569,9 +46569,9 @@ fn test_udot_z_zzz_combo_6_400_441e0400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46591,9 +46591,9 @@ fn test_udot_z_zzz_combo_7_400_441f0400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46613,9 +46613,9 @@ fn test_udot_z_zzz_combo_8_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46635,9 +46635,9 @@ fn test_udot_z_zzz_combo_9_400_44000420() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46657,9 +46657,9 @@ fn test_udot_z_zzz_combo_10_400_440007c0() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46679,9 +46679,9 @@ fn test_udot_z_zzz_combo_11_400_440007e0() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46701,9 +46701,9 @@ fn test_udot_z_zzz_combo_12_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46723,9 +46723,9 @@ fn test_udot_z_zzz_combo_13_400_44000401() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46745,9 +46745,9 @@ fn test_udot_z_zzz_combo_14_400_4400040f() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46767,9 +46767,9 @@ fn test_udot_z_zzz_combo_15_400_4400041f() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46789,9 +46789,9 @@ fn test_udot_z_zzz_special_size_0_size_variant_0_1024_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46811,9 +46811,9 @@ fn test_udot_z_zzz_special_size_1_size_variant_1_1024_44400400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46877,9 +46877,9 @@ fn test_udot_z_zzz_invalid_0_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46899,9 +46899,9 @@ fn test_udot_z_zzz_invalid_1_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46921,9 +46921,9 @@ fn test_udot_z_zzz_invalid_2_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -46943,9 +46943,9 @@ fn test_udot_z_zzz_invalid_3_400_44000400() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for selected base-SVE profile for 0x{:08X}: {:?}",
         encoding,
         exit
     );

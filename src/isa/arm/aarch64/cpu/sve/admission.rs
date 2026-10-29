@@ -1,75 +1,116 @@
-//! Existing represented SVE reserved fields, checked before access traps.
-use crate::isa::arm::aarch64::cpu::decode_bitmask;
+//! Primary-derived SVE encoding, capability, and normal-execution admission.
+use crate::isa::arm::aarch64::cpu::AArch64Cpu;
+use crate::isa::arm::common::cpu::{ArmError, CpuExit};
+use crate::isa::arm::common::features::ArmFeatures;
+use crate::isa::arm::common::fp_access::FpAccessClass;
 
-pub(in crate::isa::arm::aarch64::cpu) fn reserved(insn: u32) -> bool {
-    let top = (insn >> 24) & 0xff;
-    // SVE2 PMUL is byte-only.
-    if top == 0x04
-        && (insn >> 21) & 1 == 1
-        && (insn >> 12) & 15 == 6
-        && (insn >> 10) & 3 == 1
-        && (insn >> 22) & 3 != 0
-    {
-        return true;
+include!("profile_encodings.rs");
+
+pub(in crate::isa::arm::aarch64::cpu) const FEATURES: ArmFeatures =
+    ArmFeatures::from_bits_retain(PROFILE_FEATURES);
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(in crate::isa::arm::aarch64::cpu) enum Access {
+    Sve,
+    Sme,
+    Streaming,
+}
+
+pub(in crate::isa::arm::aarch64::cpu) struct Selection {
+    pub features: ArmFeatures,
+    pub access: Access,
+}
+
+fn encodings(instruction: u32) -> &'static [(u32, u32, u64, u8)] {
+    if (instruction >> 25) & 15 != 2 {
+        return &[];
     }
-    // Predicated wide shifts use a separate encoding class from the
-    // unpredicated forms below; both exclude doubleword destination elements.
-    if top == 0x04
-        && (insn >> 13) & 7 == 4
-        && (insn >> 19) & 7 == 3
-        && matches!((insn >> 16) & 7, 0 | 1 | 3)
-        && (insn >> 22) & 3 == 3
-    {
-        return true;
-    }
-    // Wide-element shifts have no doubleword element-size encoding.
-    if top == 0x04
-        && (insn >> 21) & 1 == 1
-        && (insn >> 13) & 7 == 4
-        && (insn >> 12) & 1 == 0
-        && (insn >> 22) & 3 == 3
-    {
-        return true;
-    }
-    // Predicate ZIP/UZP/TRN and REV encode four-bit predicate registers.
-    // Register-extension bits and the two unused permutation opcodes are
-    // unallocated before scalable-access permission checks.
-    if top == 0x05 {
-        let permute = (insn >> 20) & 3 == 2 && (insn >> 13) & 7 == 2;
-        let reverse = (insn >> 16) & 63 == 0b110100 && (insn >> 10) & 63 == 0b010000;
-        if (permute || reverse) && insn & ((1 << 9) | (1 << 4)) != 0
-            || permute && (insn >> 10) & 7 > 5
+    let bucket = (((instruction >> 29) << 5)
+        | (((instruction >> 24) & 1) << 4)
+        | ((instruction >> 12) & 15)) as usize;
+    let begin = usize::from(PROFILE_OFFSETS[bucket]);
+    let end = usize::from(PROFILE_OFFSETS[bucket + 1]);
+    &PROFILE_ENCODINGS[begin..end]
+}
+
+/// No represented extension combination allocates this instruction word.
+pub(in crate::isa::arm::aarch64::cpu) fn reserved(instruction: u32) -> bool {
+    !encodings(instruction)
+        .iter()
+        .any(|&(mask, value, _, _)| instruction & mask == value)
+}
+
+/// Retain a satisfied allocation clause and its selected access-path guards.
+/// Native optimization must not erase either kind of dependency.
+pub(in crate::isa::arm::aarch64::cpu) fn selected(
+    instruction: u32,
+    features: ArmFeatures,
+) -> Option<Selection> {
+    encodings(instruction)
+        .iter()
+        .find_map(|&(mask, value, required, policy)| {
+            let mut required = ArmFeatures::from_bits_retain(required);
+            if instruction & mask != value || !features.contains(required) {
+                return None;
+            }
+            let access = match policy {
+                1 => Access::Sve,
+                2 => Access::Sme,
+                3 if features.contains(ArmFeatures::SVE2P1) => {
+                    // The SME2 allocation alternative does not imply that
+                    // normal SVE access remains valid after SVE2p1 is removed.
+                    required |= ArmFeatures::SVE2P1;
+                    Access::Sve
+                }
+                3 => Access::Streaming,
+                _ => return None,
+            };
+            Some(Selection {
+                features: required,
+                access,
+            })
+        })
+}
+
+impl AArch64Cpu {
+    pub(in crate::isa::arm::aarch64::cpu) fn sve_instruction_selection(
+        &self,
+        instruction: u32,
+    ) -> Result<Selection, ArmError> {
+        if !self
+            .config
+            .features
+            .intersects(ArmFeatures::SVE | ArmFeatures::SME)
         {
-            return true;
+            return Err(ArmError::UndefinedInstruction(instruction));
         }
+        selected(instruction, self.config.features)
+            .ok_or(ArmError::UndefinedInstruction(instruction))
     }
-    // Predicate SEL has no flag-setting variant (SELS is unallocated).
-    if top == 0x25
-        && (insn >> 20) & 3 == 0
-        && (insn >> 14) & 3 == 1
-        && (insn >> 23) & 1 == 0
-        && (insn >> 22) & 1 == 1
-        && insn & ((1 << 9) | (1 << 4)) == (1 << 9) | (1 << 4)
-    {
-        return true;
+
+    pub(crate) fn exec_sve(&mut self, instruction: u32) -> Result<CpuExit, ArmError> {
+        if !self
+            .config
+            .features
+            .intersects(ArmFeatures::SVE | ArmFeatures::SME)
+        {
+            return Err(ArmError::UndefinedInstruction(instruction));
+        }
+        if reserved(instruction) {
+            return Ok(CpuExit::Undefined(instruction));
+        }
+        let selection = self.sve_instruction_selection(instruction)?;
+        match selection.access {
+            Access::Sve => self.check_sve_access(instruction)?,
+            Access::Sme => {
+                if !self.config.features.contains(ArmFeatures::SME) {
+                    return Err(ArmError::UndefinedInstruction(instruction));
+                }
+                self.check_fp_access(FpAccessClass::Sme)?;
+                return self.exec_sme_scalar_length(instruction);
+            }
+            Access::Streaming => self.check_streaming_sve_access(instruction)?,
+        }
+        self.exec_sve_inner(instruction)
     }
-    // Shifted immediate arithmetic has no sh=1 byte-element encoding.
-    if top == 0x25
-        && (insn >> 19) & 7 == 4
-        && (insn >> 14) & 3 == 3
-        && (insn >> 13) & 1 == 1
-        && (insn >> 22) & 3 == 0
-    {
-        return true;
-    }
-    if top == 0x05 && (insn >> 18) & 15 == 0 {
-        return decode_bitmask(
-            (insn >> 17) & 1 != 0,
-            (insn >> 5) & 63,
-            (insn >> 11) & 63,
-            true,
-        )
-        .is_err();
-    }
-    false
 }

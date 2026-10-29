@@ -52,14 +52,18 @@ impl AArch64Cpu {
                 // This native register image has no streaming-mode state.
                 // SME-only SVE words must reach the interpreter's access and
                 // NotStreaming checks before any effects.
-                if (word >> 25) & 15 == 2
-                    && (super::sve::admission::reserved(word)
-                        || !self.config.features.contains(ArmFeatures::SVE))
-                {
-                    return None;
+                if (word >> 25) & 15 == 2 {
+                    let selection = self.sve_instruction_selection(word).ok()?;
+                    if !self.config.features.contains(ArmFeatures::SVE)
+                        || selection.access != super::sve::admission::Access::Sve
+                    {
+                        return None;
+                    }
+                    features |= selection.features | ArmFeatures::SVE;
+                } else {
+                    features |= super::fp_profile::instruction_features(word)?;
                 }
                 requirements.observe(word);
-                features |= super::fp_profile::instruction_features(word)?;
             }
         }
         // Preserve the existing policy for helper-generated FP operations that

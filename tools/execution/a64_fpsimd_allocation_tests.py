@@ -18,7 +18,108 @@ def encoding(statements, width=2):
                 opcode=['Zero'] * (32 - width) + ['Either'] * width, decode=statements)
 
 
+def bitmask_encoding(result_width=64, immediate=True):
+    field = variable('field')
+    index = lambda bit: {'Index': {'base': field, 'indices': [
+        {'Single': {'LitInt': bit}}]}}
+    part = lambda high, low: {'Slice': {'base': field, 'slices': [
+        {'Range': {'hi': {'LitInt': high}, 'lo': {'LitInt': low}}}]}}
+    return encoding([
+        {'VarsDecl': {'ty': {'Fun': {'name': 'bits', 'arg': {'LitInt': result_width}}},
+                      'names': ['mask']}},
+        {'Assign': {'target': {'Tuple': [variable('mask'), 'Ignore']},
+                    'value': {'Call': {'name': {'qualifier': 'Any', 'name': 'DecodeBitMasks'},
+                                      'args': [index(12), part(5, 0), part(11, 6),
+                                               variable('TRUE' if immediate else 'FALSE')]}}}},
+    ], width=13)
+
+
 class StructuralDerivation(unittest.TestCase):
+    def test_constant_features_do_not_become_instruction_bit_fields(self):
+        row = encoding([{'If': {'branches': [[
+            binary('And', variable('future_feature'), variable('current_feature')),
+            ['Undefined']]], 'else_body': None}}])
+        derived = enumerate_encoding(row, constants={'future_feature': False},
+                                     parameters={'current_feature': (32, 1)})
+        self.assertEqual(derived['positions'], [32])
+        self.assertEqual(derived['accepted'], [0, 1 << 32])
+
+    def test_mask_membership_keeps_every_reserved_size(self):
+        membership = {'InSet': {'expr': variable('field'), 'elements': [
+            {'Single': {'LitMask': ['Zero', 'Either']}}]}}
+        row = encoding([{'If': {'branches': [[membership, ['Undefined']]],
+                                'else_body': None}}])
+        derived = enumerate_encoding(row)
+        self.assertEqual(derived['accepted'], [2, 3])
+
+    def test_unknown_set_element_does_not_silently_drop_a_constraint(self):
+        membership = {'InSet': {'expr': variable('field'), 'elements': [
+            {'Range': {'lo': {'LitInt': 0}, 'hi': {'LitInt': 1}}}]}}
+        row = encoding([{'If': {'branches': [[membership, ['Undefined']]],
+                                'else_body': None}}])
+        with self.assertRaisesRegex(ValueError, 'unqualified set element'):
+            enumerate_encoding(row)
+
+    def test_feature_bits_above_bit_31_survive_cube_compression(self):
+        required = (1 << 45) | (1 << 32)
+        cubes = compress(required | 3, [required | n for n in range(3)], bits=64)
+        for features in (0, 1 << 32, 1 << 45, required):
+            for field in range(4):
+                word = features | field
+                self.assertEqual(any(word & mask == value for mask, value in cubes),
+                                 features == required and field != 3)
+
+    def test_boolean_parameter_layout_rejects_overlap_and_non_boolean_width(self):
+        for parameters in ({'a': (31, 1)}, {'a': (32, 2)},
+                           {'a': (32, 1), 'b': (32, 1)}):
+            with self.assertRaisesRegex(ValueError, 'Boolean parameter layout'):
+                enumerate_encoding(encoding([]), parameters=parameters)
+
+    def test_unused_bitmask_tuple_retains_intrinsic_decode_rejection(self):
+        row = bitmask_encoding()
+        derived = enumerate_encoding(row)
+        # Arm's 13-bit logical-immediate field has 7,680 allocated patterns.
+        # LLVM/QEMU anchors: N=0, imms=48 is legal; imms=63 is reserved
+        # for either N value, and imms=62 with N=0 has no legal element size.
+        self.assertEqual(derived['assignments'], 8192)
+        self.assertEqual(len(derived['accepted']), 7680)
+        accepted = set(derived['accepted'])
+        for rotation in range(64):
+            self.assertIn(48 | (rotation << 6), accepted)
+            self.assertNotIn(63 | (rotation << 6), accepted)
+            self.assertNotIn(62 | (rotation << 6), accepted)
+            self.assertNotIn(4096 | 63 | (rotation << 6), accepted)
+
+    def test_bitfield_masks_do_not_apply_the_logical_all_ones_restriction(self):
+        derived = enumerate_encoding(bitmask_encoding(immediate=False))
+        self.assertEqual(len(derived['accepted']), 8064)
+        self.assertIn(4096 | 63, derived['accepted'])
+
+    def test_bitmask_width_cannot_be_guessed_from_the_function_name(self):
+        with self.assertRaisesRegex(ValueError, 'unqualified DecodeBitMasks width'):
+            enumerate_encoding(bitmask_encoding(result_width=32))
+
+    def test_tuple_value_can_reach_an_additional_rejection(self):
+        row = bitmask_encoding()
+        one_per_byte = {'LitBits': [bit == '1' for bit in f'{0x0101010101010101:064b}']}
+        row['decode'].append({'If': {'branches': [
+            [binary('Eq', variable('mask'), one_per_byte), ['Undefined']]], 'else_body': None}})
+        # The byte mask #1 has eight encodings because immr's high three bits
+        # do not alter an eight-bit element rotation.
+        self.assertEqual(len(enumerate_encoding(row)['accepted']), 7680 - 8)
+
+    def test_aarch32_cannot_inherit_the_qualified_a64_call_contracts(self):
+        row = encoding([]) | {'iset': 'A32'}
+        with self.assertRaisesRegex(ValueError, 'non-A64 decode context'):
+            enumerate_encoding(row)
+
+    def test_unused_unknown_call_has_no_implicit_nonthrowing_contract(self):
+        value = {'Call': {'name': {'qualifier': 'Any', 'name': 'MayDecodeUndefined'},
+                          'args': [variable('field')]}}
+        row = encoding([{'VarDeclInit': dict(name='unused', ty={}, value=value)}])
+        with self.assertRaisesRegex(ValueError, 'unqualified.*effect'):
+            enumerate_encoding(row)
+
     def test_reaching_assignments_and_mask_case_preserve_rejection(self):
         row = encoding([
             {'VarsDecl': {'ty': {}, 'names': ['size']}},
