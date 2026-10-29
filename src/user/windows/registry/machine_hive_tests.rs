@@ -28,6 +28,7 @@ fn tree(data: u8) -> KeyTree {
 }
 fn header(children: u32) -> MachineHeader {
     MachineHeader {
+        enumeration: None,
         canonical: units("\\REGISTRY\\MACHINE"),
         children,
         values: vec![Value {

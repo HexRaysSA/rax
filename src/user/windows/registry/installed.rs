@@ -5,6 +5,8 @@
 mod appmodel;
 #[path = "installed/command_processor.rs"]
 mod command_processor;
+#[path = "installed/key_enumeration.rs"]
+mod key_enumeration;
 #[path = "installed/machine_hive.rs"]
 mod machine_hive;
 #[path = "installed/native_key.rs"]

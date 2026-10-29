@@ -36,16 +36,14 @@ fn capture_with(
         Err(status) => status,
     };
     let budget = registry.value_budget()?;
-    let (children, values) = capture_stable_values(
-        &key,
-        MAX_VALUES - budget.count,
-        super::super::MAX_TOTAL_BYTES - budget.bytes,
-    )?;
+    let (values, enumeration) = super::key_enumeration::stable(&key, &budget, 0)?;
+    let children = enumeration.len() as u32;
     let canonical = canonical_hive_name(&key, "MACHINE")?;
     if basic(&key)? != maximum_access {
         return Err(invalid("MACHINE key grant changed during capture"));
     }
     registry.with_machine_hive(MachineHeader {
+        enumeration: Some(enumeration),
         canonical,
         children,
         values,

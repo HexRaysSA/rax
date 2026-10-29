@@ -28,6 +28,7 @@ fn tree_node(report: &Json, id: usize) -> CommandTree {
     assert_eq!(children.len(), raw["children"].as_array().unwrap().len());
     CommandTree {
         header: CommandHeader {
+            enumeration: None,
             canonical: units(state["name_hex"].as_str().unwrap()),
             children: children.len() as u32,
             values: raw["values"]

@@ -3496,3 +3496,51 @@ physical-view classification and the retained AMD64 corpus now cover that
 failure on every host. Raw native report hashes and the creator-name projection
 remain recorded. This fixture correction does not change product registry
 case-folding policy.
+
+### Ordered child metadata and class-0 key enumeration (2026-10-29)
+
+Fixed MACHINE acquisition retains immediate child names and FILETIMEs in native
+index order. Complete Command Processor acquisition retains the same ordered
+metadata at every captured node in both machine/creator-SID views. Lookup maps
+remain ordinal-folded maps; their sort order does not select enumeration index.
+Ordered records are immutable and owned by key objects, surviving duplicated
+handles and replacement of the selection namespace. No guest request forwards
+an HKEY or a path to the host registry.
+
+Each supplied enumeration must match its captured child count and component
+bounds, with no ordinal duplicates. Complete CMD child maps must agree with
+those names. The shared budget traversal counts aliases once and bounds ordered
+metadata separately to 2,048 child records and 1 MiB of name/FILETIME payload.
+Unknown metadata remains distinct from an empty list. Native capture compares
+ordered names/times and values twice plus parent metadata before/after; this
+establishes bounded per-key acquisition, not an atomic whole-registry snapshot.
+
+`NtEnumerateKey` adds a six-slot tail export without moving preceding synthetic
+exports or syscall slots. Class 0 implements required sizing, complete and
+partial UTF-16 names, FILETIME, rights checks, end of enumeration and native
+probe ordering. Native partial odd capacities zero the remaining half-WCHAR
+byte. WoW64 realignment preserves caller buffer tails and the measured copy-back
+ordering after native failures. The scalar capacity is bounded before allocating
+conversion storage; uncaptured copy profiles remain explicit unsupported.
+Valid class-1/class-2 payloads and unselected metadata remain explicit
+boundaries. A known zero child count can end enumeration without inventing
+names or timestamps.
+
+The producers and retained corpus under
+`docs/specifications/windows/native-key-enumeration/` cover 14,616 basic cases
+and 17,028 fault/rights cases across ARM64/x64/x86 on kernel 29695 ARM64.
+The final basic producer checks a 16-byte-aligned buffer and records physical
+pointer alignment; an earlier x86 stack experiment lacked that observation.
+Portable replay executes 14,580 class-0/invalid-selector cases and all 17,028
+fault/rights cases. The remaining 36 native valid-selector records do not
+qualify the unsupported node/full payloads. Lossless byte-monitor projection,
+raw report hashes, source hashes and image hashes retain provenance.
+
+An independent installed test brackets acquisition with native NT enumeration
+for MACHINE and both Command Processor views, comparing order, case and times.
+The Windows CI lane also builds both producers, captures fresh data on its
+actual kernel architecture, replays it and archives the evidence. Retained
+Windows-on-ARM observations alone do not establish AMD64-kernel behavior.
+Actual installed CMD, complete library binaries on every host platform and
+fresh native acquisition remain required qualification gates. This service
+group does not establish complete CMD or general process execution.

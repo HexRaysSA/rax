@@ -47,6 +47,7 @@ fn selected(p: &mut Proc, report: &Json) {
         .registry
         .clone()
         .with_machine_hive(MachineHeader {
+            enumeration: None,
             canonical: units(root["name_hex"].as_str().unwrap()),
             children: number(root, "children"),
             values: vec![Value {

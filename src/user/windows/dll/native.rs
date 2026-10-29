@@ -510,6 +510,14 @@ pub(super) static KEY_OPEN_EX_EXPORTS: &[Export] = &[Export::func(
     registry::open_ex,
 )];
 
+// Append rather than changing prior synthetic ordinals or syscall slots.
+pub(super) static KEY_ENUMERATION_EXPORTS: &[Export] = &[Export::func(
+    "NtEnumerateKey",
+    Stdcall,
+    &[Ptr, I32, I32, Ptr, I32, Ptr],
+    registry::enumerate_key,
+)];
+
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)
 }

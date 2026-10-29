@@ -51,6 +51,9 @@ pub(crate) use fixed::SEGMENT_HEAP_KEY;
 mod machine_hive;
 use machine_hive::MachineKey;
 pub(crate) use machine_hive::{MACHINE_HIVE_KEY, MachineHeader};
+#[path = "registry/key_enumeration.rs"]
+mod key_enumeration;
+pub(crate) use key_enumeration::BasicChild;
 #[path = "registry/access.rs"]
 mod access;
 pub(crate) use access::KeyAccess;
@@ -72,6 +75,7 @@ pub(crate) struct SelectedKey {
 /// No native handle or host-operation callback is stored in this object.
 #[derive(Debug)]
 pub struct Key {
+    enumeration: Option<Arc<[BasicChild]>>,
     pub(crate) path: Vec<u16>,
     pub(crate) redirected_view: Option<RegistryView>,
     pub(crate) children: u32,
@@ -139,6 +143,7 @@ impl Registry {
                 return Err(invalid("registry key outside fixed runtime selection"));
             }
             let key = Key {
+                enumeration: None,
                 path: selected.path.encode_utf16().collect(),
                 redirected_view: None,
                 children: selected.children,
@@ -230,6 +235,8 @@ impl Registry {
 
 #[derive(Default)]
 struct ValueBudget {
+    enumeration_count: usize,
+    enumeration_bytes: usize,
     count: usize,
     bytes: usize,
 }

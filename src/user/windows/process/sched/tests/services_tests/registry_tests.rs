@@ -103,6 +103,9 @@ mod installed;
 #[path = "appmodel_registry_tests.rs"]
 mod appmodel;
 
+#[path = "registry_key_enumeration_tests.rs"]
+mod key_enumeration;
+
 #[path = "registry_key_query_tests.rs"]
 mod key_query;
 

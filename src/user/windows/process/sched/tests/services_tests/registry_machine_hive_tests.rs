@@ -30,6 +30,7 @@ fn captured(p: &mut Proc, present_appmodel: bool) {
         .registry
         .clone()
         .with_machine_hive(MachineHeader {
+            enumeration: None,
             canonical: "\\REGISTRY\\MACHINE".encode_utf16().collect(),
             children: 6,
             values: vec![Value {

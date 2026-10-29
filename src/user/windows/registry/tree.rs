@@ -207,6 +207,9 @@ fn charge_key(
     if !seen.insert(Arc::as_ptr(key) as usize) {
         return Ok(());
     }
+    if let Some(children) = &key.enumeration {
+        budget.charge_enumeration(children)?;
+    }
     for value in key.values.values() {
         budget.charge(value)?;
     }
@@ -296,6 +299,7 @@ pub(super) fn build(
     }
     let raw_values = bounded_values(&upcase, tree.values, values)?;
     let mut key = Key {
+        enumeration: None,
         path,
         redirected_view,
         children: tree.children.len() as u32,

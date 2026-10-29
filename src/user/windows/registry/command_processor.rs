@@ -34,6 +34,7 @@ impl CommandRoot {
 }
 
 pub(crate) struct CommandHeader {
+    pub(crate) enumeration: Option<Vec<BasicChild>>,
     pub(crate) canonical: Vec<u16>,
     pub(crate) children: u32,
     pub(crate) values: Vec<Value>,

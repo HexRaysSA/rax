@@ -18,6 +18,7 @@ fn registry() -> Registry {
 fn node(path: &str, access: u32, byte: u8, children: Vec<(&str, CommandTree)>) -> CommandTree {
     CommandTree {
         header: CommandHeader {
+            enumeration: None,
             canonical: wide(path),
             children: children.len() as u32,
             values: vec![Value {
@@ -290,6 +291,109 @@ fn complete_command_tree_charges_values_across_all_nodes_and_views() {
                 RegistryView::Wow32,
                 Ok(node(COMMAND_PROCESSOR_KEY, 1, 1, vec![]))
             )
+            .is_err()
+    );
+}
+
+fn ordered_enumeration_tree() -> CommandTree {
+    use crate::user::windows::registry::BasicChild;
+    let mut tree = node(
+        COMMAND_PROCESSOR_KEY,
+        0xf003f,
+        0,
+        vec![
+            (
+                "Zulu",
+                node(
+                    &format!("{COMMAND_PROCESSOR_KEY}\\Zulu"),
+                    0x20019,
+                    1,
+                    vec![],
+                ),
+            ),
+            (
+                "Alpha",
+                node(
+                    &format!("{COMMAND_PROCESSOR_KEY}\\Alpha"),
+                    0x20019,
+                    2,
+                    vec![],
+                ),
+            ),
+        ],
+    );
+    tree.header.enumeration = Some(vec![
+        BasicChild {
+            name: wide("Zulu"),
+            last_write: 0x1122_3344_5566_7788,
+        },
+        BasicChild {
+            name: wide("Alpha"),
+            last_write: 7,
+        },
+    ]);
+    tree
+}
+
+#[test]
+fn command_key_enumeration_keeps_native_order_independent_of_lookup_and_namespace() {
+    let tree = ordered_enumeration_tree();
+    let expected = tree.header.enumeration.clone().unwrap();
+    let selected = registry()
+        .with_command_tree(CommandRoot::Machine, &[], RegistryView::Native64, Ok(tree))
+        .unwrap();
+    let root = present(selected.lookup_view(&wide(COMMAND_PROCESSOR_KEY), RegistryView::Native64));
+    assert!(
+        root.captured_children()
+            .unwrap()
+            .next()
+            .unwrap()
+            .path
+            .ends_with(&wide("\\Alpha"))
+    );
+    drop(selected);
+    assert_eq!(root.child_metadata(), Some(expected.as_slice()));
+    assert!(
+        present(root.relative(&wide("Zulu")))
+            .path
+            .ends_with(&wide("\\Zulu"))
+    );
+}
+
+#[test]
+fn command_key_enumeration_rejects_unrelated_names_and_changed_shared_view_times() {
+    let mut tree = ordered_enumeration_tree();
+    tree.header.enumeration.as_mut().unwrap()[0].name = wide("unselected");
+    assert!(
+        registry()
+            .with_command_tree(CommandRoot::Machine, &[], RegistryView::Native64, Ok(tree),)
+            .is_err()
+    );
+    let selected = || {
+        registry()
+            .with_command_tree(
+                CommandRoot::Machine,
+                &[],
+                RegistryView::Native64,
+                Ok(ordered_enumeration_tree()),
+            )
+            .unwrap()
+    };
+    assert!(
+        selected()
+            .with_command_tree(
+                CommandRoot::Machine,
+                &[],
+                RegistryView::Wow32,
+                Ok(ordered_enumeration_tree()),
+            )
+            .is_ok()
+    );
+    let mut changed = ordered_enumeration_tree();
+    changed.header.enumeration.as_mut().unwrap()[0].last_write ^= 1;
+    assert!(
+        selected()
+            .with_command_tree(CommandRoot::Machine, &[], RegistryView::Wow32, Ok(changed),)
             .is_err()
     );
 }

@@ -26,6 +26,7 @@ fn header(root: CommandRoot, view: RegistryView, byte: u8) -> CommandHeader {
         canonical = units(&text);
     }
     CommandHeader {
+        enumeration: None,
         canonical,
         children: 1,
         values: vec![Value {
@@ -41,6 +42,7 @@ fn header(root: CommandRoot, view: RegistryView, byte: u8) -> CommandHeader {
 }
 fn hives(r: Registry) -> Registry {
     r.with_machine_hive(MachineHeader {
+        enumeration: None,
         canonical: units("\\REGISTRY\\MACHINE"),
         children: 6,
         values: vec![],

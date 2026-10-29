@@ -4,6 +4,7 @@ use super::*;
 
 pub(crate) const MACHINE_HIVE_KEY: &str = "\\Registry\\Machine";
 pub(crate) struct MachineHeader {
+    pub(crate) enumeration: Option<Vec<BasicChild>>,
     pub(crate) canonical: Vec<u16>,
     pub(crate) children: u32,
     pub(crate) values: Vec<Value>,
@@ -40,9 +41,17 @@ impl Registry {
         {
             return Err(invalid("invalid or duplicate MACHINE hive selection"));
         }
-        let values = bounded_values(&self.upcase, header.values, &mut self.value_budget()?)?;
+        let mut budget = self.value_budget()?;
+        let values = bounded_values(&self.upcase, header.values, &mut budget)?;
+        let enumeration = key_enumeration::bounded(
+            &self.upcase,
+            header.enumeration,
+            header.children,
+            &mut budget,
+        )?;
         let machine = self.machine_paths(header.access, header.children)?;
         self.machine_hive = Some(Arc::new(Key {
+            enumeration,
             path: header.canonical,
             redirected_view: None,
             children: header.children,
@@ -109,6 +118,7 @@ impl Registry {
         let access = root.machine.as_ref().expect("MACHINE root").access;
         let machine = self.machine_paths(access, root.children)?;
         self.machine_hive = Some(Arc::new(Key {
+            enumeration: root.enumeration.clone(),
             path: root.path.clone(),
             redirected_view: None,
             children: root.children,

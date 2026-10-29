@@ -48,7 +48,14 @@ impl Builder {
         }
         self.metadata.charge(&header.canonical, depth)?;
         let values = bounded_values(&self.upcase, header.values, &mut self.values)?;
+        let enumeration = super::super::key_enumeration::bounded(
+            &self.upcase,
+            header.enumeration,
+            header.children,
+            &mut self.values,
+        )?;
         let mut key = Key {
+            enumeration,
             path: header.canonical,
             redirected_view: Some(self.view),
             children: header.children,
@@ -75,6 +82,15 @@ impl Builder {
                     return Err(invalid("duplicate ordinal Command Processor child"));
                 }
             }
+            if key.enumeration.as_ref().is_some_and(|entries| {
+                entries
+                    .iter()
+                    .any(|entry| !selected.contains_key(&key.fold(&entry.name)))
+            }) {
+                return Err(invalid(
+                    "Command Processor enumeration differs from captured children",
+                ));
+            }
             key.subkeys = Some(selected);
         }
         Ok(Arc::new(key))
@@ -85,6 +101,11 @@ pub(super) fn same_physical_contents(left: &Key, right: &Key) -> bool {
     if left.children != right.children
         || left.values != right.values
         || left.command_access != right.command_access
+    {
+        return false;
+    }
+    if let (Some(left), Some(right)) = (&left.enumeration, &right.enumeration)
+        && left != right
     {
         return false;
     }

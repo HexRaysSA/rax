@@ -83,6 +83,7 @@ fn selected(report: &Json, installed: bool) -> (Registry, Vec<u8>) {
     // access ceilings, names and transitions below come from native reports.
     r = r
         .with_machine_hive(MachineHeader {
+            enumeration: None,
             canonical: wide(MACHINE_HIVE_KEY),
             children: 6,
             values: vec![],
@@ -125,6 +126,7 @@ fn selected(report: &Json, installed: bool) -> (Registry, Vec<u8>) {
                 &[],
                 view,
                 Ok(CommandHeader {
+                    enumeration: None,
                     canonical: units(raw["name_hex"].as_str().unwrap()),
                     children: n(raw, "children"),
                     values: raw["values"]
@@ -542,6 +544,7 @@ fn command_processor_distinct_view_values_survive_nt_handles_and_namespace_repla
         .unwrap();
         r = r
             .with_machine_hive(MachineHeader {
+                enumeration: None,
                 canonical: wide(MACHINE_HIVE_KEY),
                 children: 6,
                 values: vec![],
@@ -576,6 +579,7 @@ fn command_processor_distinct_view_values_survive_nt_handles_and_namespace_repla
                         &sid,
                         view,
                         Ok(CommandHeader {
+                            enumeration: None,
                             canonical: wide(&canonical),
                             children: 1,
                             values: vec![Value {

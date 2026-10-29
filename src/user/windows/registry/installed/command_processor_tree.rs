@@ -82,7 +82,8 @@ impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
             }
             self.metadata.charge(&canonical, depth)?;
             let access = access(&key, &canonical)?;
-            let (values, names) = super::super::tree::stable(&key, &self.values, self.reserved)?;
+            let (values, names) =
+                super::super::key_enumeration::stable(&key, &self.values, self.reserved)?;
             if canonical_hive_name(&key, "Command Processor")? != canonical
                 || super::super::native_key::basic(&key, "Command Processor")?
                     != access.maximum_access
@@ -93,6 +94,7 @@ impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
             }
             (
                 CommandHeader {
+                    enumeration: Some(names.clone()),
                     canonical,
                     children: names.len() as u32,
                     values,
@@ -102,11 +104,13 @@ impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
             )
         }; // Close the native parent before opening any descendant.
         self.reserved += names.len();
+        self.values.charge_enumeration(&names)?;
         for value in &header.values {
             self.values.charge(value)?;
         }
         let mut children = Vec::new();
-        for name in names {
+        for child in names {
+            let name = child.name;
             let next = child_path(&logical, &name)?;
             let physical = child_path(&header.canonical, &name)?;
             children.push((name, self.node(next, Some(physical), depth + 1, None)?));

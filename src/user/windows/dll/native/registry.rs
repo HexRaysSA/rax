@@ -15,6 +15,10 @@ use std::sync::Arc;
 const READ_ACCESS: u32 = 0x0002_0019;
 const MAX_CONVERSION_BYTES: usize = 16 << 20;
 
+#[path = "registry/key_enumeration.rs"]
+mod key_enumeration;
+pub(super) use key_enumeration::enumerate_key;
+
 #[path = "registry/key_query.rs"]
 mod key_query;
 pub(super) use key_query::query_key;

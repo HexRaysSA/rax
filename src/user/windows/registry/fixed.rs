@@ -28,6 +28,7 @@ impl Registry {
                     return Err(invalid("invalid or contradictory Segment Heap capture"));
                 }
                 Some(Arc::new(Key {
+                    enumeration: None,
                     path: SEGMENT_HEAP_KEY.encode_utf16().collect(),
                     redirected_view: None,
                     children: selected.children,
@@ -49,6 +50,7 @@ impl Registry {
             None => None,
         };
         let key = Key {
+            enumeration: parent.enumeration.clone(),
             path: parent.path.clone(),
             redirected_view: None,
             children: parent.children,
