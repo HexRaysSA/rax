@@ -1,0 +1,31 @@
+{
+  "time": "2026-10-29T04:14:17.772847+00:00",
+  "host": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "cpu": "Apple M4 Max",
+  "compiler": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+  "samples": 1536,
+  "native_original_instruction_executions": 196608,
+  "rax_executed": false,
+  "files": {
+    "oracle-v1.c": "988a12439c77c074e653448c26038eab1840b094da0f41c20227734016cec5a3",
+    "oracle-v1.S": "f374ee0f08dbe9c33e566c96037fbf1b5353ce7323bf283a49b0e91755cdfe3a",
+    "oracle-v1": "1932750f445abf8c5f92aa5fd2803c4e305e4fda00db4bc7b2abb416372268d2",
+    "oracle-execution-v1.log": "c0e84a92dc4f9e21b2d105aea6858f2df3456fcb97f707b24a4b6578f33ede74"
+  },
+  "primary_asl": {
+    "path": "docs/architecture/arm/asl/arm_instrs.asl",
+    "sha256": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+    "sections": [
+      "aarch64_system_hints",
+      "aarch64_memory_pair_general_post_idx"
+    ]
+  },
+  "preindex_encoding": {
+    "assembly": "ldr x0,[x1,#8]!",
+    "word": "0xf8408c20",
+    "tool": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.",
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/preindex-llvm-v1.json"
+  },
+  "native_binary_format": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/oracle-v1: Mach-O 64-bit executable arm64"
+}

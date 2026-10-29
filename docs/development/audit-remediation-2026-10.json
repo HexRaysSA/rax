@@ -2591,7 +2591,13 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/kernel-v1/result.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-broad-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-final-v1.json",
-        "docs/development/a64-undefined-retirement/README.md"
+        "docs/development/a64-undefined-retirement/README.md",
+        "docs/development/a64-bounded-native/README.md",
+        "src/isa/arm/aarch64/cpu/bounded_jit.rs",
+        "src/isa/arm/aarch64/cpu/native_admission.rs",
+        "src/backend/emulator/aarch64_step/bounded_jit_tests.rs",
+        "src/vm/runtime/aarch64_bounded_native_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/qualification-final-v1.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2627,7 +2633,8 @@
           "scope": "Represented A64 FP/SIMD allocation before FP access and native optimization; preserve existing indexed-FP8 version selection, neutral decoder bytes and state-format compatibility. Older full-profile selection, FP8/FPMR data/state semantics and all four full findings remain partial.",
           "validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-fpsimd-allocation/qualification-final-v1.json",
           "documentation": "docs/development/a64-fpsimd-allocation/README.md"
-        }
+        },
+        "a64-bounded-native-scheduler-entry-2026-10-29"
       ]
     },
     {
@@ -3202,15 +3209,21 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/kernel-v1/result.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-broad-v1.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a64-undefined-retirement/qualification-final-v1.json",
-        "docs/development/a64-undefined-retirement/README.md"
+        "docs/development/a64-undefined-retirement/README.md",
+        "docs/development/a64-bounded-native/README.md",
+        "src/isa/arm/aarch64/cpu/bounded_jit.rs",
+        "src/isa/arm/aarch64/cpu/native_admission.rs",
+        "src/backend/emulator/aarch64_step/bounded_jit_tests.rs",
+        "src/vm/runtime/aarch64_bounded_native_tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/qualification-final-v1.json"
       ],
       "remaining_validation": [
-        "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
-        "Native entry remains unbounded;physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
-        "Additional ARM startup/control profiles and RISC-V SBI startup/controller topology remain required; software AArch64 PSCI/shared-platform execution is locally validated.",
-        "Complete backend/private/in-flight/platform state,writer quiescence and transactional late-failure restoration remain required.",
-        "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required.",
-        "The shared A64 Undefined-result retirement/delivery and tested user/backend/file/coordinator continuations are corrected. Complete backend/in-flight/platform state and bounded SMP native execution remain required."
+        "Software AArch64 bounded native entries, tested wait/event admission, exact retirement, and 2/4-CPU file continuations are locally qualified; legacy direct AArch64 region entry outside the scheduler and other guest ISA native tiers still need bounded integration.",
+        "Hardware backend entry remains unbounded; physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
+        "Additional ARM startup/control, architectural wait-trap/event-broadcast profiles, and RISC-V SBI startup/controller topology remain required.",
+        "Complete backend/private/in-flight/platform state, all-writer quiescence and transactional late-failure restoration remain required.",
+        "GDB AP/thread selection, complete deterministic clock coordination and record/replay remain required.",
+        "The shared A64 Undefined-result delivery and tested native/software/user/backend/file/coordinator continuations are corrected within recorded scopes; full C-SMP and C-STATE remain incomplete."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3223,7 +3236,8 @@
         "aarch64-fp-sysreg-and-preoptimization-permission-2026-10-28",
         "aarch64-fp16-reserved-admission-2026-10-28",
         "aarch64-optional-fp-profile-2026-10-29",
-        "aarch64-undefined-retirement-2026-10-29"
+        "aarch64-undefined-retirement-2026-10-29",
+        "a64-bounded-native-scheduler-entry-2026-10-29"
       ]
     },
     {
@@ -194049,6 +194063,157 @@
         {
           "impact": "high",
           "finding": "Existing FP8 source/index, fused arithmetic, format/scaling and FPMR semantics remain unresolved; this group preserves admission policy without claiming data conformance."
+        }
+      ],
+      "published": false
+    },
+    {
+      "id": "a64-bounded-native-scheduler-entry-2026-10-29",
+      "status": "locally_validated",
+      "parent": "1f187acddb5c6a528bf18ca7ae7053964b6590fc",
+      "scope": "Instruction-sized AArch64 native scheduler entries with exact retirement, actual-fault capture, register rollback, private capture quiescence, original wait/event/monitor admission, wrapping PAuth counters, independent physical AArch64 comparison and 2/4-CPU continuation. Other native tiers, hardware entries and all four full findings remain incomplete.",
+      "owned_paths": [
+        "docs/development/a64-bounded-native/README.md",
+        "docs/development/a64-bounded-native/native-vectors.json",
+        "docs/development/a64-bounded-native/oracle.S",
+        "docs/development/a64-bounded-native/oracle.c",
+        "docs/development/a64-bounded-native/provenance.json",
+        "docs/development/aarch64-cluster.md",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/execution-coordinator.md",
+        "src/backend/emulator/aarch64/vcpu.rs",
+        "src/backend/emulator/aarch64_step.rs",
+        "src/backend/emulator/aarch64_step/bounded_jit_tests.rs",
+        "src/isa/arm/aarch64/cpu/bounded_jit.rs",
+        "src/isa/arm/aarch64/cpu/bounded_jit_tests.rs",
+        "src/isa/arm/aarch64/cpu/checkpoint.rs",
+        "src/isa/arm/aarch64/cpu/fp_access.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/allocation_tests.rs",
+        "src/isa/arm/aarch64/cpu/mod.rs",
+        "src/isa/arm/aarch64/cpu/native_admission.rs",
+        "src/isa/arm/aarch64/cpu/pauth_jit.rs",
+        "src/isa/arm/aarch64/cpu/registers.rs",
+        "src/isa/arm/aarch64/cpu/system_step.rs",
+        "src/isa/arm/aarch64/cpu/tests/mod.rs",
+        "src/isa/arm/aarch64/cpu/tests/native_retirement.rs",
+        "src/isa/arm/aarch64/cpu/user_mode.rs",
+        "src/vm/runtime/aarch64_bounded_native_tests.rs",
+        "src/vm/runtime/aarch64_cluster_tests.rs",
+        "src/vm/vcpu/mod.rs"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/source-qualified-final-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/qualification-final-v1.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/commit-receipt-v1.json",
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/parent-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/parent-counter-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/control-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/native-oracle-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/core-final-result-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-cluster/a64-bounded-native/qualification-broad-final-v1.json"
+      ],
+      "validation_summary": {
+        "library-final-v1": {
+          "passed": 11257,
+          "failed": 0,
+          "ignored": 2,
+          "binaries": 1
+        },
+        "owning-final-v1": {
+          "passed": 47694,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 22
+        },
+        "capi-final-v1": {
+          "passed": 223,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "doc-final-v1": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "binaries": 1
+        },
+        "core-final-v4": {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "pair-final-v4": {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "counter-final-v4": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "control-final-v1": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "smp-final-v4": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        }
+      },
+      "assumption_register": [
+        {
+          "id": "BN1",
+          "assumption": "One source instruction with only dispatcher exit edges satisfies the budget-1 software coordinator contract.",
+          "basis": "Original source word, explicit exit blocks, and route-after-every-step coordinator.",
+          "dependent_result": "Bounded native retirement and fair multi-CPU quanta.",
+          "stress_test": "Self loops, zero budget, both conditional edges, faults, clocks, and 2/4-CPU file continuations.",
+          "falsification_probe": "A second retirement in one entry, a missed scheduler boundary, or divergent resumed architectural state.",
+          "status": "confirmed within qualified software AArch64 scope"
+        },
+        {
+          "id": "BN2",
+          "assumption": "A native helper failure retains the actual fault without replaying an already-issued access.",
+          "basis": "CPU-owned pending fault and deferred native register publication.",
+          "dependent_result": "Precise memory faults and register rollback.",
+          "stress_test": "Actual native scalar/pre-index load faults with observed access counts; pair interpreter fallback and partial stores.",
+          "falsification_probe": "Changed faulting registers, repeated callbacks, lost completed stores or incorrect intent/address.",
+          "status": "confirmed for qualified helper and fallback cases; not a native pair-profile claim"
+        },
+        {
+          "id": "BN3",
+          "assumption": "The original-word native fixture is independent of RAX expectations.",
+          "basis": "Separate C/assembly executable on the recorded Apple M4 Max; 196608 original instruction executions.",
+          "dependent_result": "1536 register/flags/FP/branch comparisons with mandatory final native entry.",
+          "stress_test": "Six operand partitions, all NZCV inputs, source checksums and reproducible capture.",
+          "falsification_probe": "Any oracle mismatch, empty execution, or sampled instruction that runs only by interpreter fallback.",
+          "status": "confirmed finite physical AArch64 corpus"
+        },
+        {
+          "id": "BN4",
+          "assumption": "Stateful wait/event/monitor instructions retain the CPU interpreter frontier when native IR omits those effects.",
+          "basis": "Pinned Arm ASL system-hint semantics and observed pre-guard WFE/SEV native admission.",
+          "dependent_result": "Original-word rejection before O2 in both native paths.",
+          "stress_test": "WFE/WFI/timed waits/SEV/SEVL and both WFE event states.",
+          "falsification_probe": "Native NOP admission erases a modeled CPU effect or scheduler exit.",
+          "status": "confirmed within the recorded CPU model; full architectural wait traps and cross-PE event profiles remain open"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Physical Intel HVF/KVM, legacy direct AArch64 entry, other native tiers, full private/in-flight rollback, event broadcast/wait-trap profiles and external-writer quiescence remain unqualified."
+        },
+        {
+          "impact": "medium",
+          "finding": "Instruction-sized native execution retains dispatcher costs; no throughput improvement is claimed."
         }
       ],
       "published": false

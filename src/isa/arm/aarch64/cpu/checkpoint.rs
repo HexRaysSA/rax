@@ -119,6 +119,12 @@ impl CoreCheckpoint {
         self.gic_present && !self.gic_shared
     }
     pub(crate) fn capture(cpu: &AArch64Cpu) -> Result<Self, ArmError> {
+        #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+        if cpu.jit.bounded_active {
+            return Err(ArmError::Configuration(
+                "cannot capture AArch64 state during a native instruction".into(),
+            ));
+        }
         let AArch64Cpu {
             x,
             sp_el,
@@ -181,6 +187,8 @@ impl CoreCheckpoint {
             hot: _,
             code_pages: _,
             smc_dirty: _,
+            bounded_active: _,
+            bounded_runs: _,
         } = jit;
         let mut ordered_breakpoints: Vec<_> = breakpoints.iter().copied().collect();
         ordered_breakpoints.sort_unstable();

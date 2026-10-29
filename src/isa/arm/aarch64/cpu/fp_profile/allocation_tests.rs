@@ -130,7 +130,7 @@ fn native_requirements_reject_reserved_original_words_before_optimization() {
     let cpu = cpu(1, 3);
     let mut failures = Vec::new();
     for (word, allocated) in corpus() {
-        let result = cpu.native_fp_requirements(&function, ENTRY, &word.to_le_bytes());
+        let result = cpu.native_requirements(&function, ENTRY, &word.to_le_bytes());
         if result.is_some() != allocated {
             failures.push(format!("{word:08x}, allocated={allocated}: {result:?}"));
         }
@@ -241,7 +241,7 @@ fn native_fp8_original_word_obeys_the_existing_version_policy() {
         cpu.config.version = version;
         for word in [0x0fc0_0000u32, 0x4fc0_0000, 0x0ff8_0bff, 0x4ff8_0bff] {
             let before = CoreCheckpoint::capture(&cpu).unwrap();
-            let admitted = cpu.native_fp_requirements(&function, ENTRY, &word.to_le_bytes());
+            let admitted = cpu.native_requirements(&function, ENTRY, &word.to_le_bytes());
             assert_eq!(
                 admitted.is_some(),
                 version >= ArmVersion::V9_4A,

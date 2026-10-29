@@ -125,6 +125,7 @@ impl AArch64Cpu {
             self.jit.hot.clear();
             self.jit.code_pages.clear();
             self.jit.smc_dirty = false;
+            self.jit.bounded_runs = 0;
         }
     }
 

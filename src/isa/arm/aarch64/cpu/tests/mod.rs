@@ -23,6 +23,8 @@ mod jit_scalar_simd;
 mod memory;
 #[cfg(test)]
 mod misc;
+#[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+mod native_retirement;
 mod pauth;
 mod pauth_aarch32;
 mod pauth_descriptors;

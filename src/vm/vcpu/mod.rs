@@ -58,6 +58,11 @@ pub struct MemRecord {
 ///
 /// This trait is implemented by both KVM and emulator backends.
 pub trait VCpu: Send {
+    /// Test instrumentation only; never part of a checkpoint or public ABI.
+    #[cfg(test)]
+    fn bounded_native_test_count(&self) -> u64 {
+        0
+    }
     /// Run the vCPU until an exit condition.
     fn run(&mut self) -> Result<VcpuExit>;
 

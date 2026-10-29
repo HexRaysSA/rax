@@ -55,6 +55,7 @@ impl AArch64Cpu {
             uses_memory: matches!(instruction, PauthInstruction::Load { .. }),
             source_pages: vec![(source, self.translate_address(source, false, true).ok()?)],
             pauth_instruction: Some(raw),
+            bounded_instruction: None,
         })
     }
 
@@ -140,8 +141,8 @@ impl AArch64Cpu {
         self.sp_el[3] = exported.sregs.execution.as_ref().unwrap().sp_el3;
         self.pc = state.pc;
         self.event_register = state.event_register;
-        self.insn_count = self.insn_count.saturating_add(retired);
-        self.cycle_count = self.cycle_count.saturating_add(retired);
+        self.insn_count = self.insn_count.wrapping_add(retired);
+        self.cycle_count = self.cycle_count.wrapping_add(retired);
         self.execution.native_fault = match result {
             Ok(()) | Err(ExitReason::InsnLimit) | Err(ExitReason::Unsupported { .. }) => None,
             Err(ExitReason::Aarch64Fault { error, .. }) => Some(error),

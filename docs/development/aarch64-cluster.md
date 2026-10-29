@@ -50,9 +50,16 @@ restoration rejects records missing required shared interrupt/power state.
 
 The graph payload complements architectural CPU projections. Complete CPU and
 bridge private context, exclusive reservation persistence, all-writer
-quiescence, debugger/AP selection, deterministic clock/replay, native bounded
-entries, native SMP and Intel Mac HVF qualification remain in the audit scope.
+quiescence, debugger/AP selection, deterministic clock/replay, other native
+tiers and hardware entries, and Intel Mac HVF qualification remain in the audit scope.
 This change does not establish full C-STATE or C-SMP completion.
+
+The subsequent [bounded AArch64 native tier](a64-bounded-native/README.md)
+executes hot instructions through this software coordinator with one retirement
+per native entry. Its actual 2/4-CPU VMM test checks fair quanta, native entry on
+every CPU, cold-cache file restoration, and continuation against uninterrupted
+execution. This is software scheduling with native JIT execution on Apple
+Silicon; it does not qualify physical Intel virtualization.
 
 ## Validation and assumptions
 

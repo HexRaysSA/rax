@@ -29,6 +29,8 @@ use crate::vm::vcpu::Aarch64SystemRegisters;
 
 // ---- module tree (auto-split) ----
 mod aarch32;
+#[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+mod bounded_jit;
 mod branch;
 pub use branch::*;
 mod checkpoint;
@@ -43,6 +45,8 @@ mod fp_profile;
 mod identity;
 mod instruction;
 mod interrupt_binding;
+#[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+mod native_admission;
 mod native_execution;
 mod psci_entry;
 pub use exec::*;
@@ -447,6 +451,8 @@ pub(crate) struct JitRegion {
     source_pages: Vec<(u64, u64)>,
     /// One checked PAuth instruction, with a dispatcher exit after retirement.
     pauth_instruction: Option<u32>,
+    /// One original instruction; every outgoing edge returns to the dispatcher.
+    bounded_instruction: Option<u32>,
 }
 
 /// Native translation/control state and selected FP/SIMD capabilities.
@@ -455,6 +461,8 @@ pub(crate) struct JitRegion {
 pub(crate) struct JitModeTag {
     translation_and_controls: u64,
     features: u64,
+    bounded: bool,
+    memory_enabled: bool,
 }
 
 /// Per-CPU JIT tier state.
@@ -475,6 +483,10 @@ pub(crate) struct Aarch64JitState {
     /// the top of the next `step_system`. Deferred so a write performed *inside*
     /// a running region doesn't pull the executing code out from under it.
     smc_dirty: bool,
+    /// Synchronous bounded entry owns helper faults instead of replaying MMIO.
+    bounded_active: bool,
+    /// Derived diagnostic counter; compiled caches and entry counts are not state.
+    bounded_runs: u64,
 }
 
 /// AAPCS64 16-byte load-helper return: value in x0, ok in x1.
@@ -486,8 +498,8 @@ struct A64LoadRet {
 }
 
 /// JIT memory-load helper: MMU-translate + read through the vcpu. `ok == 0` on a
-/// fault — the region records the faulting PC and bails to the interpreter,
-/// which re-executes the access and raises the architectural fault.
+/// fault. Legacy regions replay at the interpreter frontier; bounded entries
+/// retain the actual error and never replay a completed memory/device access.
 ///
 /// # Safety
 /// `ctx` must be the live `*mut AArch64Cpu` the JIT installed for this run.
@@ -498,7 +510,9 @@ unsafe extern "C" fn rax_a64_mem_load(
     size: u32,
     signed: u32,
 ) -> A64LoadRet {
-    let cpu = unsafe { &*ctx };
+    // SAFETY: the synchronous native entry exclusively owns this CPU. No
+    // other CPU reference is accessed while this scoped helper executes.
+    let cpu = unsafe { &mut *ctx };
     let res = match size {
         1 => cpu.mem_read_u8(addr).map(|v| {
             if signed != 0 {
@@ -525,7 +539,12 @@ unsafe extern "C" fn rax_a64_mem_load(
     };
     match res {
         Ok(value) => A64LoadRet { value, ok: 1 },
-        Err(_) => A64LoadRet { value: 0, ok: 0 },
+        Err(error) => {
+            if cpu.jit.bounded_active {
+                cpu.execution.native_fault = Some(error);
+            }
+            A64LoadRet { value: 0, ok: 0 }
+        }
     }
 }
 
@@ -547,7 +566,15 @@ unsafe extern "C" fn rax_a64_mem_store(
         4 => cpu.mem_write_u32(addr, value as u32),
         _ => cpu.mem_write_u64(addr, value),
     };
-    if res.is_ok() { 1 } else { 0 }
+    match res {
+        Ok(()) => 1,
+        Err(error) => {
+            if cpu.jit.bounded_active {
+                cpu.execution.native_fault = Some(error);
+            }
+            0
+        }
+    }
 }
 
 /// JIT vector-load helper. Reads `size` bytes (8 or 16) from guest memory and
@@ -567,7 +594,9 @@ unsafe extern "C" fn rax_a64_vec_load(
     size: u32,
 ) -> u64 {
     let st = unsafe { &mut *state };
-    let cpu = unsafe { &*(st.ctx as *const AArch64Cpu) };
+    // SAFETY: the state and CPU are distinct exclusively owned objects in the
+    // synchronous native call. No framing callback retains a CPU borrow.
+    let cpu = unsafe { &mut *(st.ctx as *mut AArch64Cpu) };
     // Translate and permission-check each byte independently, exactly like the
     // interpreter's SIMD load path. A single mem_read_u64 per 8-byte chunk would
     // translate only the chunk's first byte, so a vector load straddling a guest
@@ -577,7 +606,12 @@ unsafe extern "C" fn rax_a64_vec_load(
     for j in 0..(size as usize).min(16) {
         match cpu.mem_read_u8(addr.wrapping_add(j as u64)) {
             Ok(b) => bytes[j] = b,
-            Err(_) => return 0,
+            Err(error) => {
+                if cpu.jit.bounded_active {
+                    cpu.execution.native_fault = Some(error);
+                }
+                return 0;
+            }
         }
     }
     // bytes[8..16] stay zero for an 8-byte (D-register) load, zeroing the top half.
@@ -613,10 +647,10 @@ unsafe extern "C" fn rax_a64_vec_store(
     bytes[0..8].copy_from_slice(&st.v[i].to_le_bytes());
     bytes[8..16].copy_from_slice(&st.v[i + 1].to_le_bytes());
     for j in 0..(size as usize).min(16) {
-        if cpu
-            .mem_write_u8(addr.wrapping_add(j as u64), bytes[j])
-            .is_err()
-        {
+        if let Err(error) = cpu.mem_write_u8(addr.wrapping_add(j as u64), bytes[j]) {
+            if cpu.jit.bounded_active {
+                cpu.execution.native_fault = Some(error);
+            }
             return 0;
         }
     }

@@ -4,6 +4,10 @@ use super::*;
 use crate::isa::arm::common::features::ArmFeatures;
 
 impl VCpu for Aarch64Vcpu {
+    #[cfg(all(test, feature = "smir-jit", target_arch = "aarch64"))]
+    fn bounded_native_test_count(&self) -> u64 {
+        self.cpu.bounded_native_runs()
+    }
     fn checkpoint_powered_off(&self) -> Option<bool> {
         Some(self.powered_off)
     }

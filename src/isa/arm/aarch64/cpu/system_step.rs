@@ -24,10 +24,24 @@ impl AArch64Cpu {
         self.step_system_fault_policy(fault_exit, false)
     }
 
+    /// One instruction attempt, permitting only bounded native cache entries.
+    pub(crate) fn step_system_bounded(&mut self, fault_exit: bool) -> Result<CpuExit, ArmError> {
+        self.step_system_policy(fault_exit, false, true)
+    }
+
     fn step_system_fault_policy(
         &mut self,
         fault_exit: bool,
         allow_jit: bool,
+    ) -> Result<CpuExit, ArmError> {
+        self.step_system_policy(fault_exit, allow_jit, false)
+    }
+
+    fn step_system_policy(
+        &mut self,
+        fault_exit: bool,
+        allow_jit: bool,
+        bounded_jit: bool,
     ) -> Result<CpuExit, ArmError> {
         // Native entry already advanced this attempt's time before producing
         // the event. A resumed interpreter must neither re-execute it nor
@@ -79,6 +93,21 @@ impl AArch64Cpu {
         if irq_line && (self.daif & 0x2) == 0 {
             self.take_irq()?;
             return Ok(CpuExit::Continue);
+        }
+
+        if bounded_jit {
+            #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+            if self.jit_step_bounded() {
+                return if let Some(error) = self.execution.native_fault.take() {
+                    if fault_exit {
+                        Err(error)
+                    } else {
+                        self.deliver_fault(error)
+                    }
+                } else {
+                    Ok(CpuExit::Continue)
+                };
+            }
         }
 
         // SMIR JIT fast path: if a compiled region covers the current PC, run it
@@ -356,6 +385,8 @@ impl AArch64Cpu {
         JitModeTag {
             translation_and_controls,
             features: self.fp_profile_key(),
+            bounded: false,
+            memory_enabled: self.execution.mem,
         }
     }
 

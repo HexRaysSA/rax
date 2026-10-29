@@ -943,7 +943,7 @@ impl AArch64Cpu {
         let mut lifter = Aarch64Lifter::new();
         let mut lctx = LiftContext::new(SourceArch::Aarch64);
         let mut func = lifter.lift_function(entry, &reader, &mut lctx).ok()?;
-        let (fp_access, fp_features) = self.native_fp_requirements(&func, entry, &reader.bytes)?;
+        let (fp_access, fp_features) = self.native_requirements(&func, entry, &reader.bytes)?;
 
         if std::env::var_os("RAX_JIT_NO_OPT").is_none() {
             optimize_function(&mut func, OptLevel::O2);
@@ -1011,6 +1011,7 @@ impl AArch64Cpu {
             uses_memory,
             source_pages,
             pauth_instruction: None,
+            bounded_instruction: None,
         })
     }
 }

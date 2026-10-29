@@ -1,6 +1,9 @@
 //! Instruction stepping and diagnostic-fault translation for the AArch64 adapter.
 use super::*;
 
+#[cfg(all(test, feature = "smir-jit", target_arch = "aarch64"))]
+#[path = "aarch64_step/bounded_jit_tests.rs"]
+mod bounded_jit_tests;
 #[cfg(test)]
 #[path = "aarch64_step/fp_access_tests.rs"]
 mod fp_access_tests;
@@ -13,8 +16,12 @@ impl Aarch64Vcpu {
         self.sync_uart_irq();
         let step = if allow_jit {
             self.cpu.step_system_with_fault_exit()
-        } else {
+        } else if self.recorder.enabled.load(Ordering::Relaxed) {
+            // Compilation and source revalidation perform extra fetches. The
+            // access-recording API promises the interpreter's exact accesses.
             self.cpu.step_system_interpreted(true)
+        } else {
+            self.cpu.step_system_bounded(true)
         };
         let result = match step {
             Ok(CpuExit::Continue) => Ok(None),
@@ -85,7 +92,12 @@ impl Aarch64Vcpu {
         }
         // Pick up console input the VMM queued (mirrors one run() iteration).
         self.sync_uart_irq();
-        let r = match self.cpu.step_system_interpreted(false) {
+        let step = if self.recorder.enabled.load(Ordering::Relaxed) {
+            self.cpu.step_system_interpreted(false)
+        } else {
+            self.cpu.step_system_bounded(false)
+        };
+        let r = match step {
             Ok(CpuExit::Continue) => Ok(None),
             Ok(CpuExit::Wfi) | Ok(CpuExit::Wfe) => Ok(Some(VcpuExit::Hlt)),
             Ok(CpuExit::Hvc(immediate)) | Ok(CpuExit::Smc(immediate)) => {

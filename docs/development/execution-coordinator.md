@@ -21,9 +21,13 @@ Native bounded execution, additional ARM profiles and RISC-V SBI startup, archit
 enumeration, complete backend/private/in-flight CPU state, and full writer
 quiescence remain full-audit acceptance requirements. The current coordinator
 prototype and its software tests do not establish those requirements.
-The current software coordinator uses instruction stepping, bypassing the old
-run loop's SMIR JIT tier. Bounded JIT execution must be restored before the full
-SMP requirement is complete.
+The software coordinator uses instruction stepping. AArch64 now admits hot
+instructions through a separate bounded native cache: each entry returns after
+one original instruction, including a self-branch. Explicit access recording
+retains interpretation and its exact observation stream. See
+[AArch64 bounded native execution](a64-bounded-native/README.md) for native-entry,
+independent physical AArch64, and 2/4-CPU checkpoint tests. Hardware backend
+entries and other guest ISA native tiers remain separate SMP requirements.
 
 Debugger commands are serviced before guest interrupt injection. A stopped CPU
 retains its registers, stack, and pending interrupt until execution resumes.
