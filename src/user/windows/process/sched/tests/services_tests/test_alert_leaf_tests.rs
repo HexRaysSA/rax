@@ -1,5 +1,6 @@
 //! Installed NTDLL zero-argument entry, actual CPU APC callbacks and RET 4.
 use super::*;
+use crate::user::windows::process::thread::UserApc;
 use crate::user::windows::{
     layout,
     loader::{self, SymRef},
@@ -145,7 +146,11 @@ fn native_test_alert_installed_leaves_match_private_native_alert_and_execute_apc
                 .0;
         p.vm.poke(callback, &code).unwrap();
         p.space.w32(counter, 0).unwrap();
-        t.apcs.extend([(callback, counter), (callback, counter)]);
+        t.apcs.extend(
+            [(callback, counter), (callback, counter)]
+                .into_iter()
+                .map(UserApc::from),
+        );
         t.user_alerted = true;
         assert_eq!(leaf(p, &mut t, entry), expected[1]);
         assert_eq!(t.apcs.len(), 2);

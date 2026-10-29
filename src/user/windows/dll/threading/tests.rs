@@ -6,6 +6,7 @@ use super::super::super::process::{WindowsConfig, WindowsProcess};
 use super::super::super::sync::{self, Wait};
 use super::*;
 use crate::host::time::Instant;
+use crate::user::windows::process::thread::UserApc;
 
 #[path = "native_wait_tests.rs"]
 mod native_wait_tests;
@@ -432,7 +433,7 @@ fn queued_apcs_fifo_and_alertable_sleep_flow_all_abis() {
             assert_eq!(integer(c, "QueueUserAPC", &[0x2222, current, 2]), 1);
             assert_eq!(
                 c.t.apcs.iter().copied().collect::<Vec<_>>(),
-                [(0x1111, 1), (0x2222, 2)]
+                [(0x1111, 1), (0x2222, 2)].map(UserApc::from)
             );
             assert!(matches!(
                 invoke(c, "SleepEx", &[0, 0]),

@@ -192,6 +192,9 @@ pub fn run(
     };
     let result = f(&mut ctx);
     let cursor = ctx.cursor;
+    if let Err(error) = crate::user::windows::process::registry_notify::finish(p, t) {
+        return Outcome::Fail(error);
+    }
     if let Err(error) = p.reclaim_scheduler_views() {
         return Outcome::Fail(format!("scheduler view cleanup failed: {error}"));
     }

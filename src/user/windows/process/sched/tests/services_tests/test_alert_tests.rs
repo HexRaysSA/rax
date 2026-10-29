@@ -1,5 +1,6 @@
 //! Native no-argument alert query and owned queued-APC behavior.
 use super::*;
+use crate::user::windows::process::thread::UserApc;
 
 const SERVICE: u32 = 0x78;
 
@@ -56,7 +57,11 @@ fn native_test_alert_pending_callbacks_enter_owned_scheduler_delivery_all_abis()
     for arch in WinArch::ALL {
         let (mut process, mut t) = fixture(arch, "NtTestAlert", SERVICE);
         let p = process.state_mut();
-        t.apcs.extend([(0x50000, 0x1111), (0x50100, 0x2222)]);
+        t.apcs.extend(
+            [(0x50000, 0x1111), (0x50100, 0x2222)]
+                .into_iter()
+                .map(UserApc::from),
+        );
         assert_eq!(call(p, &mut t), Outcome::Park);
         assert_eq!(
             t.apcs.len(),
@@ -82,7 +87,7 @@ fn native_test_alert_cancellation_retains_queue_and_forced_thread_exit_discards_
     for arch in WinArch::ALL {
         let (mut process, mut t) = fixture(arch, "NtTestAlert", SERVICE);
         let p = process.state_mut();
-        t.apcs.push_back((0x50000, 0x1111));
+        t.apcs.push_back((0x50000, 0x1111).into());
         assert_eq!(call(p, &mut t), Outcome::Park);
         let tid = t.tid;
         let sp = t.cpu.sp();
@@ -98,7 +103,7 @@ fn native_test_alert_cancellation_retains_queue_and_forced_thread_exit_discards_
         let t = &p.threads[&tid];
         assert_eq!(
             t.apcs.iter().copied().collect::<Vec<_>>(),
-            [(0x50000, 0x1111)]
+            [(0x50000, 0x1111)].map(UserApc::from)
         );
         assert_eq!(t.frames.len(), 1);
         assert_eq!(t.cpu.sp(), sp);
@@ -123,13 +128,13 @@ fn native_test_alert_consumes_alert_before_pending_callbacks_all_abis() {
         let p = process.state_mut();
         let sp = t.cpu.sp();
         t.user_alerted = true;
-        t.apcs.push_back((0x50000, 0x1111));
+        t.apcs.push_back((0x50000, 0x1111).into());
         assert_eq!(call(p, &mut t), Outcome::Continue);
         assert_eq!(t.cpu.gpr(0), u64::from(STATUS_ALERTED));
         assert!(!t.user_alerted);
         assert_eq!(
             t.apcs.iter().copied().collect::<Vec<_>>(),
-            [(0x50000, 0x1111)]
+            [(0x50000, 0x1111)].map(UserApc::from)
         );
         assert!(t.frames.is_empty());
         t.cpu.set_sp(sp);
@@ -148,7 +153,11 @@ fn native_test_alert_delivery_restores_context_and_preserves_callback_teb_writes
         let error = t.teb + layout::offsets(arch).teb_last_error;
         p.space.w32(error, 0xC0DE).unwrap();
         t.cpu.set_gpr(3, 0xCC55);
-        t.apcs.extend([(0x50000, 0x1111), (0x50100, 0x2222)]);
+        t.apcs.extend(
+            [(0x50000, 0x1111), (0x50100, 0x2222)]
+                .into_iter()
+                .map(UserApc::from),
+        );
         assert_eq!(call(p, &mut t), Outcome::Park);
         let interrupted_gpr3 = t.cpu.gpr(3);
         let ThreadState::Waiting(wait) = t.state.clone() else {
@@ -162,7 +171,7 @@ fn native_test_alert_delivery_restores_context_and_preserves_callback_teb_writes
         t.state = ThreadState::Ready;
         assert_eq!(begin_apcs(p, &mut t, Some(status)), Outcome::Continue);
         assert_eq!(t.cpu.pc(), 0x50000);
-        t.apcs.push_back((0x50200, 0x3333));
+        t.apcs.push_back((0x50200, 0x3333).into());
         t.cpu.set_gpr(3, 0xBAD);
         p.space.w32(error, 0xABCD).unwrap();
         assert_eq!(dispatch::callback_return(p, &mut t), Outcome::Continue);
@@ -202,7 +211,11 @@ fn native_test_alert_nested_check_drains_remaining_queue_and_keeps_both_continua
         let (mut process, mut t) = fixture(arch, "NtTestAlert", SERVICE);
         let p = process.state_mut();
         let caller_sp = t.cpu.sp();
-        t.apcs.extend([(0x50000, 0x1111), (0x50100, 0x2222)]);
+        t.apcs.extend(
+            [(0x50000, 0x1111), (0x50100, 0x2222)]
+                .into_iter()
+                .map(UserApc::from),
+        );
         assert_eq!(call(p, &mut t), Outcome::Park);
         deliver_pending(p, &mut t);
         assert_eq!(t.cpu.pc(), 0x50000);
@@ -260,7 +273,7 @@ fn finish_delivery(
         let argument = callback_argument(p, t);
         seen.push((argument, phase, p.space.u32(error).unwrap()));
         if case == 5 && argument == 0x1111 {
-            t.apcs.push_back((0x50200, 0x3333));
+            t.apcs.push_back((0x50200, 0x3333).into());
         }
         if case == 6 && argument == 0x1111 {
             assert_eq!(call(p, t), Outcome::Park);
@@ -301,13 +314,13 @@ fn native_test_alert_replays_152_native_checks_and_80_single_argument_callbacks_
             let error = t.teb + crate::user::windows::layout::offsets(arch).teb_last_error;
             t.user_alerted = matches!(case, 1 | 2 | 11);
             if matches!(case, 3 | 4 | 5 | 6 | 11) {
-                t.apcs.push_back((0x50000, 0x1111));
+                t.apcs.push_back((0x50000, 0x1111).into());
             }
             if matches!(case, 4 | 5 | 6) {
-                t.apcs.push_back((0x50100, 0x2222));
+                t.apcs.push_back((0x50100, 0x2222).into());
             }
             if case == 12 {
-                t.apcs.push_back((0x50000, 0x4444));
+                t.apcs.push_back((0x50000, 0x4444).into());
             }
             let mut seen = Vec::new();
             for row in group["checks"]

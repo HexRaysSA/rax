@@ -83,7 +83,7 @@ fn native_single_wait_win32_single_apc_priority_and_alert_byte_all_abis() {
                 for signal in [0, 1] {
                     let handle = integer(c, "CreateEventW", &[0, 0, signal, 0]);
                     assert_ne!(handle, 0);
-                    c.t.apcs.push_back((0x50000, 0x1111));
+                    c.t.apcs.push_back((0x50000, 0x1111).into());
                     let flow =
                         invoke(c, "WaitForSingleObjectEx", &[handle, 0, u64::from(alert)]).unwrap();
                     let alertable = alert as u8 != 0;
@@ -121,7 +121,7 @@ fn native_single_wait_win32_multiple_apc_preserves_complete_signal_set_all_abis(
                         let width = c.psize();
                         c.mem().wptr(data, width, a).unwrap();
                         c.mem().wptr(data + width, width, b).unwrap();
-                        c.t.apcs.push_back((0x50000, 0x1111));
+                        c.t.apcs.push_back((0x50000, 0x1111).into());
                         let flow = invoke(
                             c,
                             "WaitForMultipleObjectsEx",
@@ -167,7 +167,7 @@ fn native_single_wait_win32_sleep_ex_retains_measured_alert_byte_all_abis() {
     for arch in WinArch::ALL {
         with_context(arch, |c, _| {
             for alert in [0u32, 1, 2, 255, 256, 257, u32::MAX] {
-                c.t.apcs.push_back((0x50000, 0x1111));
+                c.t.apcs.push_back((0x50000, 0x1111).into());
                 let flow = invoke(c, "SleepEx", &[0, u64::from(alert)]).unwrap();
                 let alertable = alert as u8 != 0;
                 assert_eq!(status(c, flow, alertable), if alertable { 0xC0 } else { 0 });

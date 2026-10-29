@@ -786,8 +786,28 @@ fn begin_apcs(p: &mut Proc, t: &mut Thread, wait_status: Option<u64>) -> Outcome
 }
 
 fn next_apc(c: &mut Ctx, saved: RegContext, wait_status: Option<u64>) -> ApiResult {
-    if let Some((routine, argument)) = c.t.apcs.pop_front() {
-        Flow::call(routine, vec![argument], move |c, _| {
+    if let Some(apc) = c.t.apcs.pop_front() {
+        let (routine, arguments) = match apc {
+            thread::UserApc::Simple(routine, argument) => (routine, vec![argument]),
+            thread::UserApc::Registry {
+                routine,
+                context,
+                io,
+                event,
+            } => {
+                super::registry_notify::publish(
+                    c.p,
+                    crate::user::windows::objects::RegistryCompletion {
+                        owner: Some(c.t.tid),
+                        io: Some(io),
+                        event,
+                        apc: None,
+                    },
+                );
+                (routine, vec![context, io, 0])
+            }
+        };
+        Flow::call(routine, arguments, move |c, _| {
             next_apc(c, saved, wait_status)
         })
     } else {
@@ -1655,7 +1675,11 @@ mod tests {
             let pc = t.cpu.pc();
             let sp = t.cpu.sp();
             t.cpu.set_gpr(3, 0xCC55);
-            t.apcs.extend([(0x50000, 0x1111), (0x50100, 0x2222)]);
+            t.apcs.extend(
+                [(0x50000, 0x1111), (0x50100, 0x2222)]
+                    .into_iter()
+                    .map(thread::UserApc::from),
+            );
             assert_eq!(
                 begin_apcs(&mut p, &mut t, Some(sync::WAIT_IO_COMPLETION)),
                 Outcome::Continue
@@ -1689,7 +1713,7 @@ mod tests {
                 },
             );
             t.state = ThreadState::Ready;
-            t.apcs.push_back((0x50000, 0x1111));
+            t.apcs.push_back((0x50000, 0x1111).into());
             assert_eq!(
                 begin_apcs(&mut p, &mut t, Some(sync::WAIT_IO_COMPLETION)),
                 Outcome::Continue

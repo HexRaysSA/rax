@@ -1,5 +1,6 @@
 //! Alertable context replacement uses the supplied target before APC delivery.
 use super::*;
+use crate::user::windows::process::thread::UserApc;
 use crate::user::windows::{context::RegContext, layout};
 
 const SERVICE: u32 = 0x78;
@@ -76,7 +77,11 @@ fn native_continue_alert_pending_apcs_capture_replaced_context_and_resume_it_all
         let (address, expected) = target(p, &mut t);
         let error = t.teb + layout::offsets(arch).teb_last_error;
         p.space.w32(error, 0xC0DE).unwrap();
-        t.apcs.extend([(0x50000, 0x1111), (0x50100, 0x2222)]);
+        t.apcs.extend(
+            [(0x50000, 0x1111), (0x50100, 0x2222)]
+                .into_iter()
+                .map(UserApc::from),
+        );
         assert_eq!(call(p, &mut t, address, 1), Outcome::Continue);
         assert_eq!(t.cpu.pc(), 0x50000);
         assert_eq!(t.frames.len(), 1);
@@ -105,7 +110,7 @@ fn native_continue_alert_consumes_existing_alert_before_callbacks_all_abis() {
         let p = process.state_mut();
         let (address, expected) = target(p, &mut t);
         t.user_alerted = true;
-        t.apcs.push_back((0x50000, 0x1111));
+        t.apcs.push_back((0x50000, 0x1111).into());
         assert_eq!(call(p, &mut t, address, 1), Outcome::Continue);
         assert_eq!(t.cpu.pc(), expected.pc());
         assert_eq!(t.cpu.sp(), expected.sp());
@@ -113,7 +118,7 @@ fn native_continue_alert_consumes_existing_alert_before_callbacks_all_abis() {
         assert!(!t.user_alerted);
         assert_eq!(
             t.apcs.iter().copied().collect::<Vec<_>>(),
-            [(0x50000, 0x1111)]
+            [(0x50000, 0x1111)].map(UserApc::from)
         );
         assert!(t.frames.is_empty());
     }
@@ -127,7 +132,7 @@ fn native_continue_alert_uses_boolean_byte_and_preserves_false_pending_state_all
             let p = process.state_mut();
             let (address, expected) = target(p, &mut t);
             t.user_alerted = true;
-            t.apcs.push_back((0x50000, 0x1111));
+            t.apcs.push_back((0x50000, 0x1111).into());
             assert_eq!(call(p, &mut t, address, value), Outcome::Continue);
             assert_eq!(t.cpu.pc(), expected.pc());
             assert_eq!(t.cpu.sp(), expected.sp());
@@ -162,14 +167,14 @@ fn native_continue_alert_invalid_context_preserves_alert_queue_and_teb_all_abis(
             let error = t.teb + layout::offsets(arch).teb_last_error;
             p.space.w32(error, 0xC0DE).unwrap();
             t.user_alerted = true;
-            t.apcs.push_back((0x50000, 0x1111));
+            t.apcs.push_back((0x50000, 0x1111).into());
             assert_eq!(call(p, &mut t, address, 1), Outcome::Continue);
             assert_eq!(t.cpu.gpr(0), u64::from(expected));
             assert_eq!(t.cpu.pc(), 0x1234_0004);
             assert!(t.user_alerted);
             assert_eq!(
                 t.apcs.iter().copied().collect::<Vec<_>>(),
-                [(0x50000, 0x1111)]
+                [(0x50000, 0x1111)].map(UserApc::from)
             );
             assert_eq!(p.space.u32(error).unwrap(), 0xC0DE);
             assert!(t.frames.is_empty());
@@ -195,7 +200,7 @@ fn finish_callbacks(
         };
         seen.push((value, phase, p.space.u32(error).unwrap()));
         if number == 5 && value == 0x1111 {
-            t.apcs.push_back((0x50200, 0x3333));
+            t.apcs.push_back((0x50200, 0x3333).into());
         }
         if value == 0x4444 {
             p.space.w32(error, 0xABCD).unwrap();
@@ -234,10 +239,10 @@ fn native_continue_alert_replays_52_resumes_104_post_checks_and_48_callbacks_all
             t.user_alerted = matches!(number, 6 | 7 | 8 | 12);
             if matches!(number, 2 | 3 | 4 | 5 | 6 | 8 | 9 | 10 | 11) {
                 t.apcs
-                    .push_back((0x50000, if number == 9 { 0x4444 } else { 0x1111 }));
+                    .push_back((0x50000, if number == 9 { 0x4444 } else { 0x1111 }).into());
             }
             if matches!(number, 4 | 5) {
-                t.apcs.push_back((0x50100, 0x2222));
+                t.apcs.push_back((0x50100, 0x2222).into());
             }
             let mut seen = Vec::new();
             assert_eq!(call(p, &mut t, address, test), Outcome::Continue);
@@ -344,7 +349,7 @@ fn native_continue_alert_hle_export_matches_native_replacement_and_queue_order_a
                     t.cpu.set_gpr(30, 0xDEAD_0000);
                 }
             }
-            t.apcs.push_back((0x50000, 0x1111));
+            t.apcs.push_back((0x50000, 0x1111).into());
             t.user_alerted = alerted;
             let api = crate::user::windows::dll::nt_service("NtContinue", arch).unwrap();
             assert_eq!(
@@ -371,7 +376,11 @@ fn native_continue_alert_from_callback_discards_replaced_same_height_continuatio
             let (mut process, mut t) = fixture(arch, "NtContinue", SERVICE);
             let p = process.state_mut();
             let (address, mut expected) = target(p, &mut t);
-            t.apcs.extend([(0x50000, 0x1111), (0x50100, 0x2222)]);
+            t.apcs.extend(
+                [(0x50000, 0x1111), (0x50100, 0x2222)]
+                    .into_iter()
+                    .map(UserApc::from),
+            );
             assert_eq!(call(p, &mut t, address, 1), Outcome::Continue);
             assert_eq!(t.cpu.pc(), 0x50000);
             assert_eq!(t.frames.len(), 1);
@@ -402,7 +411,7 @@ fn native_continue_alert_exact_interrupted_target_discards_abandoned_apc_frame_a
             let (mut process, mut t) = fixture(arch, "NtContinue", SERVICE);
             let p = process.state_mut();
             let (address, expected) = target(p, &mut t);
-            t.apcs.push_back((0x50000, 0x1111));
+            t.apcs.push_back((0x50000, 0x1111).into());
             assert_eq!(call(p, &mut t, address, 1), Outcome::Continue);
             assert_eq!(t.cpu.pc(), 0x50000);
             assert_eq!(t.frames.len(), 1);
@@ -427,7 +436,7 @@ fn native_continue_alert_exact_interrupted_hle_target_discards_apc_owner_all_abi
             let (mut process, mut t) = fixture(arch, "NtContinue", SERVICE);
             let p = process.state_mut();
             let (address, expected) = target(p, &mut t);
-            t.apcs.push_back((0x50000, 0x1111));
+            t.apcs.push_back((0x50000, 0x1111).into());
             assert_eq!(call(p, &mut t, address, 1), Outcome::Continue);
             let sp = t.cpu.sp();
             match arch {
@@ -487,9 +496,9 @@ fn native_continue_alert_replays_16_exact_target_resumes_32_checks_and_28_callba
             let (address, expected) = target(p, &mut t);
             let error = t.teb + layout::offsets(arch).teb_last_error;
             p.space.w32(error, 0xC0DE).unwrap();
-            t.apcs.push_back((0x50000, 0x1111));
+            t.apcs.push_back((0x50000, 0x1111).into());
             if number != 15 {
-                t.apcs.push_back((0x50100, 0x2222));
+                t.apcs.push_back((0x50100, 0x2222).into());
             }
             assert_eq!(call(p, &mut t, address, 1), Outcome::Continue);
             assert_eq!(t.cpu.pc(), 0x50000);
@@ -585,7 +594,11 @@ fn native_continue_alert_active_callback_cancellation_and_forced_exit_keep_owned
         let (mut process, mut t) = fixture(arch, "NtContinue", SERVICE);
         let p = process.state_mut();
         let (address, _) = target(p, &mut t);
-        t.apcs.extend([(0x50000, 0x1111), (0x50100, 0x2222)]);
+        t.apcs.extend(
+            [(0x50000, 0x1111), (0x50100, 0x2222)]
+                .into_iter()
+                .map(UserApc::from),
+        );
         assert_eq!(call(p, &mut t, address, 1), Outcome::Continue);
         let (tid, sp, teb, stack) = (t.tid, t.cpu.sp(), t.teb, t.thread_stack_alloc);
         assert_eq!(t.cpu.pc(), 0x50000);
@@ -602,7 +615,7 @@ fn native_continue_alert_active_callback_cancellation_and_forced_exit_keep_owned
         assert_eq!(t.frames.len(), 1);
         assert_eq!(
             t.apcs.iter().copied().collect::<Vec<_>>(),
-            [(0x50100, 0x2222)]
+            [(0x50100, 0x2222)].map(UserApc::from)
         );
         p.threads.get_mut(&tid).unwrap().terminate = Some(37);
         assert_eq!(

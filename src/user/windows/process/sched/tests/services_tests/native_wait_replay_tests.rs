@@ -220,7 +220,7 @@ fn native_single_wait_replays_all_336_object_access_apc_and_recursion_rows() {
             }
             assert_eq!(state(p, &t, id), row[4], "{profile} case{cases}");
             assert!(t.apcs.is_empty());
-            t.apcs.push_back((0x50000, 0x1111));
+            t.apcs.push_back((0x50000, 0x1111).into());
             let result = invoke(
                 p,
                 &mut t,

@@ -526,6 +526,14 @@ pub(super) static KEY_SET_EXPORTS: &[Export] = &[Export::func(
     registry::set_key,
 )];
 
+// Append the ten-slot family without renumbering earlier synthetic exports.
+pub(super) static KEY_NOTIFY_EXPORTS: &[Export] = &[Export::func(
+    "NtNotifyChangeKey",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, Ptr, Ptr, I32, I32, Ptr, I32, I32],
+    registry::notify_key,
+)];
+
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)
 }

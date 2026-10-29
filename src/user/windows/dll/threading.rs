@@ -442,6 +442,6 @@ fn queue_apc(c: &mut Ctx) -> ApiResult {
     if target.apcs.try_reserve(1).is_err() {
         return c.fail(ERROR_NOT_ENOUGH_MEMORY, 0);
     }
-    target.apcs.push_back((routine, data));
+    target.apcs.push_back((routine, data).into());
     Flow::ret(1)
 }

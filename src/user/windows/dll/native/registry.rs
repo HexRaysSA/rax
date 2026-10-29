@@ -27,6 +27,10 @@ pub(super) use key_query::query_key;
 mod key_set;
 pub(super) use key_set::set_key;
 
+#[path = "registry/key_notify.rs"]
+mod key_notify;
+pub(super) use key_notify::notify_key;
+
 enum Failure {
     Status(u32),
     Api(ApiErr),

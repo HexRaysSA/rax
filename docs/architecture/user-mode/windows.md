@@ -713,3 +713,22 @@ inherited contradictory view. Empty-name reopens own independent tag state.
 Traversal through the captured CurrentControlSet alias resets native inheritance;
 WoW64 can subsequently publish its converted tags. The fixed snapshot authority
 and host registry access boundary remain unchanged.
+
+`NtNotifyChangeKey` admits real pending requests against owned registry key
+bodies. Each successful asynchronous request retains its event object; closing
+and reusing a caller handle cannot retarget the completion. The final duplicate
+key handle completes its requests, while an independent open has its own
+lifetime. Ordinary requests retire with their issuing thread; thread-agnostic
+requests survive it. Synchronous calls park on a private event without adding
+a caller-visible handle. I/O APCs share the existing FIFO with ordinary APCs,
+carry all three native callback arguments, and publish their IOSB/event at
+delivery. Late completion-store faults preserve prior native64 writes, while
+WoW64 publishes its 8-byte record in one checked store. Reached guards are
+consumed, and store faults do not prevent event completion.
+
+The snapshot remains immutable: notifications do not import later host registry
+changes, and this service adds no registry content writer. The public C ABI is
+unchanged. The Rust thread APC payload now distinguishes ordinary and I/O
+callbacks. [Native notification controls](../../specifications/windows/native-key-notify/README.md)
+record probe order, filter bits, retained objects, thread exit, synchronous
+cleanup, and callback arguments across the three Windows process ABIs.

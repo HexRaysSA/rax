@@ -49,6 +49,29 @@ pub enum ThreadState {
     Exited(u32),
 }
 
+/// Guest APC arguments and any completion state owned until delivery.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UserApc {
+    /// QueueUserAPC's single application argument.
+    Simple(u64, u64),
+    /// Native registry completion uses the three-argument IO_APC_ROUTINE ABI.
+    Registry {
+        /// Guest callback entrypoint.
+        routine: u64,
+        /// Caller APC context.
+        context: u64,
+        /// Guest IO_STATUS_BLOCK.
+        io: u64,
+        /// Retained event object, independent of any caller handle.
+        event: Option<ObjId>,
+    },
+}
+impl From<(u64, u64)> for UserApc {
+    fn from((routine, argument): (u64, u64)) -> Self {
+        Self::Simple(routine, argument)
+    }
+}
+
 /// A guest thread.
 pub struct Thread {
     /// Thread id.
@@ -85,8 +108,8 @@ pub struct Thread {
     pub main: bool,
     /// Suspend count.
     pub suspend: u32,
-    /// Queued user APCs: (routine, argument).
-    pub apcs: VecDeque<(u64, u64)>,
+    /// Queued user APCs in delivery order.
+    pub apcs: VecDeque<UserApc>,
     /// Pending user-mode alert; a test consumes it before delivering APCs.
     /// This is guest-owned state, independent of the executing host thread.
     pub user_alerted: bool,
@@ -422,7 +445,10 @@ fn create_inner(
 /// Releases an ended thread's resources: its owned mutexes are abandoned,
 /// its object is signaled with `code`, and its stack, TEB, and TLS blocks
 /// are freed.
-pub fn destroy(p: &mut Proc, t: Thread, code: u32) {
+pub fn destroy(p: &mut Proc, mut t: Thread, code: u32) {
+    if let Err(error) = super::registry_notify::retire_thread(p, &mut t) {
+        p.fail(error);
+    }
     p.gui.retire_thread(t.tid);
     if let Err(status) = super::fiber::destroy_active(p, &t) {
         p.fail(format!("fiber teardown failed: {status:#010x}"));

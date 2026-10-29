@@ -28,7 +28,8 @@ pub use super::dll::libraries::LoaderState;
 pub use fiber::FiberState;
 pub use sched::RunStatus;
 pub(crate) use sched::{continue_alertable, is_apc_dispatcher};
-pub use thread::{Thread, ThreadState};
+pub(crate) mod registry_notify;
+pub use thread::{Thread, ThreadState, UserApc};
 
 use crate::host::time::Instant;
 use std::collections::BTreeMap;

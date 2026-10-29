@@ -26,7 +26,8 @@ pub(super) fn invoke(
                 .unwrap(),
             WinArch::X64 if index < 4 => t.cpu.set_gpr([1, 2, 8, 9][index], value),
             WinArch::X64 => p.space.w64(sp + 8 + index as u64 * 8, value).unwrap(),
-            WinArch::Arm64 => t.cpu.set_gpr(index, value),
+            WinArch::Arm64 if index < 8 => t.cpu.set_gpr(index, value),
+            WinArch::Arm64 => p.space.w64(sp + (index as u64 - 8) * 8, value).unwrap(),
         }
     }
     match arch {

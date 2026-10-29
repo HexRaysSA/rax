@@ -112,6 +112,9 @@ mod key_query;
 #[path = "registry_key_set_tests.rs"]
 mod key_set;
 
+#[path = "registry_key_notify_tests.rs"]
+mod key_notify;
+
 #[path = "registry_key_open_ex_tests.rs"]
 mod key_open_ex;
 
@@ -154,7 +157,11 @@ fn arguments(p: &mut Proc, t: &mut Thread, args: &[u64]) {
         }
         WinArch::Arm64 => {
             for (index, value) in args.iter().enumerate() {
-                t.cpu.set_gpr(index, *value);
+                if index < 8 {
+                    t.cpu.set_gpr(index, *value);
+                } else {
+                    p.space.w64(sp + (index as u64 - 8) * 8, *value).unwrap();
+                }
             }
         }
     }

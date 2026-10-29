@@ -23,6 +23,8 @@ mod lpc;
 mod named;
 pub use lpc::LpcPort;
 mod primary_token;
+mod registry_notify;
+pub(crate) use registry_notify::RegistryCompletion;
 mod scheduler;
 pub use scheduler::SchedulerData;
 mod timers;
@@ -325,6 +327,7 @@ pub struct Objects {
     scheduler_bindings: BTreeMap<u32, (ObjId, u32)>,
     retired_scheduler_views: Vec<super::memory::SchedulerView>,
     retired_lpc_views: Vec<super::memory::SharedViewOwner>,
+    registry_notifications: registry_notify::Notifications,
 }
 
 fn name_key(name: &str) -> String {
@@ -616,6 +619,7 @@ impl Objects {
         }
         self.handles.remove(&key);
         if !self.handles.values().any(|handle| handle.obj == e.obj) {
+            self.retire_registry_key(e.obj);
             self.retire_lpc_handle(e.obj);
             match self.obj(e.obj) {
                 // An independent object wait can still pin the packet.
@@ -682,6 +686,7 @@ impl Objects {
         self.desktop = None;
         self.wnf_subscriptions.records.clear();
         self.scheduler_bindings.clear();
+        self.registry_notifications = Default::default();
         // Queue all views eagerly: dropping a partially consumed Drain also
         // removes its remaining objects, without running iterator map closures.
         for entry in self.objs.values_mut() {
