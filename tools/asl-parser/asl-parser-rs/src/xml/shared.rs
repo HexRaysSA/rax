@@ -296,9 +296,10 @@ fn apply_workarounds(chunk: &mut AslChunk) {
 /// Convert bit slices from angle bracket to square bracket syntax.
 #[allow(dead_code)]
 pub fn patch_slices(code: &str) -> String {
-    let re_parts = r"[0-9a-zA-Z_+*\-()[\]., ]+";
-    let re_part = format!(r"{}(:{})?", re_parts, re_parts);
-    let re_full = format!(r"<({})(?:,({}))*>", re_part, re_part);
+    let re_parts = r"[0-9a-zA-Z_+*\-()\[\]., ]+";
+    let re_part = format!(r"{}(?::{})?", re_parts, re_parts);
+    // Capture the entire comma-separated list, rather than only its first part.
+    let re_full = format!(r"<({}(?:,{})*)>", re_part, re_part);
 
     let re = Regex::new(&re_full).unwrap();
     let mut result = code.to_string();
@@ -327,5 +328,9 @@ mod tests {
         assert_eq!(patch_slices("x<7:0>"), "x[7:0]");
         assert_eq!(patch_slices("x<7>"), "x[7]");
         assert_eq!(patch_slices("x<7:0, 15:8>"), "x[7:0, 15:8]");
+        assert_eq!(patch_slices("x<23:16, 15:8, 7:0>"), "x[23:16, 15:8, 7:0]");
+        assert_eq!(patch_slices("x<(hi-1):index[0]>"), "x[(hi-1):index[0]]");
+        assert_eq!(patch_slices("x<index<7:0>>"), "x[index[7:0]]");
+        assert_eq!(patch_slices("x < y && y > z"), "x < y && y > z");
     }
 }

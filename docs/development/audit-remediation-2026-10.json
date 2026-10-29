@@ -193177,6 +193177,51 @@
         }
       ],
       "published": false
+    },
+    {
+      "id": "asl-xml-slice-conversion-2026-10-29",
+      "status": "locally_validated",
+      "scope": "Repair malformed regex character class and capture the complete comma-separated slice list; preserve existing two-pass scope.",
+      "parent": "84d43c272c270bcf1038020d90aa9593390bb902",
+      "owned_paths": [
+        "tools/asl-parser/asl-parser-rs/src/xml/shared.rs",
+        "docs/development/audit-remediation-2026-10.json"
+      ],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-slice-repair/parent-proof.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-slice-repair/checks.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-slice-repair/package.log"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-slice-repair/source-freeze-final.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/asl-slice-repair/commit-receipt.json",
+      "validation_summary": {
+        "passed": 62,
+        "failed": 0,
+        "ignored": 1
+      },
+      "assumption_register": [
+        {
+          "id": "SL1",
+          "assumption": "The existing helper performs lexical conversion over its admitted expression characters using two passes; it is not a full ASL expression parser.",
+          "basis": "Existing function documentation and two-pass implementation.",
+          "dependent_result": "Preserving the existing input scope while repairing regex construction and whole-list capture.",
+          "stress_test": "Single bits/ranges, two/three ranges, indexed expressions, nested slices and an unchanged comparison.",
+          "falsification_probe": "A supported comma-list loses bytes or either conversion pass panics.",
+          "status": "confirmed for regression partitions"
+        }
+      ],
+      "algorithm": "Two linear regex replacement passes over N input bytes; O(N) time and O(N) auxiliary space for a fixed pattern.",
+      "bounded_scope": [
+        {
+          "impact": "medium",
+          "finding": "The helper retains its pre-existing two-pass lexical scope; complete ASL expression parsing is not claimed."
+        },
+        {
+          "impact": "high",
+          "finding": "Four full audit findings remain partial; other unfinished FP/profile changes are preserved outside this commit."
+        }
+      ],
+      "published": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
