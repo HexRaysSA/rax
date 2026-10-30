@@ -128,6 +128,7 @@ mod tests {
             startup: None,
             gui: Default::default(),
             code_integrity: Err("controlled argument profile".into()),
+            code_integrity_policy: Err("code integrity policy not captured in this fixture".into()),
         };
         native.version.major = 10;
         native.version.minor = 0;

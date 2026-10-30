@@ -757,3 +757,15 @@ remain unsupported boundaries, and named native Event creation is separate.
 [Native opening controls](../../specifications/windows/native-open-event/README.md)
 retain 1,521 observations from ARM64, x64 and x86 processes on ARM64 kernel
 10.0.29695, including actual mapped-provider hashes and finite-profile limits.
+
+`NtQuerySystemInformation` class 164 exposes the selected native runtime's
+immutable 32-byte code integrity policy record. Fixed read-only host acquisition
+checks length, opposite-poison initialization and bounded sample agreement;
+unavailable metadata stays explicit. Guest queries preserve independently
+measured native64 probing and WoW64 conversion/copy order, including aliasing,
+guard transitions and late faults. No guest pointer or length enters the host
+query, and no policy mutation is added. The returned metadata does not establish
+guest-loader signature enforcement.
+[Native policy controls](../../specifications/windows/native-code-integrity-policy/README.md)
+retain 8,748 cases across three process ABIs on one ARM64 kernel, with fresh
+native CI controls for the available Windows host architectures.

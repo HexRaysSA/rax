@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.20)
+project(rax_native_policy_wow64_entry LANGUAGES C)
+if(NOT WIN32 OR NOT MSVC OR NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
+    message(FATAL_ERROR "This observer requires an x86 Windows MSVC target")
+endif()
+add_executable(rax_native_policy_wow64_entry probe-v1.c)
+target_compile_features(rax_native_policy_wow64_entry PRIVATE c_std_11)
+target_compile_options(rax_native_policy_wow64_entry PRIVATE /W4 /utf-8)
+target_link_libraries(rax_native_policy_wow64_entry PRIVATE psapi)
+file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/probe-paths-$<CONFIG>.txt"
+    CONTENT "$<TARGET_FILE:rax_native_policy_wow64_entry>\n")

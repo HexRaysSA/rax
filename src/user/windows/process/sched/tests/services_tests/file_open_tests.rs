@@ -175,6 +175,7 @@ fn selection(h: &mut Harness) -> PathBuf {
         wnf_catalog: Default::default(),
         startup: None,
         code_integrity: Err("controlled absent code integrity metadata".into()),
+        code_integrity_policy: Err("code integrity policy not captured in this fixture".into()),
         gui: Default::default(),
     });
     Arc::make_mut(&mut p.cfg).host_filesystem = false;

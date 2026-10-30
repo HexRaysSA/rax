@@ -57,6 +57,7 @@ fn runtime() -> NativeRuntime {
         wnf_catalog: Default::default(),
         startup: None,
         code_integrity: Err("controlled absent code integrity metadata".into()),
+        code_integrity_policy: Err("code integrity policy not captured in this fixture".into()),
         gui: Default::default(),
     }
 }

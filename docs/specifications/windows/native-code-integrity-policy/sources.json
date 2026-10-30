@@ -1,0 +1,39 @@
+{
+  "retrieved_utc": "2026-10-30",
+  "phnt_commit": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+  "sources": [
+    {
+      "file": "phnt-ntexapi.h",
+      "title": "PHNT executive support library",
+      "publisher": "Winsider Seminars & Solutions, Inc. / System Informer",
+      "url": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntexapi.h",
+      "bytes": 386368,
+      "sha256": "0510ac40fa1690cd73bed8afe3ed602aaa7bb6870ab95ea9aaba36ce1f4c3d53",
+      "git_blob": "bea2519220c21b579ee768b41db707328985d3bf"
+    },
+    {
+      "file": "PHNT-LICENSE",
+      "title": "PHNT MIT License",
+      "publisher": "Winsider Seminars & Solutions, Inc. / System Informer",
+      "url": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/LICENSE",
+      "bytes": 1092,
+      "sha256": "ad2ab542c56c606e4c19d66a7f3cdcd3ef83beffb638e7c3893b22c7a6a6c0df",
+      "git_blob": "ff40f66c24dc1f65c04aba1e77cdf2d23467dc43"
+    }
+  ],
+  "shared_primary_reference": {
+    "file": "../native-query/ntquerysysteminformation.md",
+    "publisher": "Microsoft",
+    "sha256": "47dd6f329e88cabe0f7e53cc90c46fa571d266dfe1f1333bee7f7376acb757af",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation",
+    "scope": "Four-argument API only; does not document private class164 layout."
+  },
+  "conflicts": [
+    {
+      "source": "phnt-ntexapi.h comment above _SYSTEM_CODEINTEGRITYPOLICY_INFORMATION",
+      "conflict": "Comment names SystemCodeIntegrityInformation, which is class103; the enum associates the policy structure with SystemCodeIntegrityPolicyInformation, class164.",
+      "resolution": "Use the enum and independently measured native class164 calls. Preserve upstream header unchanged."
+    }
+  ],
+  "verified_enum_value": 164
+}
