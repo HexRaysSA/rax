@@ -317,14 +317,8 @@ impl Context {
                 "public system/stack projection disagrees with native bank",
             ));
         }
-        if self.shutdown
-            && (self.pending_read.is_some()
-                || self.pending_write.is_some()
-                || self.pending_reply.is_some()
-                || self.completion_error.is_some())
-        {
-            return Err(invalid("terminal CPU has an unfinished I/O transaction"));
-        }
+        // VM-wide shutdown can coincide with a peer's pending MMIO. Preserve
+        // that dormant transaction until the embedder explicitly restarts it.
         if let Some(pending) = &self.pending_read {
             if pending.register > 31 || !matches!(pending.size, 1 | 2 | 4 | 8) {
                 return Err(invalid("invalid pending scalar MMIO request"));

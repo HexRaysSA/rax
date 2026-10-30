@@ -1,0 +1,484 @@
+{
+  "baseline_parent": "f78ec49f30fdc23b2b12eecd6e2e6b9b4edf4171",
+  "scope": "Native shutdown plus pending peer I/O conservation and complete file restart across all represented transaction phases",
+  "assumption_register": [
+    {
+      "id": "TI1",
+      "assumption": "A peer may have pending MMIO when another CPU invokes SYSTEM_OFF",
+      "basis": "Per-CPU native pending transactions and VM-wide Power.shutdown are independent state",
+      "dependent_result": "Terminal pending contexts are valid checkpoint states",
+      "stress_test": "Four phases, real UART FIFO consumption, failed writeback, two native CPUs",
+      "falsification_probe": "SDK or public contract prevents the state before checkpoint capture",
+      "status": "confirmed within the recorded stopped-boundary, file-restoration and explicit-wake scope"
+    },
+    {
+      "id": "TI2",
+      "assumption": "Explicit wake preserves the retained transaction, whereas set_state intentionally replaces it",
+      "basis": "Current wake clears terminal state; set_state cancels pending IO; existing native checkpoint contracts",
+      "dependent_result": "Restart resumes one saved transaction without duplicate device effects",
+      "stress_test": "Repeated terminal entries; file restore; retained error reported once; FIFO next byte; output acknowledged once",
+      "falsification_probe": "A device reply is consumed again, output dispatched again after acknowledgement, or a transaction disappears",
+      "status": "confirmed within the recorded stopped-boundary, file-restoration and explicit-wake scope"
+    }
+  ],
+  "change_surface": {
+    "native_context": "Current terminal-plus-IO rejection; existing independent IO shape/projection validation retained",
+    "native_run_restore": "Existing shutdown gate before pending handling; serialized transaction publication and wake semantics inspected",
+    "snapshot_producer": "CPU shutdown must equal shared power.shutdown; whole graph validation retained",
+    "memory_devices": "Actual UART state transported through existing file; no schema/ABI change planned",
+    "ISA_SMIR_JIT_C_API": "No instruction admission, lowering, enum or public layout changes planned"
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Full backend/private/inflight restoration, all external writers, entered-VM reconstruction and complete timers/replay remain required",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "Simultaneous independently entered SDK CPU shutdown is not established by stopped-boundary cases",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "A32 remaining profiles, full SMP scheduling/debug/clock/replay, remaining HVF MMIO/intercepts and physical Intel validation remain open",
+      "blocks_full_goal": true
+    }
+  ],
+  "baseline": {
+    "argv": [
+      "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+      "terminal_io::",
+      "--ignored",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 0.08672537503298372,
+    "signed_binary_sha256": "cc834ff1ac4be5a0ef83252b3bd52a8af75d676907ba90e2c42ab6b283cd6cf2",
+    "summaries": [
+      "test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 11412 filtered out; finished in 0.06s"
+    ]
+  },
+  "baseline_build": {
+    "argv": [
+      "cargo",
+      "test",
+      "--locked",
+      "--lib",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--no-run",
+      "--message-format=json"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 153.7062227500137
+  },
+  "baseline_raw_stderr": "\nthread 'vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_consumed_peer_input_and_error_through_file_restart' (77125777) panicked at src/vm/runtime/native_terminal_io_tests.rs:166:48:\ncalled `Result::unwrap()` on an `Err` value: Emulator(\"native AArch64 context: terminal CPU has an unfinished I/O transaction\")\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\nthread 'vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_retryable_peer_input_through_file_restart' (77125785) panicked at src/vm/runtime/native_terminal_io_tests.rs:166:48:\ncalled `Result::unwrap()` on an `Err` value: Emulator(\"native AArch64 context: terminal CPU has an unfinished I/O transaction\")\n\nthread 'vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_undispatched_peer_output_through_file_restart' (77125792) panicked at src/vm/runtime/native_terminal_io_tests.rs:166:48:\ncalled `Result::unwrap()` on an `Err` value: Emulator(\"native AArch64 context: terminal CPU has an unfinished I/O transaction\")\n\nthread 'vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_unserviced_peer_input_through_file_restart' (77125799) panicked at src/vm/runtime/native_terminal_io_tests.rs:166:48:\ncalled `Result::unwrap()` on an `Err` value: Emulator(\"native AArch64 context: terminal CPU has an unfinished I/O transaction\")\n",
+  "scope_surface": {
+    "direct_decode_execute": "Unchanged instruction semantics; LLVM independently verifies the guest bytes",
+    "cpu_private_format": "Same fields/tags; allow terminal state alongside otherwise valid pending transactions",
+    "CPU_restore_entry": "No source changes; existing terminal gate precedes transaction processing, and explicit wake enables continuation",
+    "shared_graph": "Existing CPU/shared terminal agreement remains required by snapshot producer",
+    "memory_devices": "Real PL011 FIFO state and real file/RAM transport; no new device serialization fields",
+    "SMIR_optimizer_lowering_JIT": "No changes",
+    "C_ABI_public_API": "No layout, enum numbering or function signature changes",
+    "tests": "Four physical native phases plus complete portable file/codec admission and malformed-state controls"
+  },
+  "compatibility": {
+    "wire_layout": "unchanged; native CPU RAXHVA04, shared RAXHVM02, outer backend section unchanged",
+    "reader_admission": "Existing valid records remain accepted; older readers reject the newly allowed terminal/pending combination",
+    "source_basis": "Only the shutdown-specific Context::validate guard was removed; existing projection and transaction-shape checks remain"
+  },
+  "primary_reference": {
+    "path": "docs/specifications/arm/psci-den0022.pdf",
+    "revision": "Arm DEN0022D",
+    "sections": [
+      "5.10 SYSTEM_OFF"
+    ],
+    "sha256": "ed924cebfe9f705327b0c07832c643023ad0525887477440a6195887dda37253",
+    "origin_url": "unknown; existing repository-retained primary document",
+    "boundary": "PSCI supplies VM shutdown context; explicit wake and checkpoint transaction conservation are RAX embedding API contracts, not an architectural PSCI resume claim"
+  },
+  "native_host_provenance": {
+    "utc": "2026-10-30T11:13:07.507611+00:00",
+    "commands": [
+      {
+        "argv": [
+          "sw_vers"
+        ],
+        "exit_code": 0,
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "uname",
+          "-m"
+        ],
+        "exit_code": 0,
+        "stdout": "arm64\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "sysctl",
+          "-n",
+          "machdep.cpu.brand_string"
+        ],
+        "exit_code": 0,
+        "stdout": "Apple M4 Max\n",
+        "stderr": ""
+      }
+    ],
+    "references": {
+      "docs/specifications/arm/psci-den0022.pdf": "ed924cebfe9f705327b0c07832c643023ad0525887477440a6195887dda37253",
+      "rax.entitlements": "35d4cf85dde95ca7c102cf0752ebece94bc7a7d1a7a022e7a60ef33bee9c57b6"
+    }
+  },
+  "environment": {
+    "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+    "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+    "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+    "CARGO_BUILD_JOBS": "1",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_NET_OFFLINE": "true",
+    "RUSTC_WRAPPER": "",
+    "RUSTC_WORKSPACE_WRAPPER": "",
+    "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "utc": "2026-10-30T11:39:53.172186+00:00",
+  "records": {
+    "baseline-build": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 153.7062227500137
+    },
+    "baseline-sign": {
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/rax.entitlements",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57: replacing existing signature\n"
+    },
+    "baseline-verify": {
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "baseline-entitlements": {
+      "argv": [
+        "codesign",
+        "-d",
+        "--entitlements",
+        ":-",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"https://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>com.apple.security.hypervisor</key><true/></dict></plist>\n",
+      "stderr": "Executable=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57\nwarning: Specifying ':' in the path is deprecated and will not work in a future release\n"
+    },
+    "baseline": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "terminal_io::",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 0.08672537503298372,
+      "signed_binary_sha256": "cc834ff1ac4be5a0ef83252b3bd52a8af75d676907ba90e2c42ab6b283cd6cf2",
+      "summaries": [
+        "test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 11412 filtered out; finished in 0.06s"
+      ]
+    },
+    "corrected-build": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 165.13561841699993
+    },
+    "corrected-sign": {
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/rax.entitlements",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57: replacing existing signature\n"
+    },
+    "corrected-verify": {
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "corrected-entitlements": {
+      "argv": [
+        "codesign",
+        "-d",
+        "--entitlements",
+        ":-",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"https://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>com.apple.security.hypervisor</key><true/></dict></plist>\n",
+      "stderr": "Executable=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57\nwarning: Specifying ':' in the path is deprecated and will not work in a future release\n"
+    },
+    "corrected": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "terminal_io::",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 218.27061079104897,
+      "signed_binary_sha256": "eda5b33ebfc25ae860b16a3769602dcef372d35963efc0e80b2c5949c5c224f2",
+      "summaries": [
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 11414 filtered out; finished in 218.25s"
+      ]
+    },
+    "portable-native-format": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "backend::arm64_hvf_context::tests",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.949522209004499,
+      "binary_sha256": "eda5b33ebfc25ae860b16a3769602dcef372d35963efc0e80b2c5949c5c224f2",
+      "summaries": [
+        "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 11407 filtered out; finished in 0.94s"
+      ]
+    },
+    "portable-snapshot": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::snapshot::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.653281084029004,
+      "binary_sha256": "eda5b33ebfc25ae860b16a3769602dcef372d35963efc0e80b2c5949c5c224f2",
+      "summaries": [
+        "test result: ok. 70 passed; 0 failed; 0 ignored; 0 measured; 11348 filtered out; finished in 0.64s"
+      ]
+    },
+    "portable-power": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "backend::arm64_hvf_power::tests",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.011359166004694998,
+      "binary_sha256": "eda5b33ebfc25ae860b16a3769602dcef372d35963efc0e80b2c5949c5c224f2",
+      "summaries": [
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 11414 filtered out; finished in 0.00s"
+      ]
+    },
+    "portable-config": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "config::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.011975416971836239,
+      "binary_sha256": "eda5b33ebfc25ae860b16a3769602dcef372d35963efc0e80b2c5949c5c224f2",
+      "summaries": [
+        "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 11407 filtered out; finished in 0.00s"
+      ]
+    },
+    "native-standalone-regression": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "standalone::",
+        "--ignored",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.15344541700324044,
+      "binary_sha256": "eda5b33ebfc25ae860b16a3769602dcef372d35963efc0e80b2c5949c5c224f2",
+      "summaries": [
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 11416 filtered out; finished in 0.12s"
+      ]
+    },
+    "native-overlay-regression": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::native_checkpoint_tests::native_register_overlay_preserves_each_pending_io_phase",
+        "--ignored",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.045115457964129746,
+      "binary_sha256": "eda5b33ebfc25ae860b16a3769602dcef372d35963efc0e80b2c5949c5c224f2",
+      "summaries": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11417 filtered out; finished in 0.02s"
+      ]
+    },
+    "normal-check": {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 34.72707895800704
+    },
+    "clippy": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 26.00706104200799
+    },
+    "format": {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 12.939459041983355
+    },
+    "owned-format": {
+      "argv": [
+        "rustfmt",
+        "--edition",
+        "2024",
+        "--check",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/vm/runtime/native_checkpoint_tests.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/vm/runtime/native_terminal_io_tests.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/backend/hvf/arm64_context_format.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/backend/hvf/arm64_context_format_tests.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/vm/snapshot/native_bundle_tests.rs"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.05174254102166742
+    },
+    "guest-encoding": {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-show-encoding"
+      ],
+      "stdin": "ldrb w0,[x1]\nstrb w0,[x1]\nmov x2,#0xbeef\nwfi\nhvc #0\n",
+      "exit_code": 0,
+      "stdout": "\tldrb\tw0, [x1]                        // encoding: [0x20,0x00,0x40,0x39]\n\tstrb\tw0, [x1]                        // encoding: [0x20,0x00,0x00,0x39]\n\tmov\tx2, #48879                      // encoding: [0xe2,0xdd,0x97,0xd2]\n                                        // =0xbeef\n\twfi                                     // encoding: [0x7f,0x20,0x03,0xd5]\n\thvc\t#0                              // encoding: [0x02,0x00,0x00,0xd4]\n",
+      "stderr": ""
+    }
+  },
+  "status": "locally validated terminal-I/O component; full original four-finding objective incomplete",
+  "native_tests_passed": 7,
+  "portable_tests_passed": 96,
+  "selected_tests_passed": 103,
+  "source_sha256": {
+    "src/vm/runtime/native_checkpoint_tests.rs": "138adcf3dc6465437283d32453f7470e3717bbc0f47787d80942961fb7be08ed",
+    "src/vm/runtime/native_terminal_io_tests.rs": "c6a15dc20f1bca538dd31e2b2e8f55b81241cc974520e84182d15c5c2da1925e",
+    "src/backend/hvf/arm64_context_format.rs": "5f29ec17c63e0ed054a78ed18bb735a9c89497d55e71eb1a1456fd2b6bd6f2b5",
+    "src/backend/hvf/arm64_context_format_tests.rs": "e85692d17bd9e414f1d5834ff9d055cb58e062c59ad4a8e457f48dd281df8912",
+    "src/vm/snapshot/native_bundle_tests.rs": "0f3dbe395de7a337379776d9a2c32be2e8dc53845920c1efefb08e9db63a1a48"
+  },
+  "native_file_evidence": {
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/terminal-io-v1/corrected-native-files/native-terminal-Read.rxc": {
+      "bytes": 276378,
+      "sha256": "0ffde1ffde3c1c6227ea58b75d136519ed8fba85a5f6ae2278a556e18e6bbf63"
+    },
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/terminal-io-v1/corrected-native-files/native-terminal-ReplyError.rxc": {
+      "bytes": 276427,
+      "sha256": "69d274b37d24ce1a002fc97e87bb834e76c2df58a38b518958392275a468eb0c"
+    },
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/terminal-io-v1/corrected-native-files/native-terminal-RetryReply.rxc": {
+      "bytes": 276386,
+      "sha256": "ee2a5702e2c002b22a5fce211c4ec8b49ce3c8b2be91932a53faf1698476f376"
+    },
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/terminal-io-v1/corrected-native-files/native-terminal-Write.rxc": {
+      "bytes": 276380,
+      "sha256": "da34967d436b938d36d728ff557ede6b5e7e8826f58f572209e9412b53173f08"
+    }
+  },
+  "quality_gates": {
+    "normative_content_required": false,
+    "assumption_probes_complete": true,
+    "component_requirements_covered": true,
+    "full_goal_complete": false,
+    "actual_runtime_baseline_four_failures": true,
+    "signed_native_tests_executed_not_skipped": true,
+    "native_file_restart_assertions_passed": true,
+    "malformed_state_and_global_coherence_checks_retained": true,
+    "source_matches_tested_manifest": true,
+    "bounded_scope_explicit": true
+  },
+  "unrun_gates": [
+    "Entire root suite/all-target build and all-platform product lanes were not run for this component.",
+    "Physical Intel HVF, simultaneous independently entered SDK CPUs, entered-VM reconstruction and streaming FPSR remain unverified or unresolved.",
+    "The new native cases use little-endian byte MMIO on the recorded Apple M4 Max profile; no expanded native MMIO instruction coverage claim."
+  ],
+  "workflow": "git add exact owned paths, then red -m --staged --run same exact paths; user explicitly authorized commits",
+  "cleanup": "One reused task cache/scratch; remove when idle after this semantic group; no new worktrees"
+}

@@ -269,7 +269,9 @@ The corrected implementation adds a private shutdown latch, includes it in
 experimental CPU schema 04, restores it through the coordinated transaction,
 and reports Shutdown before another SDK entry. Ordinary register overlays
 retain this state; explicit `wake` and successful `set_state` replacement clear
-it. Terminal records reject unfinished input/output transactions. The v17
+it. At v17, terminal records rejected unfinished input/output transactions; the
+later [terminal-I/O correction](terminal-io.md) preserves a peer's dormant
+transaction across VM-wide shutdown and file restart. The v17
 physical test passed all four variants (one selected test, zero failures or
 ignores). Repeated terminal runs preserve the complete private context; register
 overlays retain the latch, and both explicit restart APIs execute the marker.

@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn terminal_state_roundtrips_and_cannot_carry_unfinished_io() {
+fn terminal_state_roundtrips_with_each_dormant_io_phase() {
     let mut stopped = fixture(false, false);
     stopped.pending_read = None;
     stopped.pending_reply = None;
@@ -27,7 +27,44 @@ fn terminal_state_roundtrips_and_cannot_carry_unfinished_io() {
     let mut unserviced_read = read.clone();
     unserviced_read.pending_reply = None;
     unserviced_read.completion_error = None;
-    for invalid in [read, write, unserviced_read] {
+    let mut retry = read.clone();
+    retry.completion_error = None;
+    for context in [read, retry, write, unserviced_read] {
+        assert_eq!(
+            Context::decode(&context.encode().unwrap()).unwrap(),
+            context
+        );
+    }
+}
+
+#[test]
+fn terminal_io_still_rejects_malformed_and_conflicting_transactions() {
+    let mut base = fixture(false, false);
+    base.shutdown = true;
+    let mut register = base.clone();
+    register.pending_read.as_mut().unwrap().register = 32;
+    let mut width = base.clone();
+    width.pending_read.as_mut().unwrap().size = 3;
+    let mut reply_width = base.clone();
+    reply_width.pending_reply.as_mut().unwrap().pop();
+    let mut orphan_reply = base.clone();
+    orphan_reply.pending_read = None;
+    let mut orphan_error = base.clone();
+    orphan_error.pending_reply = None;
+    let mut conflict = base;
+    conflict.pending_write = Some(PendingWrite {
+        address: 0x09000030,
+        data: vec![0xa5],
+    });
+    for invalid in [
+        register,
+        width,
+        reply_width,
+        orphan_reply,
+        orphan_error,
+        conflict,
+    ] {
+        assert!(invalid.encode().is_err());
         let mut raw = TAG.to_vec();
         raw.extend(crate::codec::serialize_limited(&invalid, LIMIT).unwrap());
         assert!(Context::decode(&raw).is_err());

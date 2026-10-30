@@ -1358,3 +1358,6 @@ mod psci;
 
 #[path = "native_standalone_tests.rs"]
 mod standalone;
+
+#[path = "native_terminal_io_tests.rs"]
+mod terminal_io;

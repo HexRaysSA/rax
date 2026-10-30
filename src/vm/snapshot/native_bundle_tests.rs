@@ -468,6 +468,64 @@ fn native_cpu_and_vm_terminal_state_must_agree() {
     assert!(saved.validate_complete().is_err());
 }
 
+#[test]
+fn native_terminal_pending_transactions_survive_complete_file_admission() {
+    use crate::backend::arm64_hvf_context::{PendingRead, PendingWrite};
+    for phase in 0..4 {
+        let mut saved = complete_file(2);
+        saved.execution.as_mut().unwrap().online[1] = true;
+        let mut global = GlobalContext::decode(&saved.vm_context.as_ref().unwrap().data).unwrap();
+        global.power.states[1] = crate::backend::arm64_hvf_power::State::On;
+        global.power.shutdown = true;
+        saved.vm_context.as_mut().unwrap().data = global.encode().unwrap();
+        let mut records = saved.backend_contexts.take().unwrap().entries().to_vec();
+        for (id, record) in records.iter_mut().enumerate() {
+            let mut context = Context::decode(&record.as_ref().unwrap().data).unwrap();
+            context.shutdown = true;
+            if id == 1 {
+                if phase == 3 {
+                    context.pending_write = Some(PendingWrite {
+                        address: 0x09000030,
+                        data: vec![0xab],
+                    });
+                } else {
+                    context.pending_read = Some(PendingRead {
+                        address: 0x09000000,
+                        register: 0,
+                        size: 1,
+                        sign_extend: false,
+                        sixty_four: false,
+                    });
+                    if phase > 0 {
+                        context.pending_reply = Some(vec![0xab]);
+                    }
+                    if phase == 1 {
+                        context.completion_error = Some("saved native writeback failure".into());
+                    }
+                }
+            }
+            record.as_mut().unwrap().data = context.encode().unwrap();
+        }
+        let expected = Context::decode(&records[1].as_ref().unwrap().data).unwrap();
+        saved.backend_contexts = Some(BackendContexts::capture(records, 2).unwrap());
+        let path = TestPath::new();
+        saved.save(&path.0).unwrap();
+        let mut loaded = SnapshotBundle::load(&path.0).unwrap();
+        loaded.validate_complete().unwrap();
+        let mut records = loaded.backend_contexts.take().unwrap().entries().to_vec();
+        assert_eq!(
+            Context::decode(&records[1].as_ref().unwrap().data).unwrap(),
+            expected
+        );
+        // Relaxing terminal/IO admission must not weaken CPU/shared coherence.
+        let mut bad = expected;
+        bad.shutdown = false;
+        records[1].as_mut().unwrap().data = bad.encode().unwrap();
+        loaded.backend_contexts = Some(BackendContexts::capture(records, 2).unwrap());
+        assert!(loaded.validate_complete().is_err());
+    }
+}
+
 fn set_bigend_profile(saved: &mut SnapshotBundle, field: u64) {
     let mut records = saved.backend_contexts.take().unwrap().entries().to_vec();
     for record in records.iter_mut().flatten() {

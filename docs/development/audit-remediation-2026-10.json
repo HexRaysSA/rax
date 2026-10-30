@@ -2672,7 +2672,9 @@
         "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/capture-qualification-v6.json",
         "docs/development/native-arm64-checkpoints/qualification.json",
         "docs/development/native-arm64-checkpoints/standalone-power.md",
-        "docs/development/native-arm64-checkpoints/standalone-power-qualification.json"
+        "docs/development/native-arm64-checkpoints/standalone-power-qualification.json",
+        "docs/development/native-arm64-checkpoints/terminal-io.md",
+        "docs/development/native-arm64-checkpoints/terminal-io-qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2688,7 +2690,8 @@
         "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open.",
         "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
         "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope.",
-        "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO is a source-derived capture-gap candidate requiring physical reproduction and repair. Full original scope remains open."
+        "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO was subsequently reproduced and repaired in the terminal-I/O group; four represented phases now pass actual native file/wake continuation. Full original scope remains open.",
+        "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3331,7 +3334,9 @@
         "docs/development/a32-fp-controls/feature-admission/misc-and-fma.md",
         "docs/development/native-arm64-checkpoints/qualification.json",
         "docs/development/native-arm64-checkpoints/standalone-power.md",
-        "docs/development/native-arm64-checkpoints/standalone-power-qualification.json"
+        "docs/development/native-arm64-checkpoints/standalone-power-qualification.json",
+        "docs/development/native-arm64-checkpoints/terminal-io.md",
+        "docs/development/native-arm64-checkpoints/terminal-io-qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3343,7 +3348,8 @@
         "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open.",
         "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
         "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope.",
-        "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO is a source-derived capture-gap candidate requiring physical reproduction and repair. Full original scope remains open."
+        "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO was subsequently reproduced and repaired in the terminal-I/O group; four represented phases now pass actual native file/wake continuation. Full original scope remains open.",
+        "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -196728,7 +196734,7 @@
     },
     {
       "id": "native-standalone-terminal-power-2026-10-30",
-      "status": "locally_validated",
+      "status": "committed",
       "parent": "5462ab51ae7c868e423e78c6bb683155585d2fc2",
       "scope": "Unconfigured native backend VM terminal state and preservation of restored power graph; CPU/shared API restoration, not full file/RAM proof; full original four-finding objective remains incomplete",
       "owned_paths": [
@@ -196782,7 +196788,58 @@
         "Simultaneous entered-CPU shutdown, peer pending I/O at VM shutdown, SDK streaming FPSR, complete timers/clocks/replay remain open."
       ],
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/standalone-power-v1/commit-receipt.json",
-      "workflow": "git add exact owned files, then red -m --staged --run same exact paths; commits explicitly authorized"
+      "workflow": "git add exact owned files, then red -m --staged --run same exact paths; commits explicitly authorized",
+      "commit": "f78ec49f30fdc23b2b12eecd6e2e6b9b4edf4171"
+    },
+    {
+      "id": "native-terminal-peer-io-conservation-2026-10-30",
+      "status": "locally_validated",
+      "parent": "f78ec49f30fdc23b2b12eecd6e2e6b9b4edf4171",
+      "scope": "Native shutdown plus pending peer I/O conservation and complete file restart across all represented transaction phases; full original four-finding objective remains incomplete",
+      "owned_paths": [
+        "src/vm/runtime/native_checkpoint_tests.rs",
+        "src/vm/runtime/native_terminal_io_tests.rs",
+        "src/backend/hvf/arm64_context_format.rs",
+        "src/backend/hvf/arm64_context_format_tests.rs",
+        "src/vm/snapshot/native_bundle_tests.rs",
+        "docs/development/native-arm64-checkpoints/terminal-io.md",
+        "docs/development/native-arm64-checkpoints/terminal-io-qualification.json",
+        "docs/development/native-arm64-checkpoints/standalone-power.md",
+        "docs/development/native-arm64-checkpoints/README.md",
+        "docs/development/audit-remediation-2026-10.json"
+      ],
+      "qualification": "docs/development/native-arm64-checkpoints/terminal-io-qualification.json",
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/terminal-io-v1/corrected-source.json",
+      "native_tests_passed": 7,
+      "portable_tests_passed": 96,
+      "actual_runtime_baseline": "Four signed physical cases failed at terminal/unfinished-IO rejection before production fix",
+      "assumption_register": [
+        {
+          "id": "TI1",
+          "assumption": "A peer may have pending MMIO when another CPU invokes SYSTEM_OFF",
+          "basis": "Per-CPU native pending transactions and VM-wide Power.shutdown are independent state",
+          "dependent_result": "Terminal pending contexts are valid checkpoint states",
+          "stress_test": "Four phases, real UART FIFO consumption, failed writeback, two native CPUs",
+          "falsification_probe": "SDK or public contract prevents the state before checkpoint capture",
+          "status": "confirmed within the recorded stopped-boundary, file-restoration and explicit-wake scope"
+        },
+        {
+          "id": "TI2",
+          "assumption": "Explicit wake preserves the retained transaction, whereas set_state intentionally replaces it",
+          "basis": "Current wake clears terminal state; set_state cancels pending IO; existing native checkpoint contracts",
+          "dependent_result": "Restart resumes one saved transaction without duplicate device effects",
+          "stress_test": "Repeated terminal entries; file restore; retained error reported once; FIFO next byte; output acknowledged once",
+          "falsification_probe": "A device reply is consumed again, output dispatched again after acknowledgement, or a transaction disappears",
+          "status": "confirmed within the recorded stopped-boundary, file-restoration and explicit-wake scope"
+        }
+      ],
+      "pending_gates": [
+        "Entire root suite/all-target build and all-platform product lanes were not run for this component.",
+        "Physical Intel HVF, simultaneous independently entered SDK CPUs, entered-VM reconstruction and streaming FPSR remain unverified or unresolved.",
+        "The new native cases use little-endian byte MMIO on the recorded Apple M4 Max profile; no expanded native MMIO instruction coverage claim."
+      ],
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/terminal-io-v1/commit-receipt.json",
+      "workflow": "git add exact owned paths, then red -m --staged --run same exact paths; user explicitly authorized commits"
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

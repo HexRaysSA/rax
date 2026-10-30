@@ -41,8 +41,6 @@ writer coordination, entered-VM reconstruction, SDK streaming FPSR behavior,
 clocks/debug/replay and native Intel execution. No claim of full C-STATE, C-SMP,
 C-HVF or A32-FP closure follows from this component.
 
-Another source-derived candidate remains to reproduce: `Context::validate`
-rejects a terminal CPU with pending I/O. A peer's pending MMIO combined with
-VM-wide SYSTEM_OFF can therefore expose a capture gap. This group's tests do
-not establish continuation of that combination; it remains a full C-STATE
-requirement.
+The terminal/peer-pending-I/O capture candidate found during this group was
+subsequently reproduced and repaired. See [terminal-io.md](terminal-io.md) for
+the four signed physical file/restart cases and their evidence boundaries.
