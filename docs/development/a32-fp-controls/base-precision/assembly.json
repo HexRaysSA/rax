@@ -1,0 +1,77 @@
+{
+  "command": [
+    "/Users/int/local/bin/llvm-mc",
+    "-triple=armv8a-none-eabi",
+    "-show-encoding",
+    "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/docs/development/a32-fp-controls/base-precision/cases.s"
+  ],
+  "stdout": "\t.fpu\tneon-fp-armv8\n\n\t.code\t32\n\t.p2align\t2\n\tvadd.f32\ts0, s0, s0                      @ encoding: [0x00,0x0a,0x30,0xee]\n\tvadd.f64\td0, d0, d0                      @ encoding: [0x00,0x0b,0x30,0xee]\n\tvmov\td0, r1, r2                      @ encoding: [0x10,0x1b,0x42,0xec]\n\tvldr\td0, [r0]                        @ encoding: [0x00,0x0b,0x90,0xed]\n\tvstr\td0, [r0]                        @ encoding: [0x00,0x0b,0x80,0xed]\n\tvmov.f64\td0, d0                          @ encoding: [0x40,0x0b,0xb0,0xee]\n\tvcvt.f64.f32\td0, s0                  @ encoding: [0xc0,0x0a,0xb7,0xee]\n\tvcvt.f32.f64\ts0, d0                  @ encoding: [0xc0,0x0b,0xb7,0xee]\n\tvdiv.f32\ts0, s0, s0                      @ encoding: [0x00,0x0a,0x80,0xee]\n\tvsqrt.f32\ts0, s0                  @ encoding: [0xc0,0x0a,0xb1,0xee]\n\tvmov.f32\ts0, #1.500000e+00               @ encoding: [0x08,0x0a,0xb7,0xee]\n\tvcvt.s32.f32\ts0, s0, #1              @ encoding: [0xef,0x0a,0xbe,0xee]\n\tvmov.f64\td0, #1.500000e+00               @ encoding: [0x08,0x0b,0xb7,0xee]\n\tvcvt.s32.f64\td0, d0, #1              @ encoding: [0xef,0x0b,0xbe,0xee]\n\tvdiv.f64\td0, d0, d0                      @ encoding: [0x00,0x0b,0x80,0xee]\n\tvsqrt.f64\td0, d0                  @ encoding: [0xc0,0x0b,0xb1,0xee]\n\t.code\t16\n\t.p2align\t1\n\tvadd.f32\ts0, s0, s0                      @ encoding: [0x30,0xee,0x00,0x0a]\n\tvadd.f64\td0, d0, d0                      @ encoding: [0x30,0xee,0x00,0x0b]\n\tvmov\td0, r1, r2                      @ encoding: [0x42,0xec,0x10,0x1b]\n\tvldr\td0, [r0]                        @ encoding: [0x90,0xed,0x00,0x0b]\n\tvstr\td0, [r0]                        @ encoding: [0x80,0xed,0x00,0x0b]\n\tvmov.f64\td0, d0                          @ encoding: [0xb0,0xee,0x40,0x0b]\n\tvcvt.f64.f32\td0, s0                  @ encoding: [0xb7,0xee,0xc0,0x0a]\n\tvcvt.f32.f64\ts0, d0                  @ encoding: [0xb7,0xee,0xc0,0x0b]\n\tvdiv.f32\ts0, s0, s0                      @ encoding: [0x80,0xee,0x00,0x0a]\n\tvsqrt.f32\ts0, s0                  @ encoding: [0xb1,0xee,0xc0,0x0a]\n\tvmov.f32\ts0, #1.500000e+00               @ encoding: [0xb7,0xee,0x08,0x0a]\n\tvcvt.s32.f32\ts0, s0, #1              @ encoding: [0xbe,0xee,0xef,0x0a]\n\tvmov.f64\td0, #1.500000e+00               @ encoding: [0xb7,0xee,0x08,0x0b]\n\tvcvt.s32.f64\td0, d0, #1              @ encoding: [0xbe,0xee,0xef,0x0b]\n\tvdiv.f64\td0, d0, d0                      @ encoding: [0x80,0xee,0x00,0x0b]\n\tvsqrt.f64\td0, d0                  @ encoding: [0xb1,0xee,0xc0,0x0b]\n",
+  "stderr": "",
+  "source_sha256": "8ba86337af7a0ee1fd9429fb32eeddefe9fd2a49dbb9c607919efcf19f8dd15e",
+  "operations": [
+    [
+      "single",
+      "vadd.f32 s0,s0,s0"
+    ],
+    [
+      "double",
+      "vadd.f64 d0,d0,d0"
+    ],
+    [
+      "pair_storage",
+      "vmov d0,r1,r2"
+    ],
+    [
+      "double_load",
+      "vldr d0,[r0]"
+    ],
+    [
+      "double_store",
+      "vstr d0,[r0]"
+    ],
+    [
+      "double_register_move",
+      "vmov.f64 d0,d0"
+    ],
+    [
+      "single_to_double",
+      "vcvt.f64.f32 d0,s0"
+    ],
+    [
+      "double_to_single",
+      "vcvt.f32.f64 s0,d0"
+    ],
+    [
+      "divide_single",
+      "vdiv.f32 s0,s0,s0"
+    ],
+    [
+      "sqrt_single",
+      "vsqrt.f32 s0,s0"
+    ],
+    [
+      "constant_single",
+      "vmov.f32 s0,#1.5"
+    ],
+    [
+      "fixed_single",
+      "vcvt.s32.f32 s0,s0,#1"
+    ],
+    [
+      "constant_double",
+      "vmov.f64 d0,#1.5"
+    ],
+    [
+      "fixed_double",
+      "vcvt.s32.f64 d0,d0,#1"
+    ],
+    [
+      "divide_double",
+      "vdiv.f64 d0,d0,d0"
+    ],
+    [
+      "sqrt_double",
+      "vsqrt.f64 d0,d0"
+    ]
+  ]
+}

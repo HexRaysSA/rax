@@ -671,3 +671,6 @@ fn invalid_fp_system_registers_preserve_the_existing_diagnostic_exit() {
 
 #[path = "a32_fp_controls/register_banks.rs"]
 mod register_banks;
+
+#[path = "a32_fp_controls/base_precision.rs"]
+mod base_precision;

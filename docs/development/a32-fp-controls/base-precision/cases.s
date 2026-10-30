@@ -1,0 +1,36 @@
+.syntax unified
+.fpu neon-fp-armv8
+.arm
+vadd.f32 s0,s0,s0
+vadd.f64 d0,d0,d0
+vmov d0,r1,r2
+vldr d0,[r0]
+vstr d0,[r0]
+vmov.f64 d0,d0
+vcvt.f64.f32 d0,s0
+vcvt.f32.f64 s0,d0
+vdiv.f32 s0,s0,s0
+vsqrt.f32 s0,s0
+vmov.f32 s0,#1.5
+vcvt.s32.f32 s0,s0,#1
+vmov.f64 d0,#1.5
+vcvt.s32.f64 d0,d0,#1
+vdiv.f64 d0,d0,d0
+vsqrt.f64 d0,d0
+.thumb
+vadd.f32 s0,s0,s0
+vadd.f64 d0,d0,d0
+vmov d0,r1,r2
+vldr d0,[r0]
+vstr d0,[r0]
+vmov.f64 d0,d0
+vcvt.f64.f32 d0,s0
+vcvt.f32.f64 s0,d0
+vdiv.f32 s0,s0,s0
+vsqrt.f32 s0,s0
+vmov.f32 s0,#1.5
+vcvt.s32.f32 s0,s0,#1
+vmov.f64 d0,#1.5
+vcvt.s32.f64 d0,d0,#1
+vdiv.f64 d0,d0,d0
+vsqrt.f64 d0,d0

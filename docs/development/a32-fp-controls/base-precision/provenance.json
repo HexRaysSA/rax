@@ -1,0 +1,32 @@
+{
+  "primary_arm_reference": {
+    "title": "ARM Architecture Reference Manual ARMv8, for ARMv8-A architecture profile",
+    "issuing_organization": "Arm Limited",
+    "revision": "DDI0487B.a ID033117",
+    "section": "G6.2.107 MVFR0; printed pagesG6-5065 throughG6-5067",
+    "provenance": "../../../specifications/arm/aarch32-fp-profile/provenance.json",
+    "retained_extract": "../register-bank/mvfr0-extract.txt",
+    "rule": "FPSP/FPDP1 and2 support VFPv2 andv3 respectively; constants/fixed-point needv3. Divide/sqrt additionally need their own field1. Single/double conversion needs both precisions."
+  },
+  "qemu_primary_source": {
+    "revision": "v11.1.2",
+    "provenance": "../references/qemu-11.1.2/provenance.json",
+    "sections": "translate-vfp.c trans_VMOV_64_dp and trans_VLDM_VSTM_dp explicitly separate64bit storage from double arithmetic; do_vfp_3op_dp and conversion helpers distinguish precision; VCVT_fix_sp/dp require v3."
+  },
+  "independent_execution": {
+    "path": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/precision-qemu-m4-v2",
+    "cases": 12,
+    "machine": "mps2-an386",
+    "cpu": "cortex-m4",
+    "observed_mvfr0": "0x10110021",
+    "observed_mvfr1": "0x11000011",
+    "scope": "Single-only Thumb VFP instruction capability control from actual QEMU CPU fields; no A32-mode or physical Cortex-M4 claim. RAX standalone A32 borrows only the shared instruction/precision boundary, not M-profile privilege/exception semantics.",
+    "fixture_correction": "v1 exited normally but lacked UART transmission because CMSDK UART CTRL.TXEN was not set; v2 enables TX before markers. Both raw versions retained.",
+    "elf_producer": "Exact source, LLVM MC and LLD commands retained with raw stdout/stderr in qualification.json."
+  },
+  "field_boundary_tests": "Independently varied reserved and VFPv2 fields test exact field admission, not the existence of a processor combining all varied fields.",
+  "source_hashes": {
+    "docs/development/a32-fp-controls/references/qemu-11.1.2/target/arm/tcg/translate-vfp.c": "fb72857fb03c6b7b03ed47efb929550c2e12248a62ed0bb38fea2421aca50a82",
+    "docs/specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e"
+  }
+}

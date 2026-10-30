@@ -5,6 +5,8 @@
 use super::vfp::VfpState;
 use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
 
+#[path = "fp_precision.rs"]
+mod precision;
 #[path = "fp_registers.rs"]
 mod registers;
 
@@ -17,6 +19,7 @@ pub(crate) fn instruction_supported(
     id_isar6: u32,
 ) -> bool {
     if !registers::instruction_supported(insn, advsimd, state)
+        || !precision::instruction_supported(insn, advsimd, state)
         || !half_supported(insn, advsimd, state, id_isar6)
     {
         return false;

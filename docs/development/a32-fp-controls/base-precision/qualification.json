@@ -1,0 +1,203 @@
+{
+  "utc": "2026-10-30T07:11:26.496890+00:00",
+  "semantic_group": "A32/T32 scalar precision, VFP version and divide/sqrt admission",
+  "status": "represented scalar capability correction validated; four-finding objective remains incomplete",
+  "integration_head_before_commit": "013af8b059f5a81313c7c7d78eb5298d4e4e2872",
+  "validation_tree": "Combined integration checkout with unfinished native checkpoint changes; exact A32 inputs hashed below.",
+  "receipts": {
+    "baseline-tests.json": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "a32_fp_controls",
+        "base_precision::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 107.84184366598492,
+      "utc": "2026-10-30T07:07:07.321086+00:00",
+      "summaries": [
+        "test result: FAILED. 1 passed; 4 failed; 0 ignored; 0 measured; 31 filtered out; finished in 0.00s"
+      ]
+    },
+    "corrected-tests.json": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "a32_fp_controls",
+        "base_precision::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 81.80236616695765,
+      "utc": "2026-10-30T07:09:09.741712+00:00",
+      "summaries": [
+        "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 31 filtered out; finished in 0.01s"
+      ]
+    },
+    "corrected-format.json": {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 13.378905624966137,
+      "utc": "2026-10-30T07:07:47.938411+00:00",
+      "summaries": []
+    },
+    "gate-owning.json": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "a32_fp_controls",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.2289503330248408,
+      "utc": "2026-10-30T07:09:30.357719+00:00",
+      "summaries": [
+        "test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+      ]
+    },
+    "gate-vfp.json": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "arm_vfp_a32",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 35.56929029105231,
+      "utc": "2026-10-30T07:10:05.927657+00:00",
+      "summaries": [
+        "test result: ok. 497 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 33.29s"
+      ]
+    },
+    "gate-pairs.json": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "a32_fp_pairs",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.7762359170010313,
+      "utc": "2026-10-30T07:10:06.704366+00:00",
+      "summaries": [
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s"
+      ]
+    },
+    "gate-clippy.json": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--lib",
+        "--test",
+        "a32_fp_controls",
+        "--test",
+        "arm_vfp_a32"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 46.57181466702605,
+      "utc": "2026-10-30T07:10:53.276761+00:00",
+      "summaries": []
+    }
+  },
+  "counts": {
+    "owning_tests": 38,
+    "vfp_tests": 497,
+    "pair_tests": 5,
+    "total_tests": 540,
+    "new_tests": 7,
+    "independent_qemu_thumb_controls": 12
+  },
+  "source_sha256": {
+    "src/isa/arm/aarch32/fp_admission.rs": "b3da29f5d6de5db1a32e3b6d0f364ce016780d2c201e1acf0321ec0ac8e80127",
+    "src/isa/arm/aarch32/fp_precision.rs": "40c1eded976697ebfdffb2f6086d912827a47151b9a3381fba637062dd51ff2b",
+    "tests/suites/backend/a32_fp_controls.rs": "bd6f584a06c4b31d0f5fc63edd7d6b4fc3e0c0f11d84f81e64a42eb989df2e1f",
+    "tests/suites/backend/a32_fp_controls/base_precision.rs": "d1efc91a5c97e78e5f28447be4b1619bfae074fd526a0b9c2fb4ac88903e736a",
+    "docs/development/a32-fp-controls/base-precision/README.md": "20389590bcf6250c17d8ced79fb5e5a94d72f09d8502f9ec8a0d5a5194e0c118",
+    "docs/development/a32-fp-controls/base-precision/assembly.json": "34037246ff790223549762d437507c2218ee289b0a0bace4391f0acfdb9ccf66",
+    "docs/development/a32-fp-controls/base-precision/cases.s": "8ba86337af7a0ee1fd9429fb32eeddefe9fd2a49dbb9c607919efcf19f8dd15e",
+    "docs/development/a32-fp-controls/base-precision/provenance.json": "faf4369426e990ee2075e035f31134396dd27910f7e252ffb60dcc92ba6350cd"
+  },
+  "independent_evidence": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/precision-qemu-m4-v2/qualification.json",
+  "assumption_register": [
+    {
+      "id": "BP1",
+      "assumption": "Scalar precision fields constrain arithmetic/conversion admission.",
+      "basis": "Arm DDI0487B.a G6.2.107 and independent single-only Thumb controls.",
+      "dependent_result": "Absent/invalid precision rejection.",
+      "stress_test": "Both conversion directions and absent/reserved precision, ordinary/denied FP access.",
+      "falsification_probe": "Absent operation executes or rejection changes architecture/memory.",
+      "status": "baseline violated; represented correction passed"
+    },
+    {
+      "id": "BP2",
+      "assumption": "Raw64bit storage needs scalar FP but not double arithmetic.",
+      "basis": "Retained QEMU instruction guards and actual single-only Cortex-M4 guest.",
+      "dependent_result": "D-register storage remains executable with FPDP0.",
+      "stress_test": "Core pair transfer and D-register load/store with FPDP0 and FPSP0 separately.",
+      "falsification_probe": "Wrong precision dependency causes rejection or execution.",
+      "status": "confirmed for represented controls"
+    },
+    {
+      "id": "BP3",
+      "assumption": "V3 constants/fixed conversion and optional divide/sqrt use exact declared fields.",
+      "basis": "Arm MVFR0 descriptions; retained QEMU v3 guards.",
+      "dependent_result": "Version/optional-operation admission.",
+      "stress_test": "VFPv2/v3 and field0/1/reserved variations.",
+      "falsification_probe": "Unavailable operation executes; legal v2 arithmetic or v3 operation rejects.",
+      "status": "baseline violated; represented correction passed"
+    }
+  ],
+  "limits": [
+    "Actual Cortex-M4 oracle runs Thumb M-profile only; it is not physical A32 or A-profile exception proof.",
+    "Other field combinations are synthetic boundaries, not claimed processor configurations.",
+    "FP16 capability and Advanced SIMD subfield controls remain distinct; remaining vector/profile/rounding/denormal/security/debug work is not closed.",
+    "No complete current-source root-library, all-target, doctest, C API or platform run is claimed for this scoped correction.",
+    "C-STATE, C-SMP and C-HVF remain incomplete."
+  ]
+}
