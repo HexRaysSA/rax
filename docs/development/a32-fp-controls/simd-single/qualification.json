@@ -1,0 +1,113 @@
+{
+  "utc": "2026-10-30T08:58:39.016420+00:00",
+  "scope": "Current implemented FP32 Advanced SIMD instruction admission through MVFR1.SIMDSP",
+  "baseline": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--test",
+      "a32_fp_controls",
+      "--",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 84.05196250003064,
+    "test_summaries": [
+      "test result: FAILED. 49 passed; 9 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s"
+    ]
+  },
+  "baseline_source_manifest": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-v1/baseline-source.json",
+  "corrected": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--test",
+      "a32_fp_controls",
+      "--test",
+      "arm_vfp_a32",
+      "--test",
+      "a32_fp_pairs",
+      "--",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 84.85207087500021,
+    "test_summaries": [
+      "test result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+      "test result: ok. 497 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 27.40s"
+    ]
+  },
+  "corrected_source_manifest": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-v1/corrected-source.json",
+  "normal_check": {
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "--workspace",
+      "--lib",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 34.78906779095996,
+    "test_summaries": []
+  },
+  "clippy": {
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--test",
+      "a32_fp_controls"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 26.098628625040874,
+    "test_summaries": []
+  },
+  "independent_qemu_controls": 364,
+  "assumption_register": [
+    {
+      "id": "SP1",
+      "assumption": "SIMDSP value1 alone advertises FP32 SIMD data processing",
+      "basis": "Arm DDI0487B.a G6.2.108",
+      "dependent_result": "Missing/reserved field rejection before access traps/effects",
+      "stress_test": "ARM/Thumb, seven FP32 encoding families, fields0 and2..15, denied access, integer prerequisite",
+      "falsification_probe": "Unavailable FP32 operation returns Continue or changes registers/status/RAM",
+      "status": "Old implementation violated nine tests; corrected controls pass"
+    },
+    {
+      "id": "SP2",
+      "assumption": "Raw storage and pure half operations do not acquire an FP32 arithmetic dependency from their mnemonic or data bits",
+      "basis": "Retained VMOV/FHM ASL, exact decoder classes and distinct SIMDHP/SIMDSP field definitions",
+      "dependent_result": "Preserve integer aliases, unsigned estimates, modified-immediate storage, scalar VFP, pure FP16; require FP32 for cross-precision/FHM results",
+      "stress_test": "29 positive control operations with SIMDSP0/2/15; half-to-single conversions and FHM",
+      "falsification_probe": "A preserved operation rejects or an FP32-producing operation executes",
+      "status": "Confirmed for the represented manual-derived synthetic field controls; not a processor-profile identity claim"
+    },
+    {
+      "id": "SP3",
+      "assumption": "QEMU max can disable Neon/D32 independently",
+      "basis": "Exploratory launch configuration",
+      "dependent_result": "Independent negative profile design",
+      "stress_test": "max with vfp-d32=off, then max,neon=off",
+      "falsification_probe": "Property rejection or required profile coupling",
+      "status": "Falsified; v3 uses valid full max and disabled Cortex-A15 cohorts. Per-field controls remain manual-derived."
+    }
+  ],
+  "remaining": "A32 rounding/denormal/coherent-profile/security/debug and remaining C-STATE/C-SMP/C-HVF requirements remain open; this group is not overall completion."
+}

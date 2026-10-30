@@ -677,3 +677,6 @@ mod base_precision;
 
 #[path = "a32_fp_controls/simd_base.rs"]
 mod simd_base;
+
+#[path = "a32_fp_controls/simd_single.rs"]
+mod simd_single;

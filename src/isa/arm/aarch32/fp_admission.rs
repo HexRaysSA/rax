@@ -9,6 +9,8 @@ use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecod
 mod precision;
 #[path = "fp_registers.rs"]
 mod registers;
+#[path = "fp_simd_precision.rs"]
+mod simd_precision;
 
 /// Decode-time capabilities precede access checks and architectural effects.
 /// The MVFR1/MVFR2 definitions are retained in ARM DDI 0487B.a, G6.2.108-109.
@@ -43,6 +45,7 @@ pub(crate) fn instruction_supported(
     }
     if !registers::instruction_supported(insn, advsimd, state)
         || !precision::instruction_supported(insn, advsimd, state)
+        || advsimd && !simd_precision::instruction_supported(insn, state)
         || !half_supported(insn, advsimd, state, id_isar6)
     {
         return false;

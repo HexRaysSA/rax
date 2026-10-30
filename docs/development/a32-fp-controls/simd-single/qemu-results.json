@@ -1,0 +1,3285 @@
+{
+  "versions": {
+    "qemu": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n",
+    "llvm": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore\n"
+  },
+  "matched": 364,
+  "rows": [
+    {
+      "case": "neon1-thumb0-0",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vadd.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-1",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vsub.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-2",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vabd.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-3",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmin.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-4",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmax.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-5",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vminnm.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-6",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmaxnm.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-7",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmul.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-8",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmla.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-9",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmls.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-10",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vfma.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-11",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vfms.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-12",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmul.f32 q0,q1,d2[0]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-13",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmla.f32 q0,q1,d2[0]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-14",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmls.f32 q0,q1,d2[0]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-15",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vpadd.f32 d0,d1,d2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-16",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vpmin.f32 d0,d1,d2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-17",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vpmax.f32 d0,d1,d2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-18",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vceq.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-19",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcge.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-20",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcgt.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-21",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vacge.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-22",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vacgt.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-23",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vceq.f32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-24",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcge.f32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-25",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcgt.f32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-26",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcle.f32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-27",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vclt.f32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-28",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vabs.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-29",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vneg.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-30",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrecpe.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-31",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrsqrte.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-32",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrinta.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-33",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrintn.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-34",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrintp.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-35",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrintm.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-36",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrintx.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-37",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrintz.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-38",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrecps.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-39",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrsqrts.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-40",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvt.s32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-41",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvt.u32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-42",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvt.f32.s32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-43",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvt.f32.u32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-44",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvta.s32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-45",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvta.u32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-46",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvtn.s32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-47",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvtn.u32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-48",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvtp.s32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-49",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvtp.u32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-50",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvtm.s32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-51",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvtm.u32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-52",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvt.s32.f32 q0,q1,#16",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-53",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvt.u32.f32 q0,q1,#16",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-54",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvt.f32.s32 q0,q1,#16",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-55",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvt.f32.u32 q0,q1,#16",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-56",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvt.f32.f16 q0,d1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-57",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvt.f16.f32 d0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-58",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vfmal.f16 q0,d2,d3",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-59",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vfmsl.f16 q0,d2,d3",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-60",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vfmal.f16 q0,d2,d3[1]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-61",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vfmsl.f16 q0,d2,d3[1]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-62",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vadd.i32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-63",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vsub.i32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-64",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmul.i32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-65",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmla.i32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-66",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmax.s32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-67",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vceq.i32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-68",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vceq.i32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-69",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vabs.s32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-70",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vneg.s32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-71",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrecpe.u32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-72",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrsqrte.u32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-73",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmov q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-74",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmov.f32 q0,#1.5",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-75",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmov.i32 q0,#1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-76",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmov.32 d0[0],r1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-77",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vld1.32 {d0},[r0]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-78",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vst1.32 {d0},[r0]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-79",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vdup.32 q0,r1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-80",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vadd.f16 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-81",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vfma.f16 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-82",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vmaxnm.f16 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-83",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrecpe.f16 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-84",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vabs.f16 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-85",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vceq.f16 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-86",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vrintn.f16 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-87",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vcvta.s16.f16 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-88",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vadd.f32 s0,s1,s2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-89",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vadd.f64 d0,d1,d2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-90",
+      "cpu": "max",
+      "thumb": false,
+      "instruction": "vadd.f16 s0,s1,s2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-91",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vadd.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-92",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vsub.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-93",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vabd.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-94",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmin.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-95",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmax.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-96",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vminnm.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-97",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmaxnm.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-98",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmul.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-99",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmla.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-100",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmls.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-101",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vfma.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-102",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vfms.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-103",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmul.f32 q0,q1,d2[0]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-104",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmla.f32 q0,q1,d2[0]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-105",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmls.f32 q0,q1,d2[0]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-106",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vpadd.f32 d0,d1,d2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-107",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vpmin.f32 d0,d1,d2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-108",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vpmax.f32 d0,d1,d2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-109",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vceq.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-110",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcge.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-111",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcgt.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-112",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vacge.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-113",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vacgt.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-114",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vceq.f32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-115",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcge.f32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-116",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcgt.f32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-117",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcle.f32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-118",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vclt.f32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-119",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vabs.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-120",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vneg.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-121",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrecpe.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-122",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrsqrte.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-123",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrinta.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-124",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrintn.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-125",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrintp.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-126",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrintm.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-127",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrintx.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-128",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrintz.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-129",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrecps.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-130",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrsqrts.f32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-131",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvt.s32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-132",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvt.u32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-133",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvt.f32.s32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-134",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvt.f32.u32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-135",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvta.s32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-136",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvta.u32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-137",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvtn.s32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-138",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvtn.u32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-139",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvtp.s32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-140",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvtp.u32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-141",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvtm.s32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-142",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvtm.u32.f32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-143",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvt.s32.f32 q0,q1,#16",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-144",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvt.u32.f32 q0,q1,#16",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-145",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvt.f32.s32 q0,q1,#16",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-146",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvt.f32.u32 q0,q1,#16",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-147",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvt.f32.f16 q0,d1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-148",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvt.f16.f32 d0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-149",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vfmal.f16 q0,d2,d3",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-150",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vfmsl.f16 q0,d2,d3",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-151",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vfmal.f16 q0,d2,d3[1]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-152",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vfmsl.f16 q0,d2,d3[1]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-153",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vadd.i32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-154",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vsub.i32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-155",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmul.i32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-156",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmla.i32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-157",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmax.s32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-158",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vceq.i32 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-159",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vceq.i32 q0,q1,#0",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-160",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vabs.s32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-161",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vneg.s32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-162",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrecpe.u32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-163",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrsqrte.u32 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-164",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmov q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-165",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmov.f32 q0,#1.5",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-166",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmov.i32 q0,#1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-167",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmov.32 d0[0],r1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-168",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vld1.32 {d0},[r0]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-169",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vst1.32 {d0},[r0]",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-170",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vdup.32 q0,r1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-171",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vadd.f16 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-172",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vfma.f16 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-173",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vmaxnm.f16 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-174",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrecpe.f16 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-175",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vabs.f16 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-176",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vceq.f16 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-177",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vrintn.f16 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-178",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vcvta.s16.f16 q0,q1",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-179",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vadd.f32 s0,s1,s2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-180",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vadd.f64 d0,d1,d2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-181",
+      "cpu": "max",
+      "thumb": true,
+      "instruction": "vadd.f16 s0,s1,s2",
+      "expected_endpoint": "P",
+      "observed": "S1011022213211111P",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-182",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vadd.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-183",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vsub.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-184",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vabd.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-185",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmin.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-186",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmax.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-187",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vminnm.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-188",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmaxnm.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-189",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmul.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-190",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmla.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-191",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmls.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-192",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vfma.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-193",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vfms.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-194",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmul.f32 q0,q1,d2[0]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-195",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmla.f32 q0,q1,d2[0]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-196",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmls.f32 q0,q1,d2[0]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-197",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vpadd.f32 d0,d1,d2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-198",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vpmin.f32 d0,d1,d2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-199",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vpmax.f32 d0,d1,d2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-200",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vceq.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-201",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcge.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-202",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcgt.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-203",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vacge.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-204",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vacgt.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-205",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vceq.f32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-206",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcge.f32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-207",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcgt.f32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-208",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcle.f32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-209",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vclt.f32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-210",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vabs.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-211",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vneg.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-212",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrecpe.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-213",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrsqrte.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-214",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrinta.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-215",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrintn.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-216",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrintp.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-217",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrintm.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-218",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrintx.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-219",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrintz.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-220",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrecps.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-221",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrsqrts.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-222",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvt.s32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-223",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvt.u32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-224",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvt.f32.s32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-225",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvt.f32.u32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-226",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvta.s32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-227",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvta.u32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-228",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvtn.s32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-229",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvtn.u32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-230",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvtp.s32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-231",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvtp.u32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-232",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvtm.s32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-233",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvtm.u32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-234",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvt.s32.f32 q0,q1,#16",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-235",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvt.u32.f32 q0,q1,#16",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-236",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvt.f32.s32 q0,q1,#16",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-237",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvt.f32.u32 q0,q1,#16",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-238",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvt.f32.f16 q0,d1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-239",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvt.f16.f32 d0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-240",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vfmal.f16 q0,d2,d3",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-241",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vfmsl.f16 q0,d2,d3",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-242",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vfmal.f16 q0,d2,d3[1]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-243",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vfmsl.f16 q0,d2,d3[1]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-244",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vadd.i32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-245",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vsub.i32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-246",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmul.i32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-247",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmla.i32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-248",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmax.s32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-249",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vceq.i32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-250",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vceq.i32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-251",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vabs.s32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-252",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vneg.s32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-253",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrecpe.u32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-254",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrsqrte.u32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-255",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmov q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-256",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmov.f32 q0,#1.5",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-257",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmov.i32 q0,#1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-258",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmov.32 d0[0],r1",
+      "expected_endpoint": "P",
+      "observed": "S1011022111000011P",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-259",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vld1.32 {d0},[r0]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-260",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vst1.32 {d0},[r0]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-261",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vdup.32 q0,r1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-262",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vadd.f16 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-263",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vfma.f16 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-264",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmaxnm.f16 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-265",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrecpe.f16 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-266",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vabs.f16 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-267",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vceq.f16 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-268",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vrintn.f16 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-269",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vcvta.s16.f16 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-270",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vadd.f32 s0,s1,s2",
+      "expected_endpoint": "P",
+      "observed": "S1011022111000011P",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-271",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vadd.f64 d0,d1,d2",
+      "expected_endpoint": "P",
+      "observed": "S1011022111000011P",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-272",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vadd.f16 s0,s1,s2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-273",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vadd.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-274",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vsub.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-275",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vabd.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-276",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmin.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-277",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmax.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-278",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vminnm.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-279",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmaxnm.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-280",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmul.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-281",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmla.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-282",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmls.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-283",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vfma.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-284",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vfms.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-285",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmul.f32 q0,q1,d2[0]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-286",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmla.f32 q0,q1,d2[0]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-287",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmls.f32 q0,q1,d2[0]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-288",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vpadd.f32 d0,d1,d2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-289",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vpmin.f32 d0,d1,d2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-290",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vpmax.f32 d0,d1,d2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-291",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vceq.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-292",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcge.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-293",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcgt.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-294",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vacge.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-295",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vacgt.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-296",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vceq.f32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-297",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcge.f32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-298",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcgt.f32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-299",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcle.f32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-300",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vclt.f32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-301",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vabs.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-302",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vneg.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-303",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrecpe.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-304",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrsqrte.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-305",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrinta.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-306",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrintn.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-307",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrintp.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-308",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrintm.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-309",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrintx.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-310",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrintz.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-311",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrecps.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-312",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrsqrts.f32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-313",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvt.s32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-314",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvt.u32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-315",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvt.f32.s32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-316",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvt.f32.u32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-317",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvta.s32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-318",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvta.u32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-319",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvtn.s32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-320",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvtn.u32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-321",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvtp.s32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-322",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvtp.u32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-323",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvtm.s32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-324",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvtm.u32.f32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-325",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvt.s32.f32 q0,q1,#16",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-326",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvt.u32.f32 q0,q1,#16",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-327",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvt.f32.s32 q0,q1,#16",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-328",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvt.f32.u32 q0,q1,#16",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-329",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvt.f32.f16 q0,d1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-330",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvt.f16.f32 d0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-331",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vfmal.f16 q0,d2,d3",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-332",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vfmsl.f16 q0,d2,d3",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-333",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vfmal.f16 q0,d2,d3[1]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-334",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vfmsl.f16 q0,d2,d3[1]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-335",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vadd.i32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-336",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vsub.i32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-337",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmul.i32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-338",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmla.i32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-339",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmax.s32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-340",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vceq.i32 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-341",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vceq.i32 q0,q1,#0",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-342",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vabs.s32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-343",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vneg.s32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-344",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrecpe.u32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-345",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrsqrte.u32 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-346",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmov q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-347",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmov.f32 q0,#1.5",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-348",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmov.i32 q0,#1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-349",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmov.32 d0[0],r1",
+      "expected_endpoint": "P",
+      "observed": "S1011022111000011P",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-350",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vld1.32 {d0},[r0]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-351",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vst1.32 {d0},[r0]",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-352",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vdup.32 q0,r1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-353",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vadd.f16 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-354",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vfma.f16 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-355",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmaxnm.f16 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-356",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrecpe.f16 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-357",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vabs.f16 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-358",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vceq.f16 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-359",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vrintn.f16 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-360",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vcvta.s16.f16 q0,q1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-361",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vadd.f32 s0,s1,s2",
+      "expected_endpoint": "P",
+      "observed": "S1011022111000011P",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-362",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vadd.f64 d0,d1,d2",
+      "expected_endpoint": "P",
+      "observed": "S1011022111000011P",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-363",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vadd.f16 s0,s1,s2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    }
+  ]
+}

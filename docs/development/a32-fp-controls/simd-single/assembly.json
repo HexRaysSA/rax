@@ -1,0 +1,663 @@
+{
+  "cases": [
+    {
+      "family": "arithmetic",
+      "asm": "vadd.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4060220740,
+      "thumb": 4009889092
+    },
+    {
+      "family": "arithmetic",
+      "asm": "vsub.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4062317892,
+      "thumb": 4011986244
+    },
+    {
+      "family": "arithmetic",
+      "asm": "vabd.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4079095108,
+      "thumb": 4280421700
+    },
+    {
+      "family": "arithmetic",
+      "asm": "vmin.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4062318404,
+      "thumb": 4011986756
+    },
+    {
+      "family": "arithmetic",
+      "asm": "vmax.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4060221252,
+      "thumb": 4009889604
+    },
+    {
+      "family": "arithmetic",
+      "asm": "vminnm.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4079095636,
+      "thumb": 4280422228
+    },
+    {
+      "family": "arithmetic",
+      "asm": "vmaxnm.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4076998484,
+      "thumb": 4278325076
+    },
+    {
+      "family": "multiply",
+      "asm": "vmul.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4076997972,
+      "thumb": 4278324564
+    },
+    {
+      "family": "multiply",
+      "asm": "vmla.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4060220756,
+      "thumb": 4009889108
+    },
+    {
+      "family": "multiply",
+      "asm": "vmls.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4062317908,
+      "thumb": 4011986260
+    },
+    {
+      "family": "multiply",
+      "asm": "vfma.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4060220500,
+      "thumb": 4009888852
+    },
+    {
+      "family": "multiply",
+      "asm": "vfms.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4062317652,
+      "thumb": 4011986004
+    },
+    {
+      "family": "multiply",
+      "asm": "vmul.f32 q0,q1,d2[0]",
+      "single": true,
+      "arm": 4087482690,
+      "thumb": 4288809282
+    },
+    {
+      "family": "multiply",
+      "asm": "vmla.f32 q0,q1,d2[0]",
+      "single": true,
+      "arm": 4087480642,
+      "thumb": 4288807234
+    },
+    {
+      "family": "multiply",
+      "asm": "vmls.f32 q0,q1,d2[0]",
+      "single": true,
+      "arm": 4087481666,
+      "thumb": 4288808258
+    },
+    {
+      "family": "pairwise",
+      "asm": "vpadd.f32 d0,d1,d2",
+      "single": true,
+      "arm": 4076932354,
+      "thumb": 4278258946
+    },
+    {
+      "family": "pairwise",
+      "asm": "vpmin.f32 d0,d1,d2",
+      "single": true,
+      "arm": 4079030018,
+      "thumb": 4280356610
+    },
+    {
+      "family": "pairwise",
+      "asm": "vpmax.f32 d0,d1,d2",
+      "single": true,
+      "arm": 4076932866,
+      "thumb": 4278259458
+    },
+    {
+      "family": "compare",
+      "asm": "vceq.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4060220996,
+      "thumb": 4009889348
+    },
+    {
+      "family": "compare",
+      "asm": "vcge.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4076998212,
+      "thumb": 4278324804
+    },
+    {
+      "family": "compare",
+      "asm": "vcgt.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4079095364,
+      "thumb": 4280421956
+    },
+    {
+      "family": "compare",
+      "asm": "vacge.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4076998228,
+      "thumb": 4278324820
+    },
+    {
+      "family": "compare",
+      "asm": "vacgt.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4079095380,
+      "thumb": 4280421972
+    },
+    {
+      "family": "compare",
+      "asm": "vceq.f32 q0,q1,#0",
+      "single": true,
+      "arm": 4088988994,
+      "thumb": 4290315586
+    },
+    {
+      "family": "compare",
+      "asm": "vcge.f32 q0,q1,#0",
+      "single": true,
+      "arm": 4088988866,
+      "thumb": 4290315458
+    },
+    {
+      "family": "compare",
+      "asm": "vcgt.f32 q0,q1,#0",
+      "single": true,
+      "arm": 4088988738,
+      "thumb": 4290315330
+    },
+    {
+      "family": "compare",
+      "asm": "vcle.f32 q0,q1,#0",
+      "single": true,
+      "arm": 4088989122,
+      "thumb": 4290315714
+    },
+    {
+      "family": "compare",
+      "asm": "vclt.f32 q0,q1,#0",
+      "single": true,
+      "arm": 4088989250,
+      "thumb": 4290315842
+    },
+    {
+      "family": "misc",
+      "asm": "vabs.f32 q0,q1",
+      "single": true,
+      "arm": 4088989506,
+      "thumb": 4290316098
+    },
+    {
+      "family": "misc",
+      "asm": "vneg.f32 q0,q1",
+      "single": true,
+      "arm": 4088989634,
+      "thumb": 4290316226
+    },
+    {
+      "family": "misc",
+      "asm": "vrecpe.f32 q0,q1",
+      "single": true,
+      "arm": 4089120066,
+      "thumb": 4290446658
+    },
+    {
+      "family": "misc",
+      "asm": "vrsqrte.f32 q0,q1",
+      "single": true,
+      "arm": 4089120194,
+      "thumb": 4290446786
+    },
+    {
+      "family": "misc",
+      "asm": "vrinta.f32 q0,q1",
+      "single": true,
+      "arm": 4089054530,
+      "thumb": 4290381122
+    },
+    {
+      "family": "misc",
+      "asm": "vrintn.f32 q0,q1",
+      "single": true,
+      "arm": 4089054274,
+      "thumb": 4290380866
+    },
+    {
+      "family": "misc",
+      "asm": "vrintp.f32 q0,q1",
+      "single": true,
+      "arm": 4089055170,
+      "thumb": 4290381762
+    },
+    {
+      "family": "misc",
+      "asm": "vrintm.f32 q0,q1",
+      "single": true,
+      "arm": 4089054914,
+      "thumb": 4290381506
+    },
+    {
+      "family": "misc",
+      "asm": "vrintx.f32 q0,q1",
+      "single": true,
+      "arm": 4089054402,
+      "thumb": 4290380994
+    },
+    {
+      "family": "misc",
+      "asm": "vrintz.f32 q0,q1",
+      "single": true,
+      "arm": 4089054658,
+      "thumb": 4290381250
+    },
+    {
+      "family": "misc",
+      "asm": "vrecps.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4060221268,
+      "thumb": 4009889620
+    },
+    {
+      "family": "misc",
+      "asm": "vrsqrts.f32 q0,q1,q2",
+      "single": true,
+      "arm": 4062318420,
+      "thumb": 4011986772
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvt.s32.f32 q0,q1",
+      "single": true,
+      "arm": 4089120578,
+      "thumb": 4290447170
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvt.u32.f32 q0,q1",
+      "single": true,
+      "arm": 4089120706,
+      "thumb": 4290447298
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvt.f32.s32 q0,q1",
+      "single": true,
+      "arm": 4089120322,
+      "thumb": 4290446914
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvt.f32.u32 q0,q1",
+      "single": true,
+      "arm": 4089120450,
+      "thumb": 4290447042
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvta.s32.f32 q0,q1",
+      "single": true,
+      "arm": 4089118786,
+      "thumb": 4290445378
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvta.u32.f32 q0,q1",
+      "single": true,
+      "arm": 4089118914,
+      "thumb": 4290445506
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvtn.s32.f32 q0,q1",
+      "single": true,
+      "arm": 4089119042,
+      "thumb": 4290445634
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvtn.u32.f32 q0,q1",
+      "single": true,
+      "arm": 4089119170,
+      "thumb": 4290445762
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvtp.s32.f32 q0,q1",
+      "single": true,
+      "arm": 4089119298,
+      "thumb": 4290445890
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvtp.u32.f32 q0,q1",
+      "single": true,
+      "arm": 4089119426,
+      "thumb": 4290446018
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvtm.s32.f32 q0,q1",
+      "single": true,
+      "arm": 4089119554,
+      "thumb": 4290446146
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvtm.u32.f32 q0,q1",
+      "single": true,
+      "arm": 4089119682,
+      "thumb": 4290446274
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvt.s32.f32 q0,q1,#16",
+      "single": true,
+      "arm": 4071624530,
+      "thumb": 4021292882
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvt.u32.f32 q0,q1,#16",
+      "single": true,
+      "arm": 4088401746,
+      "thumb": 4289728338
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvt.f32.s32 q0,q1,#16",
+      "single": true,
+      "arm": 4071624274,
+      "thumb": 4021292626
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvt.f32.u32 q0,q1,#16",
+      "single": true,
+      "arm": 4088401490,
+      "thumb": 4289728082
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvt.f32.f16 q0,d1",
+      "single": true,
+      "arm": 4088792833,
+      "thumb": 4290119425
+    },
+    {
+      "family": "conversion",
+      "asm": "vcvt.f16.f32 d0,q1",
+      "single": true,
+      "arm": 4088792578,
+      "thumb": 4290119170
+    },
+    {
+      "family": "fhm",
+      "asm": "vfmal.f16 q0,d2,d3",
+      "single": true,
+      "arm": 4230088787,
+      "thumb": 4230088787
+    },
+    {
+      "family": "fhm",
+      "asm": "vfmsl.f16 q0,d2,d3",
+      "single": true,
+      "arm": 4238477395,
+      "thumb": 4238477395
+    },
+    {
+      "family": "fhm",
+      "asm": "vfmal.f16 q0,d2,d3[1]",
+      "single": true,
+      "arm": 4261546075,
+      "thumb": 4261546075
+    },
+    {
+      "family": "fhm",
+      "asm": "vfmsl.f16 q0,d2,d3[1]",
+      "single": true,
+      "arm": 4262594651,
+      "thumb": 4262594651
+    },
+    {
+      "family": "control",
+      "asm": "vadd.i32 q0,q1,q2",
+      "single": false,
+      "arm": 4062316612,
+      "thumb": 4011984964
+    },
+    {
+      "family": "control",
+      "asm": "vsub.i32 q0,q1,q2",
+      "single": false,
+      "arm": 4079093828,
+      "thumb": 4280420420
+    },
+    {
+      "family": "control",
+      "asm": "vmul.i32 q0,q1,q2",
+      "single": false,
+      "arm": 4062316884,
+      "thumb": 4011985236
+    },
+    {
+      "family": "control",
+      "asm": "vmla.i32 q0,q1,q2",
+      "single": false,
+      "arm": 4062316868,
+      "thumb": 4011985220
+    },
+    {
+      "family": "control",
+      "asm": "vmax.s32 q0,q1,q2",
+      "single": false,
+      "arm": 4062316100,
+      "thumb": 4011984452
+    },
+    {
+      "family": "control",
+      "asm": "vceq.i32 q0,q1,q2",
+      "single": false,
+      "arm": 4079093844,
+      "thumb": 4280420436
+    },
+    {
+      "family": "control",
+      "asm": "vceq.i32 q0,q1,#0",
+      "single": false,
+      "arm": 4088987970,
+      "thumb": 4290314562
+    },
+    {
+      "family": "control",
+      "asm": "vabs.s32 q0,q1",
+      "single": false,
+      "arm": 4088988482,
+      "thumb": 4290315074
+    },
+    {
+      "family": "control",
+      "asm": "vneg.s32 q0,q1",
+      "single": false,
+      "arm": 4088988610,
+      "thumb": 4290315202
+    },
+    {
+      "family": "control",
+      "asm": "vrecpe.u32 q0,q1",
+      "single": false,
+      "arm": 4089119810,
+      "thumb": 4290446402
+    },
+    {
+      "family": "control",
+      "asm": "vrsqrte.u32 q0,q1",
+      "single": false,
+      "arm": 4089119938,
+      "thumb": 4290446530
+    },
+    {
+      "family": "control",
+      "asm": "vmov q0,q1",
+      "single": false,
+      "arm": 4062314834,
+      "thumb": 4011983186
+    },
+    {
+      "family": "control",
+      "asm": "vmov.f32 q0,#1.5",
+      "single": false,
+      "arm": 4068937560,
+      "thumb": 4018605912
+    },
+    {
+      "family": "control",
+      "asm": "vmov.i32 q0,#1",
+      "single": false,
+      "arm": 4068474961,
+      "thumb": 4018143313
+    },
+    {
+      "family": "control",
+      "asm": "vmov.32 d0[0],r1",
+      "single": false,
+      "arm": 3992984336,
+      "thumb": 3992984336
+    },
+    {
+      "family": "control",
+      "asm": "vld1.32 {d0},[r0]",
+      "single": false,
+      "arm": 4095739791,
+      "thumb": 4179625871
+    },
+    {
+      "family": "control",
+      "asm": "vst1.32 {d0},[r0]",
+      "single": false,
+      "arm": 4093642639,
+      "thumb": 4177528719
+    },
+    {
+      "family": "control",
+      "asm": "vdup.32 q0,r1",
+      "single": false,
+      "arm": 4003470096,
+      "thumb": 4003470096
+    },
+    {
+      "family": "control",
+      "asm": "vadd.f16 q0,q1,q2",
+      "single": false,
+      "arm": 4061269316,
+      "thumb": 4010937668
+    },
+    {
+      "family": "control",
+      "asm": "vfma.f16 q0,q1,q2",
+      "single": false,
+      "arm": 4061269076,
+      "thumb": 4010937428
+    },
+    {
+      "family": "control",
+      "asm": "vmaxnm.f16 q0,q1,q2",
+      "single": false,
+      "arm": 4078047060,
+      "thumb": 4279373652
+    },
+    {
+      "family": "control",
+      "asm": "vrecpe.f16 q0,q1",
+      "single": false,
+      "arm": 4088857922,
+      "thumb": 4290184514
+    },
+    {
+      "family": "control",
+      "asm": "vabs.f16 q0,q1",
+      "single": false,
+      "arm": 4088727362,
+      "thumb": 4290053954
+    },
+    {
+      "family": "control",
+      "asm": "vceq.f16 q0,q1,q2",
+      "single": false,
+      "arm": 4061269572,
+      "thumb": 4010937924
+    },
+    {
+      "family": "control",
+      "asm": "vrintn.f16 q0,q1",
+      "single": false,
+      "arm": 4088792130,
+      "thumb": 4290118722
+    },
+    {
+      "family": "control",
+      "asm": "vcvta.s16.f16 q0,q1",
+      "single": false,
+      "arm": 4088856642,
+      "thumb": 4290183234
+    },
+    {
+      "family": "control",
+      "asm": "vadd.f32 s0,s1,s2",
+      "single": false,
+      "arm": 3996125825,
+      "thumb": 3996125825
+    },
+    {
+      "family": "control",
+      "asm": "vadd.f64 d0,d1,d2",
+      "single": false,
+      "arm": 3996191490,
+      "thumb": 3996191490
+    },
+    {
+      "family": "control",
+      "asm": "vadd.f16 s0,s1,s2",
+      "single": false,
+      "arm": 3996125569,
+      "thumb": 3996125569
+    }
+  ],
+  "arm": {
+    "command": [
+      "/Users/int/local/bin/llvm-mc",
+      "-triple=armv8.2a-none-eabi",
+      "-mattr=+neon,+vfp4,+fullfp16,+fp16fml",
+      "-show-encoding",
+      "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-v1/arm.s"
+    ],
+    "exit_code": 0,
+    "sha256": "d1260dbe257edfec691106e7707ea927441b05da56c128efdde2125f7c5099c6"
+  },
+  "thumb": {
+    "command": [
+      "/Users/int/local/bin/llvm-mc",
+      "-triple=armv8.2a-none-eabi",
+      "-mattr=+neon,+vfp4,+fullfp16,+fp16fml",
+      "-show-encoding",
+      "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-v1/thumb.s"
+    ],
+    "exit_code": 0,
+    "sha256": "29a039244e524ed5daa9a0a3bcb2001be897d335b4d3399ad97ce0d90684a8df"
+  }
+}

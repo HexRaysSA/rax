@@ -1,0 +1,34 @@
+{
+  "arm_mvfr1": {
+    "title": "ARM Architecture Reference Manual ARMv8, for ARMv8-A architecture profile",
+    "issuer": "Arm Limited",
+    "revision": "DDI0487B.a ID033117",
+    "section": "G6.2.108, MVFR1.SIMDSP bits19:16",
+    "definition": "Only value1 advertises single-precision Advanced SIMD; requires SIMDInt1",
+    "extract": "../simd-base/mvfr1-extract.txt",
+    "provenance": "../../../specifications/arm/aarch32-fp-profile/provenance.json"
+  },
+  "arm_instruction_semantics": {
+    "path": "../../../architecture/arm/asl/arm_instrs.asl",
+    "sha256": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+    "extract": "storage-and-fhm.asl",
+    "interpretation": "VMOV modified immediates assign bit patterns through AdvSIMDExpandImm; FHM uses esize32, FPMulAddH with half inputs and FP32 accumulators. Pure FP16 has its own SIMDHP admission."
+  },
+  "qemu": {
+    "source": "../references/qemu-11.1.2/provenance.json",
+    "controls": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-qemu-v3/qualification.json",
+    "runtime_source_identity": "unknown beyond QEMU11.1.2 version identity",
+    "profiles": "max: MVFR0=10110222 MVFR1=13211111; cortex-a15,neon=off,vfp-d32=off: MVFR0=10110221 MVFR1=11000011",
+    "scope": "Full execution/undefined controls for 91 operations in ARM/Thumb on two different valid CPU profiles; not per-field isolation or physical A32 proof."
+  },
+  "rejected_oracle_attempts": [
+    {
+      "path": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-qemu-v1",
+      "reason": "Old .arch/.fpu directives overrode requested ISA features; max exposes no vfp-d32 property."
+    },
+    {
+      "path": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-qemu-v2",
+      "reason": "Assembler directives corrected; max,neon=off is rejected because D32 and Neon must be paired. Raw outputs retained."
+    }
+  ]
+}
