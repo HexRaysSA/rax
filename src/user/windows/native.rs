@@ -12,6 +12,7 @@ use crate::user::image::pe::PeImage;
 
 const MAX_DLL_BYTES: u64 = 64 << 20;
 
+mod code_integrity_policies;
 mod code_integrity_policy;
 mod system;
 
@@ -35,6 +36,7 @@ pub(crate) struct NativeRuntime {
     pub(crate) gui: super::gui::Availability,
     pub(crate) code_integrity: Result<u32, String>,
     pub(crate) code_integrity_policy: Result<[u8; 32], String>,
+    pub(crate) code_integrity_policies: Result<std::sync::Arc<[u8]>, String>,
 }
 
 fn invalid(message: impl Into<String>) -> io::Error {
@@ -109,6 +111,9 @@ impl NativeRuntime {
             gui: Default::default(),
             code_integrity: Err("native code integrity has not been captured".into()),
             code_integrity_policy: Err("native code integrity policy has not been captured".into()),
+            code_integrity_policies: Err(
+                "native code integrity policies have not been captured".into()
+            ),
         };
         let ntdll = PeImage::parse(read_image(
             &runtime
@@ -124,6 +129,7 @@ impl NativeRuntime {
         }
         runtime.code_integrity = system::capture();
         runtime.code_integrity_policy = code_integrity_policy::capture();
+        runtime.code_integrity_policies = code_integrity_policies::capture();
         runtime.registry = super::registry::snapshot()?;
         runtime.wnf_catalog = super::wnf::snapshot()?;
         let subject = runtime

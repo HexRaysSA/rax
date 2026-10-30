@@ -283,6 +283,18 @@ jobs:
           name: native-code-integrity-policy-${{ matrix.name }}
           path: target/native-code-integrity-policy-v1
           if-no-files-found: error
+      - name: Verify retained full code integrity policies producer identity
+        run: python tools/ci/windows_code_integrity_policies.py --verify-corpus
+      - name: Native full code integrity policies controls and guest replay
+        if: runner.os == 'Windows'
+        run: python tools/ci/windows_code_integrity_policies.py
+      - name: Preserve native full code integrity policies controls
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-code-integrity-policies-${{ matrix.name }}
+          path: target/native-code-integrity-policies-v1
+          if-no-files-found: error
       - name: Verify retained key enumeration producer identity
         run: python tools/ci/windows_key_enumeration.py --verify-corpus
       - name: Native key enumeration controls and guest replay

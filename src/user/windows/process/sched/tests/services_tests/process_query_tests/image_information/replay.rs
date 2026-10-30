@@ -50,6 +50,7 @@ pub(super) fn kernel_profile(p: &mut Proc, build: u32, machine: u16) {
         gui: Default::default(),
         code_integrity: Err("controlled image query profile".into()),
         code_integrity_policy: Err("code integrity policy not captured in this fixture".into()),
+        code_integrity_policies: Err("code integrity policies not captured in this fixture".into()),
     };
     native.version.build = build;
     native.object_namespace.native_machine = Some(machine);

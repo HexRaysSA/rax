@@ -769,3 +769,15 @@ guest-loader signature enforcement.
 [Native policy controls](../../specifications/windows/native-code-integrity-policy/README.md)
 retain 8,748 cases across three process ABIs on one ARM64 kernel, with fresh
 native CI controls for the available Windows host architectures.
+
+Class 189 (`SystemCodeIntegrityPoliciesFullInformation`) separately returns an
+opaque, variable-length policy payload. Bounded fixed-class host acquisition
+compares opposite-poison buffers and retains an immutable process-owned record;
+unavailable data stays explicit. Native64 and WoW64 both probe the complete
+declared output span and optional ReturnLength before size dispatch, then copy
+exactly the captured payload and publish its required size. Guest arguments
+never enter a host query, and no guest-length-sized host workspace is allocated.
+[Full native policy controls](../../specifications/windows/native-code-integrity-policies/README.md)
+retain 9,840 complete-arena observations across three process ABIs on one ARM64
+kernel. These metadata queries do not implement policy mutation or signature
+enforcement, and do not establish complete installed-process startup.

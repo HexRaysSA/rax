@@ -208,6 +208,8 @@ mod gui_tests;
 #[path = "services_tests/code_integrity_tests.rs"]
 mod code_integrity_tests;
 
+#[path = "services_tests/code_integrity_policies_tests.rs"]
+mod code_integrity_policies_tests;
 #[path = "services_tests/code_integrity_policy_tests.rs"]
 mod code_integrity_policy_tests;
 

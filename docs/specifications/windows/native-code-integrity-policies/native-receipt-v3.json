@@ -1,0 +1,199 @@
+{
+  "pid": 9452,
+  "state": "finished",
+  "commands": [
+    {
+      "name": "arm64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\build-arm64",
+        "-A",
+        "ARM64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.18829654200089863
+    },
+    {
+      "name": "arm64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\build-arm64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false"
+      ],
+      "exit_code": 0,
+      "seconds": 2.4365645420002693
+    },
+    {
+      "name": "x64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\build-x64",
+        "-A",
+        "x64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.41725324999788427
+    },
+    {
+      "name": "x64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\build-x64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false"
+      ],
+      "exit_code": 0,
+      "seconds": 2.571135583999421
+    },
+    {
+      "name": "x86-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\build-x86",
+        "-A",
+        "Win32"
+      ],
+      "exit_code": 0,
+      "seconds": 0.30923320800138754
+    },
+    {
+      "name": "x86-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\build-x86",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false"
+      ],
+      "exit_code": 0,
+      "seconds": 2.8145330419974925
+    }
+  ],
+  "reports": [
+    {
+      "architecture": "arm64",
+      "machine": 43620,
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 3280,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\run-v3\\artifacts\\native-code-integrity-policies-arm64.exe",
+        "bytes": 16896,
+        "sha256": "4c7a0c03fa06db2922144d98c48d5340310d4475a1d61fe2a252b67840b1021c"
+      },
+      "stdout_sha256": "22df60cf99d172af4fe30a0dbbab9a2c7596dc521e57affad74f06b6c188d097",
+      "snapshot": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\run-v3\\artifacts\\policies-arm64.bin",
+        "bytes": 525972,
+        "sha256": "3a60028c64c2070936b33f602b7e437fd269daa9e3abe8f398bcc23e40837e80"
+      },
+      "provider": {
+        "path": "C:\\Windows\\System32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+        "after_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e"
+      },
+      "exit_code": 0,
+      "seconds": 6.06724899999972
+    },
+    {
+      "architecture": "x64",
+      "machine": 34404,
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 3280,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\run-v3\\artifacts\\native-code-integrity-policies-x64.exe",
+        "bytes": 16384,
+        "sha256": "55071092daf5672ec362324f337ce79c29a8e563accd9573cd5c48e940f95209"
+      },
+      "stdout_sha256": "22df60cf99d172af4fe30a0dbbab9a2c7596dc521e57affad74f06b6c188d097",
+      "snapshot": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\run-v3\\artifacts\\policies-x64.bin",
+        "bytes": 525972,
+        "sha256": "3a60028c64c2070936b33f602b7e437fd269daa9e3abe8f398bcc23e40837e80"
+      },
+      "provider": {
+        "path": "C:\\Windows\\System32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+        "after_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e"
+      },
+      "exit_code": 0,
+      "seconds": 8.711314208001568
+    },
+    {
+      "architecture": "x86",
+      "machine": 332,
+      "pointer_bytes": 4,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 3280,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\run-v3\\artifacts\\native-code-integrity-policies-x86.exe",
+        "bytes": 14848,
+        "sha256": "6c55878fd10375002d083d0a8d510e6fadf3b9dd489763274176dcfa2d57ca3b"
+      },
+      "stdout_sha256": "594361f673a1afc1404531d4c05518d87227f4835c5ea88c780aefa13945d1dc",
+      "snapshot": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policies-native-v1\\run-v3\\artifacts\\policies-x86.bin",
+        "bytes": 525972,
+        "sha256": "3a60028c64c2070936b33f602b7e437fd269daa9e3abe8f398bcc23e40837e80"
+      },
+      "provider": {
+        "path": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925",
+        "after_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925"
+      },
+      "exit_code": 0,
+      "seconds": 12.383747207997658
+    }
+  ],
+  "child_pid": 2652,
+  "image_sha256": "6c55878fd10375002d083d0a8d510e6fadf3b9dd489763274176dcfa2d57ca3b",
+  "exit_code": 0,
+  "source_hashes": {
+    "target/code-integrity-policies-native-v1/run-v3/controller.py": "53ee2db3e54dca3611eef1e8fe9835481be5aa8e05a033e6c7c252306419c741",
+    "target/code-integrity-policies-native-v1/source/CMakeLists.txt": "f3e741735b24f9b0c14d25fc93c5cc91cf74003a2ee4d50f03998cc895aa6461",
+    "target/code-integrity-policies-native-v1/source/probe-v1.c": "dae605218d83a2263575def4f1bad280dcf93421b203c1fb80ef101bb600119e"
+  },
+  "inputs_unchanged": true,
+  "records": 9840,
+  "independent_native_process_abis": 3
+}

@@ -3544,3 +3544,26 @@ Windows-on-ARM observations alone do not establish AMD64-kernel behavior.
 Actual installed CMD, complete library binaries on every host platform and
 fresh native acquisition remain required qualification gates. This service
 group does not establish complete CMD or general process execution.
+
+### Full code integrity policies query
+
+`NtQuerySystemInformation` class 189 publishes the selected runtime's immutable
+opaque policy bytes and their actual required length. Native acquisition uses
+only a fixed class, private aligned destinations, a 16 MiB payload cap and at
+most three size/pair attempts. Missing, unstable, oversized or incompletely
+written metadata remains an explicit unavailable boundary. Guest query
+arguments never reach that host acquisition path.
+
+The independent producer and complete-arena corpus under
+`docs/specifications/windows/native-code-integrity-policies/` record 9,840 calls
+on one ARM64 Windows 10.0.29695 kernel. ARM64, x64 and x86 process ABIs returned
+the same opaque bytes and the same four-argument probe/copy behavior. Both
+destinations are probed before size dispatch, including under WoW64; aliased
+ReturnLength stores follow the payload copy. The raw format is not parsed or
+reinterpreted from the guest's configured Windows version. Native provider
+identities, exact producer sources, payloads, raw records and executed-image
+hashes retain their separate provenance.
+
+This query does not establish complete CMD startup or policy enforcement.
+The six-argument extended selector and protected IFEO acquisition under an
+ordinary token remain separate boundaries.

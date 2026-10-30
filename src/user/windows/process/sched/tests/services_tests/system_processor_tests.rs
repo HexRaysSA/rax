@@ -24,6 +24,7 @@ pub(super) fn kernel_profile(p: &mut Proc, machine: u16) {
         gui: Default::default(),
         code_integrity: Err("controlled processor query profile".into()),
         code_integrity_policy: Err("code integrity policy not captured in this fixture".into()),
+        code_integrity_policies: Err("code integrity policies not captured in this fixture".into()),
     };
     native.version.build = if machine == 0xaa64 { 29683 } else { 26100 };
     native.object_namespace.native_machine = Some(machine);

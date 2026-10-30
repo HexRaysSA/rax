@@ -29,6 +29,7 @@ fn setup(arch: WinArch) -> (super::super::super::super::WindowsProcess, Thread, 
         gui: Default::default(),
         code_integrity: Ok(OPTIONS),
         code_integrity_policy: Err("code integrity policy not captured in this fixture".into()),
+        code_integrity_policies: Err("code integrity policies not captured in this fixture".into()),
     });
     let offsets = crate::user::windows::layout::offsets(arch);
     p.space
