@@ -81,6 +81,43 @@ pub(super) fn instruction_features(insn: u32) -> Option<ArmFeatures> {
 }
 
 impl AArch64Cpu {
+    /// MVFRn_EL1 is read-only and an EL1 ID access, not FP data access.
+    /// DDI0487B.a D7.2.75-77 defines the aliases and HCR_EL2.TID3 routing.
+    pub(super) fn check_aarch32_fp_id_instruction(
+        &self,
+        insn: u32,
+        encoding: Aarch64SysRegEncoding,
+        read: bool,
+        rt: u8,
+    ) -> Result<(), ArmError> {
+        if encoding.aarch32_mvfr_index().is_none() {
+            return Ok(());
+        }
+        if !read {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+        let controls = self.pauth_controls();
+        let host = controls.vhe && controls.hcr_el2 & (1 << 34) != 0;
+        if self.current_el == 1
+            && controls.el2_enabled()
+            && self.sysregs.hcr_el2 & (1 << 18) != 0
+            && !(host && controls.hcr_el2 & (1 << 27) != 0)
+        {
+            return Err(ArmError::ArchitecturalException {
+                ec: 0x18,
+                iss: (u32::from(encoding.op0) << 20)
+                    | (u32::from(encoding.op2) << 17)
+                    | (u32::from(encoding.op1) << 14)
+                    | (u32::from(encoding.crn) << 10)
+                    | (u32::from(rt) << 5)
+                    | (u32::from(encoding.crm) << 1)
+                    | 1,
+                target_el: Some(2),
+            });
+        }
+        Ok(())
+    }
+
     /// Raw selected flags; effective FHM support also requires FP16.
     pub(crate) fn selected_fp_features(&self) -> ArmFeatures {
         self.config.features & SELECTABLE_FEATURES

@@ -1,0 +1,828 @@
+{
+  "scope": "QEMU CPU-profile comparisons, not physical-hardware or per-field-isolation evidence",
+  "source_sha256": {
+    "qemu-loader.s": "01afd9fd448826fe1a3c4e6ef1dad8ebe7654b12d514259112a7a64daceb6835",
+    "qemu-a32.s": "5aa9a2acb39aa77779c964b3031b354ac038d847fede7d35cfba6379b1c301ac",
+    "qemu-tid3.s": "b3f5d597dce1b6666c5597bd7e99935534a71e7455333acfc955609ac8a7bc17",
+    "qemu-controls.py": "26a9a026705c1710e1f97f8de56a785987cc02315b32439f2c7abea8f11ee8b3"
+  },
+  "records": [
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "--version"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "--version"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv8.2a-none-eabi",
+        "-filetype=obj",
+        "a32.s",
+        "-o",
+        "a32.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40081000",
+        "-e",
+        "_start",
+        "a32.o",
+        "-o",
+        "a32.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "a32.elf",
+        "a32.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64-none-elf",
+        "-filetype=obj",
+        "loader.s",
+        "-o",
+        "loader.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40080000",
+        "-e",
+        "_start",
+        "loader.o",
+        "-o",
+        "loader.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "loader.elf",
+        "loader.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-M",
+        "virt,virtualization=on",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "64M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting-config",
+        "enable=on,target=native",
+        "-kernel",
+        "loader.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "00000008\n10110222\n12111111\n00000043\n10110222\n12111111\n00000043\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv8.2a-none-eabi",
+        "-filetype=obj",
+        "a32.s",
+        "-o",
+        "a32.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40081000",
+        "-e",
+        "_start",
+        "a32.o",
+        "-o",
+        "a32.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "a32.elf",
+        "a32.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64-none-elf",
+        "-filetype=obj",
+        "loader.s",
+        "-o",
+        "loader.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40080000",
+        "-e",
+        "_start",
+        "loader.o",
+        "-o",
+        "loader.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "loader.elf",
+        "loader.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-M",
+        "virt,virtualization=on",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "64M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting-config",
+        "enable=on,target=native",
+        "-kernel",
+        "loader.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "00000008\n10110222\n12111111\n00000043\n10110222\n12111111\n00000043\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv8.2a-none-eabi",
+        "-filetype=obj",
+        "a32.s",
+        "-o",
+        "a32.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40081000",
+        "-e",
+        "_start",
+        "a32.o",
+        "-o",
+        "a32.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "a32.elf",
+        "a32.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64-none-elf",
+        "-filetype=obj",
+        "loader.s",
+        "-o",
+        "loader.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40080000",
+        "-e",
+        "_start",
+        "loader.o",
+        "-o",
+        "loader.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "loader.elf",
+        "loader.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-M",
+        "virt,virtualization=on",
+        "-cpu",
+        "max",
+        "-m",
+        "64M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting-config",
+        "enable=on,target=native",
+        "-kernel",
+        "loader.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "00000008\n10110222\n13211111\n00000043\n10110222\n13211111\n00000043\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv8.2a-none-eabi",
+        "-filetype=obj",
+        "a32.s",
+        "-o",
+        "a32.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40081000",
+        "-e",
+        "_start",
+        "a32.o",
+        "-o",
+        "a32.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "a32.elf",
+        "a32.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64-none-elf",
+        "-filetype=obj",
+        "loader.s",
+        "-o",
+        "loader.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40080000",
+        "-e",
+        "_start",
+        "loader.o",
+        "-o",
+        "loader.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "loader.elf",
+        "loader.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-M",
+        "virt,virtualization=on",
+        "-cpu",
+        "max",
+        "-m",
+        "64M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting-config",
+        "enable=on,target=native",
+        "-kernel",
+        "loader.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "00000008\n10110222\n13211111\n00000043\n10110222\n13211111\n00000043\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64-none-elf",
+        "-filetype=obj",
+        "tid3.s",
+        "-o",
+        "tid3.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40080000",
+        "-e",
+        "_start",
+        "tid3.o",
+        "-o",
+        "tid3.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "tid3.elf",
+        "tid3.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-M",
+        "virt,virtualization=on",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "64M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting-config",
+        "enable=on,target=native",
+        "-kernel",
+        "tid3.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "10110222\n12111111\n00000043\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64-none-elf",
+        "-filetype=obj",
+        "tid3.s",
+        "-o",
+        "tid3.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40080000",
+        "-e",
+        "_start",
+        "tid3.o",
+        "-o",
+        "tid3.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "tid3.elf",
+        "tid3.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-M",
+        "virt,virtualization=on",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "64M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting-config",
+        "enable=on,target=native",
+        "-kernel",
+        "tid3.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "62300007\n62320027\n62340047\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64-none-elf",
+        "-filetype=obj",
+        "tid3.s",
+        "-o",
+        "tid3.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40080000",
+        "-e",
+        "_start",
+        "tid3.o",
+        "-o",
+        "tid3.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "tid3.elf",
+        "tid3.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-M",
+        "virt,virtualization=on",
+        "-cpu",
+        "max",
+        "-m",
+        "64M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting-config",
+        "enable=on,target=native",
+        "-kernel",
+        "tid3.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "10110222\n13211111\n00000043\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64-none-elf",
+        "-filetype=obj",
+        "tid3.s",
+        "-o",
+        "tid3.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-Ttext=0x40080000",
+        "-e",
+        "_start",
+        "tid3.o",
+        "-o",
+        "tid3.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "-O",
+        "binary",
+        "tid3.elf",
+        "tid3.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-M",
+        "virt,virtualization=on",
+        "-cpu",
+        "max",
+        "-m",
+        "64M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting-config",
+        "enable=on,target=native",
+        "-kernel",
+        "tid3.bin"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-mvfr-d4izqbbv",
+      "exit_code": 0,
+      "stdout": "62300007\n62320027\n62340047\n",
+      "stderr": ""
+    }
+  ],
+  "cases": [
+    {
+      "profile": "cortex-a53",
+      "thumb": false,
+      "values": [
+        8,
+        269550114,
+        303108369,
+        67,
+        269550114,
+        303108369,
+        67
+      ]
+    },
+    {
+      "profile": "cortex-a53",
+      "thumb": true,
+      "values": [
+        8,
+        269550114,
+        303108369,
+        67,
+        269550114,
+        303108369,
+        67
+      ]
+    },
+    {
+      "profile": "max",
+      "thumb": false,
+      "values": [
+        8,
+        269550114,
+        320934161,
+        67,
+        269550114,
+        320934161,
+        67
+      ]
+    },
+    {
+      "profile": "max",
+      "thumb": true,
+      "values": [
+        8,
+        269550114,
+        320934161,
+        67,
+        269550114,
+        320934161,
+        67
+      ]
+    },
+    {
+      "profile": "cortex-a53",
+      "tid3": false,
+      "values": [
+        269550114,
+        303108369,
+        67
+      ]
+    },
+    {
+      "profile": "cortex-a53",
+      "tid3": true,
+      "values": [
+        1647312903,
+        1647444007,
+        1647575111
+      ]
+    },
+    {
+      "profile": "max",
+      "tid3": false,
+      "values": [
+        269550114,
+        320934161,
+        67
+      ]
+    },
+    {
+      "profile": "max",
+      "tid3": true,
+      "values": [
+        1647312903,
+        1647444007,
+        1647575111
+      ]
+    }
+  ],
+  "passed": true,
+  "qemu_version": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n",
+  "llvm_version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore\n"
+}

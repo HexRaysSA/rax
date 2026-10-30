@@ -94,6 +94,15 @@ pub struct Aarch64SysRegEncoding {
 }
 
 impl Aarch64SysRegEncoding {
+    /// DDI0487B.a D7.2.75-77: mapped AArch32 media/FP ID registers.
+    pub(crate) const fn aarch32_mvfr_index(&self) -> Option<usize> {
+        if self.op0 == 3 && self.op1 == 0 && self.crn == 0 && self.crm == 3 && self.op2 < 3 {
+            Some(self.op2 as usize)
+        } else {
+            None
+        }
+    }
+
     /// Create a new system register encoding.
     pub const fn new(op0: u8, op1: u8, crn: u8, crm: u8, op2: u8) -> Self {
         Aarch64SysRegEncoding {

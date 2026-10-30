@@ -1,0 +1,504 @@
+D7.2.75     MVFR0_EL1, AArch32 Media and VFP Feature Register 0
+                  The MVFR0_EL1 characteristics are:
+
+                  Purpose
+                                  Describes the features provided by the AArch32 Advanced SIMD and Floating-point
+                                  implementation.
+                                  Must be interpreted with MVFR1_EL1 and MVFR2_EL1.
+                                  For general information about the interpretation of the ID registers see Principles of the ID scheme
+                                  for fields in ID registers on page D7-2195.
+
+                  Configurations
+                                  AArch64 System register MVFR0_EL1 is architecturally mapped to AArch32 System register
+                                  MVFR0.
+                                  In an implementation where at least one Exception level supports execution in AArch32 state, but
+                                  there is no support for Advanced SIMD and floating-point operation, this register is RAZ.
+                                  In an AArch64-only implementation, this register is UNKNOWN.
+
+                  Attributes
+                                  MVFR0_EL1 is a 32-bit register.
+
+
+                  Field descriptions
+                  The MVFR0_EL1 bit assignments are:
+
+
+
+                  31      28 27          24 23            20 19      16 15       12 11          8 7          4 3        0
+
+                   FPRound     FPShVec           FPSqrt       FPDivide   FPTrap          FPDP         FPSP     SIMDReg
+
+
+                  FPRound, bits [31:28]
+                                  Floating-Point Rounding modes. Indicates whether the floating-point implementation provides
+                                  support for rounding modes. Defined values are:
+                                  0000           Not implemented, or only Round to Nearest mode supported, except that Round towards
+                                                 Zero mode is supported for VCVT instructions that always use that rounding mode
+                                                 regardless of the FPSCR setting.
+                                  0001           All rounding modes supported.
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0001.
+
+                  FPShVec, bits [27:24]
+                                  Short Vectors. Indicates whether the floating-point implementation provides support for the use of
+                                  short vectors. Defined values are:
+                                  0000           Short vectors not supported.
+                                  0001           Short vector operation supported.
+                                  All other values are reserved.
+                                  In ARMv8-A the only permitted value is 0000.
+
+                  FPSqrt, bits [23:20]
+                                  Square Root. Indicates whether the floating-point implementation provides support for the ARMv6
+                                  VFP square root operations. Defined values are:
+                                  0000           Not supported in hardware.
+
+
+
+ARM DDI 0487B.a              Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.                          D7-2425
+ID033117                                             Non-Confidential
+D7 AArch64 System Register Descriptions
+D7.2 General system control registers
+
+
+
+                                    0001        Supported.
+                                    All other values are reserved.
+                                    In ARMv8-A the permitted values are 0000 and 0001.
+                                    The VSQRT.F32 instruction also requires the single-precision floating-point attribute, bits [7:4],
+                                    and the VSQRT.F64 instruction also requires the double-precision floating-point attribute, bits
+                                    [11:8].
+
+                    FPDivide, bits [19:16]
+                                    Indicates whether the floating-point implementation provides support for VFP divide operations.
+                                    Defined values are:
+                                    0000        Not supported in hardware.
+                                    0001        Supported.
+                                    All other values are reserved.
+                                    In ARMv8-A the permitted values are 0000 and 0001.
+                                    The VDIV.F32 instruction also requires the single-precision floating-point attribute, bits [7:4], and
+                                    the VDIV.F64 instruction also requires the double-precision floating-point attribute, bits [11:8].
+
+                    FPTrap, bits [15:12]
+                                    Floating Point Exception Trapping. Indicates whether the floating-point implementation provides
+                                    support for exception trapping. Defined values are:
+                                    0000        Not supported.
+                                    0001        Supported.
+                                    All other values are reserved.
+                                    A value of 0001 indicates that, when the corresponding trap is enabled, a floating-point exception
+                                    generates an exception.
+
+                    FPDP, bits [11:8]
+                                    Double Precision. Indicates whether the floating-point implementation provides support for
+                                    double-precision operations. Defined values are:
+                                    0000        Not supported in hardware.
+                                    0001        Supported, VFPv2.
+                                    0010        Supported, VFPv3, VFPv4, or ARMv8. VFPv3 and ARMv8 add an instruction to load
+                                                a double-precision floating-point constant, and conversions between double-precision
+                                                and fixed-point values.
+                                    All other values are reserved.
+                                    In ARMv8-A the permitted values are 0000 and 0010.
+                                    A value of 0b0001 or 0b0010 indicates support for all VFP double-precision instructions in the
+                                    supported version of VFP, except that, in addition to this field being nonzero:
+                                    •      VSQRT.F64 is only available if the Square root field is 0001.
+                                    •      VDIV.F64 is only available if the Divide field is 0001.
+                                    •      Conversion between double-precision and single-precision is only available if the
+                                           single-precision field is nonzero.
+
+                    FPSP, bits [7:4]
+                                    Single Precision. Indicates whether the floating-point implementation provides support for
+                                    single-precision operations. Defined values are:
+                                    0000        Not supported in hardware.
+                                    0001        Supported, VFPv2.
+
+
+
+
+D7-2426                        Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.              ARM DDI 0487B.a
+                                                       Non-Confidential                                                     ID033117
+                                                                                             D7 AArch64 System Register Descriptions
+                                                                                                 D7.2 General system control registers
+
+
+
+                                  0010        Supported, VFPv3 or VFPv4. VFPv3 adds an instruction to load a single-precision
+                                              floating-point constant, and conversions between single-precision and fixed-point
+                                              values.
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0010.
+                                  A value of 0b0001 or 0b0010 indicates support for all VFP single-precision instructions in the
+                                  supported version of VFP, except that, in addition to this field being nonzero:
+                                  •      VSQRT.F32 is only available if the Square root field is 0001.
+                                  •      VDIV.F32 is only available if the Divide field is 0001.
+                                  •      Conversion between double-precision and single-precision is only available if the
+                                         double-precision field is nonzero.
+
+                  SIMDReg, bits [3:0]
+                                  Advanced SIMD registers. Indicates whether the Advanced SIMD and floating-point
+                                  implementation provides support for the Advanced SIMD and floating-point register bank. Defined
+                                  values are:
+                                  0000        The implementation has no Advanced SIMD and floating-point support.
+                                  0001        The implementation includes floating-point support with 16 x 64-bit registers.
+                                  0010        The implementation includes Advanced SIMD and floating-point support with 32 x
+                                              64-bit registers.
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0010.
+
+
+                  Accessing the MVFR0_EL1
+                  This register can be read using MRS with the following syntax:
+
+                  MRS <Xt>, <systemreg>
+
+                  This syntax is encoded with the following settings in the instruction encoding:
+
+
+                                                                           <systemreg>         op0       op1    CRn       CRm      op2
+
+                                                                           MVFR0_EL1           11        000    0000      0011     000
+
+
+
+                  Accessibility
+                  The register is accessible in software as follows:
+
+
+                                                                               Control                    Accessibility
+
+                                                                               E2H      TGE        NS     EL0    EL1      EL2      EL3
+
+                                                                               x        x          0      -      RO       n/a      RO
+
+                                                                               x        0          1      -      RO       RO       RO
+
+                                                                               x        1          1      -      n/a      RO       RO
+
+
+
+
+ARM DDI 0487B.a              Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.                           D7-2427
+ID033117                                             Non-Confidential
+D7 AArch64 System Register Descriptions
+D7.2 General system control registers
+
+
+
+                    Traps and Enables
+                    For a description of the prioritization of any generated exceptions, see Synchronous exception prioritization for
+                    exceptions taken to AArch64 on page D1-1827. Subject to the prioritization rules:
+
+                    •      When EL2 is implemented and is using AArch64 and (SCR_EL3.NS == 1) && (HCR_EL2.E2H == 0):
+                           —     If HCR_EL2.TID3==1, Non-secure read accesses to this register from EL1 are trapped to EL2.
+
+                    •      When EL2 is implemented and is using AArch64 and (SCR_EL3.NS == 1) && (HCR_EL2.E2H == 1) &&
+                           (HCR_EL2.TGE == 0):
+                           —     If HCR_EL2.TID3==1, Non-secure read accesses to this register from EL1 are trapped to EL2.
+
+
+
+
+D7-2428                        Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.             ARM DDI 0487B.a
+                                                       Non-Confidential                                                    ID033117
+                                                                                               D7 AArch64 System Register Descriptions
+                                                                                                   D7.2 General system control registers
+
+
+
+D7.2.76     MVFR1_EL1, AArch32 Media and VFP Feature Register 1
+                  The MVFR1_EL1 characteristics are:
+
+                  Purpose
+                                  Describes the features provided by the AArch32 Advanced SIMD and Floating-point
+                                  implementation.
+                                  Must be interpreted with MVFR0_EL1 and MVFR2_EL1.
+                                  For general information about the interpretation of the ID registers see Principles of the ID scheme
+                                  for fields in ID registers on page D7-2195.
+
+                  Configurations
+                                  AArch64 System register MVFR1_EL1 is architecturally mapped to AArch32 System register
+                                  MVFR1.
+                                  In an implementation where at least one Exception level supports execution in AArch32 state, but
+                                  there is no support for Advanced SIMD and floating-point operation, this register is RAZ.
+                                  In an AArch64-only implementation, this register is UNKNOWN.
+
+                  Attributes
+                                  MVFR1_EL1 is a 32-bit register.
+
+
+                  Field descriptions
+                  The MVFR1_EL1 bit assignments are:
+
+
+
+                  31      28 27          24 23         20 19        16 15        12 11         8 7          4 3           0
+
+                                  FPHP       SIMDHP         SIMDSP       SIMDInt      SIMDLS       FPDNaN         FPFtZ
+
+
+     SIMDFMAC
+
+                  SIMDFMAC, bits [31:28]
+                                  Advanced SIMD Fused Multiply-Accumulate. Indicates whether the Advanced SIMD
+                                  implementation provides fused multiply accumulate instructions. Defined values are:
+                                  0000           Not implemented.
+                                  0001           Implemented.
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0001.
+                                  The Advanced SIMD and floating-point implementations must provide the same level of support
+                                  for these instructions.
+
+                  FPHP, bits [27:24]
+                                  Floating Point Half Precision. Indicates the level of half-precision floating-point support. Defined
+                                  values are:
+                                  0000           Not supported.
+                                  0001           Floating-point half-precision conversion instructions are supported for conversion
+                                                 between single-precision and half-precision.
+                                  0010           Floating-point half-precision conversion instructions are supported for conversion
+                                                 between single-precision and half-precision and between double-precision and
+                                                 half-precision.
+                                  0011           As for 0010, and also includes support for half-precision floating-point arithmetic.
+
+
+
+ARM DDI 0487B.a             Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.                            D7-2429
+ID033117                                            Non-Confidential
+D7 AArch64 System Register Descriptions
+D7.2 General system control registers
+
+
+
+                                    All other values are reserved.
+                                    The permitted values are:
+                                    •      0000 in an implementation without floating-point support.
+                                    •      0010 in an implementation with floating-point support, that does not include the
+                                           ARMv8.2-FP16 extension.
+                                    •      0011 in an implementation with floating-point support, that includes the ARMv8.2-FP16
+                                           extension.
+
+                    SIMDHP, bits [23:20]
+                                    Advanced SIMD Half Precision. Indicates the level of half-precision floating-point support.
+                                    Defined values are:
+                                    0000        Not supported.
+                                    0001        SIMD half-precision conversion instructions are supported for conversion between
+                                                single-precision and half-precision.
+                                    0010        As for 0010, and also includes support for half-precision floating-point arithmetic.
+                                    All other values are reserved.
+                                    The permitted values are:
+                                    •      0000 in an implementation without SIMD floating-point support.
+                                    •      0001 in an implementation with SIMD floating-point support, that does not include the
+                                           ARMv8.2-FP16 extension.
+                                    •      0010 in an implementation with SIMD floating-point support, that includes the
+                                           ARMv8.2-FP16 extension.
+
+                    SIMDSP, bits [19:16]
+                                    Advanced SIMD Single Precision. Indicates whether the Advanced SIMD and floating-point
+                                    implementation provides single-precision floating-point instructions. Defined values are:
+                                    0000        Not implemented.
+                                    0001        Implemented. This value is permitted only if the SIMDInt field is 0001.
+                                    All other values are reserved.
+                                    In ARMv8-A the permitted values are 0000 and 0001.
+
+                    SIMDInt, bits [15:12]
+                                    Advanced SIMD Integer. Indicates whether the Advanced SIMD and floating-point implementation
+                                    provides integer instructions. Defined values are:
+                                    0000        Not implemented.
+                                    0001        Implemented.
+                                    All other values are reserved.
+                                    In ARMv8-A the permitted values are 0000 and 0001.
+
+                    SIMDLS, bits [11:8]
+                                    Advanced SIMD Load/Store. Indicates whether the Advanced SIMD and floating-point
+                                    implementation provides load/store instructions. Defined values are:
+                                    0000        Not implemented.
+                                    0001        Implemented.
+                                    All other values are reserved.
+                                    In ARMv8-A the permitted values are 0000 and 0001.
+
+
+
+
+D7-2430                        Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.              ARM DDI 0487B.a
+                                                       Non-Confidential                                                     ID033117
+                                                                                             D7 AArch64 System Register Descriptions
+                                                                                                 D7.2 General system control registers
+
+
+
+                  FPDNaN, bits [7:4]
+                                  Default NaN mode. Indicates whether the floating-point implementation provides support only for
+                                  the Default NaN mode. Defined values are:
+                                  0000        Not implemented, or hardware supports only the Default NaN mode.
+                                  0001        Hardware supports propagation of NaN values.
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0001.
+
+                  FPFtZ, bits [3:0]
+                                  Flush to Zero mode. Indicates whether the floating-point implementation provides support only for
+                                  the Flush-to-Zero mode of operation. Defined values are:
+                                  0000        Not implemented, or hardware supports only the Flush-to-Zero mode of operation.
+                                  0001        Hardware supports full denormalized number arithmetic.
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0001.
+
+
+                  Accessing the MVFR1_EL1
+                  This register can be read using MRS with the following syntax:
+
+                  MRS <Xt>, <systemreg>
+
+                  This syntax is encoded with the following settings in the instruction encoding:
+
+
+                                                                           <systemreg>         op0       op1    CRn       CRm     op2
+
+                                                                           MVFR1_EL1           11        000    0000      0011    001
+
+
+
+                  Accessibility
+                  The register is accessible in software as follows:
+
+
+                                                                               Control                    Accessibility
+
+                                                                               E2H      TGE      NS       EL0    EL1      EL2     EL3
+
+                                                                               x        x        0        -      RO       n/a     RO
+
+                                                                               x        0        1        -      RO       RO      RO
+
+                                                                               x        1        1        -      n/a      RO      RO
+
+
+                  Traps and Enables
+                  For a description of the prioritization of any generated exceptions, see Synchronous exception prioritization for
+                  exceptions taken to AArch64 on page D1-1827. Subject to the prioritization rules:
+
+                  •     When EL2 is implemented and is using AArch64 and (SCR_EL3.NS == 1) && (HCR_EL2.E2H == 0):
+                        —      If HCR_EL2.TID3==1, Non-secure read accesses to this register from EL1 are trapped to EL2.
+
+                  •     When EL2 is implemented and is using AArch64 and (SCR_EL3.NS == 1) && (HCR_EL2.E2H == 1) &&
+                        (HCR_EL2.TGE == 0):
+                        —      If HCR_EL2.TID3==1, Non-secure read accesses to this register from EL1 are trapped to EL2.
+
+
+
+
+ARM DDI 0487B.a              Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.                           D7-2431
+ID033117                                             Non-Confidential
+D7 AArch64 System Register Descriptions
+D7.2 General system control registers
+
+
+
+D7.2.77       MVFR2_EL1, AArch32 Media and VFP Feature Register 2
+                    The MVFR2_EL1 characteristics are:
+
+                    Purpose
+                                    Describes the features provided by the AArch32 Advanced SIMD and Floating-point
+                                    implementation.
+                                    Must be interpreted with MVFR0_EL1 and MVFR1_EL1.
+                                    For general information about the interpretation of the ID registers see Principles of the ID scheme
+                                    for fields in ID registers on page D7-2195.
+
+                    Configurations
+                                    AArch64 System register MVFR2_EL1 is architecturally mapped to AArch32 System register
+                                    MVFR2.
+                                    In an implementation where at least one Exception level supports execution in AArch32 state, but
+                                    there is no support for Advanced SIMD and floating-point operation, this register is RAZ.
+                                    In an AArch64-only implementation, this register is UNKNOWN.
+
+                    Attributes
+                                    MVFR2_EL1 is a 32-bit register.
+
+
+                    Field descriptions
+                    The MVFR2_EL1 bit assignments are:
+
+
+
+                    31                                                                         8 7            4 3      0
+
+                                                      RES0                                           FPMisc     SIMDMisc
+
+
+                    Bits [31:8]
+                                    Reserved, RES0.
+
+                    FPMisc, bits [7:4]
+                                    Indicates whether the floating-point implementation provides support for miscellaneous VFP
+                                    features.
+                                    0000        Not implemented, or no support for miscellaneous features.
+                                    0001        Support for Floating-point selection.
+                                    0010        As 0001, and Floating-point Conversion to Integer with Directed Rounding modes.
+                                    0011        As 0010, and Floating-point Round to Integer Floating-point.
+                                    0100        As 0011, and Floating-point MaxNum and MinNum.
+                                    All other values are reserved.
+                                    In ARMv8-A the permitted values are 0000 and 0100.
+
+                    SIMDMisc, bits [3:0]
+                                    Indicates whether the Advanced SIMD implementation provides support for miscellaneous
+                                    Advanced SIMD features.
+                                    0000        Not implemented, or no support for miscellaneous features.
+                                    0001        Floating-point Conversion to Integer with Directed Rounding modes.
+                                    0010        As 0001, and Floating-point Round to Integer Floating-point.
+                                    0011        As 0010, and Floating-point MaxNum and MinNum.
+                                    All other values are reserved.
+
+
+D7-2432                        Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.             ARM DDI 0487B.a
+                                                       Non-Confidential                                                    ID033117
+                                                                                             D7 AArch64 System Register Descriptions
+                                                                                                 D7.2 General system control registers
+
+
+
+                                  In ARMv8-A the permitted values are 0000 and 0011.
+
+
+                  Accessing the MVFR2_EL1
+                  This register can be read using MRS with the following syntax:
+
+                  MRS <Xt>, <systemreg>
+
+                  This syntax is encoded with the following settings in the instruction encoding:
+
+
+                                                                           <systemreg>         op0       op1    CRn       CRm     op2
+
+                                                                           MVFR2_EL1           11        000    0000      0011    010
+
+
+
+                  Accessibility
+                  The register is accessible in software as follows:
+
+
+                                                                               Control                    Accessibility
+
+                                                                               E2H      TGE      NS       EL0    EL1      EL2     EL3
+
+                                                                               x        x        0        -      RO       n/a     RO
+
+                                                                               x        0        1        -      RO       RO      RO
+
+                                                                               x        1        1        -      n/a      RO      RO
+
+
+                  Traps and Enables
+                  For a description of the prioritization of any generated exceptions, see Synchronous exception prioritization for
+                  exceptions taken to AArch64 on page D1-1827. Subject to the prioritization rules:
+
+                  •     When EL2 is implemented and is using AArch64 and (SCR_EL3.NS == 1) && (HCR_EL2.E2H == 0):
+                        —      If HCR_EL2.TID3==1, Non-secure read accesses to this register from EL1 are trapped to EL2.
+
+                  •     When EL2 is implemented and is using AArch64 and (SCR_EL3.NS == 1) && (HCR_EL2.E2H == 1) &&
+                        (HCR_EL2.TGE == 0):
+                        —      If HCR_EL2.TID3==1, Non-secure read accesses to this register from EL1 are trapped to EL2.
+
+
+
+
+ARM DDI 0487B.a              Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.                           D7-2433
+ID033117                                             Non-Confidential
+D7 AArch64 System Register Descriptions
+D7.2 General system control registers

@@ -697,6 +697,7 @@ impl AArch64Cpu {
         let rt = (insn & 0x1F) as u8;
 
         let encoding = Aarch64SysRegEncoding::new(o0, op1, crn, crm, op2);
+        self.check_aarch32_fp_id_instruction(insn, encoding, l != 0, rt)?;
         if crate::isa::arm::common::fp_access::is_fp_system_instruction(insn) {
             self.check_fp_access(crate::isa::arm::common::fp_access::FpAccessClass::System)?;
         }

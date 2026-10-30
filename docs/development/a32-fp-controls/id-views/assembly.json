@@ -1,0 +1,45 @@
+{
+  "utc": "2026-10-30T10:48:32.347432+00:00",
+  "producer": "LLVM MC, independent of RAX decoder",
+  "receipts": [
+    {
+      "source": "a64.s",
+      "source_sha256": "06963092b52e85f49294fad7657f2d0e4b7a80e17f6c266060cf8a49bb34bd2a",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-show-encoding",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/docs/development/a32-fp-controls/id-views/a64.s"
+      ],
+      "exit_code": 0,
+      "stdout": "\tmrs\tx0, MVFR0_EL1                   // encoding: [0x00,0x03,0x38,0xd5]\n\tmrs\tx1, MVFR1_EL1                   // encoding: [0x21,0x03,0x38,0xd5]\n\tmrs\tx2, MVFR2_EL1                   // encoding: [0x42,0x03,0x38,0xd5]\n",
+      "stderr": ""
+    },
+    {
+      "source": "arm.s",
+      "source_sha256": "d70028f0361b344b14f1e46486c9571145ded4c3a51144667cca025bd177bb6c",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv7-none-eabi",
+        "-show-encoding",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/docs/development/a32-fp-controls/id-views/arm.s"
+      ],
+      "exit_code": 0,
+      "stdout": "\t.arch\tarmv8.2-a\n\n\t.fpu\tneon-fp-armv8\n\n\t.code\t32\n\t.p2align\t2\n\tvmrs\tr0, mvfr0                       @ encoding: [0x10,0x0a,0xf7,0xee]\n\tvmrs\tr1, mvfr1                       @ encoding: [0x10,0x1a,0xf6,0xee]\n\tvmrs\tr2, mvfr2                       @ encoding: [0x10,0x2a,0xf5,0xee]\n",
+      "stderr": ""
+    },
+    {
+      "source": "thumb.s",
+      "source_sha256": "e2e64f45c6b1ac984542cc11b4967c4ee8c71d95be394c99044d52e975c90e36",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=thumbv8.2a-none-eabi",
+        "-show-encoding",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/docs/development/a32-fp-controls/id-views/thumb.s"
+      ],
+      "exit_code": 0,
+      "stdout": "\t.arch\tarmv8.2-a\n\n\t.fpu\tneon-fp-armv8\n\n\t.code\t16\n\t.p2align\t1\n\tvmrs\tr0, mvfr0                       @ encoding: [0xf7,0xee,0x10,0x0a]\n\tvmrs\tr1, mvfr1                       @ encoding: [0xf6,0xee,0x10,0x1a]\n\tvmrs\tr2, mvfr2                       @ encoding: [0xf5,0xee,0x10,0x2a]\n",
+      "stderr": ""
+    }
+  ]
+}

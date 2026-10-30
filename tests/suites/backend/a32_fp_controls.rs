@@ -680,3 +680,6 @@ mod simd_base;
 
 #[path = "a32_fp_controls/simd_single.rs"]
 mod simd_single;
+
+#[path = "a32_fp_controls/id_views.rs"]
+mod id_views;

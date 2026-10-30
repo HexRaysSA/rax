@@ -1,0 +1,29 @@
+{
+  "utc": "2026-10-30T11:01:45.950270+00:00",
+  "primary": {
+    "title": "ARM Architecture Reference Manual ARMv8, for ARMv8-A architecture profile",
+    "issuer": "Arm Limited",
+    "revision": "DDI0487B.a ID033117",
+    "sections": [
+      "D7.2.75 MVFR0_EL1",
+      "D7.2.76 MVFR1_EL1",
+      "D7.2.77 MVFR2_EL1",
+      "G6.2.107-G6.2.109 AArch32 MVFR0-MVFR2"
+    ],
+    "pdf": "docs/specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf",
+    "pdf_sha256": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e",
+    "existing_retrieval_provenance": "docs/specifications/arm/aarch32-fp-profile/provenance.json",
+    "extract": "mvfr-aliases-extract.txt",
+    "extract_sha256": "5ba54c81f3a72ee846ae5f6714f52d940f8d3d40b1ef305c0dfc91165c0d729e",
+    "extraction": "pdftotext -layout; text from D7.2.75 to D7.2.78; trailing whitespace/blank lines removed from derived text, intervening notices retained"
+  },
+  "instruction_encoding": "assembly.json: LLVM MC output, A64 MRS and ARM/Thumb VMRS",
+  "independent_execution": {
+    "artifact": "qemu-results.json",
+    "version": "QEMU 11.1.2",
+    "scope": "Two QEMU whole-CPU profiles; same-PE alias equality and A64 TID3 architectural trap syndromes",
+    "physical_hardware": "not run",
+    "source_build_identity": "unknown; runtime version and execution only"
+  },
+  "preserved_counterexamples": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/id-views-v1"
+}

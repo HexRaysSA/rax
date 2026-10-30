@@ -58,14 +58,18 @@ impl Default for VfpState {
             fpexc: 0x4000_0700, // EN defaults on; fixed profile bits10:8 read one.
             fpsid: 0x4103_3070, // Implementation ID for a VFPv3-style unit.
             // Implemented non-trapping scalar/AdvSIMD FP profile.
-            mvfr0: 0x10110222, // Full single/double,32 D registers; no FP traps/short vectors.
-            mvfr1: 0x13211111, // FPHP=3, SIMDHP=2, scalar/AdvSIMD half data processing.
-            mvfr2: 0x00000043, // Scalar/AdvSIMD directed conversion, rounding and number min/max; VSEL.
+            mvfr0: Self::PROFILE_IDS[0],
+            mvfr1: Self::PROFILE_IDS[1],
+            mvfr2: Self::PROFILE_IDS[2],
         }
     }
 }
 
 impl VfpState {
+    /// Implemented full-precision, non-trapping, D32 profile. The enclosing
+    /// A64 PE derives both MVFR aliases from these same base capabilities.
+    pub(crate) const PROFILE_IDS: [u32; 3] = [0x10110222, 0x13211111, 0x43];
+
     /// Architectural FPSCR view for the non-trapping, non-short-vector profile.
     /// Retains NZCV/QC/AHP/DN/FZ/RMode and cumulative exception status.
     /// FZ16 is retained only when half data processing is implemented.

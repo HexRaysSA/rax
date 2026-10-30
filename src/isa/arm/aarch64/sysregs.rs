@@ -517,9 +517,34 @@ impl SystemRegisters {
         }
     }
 
+    /// One physical capability view for A64 MRS, A32 VMRS and saved/IR state.
+    /// Trusted host metadata can reduce/describe A32 capabilities in the existing
+    /// implementation-defined map; guest writes to these read-only IDs reject.
+    /// The selected A64 FP16 capability remains an upper bound on half arithmetic.
+    pub(crate) fn aarch32_fp_ids(&self) -> [u32; 3] {
+        let defaults = crate::isa::arm::aarch32::vfp::VfpState::PROFILE_IDS;
+        let mut ids = std::array::from_fn(|index| {
+            self.impl_defined
+                .get(&Aarch64SysRegEncoding::new(3, 0, 0, 3, index as u8).encode())
+                .map_or(defaults[index], |value| *value as u32)
+        });
+        // Preserve absent/reserved fields rather than upgrading them to a
+        // conversion capability. Only defined full-half fields are reduced.
+        if (self.id_aa64pfr0_el1 >> 16) & 15 != 1 && (ids[1] >> 24) & 15 == 3 {
+            ids[1] = (ids[1] & !(15 << 24)) | (2 << 24);
+        }
+        if (self.id_aa64pfr0_el1 >> 20) & 15 != 1 && (ids[1] >> 20) & 15 == 2 {
+            ids[1] = (ids[1] & !(15 << 20)) | (1 << 20);
+        }
+        ids
+    }
+
     /// Read a system register by encoding.
     pub fn read(&self, encoding: Aarch64SysRegEncoding, current_el: u8) -> Option<u64> {
         let enc = encoding.encode();
+        if let Some(index) = encoding.aarch32_mvfr_index() {
+            return Some(u64::from(self.aarch32_fp_ids()[index]));
+        }
 
         // Handle known system registers
         match (
@@ -727,6 +752,9 @@ impl SystemRegisters {
 
     /// Write a system register by encoding.
     pub fn write(&mut self, encoding: Aarch64SysRegEncoding, value: u64, current_el: u8) -> bool {
+        if encoding.aarch32_mvfr_index().is_some() {
+            return false;
+        }
         match (
             encoding.op0,
             encoding.op1,

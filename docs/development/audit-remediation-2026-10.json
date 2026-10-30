@@ -1009,7 +1009,9 @@
         "docs/development/a64-sve-profile/legacy-dot-correction.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/owning-final-v2.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/oracle-dot-v1/result.json",
-        "docs/development/a32-fp-controls/feature-admission/misc-and-fma.md"
+        "docs/development/a32-fp-controls/feature-admission/misc-and-fma.md",
+        "docs/development/a32-fp-controls/id-views/README.md",
+        "docs/development/a32-fp-controls/id-views/qualification.json"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
@@ -1017,7 +1019,8 @@
         "The represented A64 six-capability flags/IDs/admission and supported legacy migration are corrected. Full cross-state feature consistency and remaining capability, FP8/FPMR and security/debug controls remain open; represented A64 structural FP-access priority is locally validated. No new native optional-instruction execution support.",
         "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open.",
         "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
-        "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope."
+        "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope.",
+        "A64/A32/Thumb MVFR identity, selected half upper bounds and A64 TID3/RO semantics locally qualified; global EL0 Linux ID policy, restricted rounding/NaN/subnormal profiles and remaining security/debug controls remain open."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -196646,6 +196649,75 @@
       "commit": "120f773744471cdd8336a924ea6dfcf0521d8cfc",
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-v1/red.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-v1/cleanup-idle-validation-v1.json"
+    },
+    {
+      "id": "a32-coherent-mvfr-views-and-tid3-2026-10-30",
+      "status": "locally_validated",
+      "parent": "3361d83566f642c6329d13038124360143ae50ea",
+      "scope": "Coherent A64/A32/Thumb MVFR capability views, read-only alias semantics and A64 EL1 TID3 traps; all four parent findings remain incomplete",
+      "owned_paths": [
+        "src/isa/arm/aarch32/vfp.rs",
+        "src/isa/arm/aarch64/cpu/aarch32/state.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile.rs",
+        "src/isa/arm/aarch64/cpu/registers.rs",
+        "src/isa/arm/aarch64/sysregs.rs",
+        "src/isa/arm/common/sysreg.rs",
+        "tests/suites/backend/a32_fp_controls.rs",
+        "tests/suites/backend/a32_fp_controls/id_views.rs",
+        "docs/development/a32-fp-controls/id-views/README.md",
+        "docs/development/a32-fp-controls/id-views/a64.s",
+        "docs/development/a32-fp-controls/id-views/arm.s",
+        "docs/development/a32-fp-controls/id-views/assembly.json",
+        "docs/development/a32-fp-controls/id-views/mvfr-aliases-extract.txt",
+        "docs/development/a32-fp-controls/id-views/provenance.json",
+        "docs/development/a32-fp-controls/id-views/qemu-a32.s",
+        "docs/development/a32-fp-controls/id-views/qemu-controls.py",
+        "docs/development/a32-fp-controls/id-views/qemu-loader.s",
+        "docs/development/a32-fp-controls/id-views/qemu-results.json",
+        "docs/development/a32-fp-controls/id-views/qemu-tid3.s",
+        "docs/development/a32-fp-controls/id-views/qualification.json",
+        "docs/development/a32-fp-controls/id-views/thumb.s",
+        "docs/development/audit-remediation-2026-10.json"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/id-views-v1/final-rust-source.json",
+      "qualification": "docs/development/a32-fp-controls/id-views/qualification.json",
+      "assumption_register": [
+        {
+          "id": "ID1",
+          "assumption": "A64 MVFRn_EL1 and A32 MVFRn describe the same physical capabilities",
+          "basis": "DDI0487B.a D7.2.75-D7.2.77 architectural mappings",
+          "dependent_result": "Shared register view and mixed-width admission",
+          "stress_test": "Both selected FP16 configurations, ARM/Thumb, reset and fresh-CPU state import",
+          "falsification_probe": "Any view differs in the same saved profile or QEMU returns different aliases",
+          "status": "confirmed within recorded model and QEMU scope"
+        },
+        {
+          "id": "ID2",
+          "assumption": "Selected FP16 capability is an upper bound on the defined A32 full-half arithmetic fields",
+          "basis": "Existing mixed-width selected-feature contract and pinned field definitions",
+          "dependent_result": "FPHP3 to2 and SIMDHP2 to1 clipping",
+          "stress_test": "All sixteen values of each half field, with FP16 enabled/disabled",
+          "falsification_probe": "Absent/reserved field is promoted or full arithmetic advertised without selected capability",
+          "status": "confirmed within represented selected profile"
+        },
+        {
+          "id": "ID3",
+          "assumption": "Trusted raw MVFR metadata is existing state that can express synthetic reduced capabilities",
+          "basis": "Existing implementation-defined map and full state import",
+          "dependent_result": "Low32 projection, persistence and admission",
+          "stress_test": "Nonzero upper32, fresh destination, missing FPDP/SIMDSP/SIMDInt, access disabled and unchanged registers/status/retirement",
+          "falsification_probe": "Metadata lost or an absent capability executes before denial",
+          "status": "confirmed for represented API; physical per-field profile availability unknown"
+        }
+      ],
+      "selected_tests": 608,
+      "independent_qemu_controls": 8,
+      "pending_gates": [
+        "Entire root test suite/all-target build and all-platform product lanes were not run for this group; selected owning library, VFP, profile, pair, system-register and SMIR-state coverage is recorded explicitly.",
+        "Physical A32, physical Intel HVF and full native checkpoint requalification were not run; no changes to hardware-backend source in this group."
+      ],
+      "workflow": "git add exact owned paths, then red -m --staged --run same exact paths; user explicitly authorized commits",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/id-views-v1/commit-receipt.json"
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

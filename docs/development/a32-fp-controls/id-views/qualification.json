@@ -1,0 +1,329 @@
+{
+  "scope": "Coherent A64/A32/Thumb MVFR capability views, read-only alias semantics and A64 EL1 TID3 traps",
+  "baseline_parent": "3361d83566f642c6329d13038124360143ae50ea",
+  "assumption_register": [
+    {
+      "id": "ID1",
+      "assumption": "A64 MVFRn_EL1 and A32 MVFRn describe the same physical capabilities",
+      "basis": "DDI0487B.a D7.2.75-D7.2.77 architectural mappings",
+      "dependent_result": "Shared register view and mixed-width admission",
+      "stress_test": "Both selected FP16 configurations, ARM/Thumb, reset and fresh-CPU state import",
+      "falsification_probe": "Any view differs in the same saved profile or QEMU returns different aliases",
+      "status": "confirmed within recorded model and QEMU scope"
+    },
+    {
+      "id": "ID2",
+      "assumption": "Selected FP16 capability is an upper bound on the defined A32 full-half arithmetic fields",
+      "basis": "Existing mixed-width selected-feature contract and pinned field definitions",
+      "dependent_result": "FPHP3 to2 and SIMDHP2 to1 clipping",
+      "stress_test": "All sixteen values of each half field, with FP16 enabled/disabled",
+      "falsification_probe": "Absent/reserved field is promoted or full arithmetic advertised without selected capability",
+      "status": "confirmed within represented selected profile"
+    },
+    {
+      "id": "ID3",
+      "assumption": "Trusted raw MVFR metadata is existing state that can express synthetic reduced capabilities",
+      "basis": "Existing implementation-defined map and full state import",
+      "dependent_result": "Low32 projection, persistence and admission",
+      "stress_test": "Nonzero upper32, fresh destination, missing FPDP/SIMDSP/SIMDInt, access disabled and unchanged registers/status/retirement",
+      "falsification_probe": "Metadata lost or an absent capability executes before denial",
+      "status": "confirmed for represented API; physical per-field profile availability unknown"
+    }
+  ],
+  "change_surface": {
+    "direct_decode": "Existing encodings retained; independently verified LLVM words",
+    "direct_execute": "A64 MVFR MSR rejects; EL1 TID3 reads trap before effects; A32 admission consumes common IDs",
+    "cpu_state": "Existing trusted implementation-defined map; no added serialized fields",
+    "memory_mmu": "No translation changes",
+    "smir_lift": "Existing MVFR fallback rejection unchanged",
+    "smir_state": "Existing register access delegates to common read/write; targeted RO/read tests",
+    "optimizer_lowering_jit": "No new admitted IR/native operations; import already invalidates caches",
+    "backend": "Existing state export/import transports map; no hardware-backend implementation changed",
+    "machine_device": "No changes",
+    "oracle_analysis": "No new encoding coverage claim",
+    "c_abi": "No layout or ABI changes"
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Global EL0 ID-read policy emulates Linux CPUID and still needs separation from architectural system execution",
+      "blocks_this_group": false,
+      "blocks_full_objective": true
+    },
+    {
+      "impact": "high",
+      "item": "Restricted rounding/defaultNaN/subnormal hardware profiles require selected-subarchitecture semantics; unspecified behavior remains unknown",
+      "blocks_this_group": false,
+      "blocks_full_objective": true
+    },
+    {
+      "impact": "high",
+      "item": "Full C-STATE/C-SMP/C-HVF, native Intel execution and physical A32 validation remain open",
+      "blocks_this_group": false,
+      "blocks_full_objective": true
+    }
+  ],
+  "raw_evidence_directory": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/id-views-v1",
+  "qualification_status": "locally validated semantic group; full four-finding objective incomplete",
+  "baseline": {
+    "utc": "2026-10-30T10:51:05.100425+00:00",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--test",
+      "a32_fp_controls",
+      "id_views::",
+      "--",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 87.40572491602506,
+    "summaries": [
+      "test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 58 filtered out; finished in 0.00s"
+    ]
+  },
+  "corrected-initial": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--test",
+      "a32_fp_controls",
+      "id_views::",
+      "--",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 55.38172566698631,
+    "utc": "2026-10-30T10:53:38.152743+00:00",
+    "summaries": [
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 58 filtered out; finished in 0.00s"
+    ]
+  },
+  "expanded": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--test",
+      "a32_fp_controls",
+      "--test",
+      "arm_vfp_a32",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 95.82057158398675,
+    "utc": "2026-10-30T10:59:22.990299+00:00",
+    "summaries": [
+      "test result: FAILED. 66 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s"
+    ]
+  },
+  "expanded-v2": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--test",
+      "a32_fp_controls",
+      "--test",
+      "arm_vfp_a32",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 29.27196483296575,
+    "utc": "2026-10-30T11:01:08.312904+00:00",
+    "summaries": [
+      "test result: ok. 68 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s",
+      "test result: ok. 497 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 27.45s"
+    ]
+  },
+  "final-controls": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--test",
+      "a32_fp_controls",
+      "--test",
+      "a32_fp_pairs",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 1.7919924579910003,
+    "utc": "2026-10-30T11:03:33.703330+00:00",
+    "summaries": [
+      "test result: ok. 68 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s"
+    ]
+  },
+  "owning-fp-profile": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--lib",
+      "fp_profile",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 130.46379729098408,
+    "utc": "2026-10-30T11:03:18.778095+00:00",
+    "summaries": [
+      "test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 11380 filtered out; finished in 0.79s"
+    ]
+  },
+  "owning-sysregs": {
+    "argv": [
+      "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+      "isa::arm::aarch64::sysregs::tests",
+      "--test-threads=1"
+    ],
+    "binary_sha256": "0f7951eb457633a85e4ced23ee0c24ae6d1bcd1b43c3a61c1f33c012ff8479d9",
+    "exit_code": 0,
+    "elapsed_seconds": 0.3424710829858668,
+    "summaries": [
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 11406 filtered out; finished in 0.00s"
+    ]
+  },
+  "owning-smir-state": {
+    "argv": [
+      "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+      "aarch64_state_tests",
+      "--test-threads=1"
+    ],
+    "binary_sha256": "0f7951eb457633a85e4ced23ee0c24ae6d1bcd1b43c3a61c1f33c012ff8479d9",
+    "exit_code": 0,
+    "elapsed_seconds": 0.35475816699909046,
+    "summaries": [
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 11406 filtered out; finished in 0.00s"
+    ]
+  },
+  "normal-check": {
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "--workspace",
+      "--lib",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 34.610995208029635,
+    "utc": "2026-10-30T11:04:08.314968+00:00",
+    "summaries": []
+  },
+  "clippy": {
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--workspace",
+      "--lib",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 26.19608945795335,
+    "utc": "2026-10-30T11:04:34.511578+00:00",
+    "summaries": []
+  },
+  "clippy-controls": {
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--test",
+      "a32_fp_controls"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.342185250017792,
+    "utc": "2026-10-30T11:04:34.854124+00:00",
+    "summaries": []
+  },
+  "format": {
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 12.63038524996955,
+    "utc": "2026-10-30T11:04:47.484955+00:00",
+    "summaries": []
+  },
+  "owned-format": {
+    "command": [
+      "rustfmt",
+      "--edition",
+      "2024",
+      "--check",
+      "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/isa/arm/aarch32/vfp.rs",
+      "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/isa/arm/aarch64/cpu/aarch32/state.rs",
+      "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/isa/arm/aarch64/cpu/fp_profile.rs",
+      "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/isa/arm/aarch64/cpu/registers.rs",
+      "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/isa/arm/aarch64/sysregs.rs",
+      "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/isa/arm/common/sysreg.rs",
+      "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/tests/suites/backend/a32_fp_controls.rs",
+      "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/tests/suites/backend/a32_fp_controls/id_views.rs"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.07020199997350574,
+    "utc": "2026-10-30T11:04:47.555609+00:00",
+    "summaries": []
+  },
+  "independent_qemu": {
+    "cases": 8,
+    "passed": true,
+    "record": "qemu-results.json"
+  },
+  "utc": "2026-10-30T11:05:14.697847+00:00",
+  "unique_selected_tests": 608,
+  "unrun_gates": [
+    "Entire root test suite/all-target build and all-platform product lanes were not run for this group; selected owning library, VFP, profile, pair, system-register and SMIR-state coverage is recorded explicitly.",
+    "Physical A32, physical Intel HVF and full native checkpoint requalification were not run; no changes to hardware-backend source in this group."
+  ],
+  "workflow": "git add exact owned paths, then red -m --staged --run same exact paths; user explicitly authorized commits",
+  "cleanup": "One reused build cache and scratch directory; removed when idle at the end of this goal turn; no new worktrees",
+  "quality_gates": {
+    "normative_content_required": false,
+    "assumptions_tested": true,
+    "semantic_group_requirements_covered": true,
+    "full_goal_complete": false,
+    "reproducible_widths_and_syndromes": true,
+    "independent_provenance": true,
+    "counterexamples_retained": true,
+    "bounded_scope_explicit": true
+  }
+}

@@ -5,7 +5,6 @@ use crate::isa::arm::aarch32::cpu::{Armv7Cpu, ProcessorMode, Psr};
 use crate::isa::arm::aarch64::aarch32_state::{Aarch32Pstate, mode_el, register_index};
 use crate::isa::arm::aarch64::cpu::AArch64Cpu;
 use crate::isa::arm::common::cpu::ArmError;
-use crate::isa::arm::common::features::ArmFeatures;
 use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
 
 fn spsr_encoding(index: u8) -> u16 {
@@ -19,11 +18,7 @@ impl AArch64Cpu {
         let mut cpu = Armv7Cpu::new();
         cpu.pstate_features = self.config.features;
         cpu.cp15.id_isar6 = u32::from(self.fhm_supported()) << 8;
-        if !self.config.features.contains(ArmFeatures::FP16) {
-            // ARMv8 baseline half/single/double conversions remain available;
-            // scalar and Advanced SIMD half data processing do not.
-            cpu.vfp.mvfr1 = (cpu.vfp.mvfr1 & !0x0ff0_0000) | 0x0210_0000;
-        }
+        [cpu.vfp.mvfr0, cpu.vfp.mvfr1, cpu.vfp.mvfr2] = self.sysregs.aarch32_fp_ids();
         cpu.fp_access_context = Some(self.aarch32_fp_context());
         cpu.nonsecure = self.sysregs.scr_el3 & 1 != 0;
         for index in 0..15 {
