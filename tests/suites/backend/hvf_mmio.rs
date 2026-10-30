@@ -8,6 +8,8 @@ use guest_translation::{Paging, PhysicalMemory};
 use mmio::{Action, Context, ExitRecord, Extension, Input, RegisterPart, prepare};
 use std::collections::BTreeMap;
 
+#[path = "hvf_mmio/alu_read.rs"]
+mod alu_read_tests;
 #[path = "hvf_mmio/rmw.rs"]
 mod rmw_tests;
 #[derive(Default)]
@@ -577,6 +579,7 @@ fn independent_guest_records_preserve_all_registers_memory_and_flags() {
                 memory[..data.len()].copy_from_slice(&data);
             }
             Action::Rmw(_) => panic!("MOV reference case produced an RMW plan"),
+            Action::AluRead(_) => panic!("MOV reference case produced an ALU read plan"),
         }
         let record = &RAW[12 + i * 152..12 + (i + 1) * 152];
         let actual: [u64; 16] = std::array::from_fn(|index| quad(record, index * 8));

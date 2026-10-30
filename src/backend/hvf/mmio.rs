@@ -7,6 +7,9 @@ use crate::isa::x86_64::instruction_metadata::{
 #[path = "mmio/rmw.rs"]
 mod rmw;
 pub(crate) use rmw::RmwInput;
+#[path = "mmio/alu_read.rs"]
+mod alu_read;
+pub(crate) use alu_read::AluReadInput;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct RegisterPart {
@@ -131,6 +134,7 @@ pub(crate) enum Action {
     Read(Input),
     Write(Vec<u8>),
     Rmw(RmwInput),
+    AluRead(AluReadInput),
 }
 #[derive(Clone, Debug)]
 pub(crate) struct Plan {
@@ -272,6 +276,9 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     if read == write {
         return Err("scalar MMIO direction disagrees with instruction effects".into());
     }
+    if let Some(plan) = alu_read::prepare(context, memory, record, &instruction)? {
+        return Ok(plan);
+    }
     if !instruction.operands_complete
         || instruction.flow != Flow::Next
         || !matches!(instruction.mnemonic.as_str(), "mov" | "movsx" | "movzx")
@@ -372,6 +379,7 @@ pub(crate) trait CompletionAccess {
 enum Pending {
     Read(Input),
     Rmw(RmwInput),
+    AluRead(AluReadInput),
 }
 #[derive(Default)]
 pub(crate) struct InputState {
@@ -411,6 +419,12 @@ impl InputState {
         self.pending = Some(Pending::Rmw(input));
         Ok(())
     }
+    pub(crate) fn begin_alu_read(&mut self, input: AluReadInput) -> Result<(), String> {
+        self.ready().map_err(str::to_owned)?;
+        input.validate()?;
+        self.pending = Some(Pending::AluRead(input));
+        Ok(())
+    }
     pub(crate) fn complete<T: CompletionAccess>(&mut self, host: &mut T, data: &[u8]) {
         if self.failure.is_some() {
             return;
@@ -424,6 +438,7 @@ impl InputState {
                 .value(data)
                 .map(|value| (Some((input.destination.index, value)), None, input.length)),
             Pending::Rmw(input) => input.completion(data),
+            Pending::AluRead(input) => input.completion(data),
         };
         let (register, flags, length) = match computed {
             Ok(v) => v,

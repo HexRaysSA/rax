@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "cases": 5768,
+  "case_bytes": 168,
+  "record_bytes": 152,
+  "framing_bytes": 20,
+  "unique_instructions": 721,
+  "tool_sha256": "e8ac9d8e7315fabb3d284ea4c76b18dfd43fa9285c9bd1e2ffcc6fd4ad70c35c",
+  "guest_template_sha256": "1ba01779b9eed974b3cc8eb13bead2b69b9fd3b65b999876328c4d60e158eecc",
+  "generated_guest_sha256": "e1dd665f0a6670179f8b491682fda3d0bbec2892c7f98d7ce983078cd69f357e",
+  "scope": "Actual QEMU CPL0 long-mode RAM ALU instructions; product uses the operand as an MMIO hole. All 16 GPRs, unchanged memory, defined/unaffected flags and RF retirement. Physical Intel VMX/device delivery remains unverified.",
+  "commands": [
+    {
+      "name": "qemu-version",
+      "argv": [
+        "qemu-system-x86_64",
+        "--version"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-_n9pl6yu",
+      "exit_code": 0,
+      "elapsed_seconds": 0.08849604200804606
+    },
+    {
+      "name": "llvm-version",
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "--version"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-_n9pl6yu",
+      "exit_code": 0,
+      "elapsed_seconds": 0.014672000019345433
+    },
+    {
+      "name": "llvm-encodings",
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=x86_64",
+        "--disassemble"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-_n9pl6yu",
+      "exit_code": 0,
+      "elapsed_seconds": 0.008500041032675654
+    },
+    {
+      "name": "assemble",
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=i386-none-elf",
+        "-filetype=obj",
+        "guest.s",
+        "-o",
+        "guest.o"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-_n9pl6yu",
+      "exit_code": 0,
+      "elapsed_seconds": 0.007751874974928796
+    },
+    {
+      "name": "link",
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-m",
+        "elf_i386",
+        "-T",
+        "link.ld",
+        "guest.o",
+        "-o",
+        "guest.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-_n9pl6yu",
+      "exit_code": 0,
+      "elapsed_seconds": 0.07708508300129324
+    },
+    {
+      "name": "qemu",
+      "argv": [
+        "qemu-system-x86_64",
+        "-machine",
+        "pc",
+        "-cpu",
+        "Haswell-noTSX",
+        "-accel",
+        "tcg,thread=single",
+        "-m",
+        "64M",
+        "-nodefaults",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "none",
+        "-debugcon",
+        "file:/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/alu-read-v1/qemu-reference-v1/records.bin",
+        "-device",
+        "isa-debug-exit,iobase=0xf4,iosize=0x04",
+        "-no-reboot",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-_n9pl6yu/guest.elf"
+      ],
+      "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-_n9pl6yu",
+      "exit_code": 33,
+      "elapsed_seconds": 1.6483256249921396
+    }
+  ],
+  "guest_elf_sha256": "30effe77381a698d2f7d4e42013cc9f887a05ebe20ca4bdad6661662a983f23b",
+  "artifact_sha256": {
+    "cases.bin": "97fe29530b14e57288f41b5c2888b9573a7e00d992012bd67aa49bcbf91081e6",
+    "records.bin": "9553ab94e867e4164357cff4c788bb1e55251c0a58317962fe1337d6418dcb8f",
+    "guest.s": "e1dd665f0a6670179f8b491682fda3d0bbec2892c7f98d7ce983078cd69f357e",
+    "link.ld": "05c358bb27cc5f447c3a1fa9b926a8177e14cd94e24b5a5ba5e12ff54c7028bd"
+  },
+  "result": "reference_complete"
+}

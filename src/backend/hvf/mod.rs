@@ -887,6 +887,16 @@ impl run_loop::ExitHandler for HvfVcpu {
                     size,
                 })
             }
+            mmio::Action::AluRead(input) => {
+                let size = input.size;
+                self.mmio_input
+                    .begin_alu_read(input)
+                    .map_err(Error::Emulator)?;
+                Ok(VcpuExit::MmioRead {
+                    addr: plan.physical,
+                    size,
+                })
+            }
             mmio::Action::Write(data) => {
                 self.retire_mmio(plan.length)?;
                 Ok(VcpuExit::MmioWrite {

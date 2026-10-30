@@ -3923,7 +3923,9 @@
         "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/parent-current/result.json",
         "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/validation-v1/result.json",
         "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/validation-v1/native-arm/manifest.json",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/native-mac-availability-v3.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/native-mac-availability-v3.json",
+        "docs/development/hvf-mmio-alu-read.md",
+        "docs/development/hvf-mmio-alu-read-qualification.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -3936,12 +3938,14 @@
         "Remaining CR0.NE and optional CR3/CR4 intercept semantics",
         "SDK TPR/software LAPIC/IRQ graph coherence",
         "HLT retirement and exception-information-source behavior",
-        "Native Intel VMX event and VM/guest runtime validation"
+        "Native Intel VMX event and VM/guest runtime validation",
+        "Scalar ADD/ADC/SUB/SBB/AND/OR/XOR register-result and CMP/TEST MMIO reads locally qualified with 65 tests, 5768 independent QEMU instruction records and Intel-target compile checks. Effective Intel RAM/device-hole mapping remains a source-derived candidate requiring geometry/SDK repair and hardware validation. All original remaining C-HVF profiles and physical Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
         "software-vmm-coordinator-startup-fault-retirement",
-        "native-arm64-hvf-pending-mmio-transaction"
+        "native-arm64-hvf-pending-mmio-transaction",
+        "hvf-scalar-mmio-read-alu"
       ]
     },
     {
@@ -196793,7 +196797,7 @@
     },
     {
       "id": "native-terminal-peer-io-conservation-2026-10-30",
-      "status": "locally_validated",
+      "status": "committed",
       "parent": "f78ec49f30fdc23b2b12eecd6e2e6b9b4edf4171",
       "scope": "Native shutdown plus pending peer I/O conservation and complete file restart across all represented transaction phases; full original four-finding objective remains incomplete",
       "owned_paths": [
@@ -196839,7 +196843,61 @@
         "The new native cases use little-endian byte MMIO on the recorded Apple M4 Max profile; no expanded native MMIO instruction coverage claim."
       ],
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/terminal-io-v1/commit-receipt.json",
-      "workflow": "git add exact owned paths, then red -m --staged --run same exact paths; user explicitly authorized commits"
+      "workflow": "git add exact owned paths, then red -m --staged --run same exact paths; user explicitly authorized commits",
+      "commit": "60958bef962d3f93641a12943cbade6d4c05c3b0"
+    },
+    {
+      "id": "hvf-scalar-mmio-read-alu-2026-10-30",
+      "status": "locally_validated",
+      "parent": "60958bef962d3f93641a12943cbade6d4c05c3b0",
+      "scope": "Scalar integer register-result and flags-only MMIO reads through ADD/ADC/SUB/SBB/AND/OR/XOR/CMP/TEST; original full four-finding goal remains open",
+      "owned_paths": [
+        "src/backend/hvf/mmio.rs",
+        "src/backend/hvf/mmio/alu_read.rs",
+        "src/backend/hvf/mod.rs",
+        "tests/suites/backend/hvf_mmio.rs",
+        "tests/suites/backend/hvf_mmio/alu_read.rs",
+        "tools/hvf/mmio_alu_compare.rs",
+        "tools/hvf/mmio_alu_oracle.py",
+        "tests/fixtures/hvf/mmio-alu-read-v1/cases.bin",
+        "tests/fixtures/hvf/mmio-alu-read-v1/records.bin",
+        "tests/fixtures/hvf/mmio-alu-read-v1/manifest.json",
+        "docs/development/hvf-mmio-alu-read.md",
+        "docs/development/hvf-mmio-alu-read-qualification.json",
+        "tools/hvf/README.md",
+        "docs/development/audit-remediation-2026-10.json"
+      ],
+      "qualification": "docs/development/hvf-mmio-alu-read-qualification.json",
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/alu-read-v1/final-source.json",
+      "assumption_register": [
+        {
+          "id": "AR1",
+          "assumption": "An ALU memory-source operand performs a device read without a device write",
+          "basis": "Intel SDM instruction semantics; actual decoder operand effects must report memory read-only",
+          "dependent_result": "Ordinary MmioRead exit and deferred register/flags completion",
+          "stress_test": "Both CMP orders, TEST, all nine families, byte/word/dword/qword, immediate extension, high-byte and R8-R15 aliases",
+          "falsification_probe": "Planning writes device or callback runs before validation; completion modifies a flags-only GPR",
+          "status": "confirmed for the recorded planner/completion and long-mode reference scope; physical Intel SDK execution remains unverified"
+        },
+        {
+          "id": "AR2",
+          "assumption": "Register inputs/flags must be captured at the exit and device reply consumed at completion",
+          "basis": "Existing typed MMIO input and completion contract",
+          "dependent_result": "Captured arithmetic, carry/borrow and exact retirement update",
+          "stress_test": "Host register state changed after plan, short reply and each SDK publication failure",
+          "falsification_probe": "Uncaptured source affects result, duplicate completion mutates state, or an incomplete response retires",
+          "status": "confirmed for the recorded planner/completion and long-mode reference scope; physical Intel SDK execution remains unverified"
+        }
+      ],
+      "selected_tests_passed": 65,
+      "independent_instruction_records": 5768,
+      "pending_gates": [
+        "Full all-target/root-suite and other platform/product lanes were not run for this component.",
+        "Physical Intel VMX/device execution remains unverified.",
+        "Effective native mapping, full remaining MMIO/debug/exception/IRQ/intercept profiles, private checkpoint state and recovery remain open."
+      ],
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/alu-read-v1/commit-receipt.json",
+      "workflow": "git add exact owned paths, then red -m --staged --run same exact paths; commits explicitly authorized"
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

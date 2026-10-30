@@ -296,8 +296,11 @@ paging with4KiB/2MiB/1GiB leaves. LA57 and malformed/nonpresent mappings stop
 before device access. The configured CPUID physical-address width is used.
 Legacy PAE inspection never reloads a changed guest PDPT from RAM.
 
-The actual product metadata decoder must provide a complete scalar MOV,
-MOVSX or MOVZX memory operand. Its effective address, including active segment
+The transfer path requires a complete scalar MOV, MOVSX or MOVZX memory operand.
+Additional [scalar ALU reads](../../docs/development/hvf-mmio-alu-read.md) support
+ADD/ADC/SUB/SBB/AND/OR/XOR register results and CMP/TEST flag-only effects;
+[modifying scalar operands](../../docs/development/hvf-mmio-rmw.md) use RMW
+transactions. The effective address, including active segment
 base and address-width wrapping, must match the exit GLA. Every byte must map
 to the reported contiguous GPA range outside RAM. Moffs metadata now retains
 all segment overrides. SDK GPR indices are shared with CR8 conversion.
@@ -321,8 +324,9 @@ VMX delivery. Re-running the oracle must reproduce the exact fixture bytes
 and pass the complete MMIO owning binary. Input is202272 bytes; output is
 183028 bytes including20 framing bytes; guest RAM is64MiB.
 
-RMW, atomic, string, vector, segment-register, APX-only and incomplete metadata
-forms are explicit unsupported cases. TF single-stepped MMIO remains unsupported
+Atomic forms outside the represented RMW table, string, vector,
+segment-register, APX-only and incomplete metadata forms remain unsupported.
+TF single-stepped MMIO remains unsupported
 before device access pending complete debug-retirement semantics. Native Intel
 execution, controller/device ordering, concurrent page-table changes and the
 complete checkpoint representation remain separate validation requirements.

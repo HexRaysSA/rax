@@ -1,0 +1,489 @@
+{
+  "parent": "60958bef962d3f93641a12943cbade6d4c05c3b0",
+  "scope": "Scalar integer register-result and flags-only MMIO reads through ADD/ADC/SUB/SBB/AND/OR/XOR/CMP/TEST; original full four-finding goal remains open",
+  "assumption_register": [
+    {
+      "id": "AR1",
+      "assumption": "An ALU memory-source operand performs a device read without a device write",
+      "basis": "Intel SDM instruction semantics; actual decoder operand effects must report memory read-only",
+      "dependent_result": "Ordinary MmioRead exit and deferred register/flags completion",
+      "stress_test": "Both CMP orders, TEST, all nine families, byte/word/dword/qword, immediate extension, high-byte and R8-R15 aliases",
+      "falsification_probe": "Planning writes device or callback runs before validation; completion modifies a flags-only GPR",
+      "status": "confirmed for the recorded planner/completion and long-mode reference scope; physical Intel SDK execution remains unverified"
+    },
+    {
+      "id": "AR2",
+      "assumption": "Register inputs/flags must be captured at the exit and device reply consumed at completion",
+      "basis": "Existing typed MMIO input and completion contract",
+      "dependent_result": "Captured arithmetic, carry/borrow and exact retirement update",
+      "stress_test": "Host register state changed after plan, short reply and each SDK publication failure",
+      "falsification_probe": "Uncaptured source affects result, duplicate completion mutates state, or an incomplete response retires",
+      "status": "confirmed for the recorded planner/completion and long-mode reference scope; physical Intel SDK execution remains unverified"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Full remaining atomic/string/vector/segment/APX profiles, intercept/IRQ coherence, private checkpoint state and physical Intel VMX execution remain required",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "QEMU instruction comparisons validate arithmetic/register/flag behavior; SDK EPT exit and actual device/native Intel validation are separate",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "Intel register_memory maps region.len including GuestMemoryWrapper reported_size + 4GiB padding; its inspection contains_ram tests backing membership. Verify and repair effective RAM/device-hole mapping before native MMIO delivery claims.",
+      "evidence": [
+        "src/backend/hvf/mod.rs:143-171",
+        "src/backend/hvf/mod.rs:667-680",
+        "src/vm/memory.rs:37-90"
+      ],
+      "evidence_class": "source-derived mapping candidate; native Intel hardware reproduction unavailable",
+      "blocks_full_goal": true
+    }
+  ],
+  "worktrees_created": 0,
+  "cache_policy": "Single reused target and scratch; remove idle outputs after qualified semantic group",
+  "records": {
+    "baseline": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "hvf_mmio",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 80.92117795796366,
+      "summaries": [
+        "test result: FAILED. 27 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s"
+      ]
+    },
+    "initial-corrected": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "hvf_mmio",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 54.66348987497622,
+      "summaries": [
+        "test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s"
+      ]
+    },
+    "expanded": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "hvf_mmio",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.885032208985649,
+      "summaries": [
+        "test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.86s"
+      ]
+    },
+    "final-owning": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "hvf_mmio",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.021282792033162,
+      "summaries": [
+        "test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s"
+      ]
+    },
+    "adjacent-tests": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "hvf_guest_translation",
+        "--test",
+        "hvf_sdk_abi",
+        "--test",
+        "hvf_interrupt_shadow",
+        "--test",
+        "hvf_event_injection",
+        "--test",
+        "hvf_port_io",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.8675713329575956,
+      "summaries": [
+        "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+        "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s"
+      ]
+    },
+    "normal-check": {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 32.82090449996758,
+      "summaries": []
+    },
+    "intel-target-check": {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--lib",
+        "--target",
+        "x86_64-apple-darwin",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 38.54404200002318,
+      "summaries": []
+    },
+    "clippy": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 26.988280041026883,
+      "summaries": []
+    },
+    "clippy-owning": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "hvf_mmio"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.49405941599979997,
+      "summaries": []
+    },
+    "final-clippy-owning": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "hvf_mmio"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.4694822920137085,
+      "summaries": []
+    },
+    "format": {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 12.980278707982507,
+      "summaries": []
+    },
+    "final-format": {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 12.405295332951937,
+      "summaries": []
+    },
+    "owned-format": {
+      "argv": [
+        "rustfmt",
+        "--edition",
+        "2024",
+        "--check",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/backend/hvf/mmio.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/backend/hvf/mmio/alu_read.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/backend/hvf/mod.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/tests/suites/backend/hvf_mmio.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/tests/suites/backend/hvf_mmio/alu_read.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/tools/hvf/mmio_alu_compare.rs"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.10584954201476648,
+      "summaries": []
+    }
+  },
+  "independent_qemu": {
+    "version": 1,
+    "cases": 5768,
+    "case_bytes": 168,
+    "record_bytes": 152,
+    "framing_bytes": 20,
+    "unique_instructions": 721,
+    "tool_sha256": "e8ac9d8e7315fabb3d284ea4c76b18dfd43fa9285c9bd1e2ffcc6fd4ad70c35c",
+    "guest_template_sha256": "1ba01779b9eed974b3cc8eb13bead2b69b9fd3b65b999876328c4d60e158eecc",
+    "generated_guest_sha256": "e1dd665f0a6670179f8b491682fda3d0bbec2892c7f98d7ce983078cd69f357e",
+    "scope": "Actual QEMU CPL0 long-mode RAM ALU instructions; product uses the operand as an MMIO hole. All 16 GPRs, unchanged memory, defined/unaffected flags and RF retirement. Physical Intel VMX/device delivery remains unverified.",
+    "commands": [
+      {
+        "name": "qemu-version",
+        "argv": [
+          "qemu-system-x86_64",
+          "--version"
+        ],
+        "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-tmqr4amv",
+        "exit_code": 0,
+        "elapsed_seconds": 0.04983624996384606
+      },
+      {
+        "name": "llvm-version",
+        "argv": [
+          "/Users/int/local/bin/llvm-mc",
+          "--version"
+        ],
+        "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-tmqr4amv",
+        "exit_code": 0,
+        "elapsed_seconds": 0.013166291988454759
+      },
+      {
+        "name": "llvm-encodings",
+        "argv": [
+          "/Users/int/local/bin/llvm-mc",
+          "-triple=x86_64",
+          "--disassemble"
+        ],
+        "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-tmqr4amv",
+        "exit_code": 0,
+        "elapsed_seconds": 0.008744291961193085
+      },
+      {
+        "name": "assemble",
+        "argv": [
+          "/Users/int/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-tmqr4amv",
+        "exit_code": 0,
+        "elapsed_seconds": 0.0074967919499613345
+      },
+      {
+        "name": "link",
+        "argv": [
+          "/Users/int/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-tmqr4amv",
+        "exit_code": 0,
+        "elapsed_seconds": 0.07515525002963841
+      },
+      {
+        "name": "qemu",
+        "argv": [
+          "qemu-system-x86_64",
+          "-machine",
+          "pc",
+          "-cpu",
+          "Haswell-noTSX",
+          "-accel",
+          "tcg,thread=single",
+          "-m",
+          "64M",
+          "-nodefaults",
+          "-display",
+          "none",
+          "-monitor",
+          "none",
+          "-serial",
+          "none",
+          "-debugcon",
+          "file:/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/alu-read-v1/qemu-product-v2/records.bin",
+          "-device",
+          "isa-debug-exit,iobase=0xf4,iosize=0x04",
+          "-no-reboot",
+          "-kernel",
+          "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-tmqr4amv/guest.elf"
+        ],
+        "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-tmqr4amv",
+        "exit_code": 33,
+        "elapsed_seconds": 1.7410584999597631
+      },
+      {
+        "name": "compare-build",
+        "argv": [
+          "rustc",
+          "+stable",
+          "--edition",
+          "2024",
+          "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/tools/hvf/mmio_alu_compare.rs",
+          "--extern",
+          "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-110491fb7b919439.rlib",
+          "-L",
+          "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+          "-o",
+          "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-tmqr4amv/compare"
+        ],
+        "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-tmqr4amv",
+        "exit_code": 0,
+        "elapsed_seconds": 0.8011719579808414
+      },
+      {
+        "name": "compare",
+        "argv": [
+          "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-tmqr4amv/compare",
+          "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/alu-read-v1/qemu-product-v2/cases.bin",
+          "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/alu-read-v1/qemu-product-v2/records.bin"
+        ],
+        "cwd": "/Users/int/dev/rax-audit-work/build-tmp/rax-hvf-alu-tmqr4amv",
+        "exit_code": 0,
+        "elapsed_seconds": 0.16461279097711667
+      }
+    ],
+    "guest_elf_sha256": "30effe77381a698d2f7d4e42013cc9f887a05ebe20ca4bdad6661662a983f23b",
+    "product_library_sha256": "5c8338d89274203d2cfe0dcf44f9aa8d000c63378563bde79bb29e5bcd1be7b3",
+    "consumer_sha256": "9060f66f8b90a97a17d32e39372eed9d1c1856a43ecc75224d92a63e0764e578",
+    "artifact_sha256": {
+      "cases.bin": "97fe29530b14e57288f41b5c2888b9573a7e00d992012bd67aa49bcbf91081e6",
+      "records.bin": "9553ab94e867e4164357cff4c788bb1e55251c0a58317962fe1337d6418dcb8f",
+      "guest.s": "e1dd665f0a6670179f8b491682fda3d0bbec2892c7f98d7ce983078cd69f357e",
+      "link.ld": "05c358bb27cc5f447c3a1fa9b926a8177e14cd94e24b5a5ba5e12ff54c7028bd"
+    },
+    "result": "product_match"
+  },
+  "expectation_class": "independent software reference: QEMU TCG instruction execution; product helpers only compare returned records",
+  "primary_source": {
+    "primary": "Intel SDM revision086, December2024",
+    "retained_pdf": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "pdf_sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "existing_provenance": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.provenance.md",
+    "sections": [
+      "Intel SDM instruction entries ADD, ADC, SUB, SBB, AND, OR, XOR, CMP and TEST",
+      "Vol.2A CMP 3-179\u20133-180",
+      "Vol.2B TEST 4-713\u20134-714"
+    ],
+    "extract_sha256": "7efef97b291fa955cc94ffc2aa6c810018847e564bb40abb2b6a477bbc5a700d",
+    "result_boundary": "CPU instruction and completion semantics; physical Intel SDK/device delivery remains unverified"
+  },
+  "source_sha256": {
+    "src/backend/hvf/mmio.rs": "ea605900fc66105fb757f099e3055003272385dc3e9e53aad74a0b2af94aa5f4",
+    "src/backend/hvf/mmio/alu_read.rs": "541f58a57f524cd4fc401f611a39632fb8fbe164ceb8b7a5a855b55c266d6001",
+    "src/backend/hvf/mod.rs": "48fc5de88b440c9a9e074a93bc94f1c8aacc5de601a65afaea6da43996c5df1d",
+    "tests/suites/backend/hvf_mmio.rs": "01b7b08b7bfce10bfc4782754be2cb8e0bcb80f38f884eeb56ef58bc15819ce1",
+    "tests/suites/backend/hvf_mmio/alu_read.rs": "08ff944f84a68da9cc0332269ee6169c6e4bc3d35d2d440bc3aef9d58ca6f6c3",
+    "tools/hvf/mmio_alu_compare.rs": "9060f66f8b90a97a17d32e39372eed9d1c1856a43ecc75224d92a63e0764e578",
+    "tools/hvf/mmio_alu_oracle.py": "e8ac9d8e7315fabb3d284ea4c76b18dfd43fa9285c9bd1e2ffcc6fd4ad70c35c"
+  },
+  "selected_tests_passed": 65,
+  "owning_tests_passed": 37,
+  "adjacent_tests_passed": 28,
+  "independent_instruction_records": 5768,
+  "utc": "2026-10-30T12:11:13.810219+00:00",
+  "status": "locally validated scalar read-ALU component; original four-finding goal incomplete",
+  "change_surface": {
+    "direct_decode": "Existing actual metadata decoder used without semantic changes",
+    "native_hvf_plan": "New read-only integer ALU descriptor and ordinary MmioRead exit",
+    "state_completion": "Captured sources/flags; optional register result, flags, exact retirement; existing failure latch retained",
+    "paging_memory_devices": "Existing translation/address/hole validator and callbacks reused; effective native mapping remains a separately recorded candidate",
+    "ISA_flags": "Existing arithmetic flag primitives reused and compared to independent execution",
+    "SMIR_optimizer_lowering": "No changes",
+    "C_ABI_wire_layout": "No enum numbering, public ABI or checkpoint schema change",
+    "cross_target": "Intel macOS backend branch compiled via installed x86_64 target; no Intel hardware execution claim"
+  },
+  "environment": {
+    "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+    "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+    "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+    "CARGO_BUILD_JOBS": "1",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_NET_OFFLINE": "true",
+    "RUSTC_WRAPPER": "",
+    "RUSTC_WORKSPACE_WRAPPER": "",
+    "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "unrun_gates": [
+    "Full all-target/root-suite and other platform/product lanes were not run for this component.",
+    "Physical Intel VMX/device execution remains unverified.",
+    "Effective native mapping, full remaining MMIO/debug/exception/IRQ/intercept profiles, private checkpoint state and recovery remain open."
+  ],
+  "quality_gates": {
+    "normative_content_required": false,
+    "assumptions_probed": true,
+    "component_scope_covered": true,
+    "full_goal_complete": false,
+    "actual_product_baseline_failed_four_positive_groups": true,
+    "independent_5768_records_match": true,
+    "no_silent_skip_or_empty_selection": true,
+    "intel_branch_compiles": true,
+    "tested_source_hashes_match": true,
+    "remaining_full_scope_preserved": true
+  }
+}
