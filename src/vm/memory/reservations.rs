@@ -265,6 +265,27 @@ pub(crate) fn write(
     MemoryDomain::for_memory(memory).write(memory, address, bytes)
 }
 
+/// Publish a complete debugger packet under one tracked-writer domain lock.
+/// Every host span is admitted before any bytes or monitor state are changed.
+#[cfg(feature = "debug")]
+pub(crate) fn write_scatter(
+    memory: &GuestMemoryMmap,
+    pieces: &[(u64, &[u8])],
+) -> Result<(), GuestMemoryError> {
+    for &(address, bytes) in pieces {
+        preflight_write(memory, address, bytes.len())?;
+    }
+    let domain = MemoryDomain::for_memory(memory);
+    let mut state = domain.lock();
+    for &(address, bytes) in pieces {
+        MemoryDomain::invalidate(&mut state, address, bytes.len());
+    }
+    for &(address, bytes) in pieces {
+        memory.write_slice(bytes, GuestAddress(address))?;
+    }
+    Ok(())
+}
+
 pub(crate) fn preflight_write(
     memory: &GuestMemoryMmap,
     address: u64,
@@ -545,3 +566,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(all(test, feature = "debug"))]
+#[path = "reservations_scatter_tests.rs"]
+mod scatter_tests;

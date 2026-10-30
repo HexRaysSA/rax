@@ -72,10 +72,10 @@ jobs:
         with:
           toolchain: stable
           cache-key: smp-debugger
-      - name: Install the independent GDB client
+      - name: Install independent GDB and QEMU tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y gdb
+          sudo apt-get install -y gdb qemu-system-x86 llvm lld
       - name: RSP and installed-GDB multi-CPU regressions
         run: |
           cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib vm::runtime::gdb_smp_tests:: -- --include-ignored --test-threads=1 --nocapture
@@ -83,6 +83,17 @@ jobs:
         run: |
           cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib debug::gdb:: -- --test-threads=1
           cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib vm::runtime::debugger_control:: -- --test-threads=1
+      - name: Tracked debugger writes and shared x86 inspection
+        run: |
+          cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib vm::memory::reservations:: -- --test-threads=1
+          cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib vm::runtime::checkpoint_tests::debugger_cache_failure_prevents_every_checkpoint_capture_before_publication -- --test-threads=1
+          cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --test hvf_guest_translation --test hvf_mmio -- --test-threads=1
+      - name: Independent two-CPU QEMU memory reference
+        run: |
+          python3 -B tools/execution/x86_debug_memory_oracle.py \
+            --work-dir "$RUNNER_TEMP/rax-debug-memory-reference" \
+            --scratch-dir "$RUNNER_TEMP/rax-debug-memory-scratch" \
+            --llvm-bin /usr/bin --gdb gdb
 
   # ---------------------------------------------------------------------------
   # Compile everything on every native platform. This is the breadth guarantee:

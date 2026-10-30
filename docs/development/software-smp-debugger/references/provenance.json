@@ -1,0 +1,36 @@
+{
+  "sources": [
+    {
+      "file": "qemu-gdb.html",
+      "title": "QEMU system emulation: GDB usage",
+      "issuer": "QEMU Project",
+      "source_url": "https://www.qemu.org/docs/master/system/gdb.html",
+      "retrieved_utc": "2026-10-30T16:01:22.660769+00:00",
+      "sha256": "a971b9815c27e0865e02b236a2c8c95d31dfa340da56111049c4feb0b1dd5db9",
+      "revision": "Live upstream manual at retrieval; installed binaries identified independently in oracle receipts",
+      "notices": "Original HTML, copyright and redistribution notices preserved"
+    },
+    {
+      "file": "gdb-packets.html",
+      "title": "Debugging with GDB: Remote protocol packets",
+      "issuer": "Free Software Foundation",
+      "source_url": "https://sourceware.org/gdb/current/onlinedocs/gdb.html/Packets.html",
+      "retrieved_utc": "2026-10-30T16:01:22.661155+00:00",
+      "sha256": "44dfada09e55839aecff010e443469a592a4eb8eb653dfa28ca7b3836b887800",
+      "revision": "Live upstream manual at retrieval; installed binaries identified independently in oracle receipts",
+      "notices": "Original HTML, copyright and redistribution notices preserved"
+    }
+  ],
+  "architectural_source": {
+    "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "issuer": "Intel",
+    "revision": "December 2024; pinned repository SDM",
+    "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "sections": [
+      "Vol.3A 5.3: 32-bit paging and feature-dependent reserved bits",
+      "Vol.3A 5.4.1: cached legacy PAE PDPTEs",
+      "Vol.3A 5.5: four-level IA-32e translation"
+    ]
+  },
+  "policy": "Debugger inspection bypasses guest access-right checks and does not perform guest A/D writes; QEMU observations establish debugger behavior separately from architectural guest loads."
+}

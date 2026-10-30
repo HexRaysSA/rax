@@ -3,8 +3,12 @@ use super::*;
 #[test]
 #[ignore = "Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane"]
 fn installed_gdb_enumerates_selects_steps_and_writes_an_ap() {
-    use std::process::{Command, Stdio};
     let vm = Running::listen(4);
+    let script = "import gdb\nassert len(gdb.selected_inferior().threads()) == 4\ngdb.execute('set scheduler-locking step')\ngdb.execute('thread 2')\nassert int(gdb.parse_and_eval('$rax')) == 0x101\ngdb.execute('stepi')\nassert int(gdb.parse_and_eval('$rax')) == 0x102\ngdb.execute('set $rax=0x1234')\nassert int(gdb.parse_and_eval('$rax')) == 0x1234\nassert int(gdb.parse_and_eval('$fctrl')) == 0x37f\ngdb.execute('set $fctrl=0x27f')\nassert int(gdb.parse_and_eval('$fctrl')) == 0x27f\ngdb.execute('thread 1')\nassert int(gdb.parse_and_eval('$rax')) == 0x100\nassert int(gdb.parse_and_eval('$fctrl')) == 0x37f\nprint('RAX_GDB_SMP_OK')";
+    run_script(vm, script, "RAX_GDB_SMP_OK");
+}
+pub(super) fn run_script(vm: Running, script: &str, marker: &str) {
+    use std::process::{Command, Stdio};
     let executable = std::env::var_os("RAX_GDB").expect("set RAX_GDB to the GDB executable");
     let nonce = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -13,7 +17,6 @@ fn installed_gdb_enumerates_selects_steps_and_writes_an_ap() {
     let directory =
         std::env::temp_dir().join(format!("rax-gdb-client-{}-{nonce}", std::process::id()));
     std::fs::create_dir(&directory).unwrap();
-    let script = "import gdb\nassert len(gdb.selected_inferior().threads()) == 4\ngdb.execute('set scheduler-locking step')\ngdb.execute('thread 2')\nassert int(gdb.parse_and_eval('$rax')) == 0x101\ngdb.execute('stepi')\nassert int(gdb.parse_and_eval('$rax')) == 0x102\ngdb.execute('set $rax=0x1234')\nassert int(gdb.parse_and_eval('$rax')) == 0x1234\nassert int(gdb.parse_and_eval('$fctrl')) == 0x37f\ngdb.execute('set $fctrl=0x27f')\nassert int(gdb.parse_and_eval('$fctrl')) == 0x27f\ngdb.execute('thread 1')\nassert int(gdb.parse_and_eval('$rax')) == 0x100\nassert int(gdb.parse_and_eval('$fctrl')) == 0x37f\nprint('RAX_GDB_SMP_OK')";
     let python = format!("python exec({script:?})");
     let mut child = Command::new(executable)
         .args([
@@ -55,7 +58,7 @@ fn installed_gdb_enumerates_selects_steps_and_writes_an_ap() {
     assert!(
         !timed_out
             && status.success()
-            && out.contains("RAX_GDB_SMP_OK")
+            && out.contains(marker)
             && !err.contains("target description")
             && !err.contains("target-supplied description")
             && !err.contains("AssertionError")

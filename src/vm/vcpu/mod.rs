@@ -4,7 +4,11 @@
 
 pub(crate) mod budget;
 pub use budget::{DEFAULT_RETIREMENT_QUANTUM, RetirementRun, RetirementStop};
+#[cfg(feature = "debug")]
+mod debug_memory;
 pub mod exit;
+#[cfg(feature = "debug")]
+pub use debug_memory::{DebugAddressSpace, X86DebugPaging};
 mod power;
 pub mod state;
 
@@ -352,6 +356,21 @@ pub trait VCpu: Send {
     #[cfg(feature = "debug")]
     fn set_debugger_active(&mut self, active: bool) {
         let _ = active;
+    }
+
+    /// Snapshot the selected CPU's address space without executing a guest access.
+    #[cfg(feature = "debug")]
+    fn debug_address_space(&self) -> Result<DebugAddressSpace> {
+        Ok(DebugAddressSpace::Physical)
+    }
+
+    /// Prepare code/translation caches before a stopped debugger RAM publication.
+    #[cfg(feature = "debug")]
+    fn debug_memory_changed(&mut self, pages: &[u64]) -> Result<()> {
+        for &page in pages {
+            self.invalidate_code_cache(page);
+        }
+        Ok(())
     }
 
     /// Whether internal execute breakpoints can be installed on this CPU.

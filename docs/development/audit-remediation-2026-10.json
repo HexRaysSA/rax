@@ -2683,7 +2683,12 @@
         "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json",
         "docs/development/software-smp-debugger/qualification.json",
         "docs/development/software-smp-debugger/README.md",
-        "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/final-source.json"
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/final-source.json",
+        "docs/development/software-smp-debugger/memory-qualification.json",
+        "src/vm/runtime/debugger_memory.rs",
+        "src/isa/x86_64/inspection.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/native-fpsr-open.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/raw-sdk-fpsr-reentry-v2/manifest.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2703,7 +2708,9 @@
         "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open.",
         "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
         "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure.",
-        "Software x86 GDB per-CPU register/step/control, shared breakpoints, required exact x87 core bank and reconnect isolation are locally qualified, including an actual GDB client. Per-CPU virtual debugger memory, complete live debugger-session restoration, other ISA/native debug entry, clocks/replay and physical Intel remain required; the full finding is not closed."
+        "Software x86 GDB per-CPU register/step/control, shared breakpoints, required exact x87 core bank and reconnect isolation are locally qualified, including an actual GDB client. The subsequent memory group covers selected-CPU ordinary RAM; complete live debugger-session restoration, other ISA/native debug entry, clocks/replay and physical Intel remain required; the full finding is not closed.",
+        "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial.",
+        "Physical Apple Silicon streaming FPSR is reset on SDK entry: reproduced with RAX guest MRS and direct SDK-only first/repeated-entry controls; checkpoint write ordering alone cannot preserve the requested flags. A corrective implementation remains unqualified."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2743,9 +2750,10 @@
         },
         "per-cpu-task-priority-coherence-2026-10-30",
         "per-cpu-initial-apic-and-bsp-state-2026-10-30",
-        "software-smp-debugger-control-2026-10-30"
+        "software-smp-debugger-control-2026-10-30",
+        "software-smp-debugger-memory-2026-10-30"
       ],
-      "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
+      "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
     {
       "id": "C-SMP",
@@ -3360,7 +3368,10 @@
         "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json",
         "docs/development/software-smp-debugger/qualification.json",
         "docs/development/software-smp-debugger/README.md",
-        "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/final-source.json"
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/final-source.json",
+        "docs/development/software-smp-debugger/memory-qualification.json",
+        "src/vm/runtime/debugger_memory.rs",
+        "src/isa/x86_64/inspection.rs"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3376,7 +3387,8 @@
         "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open.",
         "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
         "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure.",
-        "Software x86 GDB per-CPU register/step/control, shared breakpoints, required exact x87 core bank and reconnect isolation are locally qualified, including an actual GDB client. Per-CPU virtual debugger memory, complete live debugger-session restoration, other ISA/native debug entry, clocks/replay and physical Intel remain required; the full finding is not closed."
+        "Software x86 GDB per-CPU register/step/control, shared breakpoints, required exact x87 core bank and reconnect isolation are locally qualified, including an actual GDB client. The subsequent memory group covers selected-CPU ordinary RAM; complete live debugger-session restoration, other ISA/native debug entry, clocks/replay and physical Intel remain required; the full finding is not closed.",
+        "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3405,7 +3417,8 @@
         },
         "per-cpu-task-priority-coherence-2026-10-30",
         "per-cpu-initial-apic-and-bsp-state-2026-10-30",
-        "software-smp-debugger-control-2026-10-30"
+        "software-smp-debugger-control-2026-10-30",
+        "software-smp-debugger-memory-2026-10-30"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -3977,7 +3990,10 @@
         "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json",
         "docs/development/x86-cpu-identity/qualification.json",
         "docs/development/x86-cpu-identity/README.md",
-        "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json"
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json",
+        "docs/development/software-smp-debugger/memory-qualification.json",
+        "src/vm/runtime/debugger_memory.rs",
+        "src/isa/x86_64/inspection.rs"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -3994,7 +4010,8 @@
         "Scalar ADD/ADC/SUB/SBB/AND/OR/XOR register-result and CMP/TEST MMIO reads locally qualified with 65 tests, 5768 independent QEMU instruction records and Intel-target compile checks. Native RAM/device-hole mapping and PCI/collateral RAM routing are separately locally qualified by the memory-layout group; physical Intel SDK/device validation remains open. All original remaining C-HVF profiles and physical Intel requirements remain open.",
         "Native mapping/routing group: 136 selected tests and Intel-target compilation; physical Intel failure/runtime proof, collateral instruction/page-table fetch, mixed-page operands, E820/resource consistency, remaining controller/private state and complete native scheduling remain open.",
         "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
-        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure."
+        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure.",
+        "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4003,7 +4020,8 @@
         "hvf-scalar-mmio-read-alu",
         "hvf-native-memory-layout-and-pci-routing",
         "per-cpu-task-priority-coherence-2026-10-30",
-        "per-cpu-initial-apic-and-bsp-state-2026-10-30"
+        "per-cpu-initial-apic-and-bsp-state-2026-10-30",
+        "software-smp-debugger-memory-2026-10-30"
       ]
     },
     {
@@ -197275,7 +197293,7 @@
     },
     {
       "id": "software-smp-debugger-control-2026-10-30",
-      "status": "locally_validated",
+      "status": "committed_locally",
       "parent": "7e810f0ad4272eec37d48f20e3c86685027d87d9",
       "scope": "Actual per-CPU software x86 GDB control, ordered all-stop resume, thread-bearing stops, shared breakpoint/cache ownership, exact required amd64 core bank and reconnect isolation; original four findings remain active",
       "owned_paths": [
@@ -197350,7 +197368,105 @@
       ],
       "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/final-source.json",
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/commit-receipt.json",
-      "workflow": "git add -- exact owned files; red -m --staged --run identical paths; no push; remove idle task-owned build/scratch roots"
+      "workflow": "git add -- exact owned files; red -m --staged --run identical paths; no push; remove idle task-owned build/scratch roots",
+      "commit": "1faeb76a468343be80f6d988600169cbd288fb65"
+    },
+    {
+      "id": "software-smp-debugger-memory-2026-10-30",
+      "status": "locally_validated",
+      "parent": "1faeb76a468343be80f6d988600169cbd288fb65",
+      "scope": "Selected-CPU x86 virtual debugger RAM, nonmutating shared translation, full-packet preflight and tracked scatter publication, peer alias cache invalidation and explicit physical mode; original full findings remain partial; fence all capture, restore, and coordinator entry after debugger mutation failure",
+      "qualification": "docs/development/software-smp-debugger/memory-qualification.json",
+      "assumption_register": [
+        {
+          "id": "M1",
+          "assumption": "Debugger memory addresses are linear addresses in the selected CPU address space, and inspection must not execute a guest access",
+          "basis": "GNU RSP general-thread and memory packets, actual RAX GDB client, explicit-CPU QEMU packets and real two-CPU guest loads; any-thread choice is implementation-dependent",
+          "dependent_result": "CR3-selected translation without guest A/D, TLB, flags, exception or retirement mutation",
+          "stress_test": "Different CR3 roots for the same canonical high address; RO/NX mappings; missing and reserved entries; context/byte comparison",
+          "falsification_probe": "Wrong CPU data, changed paging entries/private context, or an inspection-triggered fault/retirement",
+          "status": "Selected software-x86 ordinary-RAM view tested; remaining profiles not qualified"
+        },
+        {
+          "id": "M2",
+          "assumption": "The represented software VMM services memory packets at a stopped single-owner boundary; independent raw writers remain quiescent",
+          "basis": "Current debugger/coordinator publication contract",
+          "dependent_result": "A coherent translation plan and all-or-rejected RAM packet writes",
+          "stress_test": "Discontiguous cross-page spans, missing late pages, failed physical preflight, tracked exclusive monitor invalidation and code-cache aliases",
+          "falsification_probe": "Any rejected packet publishes a RAM prefix, or writes bypass the tracked writer domain",
+          "status": "Single-owner stopped software profile retained; tracked data publication and exclusive-reader serialization tested; independent raw writer quiescence remains a caller requirement"
+        },
+        {
+          "id": "M3",
+          "assumption": "A latched debugger mutation failure is terminal for this VMM owner; importing or exporting a checkpoint must not bypass it",
+          "basis": "Existing debugger resume/stop and execution-mask failure contract; review found base, CPU-set and full-bundle capture bypassed the execution-state guard",
+          "dependent_result": "Early admission failure before checkpoint locks, resource preparation, memory publication, interrupt routing or CPU entry",
+          "stress_test": "Substitute failure at the first and last cache callback; ensure no RAM prefix, reject all capture and restore APIs, and refuse subsequent writes and entry",
+          "falsification_probe": "Any capture succeeds after failure, any restore or later write changes RAM, or entry routes a platform request",
+          "status": "Confirmed for first and last substituted cache-callback failures; observed baseline capture bypass reproduced and corrected; native SDK failure execution not qualified"
+        },
+        {
+          "id": "M4",
+          "assumption": "The debugger RAM view must match the selected backend physical routing, including software overflow backing and device apertures",
+          "basis": "Actual software guest loads above configured RAM and in the unassigned PCI aperture; native Intel registration bounds",
+          "dependent_result": "Software backing aliases remain inspectable while MMIO shadow storage cannot be read or written through debugger RAM packets",
+          "stress_test": "Guest MOV from high virtual mapping onto overflow RAM; PCI-enabled guest open-bus load; virtual and physical read/write rejections with shadow bytes unchanged",
+          "falsification_probe": "A successful guest RAM load is rejected by debugger RAM bounds, or debugger returns backing bytes where the guest receives device/open-bus routing",
+          "status": "Initial reported-size-only assumption falsified by guest-load baseline and revised; corrected 29-case wire suite passes; PCI-disabled fixture rejected and corrected before qualification"
+        }
+      ],
+      "pending_gates": [
+        "A32-FP: remaining capability/profile/security/debug controls and instruction admission",
+        "C-STATE: complete backend/private/in-flight state and coordinated restoration, including logical debugger session and host-resource lifecycle",
+        "C-SMP: remaining startup/ISA/native scheduling, other debugger address spaces, ROM/device inspection, clocks and replay",
+        "C-HVF: remaining MMIO/intercept/IRQ/private-debug profiles and physical Intel validation"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/current-checked-source.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/cleanup-final.json",
+      "workflow": "git add -- exact owned files; red -m --staged --run identical paths; no push or new worktree; remove idle generated roots after group",
+      "validation_scope": "Selected software-x86 stopped debugger RAM and global debugger-failure admission; final source checked full library plus real TCP/GDB, QEMU reference, C API and target compilation. Physical Apple Silicon streaming FPSR counterexample retained; full four findings remain incomplete.",
+      "owned_paths": [
+        ".github/workflows/ci.yml",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/software-smp-debugger/README.md",
+        "docs/development/software-smp-debugger/memory-qualification.json",
+        "docs/development/software-smp-debugger/references/gdb-packets.html",
+        "docs/development/software-smp-debugger/references/provenance.json",
+        "docs/development/software-smp-debugger/references/qemu-gdb.html",
+        "docs/operations/observability.md",
+        "src/backend/hvf/debug_memory.rs",
+        "src/backend/hvf/guest_translation.rs",
+        "src/backend/hvf/mod.rs",
+        "src/debug/gdb/commands.rs",
+        "src/debug/gdb/mod.rs",
+        "src/debug/gdb/thread_commands.rs",
+        "src/isa/x86_64/cpu_vcpu.rs",
+        "src/isa/x86_64/inspection.rs",
+        "src/isa/x86_64/mod.rs",
+        "src/vm/memory/reservations.rs",
+        "src/vm/memory/reservations_scatter_tests.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/checkpoint_capture.rs",
+        "src/vm/runtime/checkpoint_restore.rs",
+        "src/vm/runtime/checkpoint_tests.rs",
+        "src/vm/runtime/coordinator.rs",
+        "src/vm/runtime/debugger.rs",
+        "src/vm/runtime/debugger_memory.rs",
+        "src/vm/runtime/execution_tests.rs",
+        "src/vm/runtime/gdb_memory_tests.rs",
+        "src/vm/runtime/gdb_smp_client_tests.rs",
+        "src/vm/runtime/gdb_smp_tests.rs",
+        "src/vm/vcpu/debug_memory.rs",
+        "src/vm/vcpu/mod.rs",
+        "tests/README.md",
+        "tests/suites/backend/hvf_guest_translation.rs",
+        "tests/suites/backend/hvf_mmio.rs",
+        "tools/execution/x86_debug_memory_guest.s",
+        "tools/execution/x86_debug_memory_oracle.py",
+        "tools/hvf/mmio_alu_compare.rs",
+        "tools/hvf/mmio_rmw_compare.rs"
+      ]
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

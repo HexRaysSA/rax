@@ -10,6 +10,7 @@ mod exception;
 pub(crate) mod execute;
 pub mod flags;
 pub(crate) mod identity;
+pub(crate) mod inspection;
 mod linear;
 pub(crate) mod memory;
 #[cfg(test)]

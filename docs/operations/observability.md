@@ -145,9 +145,11 @@ exposes each configured CPU as a thread (`CPU 0` is thread 1). Use `info threads
 peers remain parked. The amd64 core bank includes integer and exact x87 state.
 Breakpoints apply to all CPUs and stop replies identify the CPU that stopped.
 
-Memory packets currently address physical RAM; higher-half/per-CPU virtual
-translation and complete live debugger-session checkpoint restoration remain
-required work. Native backend debug entry is independently unqualified. See the
+Software x86 memory packets use the selected CPU's virtual address space. Use
+`Qqemu.PhyMemMode:1` for explicit physical RAM inspection and `:0` to return to
+virtual mode. Writes preflight the entire packet and invalidate peer caches.
+Complete live debugger-session checkpoint restoration and native backend debug
+entry remain independently unqualified. See the
 [software SMP debugger qualification](../development/software-smp-debugger/README.md)
 for packet/state boundaries and validation.
 

@@ -1,6 +1,6 @@
 //! Actual metadata decoder plus device-effect-free native MMIO planning.
 use rax::{devices, isa};
-#[path = "../../../src/backend/hvf/guest_translation.rs"]
+#[path = "../../../src/isa/x86_64/inspection.rs"]
 mod guest_translation;
 #[path = "../../../src/backend/hvf/mmio.rs"]
 mod mmio;

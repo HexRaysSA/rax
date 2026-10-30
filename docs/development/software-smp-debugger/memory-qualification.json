@@ -1,0 +1,622 @@
+{
+  "schema": 1,
+  "utc": "2026-10-30T17:59:13.820004+00:00",
+  "status": "locally_validated_selected_profile",
+  "parent": "1faeb76a468343be80f6d988600169cbd288fb65",
+  "scope": "Selected-CPU x86 virtual debugger RAM, nonmutating shared translation, full-packet preflight and tracked scatter publication, peer alias cache invalidation and explicit physical mode; original full findings remain partial; fence all capture, restore, and coordinator entry after debugger mutation failure",
+  "original_four_findings_complete": false,
+  "assumption_register": [
+    {
+      "id": "M1",
+      "assumption": "Debugger memory addresses are linear addresses in the selected CPU address space, and inspection must not execute a guest access",
+      "basis": "GNU RSP general-thread and memory packets, actual RAX GDB client, explicit-CPU QEMU packets and real two-CPU guest loads; any-thread choice is implementation-dependent",
+      "dependent_result": "CR3-selected translation without guest A/D, TLB, flags, exception or retirement mutation",
+      "stress_test": "Different CR3 roots for the same canonical high address; RO/NX mappings; missing and reserved entries; context/byte comparison",
+      "falsification_probe": "Wrong CPU data, changed paging entries/private context, or an inspection-triggered fault/retirement",
+      "status": "Selected software-x86 ordinary-RAM view tested; remaining profiles not qualified"
+    },
+    {
+      "id": "M2",
+      "assumption": "The represented software VMM services memory packets at a stopped single-owner boundary; independent raw writers remain quiescent",
+      "basis": "Current debugger/coordinator publication contract",
+      "dependent_result": "A coherent translation plan and all-or-rejected RAM packet writes",
+      "stress_test": "Discontiguous cross-page spans, missing late pages, failed physical preflight, tracked exclusive monitor invalidation and code-cache aliases",
+      "falsification_probe": "Any rejected packet publishes a RAM prefix, or writes bypass the tracked writer domain",
+      "status": "Single-owner stopped software profile retained; tracked data publication and exclusive-reader serialization tested; independent raw writer quiescence remains a caller requirement"
+    },
+    {
+      "id": "M3",
+      "assumption": "A latched debugger mutation failure is terminal for this VMM owner; importing or exporting a checkpoint must not bypass it",
+      "basis": "Existing debugger resume/stop and execution-mask failure contract; review found base, CPU-set and full-bundle capture bypassed the execution-state guard",
+      "dependent_result": "Early admission failure before checkpoint locks, resource preparation, memory publication, interrupt routing or CPU entry",
+      "stress_test": "Substitute failure at the first and last cache callback; ensure no RAM prefix, reject all capture and restore APIs, and refuse subsequent writes and entry",
+      "falsification_probe": "Any capture succeeds after failure, any restore or later write changes RAM, or entry routes a platform request",
+      "status": "Confirmed for first and last substituted cache-callback failures; observed baseline capture bypass reproduced and corrected; native SDK failure execution not qualified"
+    },
+    {
+      "id": "M4",
+      "assumption": "The debugger RAM view must match the selected backend physical routing, including software overflow backing and device apertures",
+      "basis": "Actual software guest loads above configured RAM and in the unassigned PCI aperture; native Intel registration bounds",
+      "dependent_result": "Software backing aliases remain inspectable while MMIO shadow storage cannot be read or written through debugger RAM packets",
+      "stress_test": "Guest MOV from high virtual mapping onto overflow RAM; PCI-enabled guest open-bus load; virtual and physical read/write rejections with shadow bytes unchanged",
+      "falsification_probe": "A successful guest RAM load is rejected by debugger RAM bounds, or debugger returns backing bytes where the guest receives device/open-bus routing",
+      "status": "Initial reported-size-only assumption falsified by guest-load baseline and revised; corrected 29-case wire suite passes; PCI-disabled fixture rejected and corrected before qualification"
+    }
+  ],
+  "current_source_sha256": {
+    "src/backend/hvf/debug_memory.rs": "2a1340c4a91a50e35f1ba1bcafba4fbac391e4bac35e11e66d0563f3c12020a7",
+    "src/isa/x86_64/inspection.rs": "aa627c23348822e45fff857768a789762caef7df6ea5bebe65467220dcd483e1",
+    "src/vm/memory/reservations_scatter_tests.rs": "4698fea96b0e6403363b8de37995144370b9a4d0a8f57825360dec108976a2dd",
+    "src/vm/runtime/debugger_memory.rs": "f3cc305ff7c7578235c85b10dd933d3c7c7b0ff6a3db1be9d655a3190225a951",
+    "src/vm/runtime/gdb_memory_tests.rs": "3dcee67ec26f9d352ce53dedf8dbed19fedaeecfe77d0f245f613698492549e0",
+    "src/vm/vcpu/debug_memory.rs": "489423eb7ac2b14a915f90de101b9701ab5b566bbbdc1e8345e4e47c2df9ff4b",
+    "src/backend/hvf/guest_translation.rs": "464623ff9819b091047c7179c4f2949a53b335093087b5e20ae6b2ecd012dd1d",
+    "src/backend/hvf/mod.rs": "addc0fe051a8d58172220cc3dfe3ad8a074e379a1443c32c80611d865968a33d",
+    "src/debug/gdb/commands.rs": "7e266229b65e45f36d3ce3933ed0813ce75c5d8b776e78bdb1cfca29c867a620",
+    "src/debug/gdb/mod.rs": "e49ebe7f5c93e0481202fd3e7303f15743aa5760a32de1c2b275c45cd22e087e",
+    "src/debug/gdb/thread_commands.rs": "a134a9f2cf6058dfa74d97077eb3c5c118071e888e74690163ec2d0521663732",
+    "src/isa/x86_64/cpu_vcpu.rs": "db6c45a45f1a4a99af0e8f3f5c4b8fd4b60b01ee8bd4f9bf07be8f5e99692045",
+    "src/isa/x86_64/mod.rs": "bf3b51d37e127c646e3002ee32d469a1229e7e4015234f586078b44c2c40f566",
+    "src/vm/memory/reservations.rs": "327e88394cbe514a6081416cb99aedaa1a895ff18337d303e2c89ab6c6225f93",
+    "src/vm/runtime.rs": "26267dc9a0c431d188b162cf76159f3ee546f19b08c3ae77ae781a6ce6f5b809",
+    "src/vm/runtime/checkpoint_capture.rs": "a48631b6f8a7aede5267767cad66eb5b1f28bbb9f9e98465c0fe7688521e6592",
+    "src/vm/runtime/checkpoint_restore.rs": "69158de2f1121be3456597fa0ed8ba165bd33db8f33841c9ff8a3ea0537265f2",
+    "src/vm/runtime/checkpoint_tests.rs": "0df9ac7cb0e837682ee5a5d2a570ca598f80e660359c0ed2785321cf5fa53a85",
+    "src/vm/runtime/coordinator.rs": "9cb5dffccd451444266a8d6748ad791f11e1742e7e71457c2f500cc20c322ea4",
+    "src/vm/runtime/debugger.rs": "9ecd6f49962a72706ba8dd329496f0b8fe97c7c44032a7ca02335cb14650c88c",
+    "src/vm/runtime/execution_tests.rs": "69a011dff2e716cbc2dcb9390547308780d85976d7e0c9daffdba37805783267",
+    "src/vm/runtime/gdb_smp_client_tests.rs": "7f847c445263649c66c7c48d1431f549e0cf2741fe98e762489d986a2cd97311",
+    "src/vm/runtime/gdb_smp_tests.rs": "bad1e174511cc85f524b2fc65346ae3f11a017b8ffe49f96a56a5a8368720309",
+    "src/vm/vcpu/mod.rs": "d336ae786711df06a7dc58d294ed4725a17165dc0dd8e2d4bdfba81caf39f307",
+    "tests/suites/backend/hvf_guest_translation.rs": "caeaaea3051e5ea9c703299c4a3492e2e095553c583d04d75fe44e88afd82b79",
+    "tests/suites/backend/hvf_mmio.rs": "3dd8280835695359f5773828c00a930433811f148ec9076b9f257f883a12ffe7",
+    "tools/hvf/mmio_alu_compare.rs": "c3a2740f2965b452ca637799e6756a228bf0ac590e1d1c7795149de83d28a1bc",
+    "tools/hvf/mmio_rmw_compare.rs": "a297d602251a4c1649e29c2426f6f935535cb353afb2c3f645a4dcf03f339f2f"
+  },
+  "current_checked_profile": {
+    "optimization_level": 1,
+    "debug_assertions": true,
+    "overflow_checks": true,
+    "incremental": false,
+    "environment_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/current-checked-environment.json",
+    "artifact_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/current-checked-artifacts.json"
+  },
+  "checks": {
+    "current-checked-compile": {
+      "argv": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 907.0945527079748,
+      "test_results": []
+    },
+    "current-checked-library": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-7235eb1a7529f1a1",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2066.506205709011,
+      "test_results": [
+        {
+          "passed": 11477,
+          "failed": 0,
+          "ignored": 33
+        }
+      ]
+    },
+    "current-checked-wire": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-7235eb1a7529f1a1",
+        "vm::runtime::gdb_smp_tests::",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.6142062920262106,
+      "test_results": [
+        {
+          "passed": 29,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    "current-checked-capi": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-8a6ee794fd6cb81f",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.8544209169922397,
+      "test_results": [
+        {
+          "passed": 224,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    "workspace-all-targets-final": {
+      "name": "workspace-all-targets-final",
+      "argv": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 878.8656737499987
+    },
+    "workspace-build-all-targets-final": {
+      "name": "workspace-build-all-targets-final",
+      "argv": [
+        "cargo",
+        "build",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 381.74261662497884
+    },
+    "clippy-final": {
+      "name": "clippy-final",
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.2792286250041798
+    },
+    "cli-build-final": {
+      "name": "cli-build-final",
+      "argv": [
+        "cargo",
+        "build",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--bin",
+        "rax"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.18001524999272078
+    },
+    "cli-help-final": {
+      "name": "cli-help-final",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/rax",
+        "--help"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.015916125033982098
+    },
+    "intel-check-final": {
+      "name": "intel-check-final",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 69.07028991699917
+    },
+    "no-debug-check-final": {
+      "name": "no-debug-check-final",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 32.69304445799207
+    },
+    "fmt-check-final": {
+      "name": "fmt-check-final",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 16.157100457989145
+    },
+    "ci-current-final": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "ci_actions_pinned",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 745.4865932919784,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    "clippy-all-targets-final": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 330.30117633304326,
+      "test_results": []
+    },
+    "doctests-final": {
+      "argv": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 223.8631481670309,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    }
+  },
+  "full_library_ignored": {
+    "total": 33,
+    "native_checkpoint": 27,
+    "native_owner_clock": 2,
+    "installed_gdb": 2,
+    "external_microkernel": 2,
+    "disposition": "Native cases separately executed with one retained failure; GDB cases explicitly included in the final 29-case wire run; two external microkernel cases unrun"
+  },
+  "other_affected_binary_tests": {
+    "hvf_guest_translation": {
+      "name": "hvf_guest_translation-final",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_guest_translation-a29ac01a90e334f2",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.008867083000950515,
+      "test_results": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    "hvf_mmio": {
+      "name": "hvf_mmio-final",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_mmio-0d3744b453a791b4",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.0626673750230111,
+      "test_results": [
+        {
+          "passed": 37,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    "reservations": {
+      "name": "reservations-final",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e",
+        "vm::memory::reservations::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.025803625001572073,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    }
+  },
+  "observed_baselines": {
+    "baseline": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::gdb_smp_tests::memory::",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 149.31562741601374,
+      "counts": [
+        [
+          "0",
+          "3",
+          "0"
+        ]
+      ]
+    },
+    "failure-fence-baseline": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::checkpoint_tests::debugger_cache_failure_prevents_every_checkpoint_capture_before_publication",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 180.04937966703437,
+      "counts": [
+        [
+          "0",
+          "1",
+          "0"
+        ]
+      ]
+    },
+    "backing-view-baseline": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::gdb_smp_tests::memory::debugger_memory_matches_a_guest_load_from_modeled_backing_above_reported_ram",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 211.41337795800064,
+      "counts": [
+        [
+          "0",
+          "1",
+          "0"
+        ]
+      ]
+    }
+  },
+  "independent_qemu": {
+    "manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/qemu-reference-source-final/manifest.json",
+    "report": {
+      "cleared_paging_entries_checked": 4,
+      "debugger_keeps_pte_status": true,
+      "guest_reads": "43505530444154414350553144415441",
+      "physical_mode": true,
+      "read_only_write_bypasses_wp": true,
+      "records": [
+        {
+          "before": "4350553044415441",
+          "cr0": 2147549201,
+          "cr3": 4096,
+          "thread": 1
+        },
+        {
+          "after": "4142434444415441",
+          "before": "4350553144415441",
+          "cr0": 3758161937,
+          "cr3": 28672,
+          "thread": 2
+        }
+      ]
+    },
+    "scope": "Actual two-CPU software reference; explicit thread selectors before raw memory packets; not physical Intel"
+  },
+  "invalidated_evidence": [
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/backing-wire-before-pci-fixture-fix.json",
+      "reason": "PCI-disabled fixture saw real RAM rather than open bus; enable PCI and use a stable post-probe loop before qualification"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/oracle-failure-final.json",
+      "reason": "Deliberate false-GDB executable exercises failure manifest; expected negative control, not a successful oracle"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/library-complete-final-before-failure-fence.json",
+      "reason": "Interrupted for newly reproduced checkpoint failure-fence bypass; no complete-library success claim"
+    }
+  ],
+  "earlier_unoptimized_phase": {
+    "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/validation-before-backing-view-source.json",
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/library-complete-final.json",
+    "differences_from_current": {
+      "src/vm/runtime/debugger_memory.rs": {
+        "preceding": "949849888299fdf04c73b2488865688d5dfe890bea042f3f053e682cdfddc629",
+        "current": "f3cc305ff7c7578235c85b10dd933d3c7c7b0ff6a3db1be9d655a3190225a951"
+      },
+      "src/vm/runtime/gdb_memory_tests.rs": {
+        "preceding": "4744bb7acacc7614f0a8f4a8803978d6d69b7ec3aedc783285f58e48ee73a4ed",
+        "current": "3dcee67ec26f9d352ce53dedf8dbed19fedaeecfe77d0f245f613698492549e0"
+      },
+      "src/vm/runtime/execution_tests.rs": {
+        "preceding": "ece444363aae79bb77ff064c9ea5c965b7551a1c71a73311e6d9dc724c793435",
+        "current": "69a011dff2e716cbc2dcb9390547308780d85976d7e0c9daffdba37805783267"
+      },
+      "src/vm/runtime/gdb_smp_tests.rs": {
+        "preceding": "7e24a02c3f2f136d9e087eaad86f937dbb39c727ac9871bc534300857b790e4a",
+        "current": "bad1e174511cc85f524b2fc65346ae3f11a017b8ffe49f96a56a5a8368720309"
+      }
+    },
+    "scope": "Preceding memory-view phase; final-source full-library evidence is current-checked-library"
+  },
+  "physical_apple_silicon": {
+    "manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/native-regression-final.json",
+    "checkpoint_tests": {
+      "passed": 26,
+      "failed": 1
+    },
+    "owner_clock_tests": {
+      "passed": 2,
+      "failed": 0
+    },
+    "source_phase": "Before software backing-view correction; native Arm implementation unchanged",
+    "unresolved_counterexample": {
+      "status": "reproduced unresolved prior counterexample",
+      "expected_fpsr": "0x00000001",
+      "observed_fpsr": "0x0800009f",
+      "current_failure": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/native-checkpoint-final.stderr",
+      "preceding_failure": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/coordinator-v31-streaming-fpsr-counterexample.stderr",
+      "preceding_failure_sha256": "e2693a1fb36380d094f7ae251faec9b92e9e973e4446682b0e2baeeedd975295",
+      "unchanged_native_source_sha256": {
+        "src/backend/hvf/arm64_restore.rs": "ef9d99b638d48d019221823065d1fd6cb9ad92d3ac4888a877abe2bbff259672",
+        "src/backend/hvf/arm64_checkpoint.rs": "e5c11e52c2af6918e96950d547b4937dc26c4858e404e34397b82f2f645daba8",
+        "src/backend/hvf/arm64_state.rs": "1c48c1ac38b206538311ea56b16c435307618edcc6005de280397714c44a23e3",
+        "src/vm/runtime/native_checkpoint_tests.rs": "138adcf3dc6465437283d32453f7470e3717bbc0f47787d80942961fb7be08ed"
+      },
+      "scope": "Actual physical Apple Silicon streaming SME entry and file resume; not Intel. Direct installed SDK reproduction without RAX also resets FPSR on every observed streaming entry. No corrective implementation is qualified.",
+      "blocks_full_goal_completion": true,
+      "entry_localization": {
+        "rax_guest_probe": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/fpsr-entry-probe.json",
+        "direct_sdk_source": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/raw-sdk-fpsr-entry.cpp",
+        "direct_sdk_reentry_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/raw-sdk-fpsr-reentry-v2",
+        "primary_source": "docs/specifications/apple/hypervisor-sdk-27.2/hv_vcpu.h",
+        "observations": "hv_vcpu_set_reg(FPSR,1) succeeds and reads back 1; actual streaming guest MRS reads 0x0800009f on first and repeated entry for host FPSR 0,1,2; nonstreaming controls read 1; host FPSR is preserved",
+        "evidence_limit": "SDK entry boundary reproduced; undocumented internal cause and a semantics-preserving RAX remedy remain unknown",
+        "temporary_probe_executables_removed": true
+      }
+    },
+    "scope": "Does not qualify native x86 or close C-STATE"
+  },
+  "remaining_requirements": [
+    "A32-FP: remaining capability/profile/security/debug controls and instruction admission",
+    "C-STATE: complete backend/private/in-flight state and coordinated restoration, including logical debugger session and host-resource lifecycle",
+    "C-SMP: remaining startup/ISA/native scheduling, other debugger address spaces, ROM/device inspection, clocks and replay",
+    "C-HVF: remaining MMIO/intercept/IRQ/private-debug profiles and physical Intel validation"
+  ],
+  "unrun_gates": [
+    {
+      "gate": "Five existing ignored Rust doctest examples",
+      "reason": "Doctest command completed with zero examples executed and five ignored; C API has zero examples. This is not behavioral evidence"
+    },
+    {
+      "gate": "Physical Intel Hypervisor.framework execution",
+      "reason": "Current host is Apple M4 Max; target compilation supplies no physical Intel runtime evidence"
+    },
+    {
+      "gate": "Remote CI execution",
+      "reason": "Workflow changed and parsed locally; no push or remote run authorized"
+    },
+    {
+      "gate": "Two ignored external microkernel cases",
+      "reason": "Outside selected debugger memory and failure-admission profile"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "low",
+      "finding": "Cargo warns that root engine and C API libraries share an output name",
+      "disposition": "Existing Cargo manifests are unchanged; shared all-target build succeeded. Validation uses hashed Cargo test executables and no top-level library is installed",
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/workspace-build-all-targets-final.stderr"
+    },
+    {
+      "impact": "medium",
+      "finding": "Pre-existing hex decoder can unwind on valid non-ASCII UTF-8 input",
+      "disposition": "Exact unchanged utility reproduced in isolation; source-traced packet reachability, no end-to-end malformed-wire claim; correction remains outside this selected memory subgroup",
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/rsp-utf8-counterexample.json"
+    },
+    {
+      "impact": "high",
+      "finding": "Checkpoint capture bypassed a latched debugger mutation failure",
+      "disposition": "Baseline reproduced; early capture/import/entry admission corrected and regression included in debugger CI"
+    },
+    {
+      "impact": "high",
+      "finding": "Streaming native guest FPSR resets at SDK entry",
+      "disposition": "Direct SDK-only first/repeated-entry reproduction retained; remedy unknown and full goal remains open"
+    },
+    {
+      "impact": "medium",
+      "finding": "GDB any-thread memory selection differs in the independent QEMU reference",
+      "disposition": "Retain raw trace; use explicit CPU selectors in oracle and retain selected general CPU in RAX"
+    }
+  ],
+  "complexity": "N data bytes, P touched pages, H device ranges, C CPUs: plan O(P) storage and O(P*H) range checks, output O(N); up to four table reads per page in long mode; per-CPU derived-cache clearing before one scatter writer-domain critical section",
+  "primary_provenance": "docs/development/software-smp-debugger/references/provenance.json; Intel SDM Vol3A5.3-5.5; retained Apple SDK hv_vcpu.h entry behavior",
+  "commit_workflow": "git add -- exact owned paths; red -m --staged --run identical paths; no push",
+  "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/cleanup-final.json"
+}

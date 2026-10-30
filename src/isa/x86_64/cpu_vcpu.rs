@@ -352,6 +352,47 @@ impl VCpu for X86_64Vcpu {
     }
 
     #[cfg(feature = "debug")]
+    fn debug_address_space(&self) -> Result<crate::vm::vcpu::DebugAddressSpace> {
+        if self.mmu.has_flat_translation() {
+            return Err(Error::InvalidConfig(
+                "system debugger has no process-memory translation binding".into(),
+            ));
+        }
+        Ok(crate::vm::vcpu::DebugAddressSpace::X86(
+            crate::vm::vcpu::X86DebugPaging {
+                cr0: self.sregs.cr0,
+                cr3: self.sregs.cr3,
+                cr4: self.sregs.cr4,
+                efer: self.sregs.efer,
+                physical_bits: self.cpuid(0x8000_0008, 0).0 & 255,
+                pdpte: None,
+                pse36: false,
+                pat: false,
+            },
+        ))
+    }
+    #[cfg(feature = "debug")]
+    fn debug_memory_changed(&mut self, _pages: &[u64]) -> Result<()> {
+        // A physical write can alias any CPU's virtual code address. Invalidate
+        // all derived code caches instead of guessing the other aliases.
+        for entry in self.decode_cache.iter_mut() {
+            entry.bytes_len = 0;
+        }
+        self.mmu.flush_tlb();
+        #[cfg(all(
+            feature = "smir-jit",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ))]
+        {
+            self.jit_cache.clear();
+            self.jit_hot.clear();
+            self.jit_ineligible.clear();
+            self.jit_ineligible_dirty.clear();
+            self.jit_active_region_stale = true;
+        }
+        Ok(())
+    }
+    #[cfg(feature = "debug")]
     fn supports_debug_breakpoints(&self) -> bool {
         true
     }

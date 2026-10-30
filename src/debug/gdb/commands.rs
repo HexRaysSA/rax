@@ -220,6 +220,10 @@ pub fn handle_command(
                 }
             };
 
+            if parse_len(parts[1]) != Some(data.len()) {
+                send_error(stream, 1)?;
+                return Ok(true);
+            }
             channels
                 .cmd_tx
                 .send(GdbCommand::WriteMemory { addr, data })

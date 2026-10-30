@@ -1,0 +1,388 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GDB usage &mdash; QEMU  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=f5127f15" />
+      <link rel="stylesheet" type="text/css" href="../_static/theme_overrides.css?v=b3ae9cc8" />
+
+  
+    <link rel="shortcut icon" href="../_static/qemu_32x32.png"/>
+      <script src="../_static/jquery.js?v=8dae8fb0"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=3b5cce75"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/custom.js?v=2ab9f71d"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Record/replay" href="replay.html" />
+    <link rel="prev" title="Client authorization" href="authz.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #802400" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            QEMU
+              <img src="../_static/qemu_128x128.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../about/index.html">About QEMU</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">System Emulation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="invocation.html">Invocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="device-emulation.html">Device Emulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="keys.html">Keys in the graphical frontends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mux-chardev.html">Keys in the character backend multiplexer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="monitor.html">QEMU Monitor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="images.html">Disk Images</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtio-net-failover.html">QEMU virtio-net standby (net_failover)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="linuxboot.html">Direct Linux Boot</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generic-loader.html">Generic Loader</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guest-loader.html">Guest Loader</a></li>
+<li class="toctree-l2"><a class="reference internal" href="barrier.html">QEMU Barrier Client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vnc-security.html">VNC security</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tls.html">TLS setup for network services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="secrets.html">Providing secret data to QEMU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="authz.html">Client authorization</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">GDB usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#breakpoint-and-watchpoint-support">Breakpoint and Watchpoint support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#relocating-code">Relocating code</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#debugging-user-space-in-system-emulation">Debugging user-space in system emulation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#debugging-multicore-machines">Debugging multicore machines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#using-unix-sockets">Using unix sockets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#advanced-debugging-options">Advanced debugging options</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#changing-single-stepping-behaviour">Changing single-stepping behaviour</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#examining-physical-memory">Examining physical memory</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#security-considerations">Security considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="replay.html">Record/replay</a></li>
+<li class="toctree-l2"><a class="reference internal" href="managed-startup.html">Managed start up options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bootindex.html">Managing device boot order with bootindex properties</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu-hotplug.html">Virtual CPU hotplug</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pr-manager.html">Persistent reservation managers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="targets.html">QEMU System Emulator Targets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="security.html">Security</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-process.html">Multi-process QEMU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="confidential-guest-support.html">Confidential Guest Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="igvm.html">Independent Guest Virtual Machine (IGVM) support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nitro.html">AWS Nitro Enclaves</a></li>
+<li class="toctree-l2"><a class="reference internal" href="whpx.html">Windows Hypervisor Platform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vm-templating.html">QEMU VM templating</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sriov.html">Composable SR-IOV device</a></li>
+<li class="toctree-l2"><a class="reference internal" href="qemu-colo.html">Qemu COLO Fault Tolerance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guest-memfd.html">guest-memfd support</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../user/index.html">User Mode Emulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tools/index.html">Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../interop/index.html">System Emulation Management and Interoperability</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../specs/index.html">System Emulation Guest Hardware Specifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../devel/index.html">Developer Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #802400" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">QEMU</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">System Emulation</a></li>
+      <li class="breadcrumb-item active">GDB usage</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="https://gitlab.com/qemu-project/qemu/-/blob/master/docs/system/gdb.rst">View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="gdb-usage">
+<span id="id1"></span><h1>GDB usage<a class="headerlink" href="#gdb-usage" title="Link to this heading"></a></h1>
+<p>QEMU supports working with gdb via gdb’s remote-connection facility
+(the “gdbstub”). This allows you to debug guest code in the same
+way that you might with a low-level debug facility like JTAG
+on real hardware. You can stop and start the virtual machine,
+examine state like registers and memory, and set breakpoints and
+watchpoints.</p>
+<p>In order to use gdb, launch QEMU with the <code class="docutils literal notranslate"><span class="pre">-s</span></code> and <code class="docutils literal notranslate"><span class="pre">-S</span></code> options.
+The <code class="docutils literal notranslate"><span class="pre">-s</span></code> option will make QEMU listen for an incoming connection
+from gdb on TCP port 1234, and <code class="docutils literal notranslate"><span class="pre">-S</span></code> will make QEMU not start the
+guest until you tell it to from gdb. (If you want to specify which
+TCP port to use or to use something other than TCP for the gdbstub
+connection, use the <code class="docutils literal notranslate"><span class="pre">-gdb</span> <span class="pre">dev</span></code> option instead of <code class="docutils literal notranslate"><span class="pre">-s</span></code>. See
+<a class="reference internal" href="#using-unix-sockets">Using unix sockets</a> for an example.)</p>
+<pre class="literal-block">qemu-system-x86_64 -s -S -kernel bzImage -drive file=rootdisk.img,format=raw -append &quot;root=/dev/sda&quot;</pre>
+<p>QEMU will launch but will silently wait for gdb to connect.</p>
+<p>Then launch gdb on the ‘vmlinux’ executable:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">gdb</span> <span class="n">vmlinux</span>
+</pre></div>
+</div>
+<p>In gdb, connect to QEMU:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">gdb</span><span class="p">)</span> <span class="n">target</span> <span class="n">remote</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">1234</span>
+</pre></div>
+</div>
+<p>Then you can use gdb normally. For example, type ‘c’ to launch the
+kernel:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">gdb</span><span class="p">)</span> <span class="n">c</span>
+</pre></div>
+</div>
+<p>Here are some useful tips in order to use gdb on system code:</p>
+<ol class="arabic simple">
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">info</span> <span class="pre">reg</span></code> to display all the CPU registers.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">x/10i</span> <span class="pre">$eip</span></code> to display the code at the PC position.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">set</span> <span class="pre">architecture</span> <span class="pre">i8086</span></code> to dump 16 bit code. Then use
+<code class="docutils literal notranslate"><span class="pre">x/10i</span> <span class="pre">$cs*16+$eip</span></code> to dump the code at the PC position.</p></li>
+</ol>
+<section id="breakpoint-and-watchpoint-support">
+<h2>Breakpoint and Watchpoint support<a class="headerlink" href="#breakpoint-and-watchpoint-support" title="Link to this heading"></a></h2>
+<p>While GDB can always fall back to inserting breakpoints into memory
+(if writable) other features are very much dependent on support of the
+accelerator. For TCG system emulation we advertise an infinite number
+of hardware assisted breakpoints and watchpoints. For other
+accelerators it will depend on if support has been added (see
+the AccelGdbConfig structure).</p>
+<p>As TCG cannot track all memory accesses in user-mode there is no
+support for watchpoints.</p>
+</section>
+<section id="relocating-code">
+<h2>Relocating code<a class="headerlink" href="#relocating-code" title="Link to this heading"></a></h2>
+<p>On modern kernels confusion can be caused by code being relocated by
+features such as address space layout randomisation. To avoid
+confusion when debugging such things you either need to update gdb’s
+view of where things are in memory or perhaps more trivially disable
+ASLR when booting the system.</p>
+</section>
+<section id="debugging-user-space-in-system-emulation">
+<h2>Debugging user-space in system emulation<a class="headerlink" href="#debugging-user-space-in-system-emulation" title="Link to this heading"></a></h2>
+<p>While it is technically possible to debug a user-space program running
+inside a system image, it does present challenges. Kernel preemption
+and execution mode changes between kernel and user mode can make it
+hard to follow what’s going on. Unless you are specifically trying to
+debug some interaction between kernel and user-space you are better
+off running your guest program with gdb either in the guest or using
+a gdbserver exposed via a port to the outside world.</p>
+</section>
+<section id="debugging-multicore-machines">
+<h2>Debugging multicore machines<a class="headerlink" href="#debugging-multicore-machines" title="Link to this heading"></a></h2>
+<p>GDB’s abstraction for debugging targets with multiple possible
+parallel flows of execution is a two layer one: it supports multiple
+“inferiors”, each of which can have multiple “threads”. When the QEMU
+machine has more than one CPU, QEMU exposes each CPU cluster as a
+separate “inferior”, where each CPU within the cluster is a separate
+“thread”. Most QEMU machine types have identical CPUs, so there is a
+single cluster which has all the CPUs in it.  A few machine types are
+heterogeneous and have multiple clusters: for example the <code class="docutils literal notranslate"><span class="pre">sifive_u</span></code>
+machine has a cluster with one E51 core and a second cluster with four
+U54 cores. Here the E51 is the only thread in the first inferior, and
+the U54 cores are all threads in the second inferior.</p>
+<p>When you connect gdb to the gdbstub, it will automatically
+connect to the first inferior; you can display the CPUs in this
+cluster using the gdb <code class="docutils literal notranslate"><span class="pre">info</span> <span class="pre">thread</span></code> command, and switch between
+them using gdb’s usual thread-management commands.</p>
+<p>For multi-cluster machines, unfortunately gdb does not by default
+handle multiple inferiors, and so you have to explicitly connect
+to them. First, you must connect with the <code class="docutils literal notranslate"><span class="pre">extended-remote</span></code>
+protocol, not <code class="docutils literal notranslate"><span class="pre">remote</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">gdb</span><span class="p">)</span> <span class="n">target</span> <span class="n">extended</span><span class="o">-</span><span class="n">remote</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">1234</span>
+</pre></div>
+</div>
+<p>Once connected, gdb will have a single inferior, for the
+first cluster. You need to create inferiors for the other
+clusters and attach to them, like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>(gdb) add-inferior
+Added inferior 2
+(gdb) inferior 2
+[Switching to inferior 2 [&lt;null&gt;] (&lt;noexec&gt;)]
+(gdb) attach 2
+Attaching to process 2
+warning: No executable has been specified and target does not support
+determining executable automatically.  Try using the &quot;file&quot; command.
+0x00000000 in ?? ()
+</pre></div>
+</div>
+<p>Once you’ve done this, <code class="docutils literal notranslate"><span class="pre">info</span> <span class="pre">threads</span></code> will show CPUs in
+all the clusters you have attached to:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>(gdb) info threads
+  Id   Target Id         Frame
+  1.1  Thread 1.1 (cortex-m33-arm-cpu cpu [running]) 0x00000000 in ?? ()
+* 2.1  Thread 2.2 (cortex-m33-arm-cpu cpu [halted ]) 0x00000000 in ?? ()
+</pre></div>
+</div>
+<p>You probably also want to set gdb to <code class="docutils literal notranslate"><span class="pre">schedule-multiple</span></code> mode,
+so that when you tell gdb to <code class="docutils literal notranslate"><span class="pre">continue</span></code> it resumes all CPUs,
+not just those in the cluster you are currently working on:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">gdb</span><span class="p">)</span> <span class="nb">set</span> <span class="n">schedule</span><span class="o">-</span><span class="n">multiple</span> <span class="n">on</span>
+</pre></div>
+</div>
+</section>
+<section id="using-unix-sockets">
+<h2>Using unix sockets<a class="headerlink" href="#using-unix-sockets" title="Link to this heading"></a></h2>
+<p>An alternate method for connecting gdb to the QEMU gdbstub is to use
+a unix socket (if supported by your operating system). This is useful when
+running several tests in parallel, or if you do not have a known free TCP
+port (e.g. when running automated tests).</p>
+<p>First create a chardev with the appropriate options, then
+instruct the gdbserver to use that device:</p>
+<pre class="literal-block">qemu-system-x86_64 -chardev socket,path=/tmp/gdb-socket,server=on,wait=off,id=gdb0 -gdb chardev:gdb0 -S ...</pre>
+<p>Start gdb as before, but this time connect using the path to
+the socket:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">gdb</span><span class="p">)</span> <span class="n">target</span> <span class="n">remote</span> <span class="o">/</span><span class="n">tmp</span><span class="o">/</span><span class="n">gdb</span><span class="o">-</span><span class="n">socket</span>
+</pre></div>
+</div>
+<p>Note that to use a unix socket for the connection you will need
+gdb version 9.0 or newer.</p>
+</section>
+<section id="advanced-debugging-options">
+<h2>Advanced debugging options<a class="headerlink" href="#advanced-debugging-options" title="Link to this heading"></a></h2>
+<section id="changing-single-stepping-behaviour">
+<h3>Changing single-stepping behaviour<a class="headerlink" href="#changing-single-stepping-behaviour" title="Link to this heading"></a></h3>
+<p>The default single stepping behavior is step with the IRQs and timer
+service routines off. It is set this way because when gdb executes a
+single step it expects to advance beyond the current instruction. With
+the IRQs and timer service routines on, a single step might jump into
+the one of the interrupt or exception vectors instead of executing the
+current instruction. This means you may hit the same breakpoint a number
+of times before executing the instruction gdb wants to have executed.
+Because there are rare circumstances where you want to single step into
+an interrupt vector the behavior can be controlled from GDB. There are
+three commands you can query and set the single step behavior:</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">maintenance</span> <span class="pre">packet</span> <span class="pre">qqemu.sstepbits</span></code></dt><dd><p>This will display the MASK bits used to control the single stepping
+IE:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">gdb</span><span class="p">)</span> <span class="n">maintenance</span> <span class="n">packet</span> <span class="n">qqemu</span><span class="o">.</span><span class="n">sstepbits</span>
+<span class="n">sending</span><span class="p">:</span> <span class="s2">&quot;qqemu.sstepbits&quot;</span>
+<span class="n">received</span><span class="p">:</span> <span class="s2">&quot;ENABLE=1,NOIRQ=2,NOTIMER=4&quot;</span>
+</pre></div>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">maintenance</span> <span class="pre">packet</span> <span class="pre">qqemu.sstep</span></code></dt><dd><p>This will display the current value of the mask used when single
+stepping IE:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">gdb</span><span class="p">)</span> <span class="n">maintenance</span> <span class="n">packet</span> <span class="n">qqemu</span><span class="o">.</span><span class="n">sstep</span>
+<span class="n">sending</span><span class="p">:</span> <span class="s2">&quot;qqemu.sstep&quot;</span>
+<span class="n">received</span><span class="p">:</span> <span class="s2">&quot;0x7&quot;</span>
+</pre></div>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">maintenance</span> <span class="pre">packet</span> <span class="pre">Qqemu.sstep=HEX_VALUE</span></code></dt><dd><p>This will change the single step mask, so if wanted to enable IRQs on
+the single step, but not timers, you would use:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">gdb</span><span class="p">)</span> <span class="n">maintenance</span> <span class="n">packet</span> <span class="n">Qqemu</span><span class="o">.</span><span class="n">sstep</span><span class="o">=</span><span class="mh">0x5</span>
+<span class="n">sending</span><span class="p">:</span> <span class="s2">&quot;qemu.sstep=0x5&quot;</span>
+<span class="n">received</span><span class="p">:</span> <span class="s2">&quot;OK&quot;</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</section>
+<section id="examining-physical-memory">
+<h3>Examining physical memory<a class="headerlink" href="#examining-physical-memory" title="Link to this heading"></a></h3>
+<p>Another feature that QEMU gdbstub provides is to toggle the memory GDB
+works with, by default GDB will show the current process memory respecting
+the virtual address translation.</p>
+<p>If you want to examine/change the physical memory you can set the gdbstub
+to work with the physical memory rather with the virtual one.</p>
+<p>The memory mode can be checked by sending the following command:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">maintenance</span> <span class="pre">packet</span> <span class="pre">qqemu.PhyMemMode</span></code></dt><dd><p>This will return either 0 or 1, 1 indicates you are currently in the
+physical memory mode.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">maintenance</span> <span class="pre">packet</span> <span class="pre">Qqemu.PhyMemMode:1</span></code></dt><dd><p>This will change the memory mode to physical memory.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">maintenance</span> <span class="pre">packet</span> <span class="pre">Qqemu.PhyMemMode:0</span></code></dt><dd><p>This will change it back to normal memory mode.</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="security-considerations">
+<h2>Security considerations<a class="headerlink" href="#security-considerations" title="Link to this heading"></a></h2>
+<p>Connecting to the GDB socket allows running arbitrary code inside the guest;
+in case of the TCG emulation, which is not considered a security boundary, this
+also means running arbitrary code on the host. Additionally, when debugging
+qemu-user, it allows directly downloading any file readable by QEMU from the
+host.</p>
+<p>The GDB socket is not protected by authentication, authorization or encryption.
+It is therefore a responsibility of the user to make sure that only authorized
+clients can connect to it, e.g., by using a unix socket with proper
+permissions, or by opening a TCP socket only on interfaces that are not
+reachable by potential attackers.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="authz.html" class="btn btn-neutral float-left" title="Client authorization" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="replay.html" class="btn btn-neutral float-right" title="Record/replay" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, The QEMU Project Developers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+
+<!-- Empty para to force a blank line after "Built with Sphinx ..." -->
+<p></p>
+
+<p>This documentation is for QEMU version 11.1.50.</p>
+
+
+<p><a href="../about/license.html">QEMU and this manual are released under the
+GNU General Public License, version 2.</a></p>
+
+ 
+
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

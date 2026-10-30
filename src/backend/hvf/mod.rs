@@ -21,6 +21,8 @@ mod controls;
 mod convert;
 #[cfg(target_arch = "x86_64")]
 mod cr8;
+#[cfg(all(target_arch = "x86_64", feature = "debug"))]
+mod debug_memory;
 #[cfg(target_arch = "x86_64")]
 mod event_injection;
 #[cfg(target_arch = "x86_64")]
@@ -1169,6 +1171,16 @@ impl VCpu for HvfVcpu {
         read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS)
             .map(|f| (f & RFLAGS_TF) != 0)
             .unwrap_or(false)
+    }
+
+    #[cfg(feature = "debug")]
+    fn debug_address_space(&self) -> Result<crate::vm::vcpu::DebugAddressSpace> {
+        self.debug_paging_state()
+    }
+
+    #[cfg(feature = "debug")]
+    fn debug_memory_changed(&mut self, _pages: &[u64]) -> Result<()> {
+        self.debug_invalidate_translation()
     }
 
     #[cfg(feature = "debug")]

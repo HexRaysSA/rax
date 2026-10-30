@@ -1,5 +1,5 @@
 //! Read-only native guest introspection: hardware permission checks are separate.
-#[path = "../../../src/backend/hvf/guest_translation.rs"]
+#[path = "../../../src/isa/x86_64/inspection.rs"]
 mod guest_translation;
 use guest_translation::{Paging, PhysicalMemory};
 use std::collections::BTreeMap;
@@ -177,4 +177,49 @@ fn legacy_nonpae_walk_and_pse36_large_address_bits_are_exact() {
     r.entry(0x1000, 0x8060_0081, 4);
     assert!(p.translate(&mut r, 0x1234).is_err());
     assert!(p.translate(&mut r, 1 << 32).is_err());
+}
+
+#[test]
+fn legacy_reserved_bits_follow_pse36_and_pat_feature_admission() {
+    use guest_translation::LegacyFeatures;
+    let mut p = paging();
+    p.efer = 0;
+    p.cr4 = 1 << 4;
+    let mut ram = Ram::default();
+    let minimal = LegacyFeatures {
+        pse36: false,
+        pat: false,
+    };
+    for reserved in [1 << 13, 1 << 20, 1 << 12] {
+        ram.entry(0x1000, 0x400081 | reserved, 4);
+        assert!(
+            p.translate_with_legacy(&mut ram, 0, minimal).is_err(),
+            "PDE bit {reserved:#x}"
+        );
+    }
+    ram.entry(0x1000, 0x400081, 4);
+    assert_eq!(
+        p.translate_with_legacy(&mut ram, 0x1234, minimal),
+        Ok(0x401234)
+    );
+    ram.entry(0x1000, 0x2001, 4);
+    ram.entry(0x2000, 0x5081, 4);
+    assert!(p.translate_with_legacy(&mut ram, 0, minimal).is_err());
+    assert_eq!(
+        p.translate_with_legacy(
+            &mut ram,
+            0,
+            LegacyFeatures {
+                pse36: false,
+                pat: true
+            }
+        ),
+        Ok(0x5000)
+    );
+    p.cr4 = 0;
+    assert_eq!(
+        p.translate_with_legacy(&mut ram, 0, minimal),
+        Ok(0x5000),
+        "with PSE disabled the legacy PAT position is ignored"
+    );
 }

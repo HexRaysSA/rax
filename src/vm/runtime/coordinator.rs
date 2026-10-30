@@ -46,9 +46,7 @@ impl ExecutionCoordinator {
 impl Vmm {
     pub(super) fn capture_execution_state(&self) -> Result<crate::vm::snapshot::ExecutionSnapshot> {
         #[cfg(feature = "debug")]
-        if let Some(error) = &self.debugger.failure {
-            return Err(Error::Emulator(error.clone()));
-        }
+        self.debugger.ready()?;
         let now = std::time::Instant::now();
         let mut local_apics = Vec::with_capacity(self.local_apics.len());
         for controller in &self.local_apics {
@@ -86,6 +84,8 @@ impl Vmm {
     /// The software coordinator drains platform requests after each instruction,
     /// including instructions that retire I/O, before entering another CPU.
     pub(super) fn execute_turn(&mut self) -> Result<Option<ExecutionTurn>> {
+        #[cfg(feature = "debug")]
+        self.debugger.ready()?;
         let _timing = self.timing_context.enter();
         self.route_interprocessor_requests()?;
         let mut selected = None;

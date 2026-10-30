@@ -7,6 +7,8 @@ impl Vmm {
     /// Capture a stopped VM. Controlled RAM and endpoint writers are excluded;
     /// external raw aliases and host mapping changes still require coordination.
     pub fn take_snapshot_bundle(&self, insn_count: u64) -> Result<SnapshotBundle> {
+        #[cfg(feature = "debug")]
+        self.debugger.ready()?;
         let _timing = self.timing_context.enter();
         // Match dispatch: UART/PCI endpoints, shared platform, legacy devices,
         // independently owned GICs, then physical RAM. No guest callback runs

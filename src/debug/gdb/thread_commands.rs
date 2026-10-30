@@ -38,7 +38,18 @@ pub(super) fn handle(
     stream: &mut TcpStream,
     channels: &GdbChannels,
 ) -> std::io::Result<Option<bool>> {
-    let command = if packet == "?" {
+    let command = if packet == "qqemu.PhyMemMode" {
+        Some(GdbCommand::MemoryMode(None))
+    } else if let Some(value) = packet.strip_prefix("Qqemu.PhyMemMode:") {
+        match value {
+            "0" => Some(GdbCommand::MemoryMode(Some(false))),
+            "1" => Some(GdbCommand::MemoryMode(Some(true))),
+            _ => {
+                send_error(stream, 1)?;
+                return Ok(Some(true));
+            }
+        }
+    } else if packet == "?" {
         Some(GdbCommand::QueryHaltReason)
     } else if let Some(raw) = packet.strip_prefix('H') {
         let (operation, thread) = raw.split_at_checked(1).unwrap_or(("", ""));

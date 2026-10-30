@@ -380,7 +380,7 @@ remains a separate, incomplete capability.
 
 The `debug` feature adds actual TCP/RSP multi-CPU regressions under the library
 filter `vm::runtime::gdb_smp_tests::`. The dedicated CI debugger job installs GDB
-and explicitly includes its otherwise ignored external-client case:
+and explicitly includes its otherwise ignored external-client cases:
 
 ```sh
 RAX_GDB=gdb cargo test --locked --no-default-features \
@@ -392,3 +392,12 @@ A missing client fails that explicit run. Its success marker follows one Python
 assertion block, and target-description rejection or Python errors fail the test.
 The wire cases use checksum-checked real TCP responses and the actual VMM loop.
 Native hardware debugger entry is a separate, unqualified execution profile.
+
+The memory cases cover distinct CR3 roots, read-only guest mappings, unchanged
+A/D bits, discontiguous pages, rejected late spans and malformed packets, live
+MMIO exclusions, reconnect mode reset and peer code-cache aliases. A second
+installed-GDB case exercises normal client memory reads and writes. The same CI
+job runs `vm::memory::reservations::`, `hvf_guest_translation` and `hvf_mmio`, then
+executes the two-CPU QEMU reference in
+`tools/execution/x86_debug_memory_oracle.py`. The oracle records raw packets and
+actual guest loads; it does not qualify physical Intel HVF.

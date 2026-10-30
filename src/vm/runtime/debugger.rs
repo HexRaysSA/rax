@@ -9,6 +9,7 @@ pub(super) struct State {
     pub(super) stop: (usize, u8),
     pub(super) last_cpu: usize,
     pub(super) failure: Option<String>,
+    pub(super) physical_memory: bool,
 }
 impl Default for State {
     fn default() -> Self {
@@ -19,6 +20,16 @@ impl Default for State {
             stop: (0, 5),
             last_cpu: 0,
             failure: None,
+            physical_memory: false,
+        }
+    }
+}
+impl State {
+    /// Mutation failure is terminal for this owner, including checkpoint APIs.
+    pub(super) fn ready(&self) -> Result<()> {
+        match &self.failure {
+            Some(reason) => Err(Error::Emulator(reason.clone())),
+            None => Ok(()),
         }
     }
 }
@@ -168,40 +179,34 @@ impl Vmm {
                     }
                 }
             }
-            GdbCommand::ReadMemory { addr, len } => {
-                let mem = self.guest_mem.memory();
-                let mut data = vec![0u8; len];
-                if mem
-                    .read_slice(&mut data, vm_memory::GuestAddress(addr))
-                    .is_ok()
-                {
-                    let hex = encode_hex(&data);
-                    let _ = responses.send(GdbResponse::Memory(hex));
-                } else {
-                    let _ = responses.send(GdbResponse::Error(1));
-                }
-            }
-            GdbCommand::WriteMemory { addr, data } => {
-                let mem = self.guest_mem.memory();
-                if crate::vm::memory::reservations::write(mem, addr, &data).is_ok() {
-                    if !data.is_empty() {
-                        for vcpu in &mut self.vcpus {
-                            let end = addr.saturating_add(data.len().saturating_sub(1) as u64);
-                            let end_page = end & !0xFFF;
-                            let mut page = addr & !0xFFF;
-                            loop {
-                                vcpu.invalidate_code_cache(page);
-                                if page == end_page {
-                                    break;
-                                }
-                                page = page.wrapping_add(0x1000);
-                            }
-                        }
-                    }
+            GdbCommand::MemoryMode(mode) => {
+                if let Some(physical) = mode {
+                    self.debugger.physical_memory = physical;
                     let _ = responses.send(GdbResponse::Ok);
                 } else {
-                    let _ = responses.send(GdbResponse::Error(1));
+                    let _ = responses.send(GdbResponse::Text(
+                        if self.debugger.physical_memory {
+                            "1"
+                        } else {
+                            "0"
+                        }
+                        .into(),
+                    ));
                 }
+            }
+            GdbCommand::ReadMemory { addr, len } => {
+                let reply = match self.read_debug_memory(addr, len) {
+                    Ok(bytes) => GdbResponse::Memory(encode_hex(&bytes)),
+                    Err(_) => GdbResponse::Error(1),
+                };
+                let _ = responses.send(reply);
+            }
+            GdbCommand::WriteMemory { addr, data } => {
+                let reply = match self.write_debug_memory(addr, &data)? {
+                    true => GdbResponse::Ok,
+                    false => GdbResponse::Error(1),
+                };
+                let _ = responses.send(reply);
             }
             GdbCommand::SetBreakpoint { addr } | GdbCommand::RemoveBreakpoint { addr } => {
                 let insert = matches!(cmd, GdbCommand::SetBreakpoint { .. });

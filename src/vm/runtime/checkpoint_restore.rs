@@ -44,6 +44,8 @@ impl Vmm {
         &mut self,
         bundle: &crate::vm::snapshot::SnapshotBundle,
     ) -> Result<()> {
+        #[cfg(feature = "debug")]
+        self.debugger.ready()?;
         let _timing = self.timing_context.enter();
         bundle.validate_complete()?;
         self.vm.validate_checkpoint_vm_context(
@@ -395,6 +397,8 @@ impl Vmm {
     /// Restore represented base state after validating input and target admission.
     /// Full SMP/private/platform/PCI closure remains separate.
     pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
+        #[cfg(feature = "debug")]
+        self.debugger.ready()?;
         let _timing = self.timing_context.enter();
         snapshot.validate_for_restore()?;
         if self.checkpoint_config.storage.has_images() || snapshot.config.storage.has_images() {

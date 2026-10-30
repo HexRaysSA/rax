@@ -84,13 +84,95 @@ marker only after all assertions. The old output remains in the evidence set.
 | D2 | Control is applied at the single-owner VMM boundary | Selected steps, pending interrupt/I/O regressions, compound rejection and reconnects | Selected software profile tested |
 | D3 | Independent-client success requires the whole command sequence | Require a final marker from one assertion block and reject target-description/Python errors | Earlier acceptance falsified and replaced |
 
-High-impact remaining work: debugger memory packets still use the existing
-physical RAM view; per-CPU virtual translation remains required. Complete live
-GDB-session checkpoint binding/restoration is not implemented by this runtime
-change. Other target register descriptions, native bounded entry/debug overlays
-and SDK failures, positive guest-OS signal delivery, clocks/replay and physical
-Intel qualification remain open within the original four-finding objective.
+## Selected-CPU memory
+
+With software x86, `m` and `M` resolve the selected general CPU's linear address
+through its current paging state. The inspector does not execute guest accesses,
+set page-table accessed/dirty bits, fill guest TLBs, deliver faults or retire
+instructions. Debugger writes can modify an ordinary RAM page through a guest
+read-only mapping. The complete packet must translate and pass backing, host
+permission and device-hole checks before any byte is published. Writes invalidate
+all CPUs' derived x86 code/translation caches and use the shared tracked-writer
+boundary, including exclusive-monitor invalidation.
+
+The software view includes the emulator's modeled overflow RAM backing above
+the configured RAM size. A regression executes a guest load through that backing
+before comparing debugger access. Registered MMIO ranges remain excluded. When
+the software CPU has PCI routing enabled, the entire PCI MMIO aperture is
+excluded, including unassigned space that the CPU reads as open bus. Tests
+execute that guest read and verify that debugger access cannot expose its shadow
+backing. Native Intel inspection remains bounded by its registered RAM window.
+
+The default view is virtual. Explicit physical inspection uses the documented
+QEMU vendor packets:
+
+```gdb
+maintenance packet qqemu.PhyMemMode
+maintenance packet Qqemu.PhyMemMode:1
+x/8bx 0xa000
+maintenance packet Qqemu.PhyMemMode:0
+```
+
+A new connection resets physical mode. Malformed declared `M` lengths and
+noncanonical, nonpresent, reserved, oversized or device-backed ranges return an
+RSP error. A rejected cross-page write publishes no RAM prefix. An unexpected
+cache synchronization or admitted RAM publication failure fences further entry,
+later writes, all represented checkpoint capture APIs and checkpoint import.
+The failure remains latched on that VMM owner.
+
+GNU GDB can send an any-thread selector before ordinary memory requests. RAX
+retains the selected general CPU for that selector. In the independent QEMU
+reference run it selected CPU 0 instead; the raw trace and failed candidate
+observations are retained. The reference harness therefore sends an explicit
+CPU selector immediately before each memory packet. Its actual two-CPU guest
+also executes loads through both CR3 roots, independently of the debugger.
+
+Run the independent reference with installed LLVM, QEMU and Python-enabled GDB:
+
+```sh
+python3 -B tools/execution/x86_debug_memory_oracle.py \
+  --work-dir /path/to/empty/evidence-directory \
+  --scratch-dir /path/to/scratch \
+  --llvm-bin /path/to/llvm/bin --gdb /path/to/gdb
+```
+
+The harness records commands, binary/source checksums, raw GDB packets and both
+CPU observations in `manifest.json`; it preserves a failure manifest on errors
+and removes its temporary guest objects, ELF and socket. It stops only its own
+QEMU child. The ready bytes and guest load records must prove that both CPUs ran.
+
+The shared read-only x86 walker also serves Intel HVF exit inspection. The HVF
+debug adapter reads actual SDK paging registers and cached legacy PAE PDPTEs;
+fallible TLB invalidation must succeed before data publication. Target
+compilation does not qualify SDK execution. Software legacy PAE inspection
+requires cached state that its current runtime does not provide and returns an
+explicit error. Other CPU adapters retain their prior untranslated view.
+ROM/device debugging, other target descriptions, complete live GDB-session
+checkpoint binding, native overlays/SDK failures, positive guest-OS signals,
+clocks/replay and physical Intel qualification remain high-impact requirements
+within the original four-finding objective.
+
+Primary references and retrieval hashes are retained in
+[references/provenance.json](references/provenance.json), including
+[QEMU's memory modes](https://www.qemu.org/docs/master/system/gdb.html#examining-physical-memory)
+and [GNU memory packets](https://sourceware.org/gdb/current/onlinedocs/gdb.html/Packets.html).
 
 Resume planning takes O(C*A) time and O(C) storage for C CPUs and A actions.
 Breakpoint publication/compensation takes O(C) calls per address. Core register
 packet size and x87 conversion storage are fixed.
+
+The cache-failure regression reproduced a separate checkpoint bypass: all three
+base/CPU-set/full-bundle capture APIs accepted a globally failed debugger owner.
+The corrected early admission check precedes checkpoint locks and restore
+preparation, and coordinator entry checks it before routing platform requests.
+Tests substitute failures at both the first and last CPU invalidation callback;
+RAM remains unchanged and capture, import, later writes and entry are rejected.
+This qualifies the VMM policy with substituted callbacks, independently of SDK
+error-path execution.
+
+A packet with N data bytes and P touched pages requires at most four wide
+page-table reads per page in the tested long-mode profile. Planning uses O(P)
+storage plus the O(N) output buffer; hole checks add O(P*H) time for H registered
+device ranges. Cache invalidation visits all C CPUs and clears their derived
+x86 entries. Scatter publication holds one writer-domain lock across all spans;
+exclusive-monitor checks cannot observe a partially published packet.

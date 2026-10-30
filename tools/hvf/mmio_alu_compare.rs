@@ -1,7 +1,7 @@
 //! Compare actual read-ALU planning and complete publication with QEMU records.
 use rax::{devices, isa};
 use std::collections::BTreeMap;
-#[path = "../../src/backend/hvf/guest_translation.rs"]
+#[path = "../../src/isa/x86_64/inspection.rs"]
 mod guest_translation;
 #[path = "../../src/backend/hvf/mmio.rs"]
 mod mmio;

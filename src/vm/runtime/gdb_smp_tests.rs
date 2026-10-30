@@ -16,11 +16,21 @@ struct Running {
 }
 impl Running {
     fn listen(count: u8) -> Self {
+        Self::configured(count, |_| {})
+    }
+    fn configured(count: u8, setup: impl FnOnce(&mut Fixture) + Send + 'static) -> Self {
+        Self::with_fixture(count, move || Fixture::new(count), setup)
+    }
+    fn with_fixture(
+        count: u8,
+        create: impl FnOnce() -> Fixture + Send + 'static,
+        setup: impl FnOnce(&mut Fixture) + Send + 'static,
+    ) -> Self {
         let (client, channels) = create_channels();
         let commands = client.cmd_tx.clone();
         let (address, server, server_stop) = crate::debug::gdb::test_support::serve(client);
         let worker = std::thread::spawn(move || {
-            let mut fixture = Fixture::new(count);
+            let mut fixture = create();
             fixture.write(0x1000, &0x2003u64.to_le_bytes());
             fixture.write(0x2000, &0x3003u64.to_le_bytes());
             fixture.write(0x3000, &0x83u64.to_le_bytes());
@@ -44,6 +54,7 @@ impl Running {
                 fixture.write(BSP + 256 * index as u64, &[0x48, 0xff, 0xc0, 0xeb, 0xfb]);
             }
             fixture.vm.coordinator.online.fill(true);
+            setup(&mut fixture);
             fixture.vm.gdb_channels = Some(channels);
             fixture.vm.gdb_stopped = true;
             fixture.vm.run().unwrap();
@@ -296,3 +307,6 @@ fn rsp_stop_action_reports_its_selected_thread_without_retirement() {
     assert_eq!(vm.rax(1), 0x100);
     assert_eq!(vm.rax(2), 0x101);
 }
+
+#[path = "gdb_memory_tests.rs"]
+mod memory;

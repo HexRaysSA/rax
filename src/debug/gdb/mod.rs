@@ -26,6 +26,8 @@ pub use registers::{pack_registers, unpack_registers};
 /// Commands sent from GDB server to VMM.
 #[derive(Debug, Clone)]
 pub enum GdbCommand {
+    /// QEMU-compatible explicit physical/translated debugger memory mode.
+    MemoryMode(Option<bool>),
     /// Begin a new all-stop connection.
     Attach,
     /// Resume after the controlling connection closes.

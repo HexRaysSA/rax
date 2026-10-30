@@ -24,6 +24,14 @@ impl Fixture {
     }
 
     fn with_memory(count: u8, bytes: u64) -> Self {
+        Self::with_devices(count, bytes, false)
+    }
+
+    pub(super) fn with_pci(count: u8) -> Self {
+        Self::with_devices(count, 65536, true)
+    }
+
+    fn with_devices(count: u8, bytes: u64, pci_devices: bool) -> Self {
         let kernel = std::env::temp_dir().join(format!(
             "rax-coordinator-{}-{}",
             std::process::id(),
@@ -42,6 +50,7 @@ impl Fixture {
         )
         .unwrap();
         config.memory = MemorySize(bytes);
+        config.pci_devices = pci_devices;
         let mut vm = Vmm::new_resume(config).unwrap();
         let mut state = vm.vcpus[0].get_state().unwrap();
         let CpuState::X86_64(s) = &mut state else {

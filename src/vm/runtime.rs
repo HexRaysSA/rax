@@ -774,6 +774,8 @@ impl Vmm {
 
     /// Capture the represented CPU-0 and legacy-device base checkpoint.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
+        #[cfg(feature = "debug")]
+        self.debugger.ready()?;
         let _timing = self.timing_context.enter();
         if self.checkpoint_config.storage.has_images() {
             return Err(Error::InvalidConfig(
@@ -805,6 +807,8 @@ impl Vmm {
     /// Callers must quiesce independent writers. Additional backend-private and
     /// scheduler state remains outside this represented-state interface.
     pub fn capture_cpu_states(&self) -> Result<Vec<crate::vm::snapshot::CpuSnapshot>> {
+        #[cfg(feature = "debug")]
+        self.debugger.ready()?;
         let _timing = self.timing_context.enter();
         use crate::vm::snapshot::CpuSnapshot;
         let mut cpus = Vec::new();
@@ -969,3 +973,6 @@ mod gdb_smp_tests;
 mod debugger;
 #[cfg(feature = "debug")]
 mod debugger_control;
+
+#[cfg(feature = "debug")]
+mod debugger_memory;
