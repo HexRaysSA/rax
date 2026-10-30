@@ -405,15 +405,6 @@ impl Vmm {
                 .ok_or_else(|| Error::InvalidConfig("expected KVM VM".to_string()))?;
             guest_mem.register(kvm_vm.vm_fd())?;
         }
-        #[cfg(all(feature = "hvf", target_os = "macos", target_arch = "x86_64"))]
-        if matches!(config.backend, BackendKind::Hvf) {
-            use crate::backend::hvf::HvfVm;
-            let hvf_vm = vm
-                .as_any()
-                .downcast_ref::<HvfVm>()
-                .ok_or_else(|| Error::InvalidConfig("expected HVF VM".to_string()))?;
-            hvf_vm.register_memory(&guest_mem)?;
-        }
         // Emulator accesses memory directly, no registration needed
 
         // Select the guest machine.
@@ -476,6 +467,7 @@ impl Vmm {
             )?;
             // Dynamically-assigned PCI I/O BARs are reached via this fallback.
             io_bus.set_pci(pci.clone());
+            mmio_bus.set_pci(pci.clone());
             Some(pci)
         } else {
             None
@@ -555,6 +547,18 @@ impl Vmm {
             },
             Box::new(LapicDevice::new(lapic.clone())),
         )?;
+
+        // Intel EPT must reflect the actual fixed device windows and live BARs,
+        // after device construction and before creating any native CPU.
+        #[cfg(all(feature = "hvf", target_os = "macos", target_arch = "x86_64"))]
+        if matches!(config.backend, BackendKind::Hvf) {
+            let hvf_vm = vm
+                .as_any()
+                .downcast_ref::<crate::backend::hvf::HvfVm>()
+                .ok_or_else(|| Error::InvalidConfig("expected HVF VM".into()))?;
+            hvf_vm.register_memory_with_mmio(&guest_mem, &mmio_bus.ranges(), pci_bridge.clone())?;
+            mmio_bus.set_ram_fallback(Arc::new(guest_mem.memory().clone()), guest_mem.size());
+        }
 
         // Load kernel — skipped when resuming (the kernel is already present in
         // the RAM image restored from the checkpoint).
@@ -1097,6 +1101,10 @@ mod execution;
 #[cfg(test)]
 #[path = "runtime/mmio_rmw_tests.rs"]
 mod mmio_rmw_tests;
+
+#[cfg(test)]
+#[path = "runtime/native_mmio_tests.rs"]
+mod native_mmio_tests;
 
 #[cfg(test)]
 mod aarch64_cluster_tests;

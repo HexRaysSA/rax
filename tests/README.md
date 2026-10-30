@@ -91,6 +91,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `hvf_port_io` | `suites/backend/hvf_port_io.rs` |
 | `hvf_guest_translation` | `suites/backend/hvf_guest_translation.rs` |
 | `hvf_mmio` | `suites/backend/hvf_mmio.rs` |
+| `hvf_memory` | `suites/backend/hvf_memory.rs` |
 | `controller_irq` | `suites/backend/controller_irq.rs` |
 | `hvf_controls` | `suites/backend/hvf_controls.rs` |
 | `nvme_prp` | `suites/devices/nvme_prp.rs` |

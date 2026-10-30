@@ -172,6 +172,7 @@ jobs:
             --test hvf_port_io \
             --test hvf_guest_translation \
             --test hvf_mmio \
+            --test hvf_memory \
             --test controller_irq \
             --test hvf_controls \
             --test nvme_prp \

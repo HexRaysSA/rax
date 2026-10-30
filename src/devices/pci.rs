@@ -405,6 +405,50 @@ impl PciStub {
         if hi > lo { Some((lo, hi)) } else { None }
     }
 
+    /// Exact live memory BAR windows; intervening RAM must remain ordinary RAM.
+    pub fn mmio_ranges(&self) -> Vec<super::bus::MmioRange> {
+        self.endpoints
+            .iter()
+            .filter(|ep| !ep.io && ep.current_base != 0)
+            .map(|ep| super::bus::MmioRange {
+                base: ep.current_base,
+                len: ep.bar_size,
+            })
+            .collect()
+    }
+
+    /// Keep one endpoint lock across the complete scalar transaction.
+    pub fn mmio_read_modify_write(
+        &mut self,
+        addr: u64,
+        size: u8,
+        operation: super::bus::MmioRmwOp,
+    ) -> crate::error::Result<Option<Vec<u8>>> {
+        operation.validate(size)?;
+        let end = addr
+            .checked_add(u64::from(size))
+            .ok_or_else(|| crate::error::Error::InvalidConfig("PCI RMW extent wraps".into()))?;
+        for ep in &mut self.endpoints {
+            if ep.io || ep.current_base == 0 {
+                continue;
+            }
+            let limit = ep.current_base + ep.bar_size;
+            if addr >= ep.current_base && addr < limit {
+                if end > limit {
+                    return Err(crate::error::Error::InvalidConfig(
+                        "PCI RMW crosses BAR boundary".into(),
+                    ));
+                }
+                if let PciHandler::Mmio(handler) = &mut ep.handler {
+                    return handler
+                        .read_modify_write(addr - ep.current_base, size, operation)
+                        .map(Some);
+                }
+            }
+        }
+        Ok(None)
+    }
+
     /// Route an MMIO read to the endpoint whose memory BAR covers `addr`.
     /// Returns true (and fills `data`) when handled.
     pub fn mmio_read(&mut self, addr: u64, data: &mut [u8]) -> bool {

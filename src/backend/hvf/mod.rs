@@ -24,7 +24,11 @@ mod guest_translation;
 #[cfg(target_arch = "x86_64")]
 mod interrupt_shadow;
 #[cfg(target_arch = "x86_64")]
+mod memory_layout;
+#[cfg(target_arch = "x86_64")]
 mod mmio;
+#[cfg(target_arch = "x86_64")]
+mod native_memory;
 #[cfg(target_arch = "x86_64")]
 mod port_io;
 pub mod rosetta;
@@ -52,7 +56,7 @@ use std::sync::{Arc, Mutex};
 #[cfg(target_arch = "x86_64")]
 use tracing::{debug, info, warn};
 #[cfg(target_arch = "x86_64")]
-use vm_memory::{Address, Bytes, GuestAddress, GuestMemory, GuestMemoryMmap, GuestMemoryRegion};
+use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 #[cfg(target_arch = "x86_64")]
 use crate::error::{Error, Result};
@@ -115,7 +119,7 @@ impl Backend for HvfBackend {
         Ok(Box::new(HvfVm {
             cpuid_config: self.cpuid_config.clone(),
             pending_irqs: Mutex::new(Vec::new()),
-            memory_mapped: Mutex::new(false),
+            memory_layout: native_memory::Shared::default(),
         }))
     }
 }
@@ -134,44 +138,25 @@ pub struct HvfVm {
     cpuid_config: CpuidConfig,
     /// Pending IRQs to inject
     pending_irqs: Mutex<Vec<u32>>,
-    /// Whether memory has been mapped
-    memory_mapped: Mutex<bool>,
+    /// Native page ownership shared by every CPU, retaining host backing.
+    memory_layout: native_memory::Shared,
 }
 
 #[cfg(target_arch = "x86_64")]
 impl HvfVm {
     /// Register guest memory with the VM.
     pub fn register_memory(&self, mem: &GuestMemoryWrapper) -> Result<()> {
-        let mut mapped = self.memory_mapped.lock().unwrap();
-        if *mapped {
-            return Ok(());
-        }
+        self.register_memory_with_mmio(mem, &[], None)
+    }
 
-        for region in mem.memory().iter() {
-            let guest_addr = region.start_addr().0;
-            let size = region.len() as usize;
-            let host_addr = region.as_ptr() as *mut std::ffi::c_void;
-
-            debug!(
-                guest_addr = format!("{:#x}", guest_addr),
-                size = size,
-                "Mapping guest memory region"
-            );
-
-            let flags = HV_MEMORY_READ | HV_MEMORY_WRITE | HV_MEMORY_EXEC;
-            let ret = unsafe { hv_vm_map(host_addr, guest_addr, size, flags) };
-            if ret != HV_SUCCESS {
-                return Err(Error::Emulator(format!(
-                    "Failed to map memory at {:#x}: {}",
-                    guest_addr,
-                    hv_error_string(ret)
-                )));
-            }
-        }
-
-        *mapped = true;
-        info!("Mapped guest memory to HVF VM");
-        Ok(())
+    /// Map reported RAM excluding fixed device pages and the exact live BARs.
+    pub fn register_memory_with_mmio(
+        &self,
+        mem: &GuestMemoryWrapper,
+        holes: &[crate::devices::bus::MmioRange],
+        pci: Option<Arc<Mutex<crate::devices::pci::PciStub>>>,
+    ) -> Result<()> {
+        native_memory::register(&self.memory_layout, mem, holes, pci)
     }
 }
 
@@ -192,7 +177,13 @@ impl Vm for HvfVm {
         debug!(id, vcpu_id, "Created HVF vCPU");
 
         // Initialize vCPU state
-        let vcpu = HvfVcpu::new(vcpu_id, id, mem, self.cpuid_config.clone())?;
+        let vcpu = HvfVcpu::new(
+            vcpu_id,
+            id,
+            mem,
+            self.cpuid_config.clone(),
+            self.memory_layout.clone(),
+        )?;
 
         Ok(Box::new(vcpu))
     }
@@ -231,6 +222,7 @@ pub struct HvfVcpu {
     id: u32,
     /// Guest memory reference
     mem: Arc<GuestMemoryMmap>,
+    memory_layout: native_memory::Shared,
     /// CPUID configuration
     cpuid_config: CpuidConfig,
     /// Scalar input request and terminal completion failure.
@@ -252,11 +244,13 @@ impl HvfVcpu {
         id: u32,
         mem: Arc<GuestMemoryMmap>,
         cpuid_config: CpuidConfig,
+        memory_layout: native_memory::Shared,
     ) -> Result<Self> {
         let vcpu = HvfVcpu {
             vcpu_id,
             id,
             mem,
+            memory_layout,
             cpuid_config,
             port_input: port_io::InputState::default(),
             mmio_input: mmio::InputState::default(),
@@ -662,16 +656,22 @@ impl HvfVcpu {
         use hv_vmx_vmcs_field_t::*;
         struct Memory<'a> {
             ram: &'a GuestMemoryMmap,
+            layout: &'a memory_layout::Layout,
         }
         impl guest_translation::PhysicalMemory for Memory<'_> {
             fn contains_ram(&self, address: u64, size: usize) -> bool {
-                self.ram.check_range(GuestAddress(address), size)
+                self.layout.contains_mapped(address, size)
             }
             fn read_physical(
                 &mut self,
                 address: u64,
                 bytes: &mut [u8],
             ) -> std::result::Result<(), String> {
+                if !self.layout.contains_logical(address, bytes.len()) {
+                    return Err(format!(
+                        "HVF instruction/page-table inspection is outside logical RAM at {address:#x}"
+                    ));
+                }
                 self.ram
                     .read_slice(bytes, GuestAddress(address))
                     .map_err(|error| {
@@ -739,7 +739,23 @@ impl HvfVcpu {
             physical: vmcs_read(id, VMCS_GUEST_PHYSICAL_ADDRESS)?,
             vectoring_information: vmcs_read(id, VMCS_IDT_VECTORING_INFO)?,
         };
-        mmio::prepare(&context, &mut Memory { ram: &self.mem }, record).map_err(Error::Emulator)
+        let guard = self
+            .memory_layout
+            .read()
+            .map_err(|_| Error::Emulator("HVF memory layout lock poisoned".into()))?;
+        let memory = guard
+            .as_ref()
+            .ok_or_else(|| Error::InvalidConfig("HVF guest RAM is not registered".into()))?;
+        memory.mapping.ready().map_err(Error::Emulator)?;
+        mmio::prepare(
+            &context,
+            &mut Memory {
+                ram: &self.mem,
+                layout: &memory.mapping.layout,
+            },
+            record,
+        )
+        .map_err(Error::Emulator)
     }
 
     fn event_access(&self) -> EventAccess<'_> {
@@ -807,6 +823,7 @@ impl run_loop::ExitHandler for HvfVcpu {
     type Error = Error;
     fn prepare(&mut self) -> Result<Option<VcpuExit>> {
         self.io_ready()?;
+        native_memory::validate_cpu_backing(&self.memory_layout, &self.mem)?;
         // Only successful event injection or explicit wake clears the halt.
         if self.halted {
             return Ok(Some(VcpuExit::Hlt));
@@ -816,7 +833,7 @@ impl run_loop::ExitHandler for HvfVcpu {
     }
     fn next_reason(&mut self) -> Result<u32> {
         // Run the vCPU
-        let ret = unsafe { hv_vcpu_run(self.vcpu_id) };
+        let ret = native_memory::enter(&self.memory_layout, self.vcpu_id)?;
         if ret != HV_SUCCESS {
             return Err(Error::Emulator(format!(
                 "hv_vcpu_run failed: {}",

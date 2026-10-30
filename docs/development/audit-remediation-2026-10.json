@@ -3925,7 +3925,23 @@
         "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/validation-v1/native-arm/manifest.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/native-mac-availability-v3.json",
         "docs/development/hvf-mmio-alu-read.md",
-        "docs/development/hvf-mmio-alu-read-qualification.json"
+        "docs/development/hvf-mmio-alu-read-qualification.json",
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        "src/backend/hvf/memory_layout.rs",
+        "src/backend/hvf/native_memory.rs",
+        "src/devices/bus.rs",
+        "src/devices/bus/fallback.rs",
+        "src/devices/bus/native_fallback_tests.rs",
+        "src/devices/pci.rs",
+        "src/vm/memory/reservations.rs",
+        "src/vm/runtime/native_mmio_tests.rs",
+        "tests/README.md",
+        "tests/suites/backend/hvf_memory.rs",
+        "tests/suites/backend/hvf_memory/native_adapter.rs",
+        "docs/development/hvf-memory-layout.md",
+        "docs/development/hvf-memory-layout-qualification.json",
+        "docs/development/audit-remediation-2026-10.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -3939,13 +3955,15 @@
         "SDK TPR/software LAPIC/IRQ graph coherence",
         "HLT retirement and exception-information-source behavior",
         "Native Intel VMX event and VM/guest runtime validation",
-        "Scalar ADD/ADC/SUB/SBB/AND/OR/XOR register-result and CMP/TEST MMIO reads locally qualified with 65 tests, 5768 independent QEMU instruction records and Intel-target compile checks. Effective Intel RAM/device-hole mapping remains a source-derived candidate requiring geometry/SDK repair and hardware validation. All original remaining C-HVF profiles and physical Intel requirements remain open."
+        "Scalar ADD/ADC/SUB/SBB/AND/OR/XOR register-result and CMP/TEST MMIO reads locally qualified with 65 tests, 5768 independent QEMU instruction records and Intel-target compile checks. Native RAM/device-hole mapping and PCI/collateral RAM routing are separately locally qualified by the memory-layout group; physical Intel SDK/device validation remains open. All original remaining C-HVF profiles and physical Intel requirements remain open.",
+        "Native mapping/routing group: 136 selected tests and Intel-target compilation; physical Intel failure/runtime proof, collateral instruction/page-table fetch, mixed-page operands, E820/resource consistency, remaining controller/private state and complete native scheduling remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
         "software-vmm-coordinator-startup-fault-retirement",
         "native-arm64-hvf-pending-mmio-transaction",
-        "hvf-scalar-mmio-read-alu"
+        "hvf-scalar-mmio-read-alu",
+        "hvf-native-memory-layout-and-pci-routing"
       ]
     },
     {
@@ -196848,7 +196866,7 @@
     },
     {
       "id": "hvf-scalar-mmio-read-alu-2026-10-30",
-      "status": "locally_validated",
+      "status": "committed",
       "parent": "60958bef962d3f93641a12943cbade6d4c05c3b0",
       "scope": "Scalar integer register-result and flags-only MMIO reads through ADD/ADC/SUB/SBB/AND/OR/XOR/CMP/TEST; original full four-finding goal remains open",
       "owned_paths": [
@@ -196897,6 +196915,89 @@
         "Effective native mapping, full remaining MMIO/debug/exception/IRQ/intercept profiles, private checkpoint state and recovery remain open."
       ],
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/alu-read-v1/commit-receipt.json",
+      "workflow": "git add exact owned paths, then red -m --staged --run same exact paths; commits explicitly authorized",
+      "commit": "755cadf883b233b5f6b9ad56561d15df1696460f"
+    },
+    {
+      "id": "hvf-native-memory-layout-and-pci-routing-2026-10-30",
+      "status": "locally_validated",
+      "parent": "755cadf883b233b5f6b9ad56561d15df1696460f",
+      "scope": "Reported RAM and fixed/live PCI device-hole mapping, serialized native map publication/entry and hardware-exit PCI/collateral RAM dispatch; original full four-finding goal remains open",
+      "owned_paths": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        "Cargo.toml",
+        "src/backend/hvf/mod.rs",
+        "src/backend/hvf/memory_layout.rs",
+        "src/backend/hvf/native_memory.rs",
+        "src/devices/bus.rs",
+        "src/devices/bus/fallback.rs",
+        "src/devices/bus/native_fallback_tests.rs",
+        "src/devices/pci.rs",
+        "src/vm/memory/reservations.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/native_mmio_tests.rs",
+        "tests/README.md",
+        "tests/suites/backend/hvf_memory.rs",
+        "tests/suites/backend/hvf_memory/native_adapter.rs",
+        "docs/development/hvf-memory-layout.md",
+        "docs/development/hvf-memory-layout-qualification.json",
+        "tools/hvf/README.md",
+        "docs/development/audit-remediation-2026-10.json"
+      ],
+      "qualification": "docs/development/hvf-memory-layout-qualification.json",
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/memory-layout-v1/final-source.json",
+      "assumption_register": [
+        {
+          "id": "M1",
+          "assumption": "Reported size, excluding padding, defines the native RAM limit",
+          "basis": "Current GuestMemoryWrapper size/actual_size contract",
+          "dependent_result": "Native mappings, logical inspection and collateral RAM fallback",
+          "stress_test": "zero, 4 KiB, 128 MiB, 4/8/64 GiB plans; exact SDK pointer/extent arguments; RAM/padding boundary writes",
+          "falsification_probe": "A native map exceeds reported size or padding is serviced as RAM",
+          "status": "locally verified for planner, adapter and runtime dispatch"
+        },
+        {
+          "id": "M2",
+          "assumption": "VMM device/configuration servicing is serialized between CPU turns",
+          "basis": "Current execution coordinator and exit servicing; external bridge mutation during native entry is outside this contract",
+          "dependent_result": "BAR snapshot, native mapping and MMIO dispatch refer to a consistent serviced configuration",
+          "stress_test": "Guest port relocation, decode disable/probe, real bundle restore, native shared-entry/exclusive-update guard",
+          "falsification_probe": "Concurrent bridge mutation can occur inside the current VMM service/entry path or a remap proceeds while entry holds its guard",
+          "status": "source and simulated-entry verified; physical Intel scheduling remains unverified"
+        },
+        {
+          "id": "M3",
+          "assumption": "Intel HVF uses 4096-byte native pages",
+          "basis": "Intel policy; SDK requires page-aligned host/GPA arguments; native Intel execution not available",
+          "dependent_result": "Page-rounded exclusions and collateral RAM dispatch",
+          "stress_test": "Subpage, overlapping and boundary-aligned holes; independent small-layout transition checks",
+          "falsification_probe": "Physical Intel SDK rejects these alignments/lengths or page mappings differ",
+          "status": "policy/adapter verified; physical SDK qualification pending"
+        },
+        {
+          "id": "M4",
+          "assumption": "An unsuccessful production map/unmap may have partial effects",
+          "basis": "Installed SDK does not establish failure atomicity",
+          "dependent_result": "Every production map/unmap error permanently prohibits guest entry; backing remains retained",
+          "stress_test": "Each portable publication stage, failed inverse calls, initial/live SDK adapter error, repeated admission failure before any SDK call",
+          "falsification_probe": "Any poisoned CPU re-enters the SDK, backing disappears with a possible alias, or pure rejected admission turns a retry into success",
+          "status": "conservative terminal behavior verified with substituted SDK; physical failure injection pending"
+        }
+      ],
+      "selected_tests_passed": 136,
+      "pending_gates": [
+        "A32-FP remaining selected profile controls and instruction admission",
+        "C-STATE complete backend/private/in-flight state and coordinated restoration",
+        "C-SMP complete actual multi-CPU execution/startup/scheduling/debug/clocks/replay",
+        "C-HVF remaining MMIO/intercept/IRQ profiles and physical Intel validation",
+        "Physical Intel native execution and failure semantics unverified",
+        "Instruction/page-table fetch from collateral unmapped pages and mixed cross-page operands need execution/translation profiles beyond scalar data exits",
+        "PC E820 and relocated BAR resource consistency for large RAM remains independently unqualified",
+        "Full private/in-flight Intel checkpoint, IRQ/TPR/LAPIC coherence, bounded native multi-CPU execution and remaining instruction profiles remain open",
+        "External concurrent bridge mutation is outside the current VMM serialized service contract"
+      ],
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/memory-layout-v1/commit-receipt.json",
       "workflow": "git add exact owned paths, then red -m --staged --run same exact paths; commits explicitly authorized"
     }
   ],

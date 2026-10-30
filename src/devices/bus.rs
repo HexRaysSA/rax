@@ -1,5 +1,6 @@
 use crate::error::{Error, Result};
 
+mod fallback;
 mod rmw;
 pub use rmw::MmioRmwOp;
 
@@ -209,13 +210,38 @@ impl MmioRange {
 
 pub struct MmioBus {
     devices: Vec<(MmioRange, Box<dyn MmioDevice>)>,
+    fallback: fallback::Fallback,
 }
 
 impl MmioBus {
     pub fn new() -> Self {
         MmioBus {
             devices: Vec::new(),
+            fallback: fallback::Fallback::default(),
         }
+    }
+
+    /// Fixed device windows. Native backends must exclude their complete pages.
+    pub fn ranges(&self) -> Vec<MmioRange> {
+        self.devices.iter().map(|(range, _)| *range).collect()
+    }
+
+    /// Route unclaimed native MMIO exits through live PCI BAR decode.
+    pub fn set_pci(
+        &mut self,
+        bridge: std::sync::Arc<std::sync::Mutex<crate::devices::pci::PciStub>>,
+    ) {
+        self.fallback.pci = Some(bridge);
+    }
+
+    /// Service ordinary RAM bytes trapped because a device shares their native
+    /// page. Padding remains open bus. Only the native Intel backend needs this.
+    pub(crate) fn set_ram_fallback(
+        &mut self,
+        memory: std::sync::Arc<vm_memory::GuestMemoryMmap>,
+        reported: u64,
+    ) {
+        self.fallback.ram = Some((memory, reported));
     }
 
     pub fn register(&mut self, range: MmioRange, dev: Box<dyn MmioDevice>) -> Result<()> {
@@ -243,7 +269,7 @@ impl MmioBus {
     /// Keep one callback for each contiguous portion owned by one device.
     /// Splitting a register-sized transaction into byte writes changes device
     /// semantics; holes and mapping boundaries are the only bus split points.
-    fn transaction_chunk(&self, addr: u64, remaining: usize) -> (Option<usize>, usize) {
+    fn transaction_chunk(&self, addr: u64, remaining: usize) -> Result<(Option<usize>, usize)> {
         if let Some(index) = self
             .devices
             .iter()
@@ -251,7 +277,7 @@ impl MmioBus {
         {
             let range = self.devices[index].0;
             let available = range.base.saturating_add(range.len) - addr;
-            return (Some(index), available.min(remaining as u64) as usize);
+            return Ok((Some(index), available.min(remaining as u64) as usize));
         }
         let next = self
             .devices
@@ -262,7 +288,7 @@ impl MmioBus {
         let count = next.map_or(remaining, |base| {
             (base - addr).min(remaining as u64) as usize
         });
-        (None, count)
+        Ok((None, self.fallback.chunk(addr, count)?))
     }
 
     pub fn read(&mut self, addr: u64, data: &mut [u8]) -> Result<()> {
@@ -270,11 +296,11 @@ impl MmioBus {
         let mut offset = 0;
         while offset < data.len() {
             let current = addr + offset as u64;
-            let (device, count) = self.transaction_chunk(current, data.len() - offset);
+            let (device, count) = self.transaction_chunk(current, data.len() - offset)?;
             let part = &mut data[offset..offset + count];
             match device {
                 Some(index) => self.devices[index].1.read(current, part),
-                None => part.fill(0xff),
+                None => self.fallback.read(current, part)?,
             }
             offset += count;
         }
@@ -286,11 +312,14 @@ impl MmioBus {
         let mut offset = 0;
         while offset < data.len() {
             let current = addr + offset as u64;
-            let (device, count) = self.transaction_chunk(current, data.len() - offset);
+            let (device, count) = self.transaction_chunk(current, data.len() - offset)?;
             if let Some(index) = device {
                 self.devices[index]
                     .1
                     .write(current, &data[offset..offset + count]);
+            } else {
+                self.fallback
+                    .write(current, &data[offset..offset + count])?;
             }
             offset += count;
         }
@@ -308,7 +337,7 @@ impl MmioBus {
     ) -> Result<Vec<u8>> {
         operation.validate(size)?;
         Self::validate_extent(addr, usize::from(size))?;
-        let (device, count) = self.transaction_chunk(addr, usize::from(size));
+        let (device, count) = self.transaction_chunk(addr, usize::from(size))?;
         if count != usize::from(size) {
             return Err(Error::InvalidConfig(
                 "MMIO RMW crosses device mappings".into(),
@@ -318,7 +347,7 @@ impl MmioBus {
             Some(index) => self.devices[index]
                 .1
                 .read_modify_write(addr, size, operation),
-            None => Ok(vec![0xff; usize::from(size)]),
+            None => self.fallback.rmw(addr, size, operation),
         }
     }
 }
@@ -452,3 +481,6 @@ mod tests {
 #[cfg(test)]
 #[path = "bus/mmio_transactions.rs"]
 mod mmio_transactions;
+
+#[cfg(test)]
+mod native_fallback_tests;

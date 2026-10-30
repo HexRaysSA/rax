@@ -1,0 +1,448 @@
+{
+  "schema": 1,
+  "group": "hvf-native-memory-layout-and-pci-routing-2026-10-30",
+  "parent": "755cadf883b233b5f6b9ad56561d15df1696460f",
+  "status": "locally_validated; full four-finding goal remains open",
+  "utc": "2026-10-30T12:41:27.612505+00:00",
+  "owned_paths": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/full-suite.yml",
+    "Cargo.toml",
+    "src/backend/hvf/mod.rs",
+    "src/backend/hvf/memory_layout.rs",
+    "src/backend/hvf/native_memory.rs",
+    "src/devices/bus.rs",
+    "src/devices/bus/fallback.rs",
+    "src/devices/bus/native_fallback_tests.rs",
+    "src/devices/pci.rs",
+    "src/vm/memory/reservations.rs",
+    "src/vm/runtime.rs",
+    "src/vm/runtime/native_mmio_tests.rs",
+    "tests/README.md",
+    "tests/suites/backend/hvf_memory.rs",
+    "tests/suites/backend/hvf_memory/native_adapter.rs",
+    "docs/development/hvf-memory-layout.md",
+    "docs/development/hvf-memory-layout-qualification.json",
+    "tools/hvf/README.md",
+    "docs/development/audit-remediation-2026-10.json"
+  ],
+  "source_sha256": {
+    ".github/workflows/ci.yml": "8361b2dc33006bb950942ee276b8fe424962166bf05110a3b33714f493130ec1",
+    ".github/workflows/full-suite.yml": "133f646a25c7ec01b146eedd0541f0bfd219e9613c3a8d95018cc28e8996fe8a",
+    "Cargo.toml": "e39f1a34c907c15b31db5fca66a612e99f623cdb080455c9da58066f61574f27",
+    "src/backend/hvf/mod.rs": "0acde768ed52ef417f76c7311fcea63ed1f393a6499958b6b8ed57e65281c173",
+    "src/backend/hvf/memory_layout.rs": "221264edf52c9b5593cc9893e918bd6fa081fa073ded2cc3289974c31828a7a5",
+    "src/backend/hvf/native_memory.rs": "f6a0216e9cc1a7a0c5a6ab0c02477208893071f30ce54740f7613e5228ae9dc6",
+    "src/devices/bus.rs": "36eaede7310101637e3b1e143ef5139a805469397f0e98126bb5d7211a595190",
+    "src/devices/bus/fallback.rs": "5359b55b8f3a1ac361f2621bfbd0b0fc293c8999e5cd8117f9c51bde04c85de3",
+    "src/devices/bus/native_fallback_tests.rs": "bb12739614098aa641ad595748f39f6a07c62e05d2bbcd2b4303956c1a404172",
+    "src/devices/pci.rs": "0aecf864021337376ca506b219e8883b3a10568f56934551ba51b81930c19f8a",
+    "src/vm/memory/reservations.rs": "5d123b25fec9565e0a290b6e2b8cec8a4107d0099bbd0871a3fcf0e174f1742e",
+    "src/vm/runtime.rs": "1765ed92e3f4cf06f1477b075e33a9da0020fc2b065504f26b01a3cca29840ad",
+    "src/vm/runtime/native_mmio_tests.rs": "a78f0de2b69016db284de6512dd6de4d3ff5dd28113d4a76422940c37c3fefaf",
+    "tests/README.md": "240ce285c1b25537f7f7c750872986e5309739c7b5480e41a5eabff826aeb60e",
+    "tests/suites/backend/hvf_memory.rs": "f9fcca16dc462ffda165aa68b6a7b2447aac66b2621b330436db49f780cdeafa",
+    "tests/suites/backend/hvf_memory/native_adapter.rs": "e41353097c409d1261d5ffb266eefc8f23887442e5f65644e25ef7a93810a8dc",
+    "docs/development/hvf-memory-layout.md": "afa5d56840bdd9d4490ef123faf9a491152465d09e25748b7eaec3995f2e32ff",
+    "tools/hvf/README.md": "8891e04591665b0d6bc82da3b1287e9826d6d8569f80e1816d9edb6d7dd35f30"
+  },
+  "evidence_directory": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/memory-layout-v1",
+  "baseline": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/memory-layout-v1/baseline.json",
+    "result": "One actual VMM regression failed: direct e1000 STATUS read produced 03000000 while native-exit MMIO bus produced ffffffff",
+    "initial_fixture_error": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/memory-layout-v1/baseline-fixture-error.json",
+    "mapping_bug_evidence": "Source-derived: prior Intel registration mapped full padded region; inspection classified allocated backing as RAM. No physical Intel baseline execution claimed."
+  },
+  "validation": {
+    "selected_tests": {
+      "tests": [
+        {
+          "name": "memory-tests-v4",
+          "passed": 14,
+          "counts": [
+            14
+          ]
+        },
+        {
+          "name": "library-final-0",
+          "passed": 18,
+          "counts": [
+            18
+          ]
+        },
+        {
+          "name": "library-final-1",
+          "passed": 2,
+          "counts": [
+            2
+          ]
+        },
+        {
+          "name": "library-final-2",
+          "passed": 9,
+          "counts": [
+            9
+          ]
+        },
+        {
+          "name": "library-final-3",
+          "passed": 11,
+          "counts": [
+            11
+          ]
+        },
+        {
+          "name": "library-final-4",
+          "passed": 3,
+          "counts": [
+            3
+          ]
+        },
+        {
+          "name": "library-final-5",
+          "passed": 2,
+          "counts": [
+            2
+          ]
+        },
+        {
+          "name": "adjacent-mmio-tests",
+          "passed": 65,
+          "counts": [
+            6,
+            7,
+            6,
+            37,
+            8,
+            1
+          ]
+        },
+        {
+          "name": "ci-tooling",
+          "passed": 12,
+          "counts": [
+            12
+          ]
+        }
+      ],
+      "total": 136
+    },
+    "command_receipts": {
+      "memory-tests-v4": {
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf",
+          "--test",
+          "hvf_memory",
+          "--",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 0.89363779197447
+      },
+      "library-final-0": {
+        "argv": [
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+          "devices::bus::",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 0.031896250031422824
+      },
+      "library-final-1": {
+        "argv": [
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+          "vm::runtime::native_mmio_tests::",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 34.072696749994066
+      },
+      "library-final-2": {
+        "argv": [
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+          "vm::memory::reservations::",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 0.020708750002086163
+      },
+      "library-final-3": {
+        "argv": [
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+          "devices::pci::",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 0.01914499996928498
+      },
+      "library-final-4": {
+        "argv": [
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+          "vm::runtime::mmio_rmw_tests::",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 38.4025422919658
+      },
+      "library-final-5": {
+        "argv": [
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+          "vm::runtime::pci_state::checkpoint_commit_tests::",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 0.022564541024621576
+      },
+      "adjacent-mmio-tests": {
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf",
+          "--test",
+          "hvf_mmio",
+          "--test",
+          "hvf_guest_translation",
+          "--test",
+          "hvf_event_injection",
+          "--test",
+          "hvf_interrupt_shadow",
+          "--test",
+          "hvf_port_io",
+          "--test",
+          "hvf_sdk_abi",
+          "--",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.717286416038405
+      },
+      "ci-tooling": {
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf",
+          "--test",
+          "ci_actions_pinned",
+          "--",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 55.80298049998237
+      },
+      "intel-target-check-v4": {
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf",
+          "--target",
+          "x86_64-apple-darwin",
+          "--lib"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 28.783729334012605
+      },
+      "workspace-check-final": {
+        "argv": [
+          "cargo",
+          "check",
+          "--workspace",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf",
+          "--lib"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 24.65095629199641
+      },
+      "clippy-v4": {
+        "argv": [
+          "cargo",
+          "clippy",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf",
+          "--lib",
+          "--test",
+          "hvf_memory"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 0.4429522920399904
+      },
+      "format-check-v4": {
+        "argv": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--check"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 13.97474004101241
+      }
+    },
+    "workflow_registry": {
+      "cargo_registry": "passed; exactly one existing hvf_memory test target",
+      "tests_readme": "passed",
+      "workflow_yaml": {
+        "argv": [
+          "ruby",
+          "-e",
+          "require \"yaml\"; ARGV.each { |path| raise \"empty YAML\" unless YAML.parse_file(path) }; puts \"Both YAML documents parsed\"",
+          "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/.github/workflows/ci.yml",
+          "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/.github/workflows/full-suite.yml"
+        ],
+        "exit_code": 0,
+        "stdout": "Both YAML documents parsed\n",
+        "stderr": ""
+      },
+      "initial_parser_unavailable": "Python PyYAML absent; no package installed; used Ruby standard-library YAML parser",
+      "ci_command_scope": "new test target in backend regression lane and scheduled backend-devices shard; actual remote CI not run"
+    },
+    "native_sdk_scope": "Actual product native mapping adapter executed with substituted SDK; no guest instruction execution",
+    "physical_intel": "not executed; discovery receipt does not establish CPU architecture or hardware access",
+    "all_target_or_other_platform_gates": "not run for this component; no broad whole-project success claim"
+  },
+  "primary_source": {
+    "path": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv.h",
+    "sha256": "98387bf589442a8b8cd7416588e73d2e16a64c0e5036afcbbb08cb5772f41985",
+    "sections": "hv_vm_map, hv_vm_unmap declarations and comments, lines72-95",
+    "confirmed": [
+      "GPA and host address must be page aligned",
+      "size is bytes",
+      "zero success, error code otherwise"
+    ],
+    "unknown": [
+      "SDK unsuccessful map/unmap partial-effect guarantee",
+      "physical Intel behavior for this patch"
+    ],
+    "decision": "Any production SDK map/unmap error poisons memory admission, even if recorded rollback inverses succeed."
+  },
+  "environment": {
+    "uname": {
+      "system": "Darwin",
+      "node": "ints-MacBook-Pro.local",
+      "release": "27.2.0",
+      "version": "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+      "machine": "arm64",
+      "processor": "arm"
+    },
+    "macos": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+    "environment": {
+      "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+      "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+      "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+      "CARGO_BUILD_JOBS": "1",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_NET_OFFLINE": "true",
+      "RUSTC_WRAPPER": "",
+      "RUSTC_WORKSPACE_WRAPPER": "",
+      "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp"
+    },
+    "additional_environment": {
+      "RUSTFLAGS": null,
+      "CARGO_ENCODED_RUSTFLAGS": null,
+      "RAX_NO_JIT": null
+    },
+    "profile_override": {
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    },
+    "instruction_evidence": "No new guest instruction oracle or native Intel execution in this mapping component; simulated SDK and real VMM/device dispatch are separate evidence classes."
+  },
+  "assumption_register": [
+    {
+      "id": "M1",
+      "assumption": "Reported size, excluding padding, defines the native RAM limit",
+      "basis": "Current GuestMemoryWrapper size/actual_size contract",
+      "dependent_result": "Native mappings, logical inspection and collateral RAM fallback",
+      "stress_test": "zero, 4 KiB, 128 MiB, 4/8/64 GiB plans; exact SDK pointer/extent arguments; RAM/padding boundary writes",
+      "falsification_probe": "A native map exceeds reported size or padding is serviced as RAM",
+      "status": "locally verified for planner, adapter and runtime dispatch"
+    },
+    {
+      "id": "M2",
+      "assumption": "VMM device/configuration servicing is serialized between CPU turns",
+      "basis": "Current execution coordinator and exit servicing; external bridge mutation during native entry is outside this contract",
+      "dependent_result": "BAR snapshot, native mapping and MMIO dispatch refer to a consistent serviced configuration",
+      "stress_test": "Guest port relocation, decode disable/probe, real bundle restore, native shared-entry/exclusive-update guard",
+      "falsification_probe": "Concurrent bridge mutation can occur inside the current VMM service/entry path or a remap proceeds while entry holds its guard",
+      "status": "source and simulated-entry verified; physical Intel scheduling remains unverified"
+    },
+    {
+      "id": "M3",
+      "assumption": "Intel HVF uses 4096-byte native pages",
+      "basis": "Intel policy; SDK requires page-aligned host/GPA arguments; native Intel execution not available",
+      "dependent_result": "Page-rounded exclusions and collateral RAM dispatch",
+      "stress_test": "Subpage, overlapping and boundary-aligned holes; independent small-layout transition checks",
+      "falsification_probe": "Physical Intel SDK rejects these alignments/lengths or page mappings differ",
+      "status": "policy/adapter verified; physical SDK qualification pending"
+    },
+    {
+      "id": "M4",
+      "assumption": "An unsuccessful production map/unmap may have partial effects",
+      "basis": "Installed SDK does not establish failure atomicity",
+      "dependent_result": "Every production map/unmap error permanently prohibits guest entry; backing remains retained",
+      "stress_test": "Each portable publication stage, failed inverse calls, initial/live SDK adapter error, repeated admission failure before any SDK call",
+      "falsification_probe": "Any poisoned CPU re-enters the SDK, backing disappears with a possible alias, or pure rejected admission turns a retry into success",
+      "status": "conservative terminal behavior verified with substituted SDK; physical failure injection pending"
+    }
+  ],
+  "change_surface_map": {
+    "direct_isa_smir_native_lowering": "Unchanged. This component changes memory publication, exit classification and device routing, not instruction arithmetic. Existing MMIO instruction tests rerun.",
+    "backend": "Intel native map owner, backing lifetime/identity, transactional map publication, entry exclusion and EPT inspection",
+    "machine_device": "Actual fixed-device windows, exact active PCI BARs, native-exit fallback dispatch; shared RAM RMW domain",
+    "checkpoint": "Derived native layout follows restored live PCI decode; real full VMM bundle restore regression. No checkpoint wire-format or complete Intel private-state claim.",
+    "ci_tooling": "Cargo registry, test index, push backend lane and scheduled backend-devices shard",
+    "public_compatibility": "No public exit or checkpoint format changes. Existing Intel CPU-before-registration construction order retained; entry requires admitted matching backing."
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Physical Intel native execution and failure semantics unverified",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Instruction/page-table fetch from collateral unmapped pages and mixed cross-page operands need execution/translation profiles beyond scalar data exits",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "PC E820 and relocated BAR resource consistency for large RAM remains independently unqualified",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Full private/in-flight Intel checkpoint, IRQ/TPR/LAPIC coherence, bounded native multi-CPU execution and remaining instruction profiles remain open",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "External concurrent bridge mutation is outside the current VMM serialized service contract",
+      "blocks_full_goal": "must be addressed when extending that contract"
+    }
+  ],
+  "full_objective_remaining": [
+    "A32-FP remaining selected profile controls and instruction admission",
+    "C-STATE complete backend/private/in-flight state and coordinated restoration",
+    "C-SMP complete actual multi-CPU execution/startup/scheduling/debug/clocks/replay",
+    "C-HVF remaining MMIO/intercept/IRQ profiles and physical Intel validation"
+  ],
+  "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/memory-layout-v1/commit-receipt.json",
+  "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/memory-layout-v1/cleanup.json"
+}

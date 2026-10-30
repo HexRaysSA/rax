@@ -277,8 +277,14 @@ checkpoint format; the existing checkpoint schema is not extended here.
 
 ## Decoded scalar MMIO
 
+[Native Intel memory admission and PCI routing](../../docs/development/hvf-memory-layout.md)
+exclude padded backing and device pages, follow live BAR relocation/restore, and
+service ordinary RAM data sharing a page with a subpage BAR. `hvf_memory` tests
+the actual mapping policy and adapter with a substituted SDK. It provides no
+physical Intel execution evidence.
+
 ```sh
-cargo +stable test --test hvf_mmio --test hvf_guest_translation
+cargo +stable test --test hvf_mmio --test hvf_guest_translation --test hvf_memory
 python3 tools/hvf/mmio_oracle.py --llvm-bin /path/to/llvm/bin --work-dir ./target/hvf-mmio
 ```
 

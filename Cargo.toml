@@ -412,6 +412,10 @@ name = "hvf_mmio"
 path = "tests/suites/backend/hvf_mmio.rs"
 
 [[test]]
+name = "hvf_memory"
+path = "tests/suites/backend/hvf_memory.rs"
+
+[[test]]
 name = "controller_irq"
 path = "tests/suites/backend/controller_irq.rs"
 

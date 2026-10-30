@@ -155,6 +155,27 @@ impl MemoryDomain {
         Self::invalidate(&mut state, address, bytes.len());
         memory.write_slice(bytes, GuestAddress(address))
     }
+
+    /// Native collateral RAM is unmapped in every CPU's EPT. Serialize its
+    /// complete RMW with tracked DMA/software writers and exclusive monitors.
+    pub(crate) fn read_modify_write(
+        &self,
+        memory: &GuestMemoryMmap,
+        address: u64,
+        size: u8,
+        operation: crate::devices::bus::MmioRmwOp,
+    ) -> crate::error::Result<Vec<u8>> {
+        operation.validate(size)?;
+        preflight_write(memory, address, usize::from(size))?;
+        let mut state = self.lock();
+        let mut old = vec![0; usize::from(size)];
+        memory.read_slice(&mut old, GuestAddress(address))?;
+        let mut new = old.clone();
+        operation.apply(&mut new)?;
+        Self::invalidate(&mut state, address, new.len());
+        memory.write_slice(&new, GuestAddress(address))?;
+        Ok(old)
+    }
 }
 
 /// Held only after controller/device publication locks. No callback or ordinary
@@ -376,6 +397,75 @@ mod tests {
             memory.read_slice(&mut bytes, GuestAddress(128)).unwrap();
             assert_eq!(bytes, [0; 8]);
         }
+    }
+
+    #[test]
+    fn collateral_ram_rmw_invalidates_identical_writes_and_preserves_failed_admission() {
+        use crate::devices::bus::MmioRmwOp;
+        let memory = memory();
+        let domain = MemoryDomain::for_memory(&memory);
+        let monitor = domain.register();
+        for operation in [
+            MmioRmwOp::Exchange(0),
+            MmioRmwOp::CompareExchange {
+                expected: 1,
+                replacement: 9,
+            },
+        ] {
+            monitor.read_exclusive(&memory, 128, 4).unwrap();
+            assert_eq!(
+                domain
+                    .read_modify_write(&memory, 128, 4, operation)
+                    .unwrap(),
+                [0; 4]
+            );
+            assert!(!monitor.write_exclusive(&memory, 128, &[1; 4]).unwrap());
+        }
+        monitor.read_exclusive(&memory, 128, 4).unwrap();
+        assert!(
+            domain
+                .read_modify_write(&memory, 128, 1, MmioRmwOp::BitSet(8))
+                .is_err()
+        );
+        assert!(
+            domain
+                .read_modify_write(&memory, 4095, 4, MmioRmwOp::Not)
+                .is_err()
+        );
+        assert!(monitor.write_exclusive(&memory, 128, &[1; 4]).unwrap());
+    }
+
+    #[test]
+    fn collateral_ram_rmw_serializes_competing_tracked_writers() {
+        let memory = Arc::new(memory());
+        let domain = MemoryDomain::for_memory(&memory);
+        let workers: Vec<_> = (0..4)
+            .map(|_| {
+                let memory = memory.clone();
+                let domain = domain.clone();
+                std::thread::spawn(move || {
+                    for _ in 0..100 {
+                        domain
+                            .read_modify_write(
+                                &memory,
+                                128,
+                                4,
+                                crate::devices::bus::MmioRmwOp::Add {
+                                    value: 1,
+                                    carry: false,
+                                },
+                            )
+                            .unwrap();
+                    }
+                })
+            })
+            .collect();
+        for worker in workers {
+            worker.join().unwrap();
+        }
+        let mut bytes = [0; 4];
+        memory.read_slice(&mut bytes, GuestAddress(128)).unwrap();
+        assert_eq!(u32::from_le_bytes(bytes), 400);
     }
 
     #[test]
