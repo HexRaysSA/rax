@@ -6,7 +6,9 @@ use super::*;
 
 pub(crate) fn capture(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
     let registry = capture_header(registry, sid)?;
-    super::command_processor::capture_user(super::user_policy::capture(registry, sid)?, sid)
+    let registry =
+        super::command_processor::capture_user(super::user_policy::capture(registry, sid)?, sid)?;
+    super::command_processor::capture_local_settings(registry, sid)
 }
 
 pub(super) fn capture_header(registry: Registry, sid: &[u8]) -> io::Result<Registry> {

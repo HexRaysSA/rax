@@ -129,6 +129,9 @@ struct Info {
     time: [u32; 2],
 }
 fn info(key: &OwnedKey) -> io::Result<Info> {
+    info_with_value_limit(key, MAX_VALUES)
+}
+fn info_with_value_limit(key: &OwnedKey, value_limit: usize) -> io::Result<Info> {
     let mut i = Info {
         children: 0,
         max_child: 0,
@@ -158,7 +161,7 @@ fn info(key: &OwnedKey) -> io::Result<Info> {
     if s != 0 {
         return Err(io::Error::from_raw_os_error(s));
     }
-    if i.values as usize > MAX_VALUES
+    if i.values as usize > value_limit
         || i.max_name as usize > MAX_NAME_UNITS
         || i.max_data as usize > MAX_VALUE_BYTES
     {
@@ -443,3 +446,16 @@ mod mui_system_tests;
 #[cfg(test)]
 #[path = "installed/language_overlay_packages_tests.rs"]
 mod language_overlay_packages_tests;
+
+/// Exercise this fixed creator subject with its real acquisition adapters,
+/// independently of unrelated startup roots that the creator cannot read.
+#[cfg(test)]
+pub(super) fn local_settings_subject(sid: &[u8]) -> io::Result<Registry> {
+    // SAFETY: the same pure one-WCHAR NTDLL lookup used by snapshot().
+    let upcase = (0..=u16::MAX)
+        .map(|unit| unsafe { RtlUpcaseUnicodeChar(unit) })
+        .collect();
+    let registry = Registry::selected(upcase, vec![])?;
+    let registry = primary_hive::capture_header(registry, sid)?;
+    command_processor::capture_local_settings(registry, sid)
+}

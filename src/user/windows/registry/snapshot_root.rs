@@ -12,36 +12,44 @@ pub(crate) const OLE_KEY: &str = "\\Registry\\Machine\\Software\\Microsoft\\OLE"
 pub(crate) enum SnapshotRoot {
     Command(CommandRoot),
     Ole,
+    LocalSettings,
 }
 impl SnapshotRoot {
     pub(super) fn path(self, sid: &[u8]) -> io::Result<Vec<u16>> {
         match self {
             Self::Command(root) => root.path(sid),
             Self::Ole => Ok(OLE_KEY.encode_utf16().collect()),
+            Self::LocalSettings => local_settings::path(sid),
         }
     }
     pub(super) fn selection(self) -> ViewRoot {
         match self {
             Self::Command(root) => root.selection(),
             Self::Ole => ViewRoot::Ole,
+            Self::LocalSettings => ViewRoot::LocalSettings,
         }
     }
     pub(super) fn is_user(self) -> bool {
-        matches!(self, Self::Command(CommandRoot::User))
+        matches!(self, Self::Command(CommandRoot::User) | Self::LocalSettings)
     }
     fn is_shared(self) -> bool {
-        matches!(self, Self::Ole | Self::Command(CommandRoot::System))
+        matches!(
+            self,
+            Self::Ole | Self::Command(CommandRoot::System) | Self::LocalSettings
+        )
     }
     pub(super) fn label(self) -> &'static str {
         match self {
             Self::Command(_) => "Command Processor",
             Self::Ole => "OLE",
+            Self::LocalSettings => "Local Settings",
         }
     }
     fn shared_label(self) -> &'static str {
         match self {
             Self::Command(_) => "System Command Processor",
             Self::Ole => "OLE",
+            Self::LocalSettings => "Local Settings",
         }
     }
     pub(super) fn check_name(
@@ -53,6 +61,7 @@ impl SnapshotRoot {
     ) -> io::Result<()> {
         match self {
             Self::Command(root) => registry.check_command_name(root, sid, view, canonical),
+            Self::LocalSettings => registry.check_local_settings_name(sid, canonical),
             Self::Ole => {
                 let expected = self.path(sid)?;
                 if canonical.len() != expected.len()
@@ -112,8 +121,11 @@ impl Registry {
             matches!(&selected_tree, Err(status) if *status == STATUS_OBJECT_PATH_NOT_FOUND);
         let key = match selected_tree {
             Ok((header, children)) => {
+                if root == SnapshotRoot::LocalSettings && children.is_none() {
+                    return Err(invalid("Local Settings requires complete descendants"));
+                }
                 root.check_name(&self, sid, view, &header.canonical)?;
-                let mut builder = subtree::Builder::new(&self, view, root.label())?;
+                let mut builder = subtree::Builder::new(&self, view, root)?;
                 Some(builder.build(logical.clone(), header, children, 0)?)
             }
             Err(STATUS_OBJECT_NAME_NOT_FOUND | STATUS_OBJECT_PATH_NOT_FOUND) => None,
@@ -139,6 +151,14 @@ impl Registry {
                         "{} existence changed between view captures",
                         root.shared_label()
                     )));
+                }
+                if let (Some(key), Some(other)) = (&key, other) {
+                    if key.fold(&key.path) != other.fold(&other.path) {
+                        return Err(invalid(&format!(
+                            "{} physical subject changed between view captures",
+                            root.shared_label()
+                        )));
+                    }
                 }
             }
         }

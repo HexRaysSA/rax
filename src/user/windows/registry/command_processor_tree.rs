@@ -11,6 +11,7 @@ pub(in crate::user::windows::registry) struct Builder {
     upcase: Arc<[u16]>,
     view: RegistryView,
     label: &'static str,
+    complete_metadata: bool,
     values: ValueBudget,
     metadata: TreeBudget,
 }
@@ -19,14 +20,16 @@ impl Builder {
     pub(in crate::user::windows::registry) fn new(
         registry: &Registry,
         view: RegistryView,
-        label: &'static str,
+        root: SnapshotRoot,
     ) -> io::Result<Self> {
+        let (values, metadata) = registry.snapshot_budgets(root)?;
         Ok(Self {
             upcase: registry.upcase.clone(),
             view,
-            label,
-            values: registry.value_budget()?,
-            metadata: registry.view_budget()?,
+            label: root.label(),
+            complete_metadata: root == SnapshotRoot::LocalSettings,
+            values,
+            metadata,
         })
     }
 
@@ -37,6 +40,9 @@ impl Builder {
         children: Option<Vec<(Vec<u16>, CommandTree)>>,
         depth: usize,
     ) -> io::Result<Arc<Key>> {
+        if self.complete_metadata && (children.is_none() || header.enumeration.is_none()) {
+            return Err(invalid("Local Settings requires complete ordered metadata"));
+        }
         if header.canonical.len() > MAX_NAME_UNITS || header.canonical.contains(&0) {
             return Err(invalid(&format!(
                 "{} canonical name exceeds bounds",
@@ -51,7 +57,7 @@ impl Builder {
         }
         if children.as_ref().is_some_and(|children| {
             children.len() != header.children as usize
-                || children.len() >= super::super::tree::MAX_TREE_KEYS
+                || children.len() >= self.metadata.key_limit()
         }) {
             return Err(invalid(&format!(
                 "{} complete child count differs",

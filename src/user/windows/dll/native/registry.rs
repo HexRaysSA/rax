@@ -309,6 +309,7 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     let mut relative = None;
     let mut physical_wow = false;
     let mut control_set_alias = false;
+    let mut primary_default = None;
     let selected = if attrs.root != 0 {
         // The compatibility thunk rejects an absolute rooted name before the
         // native object manager checks the root handle's validity/type.
@@ -319,6 +320,7 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
         let root = key(c, attrs.root, false)?;
+        primary_default = root.primary_hive_default();
         if absolute {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
@@ -401,7 +403,22 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     // Relative opens consume key-body state. Absolute opens establish native
     // initial tags; contradictory WoW64 views were rejected before selection.
     let redirected = selected.redirected_view.is_some();
-    let tags = if let Some(relative) = &relative {
+    let initial_local = if wow {
+        selected.initial_local_settings_tags(
+            &attrs.name.units,
+            relative
+                .as_ref()
+                .map_or(access & 0x300, RelativeOpen::flags),
+            absolute,
+            primary_default,
+            relative.as_ref().map_or(0, RelativeOpen::parent_flags),
+        )
+    } else {
+        None
+    };
+    let tags = if let Some(tags) = initial_local {
+        tags
+    } else if let Some(relative) = &relative {
         relative.tags(
             selected.is_machine_hive(),
             physical_wow || selected.command_physical_name(&attrs.name.units),
@@ -409,7 +426,7 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         )
     } else if wow {
         let requested = access & 0x300;
-        if selected.is_machine_hive() || selected.logical_hive_alias(&attrs.name.units) {
+        if selected.is_machine_hive() || selected.primary_hive_sid_spelling(&attrs.name.units) {
             requested
         } else if selected.command_physical_name(&attrs.name.units) {
             if requested == 0x100 { 0x100 } else { 0xE00 }
@@ -418,6 +435,18 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         }
     } else {
         0
+    };
+    // Native Classes-hive bodies gain the per-user bit when the thunk
+    // converts a native-view handle back to the 32-bit view.
+    let tags = if wow
+        && relative
+            .as_ref()
+            .is_some_and(|state| state.view() == RegistryView::Wow32)
+        && selected.local_settings_classes_hive()
+    {
+        tags | 1
+    } else {
+        tags
     };
     let access = open_grant(c, access, options, &selected)?;
     // Redirected WoW64 key-body metadata is not inferred from the shared-key

@@ -37,6 +37,14 @@ pub(super) fn open(path: &[u16], access: u32) -> Result<OwnedKey, u32> {
     if !matches!(access, 0x0200_0000 | 0x0100_0000) {
         return Err(super::super::super::nt::status::STATUS_INVALID_PARAMETER);
     }
+    open_fixed(path, access)
+}
+
+pub(super) fn open_view(path: &[u16], view: super::super::RegistryView) -> Result<OwnedKey, u32> {
+    open_fixed(path, 0x0200_0000 | view.flag())
+}
+
+fn open_fixed(path: &[u16], access: u32) -> Result<OwnedKey, u32> {
     if path.is_empty()
         || path.len() > super::super::MAX_NAME_UNITS
         || path.first() != Some(&92)

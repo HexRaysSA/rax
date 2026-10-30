@@ -1,6 +1,6 @@
 //! Stable per-node values, names and grants, with one shared traversal budget.
 use super::*;
-use crate::user::windows::registry::tree::{MAX_TREE_KEYS, TreeBudget, child_path};
+use crate::user::windows::registry::tree::{TreeBudget, child_path};
 use crate::user::windows::registry::{CommandTree, ValueBudget};
 
 struct Capture<'a, F> {
@@ -53,18 +53,18 @@ fn capture_snapshot_with(
     key: OwnedKey,
     opener: impl FnMut(&[u16]) -> io::Result<OwnedKey>,
 ) -> io::Result<CommandTree> {
-    let metadata = registry.view_budget()?;
+    let (values, metadata) = registry.snapshot_budgets(root)?;
     let reserved = metadata
         .key_count()
         .checked_add(1)
-        .filter(|count| *count <= MAX_TREE_KEYS)
+        .filter(|count| *count <= metadata.key_limit())
         .ok_or_else(|| invalid("Command Processor key budget exhausted"))?;
     let mut capture = Capture {
         registry,
         root,
         sid,
         view,
-        values: registry.value_budget()?,
+        values,
         metadata,
         reserved,
         opener,
@@ -101,8 +101,12 @@ impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
             }
             self.metadata.charge(&canonical, depth)?;
             let access = access(&key, &canonical)?;
-            let (values, names) =
-                super::super::key_enumeration::stable(&key, &self.values, self.reserved)?;
+            let (values, names) = super::super::key_enumeration::stable_bounded(
+                &key,
+                &self.values,
+                self.reserved,
+                self.metadata.key_limit(),
+            )?;
             if canonical_hive_name(&key, "Command Processor")? != canonical
                 || super::super::native_key::basic(&key, "Command Processor")?
                     != access.maximum_access

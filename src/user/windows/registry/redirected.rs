@@ -22,6 +22,7 @@ pub(crate) enum ViewRoot {
     CommandSystem,
     CommandUser,
     Ole,
+    LocalSettings,
 }
 
 #[derive(Clone, Debug, Default)]

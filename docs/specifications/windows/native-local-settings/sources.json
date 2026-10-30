@@ -1,0 +1,65 @@
+[
+  {
+    "file": "wts-console-session.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-wtsgetactiveconsolesessionid",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-29T21:19:33.516715+00:00",
+    "bytes": 52061,
+    "sha256": "1ebe4df28d1a6da7b52d3df3b77ee1c976cda30221079f44a5eee9504060ff16",
+    "license": "Preserved in original HTML; Microsoft Learn documentation license and linked notices apply"
+  },
+  {
+    "file": "wts-query-user-token.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows/win32/api/wtsapi32/nf-wtsapi32-wtsqueryusertoken",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-29T21:19:33.540668+00:00",
+    "bytes": 53254,
+    "sha256": "2c78eca2c947091112bb3a2a2ad872953d6da3dc460bd9e3f1e7b11fff2aa29c",
+    "license": "Preserved in original HTML; Microsoft Learn documentation license and linked notices apply"
+  },
+  {
+    "file": "reg-enum-value.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regenumvaluew",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-29T21:19:33.660870+00:00",
+    "bytes": 58114,
+    "sha256": "08f7e1a78a70784c43ecc038e5048d5333ddff0ed3a94f899fa486b4942eb992",
+    "license": "Preserved in original HTML; Microsoft Learn documentation license and linked notices apply"
+  },
+  {
+    "file": "reg-open-current-user.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regopencurrentuser",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-29T21:19:33.496642+00:00",
+    "bytes": 52326,
+    "sha256": "06dbb26ff2063417410fe70e640181da34e2898b7a97835b551715fddce56a6c",
+    "license": "Preserved in original HTML; Microsoft Learn documentation license and linked notices apply"
+  },
+  {
+    "file": "crypt-hash-certificate.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-crypthashcertificate2",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-29T21:36:14.063011+00:00",
+    "bytes": 52711,
+    "sha256": "2117285d3a553855b4d1242187d7bbe4fdb12437932d6e96402a8da964d51330",
+    "license": "Original HTML and linked Microsoft Learn notices preserved"
+  },
+  {
+    "file": "create-process-as-user.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessasuserw",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-29T21:47:12.779560+00:00",
+    "bytes": 81912,
+    "sha256": "944d98c761fa97c7f03be816c7e0493d9d0ce14afc4c9ef3055d62351d001246",
+    "license": "Original HTML and linked Microsoft Learn notices preserved"
+  },
+  {
+    "file": "create-process-with-token.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createprocesswithtokenw",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-29T21:47:12.882407+00:00",
+    "bytes": 72942,
+    "sha256": "5a6e06f80d991ef8c5e6c7dbdb5ad1aecdb4e6e63bd5853891dad3c685e2e685",
+    "license": "Original HTML and linked Microsoft Learn notices preserved"
+  }
+]

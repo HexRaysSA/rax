@@ -47,18 +47,27 @@ pub(super) fn stable(
     budget: &ValueBudget,
     reserved: usize,
 ) -> io::Result<(Vec<Value>, Vec<BasicChild>)> {
+    stable_bounded(key, budget, reserved, MAX_TREE_KEYS)
+}
+
+pub(super) fn stable_bounded(
+    key: &OwnedKey,
+    budget: &ValueBudget,
+    reserved: usize,
+    key_limit: usize,
+) -> io::Result<(Vec<Value>, Vec<BasicChild>)> {
     for _ in 0..3 {
-        let before = info(key)?;
-        if before.children as usize > MAX_TREE_KEYS.saturating_sub(reserved)
+        let before = info_with_value_limit(key, budget.limits.values)?;
+        if before.children as usize > key_limit.saturating_sub(reserved)
             || before.max_child as usize > MAX_COMPONENT_UNITS
-            || before.values as usize > MAX_VALUES.saturating_sub(budget.count)
+            || before.values as usize > budget.remaining_values()
         {
             return Err(invalid(
                 "native child/value metadata exceeds aggregate bounds",
             ));
         }
         let sample = || -> io::Result<_> {
-            let values = values(key, &before, super::super::MAX_TOTAL_BYTES - budget.bytes)?;
+            let values = values(key, &before, budget.remaining_bytes())?;
             let children = entries(key, &before)?;
             // Check aggregate metadata before retaining a recursive frame.
             let mut count = budget.enumeration_count;
@@ -67,7 +76,7 @@ pub(super) fn stable(
             for child in &children {
                 bytes += child.name.len() * 2 + 8;
             }
-            if count > 2 * MAX_TREE_KEYS || bytes > 1 << 20 {
+            if count > budget.limits.entries || bytes > budget.limits.entry_bytes {
                 return Err(invalid("native enumeration aggregate exceeds bounds"));
             }
             Ok((values, children))
@@ -82,7 +91,7 @@ pub(super) fn stable(
             Err(error) if matches!(error.raw_os_error(), Some(234 | 259)) => continue,
             Err(error) => return Err(error),
         };
-        if before == info(key)? && first == second {
+        if before == info_with_value_limit(key, budget.limits.values)? && first == second {
             return Ok(first);
         }
     }

@@ -38,6 +38,10 @@ pub(super) fn capture_ole(registry: Registry) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::Ole, &[], open_snapshot)
 }
 
+pub(super) fn capture_local_settings(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
+    capture_snapshot_with(registry, SnapshotRoot::LocalSettings, sid, open_snapshot)
+}
+
 fn capture_snapshot_with(
     mut registry: Registry,
     root: SnapshotRoot,
@@ -120,11 +124,22 @@ fn open_snapshot_path(
     {
         return Err(invalid("Command Processor path escapes fixed subtree"));
     }
+    if root == SnapshotRoot::LocalSettings {
+        return super::native_key::open_view(path, view).map_err(|status| match status {
+            STATUS_OBJECT_NAME_NOT_FOUND => io::Error::from_raw_os_error(2),
+            STATUS_OBJECT_PATH_NOT_FOUND => io::Error::from_raw_os_error(3),
+            _ => invalid(&format!(
+                "Local Settings native open failed: 0x{status:08X}"
+            )),
+        });
+    }
     let (hive, prefix) = match root {
         SnapshotRoot::Command(CommandRoot::Machine | CommandRoot::System) | SnapshotRoot::Ole => {
             (-2_147_483_646isize, "\\Registry\\Machine\\")
         }
-        SnapshotRoot::Command(CommandRoot::User) => (-2_147_483_645isize, "\\Registry\\User\\"),
+        SnapshotRoot::Command(CommandRoot::User) | SnapshotRoot::LocalSettings => {
+            (-2_147_483_645isize, "\\Registry\\User\\")
+        }
     };
     let prefix: Vec<_> = prefix.encode_utf16().collect();
     let relative = path

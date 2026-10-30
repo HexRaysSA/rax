@@ -66,18 +66,13 @@ impl Registry {
     }
 
     pub(super) fn view_budget(&self) -> io::Result<tree::TreeBudget> {
-        fn charge(key: &Key, depth: usize, budget: &mut tree::TreeBudget) -> io::Result<()> {
-            budget.charge(&key.path, depth)?;
-            if let Some(children) = &key.subkeys {
-                for child in children.values() {
-                    charge(child, depth + 1, budget)?;
+        let mut budget = tree::TreeBudget::default();
+        for ((kind, _), root) in &self.views.roots {
+            if *kind != ViewRoot::LocalSettings {
+                if let Some(root) = root {
+                    budget.charge_tree(root, 0)?;
                 }
             }
-            Ok(())
-        }
-        let mut budget = tree::TreeBudget::default();
-        for root in self.views.roots.values().flatten() {
-            charge(root, 0, &mut budget)?;
         }
         Ok(budget)
     }

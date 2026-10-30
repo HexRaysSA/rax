@@ -8,6 +8,14 @@ pub(super) struct RelativeOpen {
 }
 
 impl RelativeOpen {
+    pub(super) fn flags(&self) -> u32 {
+        self.effective
+    }
+
+    pub(super) fn parent_flags(&self) -> u32 {
+        self.parent & 0x300
+    }
+
     pub(super) fn new(wow: bool, parent: u32, requested: u32) -> Option<Self> {
         let effective = if requested == 0 {
             parent & 0x300

@@ -15,41 +15,51 @@ pub(crate) struct HiveHeader {
 }
 
 impl Key {
-    pub(crate) fn logical_hive_alias(&self, name: &[u16]) -> bool {
+    pub(crate) fn primary_hive_sid_spelling(&self, name: &[u16]) -> bool {
         self.root_views.is_some()
             && self.logical_path.as_deref().is_some_and(|logical| {
-                if self.fold(logical) == self.fold(&self.path) {
-                    return false;
-                }
                 let normalized: Vec<_> = name
-                    .split(|u| *u == 92)
+                    .split(|unit| *unit == 92)
                     .filter(|part| !part.is_empty())
                     .flat_map(|part| std::iter::once(92).chain(part.iter().copied()))
                     .collect();
                 self.fold(&normalized) == self.fold(logical)
             })
     }
+
+    pub(crate) fn primary_hive_default(&self) -> Option<bool> {
+        self.root_views.is_some().then(|| {
+            self.fold(&self.path)
+                == self.fold(
+                    &"\\Registry\\User\\.DEFAULT"
+                        .encode_utf16()
+                        .collect::<Vec<_>>(),
+                )
+        })
+    }
 }
 
 impl Registry {
     pub(super) fn check_primary_hive_sid(&self, sid: &[u8]) -> io::Result<()> {
         let path = user_policy::user_hive_path(sid)?;
-        if self
-            .views
-            .paths
-            .get(&ViewRoot::CommandUser)
-            .is_some_and(|selected| {
-                let expected: Vec<_> = path
-                    .iter()
-                    .copied()
-                    .chain(super::command_processor::COMMAND_SUFFIX.encode_utf16())
-                    .collect();
-                selected.as_ref() != expected
-            })
-        {
-            return Err(invalid(
+        for (kind, suffix, message) in [
+            (
+                ViewRoot::CommandUser,
+                super::command_processor::COMMAND_SUFFIX,
                 "primary hive and Command Processor select different subjects",
-            ));
+            ),
+            (
+                ViewRoot::LocalSettings,
+                super::local_settings::SUFFIX,
+                "primary hive and Local Settings select different subjects",
+            ),
+        ] {
+            if self.views.paths.get(&kind).is_some_and(|selected| {
+                let expected: Vec<_> = path.iter().copied().chain(suffix.encode_utf16()).collect();
+                selected.as_ref() != expected
+            }) {
+                return Err(invalid(message));
+            }
         }
         if self
             .primary_hive
@@ -133,7 +143,8 @@ impl Registry {
             return Ok(());
         };
         let command_selected = self.views.paths.contains_key(&ViewRoot::CommandUser);
-        if self.user_policies.is_empty() && !command_selected {
+        let local_selected = self.views.paths.contains_key(&ViewRoot::LocalSettings);
+        if self.user_policies.is_empty() && !command_selected && !local_selected {
             return Ok(());
         }
         if self
@@ -145,6 +156,17 @@ impl Registry {
         {
             return Err(invalid(
                 "selected Command Processor exists below an absent or childless primary hive",
+            ));
+        }
+        if self
+            .views
+            .roots
+            .iter()
+            .any(|((kind, _), key)| *kind == ViewRoot::LocalSettings && key.is_some())
+            && hive.root.as_ref().is_none_or(|root| root.children == 0)
+        {
+            return Err(invalid(
+                "selected Local Settings exists below an absent or childless primary hive",
             ));
         }
         let mut routes = BTreeMap::new();

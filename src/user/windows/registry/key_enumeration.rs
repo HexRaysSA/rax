@@ -27,7 +27,9 @@ impl ValueBudget {
                 .checked_add(child.name.len() * 2 + 8)
                 .ok_or_else(|| invalid("registry enumeration size overflow"))?;
         }
-        if self.enumeration_count > 2 * tree::MAX_TREE_KEYS || self.enumeration_bytes > 1 << 20 {
+        if self.enumeration_count > self.limits.entries
+            || self.enumeration_bytes > self.limits.entry_bytes
+        {
             return Err(invalid("registry enumeration aggregate exceeds bounds"));
         }
         Ok(())
@@ -43,7 +45,7 @@ pub(super) fn bounded(
     let Some(children) = children else {
         return Ok(None);
     };
-    if children.len() != count as usize || children.len() > tree::MAX_TREE_KEYS {
+    if children.len() != count as usize || children.len() > budget.limits.keys {
         return Err(invalid(
             "registry enumeration child count differs or exceeds bounds",
         ));

@@ -15,6 +15,10 @@ pub(crate) const MAX_NAME_UNITS: usize = 16_383;
 pub(crate) const MAX_VALUE_BYTES: usize = 1 << 20;
 const MAX_TOTAL_BYTES: usize = 16 << 20;
 
+#[path = "registry/budget.rs"]
+mod budget;
+use budget::ValueBudget;
+
 #[path = "registry/tree.rs"]
 mod tree;
 #[cfg(test)]
@@ -49,6 +53,8 @@ mod snapshot_root;
 pub(crate) use snapshot_root::{OLE_KEY, SnapshotRoot};
 #[path = "registry/fixed.rs"]
 mod fixed;
+#[path = "registry/local_settings.rs"]
+mod local_settings;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;
 #[path = "registry/machine_hive.rs"]
 mod machine_hive;
@@ -236,32 +242,6 @@ impl Registry {
     }
 }
 
-#[derive(Default)]
-struct ValueBudget {
-    enumeration_count: usize,
-    enumeration_bytes: usize,
-    count: usize,
-    bytes: usize,
-}
-impl ValueBudget {
-    fn charge(&mut self, value: &Value) -> io::Result<()> {
-        if value.name.len() > MAX_NAME_UNITS || value.data.len() > MAX_VALUE_BYTES {
-            return Err(invalid("runtime registry value exceeds bounds"));
-        }
-        self.count = self
-            .count
-            .checked_add(1)
-            .ok_or_else(|| invalid("runtime registry count overflow"))?;
-        self.bytes = self
-            .bytes
-            .checked_add(value.name.len() * 2 + value.data.len())
-            .ok_or_else(|| invalid("runtime registry size overflow"))?;
-        if self.count > MAX_VALUES || self.bytes > MAX_TOTAL_BYTES {
-            return Err(invalid("runtime registry aggregate exceeds bounds"));
-        }
-        Ok(())
-    }
-}
 fn bounded_values(
     upcase: &[u16],
     values: Vec<Value>,

@@ -42,6 +42,15 @@ Other System paths remain outside that selection. The
 separates measured absence and parent-handle mechanics from synthetic positive
 leaf contents and from complete CMD startup qualification.
 
+Installed selection also captures the creator's complete fixed
+`Software\Classes\Local Settings` subject, including its captured primary-hive
+and separate Classes-hive aliases. Both shared views retain native grants,
+raw values and ordered child metadata. This subject uses its own bounded
+aggregate domain; existing startup-subject limits remain unchanged. Guest
+handles retain creator routes after namespace replacement. The
+[native Local Settings controls](../../specifications/windows/native-local-settings/README.md)
+describe the snapshot digest, native open/tag measurements and evidence limits.
+
 `GetCommandLineA` converts the process's UTF-16 command line with the named
 Windows-1252 best-fit process-code-page profile and returns one process-owned
 guest buffer on repeated calls. This includes mappings that can change narrow

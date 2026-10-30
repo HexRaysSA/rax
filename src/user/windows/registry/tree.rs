@@ -31,7 +31,6 @@ pub(crate) const LANGUAGE_OVERLAY_PACKAGES_KEY: &str =
 pub(super) const MAX_TREE_KEYS: usize = 1024;
 pub(super) const MAX_TREE_DEPTH: usize = 32;
 pub(super) const MAX_COMPONENT_UNITS: usize = 255;
-const MAX_PATH_BYTES: usize = 1 << 20;
 
 #[derive(Default)]
 pub(crate) struct KeyTree {
@@ -82,14 +81,38 @@ pub(crate) enum Lookup {
     MissingPath,
     Unselected,
 }
-#[derive(Default)]
 pub(super) struct TreeBudget {
     keys: usize,
     path_bytes: usize,
+    limits: super::budget::Limits,
+}
+impl Default for TreeBudget {
+    fn default() -> Self {
+        Self::with_limits(super::budget::STARTUP)
+    }
 }
 impl TreeBudget {
+    pub(super) fn with_limits(limits: super::budget::Limits) -> Self {
+        Self {
+            keys: 0,
+            path_bytes: 0,
+            limits,
+        }
+    }
+    pub(super) fn key_limit(&self) -> usize {
+        self.limits.keys
+    }
     pub(super) fn key_count(&self) -> usize {
         self.keys
+    }
+    pub(super) fn charge_tree(&mut self, key: &Key, depth: usize) -> io::Result<()> {
+        self.charge(&key.path, depth)?;
+        if let Some(children) = &key.subkeys {
+            for child in children.values() {
+                self.charge_tree(child, depth + 1)?;
+            }
+        }
+        Ok(())
     }
     pub(super) fn charge(&mut self, path: &[u16], depth: usize) -> io::Result<()> {
         if depth > MAX_TREE_DEPTH || path.len() > 32_767 {
@@ -100,7 +123,7 @@ impl TreeBudget {
             .path_bytes
             .checked_add(path.len() * 2)
             .ok_or_else(|| invalid("runtime registry path size overflow"))?;
-        if self.keys > MAX_TREE_KEYS || self.path_bytes > MAX_PATH_BYTES {
+        if self.keys > self.limits.keys || self.path_bytes > self.limits.path_bytes {
             return Err(invalid("runtime registry key/path budget exhausted"));
         }
         Ok(())
@@ -129,8 +152,12 @@ impl Registry {
         for key in self.keys.values() {
             charge_key(key, &mut budget, &mut seen)?;
         }
-        for key in self.views.roots.values().flatten() {
-            charge_key(key, &mut budget, &mut seen)?;
+        for ((kind, _), key) in &self.views.roots {
+            if *kind != ViewRoot::LocalSettings {
+                if let Some(key) = key {
+                    charge_key(key, &mut budget, &mut seen)?;
+                }
+            }
         }
         if let Some(root) = &self.machine_hive {
             charge_key(root, &mut budget, &mut seen)?;
@@ -199,7 +226,7 @@ impl Registry {
         Lookup::Unselected
     }
 }
-fn charge_key(
+pub(super) fn charge_key(
     key: &Arc<Key>,
     budget: &mut ValueBudget,
     seen: &mut BTreeSet<usize>,
