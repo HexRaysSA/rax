@@ -187,17 +187,21 @@ impl NativeVmLifetime {
             .iter()
             .map(|(&irq, &level)| (irq, level))
             .collect();
-        let mut power = self
+        let power = self
             .power
             .lock()
             .map_err(|_| Error::Emulator("native power lock poisoned".into()))?
             .clone()
-            .unwrap_or_else(|| crate::backend::arm64_hvf_power::Power::new(count));
-        if topology.configured.is_none() {
-            power
-                .states
-                .fill(crate::backend::arm64_hvf_power::State::On);
-        }
+            .unwrap_or_else(|| {
+                // Only synthesize a graph when none exists. A restored graph
+                // retains its offline CPUs and unacknowledged transitions.
+                let mut power = crate::backend::arm64_hvf_power::Power::new(count);
+                power
+                    .states
+                    .fill(crate::backend::arm64_hvf_power::State::On);
+                power.shutdown = self.standalone_shutdown.load(Ordering::Acquire);
+                power
+            });
         let context = GlobalContext {
             cpus: count,
             power,

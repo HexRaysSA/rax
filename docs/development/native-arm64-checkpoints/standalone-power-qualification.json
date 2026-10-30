@@ -1,0 +1,508 @@
+{
+  "baseline_parent": "5462ab51ae7c868e423e78c6bb683155585d2fc2",
+  "scope": "Unconfigured native backend VM terminal state and preservation of restored power graph; CPU/shared API restoration, not full file/RAM proof",
+  "owned_source_plan": [
+    "src/backend/hvf/arm64.rs",
+    "src/backend/hvf/arm64_psci.rs",
+    "src/backend/hvf/arm64_vm_checkpoint.rs",
+    "src/vm/runtime/native_checkpoint_tests.rs",
+    "src/vm/runtime/native_standalone_tests.rs"
+  ],
+  "assumption_register": [
+    {
+      "id": "SP1",
+      "assumption": "The public backend API permits created native CPUs without configure_cpu_topology",
+      "basis": "Vm::create_vcpu and NativeTopology.configured None paths",
+      "dependent_result": "Unconfigured-VM shutdown capture is in supported API scope",
+      "stress_test": "One and two created native CPUs; public shared/CPU capture and fresh destination restore",
+      "falsification_probe": "Creation or capture rejects unconfigured topology before guest entry",
+      "status": "confirmed in the recorded stopped-boundary and subsequent-entry scope; asynchronous already-entered SDK CPU behavior remains unverified"
+    },
+    {
+      "id": "SP2",
+      "assumption": "PSCI SYSTEM_OFF terminates the complete VM independent of optional topology configuration",
+      "basis": "Existing native system-off handler and shared Power.shutdown checkpoint invariant",
+      "dependent_result": "One authoritative fallback VM terminal flag",
+      "stress_test": "BSP terminal call, peer blocked entry, shared/private agreement, fresh graph restore and explicit wake",
+      "falsification_probe": "Any peer executes or any private/shared shutdown projection differs",
+      "status": "confirmed in the recorded stopped-boundary and subsequent-entry scope; asynchronous already-entered SDK CPU behavior remains unverified"
+    },
+    {
+      "id": "SP3",
+      "assumption": "A restored explicit power graph must supersede the default all-created-CPUs-on fallback",
+      "basis": "GlobalContext.power stores pending transitions and states; capture must preserve it",
+      "dependent_result": "Only synthesize fallback power when no graph exists",
+      "stress_test": "Restore a pending CPU_OFF then capture before acknowledgement",
+      "falsification_probe": "Capture resets states or rejects its own restored graph",
+      "status": "confirmed in the recorded stopped-boundary and subsequent-entry scope; asynchronous already-entered SDK CPU behavior remains unverified"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Complete file/RAM restoration, external-writer coordination, clock/replay, native SDK streaming FPSR and Intel HVF remain required",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "Fresh VM is required by SDK GIC restore; entered-VM reconstruction remains open",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "These tests prove stopped-state capture and entry after shutdown; simultaneous independently entered standalone SDK CPUs and asynchronous stop/kick completion are not verified by this group",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "Native Context::validate at arm64_context_format.rs:320-326 rejects shutdown with any pending IO. Source suggests a cross-CPU SYSTEM_OFF plus peer pending MMIO capture gap; physical reproduction and repair remain required.",
+      "evidence": "src/backend/hvf/arm64_context_format.rs:320-326; actual source was inspected during this group",
+      "status": "source-derived candidate; not runtime reproduced in this group",
+      "blocks_full_goal": true
+    }
+  ],
+  "worktrees_created": 0,
+  "build_cache": "one existing task cache reused, remove when idle at end",
+  "change_surface": {
+    "direct_decode_execute": "No instruction decode changes; native SYSTEM_OFF/RESET shares terminal state across standalone CPU owners",
+    "cpu_and_shared_state": "Unconfigured fallback terminal latch is VM-owned; serialized through existing GlobalContext.power.shutdown; explicit restored graph is preserved",
+    "memory_mmu": "No RAM/translation changes",
+    "smir_ir_lift_lowering_jit": "No changes to IR, native guest instruction admission or lowering",
+    "backend": "Native VM lifetime, terminal-state lookup and shared capture changed; existing SDK/API ownership and exclusion retained",
+    "machine_devices": "No new controller/device formats; saved SDK GIC graph retained",
+    "oracle_analysis": "No new ISA coverage claim",
+    "c_abi": "No ABI or serialization schema changes",
+    "tests_docs": "Actual signed physical backend API regressions; selected native file/power continuations and portable format/compiler checks"
+  },
+  "records": {
+    "baseline-build": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 70.72231033298885
+    },
+    "baseline-v2-build": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 122.88857183302753
+    },
+    "baseline-v2-sign": {
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/rax.entitlements",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57: replacing existing signature\n"
+    },
+    "baseline-v2-verify": {
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "baseline-v2-entitlements": {
+      "argv": [
+        "codesign",
+        "-d",
+        "--entitlements",
+        ":-",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"https://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>com.apple.security.hypervisor</key><true/></dict></plist>\n",
+      "stderr": "Executable=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57\nwarning: Specifying ':' in the path is deprecated and will not work in a future release\n"
+    },
+    "baseline-v2": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "standalone::",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 0.07286375004332513,
+      "signed_binary_sha256": "83f36489abf9531b472a81bdfec2ac52d392fdbdf7e572fbc925242d37d24310",
+      "summaries": [
+        "test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 11410 filtered out; finished in 0.05s"
+      ]
+    },
+    "corrected-build": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 121.76607962499838
+    },
+    "corrected-sign": {
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/rax.entitlements",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57: replacing existing signature\n"
+    },
+    "corrected-verify": {
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "corrected-entitlements": {
+      "argv": [
+        "codesign",
+        "-d",
+        "--entitlements",
+        ":-",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57"
+      ],
+      "exit_code": 0,
+      "stdout": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"https://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>com.apple.security.hypervisor</key><true/></dict></plist>\n",
+      "stderr": "Executable=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57\nwarning: Specifying ':' in the path is deprecated and will not work in a future release\n"
+    },
+    "corrected": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "standalone::",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.15190558298490942,
+      "signed_binary_sha256": "be5e2ccd2449378684c51ed0e34d4145a255d9178b4e19349cfb279734a60ffe",
+      "summaries": [
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 11410 filtered out; finished in 0.12s"
+      ]
+    },
+    "native-configured-shutdown": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::native_checkpoint_tests::native_psci_shutdown_survives_files_and_register_overlays_until_explicit_restart",
+        "--ignored",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 216.24168212502263,
+      "signed_binary_sha256": "be5e2ccd2449378684c51ed0e34d4145a255d9178b4e19349cfb279734a60ffe",
+      "summaries": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11411 filtered out; finished in 216.22s"
+      ]
+    },
+    "native-secondary-shutdown": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::native_checkpoint_tests::psci::native_secondary_system_off_stops_every_cpu_through_real_file",
+        "--ignored",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 54.339220124995336,
+      "signed_binary_sha256": "be5e2ccd2449378684c51ed0e34d4145a255d9178b4e19349cfb279734a60ffe",
+      "summaries": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11411 filtered out; finished in 54.32s"
+      ]
+    },
+    "native-cpu-off": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::native_checkpoint_tests::psci::native_cpu_off_blocks_entry_and_pending_stop_survives_file_before_restart",
+        "--ignored",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 53.990783750021365,
+      "signed_binary_sha256": "be5e2ccd2449378684c51ed0e34d4145a255d9178b4e19349cfb279734a60ffe",
+      "summaries": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11411 filtered out; finished in 53.97s"
+      ]
+    },
+    "portable-power": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "backend::arm64_hvf_power::tests",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01782245800131932,
+      "signed_binary_sha256": "be5e2ccd2449378684c51ed0e34d4145a255d9178b4e19349cfb279734a60ffe",
+      "summaries": [
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 11408 filtered out; finished in 0.00s"
+      ]
+    },
+    "portable-native-format": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "backend::arm64_hvf_context::tests",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.9840102089801803,
+      "signed_binary_sha256": "be5e2ccd2449378684c51ed0e34d4145a255d9178b4e19349cfb279734a60ffe",
+      "summaries": [
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 11402 filtered out; finished in 0.97s"
+      ]
+    },
+    "portable-snapshot": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::snapshot::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.5463460829923861,
+      "signed_binary_sha256": "be5e2ccd2449378684c51ed0e34d4145a255d9178b4e19349cfb279734a60ffe",
+      "summaries": [
+        "test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 11343 filtered out; finished in 0.53s"
+      ]
+    },
+    "portable-config": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "config::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.018928499950561672,
+      "signed_binary_sha256": "be5e2ccd2449378684c51ed0e34d4145a255d9178b4e19349cfb279734a60ffe",
+      "summaries": [
+        "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 11401 filtered out; finished in 0.00s"
+      ]
+    },
+    "normal-check": {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 25.281822958029807
+    },
+    "clippy": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 25.910610958002508
+    },
+    "format": {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 12.906326790980529
+    },
+    "owned-format": {
+      "argv": [
+        "rustfmt",
+        "--edition",
+        "2024",
+        "--check",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/vm/runtime/native_checkpoint_tests.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/vm/runtime/native_standalone_tests.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/backend/hvf/arm64.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/backend/hvf/arm64_psci.rs",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/backend/hvf/arm64_vm_checkpoint.rs"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.057298584026284516
+    },
+    "guest-encoding": {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-show-encoding"
+      ],
+      "stdin": "hvc #0\nmov x2,#0xbad\nldr x3,[x1]\n",
+      "exit_code": 0,
+      "stdout": "\thvc\t#0                              // encoding: [0x02,0x00,0x00,0xd4]\n\tmov\tx2, #2989                       // encoding: [0xa2,0x75,0x81,0xd2]\n                                        // =0xbad\n\tldr\tx3, [x1]                        // encoding: [0x23,0x00,0x40,0xf9]\n",
+      "stderr": ""
+    },
+    "host-provenance": {
+      "utc": "2026-10-30T11:13:07.507611+00:00",
+      "commands": [
+        {
+          "argv": [
+            "sw_vers"
+          ],
+          "exit_code": 0,
+          "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+          "stderr": ""
+        },
+        {
+          "argv": [
+            "uname",
+            "-m"
+          ],
+          "exit_code": 0,
+          "stdout": "arm64\n",
+          "stderr": ""
+        },
+        {
+          "argv": [
+            "sysctl",
+            "-n",
+            "machdep.cpu.brand_string"
+          ],
+          "exit_code": 0,
+          "stdout": "Apple M4 Max\n",
+          "stderr": ""
+        }
+      ],
+      "references": {
+        "docs/specifications/arm/psci-den0022.pdf": "ed924cebfe9f705327b0c07832c643023ad0525887477440a6195887dda37253",
+        "rax.entitlements": "35d4cf85dde95ca7c102cf0752ebece94bc7a7d1a7a022e7a60ef33bee9c57b6"
+      }
+    }
+  },
+  "utc": "2026-10-30T11:21:27.044796+00:00",
+  "status": "locally validated component; all four full findings remain incomplete",
+  "native_tests_passed": 5,
+  "portable_tests_passed": 94,
+  "selected_tests_passed": 99,
+  "source_sha256": {
+    "src/vm/runtime/native_checkpoint_tests.rs": "c130481d8b90246302958a021a46faac3bec6280362f9c0e3c5cc2d01dc60fdf",
+    "src/vm/runtime/native_standalone_tests.rs": "ce149364693f6415f4f24933104ed2f9b60f997a24e6f29d0c3841a6239a7139",
+    "src/backend/hvf/arm64.rs": "b21c8027d02f15d94b72fe6153551d5934e3a74c133af0058915d438528bf462",
+    "src/backend/hvf/arm64_psci.rs": "728c3da9bdc94028670f06de49a2c08e1b990906ba4af36438e1835b5ec1b26f",
+    "src/backend/hvf/arm64_vm_checkpoint.rs": "add89376e4b341aa558891cee8c2919023b28a9448a1306597660f482ae14b4c"
+  },
+  "environment": {
+    "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+    "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+    "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+    "CARGO_BUILD_JOBS": "1",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_NET_OFFLINE": "true",
+    "RUSTC_WRAPPER": "",
+    "RUSTC_WORKSPACE_WRAPPER": "",
+    "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "saved_native_file_evidence": {
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/standalone-power-v1/native-files/native-psci-pending-stop.rxc": {
+      "bytes": 276363,
+      "sha256": "4a27750e48fb60106bc076f4d84382e25eeb53a6a02c07662a4dc3ee4a1351a3"
+    },
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/standalone-power-v1/native-files/native-psci-secondary-shutdown.rxc": {
+      "bytes": 276352,
+      "sha256": "55cb3f099eb55e23ad9d12858e3d6bfea6f077684ae82145f7ceae4826a65ca0"
+    },
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/standalone-power-v1/native-files/native-shutdown-off-hvc.rxc": {
+      "bytes": 272074,
+      "sha256": "5676accbbaedebb2d1baf7b866ce20b4f550a225dd268f5c5af514f95f125d8d"
+    },
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/standalone-power-v1/native-files/native-shutdown-off-smc.rxc": {
+      "bytes": 272074,
+      "sha256": "69317de458cfcea0b72fd161ce129dd491d5568fd8824c5c96e0936233b94046"
+    },
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/standalone-power-v1/native-files/native-shutdown-reset-hvc.rxc": {
+      "bytes": 272075,
+      "sha256": "7f480efadc035d46438b65dee96308f4965d3c62869b3fcd4e5f7753fca24f2c"
+    },
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/standalone-power-v1/native-files/native-shutdown-reset-smc.rxc": {
+      "bytes": 272075,
+      "sha256": "c893015dcfb11f2a614a4d67214a493ee3f0cd8e24409d8f5246de8e8fa7ee34"
+    }
+  },
+  "primary_reference": {
+    "path": "docs/specifications/arm/psci-den0022.pdf",
+    "revision": "Arm DEN0022D",
+    "sections": [
+      "5.5 CPU_OFF",
+      "5.10 SYSTEM_OFF",
+      "5.11 SYSTEM_RESET"
+    ],
+    "sha256": "ed924cebfe9f705327b0c07832c643023ad0525887477440a6195887dda37253",
+    "origin_url": "unknown; existing repository-retained primary document"
+  },
+  "unrun_gates": [
+    "Entire root suite/all-target build and all-platform product lanes were not run for this component.",
+    "Physical Intel HVF remains unverified; current read-only resource check found all seven Mac peers offline.",
+    "Unconfigured-backend new tests use public CPU/shared APIs rather than complete file/RAM transport; the three configured-VM file regressions are separate gates.",
+    "Simultaneous entered-CPU shutdown, peer pending I/O at VM shutdown, SDK streaming FPSR, complete timers/clocks/replay remain open."
+  ],
+  "quality_gates": {
+    "normative_content_required": false,
+    "assumptions_probed": true,
+    "component_scope_covered": true,
+    "full_goal_complete": false,
+    "baseline_failures_are_runtime_failures": true,
+    "fixture_compile_error_separately_retained": true,
+    "actual_signed_executable_verified": true,
+    "selected_native_and_portable_tests_not_skipped": true,
+    "source_hashes_match_tested_files": true,
+    "bounded_scope_explicit": true
+  }
+}

@@ -26,11 +26,10 @@ impl HvfArm64Core {
     pub(super) fn native_shutdown(&self) -> Result<bool> {
         // Configured VMMs have one VM-wide terminal state. A stale local latch
         // from before an explicit restart must not shut the VM down again.
-        Ok(self
-            ._vm
-            .power()?
-            .as_ref()
-            .map_or(self.shutdown, |power| power.shutdown))
+        Ok(self._vm.power()?.as_ref().map_or_else(
+            || self._vm.standalone_shutdown.load(Ordering::Acquire),
+            |power| power.shutdown,
+        ))
     }
     pub(super) fn power_entry_exit(&self) -> Result<Option<VcpuExit>> {
         let power = self._vm.power()?;
@@ -48,6 +47,8 @@ impl HvfArm64Core {
     pub(super) fn clear_system_shutdown(&self) -> Result<()> {
         if let Some(power) = self._vm.power()?.as_mut() {
             power.shutdown = false;
+        } else {
+            self._vm.standalone_shutdown.store(false, Ordering::Release);
         }
         Ok(())
     }
@@ -105,6 +106,8 @@ impl HvfArm64Core {
     pub(super) fn psci_system_shutdown(&self) -> Result<()> {
         if let Some(power) = self._vm.power()?.as_mut() {
             power.shutdown = true;
+        } else {
+            self._vm.standalone_shutdown.store(true, Ordering::Release);
         }
         Ok(())
     }

@@ -142,6 +142,7 @@ impl Backend for HvfArm64Backend {
                 topology: Mutex::new(NativeTopology::default()),
                 irq_levels: Mutex::new(BTreeMap::new()),
                 power: Mutex::new(None),
+                standalone_shutdown: AtomicBool::new(false),
                 owner_teardown_failed: AtomicBool::new(false),
                 entered: AtomicBool::new(false),
                 restore_failed: AtomicBool::new(false),
@@ -166,6 +167,8 @@ struct NativeVmLifetime {
     topology: Mutex<NativeTopology>,
     irq_levels: Mutex<BTreeMap<u32, bool>>,
     power: Mutex<Option<crate::backend::arm64_hvf_power::Power>>,
+    // SYSTEM_OFF is VM-wide even when an embedder does not configure PSCI topology.
+    standalone_shutdown: AtomicBool,
     owner_teardown_failed: AtomicBool,
     entered: AtomicBool,
     restore_failed: AtomicBool,

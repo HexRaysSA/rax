@@ -1355,3 +1355,6 @@ fn native_coordinator_yields_from_gic_handled_wfi_without_claiming_retirement() 
 
 #[path = "native_psci_tests.rs"]
 mod psci;
+
+#[path = "native_standalone_tests.rs"]
+mod standalone;
