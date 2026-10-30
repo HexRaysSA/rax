@@ -368,3 +368,85 @@ fn disabled_fhm_profile_survives_private_context_restore() {
     ));
     assert_eq!(target.cpu.vfp.dregs, before);
 }
+
+#[test]
+fn miscellaneous_and_fused_profiles_preserve_admission_after_backend_restore() {
+    #[derive(serde::Deserialize)]
+    struct Case {
+        arm_raw: u32,
+        thumb_raw: u32,
+        kind: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct Cases {
+        cases: Vec<Case>,
+    }
+    let cases: Cases = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/development/a32-fp-controls/feature-admission/misc-and-fma-cases.json"
+    )))
+    .unwrap();
+    assert_eq!(cases.cases.len(), 86);
+    let mut count = 0;
+    for case in cases.cases {
+        for thumb in [false, true] {
+            for (fused, miscellaneous) in [(0, 0), (1, 0), (1, 0x43)] {
+                let (mut live, memory) = fixture(&[]);
+                let raw = if thumb { case.thumb_raw } else { case.arm_raw };
+                let bytes = if thumb {
+                    let high = ((raw >> 16) as u16).to_le_bytes();
+                    let low = (raw as u16).to_le_bytes();
+                    [high[0], high[1], low[0], low[1]]
+                } else {
+                    raw.to_le_bytes()
+                };
+                memory
+                    .write_slice(&bytes, GuestAddress(u64::from(CODE)))
+                    .unwrap();
+                live.cpu.cpsr.t = thumb;
+                live.cpu.vfp.mvfr1 = 0x0211_1111 | (fused << 28);
+                live.cpu.vfp.mvfr2 = miscellaneous;
+                live.cpu.cp15.id_isar6 = 0;
+                let public = live.get_state().unwrap();
+                let private = live.capture_backend_context().unwrap().unwrap();
+                let mut restored = Aarch32Vcpu::new(0, memory);
+                restored
+                    .restore_checkpoint_context(
+                        &public,
+                        &crate::vm::snapshot::EmulatorState::default(),
+                        Some(&private),
+                    )
+                    .unwrap();
+                assert_eq!(state(&restored), state(&live));
+                let expected = if case.kind == "Fused" {
+                    fused == 1
+                } else {
+                    miscellaneous == 0x43
+                };
+                for cpu in [&mut live, &mut restored] {
+                    let result = cpu.run_retirement_budget(1).unwrap();
+                    assert_eq!(result.retired, u64::from(expected));
+                    assert!(matches!(
+                        (&result.stop, expected),
+                        (crate::vm::vcpu::RetirementStop::BudgetExhausted, true)
+                            | (crate::vm::vcpu::RetirementStop::Fault(_), false)
+                    ));
+                    assert_eq!(cpu.instruction_count(), u64::from(expected));
+                    assert_eq!(
+                        cpu.current_pc(),
+                        if expected {
+                            u64::from(CODE + 4)
+                        } else {
+                            u64::from(CODE)
+                        }
+                    );
+                    assert_eq!(cpu.cpu.vfp.mvfr1, 0x0211_1111 | (fused << 28));
+                    assert_eq!(cpu.cpu.vfp.mvfr2, miscellaneous);
+                }
+                assert_eq!(state(&restored), state(&live));
+                count += 1;
+            }
+        }
+    }
+    assert_eq!(count, 516);
+}

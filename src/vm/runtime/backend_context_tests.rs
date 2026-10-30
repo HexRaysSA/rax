@@ -220,3 +220,154 @@ fn backend_contexts_cannot_be_dropped_by_base_or_cpu_set_extraction() {
     assert!(missing.save(&fixture.checkpoint).is_err());
     assert!(!fixture.checkpoint.exists());
 }
+
+// The S3C02 payload begins with a fixed-width ID and the complete typed CPU.
+// Preserve its remaining controller/adapter bytes exactly. Checking the decoded
+// prefix against re-encoding prevents a wire-layout change from going unnoticed.
+fn profile_cpu(context: &BackendContext) -> (u32, crate::isa::arm::Armv7Cpu, usize) {
+    assert_eq!(context.kind, crate::vm::snapshot::S3C64XX_CONTEXT);
+    assert!(context.data.starts_with(b"RAXS3C02"));
+    let mut reader = std::io::Cursor::new(&context.data[8..]);
+    let id: u32 = crate::codec::deserialize_from(&mut reader).unwrap();
+    let cpu: crate::isa::arm::Armv7Cpu = crate::codec::deserialize_from(&mut reader).unwrap();
+    let length = reader.position() as usize;
+    assert_eq!(
+        crate::codec::serialize(&(id, &cpu)).unwrap(),
+        &context.data[8..8 + length]
+    );
+    (id, cpu, 8 + length)
+}
+
+fn select_profile(vm: &mut Vmm, index: usize, enabled: bool) {
+    let vcpu = &mut vm.vcpus[index];
+    let mut context = vcpu.capture_backend_context().unwrap().unwrap();
+    let (id, mut cpu, end) = profile_cpu(&context);
+    assert_eq!(id as usize, index);
+    cpu.vfp.mvfr1 = 0x0211_1111 | if enabled { 1 << 28 } else { 0 };
+    cpu.vfp.mvfr2 = if enabled { 0x43 } else { 0 };
+    cpu.cp15.id_isar6 = 0;
+    cpu.cp15.cpacr = crate::isa::arm::cp15::Cpacr::from_bits(0x00f0_0000);
+    cpu.vfp.fpexc = 1 << 30;
+    let mut data = b"RAXS3C02".to_vec();
+    data.extend(crate::codec::serialize(&(id, cpu)).unwrap());
+    data.extend_from_slice(&context.data[end..]);
+    context.data = data;
+    vcpu.restore_checkpoint_context(
+        &vcpu.get_state().unwrap(),
+        &vcpu.get_emulator_state().unwrap_or_default(),
+        Some(&context),
+    )
+    .unwrap();
+}
+
+#[test]
+fn miscellaneous_and_fused_profiles_survive_multicpu_rxc_file_continuation() {
+    let mut fixture = Fixture::new();
+    fixture.checkpoint.set_extension("rxc");
+    for count in [2, 4] {
+        for fused in [false, true] {
+            for enabled_parity in [0, 1] {
+                let mut source = Vmm::new_resume(fixture.config(count)).unwrap();
+                for id in 0..usize::from(count) {
+                    let code = CODE + 0x100 * id as u64;
+                    let thumb = id & 1 != 0;
+                    // VFMA.F32 S0,S1,S2 / VMAXNM.F32 Q0,Q1,Q2.
+                    let raw = if fused {
+                        0xeea0_0a81u32
+                    } else if thumb {
+                        0xff02_0f54
+                    } else {
+                        0xf302_0f54
+                    };
+                    let bytes = if thumb {
+                        let high = ((raw >> 16) as u16).to_le_bytes();
+                        let low = (raw as u16).to_le_bytes();
+                        [high[0], high[1], low[0], low[1]]
+                    } else {
+                        raw.to_le_bytes()
+                    };
+                    source
+                        .guest_mem
+                        .memory()
+                        .write_slice(&bytes, GuestAddress(code))
+                        .unwrap();
+                    let wfi = if thumb {
+                        vec![0x30, 0xbf]
+                    } else {
+                        0xe320_f003u32.to_le_bytes().to_vec()
+                    };
+                    source
+                        .guest_mem
+                        .memory()
+                        .write_slice(&wfi, GuestAddress(code + 4))
+                        .unwrap();
+                    let CpuState::Aarch32(mut state) = source.vcpus[id].get_state().unwrap() else {
+                        panic!()
+                    };
+                    state.regs.pc = code as u32;
+                    state.regs.cpsr = (state.regs.cpsr & !32) | if thumb { 32 } else { 0 };
+                    source.vcpus[id]
+                        .set_state(&CpuState::Aarch32(state))
+                        .unwrap();
+                    select_profile(&mut source, id, id & 1 == enabled_parity);
+                }
+                // These are explicitly prepared software execution contexts.
+                // AP firmware/startup is a separate architectural requirement;
+                // construction alone leaves all secondary CPUs offline.
+                source.coordinator.online.fill(true);
+                let before = contexts(&source);
+                let bundle = source.take_snapshot_bundle(0).unwrap();
+                bundle.save(&fixture.checkpoint).unwrap();
+                let loaded = SnapshotBundle::load(&fixture.checkpoint).unwrap();
+                assert_eq!(loaded.backend_contexts().unwrap().entries(), before);
+                let mut restored = Vmm::new_resume_bundle(fixture.config(count), &loaded).unwrap();
+                assert_eq!(contexts(&restored), before);
+                for vm in [&mut source, &mut restored] {
+                    for id in 0..usize::from(count) {
+                        let enabled = id & 1 == enabled_parity;
+                        assert!(vm.vcpus[id].supports_stepping());
+                        let context = vm.vcpus[id].capture_backend_context().unwrap().unwrap();
+                        let (_, private, _) = profile_cpu(&context);
+                        assert!(
+                            !private.is_halted,
+                            "count={count} fused={fused} parity={enabled_parity} CPU{id} already halted"
+                        );
+                        assert_eq!(private.vfp.mvfr2, if enabled { 0x43 } else { 0 });
+                        let turn = vm.execute_turn().unwrap();
+                        if enabled {
+                            let turn = turn.expect("enabled instruction followed by WFI");
+                            assert_eq!(turn.cpu_index, id);
+                            assert!(matches!(turn.exit, VcpuExit::Hlt));
+                        } else {
+                            assert!(
+                                turn.is_none(),
+                                "count={count} fused={fused} parity={enabled_parity} CPU{id} PC={:#x} retired={} exit={:?}",
+                                vm.vcpus[id].current_pc(),
+                                vm.vcpus[id].instruction_count(),
+                                turn.as_ref().map(|t| &t.exit)
+                            );
+                        }
+                        let cpu = &vm.vcpus[id];
+                        assert_eq!(cpu.instruction_count(), if enabled { 2 } else { 0 });
+                        assert_eq!(
+                            cpu.current_pc(),
+                            if enabled {
+                                CODE + 0x100 * id as u64 + if id & 1 != 0 { 6 } else { 8 }
+                            } else {
+                                4
+                            }
+                        );
+                        let context = cpu.capture_backend_context().unwrap().unwrap();
+                        let (_, private, _) = profile_cpu(&context);
+                        assert_eq!(private.vfp.mvfr2, if enabled { 0x43 } else { 0 });
+                        assert_eq!(private.vfp.mvfr1 >> 28, u32::from(enabled));
+                    }
+                    assert_eq!(vm.coordinator.cursor, 0);
+                    assert_eq!(vm.coordinator.retired, u64::from(count));
+                }
+                assert_eq!(contexts(&restored), contexts(&source));
+                std::fs::remove_file(&fixture.checkpoint).unwrap();
+            }
+        }
+    }
+}

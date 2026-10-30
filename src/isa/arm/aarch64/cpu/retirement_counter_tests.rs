@@ -50,7 +50,10 @@ fn machine(isa: Isa, enabled: bool) -> AArch64Cpu {
     }
     cpu.write_memory(ENTRY, isa.bytes()).unwrap();
     cpu.set_pc(ENTRY);
+    #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     cpu.set_jit_enabled(enabled);
+    #[cfg(not(all(feature = "smir-jit", target_arch = "aarch64")))]
+    let _ = enabled;
     cpu.sysregs.cntpct_el0 = TICKS;
     cpu
 }

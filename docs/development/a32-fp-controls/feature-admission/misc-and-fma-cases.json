@@ -1,0 +1,2446 @@
+{
+  "cases": [
+    {
+      "kind": "Select",
+      "simd": false,
+      "assembly": "vseleq.f32 s0,s1,s2",
+      "arm_bytes": [
+        129,
+        10,
+        0,
+        254
+      ],
+      "arm_raw": 4261415553,
+      "thumb_bytes": [
+        0,
+        254,
+        129,
+        10
+      ],
+      "thumb_raw": 4261415553
+    },
+    {
+      "kind": "Select",
+      "simd": false,
+      "assembly": "vselge.f32 s0,s1,s2",
+      "arm_bytes": [
+        129,
+        10,
+        32,
+        254
+      ],
+      "arm_raw": 4263512705,
+      "thumb_bytes": [
+        32,
+        254,
+        129,
+        10
+      ],
+      "thumb_raw": 4263512705
+    },
+    {
+      "kind": "Select",
+      "simd": false,
+      "assembly": "vselgt.f32 s0,s1,s2",
+      "arm_bytes": [
+        129,
+        10,
+        48,
+        254
+      ],
+      "arm_raw": 4264561281,
+      "thumb_bytes": [
+        48,
+        254,
+        129,
+        10
+      ],
+      "thumb_raw": 4264561281
+    },
+    {
+      "kind": "Select",
+      "simd": false,
+      "assembly": "vselvs.f32 s0,s1,s2",
+      "arm_bytes": [
+        129,
+        10,
+        16,
+        254
+      ],
+      "arm_raw": 4262464129,
+      "thumb_bytes": [
+        16,
+        254,
+        129,
+        10
+      ],
+      "thumb_raw": 4262464129
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvta.s32.f32 s0,s1",
+      "arm_bytes": [
+        224,
+        10,
+        188,
+        254
+      ],
+      "arm_raw": 4273736416,
+      "thumb_bytes": [
+        188,
+        254,
+        224,
+        10
+      ],
+      "thumb_raw": 4273736416
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvta.u32.f32 s0,s1",
+      "arm_bytes": [
+        96,
+        10,
+        188,
+        254
+      ],
+      "arm_raw": 4273736288,
+      "thumb_bytes": [
+        188,
+        254,
+        96,
+        10
+      ],
+      "thumb_raw": 4273736288
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtn.s32.f32 s0,s1",
+      "arm_bytes": [
+        224,
+        10,
+        189,
+        254
+      ],
+      "arm_raw": 4273801952,
+      "thumb_bytes": [
+        189,
+        254,
+        224,
+        10
+      ],
+      "thumb_raw": 4273801952
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtn.u32.f32 s0,s1",
+      "arm_bytes": [
+        96,
+        10,
+        189,
+        254
+      ],
+      "arm_raw": 4273801824,
+      "thumb_bytes": [
+        189,
+        254,
+        96,
+        10
+      ],
+      "thumb_raw": 4273801824
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtp.s32.f32 s0,s1",
+      "arm_bytes": [
+        224,
+        10,
+        190,
+        254
+      ],
+      "arm_raw": 4273867488,
+      "thumb_bytes": [
+        190,
+        254,
+        224,
+        10
+      ],
+      "thumb_raw": 4273867488
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtp.u32.f32 s0,s1",
+      "arm_bytes": [
+        96,
+        10,
+        190,
+        254
+      ],
+      "arm_raw": 4273867360,
+      "thumb_bytes": [
+        190,
+        254,
+        96,
+        10
+      ],
+      "thumb_raw": 4273867360
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtm.s32.f32 s0,s1",
+      "arm_bytes": [
+        224,
+        10,
+        191,
+        254
+      ],
+      "arm_raw": 4273933024,
+      "thumb_bytes": [
+        191,
+        254,
+        224,
+        10
+      ],
+      "thumb_raw": 4273933024
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtm.u32.f32 s0,s1",
+      "arm_bytes": [
+        96,
+        10,
+        191,
+        254
+      ],
+      "arm_raw": 4273932896,
+      "thumb_bytes": [
+        191,
+        254,
+        96,
+        10
+      ],
+      "thumb_raw": 4273932896
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrinta.f32 s0,s1",
+      "arm_bytes": [
+        96,
+        10,
+        184,
+        254
+      ],
+      "arm_raw": 4273474144,
+      "thumb_bytes": [
+        184,
+        254,
+        96,
+        10
+      ],
+      "thumb_raw": 4273474144
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintn.f32 s0,s1",
+      "arm_bytes": [
+        96,
+        10,
+        185,
+        254
+      ],
+      "arm_raw": 4273539680,
+      "thumb_bytes": [
+        185,
+        254,
+        96,
+        10
+      ],
+      "thumb_raw": 4273539680
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintp.f32 s0,s1",
+      "arm_bytes": [
+        96,
+        10,
+        186,
+        254
+      ],
+      "arm_raw": 4273605216,
+      "thumb_bytes": [
+        186,
+        254,
+        96,
+        10
+      ],
+      "thumb_raw": 4273605216
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintm.f32 s0,s1",
+      "arm_bytes": [
+        96,
+        10,
+        187,
+        254
+      ],
+      "arm_raw": 4273670752,
+      "thumb_bytes": [
+        187,
+        254,
+        96,
+        10
+      ],
+      "thumb_raw": 4273670752
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintr.f32 s0,s1",
+      "arm_bytes": [
+        96,
+        10,
+        182,
+        238
+      ],
+      "arm_raw": 4004907616,
+      "thumb_bytes": [
+        182,
+        238,
+        96,
+        10
+      ],
+      "thumb_raw": 4004907616
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintx.f32 s0,s1",
+      "arm_bytes": [
+        96,
+        10,
+        183,
+        238
+      ],
+      "arm_raw": 4004973152,
+      "thumb_bytes": [
+        183,
+        238,
+        96,
+        10
+      ],
+      "thumb_raw": 4004973152
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintz.f32 s0,s1",
+      "arm_bytes": [
+        224,
+        10,
+        182,
+        238
+      ],
+      "arm_raw": 4004907744,
+      "thumb_bytes": [
+        182,
+        238,
+        224,
+        10
+      ],
+      "thumb_raw": 4004907744
+    },
+    {
+      "kind": "Number",
+      "simd": false,
+      "assembly": "vmaxnm.f32 s0,s1,s2",
+      "arm_bytes": [
+        129,
+        10,
+        128,
+        254
+      ],
+      "arm_raw": 4269804161,
+      "thumb_bytes": [
+        128,
+        254,
+        129,
+        10
+      ],
+      "thumb_raw": 4269804161
+    },
+    {
+      "kind": "Number",
+      "simd": false,
+      "assembly": "vminnm.f32 s0,s1,s2",
+      "arm_bytes": [
+        193,
+        10,
+        128,
+        254
+      ],
+      "arm_raw": 4269804225,
+      "thumb_bytes": [
+        128,
+        254,
+        193,
+        10
+      ],
+      "thumb_raw": 4269804225
+    },
+    {
+      "kind": "Fused",
+      "simd": false,
+      "assembly": "vfma.f32 s0,s1,s2",
+      "arm_bytes": [
+        129,
+        10,
+        160,
+        238
+      ],
+      "arm_raw": 4003465857,
+      "thumb_bytes": [
+        160,
+        238,
+        129,
+        10
+      ],
+      "thumb_raw": 4003465857
+    },
+    {
+      "kind": "Fused",
+      "simd": false,
+      "assembly": "vfms.f32 s0,s1,s2",
+      "arm_bytes": [
+        193,
+        10,
+        160,
+        238
+      ],
+      "arm_raw": 4003465921,
+      "thumb_bytes": [
+        160,
+        238,
+        193,
+        10
+      ],
+      "thumb_raw": 4003465921
+    },
+    {
+      "kind": "Fused",
+      "simd": false,
+      "assembly": "vfnma.f32 s0,s1,s2",
+      "arm_bytes": [
+        193,
+        10,
+        144,
+        238
+      ],
+      "arm_raw": 4002417345,
+      "thumb_bytes": [
+        144,
+        238,
+        193,
+        10
+      ],
+      "thumb_raw": 4002417345
+    },
+    {
+      "kind": "Fused",
+      "simd": false,
+      "assembly": "vfnms.f32 s0,s1,s2",
+      "arm_bytes": [
+        129,
+        10,
+        144,
+        238
+      ],
+      "arm_raw": 4002417281,
+      "thumb_bytes": [
+        144,
+        238,
+        129,
+        10
+      ],
+      "thumb_raw": 4002417281
+    },
+    {
+      "kind": "Select",
+      "simd": false,
+      "assembly": "vseleq.f64 d0,d1,d2",
+      "arm_bytes": [
+        2,
+        11,
+        1,
+        254
+      ],
+      "arm_raw": 4261481218,
+      "thumb_bytes": [
+        1,
+        254,
+        2,
+        11
+      ],
+      "thumb_raw": 4261481218
+    },
+    {
+      "kind": "Select",
+      "simd": false,
+      "assembly": "vselge.f64 d0,d1,d2",
+      "arm_bytes": [
+        2,
+        11,
+        33,
+        254
+      ],
+      "arm_raw": 4263578370,
+      "thumb_bytes": [
+        33,
+        254,
+        2,
+        11
+      ],
+      "thumb_raw": 4263578370
+    },
+    {
+      "kind": "Select",
+      "simd": false,
+      "assembly": "vselgt.f64 d0,d1,d2",
+      "arm_bytes": [
+        2,
+        11,
+        49,
+        254
+      ],
+      "arm_raw": 4264626946,
+      "thumb_bytes": [
+        49,
+        254,
+        2,
+        11
+      ],
+      "thumb_raw": 4264626946
+    },
+    {
+      "kind": "Select",
+      "simd": false,
+      "assembly": "vselvs.f64 d0,d1,d2",
+      "arm_bytes": [
+        2,
+        11,
+        17,
+        254
+      ],
+      "arm_raw": 4262529794,
+      "thumb_bytes": [
+        17,
+        254,
+        2,
+        11
+      ],
+      "thumb_raw": 4262529794
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvta.s32.f64 s0,d1",
+      "arm_bytes": [
+        193,
+        11,
+        188,
+        254
+      ],
+      "arm_raw": 4273736641,
+      "thumb_bytes": [
+        188,
+        254,
+        193,
+        11
+      ],
+      "thumb_raw": 4273736641
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvta.u32.f64 s0,d1",
+      "arm_bytes": [
+        65,
+        11,
+        188,
+        254
+      ],
+      "arm_raw": 4273736513,
+      "thumb_bytes": [
+        188,
+        254,
+        65,
+        11
+      ],
+      "thumb_raw": 4273736513
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtn.s32.f64 s0,d1",
+      "arm_bytes": [
+        193,
+        11,
+        189,
+        254
+      ],
+      "arm_raw": 4273802177,
+      "thumb_bytes": [
+        189,
+        254,
+        193,
+        11
+      ],
+      "thumb_raw": 4273802177
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtn.u32.f64 s0,d1",
+      "arm_bytes": [
+        65,
+        11,
+        189,
+        254
+      ],
+      "arm_raw": 4273802049,
+      "thumb_bytes": [
+        189,
+        254,
+        65,
+        11
+      ],
+      "thumb_raw": 4273802049
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtp.s32.f64 s0,d1",
+      "arm_bytes": [
+        193,
+        11,
+        190,
+        254
+      ],
+      "arm_raw": 4273867713,
+      "thumb_bytes": [
+        190,
+        254,
+        193,
+        11
+      ],
+      "thumb_raw": 4273867713
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtp.u32.f64 s0,d1",
+      "arm_bytes": [
+        65,
+        11,
+        190,
+        254
+      ],
+      "arm_raw": 4273867585,
+      "thumb_bytes": [
+        190,
+        254,
+        65,
+        11
+      ],
+      "thumb_raw": 4273867585
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtm.s32.f64 s0,d1",
+      "arm_bytes": [
+        193,
+        11,
+        191,
+        254
+      ],
+      "arm_raw": 4273933249,
+      "thumb_bytes": [
+        191,
+        254,
+        193,
+        11
+      ],
+      "thumb_raw": 4273933249
+    },
+    {
+      "kind": "Convert",
+      "simd": false,
+      "assembly": "vcvtm.u32.f64 s0,d1",
+      "arm_bytes": [
+        65,
+        11,
+        191,
+        254
+      ],
+      "arm_raw": 4273933121,
+      "thumb_bytes": [
+        191,
+        254,
+        65,
+        11
+      ],
+      "thumb_raw": 4273933121
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrinta.f64 d0,d1",
+      "arm_bytes": [
+        65,
+        11,
+        184,
+        254
+      ],
+      "arm_raw": 4273474369,
+      "thumb_bytes": [
+        184,
+        254,
+        65,
+        11
+      ],
+      "thumb_raw": 4273474369
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintn.f64 d0,d1",
+      "arm_bytes": [
+        65,
+        11,
+        185,
+        254
+      ],
+      "arm_raw": 4273539905,
+      "thumb_bytes": [
+        185,
+        254,
+        65,
+        11
+      ],
+      "thumb_raw": 4273539905
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintp.f64 d0,d1",
+      "arm_bytes": [
+        65,
+        11,
+        186,
+        254
+      ],
+      "arm_raw": 4273605441,
+      "thumb_bytes": [
+        186,
+        254,
+        65,
+        11
+      ],
+      "thumb_raw": 4273605441
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintm.f64 d0,d1",
+      "arm_bytes": [
+        65,
+        11,
+        187,
+        254
+      ],
+      "arm_raw": 4273670977,
+      "thumb_bytes": [
+        187,
+        254,
+        65,
+        11
+      ],
+      "thumb_raw": 4273670977
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintr.f64 d0,d1",
+      "arm_bytes": [
+        65,
+        11,
+        182,
+        238
+      ],
+      "arm_raw": 4004907841,
+      "thumb_bytes": [
+        182,
+        238,
+        65,
+        11
+      ],
+      "thumb_raw": 4004907841
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintx.f64 d0,d1",
+      "arm_bytes": [
+        65,
+        11,
+        183,
+        238
+      ],
+      "arm_raw": 4004973377,
+      "thumb_bytes": [
+        183,
+        238,
+        65,
+        11
+      ],
+      "thumb_raw": 4004973377
+    },
+    {
+      "kind": "Round",
+      "simd": false,
+      "assembly": "vrintz.f64 d0,d1",
+      "arm_bytes": [
+        193,
+        11,
+        182,
+        238
+      ],
+      "arm_raw": 4004907969,
+      "thumb_bytes": [
+        182,
+        238,
+        193,
+        11
+      ],
+      "thumb_raw": 4004907969
+    },
+    {
+      "kind": "Number",
+      "simd": false,
+      "assembly": "vmaxnm.f64 d0,d1,d2",
+      "arm_bytes": [
+        2,
+        11,
+        129,
+        254
+      ],
+      "arm_raw": 4269869826,
+      "thumb_bytes": [
+        129,
+        254,
+        2,
+        11
+      ],
+      "thumb_raw": 4269869826
+    },
+    {
+      "kind": "Number",
+      "simd": false,
+      "assembly": "vminnm.f64 d0,d1,d2",
+      "arm_bytes": [
+        66,
+        11,
+        129,
+        254
+      ],
+      "arm_raw": 4269869890,
+      "thumb_bytes": [
+        129,
+        254,
+        66,
+        11
+      ],
+      "thumb_raw": 4269869890
+    },
+    {
+      "kind": "Fused",
+      "simd": false,
+      "assembly": "vfma.f64 d0,d1,d2",
+      "arm_bytes": [
+        2,
+        11,
+        161,
+        238
+      ],
+      "arm_raw": 4003531522,
+      "thumb_bytes": [
+        161,
+        238,
+        2,
+        11
+      ],
+      "thumb_raw": 4003531522
+    },
+    {
+      "kind": "Fused",
+      "simd": false,
+      "assembly": "vfms.f64 d0,d1,d2",
+      "arm_bytes": [
+        66,
+        11,
+        161,
+        238
+      ],
+      "arm_raw": 4003531586,
+      "thumb_bytes": [
+        161,
+        238,
+        66,
+        11
+      ],
+      "thumb_raw": 4003531586
+    },
+    {
+      "kind": "Fused",
+      "simd": false,
+      "assembly": "vfnma.f64 d0,d1,d2",
+      "arm_bytes": [
+        66,
+        11,
+        145,
+        238
+      ],
+      "arm_raw": 4002483010,
+      "thumb_bytes": [
+        145,
+        238,
+        66,
+        11
+      ],
+      "thumb_raw": 4002483010
+    },
+    {
+      "kind": "Fused",
+      "simd": false,
+      "assembly": "vfnms.f64 d0,d1,d2",
+      "arm_bytes": [
+        2,
+        11,
+        145,
+        238
+      ],
+      "arm_raw": 4002482946,
+      "thumb_bytes": [
+        145,
+        238,
+        2,
+        11
+      ],
+      "thumb_raw": 4002482946
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvta.s32.f32 d0,d1",
+      "arm_bytes": [
+        1,
+        0,
+        187,
+        243
+      ],
+      "arm_raw": 4089118721,
+      "thumb_bytes": [
+        187,
+        255,
+        1,
+        0
+      ],
+      "thumb_raw": 4290445313
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvta.u32.f32 d0,d1",
+      "arm_bytes": [
+        129,
+        0,
+        187,
+        243
+      ],
+      "arm_raw": 4089118849,
+      "thumb_bytes": [
+        187,
+        255,
+        129,
+        0
+      ],
+      "thumb_raw": 4290445441
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtn.s32.f32 d0,d1",
+      "arm_bytes": [
+        1,
+        1,
+        187,
+        243
+      ],
+      "arm_raw": 4089118977,
+      "thumb_bytes": [
+        187,
+        255,
+        1,
+        1
+      ],
+      "thumb_raw": 4290445569
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtn.u32.f32 d0,d1",
+      "arm_bytes": [
+        129,
+        1,
+        187,
+        243
+      ],
+      "arm_raw": 4089119105,
+      "thumb_bytes": [
+        187,
+        255,
+        129,
+        1
+      ],
+      "thumb_raw": 4290445697
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtp.s32.f32 d0,d1",
+      "arm_bytes": [
+        1,
+        2,
+        187,
+        243
+      ],
+      "arm_raw": 4089119233,
+      "thumb_bytes": [
+        187,
+        255,
+        1,
+        2
+      ],
+      "thumb_raw": 4290445825
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtp.u32.f32 d0,d1",
+      "arm_bytes": [
+        129,
+        2,
+        187,
+        243
+      ],
+      "arm_raw": 4089119361,
+      "thumb_bytes": [
+        187,
+        255,
+        129,
+        2
+      ],
+      "thumb_raw": 4290445953
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtm.s32.f32 d0,d1",
+      "arm_bytes": [
+        1,
+        3,
+        187,
+        243
+      ],
+      "arm_raw": 4089119489,
+      "thumb_bytes": [
+        187,
+        255,
+        1,
+        3
+      ],
+      "thumb_raw": 4290446081
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtm.u32.f32 d0,d1",
+      "arm_bytes": [
+        129,
+        3,
+        187,
+        243
+      ],
+      "arm_raw": 4089119617,
+      "thumb_bytes": [
+        187,
+        255,
+        129,
+        3
+      ],
+      "thumb_raw": 4290446209
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrinta.f32 d0,d1",
+      "arm_bytes": [
+        1,
+        5,
+        186,
+        243
+      ],
+      "arm_raw": 4089054465,
+      "thumb_bytes": [
+        186,
+        255,
+        1,
+        5
+      ],
+      "thumb_raw": 4290381057
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrintn.f32 d0,d1",
+      "arm_bytes": [
+        1,
+        4,
+        186,
+        243
+      ],
+      "arm_raw": 4089054209,
+      "thumb_bytes": [
+        186,
+        255,
+        1,
+        4
+      ],
+      "thumb_raw": 4290380801
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrintp.f32 d0,d1",
+      "arm_bytes": [
+        129,
+        7,
+        186,
+        243
+      ],
+      "arm_raw": 4089055105,
+      "thumb_bytes": [
+        186,
+        255,
+        129,
+        7
+      ],
+      "thumb_raw": 4290381697
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrintm.f32 d0,d1",
+      "arm_bytes": [
+        129,
+        6,
+        186,
+        243
+      ],
+      "arm_raw": 4089054849,
+      "thumb_bytes": [
+        186,
+        255,
+        129,
+        6
+      ],
+      "thumb_raw": 4290381441
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrintx.f32 d0,d1",
+      "arm_bytes": [
+        129,
+        4,
+        186,
+        243
+      ],
+      "arm_raw": 4089054337,
+      "thumb_bytes": [
+        186,
+        255,
+        129,
+        4
+      ],
+      "thumb_raw": 4290380929
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrintz.f32 d0,d1",
+      "arm_bytes": [
+        129,
+        5,
+        186,
+        243
+      ],
+      "arm_raw": 4089054593,
+      "thumb_bytes": [
+        186,
+        255,
+        129,
+        5
+      ],
+      "thumb_raw": 4290381185
+    },
+    {
+      "kind": "Number",
+      "simd": true,
+      "assembly": "vmaxnm.f32 d0,d1,d2",
+      "arm_bytes": [
+        18,
+        15,
+        1,
+        243
+      ],
+      "arm_raw": 4076932882,
+      "thumb_bytes": [
+        1,
+        255,
+        18,
+        15
+      ],
+      "thumb_raw": 4278259474
+    },
+    {
+      "kind": "Number",
+      "simd": true,
+      "assembly": "vminnm.f32 d0,d1,d2",
+      "arm_bytes": [
+        18,
+        15,
+        33,
+        243
+      ],
+      "arm_raw": 4079030034,
+      "thumb_bytes": [
+        33,
+        255,
+        18,
+        15
+      ],
+      "thumb_raw": 4280356626
+    },
+    {
+      "kind": "Fused",
+      "simd": true,
+      "assembly": "vfma.f32 d0,d1,d2",
+      "arm_bytes": [
+        18,
+        12,
+        1,
+        242
+      ],
+      "arm_raw": 4060154898,
+      "thumb_bytes": [
+        1,
+        239,
+        18,
+        12
+      ],
+      "thumb_raw": 4009823250
+    },
+    {
+      "kind": "Fused",
+      "simd": true,
+      "assembly": "vfms.f32 d0,d1,d2",
+      "arm_bytes": [
+        18,
+        12,
+        33,
+        242
+      ],
+      "arm_raw": 4062252050,
+      "thumb_bytes": [
+        33,
+        239,
+        18,
+        12
+      ],
+      "thumb_raw": 4011920402
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvta.s32.f32 q0,q1",
+      "arm_bytes": [
+        66,
+        0,
+        187,
+        243
+      ],
+      "arm_raw": 4089118786,
+      "thumb_bytes": [
+        187,
+        255,
+        66,
+        0
+      ],
+      "thumb_raw": 4290445378
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvta.u32.f32 q0,q1",
+      "arm_bytes": [
+        194,
+        0,
+        187,
+        243
+      ],
+      "arm_raw": 4089118914,
+      "thumb_bytes": [
+        187,
+        255,
+        194,
+        0
+      ],
+      "thumb_raw": 4290445506
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtn.s32.f32 q0,q1",
+      "arm_bytes": [
+        66,
+        1,
+        187,
+        243
+      ],
+      "arm_raw": 4089119042,
+      "thumb_bytes": [
+        187,
+        255,
+        66,
+        1
+      ],
+      "thumb_raw": 4290445634
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtn.u32.f32 q0,q1",
+      "arm_bytes": [
+        194,
+        1,
+        187,
+        243
+      ],
+      "arm_raw": 4089119170,
+      "thumb_bytes": [
+        187,
+        255,
+        194,
+        1
+      ],
+      "thumb_raw": 4290445762
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtp.s32.f32 q0,q1",
+      "arm_bytes": [
+        66,
+        2,
+        187,
+        243
+      ],
+      "arm_raw": 4089119298,
+      "thumb_bytes": [
+        187,
+        255,
+        66,
+        2
+      ],
+      "thumb_raw": 4290445890
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtp.u32.f32 q0,q1",
+      "arm_bytes": [
+        194,
+        2,
+        187,
+        243
+      ],
+      "arm_raw": 4089119426,
+      "thumb_bytes": [
+        187,
+        255,
+        194,
+        2
+      ],
+      "thumb_raw": 4290446018
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtm.s32.f32 q0,q1",
+      "arm_bytes": [
+        66,
+        3,
+        187,
+        243
+      ],
+      "arm_raw": 4089119554,
+      "thumb_bytes": [
+        187,
+        255,
+        66,
+        3
+      ],
+      "thumb_raw": 4290446146
+    },
+    {
+      "kind": "Convert",
+      "simd": true,
+      "assembly": "vcvtm.u32.f32 q0,q1",
+      "arm_bytes": [
+        194,
+        3,
+        187,
+        243
+      ],
+      "arm_raw": 4089119682,
+      "thumb_bytes": [
+        187,
+        255,
+        194,
+        3
+      ],
+      "thumb_raw": 4290446274
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrinta.f32 q0,q1",
+      "arm_bytes": [
+        66,
+        5,
+        186,
+        243
+      ],
+      "arm_raw": 4089054530,
+      "thumb_bytes": [
+        186,
+        255,
+        66,
+        5
+      ],
+      "thumb_raw": 4290381122
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrintn.f32 q0,q1",
+      "arm_bytes": [
+        66,
+        4,
+        186,
+        243
+      ],
+      "arm_raw": 4089054274,
+      "thumb_bytes": [
+        186,
+        255,
+        66,
+        4
+      ],
+      "thumb_raw": 4290380866
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrintp.f32 q0,q1",
+      "arm_bytes": [
+        194,
+        7,
+        186,
+        243
+      ],
+      "arm_raw": 4089055170,
+      "thumb_bytes": [
+        186,
+        255,
+        194,
+        7
+      ],
+      "thumb_raw": 4290381762
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrintm.f32 q0,q1",
+      "arm_bytes": [
+        194,
+        6,
+        186,
+        243
+      ],
+      "arm_raw": 4089054914,
+      "thumb_bytes": [
+        186,
+        255,
+        194,
+        6
+      ],
+      "thumb_raw": 4290381506
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrintx.f32 q0,q1",
+      "arm_bytes": [
+        194,
+        4,
+        186,
+        243
+      ],
+      "arm_raw": 4089054402,
+      "thumb_bytes": [
+        186,
+        255,
+        194,
+        4
+      ],
+      "thumb_raw": 4290380994
+    },
+    {
+      "kind": "Round",
+      "simd": true,
+      "assembly": "vrintz.f32 q0,q1",
+      "arm_bytes": [
+        194,
+        5,
+        186,
+        243
+      ],
+      "arm_raw": 4089054658,
+      "thumb_bytes": [
+        186,
+        255,
+        194,
+        5
+      ],
+      "thumb_raw": 4290381250
+    },
+    {
+      "kind": "Number",
+      "simd": true,
+      "assembly": "vmaxnm.f32 q0,q1,q2",
+      "arm_bytes": [
+        84,
+        15,
+        2,
+        243
+      ],
+      "arm_raw": 4076998484,
+      "thumb_bytes": [
+        2,
+        255,
+        84,
+        15
+      ],
+      "thumb_raw": 4278325076
+    },
+    {
+      "kind": "Number",
+      "simd": true,
+      "assembly": "vminnm.f32 q0,q1,q2",
+      "arm_bytes": [
+        84,
+        15,
+        34,
+        243
+      ],
+      "arm_raw": 4079095636,
+      "thumb_bytes": [
+        34,
+        255,
+        84,
+        15
+      ],
+      "thumb_raw": 4280422228
+    },
+    {
+      "kind": "Fused",
+      "simd": true,
+      "assembly": "vfma.f32 q0,q1,q2",
+      "arm_bytes": [
+        84,
+        12,
+        2,
+        242
+      ],
+      "arm_raw": 4060220500,
+      "thumb_bytes": [
+        2,
+        239,
+        84,
+        12
+      ],
+      "thumb_raw": 4009888852
+    },
+    {
+      "kind": "Fused",
+      "simd": true,
+      "assembly": "vfms.f32 q0,q1,q2",
+      "arm_bytes": [
+        84,
+        12,
+        34,
+        242
+      ],
+      "arm_raw": 4062317652,
+      "thumb_bytes": [
+        34,
+        239,
+        84,
+        12
+      ],
+      "thumb_raw": 4011986004
+    }
+  ],
+  "count": 86,
+  "llvm_mc": "/Users/int/local/bin/llvm-mc",
+  "llvm_mc_sha256": "0311e88d2281780e2784cd7657bcdc71b70044fa4c530c89a5431a45acc1b971",
+  "schema": 1,
+  "description": "S/D miscellaneous and classic fused capability admission; both ARM and Thumb encodings independently assembled by LLVM MC.",
+  "controls": [
+    {
+      "assembly": "vmla.f32 s0,s1,s2",
+      "half": false,
+      "arm_raw": 3992980097,
+      "thumb_raw": 3992980097,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        129,
+        10,
+        0,
+        238
+      ],
+      "thumb_bytes": [
+        0,
+        238,
+        129,
+        10
+      ]
+    },
+    {
+      "assembly": "vmls.f32 s0,s1,s2",
+      "half": false,
+      "arm_raw": 3992980161,
+      "thumb_raw": 3992980161,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        193,
+        10,
+        0,
+        238
+      ],
+      "thumb_bytes": [
+        0,
+        238,
+        193,
+        10
+      ]
+    },
+    {
+      "assembly": "vnmla.f32 s0,s1,s2",
+      "half": false,
+      "arm_raw": 3994028737,
+      "thumb_raw": 3994028737,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        193,
+        10,
+        16,
+        238
+      ],
+      "thumb_bytes": [
+        16,
+        238,
+        193,
+        10
+      ]
+    },
+    {
+      "assembly": "vnmls.f32 s0,s1,s2",
+      "half": false,
+      "arm_raw": 3994028673,
+      "thumb_raw": 3994028673,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        129,
+        10,
+        16,
+        238
+      ],
+      "thumb_bytes": [
+        16,
+        238,
+        129,
+        10
+      ]
+    },
+    {
+      "assembly": "vnmul.f32 s0,s1,s2",
+      "half": false,
+      "arm_raw": 3995077313,
+      "thumb_raw": 3995077313,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        193,
+        10,
+        32,
+        238
+      ],
+      "thumb_bytes": [
+        32,
+        238,
+        193,
+        10
+      ]
+    },
+    {
+      "assembly": "vadd.f32 s0,s1,s2",
+      "half": false,
+      "arm_raw": 3996125825,
+      "thumb_raw": 3996125825,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        129,
+        10,
+        48,
+        238
+      ],
+      "thumb_bytes": [
+        48,
+        238,
+        129,
+        10
+      ]
+    },
+    {
+      "assembly": "vmul.f32 s0,s1,s2",
+      "half": false,
+      "arm_raw": 3995077249,
+      "thumb_raw": 3995077249,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        129,
+        10,
+        32,
+        238
+      ],
+      "thumb_bytes": [
+        32,
+        238,
+        129,
+        10
+      ]
+    },
+    {
+      "assembly": "vcvt.s32.f32 s0,s1",
+      "half": false,
+      "arm_raw": 4005366496,
+      "thumb_raw": 4005366496,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        224,
+        10,
+        189,
+        238
+      ],
+      "thumb_bytes": [
+        189,
+        238,
+        224,
+        10
+      ]
+    },
+    {
+      "assembly": "vcvtr.s32.f32 s0,s1",
+      "half": false,
+      "arm_raw": 4005366368,
+      "thumb_raw": 4005366368,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        96,
+        10,
+        189,
+        238
+      ],
+      "thumb_bytes": [
+        189,
+        238,
+        96,
+        10
+      ]
+    },
+    {
+      "assembly": "vmla.f64 d0,d1,d2",
+      "half": false,
+      "arm_raw": 3993045762,
+      "thumb_raw": 3993045762,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        2,
+        11,
+        1,
+        238
+      ],
+      "thumb_bytes": [
+        1,
+        238,
+        2,
+        11
+      ]
+    },
+    {
+      "assembly": "vmls.f64 d0,d1,d2",
+      "half": false,
+      "arm_raw": 3993045826,
+      "thumb_raw": 3993045826,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        66,
+        11,
+        1,
+        238
+      ],
+      "thumb_bytes": [
+        1,
+        238,
+        66,
+        11
+      ]
+    },
+    {
+      "assembly": "vnmla.f64 d0,d1,d2",
+      "half": false,
+      "arm_raw": 3994094402,
+      "thumb_raw": 3994094402,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        66,
+        11,
+        17,
+        238
+      ],
+      "thumb_bytes": [
+        17,
+        238,
+        66,
+        11
+      ]
+    },
+    {
+      "assembly": "vnmls.f64 d0,d1,d2",
+      "half": false,
+      "arm_raw": 3994094338,
+      "thumb_raw": 3994094338,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        2,
+        11,
+        17,
+        238
+      ],
+      "thumb_bytes": [
+        17,
+        238,
+        2,
+        11
+      ]
+    },
+    {
+      "assembly": "vnmul.f64 d0,d1,d2",
+      "half": false,
+      "arm_raw": 3995142978,
+      "thumb_raw": 3995142978,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        66,
+        11,
+        33,
+        238
+      ],
+      "thumb_bytes": [
+        33,
+        238,
+        66,
+        11
+      ]
+    },
+    {
+      "assembly": "vadd.f64 d0,d1,d2",
+      "half": false,
+      "arm_raw": 3996191490,
+      "thumb_raw": 3996191490,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        2,
+        11,
+        49,
+        238
+      ],
+      "thumb_bytes": [
+        49,
+        238,
+        2,
+        11
+      ]
+    },
+    {
+      "assembly": "vmul.f64 d0,d1,d2",
+      "half": false,
+      "arm_raw": 3995142914,
+      "thumb_raw": 3995142914,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        2,
+        11,
+        33,
+        238
+      ],
+      "thumb_bytes": [
+        33,
+        238,
+        2,
+        11
+      ]
+    },
+    {
+      "assembly": "vcvt.s32.f64 s0,d1",
+      "half": false,
+      "arm_raw": 4005366721,
+      "thumb_raw": 4005366721,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        193,
+        11,
+        189,
+        238
+      ],
+      "thumb_bytes": [
+        189,
+        238,
+        193,
+        11
+      ]
+    },
+    {
+      "assembly": "vcvtr.s32.f64 s0,d1",
+      "half": false,
+      "arm_raw": 4005366593,
+      "thumb_raw": 4005366593,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        65,
+        11,
+        189,
+        238
+      ],
+      "thumb_bytes": [
+        189,
+        238,
+        65,
+        11
+      ]
+    },
+    {
+      "assembly": "vmla.f32 q0,q1,q2",
+      "half": false,
+      "arm_raw": 4060220756,
+      "thumb_raw": 4009889108,
+      "simd": true,
+      "kind": "Baseline",
+      "arm_bytes": [
+        84,
+        13,
+        2,
+        242
+      ],
+      "thumb_bytes": [
+        2,
+        239,
+        84,
+        13
+      ]
+    },
+    {
+      "assembly": "vmls.f32 q0,q1,q2",
+      "half": false,
+      "arm_raw": 4062317908,
+      "thumb_raw": 4011986260,
+      "simd": true,
+      "kind": "Baseline",
+      "arm_bytes": [
+        84,
+        13,
+        34,
+        242
+      ],
+      "thumb_bytes": [
+        34,
+        239,
+        84,
+        13
+      ]
+    },
+    {
+      "assembly": "vadd.f32 q0,q1,q2",
+      "half": false,
+      "arm_raw": 4060220740,
+      "thumb_raw": 4009889092,
+      "simd": true,
+      "kind": "Baseline",
+      "arm_bytes": [
+        68,
+        13,
+        2,
+        242
+      ],
+      "thumb_bytes": [
+        2,
+        239,
+        68,
+        13
+      ]
+    },
+    {
+      "assembly": "vmul.f32 q0,q1,q2",
+      "half": false,
+      "arm_raw": 4076997972,
+      "thumb_raw": 4278324564,
+      "simd": true,
+      "kind": "Baseline",
+      "arm_bytes": [
+        84,
+        13,
+        2,
+        243
+      ],
+      "thumb_bytes": [
+        2,
+        255,
+        84,
+        13
+      ]
+    },
+    {
+      "assembly": "vmax.f32 q0,q1,q2",
+      "half": false,
+      "arm_raw": 4060221252,
+      "thumb_raw": 4009889604,
+      "simd": true,
+      "kind": "Baseline",
+      "arm_bytes": [
+        68,
+        15,
+        2,
+        242
+      ],
+      "thumb_bytes": [
+        2,
+        239,
+        68,
+        15
+      ]
+    },
+    {
+      "assembly": "vmin.f32 q0,q1,q2",
+      "half": false,
+      "arm_raw": 4062318404,
+      "thumb_raw": 4011986756,
+      "simd": true,
+      "kind": "Baseline",
+      "arm_bytes": [
+        68,
+        15,
+        34,
+        242
+      ],
+      "thumb_bytes": [
+        34,
+        239,
+        68,
+        15
+      ]
+    },
+    {
+      "assembly": "vcvt.s32.f32 q0,q1",
+      "half": false,
+      "arm_raw": 4089120578,
+      "thumb_raw": 4290447170,
+      "simd": true,
+      "kind": "Baseline",
+      "arm_bytes": [
+        66,
+        7,
+        187,
+        243
+      ],
+      "thumb_bytes": [
+        187,
+        255,
+        66,
+        7
+      ]
+    },
+    {
+      "assembly": "vcvt.f32.s32 q0,q1",
+      "half": false,
+      "arm_raw": 4089120322,
+      "thumb_raw": 4290446914,
+      "simd": true,
+      "kind": "Baseline",
+      "arm_bytes": [
+        66,
+        6,
+        187,
+        243
+      ],
+      "thumb_bytes": [
+        187,
+        255,
+        66,
+        6
+      ]
+    },
+    {
+      "assembly": "vcvtb.f32.f16 s0,s1",
+      "half": false,
+      "arm_raw": 4004645472,
+      "thumb_raw": 4004645472,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        96,
+        10,
+        178,
+        238
+      ],
+      "thumb_bytes": [
+        178,
+        238,
+        96,
+        10
+      ]
+    },
+    {
+      "assembly": "vcvtt.f16.f32 s0,s1",
+      "half": false,
+      "arm_raw": 4004711136,
+      "thumb_raw": 4004711136,
+      "simd": false,
+      "kind": "Baseline",
+      "arm_bytes": [
+        224,
+        10,
+        179,
+        238
+      ],
+      "thumb_bytes": [
+        179,
+        238,
+        224,
+        10
+      ]
+    },
+    {
+      "assembly": "vfma.f16 s0,s1,s2",
+      "half": true,
+      "arm_raw": 4003465601,
+      "thumb_raw": 4003465601,
+      "simd": false,
+      "kind": "Fused",
+      "arm_bytes": [
+        129,
+        9,
+        160,
+        238
+      ],
+      "thumb_bytes": [
+        160,
+        238,
+        129,
+        9
+      ]
+    },
+    {
+      "assembly": "vfms.f16 s0,s1,s2",
+      "half": true,
+      "arm_raw": 4003465665,
+      "thumb_raw": 4003465665,
+      "simd": false,
+      "kind": "Fused",
+      "arm_bytes": [
+        193,
+        9,
+        160,
+        238
+      ],
+      "thumb_bytes": [
+        160,
+        238,
+        193,
+        9
+      ]
+    },
+    {
+      "assembly": "vfnma.f16 s0,s1,s2",
+      "half": true,
+      "arm_raw": 4002417089,
+      "thumb_raw": 4002417089,
+      "simd": false,
+      "kind": "Fused",
+      "arm_bytes": [
+        193,
+        9,
+        144,
+        238
+      ],
+      "thumb_bytes": [
+        144,
+        238,
+        193,
+        9
+      ]
+    },
+    {
+      "assembly": "vfnms.f16 s0,s1,s2",
+      "half": true,
+      "arm_raw": 4002417025,
+      "thumb_raw": 4002417025,
+      "simd": false,
+      "kind": "Fused",
+      "arm_bytes": [
+        129,
+        9,
+        144,
+        238
+      ],
+      "thumb_bytes": [
+        144,
+        238,
+        129,
+        9
+      ]
+    },
+    {
+      "assembly": "vseleq.f16 s0,s1,s2",
+      "half": true,
+      "arm_raw": 4261415297,
+      "thumb_raw": 4261415297,
+      "simd": false,
+      "kind": "Select",
+      "arm_bytes": [
+        129,
+        9,
+        0,
+        254
+      ],
+      "thumb_bytes": [
+        0,
+        254,
+        129,
+        9
+      ]
+    },
+    {
+      "assembly": "vcvta.s32.f16 s0,s1",
+      "half": true,
+      "arm_raw": 4273736160,
+      "thumb_raw": 4273736160,
+      "simd": false,
+      "kind": "Convert",
+      "arm_bytes": [
+        224,
+        9,
+        188,
+        254
+      ],
+      "thumb_bytes": [
+        188,
+        254,
+        224,
+        9
+      ]
+    },
+    {
+      "assembly": "vrintz.f16 s0,s1",
+      "half": true,
+      "arm_raw": 4004907488,
+      "thumb_raw": 4004907488,
+      "simd": false,
+      "kind": "Round",
+      "arm_bytes": [
+        224,
+        9,
+        182,
+        238
+      ],
+      "thumb_bytes": [
+        182,
+        238,
+        224,
+        9
+      ]
+    },
+    {
+      "assembly": "vmaxnm.f16 s0,s1,s2",
+      "half": true,
+      "arm_raw": 4269803905,
+      "thumb_raw": 4269803905,
+      "simd": false,
+      "kind": "Number",
+      "arm_bytes": [
+        129,
+        9,
+        128,
+        254
+      ],
+      "thumb_bytes": [
+        128,
+        254,
+        129,
+        9
+      ]
+    },
+    {
+      "assembly": "vfma.f16 q0,q1,q2",
+      "half": true,
+      "arm_raw": 4061269076,
+      "thumb_raw": 4010937428,
+      "simd": true,
+      "kind": "Fused",
+      "arm_bytes": [
+        84,
+        12,
+        18,
+        242
+      ],
+      "thumb_bytes": [
+        18,
+        239,
+        84,
+        12
+      ]
+    },
+    {
+      "assembly": "vcvta.s16.f16 q0,q1",
+      "half": true,
+      "arm_raw": 4088856642,
+      "thumb_raw": 4290183234,
+      "simd": true,
+      "kind": "Convert",
+      "arm_bytes": [
+        66,
+        0,
+        183,
+        243
+      ],
+      "thumb_bytes": [
+        183,
+        255,
+        66,
+        0
+      ]
+    },
+    {
+      "assembly": "vrintz.f16 q0,q1",
+      "half": true,
+      "arm_raw": 4088792514,
+      "thumb_raw": 4290119106,
+      "simd": true,
+      "kind": "Round",
+      "arm_bytes": [
+        194,
+        5,
+        182,
+        243
+      ],
+      "thumb_bytes": [
+        182,
+        255,
+        194,
+        5
+      ]
+    },
+    {
+      "assembly": "vmaxnm.f16 q0,q1,q2",
+      "half": true,
+      "arm_raw": 4078047060,
+      "thumb_raw": 4279373652,
+      "simd": true,
+      "kind": "Number",
+      "arm_bytes": [
+        84,
+        15,
+        18,
+        243
+      ],
+      "thumb_bytes": [
+        18,
+        255,
+        84,
+        15
+      ]
+    }
+  ],
+  "control_count": 40
+}

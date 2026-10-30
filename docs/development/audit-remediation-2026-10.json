@@ -1008,14 +1008,16 @@
         "tools/testgen/a64_sve_dot_expectations.py",
         "docs/development/a64-sve-profile/legacy-dot-correction.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/owning-final-v2.json",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/oracle-dot-v1/result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/oracle-dot-v1/result.json",
+        "docs/development/a32-fp-controls/feature-admission/misc-and-fma.md"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
         "Physical A32 hardware and optional trapped profiles remain unverified.",
         "The represented A64 six-capability flags/IDs/admission and supported legacy migration are corrected. Full cross-state feature consistency and remaining capability, FP8/FPMR and security/debug controls remain open; represented A64 structural FP-access priority is locally validated. No new native optional-instruction execution support.",
         "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open.",
-        "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open."
+        "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
+        "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1033,7 +1035,13 @@
           "documentation": "docs/development/a64-fpsimd-allocation/README.md"
         },
         "a64-scalable-access-and-cpu0-checkpoint-coherence-2026-10-29",
-        "a64-primary-sve-admission-and-scalar-sme-2026-10-29"
+        "a64-primary-sve-admission-and-scalar-sme-2026-10-29",
+        {
+          "id": "a32-misc-fused-admission-and-bounded-platform-2026-10-30",
+          "status": "locally_validated",
+          "scope": "MVFR1.SIMDFMAC and MVFR2 FPMisc/SIMDMisc admission in the shared A32/T32 executor; exact bounded S3C entry/non-retirement and heartbeat preservation; backend profile state and real prepared-context two/four-CPU .rxc continuation. Full four findings remain incomplete.",
+          "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
+        }
       ]
     },
     {
@@ -2655,7 +2663,8 @@
         "tools/testgen/a64_sve_dot_expectations.py",
         "docs/development/a64-sve-profile/legacy-dot-correction.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/owning-final-v2.json",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/oracle-dot-v1/result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/oracle-dot-v1/result.json",
+        "docs/development/a32-fp-controls/feature-admission/misc-and-fma.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2669,7 +2678,8 @@
         "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open.",
         "The shared A64 Undefined-result retirement/delivery and tested user/backend/file/coordinator continuations are corrected. Complete backend/in-flight/platform state and bounded SMP native execution remain required.",
         "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open.",
-        "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open."
+        "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
+        "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2700,7 +2710,13 @@
         "a64-host-completion-error-retirement-2026-10-29",
         "a64-shared-event-latches-and-checkpoint-publication-2026-10-29",
         "a64-scalable-access-and-cpu0-checkpoint-coherence-2026-10-29",
-        "a64-primary-sve-admission-and-scalar-sme-2026-10-29"
+        "a64-primary-sve-admission-and-scalar-sme-2026-10-29",
+        {
+          "id": "a32-misc-fused-admission-and-bounded-platform-2026-10-30",
+          "status": "locally_validated",
+          "scope": "MVFR1.SIMDFMAC and MVFR2 FPMisc/SIMDMisc admission in the shared A32/T32 executor; exact bounded S3C entry/non-retirement and heartbeat preservation; backend profile state and real prepared-context two/four-CPU .rxc continuation. Full four findings remain incomplete.",
+          "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
+        }
       ]
     },
     {
@@ -3318,7 +3334,8 @@
         "tools/testgen/a64_sve_dot_expectations.py",
         "docs/development/a64-sve-profile/legacy-dot-correction.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/owning-final-v2.json",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/oracle-dot-v1/result.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/oracle-dot-v1/result.json",
+        "docs/development/a32-fp-controls/feature-admission/misc-and-fma.md"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3328,7 +3345,8 @@
         "GDB AP/thread selection, complete deterministic clock coordination and record/replay remain required.",
         "The shared A64 Undefined-result delivery and tested native/software/user/backend/file/coordinator continuations are corrected within recorded scopes; full C-SMP and C-STATE remain incomplete.",
         "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open.",
-        "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open."
+        "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
+        "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3348,7 +3366,13 @@
         "a64-host-completion-error-retirement-2026-10-29",
         "a64-shared-event-latches-and-checkpoint-publication-2026-10-29",
         "a64-scalable-access-and-cpu0-checkpoint-coherence-2026-10-29",
-        "a64-primary-sve-admission-and-scalar-sme-2026-10-29"
+        "a64-primary-sve-admission-and-scalar-sme-2026-10-29",
+        {
+          "id": "a32-misc-fused-admission-and-bounded-platform-2026-10-30",
+          "status": "locally_validated",
+          "scope": "MVFR1.SIMDFMAC and MVFR2 FPMisc/SIMDMisc admission in the shared A32/T32 executor; exact bounded S3C entry/non-retirement and heartbeat preservation; backend profile state and real prepared-context two/four-CPU .rxc continuation. Full four findings remain incomplete.",
+          "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
+        }
       ]
     },
     {
@@ -195118,6 +195142,157 @@
       "independent_qemu_cases": 131,
       "corrected_generated_tests": 68,
       "unchanged_generated_positive_controls": 12
+    },
+    {
+      "id": "a32-misc-fused-admission-and-bounded-platform-2026-10-30",
+      "status": "locally_validated",
+      "parent": "08ff8cd87e0a0d8aa521fed17cb1e94fb7e2ab18",
+      "scope": "MVFR1.SIMDFMAC and MVFR2 FPMisc/SIMDMisc admission in the shared A32/T32 executor; exact bounded S3C entry/non-retirement and heartbeat preservation; backend profile state and real prepared-context two/four-CPU .rxc continuation. Full four findings remain incomplete. Correct the newly exposed pre-existing feature guards in two A64 retirement-counter test fixtures.",
+      "owned_paths": [
+        "src/isa/arm/aarch32/fp_admission.rs",
+        "src/isa/arm/aarch32/instructions/fp_access.rs",
+        "tests/suites/isa/arm/aarch32/fp_feature_registers.rs",
+        "tests/suites/isa/arm/aarch32/fp_misc_admission.rs",
+        "docs/development/a32-fp-controls/feature-admission/misc-and-fma.md",
+        "docs/development/a32-fp-controls/feature-admission/misc-and-fma-provenance.json",
+        "docs/specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf",
+        "docs/specifications/arm/aarch32-fp-profile/provenance.json",
+        "docs/development/audit-remediation-2026-10.json",
+        "tools/execution/a32_misc_admission_oracle.py",
+        "docs/development/a32-fp-controls/feature-admission/misc-and-fma-cases.json",
+        "src/backend/emulator/aarch32/context/tests.rs",
+        "src/vm/runtime/backend_context_tests.rs",
+        "src/machine/s3c64xx/runtime.rs",
+        "src/backend/emulator/aarch64/retirement_counter_tests.rs",
+        "src/isa/arm/aarch64/cpu/retirement_counter_tests.rs"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/source-final-v5.json",
+      "assumption_register": [
+        {
+          "id": "M1",
+          "assumption": "The represented MVFR fields select instruction capability, rather than being unrelated writable descriptive values.",
+          "basis": "Existing half/FHM admission uses MVFR1 and ID_ISAR6; MVFR2/FP subfeature admission must be traced from primary definitions and supported profile construction.",
+          "dependent_result": "New capability rejection before effects.",
+          "stress_test": "Consistent VFPv3/VFPv4/enhanced profiles, full-profile positive controls and reserved values.",
+          "falsification_probe": "Primary rules or accepted runtime constructors select capabilities independently of these fields.",
+          "status": "confirmed for represented MVFR1/MVFR2 instruction families by primary field definitions, direct pre-fix failures, enabled controls and independent observations"
+        },
+        {
+          "id": "M2",
+          "assumption": "Production ARM/Thumb/mixed execution should suppress failed predicates before capability faults.",
+          "basis": "Existing shared executor and half/FHM contracts.",
+          "dependent_result": "Predicate and access-priority compatibility.",
+          "stress_test": "ARM conditions, legal Thumb IT forms, disabled access and zero-retirement backend execution.",
+          "falsification_probe": "Independent architecture/QEMU cases fault on a legitimately skipped instruction.",
+          "status": "confirmed for tested ARM scalar and legal Thumb IT forms by direct controls and 48 independent QEMU skipped-instruction observations"
+        },
+        {
+          "id": "M3",
+          "assumption": "Defined intermediate MVFR2 levels and contradictory ID combinations represent valid physical Armv8-A profiles.",
+          "basis": "Potential interpretation of a bare capability-field boundary matrix.",
+          "dependent_result": "Physical-profile claims from synthetic field tests.",
+          "stress_test": "Read the permitted-values constraints and compare actual model feature reads.",
+          "falsification_probe": "Armv8-A restricts FPMisc to 0/4 and SIMDMisc to 0/3.",
+          "status": "falsified; intermediate/reserved/contradictory field tests are software admission-policy tests only"
+        },
+        {
+          "id": "M4",
+          "assumption": "Creating two/four vCPUs makes all of them online for the new file-continuation fixture.",
+          "basis": "The prior fixture executed each CPU directly instead of going through coordinator selection.",
+          "dependent_result": "Expected per-CPU turns in the new coordinator continuation test.",
+          "stress_test": "Inspect ExecutionCoordinator::new and next; retain actual failed file tests.",
+          "falsification_probe": "online starts as [true,false,...], so a subsequent turn selects halted CPU0 again.",
+          "status": "falsified by current constructor/selection source and retained file-test failures; explicitly activate configured contexts in the software fixture, leaving architectural AP startup open"
+        },
+        {
+          "id": "M5",
+          "assumption": "Connecting the existing raw S3C step to the bounded vCPU contract preserves the legacy heartbeat during continuous execution.",
+          "basis": "Heartbeat had previously been polled at legacy run() batch boundaries.",
+          "dependent_result": "Compatibility of diagnostics and RAX_DUMP_PHYS under coordinator stepping.",
+          "stress_test": "Force a due heartbeat, execute a NOP through step_insn, and compare complete backend state with a fresh control.",
+          "falsification_probe": "The due timestamp is unchanged after a successful Progress step.",
+          "status": "falsified for the previous stepping path; corrected by invoking the existing heartbeat on Progress. Eight complete S3C platform regressions pass, including due/fresh full backend equality."
+        }
+      ],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/source-final-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/parent-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/direct-owning-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/backend-regression-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/s3c-red-green-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/heartbeat-parent-negative-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/heartbeat-and-platform-green-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/oracle-qualification-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/validation-interruption-heartbeat-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/documentation-check-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/interpreter-failure-ownership-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/feature-guard-equivalence-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/broad-gates-terminal-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/retirement-feature-jit-final-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/retirement-feature-interpreter-final-v2.json"
+      ],
+      "completed_targeted_validation": {
+        "owning_a32_fp_binary": {
+          "passed": 497,
+          "failed": 0,
+          "ignored": 0
+        },
+        "backend_profile_combinations": 516,
+        "real_file_continuations": 8,
+        "s3c_final_platform_tests": 8,
+        "independent_qemu_observations": 804,
+        "primary_agreement": 796,
+        "retained_qemu_counterexamples": 8
+      },
+      "pending_gates": [],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Full A32-FP, C-STATE, C-SMP and C-HVF remain incomplete; prepared online contexts are not guest AP startup."
+        },
+        {
+          "impact": "high",
+          "finding": "Physical native predecessor probes reproduce ESR/FAR, both timer projections, pending MMIO reply, native ownership and actual VMM checkpoint-admission defects; native implementation is separate and incomplete.",
+          "evidence": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-arm64-baseline/baseline-qualification-v4.json"
+        },
+        {
+          "impact": "medium",
+          "finding": "Defined intermediate MVFR2 levels are software field-interpretation tests, not valid physical Armv8-A profiles."
+        },
+        {
+          "impact": "medium",
+          "finding": "Both workspace libraries share the canonical librax filename; native probes use the exact hash-selected engine library.",
+          "evidence": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-arm64-baseline/selected-library-v1.json"
+        }
+      ],
+      "published": false,
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json",
+      "validation_summary": {
+        "library": {
+          "passed": 11355,
+          "ignored": 2,
+          "ignored_cases": [
+            "test smir::lower::validation::tests::test_lift_lower_full_microkernel ... ignored",
+            "test smir::lower::validation::tests::test_roundtrip_exact_bytes_microkernel ... ignored"
+          ]
+        },
+        "owning": {
+          "binaries": 27,
+          "passed": 47885,
+          "failed": 0,
+          "ignored": 0
+        },
+        "capi": {
+          "passed": 222,
+          "ignored": 0
+        },
+        "doctests": {
+          "executed": 0,
+          "ignored": 5
+        }
+      },
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/commit-receipt-v1.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/group-cleanup-v1.json"
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

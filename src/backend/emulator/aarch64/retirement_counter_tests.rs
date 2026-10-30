@@ -43,6 +43,7 @@ fn restored(
     }
     source.cpu.set_pc(ENTRY);
     source.cpu.set_x(0, 7);
+    #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     source.cpu.set_jit_enabled(false);
     let state = source.get_state().unwrap();
     let mut raw = source.capture_backend_context().unwrap().unwrap();

@@ -136,3 +136,6 @@ fn feature_register_reads_remain_privileged() {
 
 #[path = "fp_admission.rs"]
 mod fp_admission;
+
+#[path = "fp_misc_admission.rs"]
+mod fp_misc_admission;

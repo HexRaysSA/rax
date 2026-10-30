@@ -538,7 +538,18 @@ impl Armv6Vcpu {
         exec.exclusive_monitor = self.excl.clone();
         let result = exec.execute(&insn);
         self.excl = exec.exclusive_monitor.clone();
-        self.insn_count += 1;
+        // Decode/access/data faults enter an exception without retiring the
+        // attempted instruction. The bounded coordinator observes that state
+        // change before it can execute a handler or another guest instruction.
+        if !matches!(
+            result,
+            ExecResult::Undefined
+                | ExecResult::MemoryFault(_)
+                | ExecResult::FpAccessTrap { .. }
+                | ExecResult::Exception(ExceptionType::UndefinedInstruction)
+        ) {
+            self.insn_count = self.insn_count.wrapping_add(1);
+        }
 
         if self.bridge.inner.borrow().watch_hit {
             let (wpa, wacc) = {
@@ -602,7 +613,6 @@ impl Armv6Vcpu {
                 undefined,
             } => {
                 // Access traps complete no guest instruction or device access.
-                self.insn_count -= 1;
                 if target_el != 2 {
                     return StepOutcome::Fault(Error::InvalidConfig(format!(
                         "AArch32-only machine cannot enter EL{target_el}"
@@ -770,6 +780,34 @@ enum StepOutcome {
 }
 
 impl VCpu for Armv6Vcpu {
+    fn supports_stepping(&self) -> bool {
+        true
+    }
+
+    fn step_insn(&mut self) -> Result<Option<VcpuExit>> {
+        if self.shutdown || self.bridge.inner.borrow().poweroff {
+            self.shutdown = true;
+            return Ok(Some(VcpuExit::Shutdown));
+        }
+        let outcome = self.step();
+        // A guest power-off store can retire during this exact step.
+        if self.bridge.inner.borrow().poweroff {
+            self.shutdown = true;
+            return Ok(Some(VcpuExit::Shutdown));
+        }
+        match outcome {
+            StepOutcome::Progress => {
+                self.heartbeat();
+                Ok(None)
+            }
+            StepOutcome::Idle => {
+                self.heartbeat();
+                Ok(Some(VcpuExit::Hlt))
+            }
+            StepOutcome::Fault(error) => Err(error),
+        }
+    }
+
     fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
         Ok(Some(self.capture_context_record()?))
     }
@@ -885,6 +923,246 @@ impl VCpu for Armv6Vcpu {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::vm::vcpu::RetirementStop;
+
+    #[cfg(not(all(target_family = "wasm", any(target_os = "unknown", target_os = "none"))))]
+    #[test]
+    fn platform_continuous_stepping_polls_due_heartbeat_without_changing_guest_state() {
+        let memory = create_test_memory();
+        let code = S3C_RAM_BASE + 0x100;
+        memory
+            .write_obj(0xe320_f000u32.to_le(), GuestAddress(u64::from(code)))
+            .unwrap();
+        let mut due = Armv6Vcpu::new(0, memory.clone());
+        let mut fresh = Armv6Vcpu::new(0, memory);
+        due.cpu.regs[15] = code;
+        fresh.cpu.regs[15] = code;
+        due.last_heartbeat = crate::host::time::Instant::now()
+            .checked_sub(std::time::Duration::from_secs(3))
+            .unwrap();
+        let old = due.last_heartbeat;
+        assert!(due.step_insn().unwrap().is_none());
+        assert!(fresh.step_insn().unwrap().is_none());
+        assert!(due.last_heartbeat > old);
+        assert_eq!(due.insn_count, 1);
+        assert_eq!(due.cpu.regs[15], code + 4);
+        assert_eq!(
+            due.capture_context_record().unwrap(),
+            fresh.capture_context_record().unwrap()
+        );
+    }
+
+    #[test]
+    fn platform_bounded_entry_preserves_zero_one_quantum_and_counter_wrap() {
+        for thumb in [false, true] {
+            for wrapping in [false, true] {
+                let memory = create_test_memory();
+                let code = S3C_RAM_BASE + 0x100;
+                let nop = if thumb {
+                    vec![0, 0xbf]
+                } else {
+                    0xe320_f000u32.to_le_bytes().to_vec()
+                };
+                memory
+                    .write_slice(&nop.repeat(4096), GuestAddress(u64::from(code)))
+                    .unwrap();
+                let mut cpu = Armv6Vcpu::new(0, memory);
+                cpu.cpu.regs[15] = code;
+                cpu.cpu.cpsr.t = thumb;
+                cpu.insn_count = if wrapping { u64::MAX - 1000 } else { 0 };
+                let start = cpu.insn_count;
+                let before = cpu.capture_context_record().unwrap();
+                let zero = cpu.run_retirement_budget(0).unwrap();
+                assert_eq!(zero.retired, 0);
+                assert!(matches!(zero.stop, RetirementStop::BudgetExhausted));
+                assert_eq!(cpu.capture_context_record().unwrap(), before);
+                let mut retired = 0;
+                for budget in [1, 999, 1000, 1001] {
+                    let run = cpu.run_retirement_budget(budget).unwrap();
+                    assert_eq!(run.retired, budget);
+                    assert!(matches!(run.stop, RetirementStop::BudgetExhausted));
+                    retired += budget;
+                    assert_eq!(cpu.insn_count, start.wrapping_add(retired));
+                    assert_eq!(
+                        cpu.cpu.regs[15],
+                        code + retired as u32 * if thumb { 2 } else { 4 }
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn platform_capability_and_access_faults_yield_before_handler_retirement() {
+        for thumb in [false, true] {
+            for absent in [false, true] {
+                let memory = create_test_memory();
+                let code = S3C_RAM_BASE + 0x100;
+                let raw = 0xeea0_0a81u32; // VFMA.F32 S0,S1,S2.
+                let bytes = if thumb {
+                    raw.rotate_left(16).to_le_bytes()
+                } else {
+                    raw.to_le_bytes()
+                };
+                memory
+                    .write_slice(&bytes, GuestAddress(u64::from(code)))
+                    .unwrap();
+                let mut cpu = Armv6Vcpu::new(0, memory);
+                cpu.cpu.regs[15] = code;
+                cpu.cpu.cpsr.t = thumb;
+                if absent {
+                    cpu.cpu.vfp.mvfr1 = 0x0211_1111;
+                } else {
+                    cpu.cpu.cp15.cpacr = crate::isa::arm::cp15::Cpacr::from_bits(0);
+                }
+                cpu.insn_count = u64::MAX;
+                let before = cpu.cpu.vfp.dregs;
+                let status = cpu.cpu.vfp.fpscr.bits();
+                let run = cpu.run_retirement_budget(1).unwrap();
+                assert_eq!(run.retired, 0);
+                assert!(matches!(run.stop, RetirementStop::StateChange));
+                assert_eq!(cpu.insn_count, u64::MAX);
+                assert_eq!(cpu.cpu.regs[15], 4);
+                assert_eq!(cpu.cpu.cpsr.mode, ProcessorMode::Undefined as u8);
+                assert_eq!(cpu.cpu.vfp.dregs, before);
+                assert_eq!(cpu.cpu.vfp.fpscr.bits(), status);
+            }
+        }
+    }
+
+    #[test]
+    fn platform_raw_fp_faults_do_not_retire() {
+        let mut observed = Vec::new();
+        for thumb in [false, true] {
+            for absent in [false, true] {
+                let memory = create_test_memory();
+                let code = S3C_RAM_BASE + 0x100;
+                let raw = 0xeea0_0a81u32; // VFMA.F32 S0,S1,S2.
+                let bytes = if thumb {
+                    raw.rotate_left(16).to_le_bytes()
+                } else {
+                    raw.to_le_bytes()
+                };
+                memory
+                    .write_slice(&bytes, GuestAddress(u64::from(code)))
+                    .unwrap();
+                let mut cpu = Armv6Vcpu::new(0, memory);
+                cpu.cpu.regs[15] = code;
+                cpu.cpu.cpsr.t = thumb;
+                if absent {
+                    cpu.cpu.vfp.mvfr1 = 0x0211_1111;
+                } else {
+                    cpu.cpu.cp15.cpacr = crate::isa::arm::cp15::Cpacr::from_bits(0);
+                }
+                let before = (cpu.cpu.vfp.dregs, cpu.cpu.vfp.fpscr.bits());
+                assert!(matches!(cpu.step(), StepOutcome::Progress));
+                assert_eq!(cpu.cpu.regs[15], 4);
+                assert_eq!((cpu.cpu.vfp.dregs, cpu.cpu.vfp.fpscr.bits()), before);
+                observed.push((thumb, absent, cpu.insn_count));
+            }
+        }
+        assert_eq!(
+            observed,
+            vec![
+                (false, false, 0),
+                (false, true, 0),
+                (true, false, 0),
+                (true, true, 0),
+            ]
+        );
+    }
+
+    #[test]
+    fn platform_step_contract_preserves_wfi_wake_and_retiring_shutdown_store() {
+        let memory = create_test_memory();
+        let code = S3C_RAM_BASE + 0x100;
+        for (index, raw) in [0xe320_f003u32, 0xe320_f000, 0xe581_0000]
+            .into_iter()
+            .enumerate()
+        {
+            memory
+                .write_slice(
+                    &raw.to_le_bytes(),
+                    GuestAddress(u64::from(code) + index as u64 * 4),
+                )
+                .unwrap();
+        }
+        let mut cpu = Armv6Vcpu::new(0, memory);
+        cpu.cpu.regs[15] = code;
+        cpu.cpu.regs[0] = POWEROFF_MAGIC;
+        cpu.cpu.regs[1] = POWEROFF_BASE;
+        let first = cpu.run_retirement_budget(4).unwrap();
+        assert_eq!(first.retired, 1);
+        assert!(matches!(first.stop, RetirementStop::Exit(VcpuExit::Hlt)));
+        let idle = cpu.run_retirement_budget(4).unwrap();
+        assert_eq!(idle.retired, 0);
+        assert!(matches!(idle.stop, RetirementStop::Exit(VcpuExit::Hlt)));
+        assert_eq!(cpu.cpu.regs[15], code + 4);
+        cpu.wake();
+        let shutdown = cpu.run_retirement_budget(4).unwrap();
+        assert_eq!(shutdown.retired, 2);
+        assert!(matches!(
+            shutdown.stop,
+            RetirementStop::Exit(VcpuExit::Shutdown)
+        ));
+        assert_eq!(cpu.cpu.regs[15], code + 12);
+        let stopped = cpu.run_retirement_budget(1).unwrap();
+        assert_eq!(stopped.retired, 0);
+        assert!(matches!(
+            stopped.stop,
+            RetirementStop::Exit(VcpuExit::Shutdown)
+        ));
+    }
+
+    #[test]
+    fn platform_pending_irq_yields_without_executing_its_handler() {
+        let memory = create_test_memory();
+        let mut cpu = Armv6Vcpu::new(0, memory);
+        cpu.cpu.regs[15] = S3C_RAM_BASE + 0x100;
+        cpu.cpu.cpsr.i = false;
+        {
+            let mut inner = cpu.bridge.inner.borrow_mut();
+            inner.vic0.write(0x10, 1 << 12);
+            inner.vic0.write(0x18, 1 << 12);
+        }
+        let run = cpu.run_retirement_budget(1).unwrap();
+        assert_eq!(run.retired, 0);
+        assert!(matches!(run.stop, RetirementStop::StateChange));
+        assert_eq!(cpu.cpu.regs[15], 0x18);
+        assert_eq!(cpu.insn_count, 0);
+    }
+
+    #[test]
+    fn platform_data_translation_abort_preserves_destination_and_retires_nothing() {
+        let memory = create_test_memory();
+        let code = S3C_RAM_BASE + 0x100;
+        // VA 0x01000000 maps the RAM section; VA 0x02000000 has an invalid
+        // first-level descriptor. Domain 0 client, AP=3, MMU enabled.
+        memory
+            .write_obj(
+                (S3C_RAM_BASE | 0xc02).to_le(),
+                GuestAddress(u64::from(S3C_RAM_BASE) + 16 * 4),
+            )
+            .unwrap();
+        memory
+            .write_obj(0xe591_0000u32.to_le(), GuestAddress(u64::from(code)))
+            .unwrap();
+        let mut cpu = Armv6Vcpu::new(0, memory);
+        cpu.cpu.regs[15] = 0x0100_0100;
+        cpu.cpu.regs[0] = 0xa5a5_1234;
+        cpu.cpu.regs[1] = 0x0200_0000;
+        cpu.cpu.cp15.ttbr0 = u64::from(S3C_RAM_BASE);
+        cpu.cpu.cp15.dacr = 1;
+        cpu.cpu.cp15.sctlr = crate::isa::arm::cp15::Sctlr::from_bits(cpu.cpu.cp15.sctlr.bits() | 1);
+        let run = cpu.run_retirement_budget(1).unwrap();
+        assert_eq!(run.retired, 0);
+        assert!(matches!(run.stop, RetirementStop::StateChange));
+        assert_eq!(cpu.insn_count, 0);
+        assert_eq!(cpu.cpu.regs[0], 0xa5a5_1234);
+        assert_eq!(cpu.cpu.regs[15], 0x10);
+        assert_eq!(cpu.cpu.cp15.dfar, 0x0200_0000);
+        assert_eq!(cpu.cpu.cp15.dfsr & 15, 5);
+    }
 
     #[test]
     fn platform_wfi_retires_arm_thumb_it_and_resumes_without_pc_repair() {

@@ -1,9 +1,103 @@
-//! Half-precision capability admission for the implemented A32/T32 families.
+//! Capability admission for the implemented A32/T32 floating-point families.
 //!
 //! MVFR1 conversion fields do not imply FEAT_FP16 data processing. See the
 //! archived Arm ASL guards and feature-admission reference provenance.
 use super::vfp::VfpState;
 use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
+
+/// Decode-time capabilities precede access checks and architectural effects.
+/// The MVFR1/MVFR2 definitions are retained in ARM DDI 0487B.a, G6.2.108-109.
+pub(crate) fn instruction_supported(
+    insn: &DecodedInsn,
+    advsimd: bool,
+    state: &VfpState,
+    id_isar6: u32,
+) -> bool {
+    if !half_supported(insn, advsimd, state, id_isar6) {
+        return false;
+    }
+    if matches!(
+        insn.mnemonic,
+        Mnemonic::VFMA | Mnemonic::VFMS | Mnemonic::VFNMA | Mnemonic::VFNMS
+    ) {
+        // Scalar and Advanced SIMD implementations advertise the same fused
+        // support. Values other than 0 and 1 are reserved, not extra levels.
+        return state.mvfr1 >> 28 == 1;
+    }
+    let scalar_minimum = match insn.mnemonic {
+        Mnemonic::VSELEQ | Mnemonic::VSELGE | Mnemonic::VSELGT | Mnemonic::VSELVS => 1,
+        Mnemonic::VCVTA_S32_F16
+        | Mnemonic::VCVTA_U32_F16
+        | Mnemonic::VCVTN_S32_F16
+        | Mnemonic::VCVTN_U32_F16
+        | Mnemonic::VCVTP_S32_F16
+        | Mnemonic::VCVTP_U32_F16
+        | Mnemonic::VCVTM_S32_F16
+        | Mnemonic::VCVTM_U32_F16
+        | Mnemonic::VCVTA_S16_F16
+        | Mnemonic::VCVTA_U16_F16
+        | Mnemonic::VCVTN_S16_F16
+        | Mnemonic::VCVTN_U16_F16
+        | Mnemonic::VCVTP_S16_F16
+        | Mnemonic::VCVTP_U16_F16
+        | Mnemonic::VCVTM_S16_F16
+        | Mnemonic::VCVTM_U16_F16
+        | Mnemonic::VCVTA_S32_F32
+        | Mnemonic::VCVTA_U32_F32
+        | Mnemonic::VCVTN_S32_F32
+        | Mnemonic::VCVTN_U32_F32
+        | Mnemonic::VCVTP_S32_F32
+        | Mnemonic::VCVTP_U32_F32
+        | Mnemonic::VCVTM_S32_F32
+        | Mnemonic::VCVTM_U32_F32
+        | Mnemonic::VCVTA_S32_F64
+        | Mnemonic::VCVTA_U32_F64
+        | Mnemonic::VCVTN_S32_F64
+        | Mnemonic::VCVTN_U32_F64
+        | Mnemonic::VCVTP_S32_F64
+        | Mnemonic::VCVTP_U32_F64
+        | Mnemonic::VCVTM_S32_F64
+        | Mnemonic::VCVTM_U32_F64 => 2,
+        Mnemonic::VRINTA_F16
+        | Mnemonic::VRINTN_F16
+        | Mnemonic::VRINTP_F16
+        | Mnemonic::VRINTM_F16
+        | Mnemonic::VRINTR_F16
+        | Mnemonic::VRINTX_F16
+        | Mnemonic::VRINTZ_F16
+        | Mnemonic::VRINTA_F32
+        | Mnemonic::VRINTN_F32
+        | Mnemonic::VRINTP_F32
+        | Mnemonic::VRINTM_F32
+        | Mnemonic::VRINTR_F32
+        | Mnemonic::VRINTX_F32
+        | Mnemonic::VRINTZ_F32
+        | Mnemonic::VRINTA_F64
+        | Mnemonic::VRINTN_F64
+        | Mnemonic::VRINTP_F64
+        | Mnemonic::VRINTM_F64
+        | Mnemonic::VRINTR_F64
+        | Mnemonic::VRINTX_F64
+        | Mnemonic::VRINTZ_F64 => 3,
+        Mnemonic::VMAXNM_F16
+        | Mnemonic::VMINNM_F16
+        | Mnemonic::VMAXNM_F32
+        | Mnemonic::VMINNM_F32
+        | Mnemonic::VMAXNM_F64
+        | Mnemonic::VMINNM_F64 => 4,
+        _ => return true,
+    };
+    if advsimd {
+        // SIMDMisc omits scalar selection and numbers its remaining levels
+        // one lower. Reject reserved values rather than treating them as a
+        // superset. Invalid SIMD selection cannot acquire an allocation here.
+        let level = state.mvfr2 & 15;
+        scalar_minimum > 1 && (scalar_minimum - 1..=3).contains(&level)
+    } else {
+        let level = (state.mvfr2 >> 4) & 15;
+        (scalar_minimum..=4).contains(&level)
+    }
+}
 
 #[derive(Clone, Copy)]
 enum HalfKind {

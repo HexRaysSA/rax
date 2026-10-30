@@ -1,0 +1,16 @@
+{
+  "issuer": "ARM Limited",
+  "title": "ARM Architecture Reference Manual ARMv8, for ARMv8-A architecture profile",
+  "document_id": "DDI0487B.a",
+  "issue_id": "ID033117",
+  "source_url": "https://cs140e.sergio.bz/docs/ARMv8-Reference-Manual.pdf",
+  "retrieved_utc": "2026-10-29T23:39:07.650962+00:00",
+  "bytes": 40276091,
+  "sha256": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e",
+  "identity_verification": "Internal title, publisher/copyright and DDI0487B.a page identifiers inspected; relevant MVFR2 definition pages recorded in the qualification evidence.",
+  "integrity_limit": "This is an academic mirror of the Arm-authored primary manual. Byte identity to a current Arm-hosted copy is unknown; the retrieved PDF is retained unchanged. Current manufacturer FP TRMs independently confirm the full-profile endpoints.",
+  "use": "MVFR1 SIMDFMAC and MVFR2 FPMisc/SIMDMisc capability definitions; instruction/permission sequencing is checked against pinned ASL and independent execution.",
+  "revision_boundary": "The 2017 manual is used for these stable register-field definitions, not as a substitute for the pinned 2025-12 pseudocode for newer controls/features.",
+  "size_justification": "The complete primary manual is needed across the original A32 profile, mixed-width control and checkpoint/SMP investigations; retaining original page numbering, context and copyright notices avoids silently rewriting or omitting requirements. No source pages were changed.",
+  "copyright": "Original Arm copyright and distribution notices retained in the retrieved PDF."
+}

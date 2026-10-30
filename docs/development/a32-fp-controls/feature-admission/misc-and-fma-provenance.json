@@ -1,0 +1,197 @@
+{
+  "primary": {
+    "path": "docs/specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf",
+    "sha256": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e",
+    "issuer": "ARM Limited",
+    "document_id": "DDI0487B.a",
+    "sections": [
+      "G6.2.108 MVFR1, G6-5069",
+      "G6.2.109 MVFR2, G6-5073 and G6-5074"
+    ],
+    "integrity_limit": "This is an academic mirror of the Arm-authored primary manual. Byte identity to a current Arm-hosted copy is unknown; the retrieved PDF is retained unchanged. Current manufacturer FP TRMs independently confirm the full-profile endpoints."
+  },
+  "encoding_fixture": {
+    "path": "docs/development/a32-fp-controls/feature-admission/misc-and-fma-cases.json",
+    "sha256": "7745a98f16aaf2ab51e484dc0d01683ca5bbd9ce252ff415be4ea0e1dd1832f0",
+    "core_cases": 86,
+    "baseline_controls": 28,
+    "fp16_controls": 12,
+    "llvm_mc": {
+      "path": "/Users/int/local/bin/llvm-mc",
+      "invoked": "/Users/int/local/bin/llvm-mc",
+      "sha256": "0311e88d2281780e2784cd7657bcdc71b70044fa4c530c89a5431a45acc1b971",
+      "version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore\n"
+    }
+  },
+  "qemu": {
+    "tool": {
+      "path": "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-arm",
+      "invoked": "/opt/homebrew/bin/qemu-system-arm",
+      "sha256": "121d02f5d368300139d1ae21dc75595b434d7b6318c221b23886fdb28aecd876",
+      "version": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n"
+    },
+    "source_provenance": "docs/development/a32-fp-controls/references/qemu-11.1.2/provenance.json",
+    "source_path": "docs/development/a32-fp-controls/references/qemu-11.1.2/target/arm/tcg/translate-neon.c",
+    "source_sha256": "6e138053127d67232ec65f894182fe3407dae5c8498b3252c2a2d603c545683f",
+    "oracle": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/oracle-v8/result.json",
+    "observations": 804,
+    "agreement_with_primary_expectation": 796,
+    "differences_from_primary_expectation": 8,
+    "counterexamples": [
+      {
+        "model": "cortex-a9",
+        "thumb": false,
+        "mvfr1": "0x1111111",
+        "cases": [
+          {
+            "assembly": "vfma.f32 d0,d1,d2",
+            "expected": "U",
+            "observed": "P"
+          },
+          {
+            "assembly": "vfms.f32 d0,d1,d2",
+            "expected": "U",
+            "observed": "P"
+          },
+          {
+            "assembly": "vfma.f32 q0,q1,q2",
+            "expected": "U",
+            "observed": "P"
+          },
+          {
+            "assembly": "vfms.f32 q0,q1,q2",
+            "expected": "U",
+            "observed": "P"
+          }
+        ]
+      },
+      {
+        "model": "cortex-a9",
+        "thumb": true,
+        "mvfr1": "0x1111111",
+        "cases": [
+          {
+            "assembly": "vfma.f32 d0,d1,d2",
+            "expected": "U",
+            "observed": "P"
+          },
+          {
+            "assembly": "vfms.f32 d0,d1,d2",
+            "expected": "U",
+            "observed": "P"
+          },
+          {
+            "assembly": "vfma.f32 q0,q1,q2",
+            "expected": "U",
+            "observed": "P"
+          },
+          {
+            "assembly": "vfms.f32 q0,q1,q2",
+            "expected": "U",
+            "observed": "P"
+          }
+        ]
+      }
+    ],
+    "boundary": "QEMU A/R-profile system emulation, not physical ARM or Intel HVF. MVFR2 is undefined on the selected pre-v8 CPUs; the zero output is an initialized sentinel when mvfr2_undefined is 1."
+  },
+  "qualification": {
+    "status": "passed within recorded host/software scope",
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json",
+    "library": {
+      "passed": 11355,
+      "ignored": 2,
+      "ignored_cases": [
+        "test smir::lower::validation::tests::test_lift_lower_full_microkernel ... ignored",
+        "test smir::lower::validation::tests::test_roundtrip_exact_bytes_microkernel ... ignored"
+      ]
+    },
+    "owning": {
+      "binaries": 27,
+      "passed": 47885,
+      "failed": 0,
+      "ignored": 0
+    },
+    "capi": {
+      "passed": 222,
+      "ignored": 0
+    },
+    "doctests": {
+      "executed": 0,
+      "ignored": 5
+    },
+    "full_library_source": "source-final-v4.json",
+    "final_source": "source-final-v5.json",
+    "active_jit_fixture_equivalence": "feature-guard-equivalence-v1.json",
+    "remaining_scope": [
+      "All four complete original findings remain incomplete.",
+      "Prepared-context coordinator continuation does not implement guest AP firmware/startup.",
+      "Current native ESR/FAR, pending reply and timer capture defects are separately reproduced and still require implementation.",
+      "Physical Intel HVF validation remains unavailable; cross-checks are compilation only."
+    ]
+  },
+  "assumption_register": [
+    {
+      "id": "M1",
+      "assumption": "The represented MVFR fields select instruction capability, rather than being unrelated writable descriptive values.",
+      "basis": "Existing half/FHM admission uses MVFR1 and ID_ISAR6; MVFR2/FP subfeature admission must be traced from primary definitions and supported profile construction.",
+      "dependent_result": "New capability rejection before effects.",
+      "stress_test": "Consistent VFPv3/VFPv4/enhanced profiles, full-profile positive controls and reserved values.",
+      "falsification_probe": "Primary rules or accepted runtime constructors select capabilities independently of these fields.",
+      "status": "confirmed for represented MVFR1/MVFR2 instruction families by primary field definitions, direct pre-fix failures, enabled controls and independent observations"
+    },
+    {
+      "id": "M2",
+      "assumption": "Production ARM/Thumb/mixed execution should suppress failed predicates before capability faults.",
+      "basis": "Existing shared executor and half/FHM contracts.",
+      "dependent_result": "Predicate and access-priority compatibility.",
+      "stress_test": "ARM conditions, legal Thumb IT forms, disabled access and zero-retirement backend execution.",
+      "falsification_probe": "Independent architecture/QEMU cases fault on a legitimately skipped instruction.",
+      "status": "confirmed for tested ARM scalar and legal Thumb IT forms by direct controls and 48 independent QEMU skipped-instruction observations"
+    },
+    {
+      "id": "M3",
+      "assumption": "Defined intermediate MVFR2 levels and contradictory ID combinations represent valid physical Armv8-A profiles.",
+      "basis": "Potential interpretation of a bare capability-field boundary matrix.",
+      "dependent_result": "Physical-profile claims from synthetic field tests.",
+      "stress_test": "Read the permitted-values constraints and compare actual model feature reads.",
+      "falsification_probe": "Armv8-A restricts FPMisc to 0/4 and SIMDMisc to 0/3.",
+      "status": "falsified; intermediate/reserved/contradictory field tests are software admission-policy tests only"
+    },
+    {
+      "id": "M4",
+      "assumption": "Creating two/four vCPUs makes all of them online for the new file-continuation fixture.",
+      "basis": "The prior fixture executed each CPU directly instead of going through coordinator selection.",
+      "dependent_result": "Expected per-CPU turns in the new coordinator continuation test.",
+      "stress_test": "Inspect ExecutionCoordinator::new and next; retain actual failed file tests.",
+      "falsification_probe": "online starts as [true,false,...], so a subsequent turn selects halted CPU0 again.",
+      "status": "falsified by current constructor/selection source and retained file-test failures; explicitly activate configured contexts in the software fixture, leaving architectural AP startup open"
+    },
+    {
+      "id": "M5",
+      "assumption": "Connecting the existing raw S3C step to the bounded vCPU contract preserves the legacy heartbeat during continuous execution.",
+      "basis": "Heartbeat had previously been polled at legacy run() batch boundaries.",
+      "dependent_result": "Compatibility of diagnostics and RAX_DUMP_PHYS under coordinator stepping.",
+      "stress_test": "Force a due heartbeat, execute a NOP through step_insn, and compare complete backend state with a fresh control.",
+      "falsification_probe": "The due timestamp is unchanged after a successful Progress step.",
+      "status": "falsified for the previous stepping path; corrected by invoking the existing heartbeat on Progress. Eight complete S3C platform regressions pass, including due/fresh full backend equality."
+    }
+  ],
+  "validation_evidence": {
+    "status": "Final recorded gates passed within the stated host/software and source-equivalence boundaries.",
+    "raw_evidence_root": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission",
+    "source_manifest": "source-final-v5.json",
+    "admission_parent_failure": "parent-negative-v1.json",
+    "admission_owning_binary": "direct-owning-v1.json",
+    "s3c_parent_and_corrected": "s3c-red-green-v1.json",
+    "heartbeat_parent_failure": "heartbeat-parent-negative-v1.json",
+    "heartbeat_corrected": "heartbeat-and-platform-green-v1.json",
+    "backend_and_file_continuation": "backend-regression-v4.json",
+    "independent_observation_qualification": "oracle-qualification-v1.json",
+    "interrupted_old_validation": "validation-interruption-heartbeat-v1.json",
+    "full_library_source": "source-final-v4.json",
+    "feature_guard_equivalence": "feature-guard-equivalence-v1.json",
+    "baseline_interpreter_failure": "interpreter-check-final-v2.json",
+    "corrected_interpreter_build": "interpreter-check-final-v3.json"
+  }
+}
