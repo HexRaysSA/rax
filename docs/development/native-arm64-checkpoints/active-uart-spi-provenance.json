@@ -1,0 +1,55 @@
+{
+  "source": "active-uart-spi.s",
+  "issuer": "Local test fixture",
+  "encoding_producer": "LLVM MC",
+  "producer_version": [
+    "LLVM (http://llvm.org/):",
+    "  LLVM version 23.0.0git",
+    "  Optimized build."
+  ],
+  "command": [
+    "llvm-mc",
+    "-triple=aarch64",
+    "-show-encoding",
+    "active-uart-spi.s"
+  ],
+  "source_sha256": "2fd532f5534526321baca5c799623fa3e1d05bec64683ad595c695b8923ebc38",
+  "words": [
+    3533766665,
+    3107979562,
+    838862154,
+    3103785258,
+    1384120394,
+    3103819050,
+    3103851818,
+    1385173002,
+    1924141066,
+    3104055594,
+    4180706623,
+    1384120554,
+    3575172266,
+    1384128490,
+    3575137802,
+    1384120362,
+    3575172330,
+    3573759967,
+    3577269251,
+    3107985640,
+    3575172131,
+    3573759967,
+    3577269252,
+    960495846,
+    3575172132,
+    3573759967,
+    3577269253,
+    1384120576,
+    1924169728,
+    3556769794
+  ],
+  "label_offsets_bytes": {
+    "checkpoint_status": 76,
+    "continuation": 80
+  },
+  "native_observation": "Direct SDK GIC active-priority/reassertion/deassertion probe passed; RAX file/VMM test executing separately.",
+  "architectural_scope": "One native CPU, group-1 level-sensitive SPI 33, priority 0x80; IRQ masked in PSTATE and acknowledged explicitly through IAR. Does not establish exception-vector delivery or SMP."
+}

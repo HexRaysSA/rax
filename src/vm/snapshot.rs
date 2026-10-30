@@ -29,9 +29,13 @@ mod backend_context;
 mod bundle;
 mod clock;
 mod cpus;
+#[cfg(test)]
+mod native_bundle_tests;
+mod producer;
+mod vm_context;
 pub use backend_context::{
-    AARCH32_CONTEXT, AARCH64_CONTEXT, BackendContext, BackendContexts, RISCV_CONTEXT,
-    S3C64XX_CONTEXT, X86_64_CONTEXT,
+    AARCH32_CONTEXT, AARCH64_CONTEXT, BackendContext, BackendContexts, HVF_AARCH64_CONTEXT,
+    RISCV_CONTEXT, S3C64XX_CONTEXT, X86_64_CONTEXT,
 };
 mod execution;
 pub use cpus::{CpuSnapshot, CpuSnapshots};
@@ -39,6 +43,7 @@ pub use execution::ExecutionSnapshot;
 mod physical_memory;
 mod resources;
 mod stream;
+pub(crate) use physical_memory::PhysicalMemoryRestore;
 pub use physical_memory::PhysicalMemorySnapshot;
 pub use resources::{
     BOOT_CDROM_RESOURCE, CheckpointResource, PreparedResources, ResourceKey, ResourcesSnapshot,
@@ -291,13 +296,17 @@ impl Snapshot {
     }
 
     pub(crate) fn validate_for_restore(&self) -> Result<()> {
+        self.validate_envelope()?;
+        self.validate_cpu_state()
+    }
+
+    pub(crate) fn validate_envelope(&self) -> Result<()> {
         if self.version != CHECKPOINT_VERSION {
             return Err(Error::Emulator(format!(
                 "Unsupported checkpoint version {} (expected {})",
                 self.version, CHECKPOINT_VERSION
             )));
         }
-        self.validate_cpu_state()?;
         self.validate_memory_metadata()
     }
 

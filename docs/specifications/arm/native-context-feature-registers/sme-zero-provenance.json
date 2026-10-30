@@ -1,0 +1,23 @@
+{
+  "issuer": "Arm Limited",
+  "title": "A-profile A64 Instruction Set Architecture XML: SME ZERO (tile)",
+  "revision": "2025-12",
+  "source_url": "https://developer.arm.com/-/cdn-downloads/permalink/Exploration-Tools-A64-ISA/ISA_A64/ISA_A64_xml_A_profile-2025-12.tar.gz",
+  "retrieved_utc": "2026-10-30T04:27:44.123827+00:00",
+  "archive_sha256": "845ed227a6692ddb6b602da2ecbbac776620195a9c001ec576ced3a9a53dc26b",
+  "selection": "Only 2025-12 ZERO (tile) instruction and notice; unmodified member bytes. The archive also contains 2025-09, which is excluded.",
+  "members": [
+    {
+      "member": "ISA_A64_xml_A_profile-2025-12/zero_za_i.xml",
+      "file": "sme-zero_za_i.xml",
+      "bytes": 8106,
+      "sha256": "fff95e7989ece9dda530465a825db8af9e4bd6aaee30fc6e3c9f77dd5e13107a"
+    },
+    {
+      "member": "ISA_A64_xml_A_profile-2025-12/notice.xml",
+      "file": "sme-notice.xml",
+      "bytes": 5212,
+      "sha256": "7f6e2780187dc8eb12b53d97eb435be19597b1af256a84fb44d4b5bd41846747"
+    }
+  ]
+}

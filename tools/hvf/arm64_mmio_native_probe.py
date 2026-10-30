@@ -110,9 +110,22 @@ def verify(directory):
 def run_probe(a, temporary):
     root, out = a.repo.resolve(), a.work_dir.resolve()
     out.mkdir(parents=True, exist_ok=True)
+    (out / 'manifest.json').unlink(missing_ok=True)
     sources = [
         'src/backend/hvf/arm64.rs',
         'src/backend/hvf/arm64_mmio.rs',
+        'src/backend/hvf/arm64_state.rs',
+        'src/backend/hvf/arm64_stack.rs',
+        'src/backend/hvf/arm64_worker.rs',
+        'src/backend/hvf/arm64_bindings.rs',
+        'src/backend/hvf/arm64_checkpoint.rs',
+        'src/backend/hvf/arm64_checkpoint_api.rs',
+        'src/backend/hvf/arm64_context_format.rs',
+        'src/backend/hvf/arm64_restore.rs',
+        'src/backend/hvf/arm64_vm_checkpoint.rs',
+        'src/backend/checkpoint.rs',
+        'src/backend/mod.rs',
+        'src/vm/vcpu/mod.rs',
         'src/backend/hvf/mod.rs',
         'tools/hvf/arm64_mmio_native_guest.rs',
         'tools/hvf/arm64_mmio_native_probe.py',
@@ -231,7 +244,7 @@ def run_probe(a, temporary):
             'rustc',
             '+stable',
             '--edition=2024',
-            str(root / sources[3]),
+            str(root / 'tools/hvf/arm64_mmio_native_guest.rs'),
             '--extern',
             'rax=' + str(artifacts['rax']),
             '--extern',
@@ -257,6 +270,7 @@ def run_probe(a, temporary):
             str(temporary / 'native-mmio'),
         ],
     )
+    run('verify-sign', ['codesign', '--verify', '--strict', str(temporary / 'native-mmio')])
     run('native', [str(temporary / 'native-mmio'), str(out)], 30)
     report = verify(out)
     assert before == {n: sha(root / n) for n in sources}
@@ -284,7 +298,7 @@ def run_probe(a, temporary):
                 'linked_artifacts_unchanged': all(sha(artifacts[row['name']]) == row['sha256'] for row in storage),
                 'host_machine': platform.machine(),
                 'artifacts': {n: sha(out / n) for n in names},
-                'scope': 'Actual signed public RAX ARM64 backend/VCpu API on the creating thread. Complete scalar replies, incomplete-reply re-entry and state-replacement cancellation only. SDK register-write failure is not fault-injected; native budgets, checkpoint completeness, worker migration and physical Intel/KVM remain unverified.',
+                'scope': 'Actual signed public RAX ARM64 backend/VCpu API backed by a permanent SDK owner, with a fresh native VM/CPU cohort for each independent case. Complete scalar replies, incomplete-reply re-entry and state-replacement cancellation only. SDK register-write failure is not fault-injected; native budgets, checkpoint completeness, worker migration and physical Intel/KVM remain unverified.',
             },
             indent=2,
         )

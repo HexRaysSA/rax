@@ -4,6 +4,13 @@
 
 pub mod emulator;
 
+// The native producer's binary format remains readable without a native SDK.
+// Actual hardware capture and publication stay in the macOS backend.
+#[path = "hvf/arm64_context_format.rs"]
+pub(crate) mod arm64_hvf_context;
+#[path = "hvf/arm64_power.rs"]
+pub(crate) mod arm64_hvf_power;
+
 #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
 pub mod kvm;
 
@@ -22,16 +29,68 @@ use crate::config::{ArchKind, BackendKind, VmConfig};
 use crate::error::{Error, Result};
 use crate::vm::vcpu::VCpu;
 
+mod checkpoint;
+pub use checkpoint::CheckpointBoundary;
+
 /// Abstract VM interface.
 ///
 /// Represents a virtual machine that can create vCPUs and manage interrupts.
 pub trait Vm: Send + Sync {
+    /// Exclude hardware entry and backend-owned external mutations until the
+    /// complete CPU/controller/RAM operation has finished.
+    fn checkpoint_boundary(&self) -> Result<CheckpointBoundary<'_>> {
+        Ok(CheckpointBoundary::empty())
+    }
+
+    /// Shared backend state, captured once at the same stopped boundary.
+    fn capture_checkpoint_vm_context(
+        &self,
+        _boundary: &CheckpointBoundary<'_>,
+    ) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        Ok(None)
+    }
+
+    /// Admit the shared record and complete CPU graph before publication.
+    fn validate_checkpoint_vm_context(
+        &self,
+        _config: &crate::config::CheckpointConfig,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+        _cpus: Option<&crate::vm::snapshot::BackendContexts>,
+    ) -> Result<()> {
+        if context.is_some() {
+            Err(Error::InvalidConfig(
+                "checkpoint shared context producer differs from target backend".into(),
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Publish an admitted shared record while every native CPU stays stopped.
+    fn restore_checkpoint_vm_context(
+        &self,
+        _boundary: &CheckpointBoundary<'_>,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        if context.is_some() {
+            Err(Error::InvalidConfig(
+                "backend has no shared checkpoint context".into(),
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Irrecoverable hardware rollback must prohibit further guest entry.
+    fn poison_checkpoint_restore(&self) {}
+
     /// Establish immutable CPU topology before creating any vCPU.
     fn configure_cpu_topology(&self, _count: u8, _ram_end: u64) -> Result<()> {
         Ok(())
     }
 
-    /// Drain firmware power requests at an instruction boundary.
+    /// Obtain firmware requests at an instruction boundary. Backends may retain
+    /// them until acknowledgement so failed publication remains retryable.
     fn take_cpu_power_requests(&self) -> Result<Vec<crate::vm::vcpu::CpuPowerRequest>> {
         Ok(Vec::new())
     }
@@ -41,6 +100,11 @@ pub trait Vm: Send + Sync {
         Err(Error::InvalidConfig(
             "CPU startup is not supported by this VM".into(),
         ))
+    }
+
+    /// Acknowledge powerdown after removing the CPU from scheduling.
+    fn complete_cpu_stop(&self, _cpu_id: u32) -> Result<()> {
+        Ok(())
     }
 
     /// Create a new vCPU.

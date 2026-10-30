@@ -1,0 +1,599 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Environment Variables - The Cargo Book</title>
+
+
+        <!-- Custom HTML head -->
+        <style>
+            dd {
+                margin-bottom: 1em;
+            }
+        </style>
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="shortcut icon" href="../favicon-ba9a2803.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-e96d0476.css">
+        <link rel="stylesheet" href="../css/chrome-d279d366.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../theme/cargo-d13f5220.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-dcf766d3.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-0e7001e7.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Cargo Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/rust-lang/cargo/tree/master/doc/book/src" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/rust-lang/cargo/edit/master/doc/book/src/reference/environment-variables.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <span class=fa-svg id="git-edit-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M421.7 220.3l-11.3 11.3-22.6 22.6-205 205c-6.6 6.6-14.8 11.5-23.8 14.1L30.8 511c-8.4 2.5-17.5 .2-23.7-6.1S-1.5 489.7 1 481.2L38.7 353.1c2.6-9 7.5-17.2 14.1-23.8l205-205 22.6-22.6 11.3-11.3 33.9 33.9 62.1 62.1 33.9 33.9zM96 353.9l-9.3 9.3c-.9 .9-1.6 2.1-2 3.4l-25.3 86 86-25.3c1.3-.4 2.5-1.1 3.4-2l9.3-9.3H112c-8.8 0-16-7.2-16-16V353.9zM453.3 19.3l39.4 39.4c25 25 25 65.5 0 90.5l-14.5 14.5-22.6 22.6-11.3 11.3-33.9-33.9-62.1-62.1L314.3 67.7l11.3-11.3 22.6-22.6 14.5-14.5c25-25 65.5-25 90.5 0z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h1>
+<p>Cargo sets and reads a number of environment variables which your code can detect
+or override. Here is a list of the variables Cargo sets, organized by when it interacts
+with them:</p>
+<h2 id="environment-variables-cargo-reads"><a class="header" href="#environment-variables-cargo-reads">Environment variables Cargo reads</a></h2>
+<p>You can override these environment variables to change Cargo’s behavior on your
+system:</p>
+<ul>
+<li><code>CARGO_LOG</code> — Cargo uses the <a href="https://docs.rs/tracing"><code>tracing</code></a> crate to display debug log messages.
+The <code>CARGO_LOG</code> environment variable can be set to enable debug logging,
+with a value such as <code>trace</code>, <code>debug</code>, or <code>warn</code>.
+Usually it is only used during debugging. For more details refer to the
+<a href="https://doc.crates.io/contrib/implementation/debugging.html#logging">Debug logging</a>.</li>
+<li><code>CARGO_HOME</code> — Cargo maintains a local cache of the registry index and of
+git checkouts of crates. By default these are stored under <code>$HOME/.cargo</code>
+(<code>%USERPROFILE%\.cargo</code> on Windows), but this variable overrides the
+location of this directory. Once a crate is cached it is not removed by the
+clean command.
+For more details refer to the <a href="../guide/cargo-home.html">guide</a>.</li>
+<li><code>CARGO_TARGET_DIR</code> — Location of where to place all generated artifacts,
+relative to the current working directory. See <a href="config.html#buildtarget-dir"><code>build.target-dir</code></a> to set
+via config.</li>
+<li><code>CARGO</code> — If set, Cargo will forward this value instead of setting it
+to its own auto-detected path when it builds crates and when it
+executes build scripts and external subcommands. This value is not
+directly executed by Cargo, and should always point at a command that
+behaves exactly like <code>cargo</code>, as that’s what users of the variable
+will be expecting.</li>
+<li><code>RUSTC</code> — Instead of running <code>rustc</code>, Cargo will execute this specified
+compiler instead. See <a href="config.html#buildrustc"><code>build.rustc</code></a> to set via config.</li>
+<li><code>RUSTC_WRAPPER</code> — Instead of simply running <code>rustc</code>, Cargo will execute this
+specified wrapper, passing as its command-line arguments the rustc
+invocation, with the first argument being the path to the actual rustc.
+Useful to set up a build cache tool such as <code>sccache</code>. See
+<a href="config.html#buildrustc-wrapper"><code>build.rustc-wrapper</code></a> to set via config. Setting this to the empty string
+overwrites the config and resets cargo to not use a wrapper.</li>
+<li><code>RUSTC_WORKSPACE_WRAPPER</code> — Instead of simply running <code>rustc</code>, for workspace members Cargo will
+execute this specified wrapper, passing as its command-line arguments the rustc invocation, with
+the first argument being the path to the actual rustc. When building a single-package project
+without workspaces, that package is considered to be the workspace. It affects the filename hash
+so that artifacts produced by the wrapper are cached separately. See
+<a href="config.html#buildrustc-workspace-wrapper"><code>build.rustc-workspace-wrapper</code></a> to set via config. Setting this to the empty string overwrites
+the config and resets cargo to not use a wrapper for workspace members. If both <code>RUSTC_WRAPPER</code>
+and <code>RUSTC_WORKSPACE_WRAPPER</code> are set, then they will be nested: the final invocation is
+<code>$RUSTC_WRAPPER $RUSTC_WORKSPACE_WRAPPER $RUSTC</code>.</li>
+<li><code>RUSTDOC</code> — Instead of running <code>rustdoc</code>, Cargo will execute this specified
+<code>rustdoc</code> instance instead. See <a href="config.html#buildrustdoc"><code>build.rustdoc</code></a> to set via config.</li>
+<li><code>RUSTDOCFLAGS</code> — A space-separated list of custom flags to pass to all <code>rustdoc</code>
+invocations that Cargo performs. In contrast with <a href="../commands/cargo-rustdoc.html"><code>cargo rustdoc</code></a>, this is
+useful for passing a flag to <em>all</em> <code>rustdoc</code> instances. See
+<a href="config.html#buildrustdocflags"><code>build.rustdocflags</code></a> for some more ways to set flags. This string is
+split by whitespace; for a more robust encoding of multiple arguments,
+see <code>CARGO_ENCODED_RUSTDOCFLAGS</code>.</li>
+<li><code>CARGO_ENCODED_RUSTDOCFLAGS</code> —  A list of custom flags separated by <code>0x1f</code>
+(ASCII Unit Separator) to pass to all <code>rustdoc</code> invocations that Cargo performs.</li>
+<li><code>RUSTFLAGS</code> — A space-separated list of custom flags to pass to all compiler
+invocations that Cargo performs. In contrast with <a href="../commands/cargo-rustc.html"><code>cargo rustc</code></a>, this is
+useful for passing a flag to <em>all</em> compiler instances. See
+<a href="config.html#buildrustflags"><code>build.rustflags</code></a> for some more ways to set flags. This string is
+split by whitespace; for a more robust encoding of multiple arguments,
+see <code>CARGO_ENCODED_RUSTFLAGS</code>.</li>
+<li><code>CARGO_ENCODED_RUSTFLAGS</code> — A list of custom flags separated by <code>0x1f</code>
+(ASCII Unit Separator) to pass to all compiler invocations that Cargo performs.</li>
+<li><code>CARGO_INCREMENTAL</code> — If this is set to 1 then Cargo will force <a href="profiles.html#incremental">incremental
+compilation</a> to be enabled for the current compilation, and when set to 0 it
+will force disabling it. If this env var isn’t present then cargo’s defaults
+will otherwise be used. See also <a href="config.html#buildincremental"><code>build.incremental</code></a> config value.</li>
+<li><code>CARGO_CACHE_RUSTC_INFO</code> — If this is set to 0 then Cargo will not try to cache
+compiler version information.</li>
+<li><code>HTTPS_PROXY</code> or <code>https_proxy</code> or <code>http_proxy</code> — The HTTP proxy to use, see
+<a href="config.html#httpproxy"><code>http.proxy</code></a> for more detail.</li>
+<li><code>HTTP_TIMEOUT</code> — The HTTP timeout in seconds, see <a href="config.html#httptimeout"><code>http.timeout</code></a> for more
+detail.</li>
+<li><code>TERM</code> — If this is set to <code>dumb</code>, it disables the progress bar.</li>
+<li><code>BROWSER</code> — The web browser to execute to open documentation with <a href="../commands/cargo-doc.html"><code>cargo doc</code></a>’s <code>--open</code> flag, see <a href="config.html#docbrowser"><code>doc.browser</code></a> for more details.</li>
+<li><code>RUSTFMT</code> — Instead of running <code>rustfmt</code>,
+<a href="https://github.com/rust-lang/rustfmt"><code>cargo fmt</code></a> will execute this specified
+<code>rustfmt</code> instance instead.</li>
+</ul>
+<h3 id="configuration-environment-variables"><a class="header" href="#configuration-environment-variables">Configuration environment variables</a></h3>
+<p>Cargo reads environment variables for some configuration values.
+See the <a href="config.html#environment-variables">configuration chapter</a> for more details.
+In summary, the supported environment variables are:</p>
+<ul>
+<li><code>CARGO_ALIAS_&lt;name&gt;</code> — Command aliases, see <a href="config.html#alias"><code>alias</code></a>.</li>
+<li><code>CARGO_BUILD_WARNINGS</code> — The effective level of lint warnings for local packages, see <a href="config.html#buildwarnings"><code>build.warnings</code></a>.</li>
+<li><code>CARGO_BUILD_JOBS</code> — Number of parallel jobs, see <a href="config.html#buildjobs"><code>build.jobs</code></a>.</li>
+<li><code>CARGO_BUILD_RUSTC</code> — The <code>rustc</code> executable, see <a href="config.html#buildrustc"><code>build.rustc</code></a>.</li>
+<li><code>CARGO_BUILD_RUSTC_WRAPPER</code> — The <code>rustc</code> wrapper, see <a href="config.html#buildrustc-wrapper"><code>build.rustc-wrapper</code></a>.</li>
+<li><code>CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER</code> — The <code>rustc</code> wrapper for workspace members only, see <a href="config.html#buildrustc-workspace-wrapper"><code>build.rustc-workspace-wrapper</code></a>.</li>
+<li><code>CARGO_BUILD_RUSTDOC</code> — The <code>rustdoc</code> executable, see <a href="config.html#buildrustdoc"><code>build.rustdoc</code></a>.</li>
+<li><code>CARGO_BUILD_TARGET</code> — The default target platform, see <a href="config.html#buildtarget"><code>build.target</code></a>.</li>
+<li><code>CARGO_BUILD_TARGET_DIR</code> — The default output directory, see <a href="config.html#buildtarget-dir"><code>build.target-dir</code></a>.</li>
+<li><code>CARGO_BUILD_BUILD_DIR</code> — The default build directory, see <a href="config.html#buildbuild-dir"><code>build.build-dir</code></a>.</li>
+<li><code>CARGO_BUILD_RUSTFLAGS</code> — Extra <code>rustc</code> flags, see <a href="config.html#buildrustflags"><code>build.rustflags</code></a>.</li>
+<li><code>CARGO_BUILD_RUSTDOCFLAGS</code> — Extra <code>rustdoc</code> flags, see <a href="config.html#buildrustdocflags"><code>build.rustdocflags</code></a>.</li>
+<li><code>CARGO_BUILD_INCREMENTAL</code> — Incremental compilation, see <a href="config.html#buildincremental"><code>build.incremental</code></a>.</li>
+<li><code>CARGO_BUILD_DEP_INFO_BASEDIR</code> — Dep-info relative directory, see <a href="config.html#builddep-info-basedir"><code>build.dep-info-basedir</code></a>.</li>
+<li><code>CARGO_CACHE_AUTO_CLEAN_FREQUENCY</code> — Configures how often automatic cache cleaning runs, see <a href="config.html#cacheauto-clean-frequency"><code>cache.auto-clean-frequency</code></a>.</li>
+<li><code>CARGO_CARGO_NEW_VCS</code> — The default source control system with <a href="../commands/cargo-new.html"><code>cargo new</code></a>, see <a href="config.html#cargo-newvcs"><code>cargo-new.vcs</code></a>.</li>
+<li><code>CARGO_CREDENTIAL_ALIAS_&lt;name&gt;</code> — Credential provider aliases, see <a href="config.html#credential-alias"><code>credential-alias</code></a>.</li>
+<li><code>CARGO_FUTURE_INCOMPAT_REPORT_FREQUENCY</code> — How often we should generate a future incompat report notification, see <a href="config.html#future-incompat-reportfrequency"><code>future-incompat-report.frequency</code></a>.</li>
+<li><code>CARGO_HTTP_DEBUG</code> — Enables HTTP debugging, see <a href="config.html#httpdebug"><code>http.debug</code></a>.</li>
+<li><code>CARGO_HTTP_PROXY</code> — Enables HTTP proxy, see <a href="config.html#httpproxy"><code>http.proxy</code></a>.</li>
+<li><code>CARGO_HTTP_TIMEOUT</code> — The HTTP timeout, see <a href="config.html#httptimeout"><code>http.timeout</code></a>.</li>
+<li><code>CARGO_HTTP_CAINFO</code> — The TLS certificate Certificate Authority file, see <a href="config.html#httpcainfo"><code>http.cainfo</code></a>.</li>
+<li><code>CARGO_HTTP_PROXY_CAINFO</code> — The proxy TLS certificate Certificate Authority file, see <a href="config.html#httpproxy-cainfo"><code>http.proxy-cainfo</code></a>.</li>
+<li><code>CARGO_HTTP_CHECK_REVOKE</code> — Disables TLS certificate revocation checks, see <a href="config.html#httpcheck-revoke"><code>http.check-revoke</code></a>.</li>
+<li><code>CARGO_HTTP_SSL_VERSION</code> — The TLS version to use, see <a href="config.html#httpssl-version"><code>http.ssl-version</code></a>.</li>
+<li><code>CARGO_HTTP_LOW_SPEED_LIMIT</code> — The HTTP low-speed limit, see <a href="config.html#httplow-speed-limit"><code>http.low-speed-limit</code></a>.</li>
+<li><code>CARGO_HTTP_MULTIPLEXING</code> — Whether HTTP/2 multiplexing is used, see <a href="config.html#httpmultiplexing"><code>http.multiplexing</code></a>.</li>
+<li><code>CARGO_HTTP_USER_AGENT</code> — The HTTP user-agent header, see <a href="config.html#httpuser-agent"><code>http.user-agent</code></a>.</li>
+<li><code>CARGO_INSTALL_ROOT</code> — The default directory for <a href="../commands/cargo-install.html"><code>cargo install</code></a>, see <a href="config.html#installroot"><code>install.root</code></a>.</li>
+<li><code>CARGO_NET_RETRY</code> — Number of times to retry network errors, see <a href="config.html#netretry"><code>net.retry</code></a>.</li>
+<li><code>CARGO_NET_GIT_FETCH_WITH_CLI</code> — Enables the use of the <code>git</code> executable to fetch, see <a href="config.html#netgit-fetch-with-cli"><code>net.git-fetch-with-cli</code></a>.</li>
+<li><code>CARGO_NET_OFFLINE</code> — Offline mode, see <a href="config.html#netoffline"><code>net.offline</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_BUILD_OVERRIDE_&lt;key&gt;</code> — Override build script profile, see <a href="config.html#profilenamebuild-override"><code>profile.&lt;name&gt;.build-override</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_CODEGEN_UNITS</code> — Set code generation units, see <a href="config.html#profilenamecodegen-units"><code>profile.&lt;name&gt;.codegen-units</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_DEBUG</code> — What kind of debug info to include, see <a href="config.html#profilenamedebug"><code>profile.&lt;name&gt;.debug</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_DEBUG_ASSERTIONS</code> — Enable/disable debug assertions, see <a href="config.html#profilenamedebug-assertions"><code>profile.&lt;name&gt;.debug-assertions</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_INCREMENTAL</code> — Enable/disable incremental compilation, see <a href="config.html#profilenameincremental"><code>profile.&lt;name&gt;.incremental</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_LTO</code> — Link-time optimization, see <a href="config.html#profilenamelto"><code>profile.&lt;name&gt;.lto</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_OVERFLOW_CHECKS</code> — Enable/disable overflow checks, see <a href="config.html#profilenameoverflow-checks"><code>profile.&lt;name&gt;.overflow-checks</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_OPT_LEVEL</code> — Set the optimization level, see <a href="config.html#profilenameopt-level"><code>profile.&lt;name&gt;.opt-level</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_PANIC</code> — The panic strategy to use, see <a href="config.html#profilenamepanic"><code>profile.&lt;name&gt;.panic</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_RPATH</code> — The rpath linking option, see <a href="config.html#profilenamerpath"><code>profile.&lt;name&gt;.rpath</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_SPLIT_DEBUGINFO</code> — Controls debug file output behavior, see <a href="config.html#profilenamesplit-debuginfo"><code>profile.&lt;name&gt;.split-debuginfo</code></a>.</li>
+<li><code>CARGO_PROFILE_&lt;name&gt;_STRIP</code> — Controls stripping of symbols and/or debuginfos, see <a href="config.html#profilenamestrip"><code>profile.&lt;name&gt;.strip</code></a>.</li>
+<li><code>CARGO_REGISTRIES_&lt;name&gt;_CREDENTIAL_PROVIDER</code> — Credential provider for a registry, see <a href="config.html#registriesnamecredential-provider"><code>registries.&lt;name&gt;.credential-provider</code></a>.</li>
+<li><code>CARGO_REGISTRIES_&lt;name&gt;_INDEX</code> — URL of a registry index, see <a href="config.html#registriesnameindex"><code>registries.&lt;name&gt;.index</code></a>.</li>
+<li><code>CARGO_REGISTRIES_&lt;name&gt;_TOKEN</code> — Authentication token of a registry, see <a href="config.html#registriesnametoken"><code>registries.&lt;name&gt;.token</code></a>.</li>
+<li><code>CARGO_REGISTRIES_CRATES_IO_PROTOCOL</code> — The protocol used to access <a href="https://crates.io/">crates.io</a>, see <a href="config.html#registriescrates-ioprotocol"><code>registries.crates-io.protocol</code></a>.</li>
+<li><code>CARGO_REGISTRY_CREDENTIAL_PROVIDER</code> — Credential provider for <a href="https://crates.io/">crates.io</a>, see <a href="config.html#registrycredential-provider"><code>registry.credential-provider</code></a>.</li>
+<li><code>CARGO_REGISTRY_DEFAULT</code> — Default registry for the <code>--registry</code> flag, see <a href="config.html#registrydefault"><code>registry.default</code></a>.</li>
+<li><code>CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS</code> — Credential providers for registries that do not have a specific provider defined. See <a href="config.html#registryglobal-credential-providers"><code>registry.global-credential-providers</code></a>.</li>
+<li><code>CARGO_REGISTRY_TOKEN</code> — Authentication token for <a href="https://crates.io/">crates.io</a>, see <a href="config.html#registrytoken"><code>registry.token</code></a>.</li>
+<li><code>CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS</code> — How incompatible Rust versions are treated during dependency resolution, see <a href="config.html#resolverincompatible-rust-versions"><code>resolver.incompatible-rust-versions</code></a>.</li>
+<li><code>CARGO_RESOLVER_LOCKFILE_PATH</code> — The path to the lockfile, see <a href="config.html#resolverlockfile-path"><code>resolver.lockfile-path</code></a>.</li>
+<li><code>CARGO_TARGET_&lt;triple&gt;_LINKER</code> — The linker to use, see <a href="config.html#targettriplelinker"><code>target.&lt;triple&gt;.linker</code></a>. The triple must be <a href="config.html#environment-variables">converted to uppercase and underscores</a>.</li>
+<li><code>CARGO_TARGET_&lt;triple&gt;_RUNNER</code> — The executable runner, see <a href="config.html#targettriplerunner"><code>target.&lt;triple&gt;.runner</code></a>.</li>
+<li><code>CARGO_TARGET_&lt;triple&gt;_RUSTFLAGS</code> — Extra <code>rustc</code> flags for a target, see <a href="config.html#targettriplerustflags"><code>target.&lt;triple&gt;.rustflags</code></a>.</li>
+<li><code>CARGO_TARGET_&lt;triple&gt;_RUSTDOCFLAGS</code> — Extra <code>rustdoc</code> flags for a target, see <a href="config.html#targettriplerustdocflags"><code>target.&lt;triple&gt;.rustdocflags</code></a>.</li>
+<li><code>CARGO_TERM_QUIET</code> — Quiet mode, see <a href="config.html#termquiet"><code>term.quiet</code></a>.</li>
+<li><code>CARGO_TERM_VERBOSE</code> — The default terminal verbosity, see <a href="config.html#termverbose"><code>term.verbose</code></a>.</li>
+<li><code>CARGO_TERM_COLOR</code> — The default color mode, see <a href="config.html#termcolor"><code>term.color</code></a>.</li>
+<li><code>CARGO_TERM_HYPERLINKS</code> — Whether hyperlinks are used in the terminal, see <a href="config.html#termhyperlinks"><code>term.hyperlinks</code></a>.</li>
+<li><code>CARGO_TERM_UNICODE</code> — Whether terminal output can use non-ASCII Unicode characters, see <a href="config.html#termunicode"><code>term.unicode</code></a>.</li>
+<li><code>CARGO_TERM_PROGRESS_WHEN</code> — The default progress bar showing mode, see <a href="config.html#termprogresswhen"><code>term.progress.when</code></a>.</li>
+<li><code>CARGO_TERM_PROGRESS_WIDTH</code> — The default progress bar width, see <a href="config.html#termprogresswidth"><code>term.progress.width</code></a>.</li>
+<li><code>CARGO_TERM_PROGRESS_TERM_INTEGRATION</code> — Whether progress is reported to the terminal emulator, see <a href="config.html#termprogressterm-integration"><code>term.progress.term-integration</code></a>.</li>
+</ul>
+<h2 id="environment-variables-cargo-sets-for-crates"><a class="header" href="#environment-variables-cargo-sets-for-crates">Environment variables Cargo sets for crates</a></h2>
+<p>Cargo exposes these environment variables to your crate when it is compiled.
+Note that this applies for running binaries with <code>cargo run</code> and <code>cargo test</code>
+as well. To get the value of any of these variables in a Rust program, do
+this:</p>
+<pre><code class="language-rust ignore">let version = env!("CARGO_PKG_VERSION");</code></pre>
+<p><code>version</code> will now contain the value of <code>CARGO_PKG_VERSION</code>.</p>
+<p>Note that if one of these values is not provided in the manifest, the
+corresponding environment variable is set to the empty string, <code>""</code>.</p>
+<ul>
+<li><code>CARGO</code> — Path to the <code>cargo</code> binary performing the build.</li>
+<li><code>CARGO_MANIFEST_DIR</code> — The directory containing the manifest of your package.</li>
+<li><code>CARGO_MANIFEST_PATH</code> — The path to the manifest of your package.</li>
+<li><code>CARGO_PKG_VERSION</code> — The full version of your package.</li>
+<li><code>CARGO_PKG_VERSION_MAJOR</code> — The major version of your package.</li>
+<li><code>CARGO_PKG_VERSION_MINOR</code> — The minor version of your package.</li>
+<li><code>CARGO_PKG_VERSION_PATCH</code> — The patch version of your package.</li>
+<li><code>CARGO_PKG_VERSION_PRE</code> — The pre-release version of your package.</li>
+<li><code>CARGO_PKG_AUTHORS</code> — Colon separated list of authors from the manifest of your package.</li>
+<li><code>CARGO_PKG_NAME</code> — The name of your package.</li>
+<li><code>CARGO_PKG_DESCRIPTION</code> — The description from the manifest of your package.</li>
+<li><code>CARGO_PKG_HOMEPAGE</code> — The home page from the manifest of your package.</li>
+<li><code>CARGO_PKG_REPOSITORY</code> — The repository from the manifest of your package.</li>
+<li><code>CARGO_PKG_LICENSE</code> — The license from the manifest of your package.</li>
+<li><code>CARGO_PKG_LICENSE_FILE</code> — The license file from the manifest of your package.</li>
+<li><code>CARGO_PKG_RUST_VERSION</code> — The Rust version from the manifest of your package.
+Note that this is the minimum Rust version supported by the package, not the
+current Rust version.</li>
+<li><code>CARGO_PKG_README</code> — Path to the README file of your package.</li>
+<li><code>CARGO_CRATE_NAME</code> — The name of the crate that is currently being compiled. It is the name of the <a href="cargo-targets.html">Cargo target</a> with <code>-</code> converted to <code>_</code>, such as the name of the library, binary, example, integration test, or benchmark.</li>
+<li><code>CARGO_BIN_NAME</code> — The name of the binary that is currently being compiled.
+Only set for <a href="cargo-targets.html#binaries">binaries</a> or binary <a href="cargo-targets.html#examples">examples</a>. This name does not include any
+file extension, such as <code>.exe</code>.</li>
+<li><code>OUT_DIR</code> — If the package has a build script, this is set to the folder
+where the build script should place its output. See below for more information.
+(Only set during compilation.) Cargo does not guarantee that this directory
+is empty, and it is not cleaned between builds.</li>
+<li><code>CARGO_BIN_EXE_&lt;name&gt;</code> — The absolute path to a binary target’s executable.
+This is only set when building an <a href="cargo-targets.html#integration-tests">integration test</a> or benchmark. This may
+be used with the <a href="../../std/macro.env.html"><code>env</code> macro</a> to find the executable to run for testing
+purposes. The <code>&lt;name&gt;</code> is the name of the binary target, exactly as-is. For
+example, <code>CARGO_BIN_EXE_my-program</code> for a binary named <code>my-program</code>.
+Binaries are automatically built when the test is built, unless the binary
+has required features that are not enabled.</li>
+<li><code>CARGO_PRIMARY_PACKAGE</code> — This environment variable will be set if the
+package being built is primary. Primary packages are the ones the user
+selected on the command-line, either with <code>-p</code> flags or the defaults based
+on the current directory and the default workspace members.
+This variable will not be set when building dependencies,
+unless a dependency is also a workspace member that was also selected on the command-line.
+This is only set when compiling the package (not when running binaries or tests).</li>
+<li><code>CARGO_TARGET_TMPDIR</code> — Only set when building <a href="cargo-targets.html#integration-tests">integration test</a> or benchmark code.
+This is a path to a directory inside the target directory
+where integration tests or benchmarks are free to put any data needed by
+the tests/benches. Cargo initially creates this directory but doesn’t
+manage its content in any way, this is the responsibility of the test code.</li>
+</ul>
+<h3 id="dynamic-library-paths"><a class="header" href="#dynamic-library-paths">Dynamic library paths</a></h3>
+<p>Cargo also sets the dynamic library path when compiling and running binaries
+with commands like <code>cargo run</code> and <code>cargo test</code>. This helps with locating
+shared libraries that are part of the build process. The variable name depends
+on the platform:</p>
+<ul>
+<li>Windows: <code>PATH</code></li>
+<li>macOS: <code>DYLD_FALLBACK_LIBRARY_PATH</code></li>
+<li>Unix: <code>LD_LIBRARY_PATH</code></li>
+<li>AIX: <code>LIBPATH</code></li>
+</ul>
+<p>The value is extended from the existing value when Cargo starts. macOS has
+special consideration where if <code>DYLD_FALLBACK_LIBRARY_PATH</code> is not already
+set, it will add the default <code>$HOME/lib:/usr/local/lib:/usr/lib</code>.</p>
+<p>Cargo includes the following paths:</p>
+<ul>
+<li>Search paths included from any build script with the <a href="build-scripts.html#rustc-link-search"><code>rustc-link-search</code>
+instruction</a>. Paths outside of the
+<code>target</code> directory are removed. It is the responsibility of the user running
+Cargo to properly set the environment if additional libraries on the system
+are needed in the search path.</li>
+<li>The base output directory, such as <code>target/debug</code>, and the “deps” directory.
+This is mostly for support of proc-macros.</li>
+<li>The rustc sysroot library path. This generally is not important to most
+users.</li>
+</ul>
+<h2 id="environment-variables-cargo-sets-for-build-scripts"><a class="header" href="#environment-variables-cargo-sets-for-build-scripts">Environment variables Cargo sets for build scripts</a></h2>
+<p>Cargo sets several environment variables when build scripts are run. Because these variables
+are not yet set when the build script is compiled, the above example using <code>env!</code> won’t work
+and instead you’ll need to retrieve the values when the build script is run:</p>
+<pre><code class="language-rust ignore">use std::env;
+let out_dir = env::var("OUT_DIR").unwrap();</code></pre>
+<p><code>out_dir</code> will now contain the value of <code>OUT_DIR</code>.</p>
+<ul>
+<li><code>CARGO</code> — Path to the <code>cargo</code> binary performing the build.</li>
+<li><code>CARGO_MANIFEST_DIR</code> — The directory containing the manifest for the package
+being built (the package containing the build script). Also note that this is
+the value of the current working directory of the build script when it starts.</li>
+<li><code>CARGO_MANIFEST_PATH</code> — The path to the manifest of your package.</li>
+<li><code>CARGO_MANIFEST_LINKS</code> — the manifest <code>links</code> value.</li>
+<li><code>CARGO_MAKEFLAGS</code> — Contains parameters needed for Cargo’s <a href="https://www.gnu.org/software/make/manual/html_node/Job-Slots.html">jobserver</a>
+implementation to parallelize subprocesses. Rustc or cargo invocations from
+build.rs can already read <code>CARGO_MAKEFLAGS</code>, but GNU Make requires the flags
+to be specified either directly as arguments, or through the <code>MAKEFLAGS</code>
+environment variable. Currently Cargo doesn’t set the <code>MAKEFLAGS</code> variable,
+but it’s free for build scripts invoking GNU Make to set it to the contents
+of <code>CARGO_MAKEFLAGS</code>.</li>
+<li><code>CARGO_FEATURE_&lt;name&gt;</code> — For each activated feature of the package being built,
+this environment variable will be present where <code>&lt;name&gt;</code> is the name of the
+feature uppercased and having <code>-</code> translated to <code>_</code>.</li>
+<li><code>CARGO_CFG_&lt;cfg&gt;</code> — For each <a href="../../reference/conditional-compilation.html">configuration option</a> of the
+package being built, this environment variable will contain the value of the
+configuration, where <code>&lt;cfg&gt;</code> is the name of the configuration uppercased and
+having <code>-</code> translated to <code>_</code>. Boolean configurations are present if they are
+set, and not present otherwise. Configurations with multiple values are
+joined to a single variable with the values delimited by <code>,</code>. This includes
+values built-in to the compiler (which can be seen with <code>rustc --print=cfg</code>)
+and values set by build scripts and extra flags passed to <code>rustc</code> (such as
+those defined in <code>RUSTFLAGS</code>). Some examples of what these variables are:
+<ul>
+<li><code>CARGO_CFG_FEATURE</code> — Each activated feature of the package being built.</li>
+<li><code>CARGO_CFG_UNIX</code> — Set on <a href="../../reference/conditional-compilation.html#unix-and-windows">unix-like platforms</a>.</li>
+<li><code>CARGO_CFG_WINDOWS</code> — Set on <a href="../../reference/conditional-compilation.html#unix-and-windows">windows-like platforms</a>.</li>
+<li><code>CARGO_CFG_TARGET_FAMILY=unix,wasm</code> — The <a href="../../reference/conditional-compilation.html#target_family">target family</a>.</li>
+<li><code>CARGO_CFG_TARGET_OS=macos</code> — The <a href="../../reference/conditional-compilation.html#target_os">target operating system</a>.</li>
+<li><code>CARGO_CFG_TARGET_ARCH=x86_64</code> — The CPU <a href="../../reference/conditional-compilation.html#target_arch">target architecture</a>.</li>
+<li><code>CARGO_CFG_TARGET_VENDOR=apple</code> — The <a href="../../reference/conditional-compilation.html#target_vendor">target vendor</a>.</li>
+<li><code>CARGO_CFG_TARGET_ENV=gnu</code> — The <a href="../../reference/conditional-compilation.html#target_env">target environment</a> ABI.</li>
+<li><code>CARGO_CFG_TARGET_ABI=eabihf</code> — The <a href="../../reference/conditional-compilation.html#target_abi">target ABI</a>.</li>
+<li><code>CARGO_CFG_TARGET_POINTER_WIDTH=64</code> — The CPU <a href="../../reference/conditional-compilation.html#target_pointer_width">pointer width</a>.</li>
+<li><code>CARGO_CFG_TARGET_ENDIAN=little</code> — The CPU <a href="../../reference/conditional-compilation.html#target_endian">target endianness</a>.</li>
+<li><code>CARGO_CFG_TARGET_FEATURE=mmx,sse</code> — List of CPU <a href="../../reference/conditional-compilation.html#target_feature">target features</a> enabled.</li>
+</ul>
+<blockquote>
+<p>Note that different <a href="../appendix/glossary.html#target">target triples</a> have different sets of <code>cfg</code> values,
+hence variables present in one target triple might not be available in the other.</p>
+<p>Some cfg values like <code>test</code> are not available.</p>
+<p><strong>Tip:</strong> For a typed API to read these values, consider using the <a href="https://crates.io/crates/build-rs"><code>build-rs</code></a>
+crate instead of parsing environment variables manually. Also note that
+<code>CARGO_CFG_*</code> variables should be used instead of the <code>cfg!</code> macro or <code>#[cfg]</code>
+attribute in build scripts, those check the <em>host</em> platform, not the <em>target</em>.</p>
+</blockquote>
+</li>
+<li><code>OUT_DIR</code> — the folder in which all output and intermediate artifacts should
+be placed. This folder is inside the build directory for the package being built,
+and it is unique for the package in question. Cargo does not clean or reset this
+directory between builds, and its contents may persist across rebuilds. Build
+scripts should not assume that <code>OUT_DIR</code> is empty, and are responsible for
+managing or cleaning up any files they create.</li>
+<li><code>TARGET</code> — the target triple that is being compiled for. Native code should be
+compiled for this triple. See the <a href="../appendix/glossary.html#target">Target Triple</a> description for more information.</li>
+<li><code>HOST</code> — the host triple of the Rust compiler.</li>
+<li><code>NUM_JOBS</code> — the parallelism specified as the top-level parallelism. This can
+be useful to pass a <code>-j</code> parameter to a system like <code>make</code>. Note that care
+should be taken when interpreting this environment variable. For historical
+purposes this is still provided but recent versions of Cargo, for example, do
+not need to run <code>make -j</code>, and instead can set the <code>MAKEFLAGS</code> env var to the
+content of <code>CARGO_MAKEFLAGS</code> to activate the use of Cargo’s GNU Make compatible
+<a href="https://www.gnu.org/software/make/manual/html_node/Job-Slots.html">jobserver</a> for sub-make invocations.</li>
+<li><code>DEBUG</code> — <code>true</code> if any <a href="profiles.html#debug"><code>debug</code></a> information will be generated and <code>false</code> otherwise.</li>
+<li><code>OPT_LEVEL</code> — values of the corresponding <a href="profiles.html#opt-level"><code>opt-level</code></a> variable for the profile currently being built.</li>
+<li><code>PROFILE</code> — <code>release</code> for release builds, <code>debug</code> for other builds. This is
+determined based on if the <a href="profiles.html">profile</a> inherits from the <a href="profiles.html#dev"><code>dev</code></a> or
+<a href="profiles.html#release"><code>release</code></a> profile. Using this environment variable is not recommended.
+Using other environment variables like <code>OPT_LEVEL</code> provide a more correct
+view of the actual settings being used.</li>
+<li><code>DEP_&lt;links&gt;_&lt;key&gt;</code> — For more information about this set of environment variables,
+see build script documentation about <a href="build-scripts.html#the-links-manifest-key"><code>links</code></a>.</li>
+<li><code>RUSTC</code>, <code>RUSTDOC</code> — the compiler and documentation generator that Cargo has
+resolved to use, passed to the build script so it might use it as well.</li>
+<li><code>RUSTC_WRAPPER</code> — the <code>rustc</code> wrapper, if any, that Cargo is using. See <a href="config.html#buildrustc-wrapper"><code>build.rustc-wrapper</code></a>.</li>
+<li><code>RUSTC_WORKSPACE_WRAPPER</code> — the <code>rustc</code> wrapper, if any, that Cargo is using
+for workspace members. See <a href="config.html#buildrustc-workspace-wrapper"><code>build.rustc-workspace-wrapper</code></a>.</li>
+<li><code>RUSTC_LINKER</code> — The path to the linker binary that Cargo has resolved to use
+for the current target, if specified. The linker can be changed by editing
+<code>.cargo/config.toml</code>; see the documentation about <a href="config.html">cargo configuration</a>
+for more information.</li>
+<li><code>CARGO_ENCODED_RUSTFLAGS</code> — extra flags that Cargo invokes <code>rustc</code> with,
+separated by a <code>0x1f</code> character (ASCII Unit Separator). See
+<a href="config.html#buildrustflags"><code>build.rustflags</code></a>. Note that since Rust 1.55, <code>RUSTFLAGS</code> is removed from
+the environment; scripts should use <code>CARGO_ENCODED_RUSTFLAGS</code> instead.</li>
+<li><code>CARGO_PKG_&lt;var&gt;</code> — The package information variables, with the same names and values as are <a href="#environment-variables-cargo-sets-for-crates">provided during crate building</a>.</li>
+</ul>
+<h2 id="environment-variables-cargo-sets-for-cargo-test"><a class="header" href="#environment-variables-cargo-sets-for-cargo-test">Environment variables Cargo sets for <code>cargo test</code></a></h2>
+<p>Cargo sets several environment variables when tests are run.
+You can retrieve the values when the tests are run:</p>
+<pre><code class="language-rust ignore">use std::env;
+let out_dir = env::var("CARGO_BIN_EXE_foo").unwrap();</code></pre>
+<ul>
+<li><code>CARGO_BIN_EXE_&lt;name&gt;</code> — The absolute path to a binary target’s executable.
+This is only set when running an <a href="cargo-targets.html#integration-tests">integration test</a> or benchmark.
+The <code>&lt;name&gt;</code> is the name of the binary target, exactly as-is. For
+example, <code>CARGO_BIN_EXE_my-program</code> for a binary named <code>my-program</code>.
+Binaries are automatically built when the test is built, unless the binary
+has required features that are not enabled.</li>
+</ul>
+<h2 id="environment-variables-cargo-sets-for-3rd-party-subcommands"><a class="header" href="#environment-variables-cargo-sets-for-3rd-party-subcommands">Environment variables Cargo sets for 3rd party subcommands</a></h2>
+<p>Cargo exposes this environment variable to 3rd party subcommands
+(ie. programs named <code>cargo-foobar</code> placed in <code>$PATH</code>):</p>
+<ul>
+<li><code>CARGO</code> — Path to the <code>cargo</code> binary performing the build.</li>
+<li><code>CARGO_MAKEFLAGS</code> — Contains parameters needed for Cargo’s <a href="https://www.gnu.org/software/make/manual/html_node/Job-Slots.html">jobserver</a>
+implementation to parallelize subprocesses.
+This is set only when Cargo detects the existence of a jobserver.</li>
+</ul>
+<p>For extended information about your environment you may run <code>cargo metadata</code>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../reference/config.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../reference/build-scripts.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../reference/config.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../reference/build-scripts.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-09f2665d.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

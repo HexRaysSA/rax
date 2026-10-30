@@ -1,7 +1,7 @@
 //! Capture CPU, platform, endpoint and RAM state under one writer boundary.
 use super::*;
 use crate::vm::memory::checkpoint::CheckpointBindings;
-use crate::vm::snapshot::{CpuSnapshot, ExecutionSnapshot, PhysicalMemorySnapshot, SnapshotBundle};
+use crate::vm::snapshot::{ExecutionSnapshot, PhysicalMemorySnapshot, SnapshotBundle};
 
 impl Vmm {
     /// Capture a stopped VM. Controlled RAM and endpoint writers are excluded;
@@ -41,6 +41,7 @@ impl Vmm {
                 for apic in &self.local_apics {
                     lapics.push(apic.lock().map_err(|_| lock_error())?);
                 }
+                let boundary = self.vm.checkpoint_boundary()?;
                 let scope = bindings.enter()?;
                 let clock = self.timing_context.checkpoint_state();
                 let now = std::time::Instant::now();
@@ -63,13 +64,13 @@ impl Vmm {
                 let mut backend_contexts = Vec::with_capacity(self.vcpus.len());
                 let mut resources = Vec::new();
                 for cpu in &self.vcpus {
-                    cpus.push(CpuSnapshot {
-                        state: cpu.get_state()?,
-                        emulator: cpu.get_emulator_state().unwrap_or_default(),
-                    });
-                    backend_contexts.push(cpu.capture_backend_context_in_scope(&scope)?);
+                    let (public, private) =
+                        cpu.capture_checkpoint_record(&boundary, Some(&scope))?;
+                    cpus.push(public);
+                    backend_contexts.push(private);
                     resources.extend(cpu.capture_checkpoint_resources()?);
                 }
+                let shared = self.vm.capture_checkpoint_vm_context(&boundary)?;
                 let first = cpus
                     .first()
                     .ok_or_else(|| Error::InvalidConfig("no vcpu available".into()))?;
@@ -98,12 +99,9 @@ impl Vmm {
                     memory_data,
                 };
                 let mut bundle = SnapshotBundle::new(base)
+                    .with_checkpoint_records(cpus, backend_contexts, shared)?
                     .with_clock(clock)?
-                    .with_cpus(cpus)?
                     .with_execution(execution)?;
-                if backend_contexts.iter().any(Option::is_some) {
-                    bundle = bundle.with_backend_contexts(backend_contexts)?;
-                }
                 if !resources.is_empty() {
                     bundle = bundle.with_resources(resources)?;
                 }

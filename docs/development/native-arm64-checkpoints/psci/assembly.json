@@ -1,0 +1,114 @@
+[
+  {
+    "count": 2,
+    "source_sha256": "dd6915ccb7b34d41f7d04af89e4d1c8257aa7865589c45975757795595fe56c6",
+    "binary_sha256": "2144e83186e8e26e6fdcb8b402679927347d697cf5e986b305afc3e1e185f218",
+    "bytes": 280,
+    "commands": [
+      {
+        "command": [
+          "/Users/int/local/bin/llvm-mc",
+          "-triple=aarch64-none-elf",
+          "-filetype=obj",
+          "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/docs/development/native-arm64-checkpoints/psci/boot-2.s",
+          "-o",
+          "/Users/int/dev/rax-audit-work/build-tmp/native-psci-boot-2.o"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/int/local/bin/ld.lld",
+          "-Ttext=0x40001000",
+          "--entry=_start",
+          "/Users/int/dev/rax-audit-work/build-tmp/native-psci-boot-2.o",
+          "-o",
+          "/Users/int/dev/rax-audit-work/build-tmp/native-psci-boot-2.elf"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/int/local/bin/llvm-objcopy",
+          "-O",
+          "binary",
+          "/Users/int/dev/rax-audit-work/build-tmp/native-psci-boot-2.elf",
+          "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/docs/development/native-arm64-checkpoints/psci/boot-2.bin"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/int/local/bin/llvm-nm",
+          "--defined-only",
+          "/Users/int/dev/rax-audit-work/build-tmp/native-psci-boot-2.elf"
+        ],
+        "exit_code": 0,
+        "stdout": "0000000040001000 T _start\n0000000040001100 t ap1\n0000000040001030 t loop0\n0000000040001108 t loop1\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "count": 4,
+    "source_sha256": "79dda92f1afde2ecebbab29b6d3ef1c2c5e3452e2eca3a4f8f5e36a5dd4a730f",
+    "binary_sha256": "4a0a46e293001bf9d1f671bdd15dd532f39343fecf8555019789f740672541a6",
+    "bytes": 792,
+    "commands": [
+      {
+        "command": [
+          "/Users/int/local/bin/llvm-mc",
+          "-triple=aarch64-none-elf",
+          "-filetype=obj",
+          "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/docs/development/native-arm64-checkpoints/psci/boot-4.s",
+          "-o",
+          "/Users/int/dev/rax-audit-work/build-tmp/native-psci-boot-4.o"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/int/local/bin/ld.lld",
+          "-Ttext=0x40001000",
+          "--entry=_start",
+          "/Users/int/dev/rax-audit-work/build-tmp/native-psci-boot-4.o",
+          "-o",
+          "/Users/int/dev/rax-audit-work/build-tmp/native-psci-boot-4.elf"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/int/local/bin/llvm-objcopy",
+          "-O",
+          "binary",
+          "/Users/int/dev/rax-audit-work/build-tmp/native-psci-boot-4.elf",
+          "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/docs/development/native-arm64-checkpoints/psci/boot-4.bin"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/int/local/bin/llvm-nm",
+          "--defined-only",
+          "/Users/int/dev/rax-audit-work/build-tmp/native-psci-boot-4.elf"
+        ],
+        "exit_code": 0,
+        "stdout": "0000000040001000 T _start\n0000000040001100 t ap1\n0000000040001200 t ap2\n0000000040001300 t ap3\n0000000040001068 t loop0\n0000000040001108 t loop1\n0000000040001208 t loop2\n0000000040001308 t loop3\n",
+        "stderr": ""
+      }
+    ]
+  }
+]

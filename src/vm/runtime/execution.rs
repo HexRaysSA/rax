@@ -346,6 +346,7 @@ impl Vmm {
                             self.io_bus.write(port, &data)?;
                         }
                     }
+                    vcpu.complete_io_out()?;
                 }
                 VcpuExit::MmioRead { addr, size } => {
                     let mut data = vec![0u8; size as usize];
@@ -355,6 +356,7 @@ impl Vmm {
                 }
                 VcpuExit::MmioWrite { addr, data } => {
                     self.mmio_bus.write(addr, &data)?;
+                    vcpu.complete_io_out()?;
                 }
                 VcpuExit::MmioRmw {
                     addr,

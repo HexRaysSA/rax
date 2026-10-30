@@ -1,0 +1,13 @@
+{
+  "utc": "2026-10-30T09:44:36.191499+00:00",
+  "command": [
+    "/Users/int/local/bin/llvm-mc",
+    "-triple=aarch64",
+    "-show-encoding",
+    "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/docs/development/native-arm64-checkpoints/psci/protocol.s"
+  ],
+  "exit_code": 0,
+  "stdout": "\t.text\n\t.arch\tarmv8-a\n\thvc\t#0                              // encoding: [0x02,0x00,0x00,0xd4]\n\tsmc\t#0                              // encoding: [0x03,0x00,0x00,0xd4]\n\tldr\tx10, [x11]                      // encoding: [0x6a,0x01,0x40,0xf9]\n\tmov\tw0, #2                          // encoding: [0x40,0x00,0x80,0x52]\n                                        // =0x2\n\tmovk\tw0, #33792, lsl #16             // encoding: [0x00,0x80,0xb0,0x72]\n\thvc\t#0                              // encoding: [0x02,0x00,0x00,0xd4]\n\tmov\tw0, #8                          // encoding: [0x00,0x01,0x80,0x52]\n                                        // =0x8\n\tmovk\tw0, #33792, lsl #16             // encoding: [0x00,0x80,0xb0,0x72]\n\thvc\t#0                              // encoding: [0x02,0x00,0x00,0xd4]\n",
+  "stderr": "",
+  "purpose": "Independent instruction encodings for inline firmware protocol words; no Rust source changed."
+}

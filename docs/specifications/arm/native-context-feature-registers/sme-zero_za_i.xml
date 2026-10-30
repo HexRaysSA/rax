@@ -1,0 +1,179 @@
+<?xml version="1.0" ?><?xml-stylesheet type="text/xsl" encoding="UTF-8" href="iform.xsl" version="1.0"?><!DOCTYPE instructionsection  PUBLIC '-//ARM//DTD instructionsection //EN'  'iform-p.dtd'><!-- Copyright (c) 2010-2025 Arm Limited or its affiliates. All rights reserved. --><!-- This document is Non-Confidential. This document may only be used and distributed in accordance with the terms of the agreement entered into by Arm and the party that Arm delivered this document to. --><instructionsection id="zero_za_i" title="ZERO (tiles) -- A64" type="instruction">
+  <docvars>
+    <docvar key="instr-class" value="mortlach"/>
+    <docvar key="isa" value="A64"/>
+    <docvar key="mnemonic" value="ZERO"/>
+  </docvars>
+  <heading>ZERO (tiles)</heading>
+  <desc>
+    <brief>
+      <para>Zero a list of 64-bit element ZA tiles</para>
+    </brief>
+    <authored>
+      <para>This instruction zeroes all bytes within each of the up to eight listed 64-bit element tiles
+named <asm-code>ZA0.D</asm-code> to <asm-code>ZA7.D</asm-code>,
+leaving the other 64-bit element tiles unmodified.</para>
+      <para>This instruction does not require the PE to be in Streaming SVE
+mode, and it is expected that this instruction will not
+experience a significant slowdown due to contention with other
+PEs that are executing in Streaming SVE mode.</para>
+      <para>For programmer convenience an assembler must also accept the names
+of 32-bit, 16-bit, and 8-bit element tiles that are converted
+into the corresponding set of 64-bit element tiles.</para>
+      <para>In accordance with the architecturally defined mapping
+between different element size tiles:</para>
+      <list type="unordered">
+        <listitem>
+          <content>Zeroing the 8-bit element tile name <asm-code>ZA0.B</asm-code>,
+  or the entire array name <asm-code>ZA</asm-code>,
+  is equivalent to zeroing all eight 64-bit element tiles
+  named <asm-code>ZA0.D</asm-code> to <asm-code>ZA7.D</asm-code>.</content>
+        </listitem>
+        <listitem>
+          <content>Zeroing the 16-bit element tile name <asm-code>ZA0.H</asm-code> is equivalent
+  to zeroing 64-bit element tiles named
+  <asm-code>ZA0.D</asm-code>, <asm-code>ZA2.D</asm-code>, <asm-code>ZA4.D</asm-code>, and <asm-code>ZA6.D</asm-code>.</content>
+        </listitem>
+        <listitem>
+          <content>Zeroing the 16-bit element tile name <asm-code>ZA1.H</asm-code> is equivalent
+  to zeroing 64-bit element tiles named
+  <asm-code>ZA1.D</asm-code>, <asm-code>ZA3.D</asm-code>, <asm-code>ZA5.D</asm-code>, and <asm-code>ZA7.D</asm-code>.</content>
+        </listitem>
+        <listitem>
+          <content>Zeroing the 32-bit element tile name <asm-code>ZA0.S</asm-code> is equivalent
+  to zeroing 64-bit element tiles named
+  <asm-code>ZA0.D</asm-code> and <asm-code>ZA4.D</asm-code>.</content>
+        </listitem>
+        <listitem>
+          <content>Zeroing the 32-bit element tile name <asm-code>ZA1.S</asm-code> is equivalent
+  to zeroing 64-bit element tiles named
+  <asm-code>ZA1.D</asm-code> and <asm-code>ZA5.D</asm-code>.</content>
+        </listitem>
+        <listitem>
+          <content>Zeroing the 32-bit element tile name <asm-code>ZA2.S</asm-code> is equivalent
+  to zeroing 64-bit element tiles named
+  <asm-code>ZA2.D</asm-code> and <asm-code>ZA6.D</asm-code>.</content>
+        </listitem>
+        <listitem>
+          <content>Zeroing the 32-bit element tile name <asm-code>ZA3.S</asm-code> is equivalent
+  to zeroing 64-bit element tiles named
+  <asm-code>ZA3.D</asm-code> and <asm-code>ZA7.D</asm-code>.</content>
+        </listitem>
+      </list>
+      <para>The preferred disassembly of this instruction uses the shortest list
+of tile names that represent the encoded immediate mask.</para>
+      <para>For example:</para>
+      <list type="unordered">
+        <listitem>
+          <content>An immediate that encodes 64-bit element tiles
+  <asm-code>ZA0.D</asm-code>, <asm-code>ZA1.D</asm-code>, <asm-code>ZA4.D</asm-code>, and <asm-code>ZA5.D</asm-code>
+  is disassembled as {<asm-code>ZA0.S</asm-code>, <asm-code>ZA1.S</asm-code>}.</content>
+        </listitem>
+        <listitem>
+          <content>An immediate that encodes 64-bit element tiles
+  <asm-code>ZA0.D</asm-code>, <asm-code>ZA2.D</asm-code>, <asm-code>ZA4.D</asm-code>, and <asm-code>ZA6.D</asm-code>
+  is disassembled as {<asm-code>ZA0.H</asm-code>}.</content>
+        </listitem>
+        <listitem>
+          <content>An all-ones immediate is disassembled as {<asm-code>ZA</asm-code>}.</content>
+        </listitem>
+        <listitem>
+          <content>An all-zeros immediate is disassembled as an empty list { }.</content>
+        </listitem>
+      </list>
+    </authored>
+    <sm_policy>SM_0_or_1</sm_policy>
+  </desc>
+  <alias_list howmany="0"/>
+  <classes>
+    <iclass name="SME" oneof="1" id="iclass_sme" no_encodings="1" isa="A64">
+      <docvars>
+        <docvar key="instr-class" value="mortlach"/>
+        <docvar key="isa" value="A64"/>
+        <docvar key="mnemonic" value="ZERO"/>
+      </docvars>
+      <iclassintro count="1"/>
+      <arch_variants>
+        <arch_variant feature="FEAT_SME" name="v9Ap2 &amp;&amp; PROFILE_A"/>
+      </arch_variants>
+      <regdiagram form="32" psname="A64.sme.mortlach_zero.mortlach_zero.zero_za_i_">
+        <box hibit="31" width="1" settings="1">
+          <c>1</c>
+        </box>
+        <box hibit="30" width="2" settings="2">
+          <c>1</c>
+          <c>0</c>
+        </box>
+        <box hibit="28" width="4" settings="4">
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+        </box>
+        <box hibit="24" width="7" settings="7">
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>1</c>
+          <c>0</c>
+        </box>
+        <box hibit="17" width="10" settings="10">
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+        </box>
+        <box hibit="7" width="8" name="imm8" usename="1">
+          <c colspan="8"/>
+        </box>
+      </regdiagram>
+      <encoding name="zero_za_i_" oneofinclass="1" oneof="1" label="">
+        <docvars>
+          <docvar key="instr-class" value="mortlach"/>
+          <docvar key="isa" value="A64"/>
+          <docvar key="mnemonic" value="ZERO"/>
+        </docvars>
+        <asmtemplate><text>ZERO  { {</text><a hover="Is the optional list of up to eight 64-bit element tile names separated by commas, encoded in the &quot;imm8&quot; field." link="mask__2">&lt;mask&gt;</a><text>} }</text></asmtemplate>
+      </encoding>
+      <ps_section howmany="1">
+        <ps name="A64.sme.mortlach_zero.mortlach_zero.zero_za_i_" sections="1" secttype="noheading">
+          <pstext mayhavelinks="1" section="Decode" rep_section="decode">if !IsFeatureImplemented(FEAT_SME) then EndOfDecode(<a link="enum_Decode_UNDEF" file="shared_pseudocode.xml">Decode_UNDEF</a>); end;
+let mask : bits(8) = imm8;
+let esize : integer{} = 64;</pstext>
+        </ps>
+      </ps_section>
+    </iclass>
+  </classes>
+  <explanations scope="all">
+    <explanation enclist="zero_za_i_" symboldefcount="1">
+      <symbol link="mask__2">&lt;mask&gt;</symbol>
+      <account encodedin="imm8">
+        <intro>
+          <para>Is the optional list of up to eight 64-bit element tile names separated by commas, encoded in the &quot;imm8&quot; field.</para>
+        </intro>
+      </account>
+    </explanation>
+  </explanations>
+  <ps_section howmany="1">
+    <ps name="A64.sme.mortlach_zero.mortlach_zero.zero_za_i_" sections="1" secttype="Operation">
+      <pstext mayhavelinks="1" section="Execute" rep_section="execute">CheckSMEAndZAEnabled();
+let SVL : integer{} = CurrentSVL();
+let dim : integer{} = SVL DIV esize;
+let result : bits(dim*dim*esize) = Zeros{};
+
+for i = 0 to 7 do
+    if mask[i] == '1' then ZAtile{dim*dim*esize}(i, esize) = result; end;
+end;</pstext>
+    </ps>
+  </ps_section>
+  <timestamp>2025-12-10 16:12:08</timestamp>
+  <commit_id>2025-12_rel</commit_id>
+</instructionsection>

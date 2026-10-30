@@ -8,11 +8,11 @@ import os
 from pathlib import Path
 import platform
 import plistlib
-import shutil
 import struct
 import subprocess
 import sys
 import time
+import tempfile
 
 
 def sha(path):
@@ -44,24 +44,24 @@ def verify(directory):
     )
 
 
-def main():
-    p = argparse.ArgumentParser()
-    p.add_argument('--repo', type=Path, required=True)
-    p.add_argument('--work-dir', type=Path, required=True)
-    p.add_argument('--target-dir', type=Path, required=True)
-    a = p.parse_args()
-    if sys.platform != 'darwin' or platform.machine() not in ['arm64', 'aarch64']:
-        print(
-            'Native ARM64 HVF state validation requires Apple Silicon macOS.',
-            file=sys.stderr,
-        )
-        raise SystemExit(77)
+def run_probe(a, temporary):
     root, out = a.repo.resolve(), a.work_dir.resolve()
     out.mkdir(parents=True, exist_ok=True)
+    (out / 'manifest.json').unlink(missing_ok=True)
     sources = [
         'src/backend/hvf/arm64.rs',
         'src/backend/hvf/arm64_state.rs',
         'src/backend/hvf/arm64_stack.rs',
+        'src/backend/hvf/arm64_worker.rs',
+        'src/backend/hvf/arm64_bindings.rs',
+        'src/backend/hvf/arm64_checkpoint.rs',
+        'src/backend/hvf/arm64_checkpoint_api.rs',
+        'src/backend/hvf/arm64_context_format.rs',
+        'src/backend/hvf/arm64_restore.rs',
+        'src/backend/hvf/arm64_vm_checkpoint.rs',
+        'src/backend/checkpoint.rs',
+        'src/backend/mod.rs',
+        'src/vm/vcpu/mod.rs',
         'tools/hvf/arm64_state_native_guest.rs',
         'tools/hvf/arm64_native_state_probe.py',
     ]
@@ -85,9 +85,11 @@ def main():
                 seconds=time.monotonic() - start,
             )
         )
+        (out / 'commands.json').write_text(json.dumps(commands, indent=2) + '\n')
         assert result.returncode == 0, (name, result.stderr[-4000:])
+        return result
 
-    run(
+    library = run(
         'library',
         [
             'cargo',
@@ -98,11 +100,20 @@ def main():
             '--no-default-features',
             '--features',
             'x86_64-suite,smir-jit,hvf',
+            '--message-format=json',
             '--lib',
         ],
         600,
     )
-    shutil.copyfile(a.target_dir / 'debug/librax.rlib', out / 'librax.rlib')
+    artifacts = []
+    for line in library.stdout.splitlines():
+        row = json.loads(line)
+        if row.get('reason') == 'compiler-artifact' and row['target']['name'] == 'rax':
+            artifacts.extend(Path(name) for name in row['filenames'] if name.endswith('.rlib'))
+    assert len(artifacts) == 1, artifacts
+    archive = artifacts[0]
+    library_sha256 = sha(archive)
+    executable = temporary / 'native-state'
     run(
         'build',
         [
@@ -111,11 +122,11 @@ def main():
             '--edition=2024',
             str(root / 'tools/hvf/arm64_state_native_guest.rs'),
             '--extern',
-            'rax=' + str(out / 'librax.rlib'),
+            'rax=' + str(archive),
             '-L',
             'dependency=' + str(a.target_dir / 'debug/deps'),
             '-o',
-            str(out / 'native-state'),
+            str(executable),
         ],
     )
     (out / 'entitlements.plist').write_bytes(
@@ -130,10 +141,11 @@ def main():
             '-',
             '--entitlements',
             str(out / 'entitlements.plist'),
-            str(out / 'native-state'),
+            str(executable),
         ],
     )
-    run('native', [str(out / 'native-state'), str(out)], 20)
+    run('verify-sign', ['codesign', '--verify', '--strict', str(executable)])
+    run('native', [str(executable), str(out)], 20)
     report = verify(out)
     probes = []
     for name, count in [('rows.bin', 60), ('admission.bin', 3)]:
@@ -166,6 +178,7 @@ def main():
         + '\n'
     )
     assert before == {n: sha(root / n) for n in sources}
+    assert sha(archive) == library_sha256
     artifacts = [
         'rows.bin',
         'admission.bin',
@@ -173,8 +186,8 @@ def main():
         'after.txt',
         'admission.txt',
         'entitlements.plist',
-        'native-state',
         'fault-injection.json',
+        'commands.json',
     ]
     (out / 'manifest.json').write_text(
         json.dumps(
@@ -183,16 +196,45 @@ def main():
                 report=report,
                 commands=commands,
                 source_sha256=before,
-                library_sha256=sha(out / 'librax.rlib'),
+                library_sha256=library_sha256,
+                linked_library=str(archive),
+                native_executable_sha256=sha(executable),
+                linked_artifacts_unchanged=True,
                 host_machine=platform.machine(),
                 artifacts={n: sha(out / n) for n in artifacts},
-                scope='Actual signed RAX backend/GIC/vCPU native register-state transfer on the creating thread;12cases and one nonmutating invalid-mode rejection. No complete private-state,SDK-failure rollback,worker migration,native retirement-budget or Intel/KVM proof.',
+                scope='Actual signed public native RAX register API backed by a permanent SDK owner;12cases and one nonmutating invalid-mode rejection. Bare register access intentionally permits an unconfigured/unmapped VM. No complete private-state,SDK-failure rollback,worker migration,native retirement-budget or Intel/KVM proof.',
             ),
             indent=2,
         )
         + '\n'
     )
     print(json.dumps(report))
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('--repo', type=Path, required=True)
+    p.add_argument('--work-dir', type=Path, required=True)
+    p.add_argument('--target-dir', type=Path, required=True)
+    a = p.parse_args()
+    if sys.platform != 'darwin' or platform.machine() not in ['arm64', 'aarch64']:
+        print(
+            'Native ARM64 HVF state validation requires Apple Silicon macOS.',
+            file=sys.stderr,
+        )
+        raise SystemExit(77)
+    temporary_path = None
+    try:
+        with tempfile.TemporaryDirectory(prefix='rax-arm64-state-') as name:
+            temporary_path = Path(name)
+            run_probe(a, temporary_path)
+    finally:
+        a.work_dir.mkdir(parents=True, exist_ok=True)
+        (a.work_dir / 'cleanup.json').write_text(json.dumps({
+            'temporary_directory': str(temporary_path),
+            'removed': temporary_path is not None and not temporary_path.exists(),
+            'copied_library_archives': 0,
+        }, indent=2) + '\n')
 
 
 if __name__ == '__main__':

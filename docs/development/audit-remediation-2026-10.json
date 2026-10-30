@@ -2664,7 +2664,10 @@
         "docs/development/a64-sve-profile/legacy-dot-correction.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/owning-final-v2.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/oracle-dot-v1/result.json",
-        "docs/development/a32-fp-controls/feature-admission/misc-and-fma.md"
+        "docs/development/a32-fp-controls/feature-admission/misc-and-fma.md",
+        "docs/development/native-arm64-checkpoints/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/capture-qualification-v6.json",
+        "docs/development/native-arm64-checkpoints/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2717,7 +2720,8 @@
           "scope": "MVFR1.SIMDFMAC and MVFR2 FPMisc/SIMDMisc admission in the shared A32/T32 executor; exact bounded S3C entry/non-retirement and heartbeat preservation; backend profile state and real prepared-context two/four-CPU .rxc continuation. Full four findings remain incomplete.",
           "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
         }
-      ]
+      ],
+      "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
     {
       "id": "C-SMP",
@@ -2833,10 +2837,6 @@
         "tools/execution/timing_guest.rs",
         "tools/execution/timing_oracle.py",
         "docs/development/vm-timing.md",
-        "Cargo.toml",
-        ".github/workflows/ci.yml",
-        ".github/workflows/full-suite.yml",
-        "tests/README.md",
         "tools/execution/timing_restore_guest.rs",
         "/Users/int/dev/rax-audit-work/rax-vm-timing/parent-clock/result.json",
         "/Users/int/dev/rax-audit-work/rax-vm-timing/parent-clock/parent/observation.json",
@@ -2933,17 +2933,11 @@
         "/Users/int/dev/rax-audit-work/rax-vm-timing/final-native-ci-selection.log",
         "/Users/int/dev/rax-audit-work/rax-vm-timing/final-intel-ci-selection.log",
         "/Users/int/dev/rax-audit-work/rax-vm-timing/final-capi.log",
-        "src/vm/timing.rs",
-        "src/vm/timing/context.rs",
         "src/vm/timing/retired.rs",
         "tests/suites/vm/retired_clock.rs",
         "tools/execution/retired_clock_guest.rs",
         "tools/execution/retired_clock_oracle.py",
         "docs/development/retired-clock.md",
-        "Cargo.toml",
-        ".github/workflows/ci.yml",
-        ".github/workflows/full-suite.yml",
-        "tests/README.md",
         "/Users/int/dev/rax-audit-work/rax-retired-clock/api-compatibility/result.json",
         "/Users/int/dev/rax-audit-work/rax-retired-clock/api-compatibility/parent-existing-api.stderr",
         "/Users/int/dev/rax-audit-work/rax-retired-clock/api-compatibility/parent-new-api.stderr",
@@ -3048,20 +3042,13 @@
         "src/vm/snapshot/clock.rs",
         "src/vm/snapshot/bundle.rs",
         "src/vm/snapshot/codec.rs",
-        "src/vm/timing/context.rs",
-        "src/vm/runtime.rs",
         "src/config/runtime.rs",
         "tests/suites/vm/checkpoint_clock.rs",
         "tools/execution/checkpoint_clock_guest.rs",
         "tools/execution/checkpoint_clock_oracle.py",
         "tools/checkpoint/resume_oracle.py",
         "docs/development/checkpoint-clock.md",
-        "Cargo.toml",
-        ".github/workflows/ci.yml",
-        ".github/workflows/full-suite.yml",
-        "tests/README.md",
         "tools/execution/checkpoint_clock_capture.rs",
-        "docs/development/retired-clock.md",
         "docs/development/checkpoint-resume.md",
         "docs/development/runtime-checkpoint-bundles.md",
         "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/parent-capture/result.json",
@@ -3335,7 +3322,8 @@
         "docs/development/a64-sve-profile/legacy-dot-correction.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/owning-final-v2.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/sve-admission-profile/oracle-dot-v1/result.json",
-        "docs/development/a32-fp-controls/feature-admission/misc-and-fma.md"
+        "docs/development/a32-fp-controls/feature-admission/misc-and-fma.md",
+        "docs/development/native-arm64-checkpoints/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3373,7 +3361,8 @@
           "scope": "MVFR1.SIMDFMAC and MVFR2 FPMisc/SIMDMisc admission in the shared A32/T32 executor; exact bounded S3C entry/non-retirement and heartbeat preservation; backend profile state and real prepared-context two/four-CPU .rxc continuation. Full four findings remain incomplete.",
           "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
         }
-      ]
+      ],
+      "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
     {
       "id": "C-HVF",
@@ -195293,6 +195282,1370 @@
       },
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/commit-receipt-v1.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/group-cleanup-v1.json"
+    },
+    {
+      "id": "native-arm64-checkpoint-integration-2026-10-30",
+      "status": "locally_validated_partial",
+      "parent": "e9d621ac3ba8e9a39c2d534a7b1edcd04f86c5ed",
+      "scope": "Native owner/SDK ABI, stopped native checkpoint transport, in-flight scalar I/O, transactional fresh restoration and guest-driven CPU power/coordinator integration. Qualification applies to the recorded profiles; all four full findings retain their original scope.",
+      "owned_paths": [
+        "capi/src/tests/run_loop.rs",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/hvf-arm64-state.md",
+        "docs/development/native-arm64-checkpoints/README.md",
+        "docs/development/native-arm64-checkpoints/active-uart-spi-provenance.json",
+        "docs/development/native-arm64-checkpoints/active-uart-spi.s",
+        "docs/development/native-arm64-checkpoints/psci/.gitignore",
+        "docs/development/native-arm64-checkpoints/psci/assembly.json",
+        "docs/development/native-arm64-checkpoints/psci/boot-2.bin",
+        "docs/development/native-arm64-checkpoints/psci/boot-2.s",
+        "docs/development/native-arm64-checkpoints/psci/boot-4.bin",
+        "docs/development/native-arm64-checkpoints/psci/boot-4.s",
+        "docs/development/native-arm64-checkpoints/psci/protocol.json",
+        "docs/development/native-arm64-checkpoints/psci/protocol.s",
+        "docs/development/native-arm64-checkpoints/qualification.json",
+        "docs/development/native-arm64-checkpoints/references/arm-sme-ddi0616ba.pdf",
+        "docs/development/native-arm64-checkpoints/references/arm-sme-ddi0616ba.provenance.json",
+        "docs/development/native-arm64-checkpoints/references/cargo-environment-variables.html",
+        "docs/development/native-arm64-checkpoints/references/cargo-provenance.json",
+        "docs/development/native-arm64-checkpoints/references/qemu-hvf/hvf.c",
+        "docs/development/native-arm64-checkpoints/references/qemu-hvf/provenance.json",
+        "docs/development/native-arm64-checkpoints/references/rust-thread-builder.html",
+        "docs/development/native-arm64-checkpoints/references/rust-thread-provenance.json",
+        "docs/development/native-arm64-checkpoints/references/rust-thread-spawn.html",
+        "docs/development/native-arm64-checkpoints/register-updates.s",
+        "docs/development/native-arm64-checkpoints/step-control.s",
+        "docs/development/native-arm64-checkpoints/terminal-psci-provenance.json",
+        "docs/development/native-arm64-checkpoints/terminal-psci.s",
+        "docs/specifications/apple/hypervisor-sdk-27.2/.gitattributes",
+        "docs/specifications/apple/hypervisor-sdk-27.2/Hypervisor.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/Hypervisor.tbd",
+        "docs/specifications/apple/hypervisor-sdk-27.2/exports-provenance.json",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_base.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_error.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_gic.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_gic_config.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_gic_state.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_gic_types.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_sme_config.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_vcpu.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_vcpu_config.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_vcpu_types.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_vm.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_vm_config.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/hv_vm_types.h",
+        "docs/specifications/apple/hypervisor-sdk-27.2/provenance.json",
+        "docs/specifications/arm/native-context-feature-registers/linux-sysreg.txt",
+        "docs/specifications/arm/native-context-feature-registers/provenance.json",
+        "docs/specifications/arm/native-context-feature-registers/sme-notice.xml",
+        "docs/specifications/arm/native-context-feature-registers/sme-zero-provenance.json",
+        "docs/specifications/arm/native-context-feature-registers/sme-zero_za_i.xml",
+        "src/backend/checkpoint.rs",
+        "src/backend/emulator/aarch64/vcpu.rs",
+        "src/backend/hvf/arm64.rs",
+        "src/backend/hvf/arm64_bindings.rs",
+        "src/backend/hvf/arm64_checkpoint.rs",
+        "src/backend/hvf/arm64_checkpoint_api.rs",
+        "src/backend/hvf/arm64_context_format.rs",
+        "src/backend/hvf/arm64_context_format_tests.rs",
+        "src/backend/hvf/arm64_mmio.rs",
+        "src/backend/hvf/arm64_power.rs",
+        "src/backend/hvf/arm64_power_tests.rs",
+        "src/backend/hvf/arm64_psci.rs",
+        "src/backend/hvf/arm64_restore.rs",
+        "src/backend/hvf/arm64_stack.rs",
+        "src/backend/hvf/arm64_state.rs",
+        "src/backend/hvf/arm64_vm_checkpoint.rs",
+        "src/backend/hvf/arm64_worker.rs",
+        "src/backend/mod.rs",
+        "src/config/runtime.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/backend_transaction.rs",
+        "src/vm/runtime/checkpoint_capture.rs",
+        "src/vm/runtime/checkpoint_restore.rs",
+        "src/vm/runtime/coordinator.rs",
+        "src/vm/runtime/execution.rs",
+        "src/vm/runtime/native_checkpoint_tests.rs",
+        "src/vm/runtime/native_psci_tests.rs",
+        "src/vm/snapshot.rs",
+        "src/vm/snapshot/backend_context.rs",
+        "src/vm/snapshot/bundle.rs",
+        "src/vm/snapshot/codec.rs",
+        "src/vm/snapshot/cpus.rs",
+        "src/vm/snapshot/native_bundle_tests.rs",
+        "src/vm/snapshot/producer.rs",
+        "src/vm/snapshot/vm_context.rs",
+        "src/vm/timing/context.rs",
+        "src/vm/vcpu/mod.rs",
+        "tests/README.md",
+        "tests/suites/backend/retirement_budget.rs",
+        "tests/suites/backend/retirement_budget/register_updates.rs",
+        "tools/hvf/README.md",
+        "tools/hvf/arm64_mmio_native_guest.rs",
+        "tools/hvf/arm64_mmio_native_probe.py",
+        "tools/hvf/arm64_native_state_probe.py",
+        "tools/hvf/arm64_state_native_guest.rs"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-psci-v39-source.json",
+      "assumption_register": [
+        {
+          "id": "N1",
+          "assumption": "Stopped native owner capture coherently projects public/private state.",
+          "status": "partially confirmed",
+          "stress_test": "Actual 1/2/4 CPU SDK capture and real files passed for scalar pending MMIO with inactive SME; active timer/SME continuation still required."
+        },
+        {
+          "id": "N2",
+          "assumption": "Native files require a complete native producer graph.",
+          "status": "confirmed for represented admission",
+          "stress_test": "Missing producer records, mismatched identities/profiles/public state/topology and malformed required framing reject; three new pre-fix failures observed and corrected."
+        },
+        {
+          "id": "N5",
+          "assumption": "The SDK FPSR setter after SME mode selection predicts guest-visible FPSR at entry.",
+          "status": "falsified for streaming mode on this host",
+          "stress_test": "Actual guest MRS, repeat entry, and guest-written FPSR counterexample.",
+          "dependent_result": "Complete streaming native checkpoint continuation is not established."
+        },
+        {
+          "id": "N6",
+          "assumption": "Native register overlays retain in-flight I/O.",
+          "dependent_result": "Non-destructive public register-update API",
+          "status": "falsified before fix; confirmed in v14 for three represented pending-I/O phases",
+          "stress_test": "Full private Context equality except X5; unserviced read, consumed reply/error and unacknowledged output; rejected EL2h projection must not mutate."
+        },
+        {
+          "id": "N7",
+          "assumption": "Native terminal shutdown cannot execute again without an explicit restart, including after a real file restore.",
+          "basis": "PSCI DEN0022D sections5.1.9/5.1.10 state no return; VCpu::wake documents latched shutdown. Native run has no latch. Software AArch64 update_state also clears its latch despite its preservation comment and remains a separately recorded inconsistency.",
+          "dependent_result": "Complete native backend execution-state persistence.",
+          "stress_test": "SYSTEM_OFF/RESET via HVC/SMC, repeated run, register overlay, wake and explicit replacement.",
+          "falsification_probe": "Post-shutdown marker or PC changes before an explicit restart.",
+          "status": "falsified before fix; confirmed by v17 native for four one-CPU OFF/RESET HVC/SMC file, overlay and restart cases"
+        },
+        {
+          "id": "N8",
+          "assumption": "Register overlays and PC-only writes preserve private execution state until explicit restart or state replacement.",
+          "basis": "VCpu method contracts; native default PC path invokes set_state, software update_state clears shutdown.",
+          "dependent_result": "Public register/PC API correctness and exact next-turn behavior.",
+          "stress_test": "Running/terminal software retirement; native pending input, pending output and terminal state with changed PC, repeated exits and subsequent completion/restart.",
+          "falsification_probe": "Retirement or marker execution after a supposedly preserved terminal stop; missing pending read/write after a PC-only edit.",
+          "status": "Falsified in v19; corrected software overlay and native PC updates pass v20/v23, with C API regression included in224 passing v21 tests."
+        },
+        {
+          "id": "N9",
+          "assumption": "Destroying an individual SDK vCPU requires closing its entire VM to further entry.",
+          "basis": "Earlier RAX implementation policy; not an SDK contract.",
+          "dependent_result": "Earlier lifecycle and helper documentation.",
+          "stress_test": "Independent SDK pthread owner creates/destroys a peer, surviving peer executes guest; same logical CPU identity recreated in same VM.",
+          "falsification_probe": "Surviving and recreated SDK CPU execute explicit markers after peer destruction.",
+          "status": "falsified by sdk-vcpu-lifetime-native-v1.json; blanket RAX shutdown failed lifetime-baseline-v22 and was corrected in v23"
+        },
+        {
+          "id": "N10",
+          "assumption": "Every successful SDK CPU allocation becomes an owned Rust core before fallible initialization.",
+          "basis": "SDK owner-thread destruction contract and Rust fallible thread Builder API.",
+          "dependent_result": "Native startup error/unwind cleanup and failed-destroy VM poisoning.",
+          "stress_test": "Injected kick-thread creation error after allocation; peer operations, released logical ID reuse, complete checkpoint and subsequent VM allocation.",
+          "falsification_probe": "Failure escapes without SDK release, leaves peer unusable, or prevents CPU/VM re-creation.",
+          "status": "Confirmed by native injected io::Result failure, peer access, logical-ID reuse, checkpoint and subsequent VM creation; actual OS thread exhaustion remains unobserved."
+        },
+        {
+          "id": "N11",
+          "assumption": "File restoration remains coherent after a configured native CPU is destroyed and re-created.",
+          "basis": "Public per-CPU lifetime semantics and required complete checkpoint graph.",
+          "dependent_result": "Native CPU/GIC topology and opaque shared-state portability.",
+          "stress_test": "Recycle logical CPU1 in2/4CPU VMMs, capture required private/shared records, real .rxc load/fresh target, private equality and guest MMIO continuation.",
+          "falsification_probe": "Capture/restore fails or any CPU/context/guest continuation differs after recycling.",
+          "status": "Confirmed for represented same-identity recycling and reversed logical creation order through actual required native records, real .rxc load, private-context equality and guest continuation."
+        },
+        {
+          "id": "NP1",
+          "assumption": "Native firmware target topology is flat Aff0 and guest execution is EL1 AArch64.",
+          "basis": "Current machine/device tree and native SDK configuration.",
+          "dependent_result": "Native PSCI affinity validation and entry mode.",
+          "stress_test": "Out-of-topology/reserved affinities, 32/64 argument truncation and direct hardware startup.",
+          "falsification_probe": "Nonflat/EL2/AArch32 topology exposed by this configuration.",
+          "status": "confirmed for current native configuration; no other-native-profile claim"
+        },
+        {
+          "id": "NP2",
+          "assumption": "An unacknowledged native startup request remains retryable after partial publication and file restoration.",
+          "basis": "Asynchronous PSCI and fallible owner-thread state publication.",
+          "dependent_result": "Retained ordered power graph.",
+          "stress_test": "CPU2 SDK-boundary write failure after CPU1 succeeds, with CPU3 also pending.",
+          "falsification_probe": "Lost request, partial CPU entry or failed guest continuation after file restore.",
+          "status": "Confirmed for represented failures by v37 actual pending CPU2/CPU3 blocked entry and real-file continuation."
+        },
+        {
+          "id": "NP3",
+          "assumption": "This native hardware profile supports big-endian execution.",
+          "basis": "Initial regression assumption without checking the feature value.",
+          "dependent_result": "Initial forced-EE positive assertion.",
+          "stress_test": "Signed SDK set/get before entry and guest MRS after entry.",
+          "falsification_probe": "ID_AA64MMFR0_EL1.BigEnd=0 and EE cleared at entry.",
+          "status": "falsified; raw v35 failure retained, corrected convention tests record actual caller mode, final admission rejects forged unsupported metadata."
+        }
+      ],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/capture-qualification-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/capture-hardware-files-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-admission-gaps-v1.json",
+        "docs/development/native-arm64-checkpoints/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-hardware-tests-v8.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-format-tests-v8.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-snapshot-tests-v8.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-config-tests-v8.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/cleanup-user-request-2026-10-30T0409Z.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-source-v11.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-exact-inputs-v11.tar.gz",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-hardware-tests-v9.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-reply-admission-negative-v9.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-store-negative-tests-v10.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-config-owning-tests-v10.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/sme-streaming-fpsr-native-qualification-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-hardware-tests-v12.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-workspace-check-independent-v12.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-format-tests-v12.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-snapshot-tests-v12.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-config-tests-v12.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/overlay-qualification-v14.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/overlay-negative-tests-v13.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/overlay-positive-tests-v14.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/intel-resource-recheck-2026-10-30T0505Z.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/sdk-fpsr-function-observation-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/sdk-fpsr-function-observation-v3.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/sdk-fpsr-function-observation-v4.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-gic-active-native-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/active-spi-qualification-v15.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/active-spi-hardware-tests-v15.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/cleanup-user-request-2026-10-30T0525Z.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-terminal-state-review-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-terminal-state-qualification-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/shutdown-negative-v16-hardware.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/terminal-psci-assembler-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/shutdown-positive-v17-hardware.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/shutdown-positive-v17-format.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/a32-base-profile-source-review-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/base-capabilities-qemu-v1/qualification.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/shutdown-qualification-v18.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/restore-full-library-tests-v12.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/shutdown-positive-v18-active-spi-hardware.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/cleanup-idle-validation-2026-10-30T0602Z.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/lifetime-qualification-v23.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/register-surface-capi-v21.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/register-state-cli-v21/manifest.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/register-mmio-cli-v21/manifest.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/sdk-vcpu-lifetime-native-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/lifetime-baseline-v22-native-tests.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/cleanup-idle-validation-2026-10-30T0644Z.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/lifecycle-qualification-v24.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/owner-construction-source-review-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/active-validation-v25.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/lifecycle-qualification-v25.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/lifecycle-v25-reversed-files.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/coordinator-qualification-v31.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-budget-rejected-candidate-v29.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/a32-simd-profile-baseline-v1-qualification.json",
+        "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/intel-resource-recheck-2026-10-30T0818Z.json"
+      ],
+      "completed_targeted_validation": {
+        "current_v6": {
+          "format": 6,
+          "snapshot": 64,
+          "config": 11,
+          "hardware": 3
+        },
+        "earlier_v4_runtime": {
+          "passed": 59,
+          "ignored": 2
+        },
+        "pre_fix_failures_observed": 3,
+        "current_v8": {
+          "format": 6,
+          "snapshot": 65,
+          "config": 11,
+          "hardware": 5,
+          "hardware_platform": "physical Apple Silicon; signed actual root libtest",
+          "hardware_seconds": 287.37186333403224
+        },
+        "v9": "New tests added; execution pending. No passing claim.",
+        "current_v9": {
+          "hardware_passed": 7,
+          "hardware_failed": 1,
+          "failure": "New SME test incorrectly assumed WFI would stop; raw failure retained, explicit guest endpoint under v11 validation.",
+          "private_comparison": "Full native Context equality before 1/2/4-CPU continuation passed.",
+          "rollback_poisoning": "Passed injected restore and rollback failures; subsequent entry rejected.",
+          "legacy_projection_rejection": "Passed without target mutation."
+        },
+        "current_v10": {
+          "format": 8,
+          "snapshot": 65,
+          "config": 11,
+          "config_receipt": "restore-config-owning-tests-v10.json",
+          "zero_test_filter_excluded": true,
+          "observed_new_pre_fix_failures": [
+            "Deferred completion error with consumed reply omitted (v9).",
+            "Undispatched native scalar store lost through actual .rxc restoration (v10)."
+          ]
+        },
+        "v11": "Executing schema 03, retained scalar output/acknowledgement and corrected explicit-termination SME tests; no passing claim yet.",
+        "current_v12": {
+          "format": 9,
+          "snapshot": 65,
+          "config": 11,
+          "hardware_passed": 8,
+          "hardware_failed": 1,
+          "hardware_ignored": 0,
+          "hardware_seconds": 585.0767899999628,
+          "hardware_failure": "Streaming FPSR: saved/pre-entry 1 becomes guest-visible 0x0800009f; independently reproduced through direct SDK. Non-streaming SM=0 ZA=0 and SM=0 ZA=1 file/guest continuation passed. Streaming ZA=1 case was not reached after the streaming ZA=0 failure.",
+          "new_output_regression": "Undispatched native store survives file restore, repeated run re-emits before acknowledgement, actual VMM dispatch acknowledges and guest executes PSCI shutdown. Passed.",
+          "workspace_all_targets_check": "Passed, including C API compilation.",
+          "owning_library": "Terminal: 11376 passed, zero failed, 11 ignored in4652.04s; archived v12/schema03 source only."
+        },
+        "current_v14": {
+          "native_overlay_test": 1,
+          "native_overlay_subcases": 3,
+          "format": 9,
+          "snapshot": 65,
+          "config": 11,
+          "pre_fix_failure_observed": true,
+          "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/overlay-source-v14.json",
+          "qualification": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/overlay-qualification-v14.json",
+          "full_library": "No v14 full-library result; archived v12 run subsequently completed11376passed/11ignored, separately qualified."
+        },
+        "current_v15": {
+          "hardware_tests": 1,
+          "hardware_failed": 0,
+          "hardware_ignored": 0,
+          "hardware_seconds": 56.64737562497612,
+          "qualification": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/active-spi-qualification-v15.json",
+          "scope": "Actual one-CPU active PL011 SPI33 priority, pending FR read, reassertion and device-driven deassertion across real .rxc and VMM continuation; IRQ masking means no exception-vector proof."
+        },
+        "current_v17": {
+          "native_tests_passed": 1,
+          "native_subcases_passed": 4,
+          "native_failed": 0,
+          "native_ignored": 0,
+          "native_seconds": 235.2526353750145,
+          "real_files": 4,
+          "format_passed": 9,
+          "format_failed": 1,
+          "format_failure": "Stale unknown-version fixture equals admitted new tag04; corrected to ? and rebuilding as v18.",
+          "snapshot_config_formatting": "Not executed in v17 after the portable assertion stopped the driver.",
+          "qualification": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-terminal-state-qualification-v1.json"
+        },
+        "current_v18": {
+          "utc": "2026-10-30T06:01:38.921375+00:00",
+          "status": "targeted v18 validation passed; full semantic group and four findings remain incomplete",
+          "portable_counts": {
+            "format": 10,
+            "snapshot": 65,
+            "config": 11
+          },
+          "portable_total": 86,
+          "formatting": "passed",
+          "native_active_spi": {
+            "command": [
+              "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-13ecc28c04b3b24b",
+              "active_uart_spi_file_restore_preserves_priority_reassertion_and_deassertion",
+              "--ignored",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "exit_code": 0,
+            "elapsed_seconds": 58.50209816696588,
+            "time": "2026-10-30T05:59:54.210635+00:00",
+            "test_summaries": [
+              "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11390 filtered out; finished in 58.46s"
+            ]
+          },
+          "native_terminal_state": {
+            "receipt": "shutdown-positive-v17-hardware.json",
+            "passed_tests": 1,
+            "subcases": 4,
+            "reexecuted_v18": false,
+            "basis": "Only the unknown-version portable fixture differs between v17 and v18 Rust inputs; all production files and native test source are byte-identical."
+          },
+          "source_manifest": "shutdown-positive-v18-source.json",
+          "source_archive": "shutdown-positive-v18-exact-inputs.tar.gz",
+          "rust_changes_since_v17": [
+            "src/backend/hvf/arm64_context_format_tests.rs"
+          ],
+          "archived_v12_full_library": {
+            "command": [
+              "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "exit_code": 0,
+            "elapsed_seconds": 4652.037798709003,
+            "time": "2026-10-30T05:57:28.306480+00:00",
+            "test_summaries": [
+              "test result: ok. 11376 passed; 0 failed; 11 ignored; 0 measured; 0 filtered out; finished in 4652.00s"
+            ],
+            "signed_binary_sha256": "706747aeffa7e0c36b75b281196ac4a4a4f173666bffcab67024fbce0e23e278",
+            "source_manifest": "restore-source-v12.json",
+            "scope": "Complete owning root library binary with no name filter; ordinary ignored policy. Nine hardware tests run explicitly in the separate signed native invocation."
+          },
+          "full_library_scope_limit": "v12 result is for its archived schema03 source, not current v18/schema04; no current full-library result claimed.",
+          "remaining": "SDK streaming FPSR counterexample, entered-VM reconstruction, complete timers/clocks/independent writers, native and other-ISA SMP/debug/replay, A32 profile admission, Intel source/native validation, helper migrations and remaining broad/source-review gates."
+        },
+        "current_v23": {
+          "utc": "2026-10-30T06:45:28.257235+00:00",
+          "status": "targeted v23 validation passed; semantic group125 and all four active findings remain incomplete",
+          "receipts": {
+            "build": {
+              "command": [
+                "cargo",
+                "test",
+                "--locked",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--test",
+                "retirement_budget",
+                "--no-run",
+                "--message-format=json"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 79.85482295899419,
+              "time": "2026-10-30T06:41:12.433943+00:00",
+              "test_summaries": []
+            },
+            "owning-tests": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-50f1952d4bf45e9f",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 0.049768208991736174,
+              "time": "2026-10-30T06:41:12.688944+00:00",
+              "test_summaries": [
+                "test result: ok. 14 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.04s"
+              ]
+            },
+            "native-tests": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-50f1952d4bf45e9f",
+                "register_updates::native::",
+                "--ignored",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 0.05582187499385327,
+              "time": "2026-10-30T06:41:12.822316+00:00",
+              "test_summaries": [
+                "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.05s"
+              ]
+            },
+            "state-verification": {
+              "native_cases": 12,
+              "register_observation_bytes": 480,
+              "admission_observation_bytes": 24,
+              "nonmutating_mode_rejections": 1,
+              "failed": 0
+            },
+            "mmio-verification": {
+              "native_load_cases": 108,
+              "load_configurations": 9,
+              "destination_registers": 2,
+              "data_patterns": 6,
+              "observations": 761,
+              "observation_bytes": 73056,
+              "incomplete_reply_attempts": 216,
+              "repeated_pending_exits": 216,
+              "state_replacement_cases": 1,
+              "failed": 0
+            }
+          },
+          "source_manifest": "lifetime-corrected-v23-source.json",
+          "source_archive": "lifetime-corrected-v23-exact-inputs.tar.gz",
+          "assumption_register": [
+            {
+              "id": "N9",
+              "assumption": "Destroying an individual SDK vCPU requires closing its entire VM to further entry.",
+              "basis": "Earlier RAX implementation policy; not an SDK contract.",
+              "dependent_result": "Earlier lifecycle and helper documentation.",
+              "stress_test": "Independent SDK pthread owner creates/destroys a peer, surviving peer executes guest; same logical CPU identity recreated in same VM.",
+              "falsification_probe": "Surviving and recreated SDK CPU execute explicit markers after peer destruction.",
+              "status": "falsified by sdk-vcpu-lifetime-native-v1.json; blanket RAX shutdown failed lifetime-baseline-v22 and was corrected in v23"
+            }
+          ],
+          "validated_scope": [
+            "14 owning integration tests passed; two ignored native tests selected separately and both passed.",
+            "Public native CPU destruction preserves peer pending input and guest continuation, permits released logical identity reuse, rejects incomplete checkpoint CPU sets, and retains VM/memory until last CPU release.",
+            "Native PC-only write preserves unserviced input, unacknowledged output, and terminal shutdown.",
+            "Standalone register API retains unconfigured/unmapped compatibility:12 cases and invalid-mode rejection.",
+            "Independent fresh-VM MMIO cases:108 loads,216 short replies,216 repeated exits,one explicit replacement."
+          ],
+          "known_limits": [
+            "Changed root VMM lifecycle unit test has not been compiled/executed in v23.",
+            "Complete current-source root library, clippy, doctest and all-target linking gates remain unexecuted.",
+            "SDK destroy-failure backing quarantine was source-reviewed, not fault injected.",
+            "Kick-thread constructor spawn-failure cleanup remains to review.",
+            "Prior README/ledger teardown policy statements and pending-gate lists require qualification updates.",
+            "SDK streaming FPSR counterexample, entered-VM reconstruction, clocks/timers/writers, native/other-ISA SMP/debug/replay, A32 admission and physical Intel remain open."
+          ],
+          "broader_receipts": {
+            "capi": "register-surface-capi-v21.json:224 passed; predates v23 native lifetime edits",
+            "state_cli": "register-state-cli-v21/manifest.json",
+            "mmio_cli": "register-mmio-cli-v21/manifest.json"
+          }
+        },
+        "current_v24": {
+          "utc": "2026-10-30T07:28:06.516520+00:00",
+          "rust_inputs_unchanged": true,
+          "assumption_register": [
+            {
+              "id": "N10",
+              "assumption": "Every successful SDK CPU allocation becomes an owned Rust core before fallible initialization.",
+              "basis": "SDK owner-thread destruction contract and Rust fallible thread Builder API.",
+              "dependent_result": "Native startup error/unwind cleanup and failed-destroy VM poisoning.",
+              "stress_test": "Injected kick-thread creation error after allocation; peer operations, released logical ID reuse, complete checkpoint and subsequent VM allocation.",
+              "falsification_probe": "Failure escapes without SDK release, leaves peer unusable, or prevents CPU/VM re-creation.",
+              "status": "Confirmed by native injected io::Result failure, peer access, logical-ID reuse, checkpoint and subsequent VM creation; actual OS thread exhaustion remains unobserved."
+            },
+            {
+              "id": "N11",
+              "assumption": "File restoration remains coherent after a configured native CPU is destroyed and re-created.",
+              "basis": "Public per-CPU lifetime semantics and required complete checkpoint graph.",
+              "dependent_result": "Native CPU/GIC topology and opaque shared-state portability.",
+              "stress_test": "Recycle logical CPU1 in2/4CPU VMMs, capture required private/shared records, real .rxc load/fresh target, private equality and guest MMIO continuation.",
+              "falsification_probe": "Capture/restore fails or any CPU/context/guest continuation differs after recycling.",
+              "status": "Confirmed for v24 one/two/four-CPU file continuation and single-ID recycling in2/4; reversed creation order is pending v25."
+            }
+          ],
+          "scope_limits": [
+            "Fault injection covers the same io::Result error path, not actual OS resource exhaustion.",
+            "SDK destroy-failure backing quarantine and unrelated rare failure branches remain source-reviewed unless directly injected.",
+            "Complete four-finding objective remains open."
+          ],
+          "status": "v24 selected native lifecycle/file validation passed; v25 reversed creation-order test building",
+          "receipts": {
+            "build": {
+              "command": [
+                "cargo",
+                "test",
+                "--locked",
+                "--lib",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--no-run",
+                "--message-format=json"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 223.4821706660441,
+              "utc": "2026-10-30T07:21:37.854088+00:00",
+              "test_summaries": []
+            },
+            "formatting": {
+              "command": [
+                "cargo",
+                "fmt",
+                "--all",
+                "--",
+                "--check"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 17.831917457981035,
+              "utc": "2026-10-30T07:17:54.370589+00:00",
+              "test_summaries": []
+            },
+            "context-format": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "backend::arm64_hvf_context::tests::",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 1.303163125005085,
+              "utc": "2026-10-30T07:21:39.158046+00:00",
+              "test_summaries": [
+                "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 11382 filtered out; finished in 1.27s"
+              ]
+            },
+            "snapshot": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "vm::snapshot::",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 0.6815612920327112,
+              "utc": "2026-10-30T07:21:39.839841+00:00",
+              "test_summaries": [
+                "test result: ok. 65 passed; 0 failed; 0 ignored; 0 measured; 11327 filtered out; finished in 0.66s"
+              ]
+            },
+            "config": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "config::",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 0.025441624980885535,
+              "utc": "2026-10-30T07:21:39.865476+00:00",
+              "test_summaries": [
+                "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 11381 filtered out; finished in 0.00s"
+              ]
+            },
+            "peer": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "native_cpu_destruction_preserves_peer_entry_but_rejects_incomplete_checkpoint",
+                "--ignored",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 0.051830416021402925,
+              "utc": "2026-10-30T07:21:41.165026+00:00",
+              "test_summaries": [
+                "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11391 filtered out; finished in 0.02s"
+              ]
+            },
+            "startup-failure": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "native_kick_spawn_failure_unwinds_sdk_owner_and_allows_identity_reuse",
+                "--ignored",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 19.93805999995675,
+              "utc": "2026-10-30T07:22:01.103391+00:00",
+              "test_summaries": [
+                "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11391 filtered out; finished in 19.92s"
+              ]
+            },
+            "recycled-files": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "actual_native_vmm_restores_one_two_four_cpu_files_and_continues_pending_mmio",
+                "--ignored",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 181.6591876670136,
+              "utc": "2026-10-30T07:25:02.763644+00:00",
+              "test_summaries": [
+                "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11391 filtered out; finished in 181.64s"
+              ]
+            },
+            "normal-check": {
+              "command": [
+                "cargo",
+                "check",
+                "--locked",
+                "--workspace",
+                "--lib",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 38.256346333015244,
+              "utc": "2026-10-30T07:23:40.963058+00:00"
+            },
+            "normal-clippy": {
+              "command": [
+                "cargo",
+                "clippy",
+                "--locked",
+                "--workspace",
+                "--lib",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 35.474311083962675,
+              "utc": "2026-10-30T07:24:16.438186+00:00"
+            }
+          },
+          "source_manifest": "lifecycle-v24-source.json",
+          "source_archive": "lifecycle-v24-exact-inputs.tar.gz",
+          "counts": {
+            "portable_tests": 86,
+            "native_tests": 3,
+            "real_file_cpu_counts": [
+              1,
+              2,
+              4
+            ],
+            "single_identity_reuse_cpu_counts": [
+              2,
+              4
+            ]
+          },
+          "production_sources_changed_in_v25": false
+        },
+        "current_v25": {
+          "utc": "2026-10-30T07:32:31.226047+00:00",
+          "rust_inputs_unchanged": true,
+          "assumption_register": [
+            {
+              "id": "N10",
+              "assumption": "Every successful SDK CPU allocation becomes an owned Rust core before fallible initialization.",
+              "basis": "SDK owner-thread destruction contract and Rust fallible thread Builder API.",
+              "dependent_result": "Native startup error/unwind cleanup and failed-destroy VM poisoning.",
+              "stress_test": "Injected kick-thread creation error after allocation; peer operations, released logical ID reuse, complete checkpoint and subsequent VM allocation.",
+              "falsification_probe": "Failure escapes without SDK release, leaves peer unusable, or prevents CPU/VM re-creation.",
+              "status": "Confirmed by native injected io::Result failure, peer access, logical-ID reuse, checkpoint and subsequent VM creation; actual OS thread exhaustion remains unobserved."
+            },
+            {
+              "id": "N11",
+              "assumption": "File restoration remains coherent after a configured native CPU is destroyed and re-created.",
+              "basis": "Public per-CPU lifetime semantics and required complete checkpoint graph.",
+              "dependent_result": "Native CPU/GIC topology and opaque shared-state portability.",
+              "stress_test": "Recycle logical CPU1 in2/4CPU VMMs, capture required private/shared records, real .rxc load/fresh target, private equality and guest MMIO continuation.",
+              "falsification_probe": "Capture/restore fails or any CPU/context/guest continuation differs after recycling.",
+              "status": "Confirmed for represented same-identity recycling and reversed logical creation order through actual required native records, real .rxc load, private-context equality and guest continuation."
+            }
+          ],
+          "scope_limits": [
+            "Fault injection covers the same io::Result error path, not actual OS resource exhaustion.",
+            "SDK destroy-failure backing quarantine and unrelated rare failure branches remain source-reviewed unless directly injected.",
+            "Complete four-finding objective remains open.",
+            "Reversed logical creation order is observed through public calls; no claim about unobserved internal SDK handle allocation order.",
+            "Only native test fixture source differs in v25; earlier production-library check/Clippy and portable/peer/startup results are explicitly reused, not re-executed.",
+            "No current full root-library/all-target/doctest/platform gate or architectural SMP claim follows."
+          ],
+          "status": "v24 and v25 selected lifecycle/file validation passed; semantic group125 and all four parent findings remain incomplete",
+          "receipts": {
+            "build": {
+              "command": [
+                "cargo",
+                "test",
+                "--locked",
+                "--lib",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--no-run",
+                "--message-format=json"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 223.4821706660441,
+              "utc": "2026-10-30T07:21:37.854088+00:00",
+              "test_summaries": []
+            },
+            "formatting": {
+              "command": [
+                "cargo",
+                "fmt",
+                "--all",
+                "--",
+                "--check"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 17.831917457981035,
+              "utc": "2026-10-30T07:17:54.370589+00:00",
+              "test_summaries": []
+            },
+            "context-format": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "backend::arm64_hvf_context::tests::",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 1.303163125005085,
+              "utc": "2026-10-30T07:21:39.158046+00:00",
+              "test_summaries": [
+                "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 11382 filtered out; finished in 1.27s"
+              ]
+            },
+            "snapshot": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "vm::snapshot::",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 0.6815612920327112,
+              "utc": "2026-10-30T07:21:39.839841+00:00",
+              "test_summaries": [
+                "test result: ok. 65 passed; 0 failed; 0 ignored; 0 measured; 11327 filtered out; finished in 0.66s"
+              ]
+            },
+            "config": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "config::",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 0.025441624980885535,
+              "utc": "2026-10-30T07:21:39.865476+00:00",
+              "test_summaries": [
+                "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 11381 filtered out; finished in 0.00s"
+              ]
+            },
+            "peer": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "native_cpu_destruction_preserves_peer_entry_but_rejects_incomplete_checkpoint",
+                "--ignored",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 0.051830416021402925,
+              "utc": "2026-10-30T07:21:41.165026+00:00",
+              "test_summaries": [
+                "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11391 filtered out; finished in 0.02s"
+              ]
+            },
+            "startup-failure": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "native_kick_spawn_failure_unwinds_sdk_owner_and_allows_identity_reuse",
+                "--ignored",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 19.93805999995675,
+              "utc": "2026-10-30T07:22:01.103391+00:00",
+              "test_summaries": [
+                "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11391 filtered out; finished in 19.92s"
+              ]
+            },
+            "recycled-files": {
+              "command": [
+                "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+                "actual_native_vmm_restores_one_two_four_cpu_files_and_continues_pending_mmio",
+                "--ignored",
+                "--test-threads=1",
+                "--nocapture"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 181.6591876670136,
+              "utc": "2026-10-30T07:25:02.763644+00:00",
+              "test_summaries": [
+                "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11391 filtered out; finished in 181.64s"
+              ]
+            },
+            "normal-check": {
+              "command": [
+                "cargo",
+                "check",
+                "--locked",
+                "--workspace",
+                "--lib",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 38.256346333015244,
+              "utc": "2026-10-30T07:23:40.963058+00:00"
+            },
+            "normal-clippy": {
+              "command": [
+                "cargo",
+                "clippy",
+                "--locked",
+                "--workspace",
+                "--lib",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf"
+              ],
+              "exit_code": 0,
+              "elapsed_seconds": 35.474311083962675,
+              "utc": "2026-10-30T07:24:16.438186+00:00"
+            }
+          },
+          "source_manifest": "lifecycle-v24-source.json",
+          "source_archive": "lifecycle-v24-exact-inputs.tar.gz",
+          "counts": {
+            "portable_tests_v24": 86,
+            "signed_native_tests_v24": 3,
+            "signed_native_tests_v25": 1,
+            "real_file_cases": 4,
+            "cpu_counts": [
+              1,
+              2,
+              4
+            ],
+            "reversed_logical_creation_order": [
+              2,
+              1
+            ]
+          },
+          "production_sources_changed_in_v25": false,
+          "v25_reversed_file_result": {
+            "command": [
+              "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-df0f61e94c0197ed",
+              "native_reversed_cpu_creation_order_preserves_real_file_continuation",
+              "--ignored",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "exit_code": 0,
+            "elapsed_seconds": 62.1412032499793,
+            "utc": "2026-10-30T07:31:19.789726+00:00",
+            "test_summaries": [
+              "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11392 filtered out; finished in 62.11s"
+            ]
+          },
+          "current_source_manifest": "lifecycle-v25-source.json",
+          "current_source_archive": "lifecycle-v25-exact-inputs.tar.gz",
+          "rust_changes_since_v24": [
+            "src/vm/runtime/native_checkpoint_tests.rs"
+          ],
+          "production_rust_unchanged_since_v24": true,
+          "real_checkpoint_files": [
+            {
+              "path": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/lifecycle-v24-hardware-files/native-capture-1.rxc",
+              "bytes": 272072,
+              "sha256": "7cf66c1ac19e429e32c03c838b18d667145e5e5b1781b095494a1578d880307b",
+              "cpu_count": 1,
+              "logical_recreation_order": "single-CPU control"
+            },
+            {
+              "path": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/lifecycle-v24-hardware-files/native-capture-2.rxc",
+              "bytes": 276254,
+              "sha256": "83bcd247e9d5c246663983c655415335fff678aea031262cface3864caacdd94",
+              "cpu_count": 2,
+              "logical_recreation_order": "CPU1 recycled"
+            },
+            {
+              "path": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/lifecycle-v24-hardware-files/native-capture-4.rxc",
+              "bytes": 284608,
+              "sha256": "59e744eef595e40b11d0d0a524e3226e8f134420c151d0a6d784b5dda70e66db",
+              "cpu_count": 4,
+              "logical_recreation_order": "CPU1 recycled"
+            },
+            {
+              "path": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/lifecycle-v25-hardware-files/native-capture-4.rxc",
+              "bytes": 284608,
+              "sha256": "8d9310a0f998a5dcde815ea732e277a981433e6b1a091cd27b65e256e743c571",
+              "cpu_count": 4,
+              "logical_recreation_order": "CPU2 thenCPU1"
+            }
+          ]
+        },
+        "current_v31": {
+          "utc": "2026-10-30T08:41:47.214958+00:00",
+          "native_source_manifest": "coordinator-v30-source.json",
+          "native_source_current": true,
+          "native_tests_head": "0bd47cc37287646bc9777fc95f3a9756bb41ba67",
+          "current_head": "8f5167ef0d35b6abbfca696db4c788fda74b249e",
+          "later_change": "A32 SIMDInt/SIMDLS group; native owned Rust sources unchanged",
+          "passed": {
+            "portable_context_snapshot_config": 86,
+            "signed_root_native_checkpoint": 15,
+            "signed_owner_clock": 1,
+            "retirement_budget_full_binary": 16,
+            "vm_timing_full_binary": 12
+          },
+          "known_failure": {
+            "test": "active_sme_modes_restore_all_storage_and_execute_za_after_real_file_resume",
+            "saved_fpsr": "0x1",
+            "guest_fpsr": "0x0800009f",
+            "receipt": "coordinator-v31-streaming-fpsr-counterexample.json"
+          },
+          "production_checks": [
+            "coordinator-v33-normal-check.json",
+            "coordinator-v33-normal-clippy.json"
+          ],
+          "retirement_candidate": "native-budget-rejected-candidate-v29.json",
+          "smp_evidence": "Actual 2/4 prepared online CPU guest RAM/MMIO execution, typed .rxc restore and nonzero cursor continuation; PSCI startup is not implemented",
+          "clock_evidence": "Per-request TLS context forwarding; manual validated deltas in owner test, not a native hardware retirement counter",
+          "intel_availability": "intel-resource-recheck-2026-10-30T0818Z.json",
+          "full_goal_complete": false,
+          "assumption_register": [
+            {
+              "id": "NB1",
+              "assumption": "Software stepping alone gives one wrapper-visible instruction with SDK GIC",
+              "status": "falsified",
+              "stress_test": "WFI with GIC, debug mask clear/set, asynchronous cancellation",
+              "probe": "sdk-retirement-step-v7/v8; WFI hang sample v29",
+              "dependent_result": "Candidate withdrawn, no exact-budget support advertised"
+            },
+            {
+              "id": "NT1",
+              "assumption": "VM timing bindings must be explicitly forwarded across native owner requests",
+              "status": "confirmed for nested/bound/unbound owner requests",
+              "stress_test": "Distinct nested clocks and subsequent unbound request",
+              "probe": "coordinator-v31-owner-clocks.json and observed old failure v29"
+            },
+            {
+              "id": "NS1",
+              "assumption": "Prepared online CPUs can execute under native cancellation scheduling and continue after file restore",
+              "status": "confirmed for 2/4 tested configurations",
+              "stress_test": "CPU-local RAM markers, pending input/replies, cursor1, WFI, no fabricated retirement count",
+              "probe": "coordinator-v31-native-checkpoints.json",
+              "dependent_result": "Execution/cursor qualification only, not startup/replay closure"
+            }
+          ]
+        }
+      },
+      "pending_gates": [
+        "Preserve guest-visible streaming FPSR across native entry; keep the failing native and direct-SDK counterexamples.",
+        "Complete entered-native-VM restoration/reconstruction with rollback; the SDK GIC setter currently requires a fresh destination.",
+        "Prove complete counter/clock epochs, active timer and IRQ/controller causal continuity, and remaining independent-writer coordination.",
+        "Complete native CPU startup, bounded scheduling/retirement, GDB AP/thread selection, deterministic clocks and record/replay; retain other ISA startup/controller requirements.",
+        "Complete remaining A32 feature/profile/security/debug and instruction-admission semantics.",
+        "Complete remaining Intel MMIO/PIO/RMW/vector/segment/MSR/intercept/IRQ work and physical Intel runtime validation.",
+        "The archived v12 owning library gate passed; complete current-source owning library, all-target link, clippy, doctest and applicable platform/product gates before committing a completed semantic group.",
+        "Complete local unsafe-contract and source-structure review of the uncommitted native restore modules."
+      ],
+      "bounded_scope": "Current v12: actual fresh native VM .rxc restoration/guest continuation for 1/2/4 CPUs; full native Context equality before scalar continuation; retained consumed PL011 input; retained outgoing scalar store through actual VMM dispatch/acknowledgement; real late SDK GIC rejection and rollback; failed-rollback poisoning; legacy projection rejection; non-streaming ZA guest ZERO after file restore. Streaming FPSR fails and remains open. Native startup/budgets/debug/replay, active timer/IRQ continuity, entered-VM reconstruction, broader I/O, other ISA/platform state and physical Intel remain uncompleted.",
+      "published": false,
+      "commit_receipt": null,
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/cleanup-native-psci-v39-2026-10-30.json",
+      "native_psci": {
+        "status": "locally_validated",
+        "baseline": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-psci-baseline-v34-guest-startup.json",
+        "preliminary_passed": [
+          "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-psci-v35-guest-startup.json",
+          "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-psci-v35-pending-start.json"
+        ],
+        "preliminary_portable_passed": 94,
+        "raw_counterexample": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-psci-v35-conduits.stderr",
+        "independent_sdk_endianness": [
+          "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/sdk-psci-endianness-v1.json",
+          "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/sdk-psci-endianness-v2.json"
+        ],
+        "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-psci-v39-source.json",
+        "current_validation": "Completed; final production-library check, Clippy and format passed",
+        "coverage_limit": "Host BigEnd=0 proves only little-endian execution; full native suite, Clippy and post-validation cleanup pending.",
+        "guest_inputs_supplement": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-psci-v37-guest-inputs.json",
+        "v36_selected_native_passed": 6,
+        "v36_native_scope": "Guest-driven startup, pending-start retry, 32/64 HVC/SMC conventions, pending stop/hotplug, VM-wide secondary shutdown and four-case explicit restart; all passed before final BigEnd admission hardening.",
+        "native_intel_resource_receipt": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/intel-resource-recheck-2026-10-30T0958Z.json",
+        "current_portable_passed": 94,
+        "current_targeted_native_passed": 3,
+        "broader_native_v37_passed": 21,
+        "broader_runtime_v36_passed": 59,
+        "broader_runtime_v36_ignored": 21,
+        "affinity_width_baseline": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-psci-affinity-baseline-v38-conduits.json",
+        "pc_wrap_baseline": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-pc-overflow-source-baseline.json",
+        "cleanup_complete": true
+      },
+      "original_scope": "Integrate permanent native ownership, correct SDK ABI and public state, complete backend-private CPU context and native VM/GIC state, stopped publication boundary and real native .rxc continuation with rejection/rollback. All four full findings retain original scope.",
+      "qualification": "docs/development/native-arm64-checkpoints/qualification.json",
+      "remaining_full_requirements": [
+        "Streaming guest-visible FPSR preservation fails in direct SDK re-entry; raw failure retained and excluded explicitly from the passing native regression selection.",
+        "Restoration into a native VM that already entered a CPU still rejects; reconstruction and transactional admission remain required.",
+        "Complete native counter epoch/timer semantics, all-writer coordination, broader I/O and IRQ profiles remain required.",
+        "Full debug/thread selection, deterministic clocks/replay and other ISA/hardware startup/bounded execution remain required.",
+        "Physical Intel HVF validation is unverified; seven visible Mac peers are offline and architectures unknown.",
+        "A32 restricted profile controls and coherent profile/security/debug semantics remain open."
+      ],
+      "component_quality_gates": {
+        "assumptions": "Reconciled, including falsified BE-host assumption and actual retry/entry probes",
+        "requirement_coverage": "Component implementation and direct evidence recorded; full four-finding requirements remain open",
+        "reproducibility": "Actual Cargo-reported signed binaries, frozen source/guest inputs, primary references and raw failures retained",
+        "contradictions_and_edges": "Known streaming failure, older-host hotplug and entered-VM limits explicit; affinity-width and checked-PC-overflow edges corrected",
+        "provenance": "SDK and exact Arm/Linux metadata verified; incorrect generic SVE attribution corrected",
+        "bounded_scope": "High/medium remaining requirements retained; no unrelated code changed",
+        "integrity": "Cleanup fingerprints match; exact-path staging and final commit-tree verification next",
+        "behavioral_evidence": "Current94 portable+3 native, prior21 native and59 runtime; skipped/excluded and prior-version scopes explicit",
+        "repository_consistency": "Guest binaries visible to Git, source inventories complete, schemas/documentation agree"
+      },
+      "reference_whitespace": "Narrow .gitattributes preserves two byte-identical SDK originals; staged diff check passes without modifying primary sources."
+    },
+    {
+      "id": "a32-d16-register-bank-admission-2026-10-30",
+      "status": "committed",
+      "parent": "e9d621ac3ba8e9a39c2d534a7b1edcd04f86c5ed",
+      "scope": "Standalone A32/T32 D16 register-bank admission; remaining A32 precision/subfield/profile/security work and original four-finding objective remain incomplete.",
+      "owned_paths": [
+        "src/isa/arm/aarch32/fp_admission.rs",
+        "src/isa/arm/aarch32/fp_registers.rs",
+        "tests/suites/backend/a32_fp_controls.rs",
+        "tests/suites/backend/a32_fp_controls/register_banks.rs",
+        "docs/development/a32-fp-controls/register-bank/README.md",
+        "docs/development/a32-fp-controls/register-bank/assembly.json",
+        "docs/development/a32-fp-controls/register-bank/cases.s",
+        "docs/development/a32-fp-controls/register-bank/mvfr0-extract.txt",
+        "docs/development/a32-fp-controls/register-bank/provenance.json",
+        "docs/development/a32-fp-controls/register-bank/qualification.json"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/register-bank-v1/expanded-source.json",
+      "assumption_register": [
+        {
+          "id": "RB1",
+          "assumption": "MVFR0.SIMDReg constrains executable register accesses.",
+          "basis": "Arm DDI0487B.a G6.2.107 and independent accepted QEMU profiles.",
+          "dependent_result": "D16 register-bank admission.",
+          "stress_test": "D16 destination/source, block range crossingD15 and Advanced SIMD.",
+          "falsification_probe": "Execution naming absent register or rejected instruction changes architectural state.",
+          "status": "baseline violation reproduced; represented correction passed"
+        },
+        {
+          "id": "RB2",
+          "assumption": "S31 operands and nonregister immediate/opcode fields remain legal under D16.",
+          "basis": "Architectural register aliases and exact instruction encodings.",
+          "dependent_result": "Legal instruction preservation.",
+          "stress_test": "VMOV literals, fixed-point fractional bits, zero comparisons and mixed S/D conversions.",
+          "falsification_probe": "Legal positive control rejected.",
+          "status": "confirmed for represented RAX and independent QEMU controls"
+        }
+      ],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/register-bank-v1/baseline-tests.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/register-bank-v1/gate-owning.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/register-bank-v1/gate-vfp.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/register-bank-v1/gate-pairs.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/register-bank-v1/gate-clippy.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/register-bank-qemu-v2/qualification.json",
+        "docs/development/a32-fp-controls/register-bank/qualification.json"
+      ],
+      "completed_targeted_validation": {
+        "owning_tests": 31,
+        "vfp_tests": 497,
+        "core_pair_tests": 5,
+        "total_tests": 533,
+        "new_tests": 8,
+        "standalone_instruction_executions": 140,
+        "mixed_width_instruction_executions": 70,
+        "access_denied_absence_executions": 40,
+        "absent_reserved_bank_executions": 6,
+        "independent_qemu_executions": 132
+      },
+      "pending_gates": [
+        "Full A32-FP closure retains scalar precision, divide/sqrt and SIMD subfields, coherent profile identity and remaining security/debug controls.",
+        "Physical A32 execution remains unverified; independent QEMU binary/source identity beyond version string is unknown.",
+        "This group does not close C-STATE, C-SMP or C-HVF."
+      ],
+      "published": false,
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/register-bank-v1/commit-receipt.json",
+      "commit": "013af8b059f5a81313c7c7d78eb5298d4e4e2872",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/register-bank-v1/cleanup-2026-10-30T0700Z.json"
+    },
+    {
+      "id": "a32-base-precision-admission-2026-10-30",
+      "status": "committed",
+      "parent": "013af8b059f5a81313c7c7d78eb5298d4e4e2872",
+      "scope": "Scalar A32/T32 precision, VFP version and FP32/FP64 divide/sqrt field admission; full original objective remains incomplete.",
+      "owned_paths": [
+        "src/isa/arm/aarch32/fp_admission.rs",
+        "src/isa/arm/aarch32/fp_precision.rs",
+        "tests/suites/backend/a32_fp_controls.rs",
+        "tests/suites/backend/a32_fp_controls/base_precision.rs",
+        "docs/development/a32-fp-controls/base-precision/README.md",
+        "docs/development/a32-fp-controls/base-precision/assembly.json",
+        "docs/development/a32-fp-controls/base-precision/cases.s",
+        "docs/development/a32-fp-controls/base-precision/provenance.json",
+        "docs/development/a32-fp-controls/base-precision/qualification.json"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/base-precision-v1/corrected-source.json",
+      "assumption_register": [
+        {
+          "id": "BP1",
+          "assumption": "Scalar precision fields constrain arithmetic/conversion admission.",
+          "basis": "Arm DDI0487B.a G6.2.107 and independent single-only Thumb controls.",
+          "dependent_result": "Absent/invalid precision rejection.",
+          "stress_test": "Both conversion directions and absent/reserved precision, ordinary/denied FP access.",
+          "falsification_probe": "Absent operation executes or rejection changes architecture/memory.",
+          "status": "baseline violated; represented correction passed"
+        },
+        {
+          "id": "BP2",
+          "assumption": "Raw64bit storage needs scalar FP but not double arithmetic.",
+          "basis": "Retained QEMU instruction guards and actual single-only Cortex-M4 guest.",
+          "dependent_result": "D-register storage remains executable with FPDP0.",
+          "stress_test": "Core pair transfer and D-register load/store with FPDP0 and FPSP0 separately.",
+          "falsification_probe": "Wrong precision dependency causes rejection or execution.",
+          "status": "confirmed for represented controls"
+        },
+        {
+          "id": "BP3",
+          "assumption": "V3 constants/fixed conversion and optional divide/sqrt use exact declared fields.",
+          "basis": "Arm MVFR0 descriptions; retained QEMU v3 guards.",
+          "dependent_result": "Version/optional-operation admission.",
+          "stress_test": "VFPv2/v3 and field0/1/reserved variations.",
+          "falsification_probe": "Unavailable operation executes; legal v2 arithmetic or v3 operation rejects.",
+          "status": "baseline violated; represented correction passed"
+        }
+      ],
+      "evidence": [
+        "docs/development/a32-fp-controls/base-precision/qualification.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/base-precision-v1/baseline-tests.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/base-precision-v1/gate-owning.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/base-precision-v1/gate-vfp.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/base-precision-v1/gate-pairs.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/base-precision-v1/gate-clippy.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/precision-qemu-m4-v2/qualification.json"
+      ],
+      "completed_targeted_validation": {
+        "owning_tests": 38,
+        "vfp_tests": 497,
+        "pair_tests": 5,
+        "total_tests": 540,
+        "new_tests": 7,
+        "independent_qemu_thumb_controls": 12
+      },
+      "pending_gates": [
+        "Remaining Advanced SIMD subfields, rounding/denormal profile controls, coherent profile identity and security/debug behavior.",
+        "Independent M-profile Thumb oracle is not physical A32 proof; synthetic field combinations are not processor identities.",
+        "Complete C-STATE, actual C-SMP execution and remaining C-HVF source/native Intel requirements remain open."
+      ],
+      "commit": "0bd47cc37287646bc9777fc95f3a9756bb41ba67",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/base-precision-v1/commit-receipt.json",
+      "published": false,
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/base-precision-v1/cleanup-2026-10-30T0713Z.json"
+    },
+    {
+      "id": "a32-simd-base-admission-2026-10-30",
+      "status": "committed",
+      "parent": "0bd47cc37287646bc9777fc95f3a9756bb41ba67",
+      "scope": "MVFR1 SIMDInt/SIMDLS base instruction admission only; full original objective remains incomplete.",
+      "owned_paths": [
+        "src/isa/arm/aarch32/fp_admission.rs",
+        "tests/suites/backend/a32_fp_controls.rs",
+        "tests/suites/backend/a32_fp_controls/simd_base.rs",
+        "docs/development/a32-fp-controls/simd-base/README.md",
+        "docs/development/a32-fp-controls/simd-base/arm.s",
+        "docs/development/a32-fp-controls/simd-base/assembly.json",
+        "docs/development/a32-fp-controls/simd-base/mvfr1-extract.txt",
+        "docs/development/a32-fp-controls/simd-base/provenance.json",
+        "docs/development/a32-fp-controls/simd-base/qemu-controls.py",
+        "docs/development/a32-fp-controls/simd-base/qemu-results.json",
+        "docs/development/a32-fp-controls/simd-base/qualification.json",
+        "docs/development/a32-fp-controls/simd-base/thumb.s"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-base-v1/corrected-source.json",
+      "assumption_register": [
+        {
+          "id": "SB1",
+          "assumption": "Only MVFR1 field1 advertises implementation",
+          "basis": "Arm G6.2.108",
+          "dependent_result": "Missing/reserved admission before traps/effects",
+          "stress_test": "Both ARM/Thumb, field0 and2..15, access denied, memory/register/writeback invariance",
+          "falsification_probe": "Unavailable instruction executes or mutates state",
+          "status": "baseline falsified old implementation; corrected controls pass"
+        },
+        {
+          "id": "SB2",
+          "assumption": "SIMD structure memory and integer/register operations use their own base fields",
+          "basis": "Arm field definitions; SIMDSP1 requires SIMDInt1",
+          "dependent_result": "Independent class admission and scalar VFP preservation",
+          "stress_test": "Clear unrelated base field; scalar FP controls remain executable",
+          "falsification_probe": "Unrelated class incorrectly rejects",
+          "status": "confirmed for represented manual-derived controls"
+        },
+        {
+          "id": "SB3",
+          "assumption": "QEMU oracle can isolate Neon absence with unchanged D32",
+          "basis": "Exploratory v1 invocation",
+          "dependent_result": "Independent profile claim",
+          "stress_test": "Launch cortex-a15,neon=off",
+          "falsification_probe": "QEMU rejects profile",
+          "status": "falsified; v2 clears both and qualification explicitly limits field isolation"
+        }
+      ],
+      "evidence": [
+        "docs/development/a32-fp-controls/simd-base/qualification.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-base-v1/baseline-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-base-v1/corrected-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-base-qemu-v2/qualification.json"
+      ],
+      "completed_targeted_validation": {
+        "owning_tests": 46,
+        "vfp_tests": 497,
+        "pair_tests": 5,
+        "total_tests": 548,
+        "new_tests": 8,
+        "independent_qemu_controls": 44
+      },
+      "pending_gates": [
+        "SIMDSP admission addressed by a32-simd-single-admission-2026-10-30; remaining A32 rounding/denormal/coherent-profile/security/debug requirements stay open."
+      ],
+      "workflow": "After completed semantic group, git add exact owned files, then red -m --staged --run same exact paths; commits explicitly authorized.",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-base-v1/red.json",
+      "commit": "8f5167ef0d35b6abbfca696db4c788fda74b249e"
+    },
+    {
+      "id": "a32-simd-single-admission-2026-10-30",
+      "status": "committed",
+      "parent": "8f5167ef0d35b6abbfca696db4c788fda74b249e",
+      "scope": "Current implemented FP32 Advanced SIMD instruction admission through MVFR1.SIMDSP; full original objective remains incomplete.",
+      "owned_paths": [
+        "src/isa/arm/aarch32/fp_admission.rs",
+        "src/isa/arm/aarch32/fp_simd_precision.rs",
+        "tests/suites/backend/a32_fp_controls.rs",
+        "tests/suites/backend/a32_fp_controls/simd_single.rs",
+        "docs/development/a32-fp-controls/simd-single/README.md",
+        "docs/development/a32-fp-controls/simd-single/arm.s",
+        "docs/development/a32-fp-controls/simd-single/assembly.json",
+        "docs/development/a32-fp-controls/simd-single/provenance.json",
+        "docs/development/a32-fp-controls/simd-single/qemu-controls.py",
+        "docs/development/a32-fp-controls/simd-single/qemu-results.json",
+        "docs/development/a32-fp-controls/simd-single/qualification.json",
+        "docs/development/a32-fp-controls/simd-single/storage-and-fhm.asl",
+        "docs/development/a32-fp-controls/simd-single/thumb.s"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-v1/corrected-source.json",
+      "assumption_register": [
+        {
+          "id": "SP1",
+          "assumption": "SIMDSP value1 alone advertises FP32 SIMD data processing",
+          "basis": "Arm DDI0487B.a G6.2.108",
+          "dependent_result": "Missing/reserved field rejection before access traps/effects",
+          "stress_test": "ARM/Thumb, seven FP32 encoding families, fields0 and2..15, denied access, integer prerequisite",
+          "falsification_probe": "Unavailable FP32 operation returns Continue or changes registers/status/RAM",
+          "status": "Old implementation violated nine tests; corrected controls pass"
+        },
+        {
+          "id": "SP2",
+          "assumption": "Raw storage and pure half operations do not acquire an FP32 arithmetic dependency from their mnemonic or data bits",
+          "basis": "Retained VMOV/FHM ASL, exact decoder classes and distinct SIMDHP/SIMDSP field definitions",
+          "dependent_result": "Preserve integer aliases, unsigned estimates, modified-immediate storage, scalar VFP, pure FP16; require FP32 for cross-precision/FHM results",
+          "stress_test": "29 positive control operations with SIMDSP0/2/15; half-to-single conversions and FHM",
+          "falsification_probe": "A preserved operation rejects or an FP32-producing operation executes",
+          "status": "Confirmed for the represented manual-derived synthetic field controls; not a processor-profile identity claim"
+        },
+        {
+          "id": "SP3",
+          "assumption": "QEMU max can disable Neon/D32 independently",
+          "basis": "Exploratory launch configuration",
+          "dependent_result": "Independent negative profile design",
+          "stress_test": "max with vfp-d32=off, then max,neon=off",
+          "falsification_probe": "Property rejection or required profile coupling",
+          "status": "Falsified; v3 uses valid full max and disabled Cortex-A15 cohorts. Per-field controls remain manual-derived."
+        }
+      ],
+      "evidence": [
+        "docs/development/a32-fp-controls/simd-single/qualification.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-v1/baseline.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-v1/corrected-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-qemu-v3/qualification.json"
+      ],
+      "completed_targeted_validation": {
+        "owning_tests": 58,
+        "vfp_tests": 497,
+        "pair_tests": 5,
+        "total_tests": 560,
+        "new_tests": 12,
+        "independent_qemu_controls": 364
+      },
+      "pending_gates": [
+        "Remaining A32 rounding/denormal/coherent-profile/security/debug work remains open; this group does not close A32-FP."
+      ],
+      "workflow": "Exact git add then red -m --staged --run; commit explicitly authorized.",
+      "commit": "120f773744471cdd8336a924ea6dfcf0521d8cfc",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-v1/red.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-single-v1/cleanup-idle-validation-v1.json"
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

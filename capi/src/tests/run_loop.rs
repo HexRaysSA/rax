@@ -52,6 +52,55 @@ fn arm64_long_run_reaches_the_guest_wait() {
 }
 
 #[test]
+fn arm64_register_write_retains_shutdown_until_explicit_start() {
+    let mut engine = ptr::null_mut();
+    assert_eq!(
+        rax_engine_open(RaxArch::Arm64 as i32, 0, &mut engine),
+        RaxStatus::Ok
+    );
+    // SAFETY: this thread retains the live engine until close; write maps the
+    // guest buffer, and each FFI output points to initialized local storage.
+    // No callback or concurrent engine access is installed by this test.
+    unsafe {
+        // SYSTEM_OFF must not return to the marker after a register write.
+        let code: Vec<u8> = [
+            0x5280_0100u32,
+            0x72b0_8000,
+            0xd400_0002,
+            0xd281_75a2,
+            0xd400_0002,
+        ]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect();
+        write(engine, 0x1000, &code);
+        assert_eq!(
+            rax_emu_start(engine, 0x1000, RAX_NO_ADDR, 0, 0),
+            RaxStatus::Ok
+        );
+        assert_eq!(last_exit(engine).reason, RAX_STOP_SHUTDOWN);
+        assert_eq!(rd_u64(engine, ARM64_X0 + 2), 0);
+        assert_eq!(
+            rax_reg_write_u64(engine, ARM64_X0 + 5, 0x1234),
+            RaxStatus::Ok
+        );
+        let mut done = u64::MAX;
+        assert_eq!(rax_emu_step(engine, 1, &mut done), RaxStatus::Ok);
+        assert_eq!(done, 0);
+        assert_eq!(last_exit(engine).reason, RAX_STOP_SHUTDOWN);
+        assert_eq!(rd_u64(engine, ARM64_X0 + 2), 0);
+        assert_eq!(rd_u64(engine, ARM64_X0 + 5), 0x1234);
+        assert_eq!(
+            rax_emu_start(engine, 0x100c, RAX_NO_ADDR, 0, 0),
+            RaxStatus::Ok
+        );
+        assert_eq!(last_exit(engine).reason, RAX_STOP_SHUTDOWN);
+        assert_eq!(rd_u64(engine, ARM64_X0 + 2), 0xbad);
+    }
+    rax_engine_close(engine);
+}
+
+#[test]
 fn riscv_long_run_reaches_the_environment_call() {
     let e = open_riscv_with_ext(0);
     unsafe {

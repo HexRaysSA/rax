@@ -42,7 +42,20 @@ impl CpuSnapshots {
         set.validate(base)?;
         Ok(set)
     }
+    /// Native payload semantics are admitted with the complete producer graph.
+    pub(super) fn capture_native(entries: Vec<CpuSnapshot>, base: &Snapshot) -> Result<Self> {
+        let set = Self { entries };
+        set.validate_structure(base)?;
+        Ok(set)
+    }
     pub(super) fn validate(&self, base: &Snapshot) -> Result<()> {
+        self.validate_structure(base)?;
+        for entry in &self.entries {
+            Snapshot::validate_cpu_payload(&entry.state)?;
+        }
+        Ok(())
+    }
+    pub(super) fn validate_structure(&self, base: &Snapshot) -> Result<()> {
         if self.entries.is_empty()
             || self.entries.len() > MAX_CPUS
             || self.entries.len() as u64 != u64::from(base.config.vcpus)
@@ -62,7 +75,6 @@ impl CpuSnapshots {
             if std::mem::discriminant(&entry.state) != std::mem::discriminant(cpu) {
                 return Err(invalid("mixed CPU kinds"));
             }
-            Snapshot::validate_cpu_payload(&entry.state)?;
         }
         let first = entries.first().ok_or_else(|| invalid("empty CPU set"))?;
         // Retain both bounded encodes for admission, but compare AArch64's
@@ -123,6 +135,7 @@ impl CpuSnapshots {
         expected: u8,
         cpu: &CpuState,
         emulator: &EmulatorState,
+        native: bool,
     ) -> Result<Self> {
         if length > MAX_SECTION {
             return Err(invalid("CPU section exceeds limit"));
@@ -185,6 +198,11 @@ impl CpuSnapshots {
             });
         }
         Self::validate_entries(&entries, cpu, emulator)?;
+        if !native {
+            for entry in &entries {
+                Snapshot::validate_cpu_payload(&entry.state)?;
+            }
+        }
         Ok(Self { entries })
     }
 }

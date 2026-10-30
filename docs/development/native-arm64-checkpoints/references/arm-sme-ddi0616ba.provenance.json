@@ -1,0 +1,13 @@
+{
+  "url": "https://documentation-service.arm.com/static/6526e1bd9e189a266cef8412",
+  "utc": "2026-10-30T10:06:14.754795+00:00",
+  "bytes": 9724361,
+  "sha256": "2679f84137f69370db2d1394d30d4afcfe4930ed7c434fc595175dc6666128a1",
+  "use": "Primary architectural PSTATE.SM transition FPSR reset value; does not authorize reset on ordinary native re-entry.",
+  "inspection_output": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/arm-sme-ddi0616ba-mode-transition.txt",
+  "title": "Arm Architecture Reference Manual Supplement, The Scalable Matrix Extension (SME), for Armv9-A",
+  "issuing_organization": "Arm Limited",
+  "revision": "DDI0616 B.a, 2023-Aug-18; build 5084c744",
+  "section": "B1.2.1 PSTATE.SM, rule RMHTLZ, printed page 32 / PDF page index 31",
+  "original_notices": "Original PDF retained unchanged, including copyright and proprietary notice"
+}

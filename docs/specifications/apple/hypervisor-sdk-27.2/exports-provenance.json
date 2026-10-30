@@ -1,0 +1,10 @@
+{
+  "issuer": "Apple Inc.",
+  "title": "Hypervisor framework SDK text-based dylib interface",
+  "source_path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Versions/A/Hypervisor.tbd",
+  "retained_file": "Hypervisor.tbd",
+  "retrieved_utc": "2026-10-30T04:54:17.687615+00:00",
+  "sha256": "56fc8075522bf5ac942cfa97778a79c1afec79aa8d0c1610a1636913d8ff8305",
+  "bytes": 7593,
+  "scope": "Unmodified SDK export inventory used to inspect available SME and FPSR entry points; it does not establish runtime implementation semantics."
+}

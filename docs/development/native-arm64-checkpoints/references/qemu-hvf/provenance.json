@@ -1,0 +1,10 @@
+{
+  "title": "QEMU Hypervisor.framework support for Apple Silicon",
+  "issuing_organization": "QEMU Project",
+  "revision": "v11.1.2",
+  "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.2/target/arm/hvf/hvf.c",
+  "retrieved_utc": "2026-10-30T07:34:48.950801+00:00",
+  "sha256": "a7042f2931316c38204a175a90e15139aa5c88f9edd2da55752535e83bb8552b",
+  "license": "GPLv2 or later; original source notices retained",
+  "use": "Independent software-step setup and native HVF exception handling comparison; not an architectural oracle."
+}

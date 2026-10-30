@@ -1,0 +1,11 @@
+{
+  "title": "Linux arm64 system register metadata",
+  "author": "Linux kernel contributors",
+  "source_url": "https://raw.githubusercontent.com/torvalds/linux/master/arch/arm64/tools/sysreg",
+  "retrieved_utc": "2026-10-30T02:43:22.964511+00:00",
+  "revision": "master at retrieval; exact commit unknown",
+  "sha256": "f0032f59ab6ca288d1b029a93137ad43930d05b26d5650f2a627a0fa2d287312",
+  "license": "GPL-2.0-only; original notice retained",
+  "scope": "Independent primary implementation metadata for ID_AA64SMFR0_EL1.SMEver at bits 59:56 and SME2 encoding 1. Arm primary SME2 introduction separately identifies ZT0 as 64 bytes and accessible when PSTATE.ZA is 1.",
+  "arm_zt0_source": "https://developer.arm.com/community/arm-community-blogs/b/architectures-and-processors-blog/posts/part4-arm-sme2-introduction"
+}

@@ -249,6 +249,14 @@ pub trait VCpu: Send {
     /// Complete an I/O in operation by providing the data read from the device.
     fn complete_io_in(&mut self, data: &[u8]);
 
+    /// Acknowledge a successfully dispatched output exit. Backends that stage
+    /// an output retain its operand and re-emit it until this call succeeds.
+    /// Callers must dispatch and acknowledge before publishing a complete
+    /// device/CPU checkpoint; a failed dispatch must leave it unacknowledged.
+    fn complete_io_out(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     /// Surface a failed or still-pending completion before further execution
     /// or an automatic checkpoint. Fallible SDK backends latch their status in
     /// the compatibility `complete_io_in` callback and report it here.
@@ -404,6 +412,51 @@ pub trait VCpu: Send {
     /// must include its version and admit all bytes before changing live state.
     fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
         Ok(None)
+    }
+
+    /// Capture a public/private pair at the caller's backend boundary. Native
+    /// producers override this to derive both projections from one capture.
+    /// A RAM scope is supplied during complete capture; rollback preparation
+    /// can take a stopped CPU record before physical publication begins.
+    fn capture_checkpoint_record(
+        &self,
+        _boundary: &crate::backend::CheckpointBoundary<'_>,
+        scope: Option<&crate::vm::memory::checkpoint::CheckpointPublication<'_>>,
+    ) -> Result<(
+        crate::vm::snapshot::CpuSnapshot,
+        Option<crate::vm::snapshot::BackendContext>,
+    )> {
+        let public = crate::vm::snapshot::CpuSnapshot {
+            state: self.get_state()?,
+            emulator: self.get_emulator_state().unwrap_or_default(),
+        };
+        let private = match scope {
+            Some(scope) => self.capture_backend_context_in_scope(scope)?,
+            None => self.capture_backend_context()?,
+        };
+        Ok((public, private))
+    }
+
+    /// Restore through an already-held backend exclusion boundary. Ordinary
+    /// standalone imports retain their existing entry point and semantics.
+    fn restore_checkpoint_record(
+        &mut self,
+        _boundary: &crate::backend::CheckpointBoundary<'_>,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.restore_checkpoint_context(state, emulator, context)
+    }
+
+    /// Complete derived controller and translation state after shared RAM and
+    /// backend state have been published, with entry still excluded.
+    fn finish_checkpoint_restore(
+        &mut self,
+        _boundary: &crate::backend::CheckpointBoundary<'_>,
+        _context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        Ok(())
     }
 
     /// Preserve execution state across address-map reconstruction. A mapping

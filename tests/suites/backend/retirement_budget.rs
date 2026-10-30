@@ -1,4 +1,8 @@
 //! Exact budget boundaries over actual stepping backends and adversarial exits.
+#[cfg(test)]
+#[path = "retirement_budget/register_updates.rs"]
+mod register_updates;
+
 use rax::backend::emulator::{
     aarch32::Aarch32Vcpu, aarch64::Aarch64Vcpu, cortex_m::CortexMVcpu, riscv::RiscVVcpu,
 };

@@ -328,6 +328,37 @@ execution, controller/device ordering, concurrent page-table changes and the
 complete checkpoint representation remain separate validation requirements.
 
 
+## Native Apple Silicon consumers
+
+The maintained state and scalar-input probes execute the public RAX backend
+and vCPU interfaces in signed native consumers:
+
+```sh
+python3 -B tools/hvf/arm64_native_state_probe.py \
+  --repo "$PWD" --work-dir /tmp/rax-native-state-evidence \
+  --target-dir /tmp/rax-hvf-target
+python3 -B tools/hvf/arm64_mmio_native_probe.py \
+  --repo "$PWD" --work-dir /tmp/rax-native-mmio-evidence \
+  --target-dir /tmp/rax-hvf-target --llvm-bin /path/to/llvm/bin
+```
+
+Use an actively owned Cargo target directory for `--target-dir`; both commands
+can share it. Evidence directories retain guest inputs, raw observations and
+verification manifests. The probes select Cargo's exact reported library
+artifacts, record their hashes, verify executable signatures, and remove their
+temporary native executables. They do not copy library archives into evidence.
+`cleanup.json` records executable cleanup. Remove the idle Cargo cache after
+validation; retain the evidence needed for review.
+
+The state probe covers twelve current/banked-SP cases, rejected invalid modes
+and 63 verifier mutations. Bare native register access permits an unconfigured,
+unmapped VM. Complete checkpoint capture has additional topology/RAM graph
+requirements. The scalar-input probe uses a fresh VM/CPU cohort for each case
+to isolate guest and controller state. Individual CPU destruction preserves
+surviving CPUs and permits reuse of the released logical identity. It covers 108 loads,
+short replies, repeated pending exits and explicit state replacement. Neither
+probe establishes native retirement budgets, architectural SMP or Intel HVF.
+
 ## VMCS capability validation
 
 `cargo +stable test --test hvf_controls` executes the shared initialization

@@ -1,0 +1,3 @@
+# Retained SDK primary sources must remain byte-identical to their originals.
+Hypervisor.tbd whitespace=-blank-at-eol
+hv_base.h whitespace=-blank-at-eof

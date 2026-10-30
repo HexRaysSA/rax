@@ -8,12 +8,15 @@
 #![cfg(all(target_os = "macos", target_arch = "aarch64"))]
 
 use std::any::Any;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ptr;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
 
 use tracing::{debug, info, warn};
 use vm_memory::{Address, GuestAddress, GuestMemory, GuestMemoryMmap, GuestMemoryRegion};
 
+use crate::backend::arm64_hvf_context::PendingWrite;
 use crate::error::{Error, Result};
 use crate::vm::memory::GuestMemoryWrapper;
 use crate::vm::vcpu::{
@@ -23,10 +26,23 @@ use crate::vm::vcpu::{
 use super::arm64_bindings::*;
 use super::{Backend, Vm};
 
+#[path = "arm64_checkpoint.rs"]
+mod checkpoint;
+#[path = "arm64_checkpoint_api.rs"]
+mod checkpoint_api;
+#[path = "arm64_psci.rs"]
+mod psci;
+#[path = "arm64_restore.rs"]
+mod restore;
 #[path = "arm64_stack.rs"]
 mod stack;
 #[path = "arm64_state.rs"]
 mod state;
+#[path = "arm64_vm_checkpoint.rs"]
+mod vm_checkpoint;
+#[path = "arm64_worker.rs"]
+mod worker;
+pub use worker::HvfArm64Vcpu;
 
 /// ARM64 HVF backend.
 pub struct HvfArm64Backend;
@@ -62,8 +78,8 @@ impl Backend for HvfArm64Backend {
         // interrupt controller; HVF's in-kernel GIC handles the distributor and
         // redistributor MMIO plus the ICC system registers, and wires the
         // virtual timer to PPI 27.
-        let gic_config = unsafe { hv_gic_config_create() };
-        if gic_config.is_null() {
+        let gic_config = OwnedHypervisorObject(unsafe { hv_gic_config_create() });
+        if gic_config.0.is_null() {
             unsafe { hv_vm_destroy() };
             return Err(Error::Emulator(
                 "hv_gic_config_create failed (requires macOS 15+)".to_string(),
@@ -71,7 +87,7 @@ impl Backend for HvfArm64Backend {
         }
         let ret = unsafe {
             hv_gic_config_set_distributor_base(
-                gic_config,
+                gic_config.0,
                 crate::machine::arm_virt::AARCH64_GICD_BASE,
             )
         };
@@ -85,7 +101,7 @@ impl Backend for HvfArm64Backend {
         }
         let ret = unsafe {
             hv_gic_config_set_redistributor_base(
-                gic_config,
+                gic_config.0,
                 crate::machine::arm_virt::AARCH64_GICR_BASE,
             )
         };
@@ -97,7 +113,7 @@ impl Backend for HvfArm64Backend {
                 hv_error_string(ret)
             )));
         }
-        let ret = unsafe { hv_gic_create(gic_config) };
+        let ret = unsafe { hv_gic_create(gic_config.0) };
         if ret != HV_SUCCESS {
             unsafe { hv_vm_destroy() };
             return Err(Error::Emulator(format!(
@@ -120,15 +136,89 @@ impl Backend for HvfArm64Backend {
         );
 
         Ok(Box::new(HvfArm64Vm {
-            memory_mapped: Mutex::new(false),
+            lifetime: Arc::new(NativeVmLifetime {
+                mapping: Mutex::new(None),
+                quiescence: RwLock::new(()),
+                topology: Mutex::new(NativeTopology::default()),
+                irq_levels: Mutex::new(BTreeMap::new()),
+                power: Mutex::new(None),
+                owner_teardown_failed: AtomicBool::new(false),
+                entered: AtomicBool::new(false),
+                restore_failed: AtomicBool::new(false),
+                #[cfg(test)]
+                test_gpr_failures: Mutex::new(BTreeMap::new()),
+                #[cfg(test)]
+                test_kick_spawn_failure: AtomicBool::new(false),
+            }),
         }))
     }
 }
 
 /// ARM64 HVF VM instance.
 pub struct HvfArm64Vm {
-    /// Whether memory has been mapped
-    memory_mapped: Mutex<bool>,
+    /// The VM outlives every native vCPU owner.
+    lifetime: Arc<NativeVmLifetime>,
+}
+
+struct NativeVmLifetime {
+    mapping: Mutex<Option<RegisteredMemory>>,
+    quiescence: RwLock<()>,
+    topology: Mutex<NativeTopology>,
+    irq_levels: Mutex<BTreeMap<u32, bool>>,
+    power: Mutex<Option<crate::backend::arm64_hvf_power::Power>>,
+    owner_teardown_failed: AtomicBool,
+    entered: AtomicBool,
+    restore_failed: AtomicBool,
+    #[cfg(test)]
+    test_gpr_failures: Mutex<BTreeMap<u32, (u32, u32)>>,
+    #[cfg(test)]
+    test_kick_spawn_failure: AtomicBool,
+}
+#[derive(Default)]
+struct NativeTopology {
+    configured: Option<(u8, u64)>,
+    created: BTreeSet<u32>,
+}
+struct RegisteredMemory {
+    memory: GuestMemoryMmap,
+    ram_base: u64,
+    ram_size: u64,
+}
+struct OwnedHypervisorObject(*mut std::ffi::c_void);
+impl Drop for OwnedHypervisorObject {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            // SAFETY: SDK create returned one owned OS object reference.
+            unsafe { os_release(self.0) };
+        }
+    }
+}
+fn same_memory(left: &GuestMemoryMmap, right: &GuestMemoryMmap) -> bool {
+    let identity = |region: &vm_memory::GuestRegionMmap| {
+        (
+            region.start_addr().raw_value(),
+            region.len(),
+            region.as_ptr() as usize,
+        )
+    };
+    left.iter().map(identity).eq(right.iter().map(identity))
+}
+impl NativeVmLifetime {
+    fn admit_memory(&self, memory: &GuestMemoryMmap) -> Result<()> {
+        let mapping = self
+            .mapping
+            .lock()
+            .map_err(|_| Error::Emulator("native RAM mapping lock poisoned".into()))?;
+        if mapping
+            .as_ref()
+            .is_some_and(|mapped| !same_memory(&mapped.memory, memory))
+        {
+            return Err(Error::InvalidConfig(
+                "native vCPU memory differs from registered VM RAM".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 fn checked_arm_ram_mapping(
@@ -182,6 +272,21 @@ mod tests {
 }
 
 impl HvfArm64Vm {
+    #[cfg(test)]
+    pub(crate) fn fail_next_kick_spawn(&self) {
+        self.lifetime
+            .test_kick_spawn_failure
+            .store(true, Ordering::Release);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn fail_next_gpr_writes(&self, id: u32, reg: u32, count: u32) {
+        self.lifetime
+            .test_gpr_failures
+            .lock()
+            .unwrap()
+            .insert(id, (reg, count));
+    }
     /// Register guest RAM with the VM.
     ///
     /// Only the window `[ram_base, ram_base + ram_size)` of the flat backing
@@ -195,9 +300,22 @@ impl HvfArm64Vm {
         ram_base: u64,
         ram_size: u64,
     ) -> Result<()> {
-        let mut mapped = self.memory_mapped.lock().unwrap();
-        if *mapped {
-            return Ok(());
+        let _boundary = self.lifetime.stopped()?;
+        let mut mapping = self
+            .lifetime
+            .mapping
+            .lock()
+            .map_err(|_| Error::Emulator("native RAM mapping lock poisoned".into()))?;
+        if let Some(mapped) = mapping.as_ref() {
+            if mapped.ram_base == ram_base
+                && mapped.ram_size == ram_size
+                && same_memory(&mapped.memory, mem.memory())
+            {
+                return Ok(());
+            }
+            return Err(Error::InvalidConfig(
+                "native RAM is already registered with another backing/window".into(),
+            ));
         }
 
         let region = mem
@@ -226,7 +344,11 @@ impl HvfArm64Vm {
             )));
         }
 
-        *mapped = true;
+        *mapping = Some(RegisteredMemory {
+            memory: mem.memory().clone(),
+            ram_base,
+            ram_size,
+        });
         info!(
             ram_base = format!("{:#x}", ram_base),
             ram_size = ram_size,
@@ -237,17 +359,169 @@ impl HvfArm64Vm {
 }
 
 impl Vm for HvfArm64Vm {
+    fn checkpoint_boundary(&self) -> Result<crate::backend::CheckpointBoundary<'_>> {
+        self.lifetime.stopped()
+    }
+
+    fn capture_checkpoint_vm_context(
+        &self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+    ) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        self.lifetime.capture_shared(boundary).map(Some)
+    }
+
+    fn validate_checkpoint_vm_context(
+        &self,
+        config: &crate::config::CheckpointConfig,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+        _cpus: Option<&crate::vm::snapshot::BackendContexts>,
+    ) -> Result<()> {
+        if config.backend != crate::config::BackendKind::Hvf
+            || config.arch != crate::config::ArchKind::Aarch64
+        {
+            return Err(Error::InvalidConfig(
+                "native target requires its native checkpoint producer".into(),
+            ));
+        }
+        let shared = self.lifetime.admit_shared(context)?;
+        if shared.cpus != config.vcpus || shared.ram_size != config.memory_bytes {
+            return Err(Error::InvalidConfig(
+                "native checkpoint configuration differs from shared state".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn restore_checkpoint_vm_context(
+        &self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.lifetime.restore_shared(boundary, context)
+    }
+
+    fn poison_checkpoint_restore(&self) {
+        self.lifetime.restore_failed.store(true, Ordering::Release);
+    }
+
+    fn configure_cpu_topology(&self, count: u8, ram_end: u64) -> Result<()> {
+        let _boundary = self.lifetime.stopped()?;
+        if count == 0 {
+            return Err(Error::InvalidConfig("native CPU count is zero".into()));
+        }
+        let mut topology = self
+            .lifetime
+            .topology
+            .lock()
+            .map_err(|_| Error::Emulator("native topology lock poisoned".into()))?;
+        if topology.configured == Some((count, ram_end)) {
+            return Ok(());
+        }
+        if topology.configured.is_some() || !topology.created.is_empty() {
+            return Err(Error::InvalidConfig(
+                "native CPU topology is already established".into(),
+            ));
+        }
+        let mapping = self
+            .lifetime
+            .mapping
+            .lock()
+            .map_err(|_| Error::Emulator("native memory association lock poisoned".into()))?;
+        if mapping
+            .as_ref()
+            .is_some_and(|mapping| mapping.ram_base.checked_add(mapping.ram_size) != Some(ram_end))
+        {
+            return Err(Error::InvalidConfig(
+                "native RAM topology differs from its mapping".into(),
+            ));
+        }
+        topology.configured = Some((count, ram_end));
+        *self
+            .lifetime
+            .power
+            .lock()
+            .map_err(|_| Error::Emulator("native power lock poisoned".into()))? =
+            Some(crate::backend::arm64_hvf_power::Power::new(count));
+        Ok(())
+    }
+
+    fn take_cpu_power_requests(&self) -> Result<Vec<crate::vm::vcpu::CpuPowerRequest>> {
+        let _guard = self
+            .lifetime
+            .quiescence
+            .read()
+            .map_err(|_| Error::Emulator("native exclusion lock poisoned".into()))?;
+        self.lifetime.power_requests()
+    }
+    fn complete_cpu_start(&self, id: u32) -> Result<()> {
+        let _guard = self
+            .lifetime
+            .quiescence
+            .read()
+            .map_err(|_| Error::Emulator("native exclusion lock poisoned".into()))?;
+        self.lifetime.complete_power(id, true)
+    }
+    fn complete_cpu_stop(&self, id: u32) -> Result<()> {
+        let _guard = self
+            .lifetime
+            .quiescence
+            .read()
+            .map_err(|_| Error::Emulator("native exclusion lock poisoned".into()))?;
+        self.lifetime.complete_power(id, false)
+    }
+
     fn create_vcpu(&self, id: u32, mem: Arc<GuestMemoryMmap>) -> Result<Box<dyn VCpu>> {
-        let vcpu = HvfArm64Vcpu::new(id, mem)?;
+        let _boundary = self.lifetime.stopped()?;
+        let mut topology = self
+            .lifetime
+            .topology
+            .lock()
+            .map_err(|_| Error::Emulator("native topology lock poisoned".into()))?;
+        if id >= u32::from(u8::MAX)
+            || topology.created.contains(&id)
+            || topology
+                .configured
+                .is_some_and(|(count, _)| id >= u32::from(count))
+        {
+            return Err(Error::InvalidConfig(
+                "native vCPU identity differs from available topology".into(),
+            ));
+        }
+        let vcpu = HvfArm64Vcpu::new(id, mem, self.lifetime.clone())?;
+        topology.created.insert(id);
         Ok(Box::new(vcpu))
     }
 
     fn set_irq_line(&self, irq: u32, level: bool) -> Result<()> {
+        let _boundary = self
+            .lifetime
+            .quiescence
+            .read()
+            .map_err(|_| Error::Emulator("native exclusion lock poisoned".into()))?;
+        self.lifetime.ensure_live()?;
         // Route SPI lines through the in-kernel GICv3.
         if irq < 32 {
             return Err(Error::InvalidConfig(format!(
                 "intid {irq} is not an SPI (must be >= 32)"
             )));
+        }
+        let (mut base, mut count) = (0, 0);
+        checkpoint_api::check(
+            unsafe { hv_gic_get_spi_interrupt_range(&mut base, &mut count) },
+            "query native SPI range",
+        )?;
+        if !irq.checked_sub(base).is_some_and(|index| index < count) {
+            return Err(Error::InvalidConfig(
+                "native IRQ lies outside the SPI range".into(),
+            ));
+        }
+        let mut levels = self
+            .lifetime
+            .irq_levels
+            .lock()
+            .map_err(|_| Error::Emulator("native IRQ shadow lock poisoned".into()))?;
+        if levels.get(&irq).copied().unwrap_or(false) == level {
+            return Ok(());
         }
         let ret = unsafe { hv_gic_set_spi(irq, level) };
         if ret != HV_SUCCESS {
@@ -256,6 +530,7 @@ impl Vm for HvfArm64Vm {
                 hv_error_string(ret)
             )));
         }
+        levels.insert(irq, level);
         Ok(())
     }
 
@@ -264,19 +539,34 @@ impl Vm for HvfArm64Vm {
     }
 }
 
-impl Drop for HvfArm64Vm {
+impl Drop for NativeVmLifetime {
     fn drop(&mut self) {
+        // SAFETY: the final Arc proves that no native CPU owner or public VM
+        // remains. Registered backing stays live until SDK destruction succeeds.
         let ret = unsafe { hv_vm_destroy() };
         if ret != HV_SUCCESS {
             warn!("Failed to destroy ARM64 VM: {}", hv_error_string(ret));
+            // The SDK may retain its mapping after a failed destroy. Quarantine
+            // that backing rather than free memory which the SDK still owns.
+            if let Some(mapping) = self
+                .mapping
+                .get_mut()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .take()
+            {
+                std::mem::forget(mapping);
+            }
         }
     }
 }
 
 use super::arm64_mmio::PendingMmioRead;
 
-/// ARM64 HVF vCPU.
-pub struct HvfArm64Vcpu {
+/// Native state used only by its creating worker thread.
+struct HvfArm64Core {
+    checkpoint_profile: std::result::Result<crate::backend::arm64_hvf_context::Profile, String>,
+    /// Retain the VM until native destruction has completed.
+    _vm: Arc<NativeVmLifetime>,
     /// vCPU handle
     vcpu: hv_vcpu_t,
     /// Exit information pointer
@@ -287,23 +577,28 @@ pub struct HvfArm64Vcpu {
     mem: Arc<GuestMemoryMmap>,
     /// MMIO read awaiting completion by the VMM.
     pending_mmio_read: Option<PendingMmioRead>,
+    /// Retired scalar store awaiting successful caller dispatch.
+    pending_mmio_write: Option<PendingWrite>,
+    pending_io_reply: Option<Vec<u8>>,
     /// Report a failed completion write before another hardware entry.
     io_completion_error: Option<Error>,
+    /// A terminal PSCI exit remains stopped until an explicit embedding restart.
+    shutdown: bool,
+    startup_sctlr: u64,
+    ever_entered: bool,
     /// Stops the periodic kick thread on drop.
     kick_stop: Arc<std::sync::atomic::AtomicBool>,
     /// Kick thread handle.
     kick_thread: Option<std::thread::JoinHandle<()>>,
 }
 
-// Safety: HvfArm64Vcpu is Send because the vCPU handle is thread-local,
-// and we synchronize access appropriately.
-unsafe impl Send for HvfArm64Vcpu {}
-
-impl HvfArm64Vcpu {
-    fn new(id: u32, mem: Arc<GuestMemoryMmap>) -> Result<Self> {
-        let mut vcpu: hv_vcpu_t = ptr::null_mut();
+impl HvfArm64Core {
+    fn new(id: u32, mem: Arc<GuestMemoryMmap>, lifetime: Arc<NativeVmLifetime>) -> Result<Self> {
+        lifetime.admit_memory(&mem)?;
+        let mut vcpu: hv_vcpu_t = 0;
         let mut exit: hv_vcpu_exit_t = ptr::null_mut();
-
+        // SAFETY: this permanent owner thread supplies initialized, exclusive
+        // output slots of the SDK ABI types. No CPU handle exists before success.
         let ret = unsafe { hv_vcpu_create(&mut vcpu, &mut exit, ptr::null()) };
         if ret != HV_SUCCESS {
             return Err(Error::Emulator(format!(
@@ -312,61 +607,81 @@ impl HvfArm64Vcpu {
                 hv_error_string(ret)
             )));
         }
-
-        // GICv3 routes interrupts by affinity: the redistributor for this
-        // vCPU is only assigned once MPIDR_EL1 carries its affinity (RES1
-        // bit 31 plus the four affinity levels). For VM indices 0..254,
-        // Aff0 equals the index advertised by the device tree.
+        // Establish ownership before any fallible initialization. Every later
+        // return or unwind destroys the SDK handle on this thread, retaining
+        // the VM and mapped memory until that destruction has completed.
+        let mut core = HvfArm64Core {
+            checkpoint_profile: Err("native checkpoint profile was not initialized".into()),
+            _vm: lifetime,
+            vcpu,
+            exit,
+            id,
+            mem,
+            pending_mmio_read: None,
+            pending_mmio_write: None,
+            pending_io_reply: None,
+            io_completion_error: None,
+            shutdown: false,
+            startup_sctlr: 0,
+            ever_entered: false,
+            kick_stop: Arc::new(AtomicBool::new(false)),
+            kick_thread: None,
+        };
+        // Aff0 matches the logical index advertised by the device tree.
         let mpidr = crate::isa::arm::aarch64::AArch64Cpu::mpidr_for_cpu_id(id);
-        let ret = unsafe { hv_vcpu_set_sys_reg(vcpu, HV_SYS_REG_MPIDR_EL1, mpidr) };
+        // SAFETY: core owns the successful SDK allocation on its creating
+        // thread; its VM/backing remain live and no guest entry has occurred.
+        let ret = unsafe { hv_vcpu_set_sys_reg(core.vcpu, HV_SYS_REG_MPIDR_EL1, mpidr) };
         if ret != HV_SUCCESS {
             return Err(Error::Emulator(format!(
                 "failed to set MPIDR_EL1 for vCPU {id}: {}",
                 hv_error_string(ret)
             )));
         }
-
-        // Sanity-check where the in-kernel GIC placed this vCPU's
-        // redistributor; the device tree advertises AARCH64_GICR_BASE.
         let mut rdist_base: u64 = 0;
-        let gret = unsafe { hv_gic_get_redistributor_base(vcpu, &mut rdist_base) };
-        debug!(
-            id,
-            vcpu = ?vcpu,
-            rdist_base = format!("{rdist_base:#x}"),
-            gret,
-            "Created ARM64 HVF vCPU"
-        );
+        // SAFETY: the owner-thread handle is live and the SDK receives one
+        // initialized, exclusively borrowed u64 output slot.
+        let gret = unsafe { hv_gic_get_redistributor_base(core.vcpu, &mut rdist_base) };
+        debug!(id, vcpu = ?core.vcpu, rdist_base = format!("{rdist_base:#x}"), gret,
+            "Created ARM64 HVF vCPU");
+        core.kick_thread = Some(core.spawn_kick_thread().map_err(|error| {
+            Error::Emulator(format!(
+                "ARM64 HVF kick spawn failed for vCPU {id}: {error}"
+            ))
+        })?);
+        core.checkpoint_profile = core
+            .detect_checkpoint_profile()
+            .map_err(|error| error.to_string());
+        core.startup_sctlr = core.read_sys_reg(HV_SYS_REG_SCTLR_EL1)?;
+        Ok(core)
+    }
 
-        // With the in-kernel GIC, hv_vcpu_run handles WFI and timer wakeups
-        // without returning: an idle guest would park the VMM loop forever
-        // and console input / device polling would starve. Kick the vCPU out
-        // every few milliseconds so the run loop gets a turn.
-        let kick_stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let kick_thread = {
-            let stop = kick_stop.clone();
-            let vcpu_id = vcpu as usize;
-            Some(std::thread::spawn(move || {
-                let mut handle: hv_vcpu_t = vcpu_id as hv_vcpu_t;
-                while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+    fn spawn_kick_thread(&self) -> std::io::Result<std::thread::JoinHandle<()>> {
+        #[cfg(test)]
+        if self
+            ._vm
+            .test_kick_spawn_failure
+            .swap(false, Ordering::AcqRel)
+        {
+            return Err(std::io::Error::other("injected native kick spawn failure"));
+        }
+        // SDK WFI/timer handling can otherwise park the VMM loop indefinitely.
+        let stop = self.kick_stop.clone();
+        let vcpu = self.vcpu;
+        std::thread::Builder::new()
+            .name(format!("rax-hvf-arm64-kick-{}", self.id))
+            .spawn(move || {
+                let mut handle = vcpu;
+                while !stop.load(Ordering::Relaxed) {
                     std::thread::sleep(std::time::Duration::from_millis(5));
+                    // SAFETY: the SDK accepts exit requests from another thread.
+                    // The one-element handle list is local and initialized. Core
+                    // joins this thread before destroying the handle or VM/backing.
                     unsafe {
                         hv_vcpus_exit(&mut handle, 1);
                     }
                 }
-            }))
-        };
-
-        Ok(HvfArm64Vcpu {
-            vcpu,
-            exit,
-            id,
-            mem,
-            pending_mmio_read: None,
-            io_completion_error: None,
-            kick_stop,
-            kick_thread,
-        })
+            })
     }
 
     /// Read a general-purpose register
@@ -385,6 +700,16 @@ impl HvfArm64Vcpu {
 
     /// Write a general-purpose register
     fn write_gpr(&self, reg: hv_reg_t, value: u64) -> Result<()> {
+        #[cfg(test)]
+        {
+            let mut failures = self._vm.test_gpr_failures.lock().unwrap();
+            if let Some((selected, remaining)) = failures.get_mut(&self.id) {
+                if *selected == reg && *remaining != 0 {
+                    *remaining -= 1;
+                    return Err(Error::Emulator("injected native GPR write failure".into()));
+                }
+            }
+        }
         let ret = unsafe { hv_vcpu_set_reg(self.vcpu, reg, value) };
         if ret != HV_SUCCESS {
             return Err(Error::Emulator(format!(
@@ -454,7 +779,7 @@ impl HvfArm64Vcpu {
     /// Advance PC past the current instruction
     fn advance_pc(&self, insn_len: u64) -> Result<()> {
         let pc = self.read_gpr(HV_REG_PC)?;
-        self.write_gpr(HV_REG_PC, pc + insn_len)
+        self.write_gpr(HV_REG_PC, pc.wrapping_add(insn_len))
     }
 
     /// Handle a data abort exception: emulate the trapped load/store as an
@@ -478,10 +803,6 @@ impl HvfArm64Vcpu {
         let size = 1u8 << exc.access_size();
         let rt = exc.srt();
 
-        // The faulting load/store is consumed by this emulation: continue at
-        // the next instruction when the guest resumes.
-        self.advance_pc(exc.instruction_length() as u64)?;
-
         if exc.is_write() {
             let data = if rt < 31 { self.read_gpr(rt)? } else { 0 };
             let data_bytes = match size {
@@ -490,11 +811,19 @@ impl HvfArm64Vcpu {
                 4 => (data as u32).to_le_bytes().to_vec(),
                 _ => data.to_le_bytes().to_vec(),
             };
+            // Obtain the complete operand before advancing PC. The caller
+            // acknowledges only after dispatch; entry and capture retain it.
+            self.advance_pc(exc.instruction_length() as u64)?;
+            self.pending_mmio_write = Some(PendingWrite {
+                address: addr,
+                data: data_bytes.clone(),
+            });
             Ok(VcpuExit::MmioWrite {
                 addr,
                 data: data_bytes,
             })
         } else {
+            self.advance_pc(exc.instruction_length() as u64)?;
             self.pending_mmio_read = Some(PendingMmioRead {
                 addr,
                 rt,
@@ -521,7 +850,6 @@ impl HvfArm64Vcpu {
 
         const SUCCESS: u64 = 0;
         const NOT_SUPPORTED: u64 = -1i64 as u64;
-        const DENIED: u64 = -3i64 as u64;
 
         let func = self.read_gpr(HV_REG_X0)? as u32;
         let result = match func {
@@ -529,23 +857,34 @@ impl HvfArm64Vcpu {
             MIGRATE_INFO_TYPE => 2,      // no trusted OS
             SYSTEM_OFF => {
                 info!("PSCI SYSTEM_OFF: guest requested power-off");
+                self.psci_system_shutdown()?;
+                self.shutdown = true;
                 return Ok(Some(VcpuExit::Shutdown));
             }
             SYSTEM_RESET => {
                 info!("PSCI SYSTEM_RESET: guest requested reset; shutting down");
+                self.psci_system_shutdown()?;
+                self.shutdown = true;
                 return Ok(Some(VcpuExit::Shutdown));
             }
             PSCI_FEATURES => {
                 let queried = self.read_gpr(HV_REG_X1)? as u32;
                 match queried {
                     PSCI_VERSION | SYSTEM_OFF | SYSTEM_RESET | PSCI_FEATURES
-                    | MIGRATE_INFO_TYPE => SUCCESS,
+                    | MIGRATE_INFO_TYPE | CPU_ON_32 | CPU_ON_64 | CPU_OFF | 0x8400_0004
+                    | 0xc400_0004 => SUCCESS,
                     _ => NOT_SUPPORTED,
                 }
             }
-            // Single-vCPU machine: no secondary bring-up or hotplug.
-            CPU_ON_32 | CPU_ON_64 => DENIED,
-            CPU_SUSPEND_32 | CPU_OFF => NOT_SUPPORTED,
+            CPU_ON_32 | CPU_ON_64 => self.psci_cpu_on(func == CPU_ON_64)?,
+            0x8400_0004 | 0xc400_0004 => self.psci_affinity_info(func == 0xc400_0004)?,
+            CPU_OFF => {
+                if self.psci_cpu_off()? {
+                    return Ok(Some(VcpuExit::Hlt));
+                }
+                NOT_SUPPORTED
+            }
+            CPU_SUSPEND_32 => NOT_SUPPORTED,
             _ => {
                 debug!(func = format!("{func:#x}"), "unhandled SMCCC/PSCI call");
                 NOT_SUPPORTED
@@ -573,10 +912,25 @@ impl HvfArm64Vcpu {
     }
 }
 
-impl VCpu for HvfArm64Vcpu {
+impl HvfArm64Core {
     fn run(&mut self) -> Result<VcpuExit> {
+        if let Some(exit) = self.power_entry_exit()? {
+            return Ok(exit);
+        }
+        if self.native_shutdown()? {
+            return Ok(VcpuExit::Shutdown);
+        }
         if let Some(error) = self.io_completion_error.take() {
             return Err(error);
+        }
+        if self.pending_io_reply.is_some() {
+            self.finish_pending_read()?;
+        }
+        if let Some(pending) = &self.pending_mmio_write {
+            return Ok(VcpuExit::MmioWrite {
+                addr: pending.address,
+                data: pending.data.clone(),
+            });
         }
         if let Some(pending) = self.pending_mmio_read {
             return Ok(VcpuExit::MmioRead {
@@ -585,6 +939,12 @@ impl VCpu for HvfArm64Vcpu {
             });
         }
         loop {
+            self._vm.ensure_live()?;
+            if let Some(exit) = self.power_entry_exit()? {
+                return Ok(exit);
+            }
+            self._vm.entered.store(true, Ordering::Release);
+            self.ever_entered = true;
             let ret = unsafe { hv_vcpu_run(self.vcpu) };
             if ret != HV_SUCCESS {
                 return Err(Error::Emulator(format!(
@@ -699,7 +1059,11 @@ impl VCpu for HvfArm64Vcpu {
         // Successful external state replacement cancels the old transaction.
         // Failed replacement leaves the staged transaction pending.
         self.pending_mmio_read = None;
+        self.pending_mmio_write = None;
+        self.pending_io_reply = None;
         self.io_completion_error = None;
+        self.shutdown = false;
+        self.clear_system_shutdown()?;
         Ok(())
     }
 
@@ -707,16 +1071,51 @@ impl VCpu for HvfArm64Vcpu {
         let Some(pending) = self.pending_mmio_read else {
             return;
         };
-        match pending.complete(data, |rt, value| self.write_gpr(rt, value)) {
-            Ok(false) => return,
-            Err(error) => {
-                self.io_completion_error = Some(error);
-                return;
-            }
+        if data.len() < usize::from(pending.size) {
+            return;
+        }
+        let input = &data[..usize::from(pending.size)];
+        if self
+            .pending_io_reply
+            .as_ref()
+            .is_some_and(|saved| saved != input)
+        {
+            self.io_completion_error = Some(Error::Emulator(
+                "native read already has a different staged reply".into(),
+            ));
+            return;
+        }
+        self.pending_io_reply = Some(input.to_vec());
+        if let Err(error) = self.finish_pending_read() {
+            self.io_completion_error = Some(error);
+        }
+    }
+
+    fn complete_io_out(&mut self) -> Result<()> {
+        self.pending_mmio_write
+            .take()
+            .ok_or_else(|| Error::Emulator("native output has no pending store".into()))?;
+        Ok(())
+    }
+
+    fn finish_pending_read(&mut self) -> Result<()> {
+        let pending = self
+            .pending_mmio_read
+            .ok_or_else(|| Error::Emulator("staged native reply has no request".into()))?;
+        let data = self
+            .pending_io_reply
+            .as_ref()
+            .ok_or_else(|| Error::Emulator("native reply data is absent".into()))?
+            .clone();
+        match pending.complete(&data, |rt, value| self.write_gpr(rt, value)) {
+            Ok(false) => return Err(Error::Emulator("native staged reply is incomplete".into())),
+            Err(error) => return Err(error),
             Ok(true) => {}
         }
         self.pending_mmio_read = None;
+        self.pending_io_reply = None;
         self.io_completion_error = None;
+        Ok(())
     }
 
     fn inject_interrupt(&mut self, _vector: u8) -> Result<bool> {
@@ -760,15 +1159,20 @@ impl VCpu for HvfArm64Vcpu {
     }
 }
 
-impl Drop for HvfArm64Vcpu {
+impl Drop for HvfArm64Core {
     fn drop(&mut self) {
         self.kick_stop
             .store(true, std::sync::atomic::Ordering::Relaxed);
         if let Some(handle) = self.kick_thread.take() {
             let _ = handle.join();
         }
+        // SAFETY: this is the permanent creating thread, its kick thread has
+        // joined, and the retained VM/backing outlive this SDK handle.
         let ret = unsafe { hv_vcpu_destroy(self.vcpu) };
         if ret != HV_SUCCESS {
+            self._vm
+                .owner_teardown_failed
+                .store(true, Ordering::Release);
             warn!(
                 "Failed to destroy ARM64 vCPU {}: {}",
                 self.id,

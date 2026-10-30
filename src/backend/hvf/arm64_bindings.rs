@@ -22,7 +22,7 @@ pub use super::bindings::{
 pub type hv_uvaddr_t = *mut c_void;
 
 /// ARM64 vCPU handle type
-pub type hv_vcpu_t = *mut c_void;
+pub type hv_vcpu_t = u64;
 
 /// ARM64 vCPU exit information
 pub type hv_vcpu_exit_t = *mut hv_vcpu_exit;
@@ -262,7 +262,7 @@ impl hv_vcpu_exit_exception {
 }
 
 /// 128-bit SIMD/FP value
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct hv_simd_fp_uchar16_t {
     pub bytes: [u8; 16],
@@ -295,6 +295,9 @@ unsafe extern "C" {
 
     /// Destroy the VM instance.
     pub fn hv_vm_destroy() -> hv_return_t;
+
+    /// Release an owned SDK configuration object.
+    pub fn os_release(object: *mut c_void);
 
     /// Map memory from host to guest physical address space.
     pub fn hv_vm_map(
@@ -337,13 +340,6 @@ unsafe extern "C" {
         vcpu: hv_vcpu_t,
         reg: hv_simd_fp_reg_t,
         value: *mut hv_simd_fp_uchar16_t,
-    ) -> hv_return_t;
-
-    /// Set a SIMD/FP register.
-    pub fn hv_vcpu_set_simd_fp_reg(
-        vcpu: hv_vcpu_t,
-        reg: hv_simd_fp_reg_t,
-        value: hv_simd_fp_uchar16_t,
     ) -> hv_return_t;
 
     /// Get a system register.
@@ -469,4 +465,43 @@ pub fn hv_arm64_check_available() -> Result<(), &'static str> {
 #[cfg(not(target_arch = "aarch64"))]
 pub fn hv_arm64_check_available() -> Result<(), &'static str> {
     Err("ARM64 Hypervisor requires Apple Silicon")
+}
+
+// Apple's SDK passes hv_simd_fp_uchar16_t as a short vector in V0. A Rust
+// repr(C) byte-array structure is an integer aggregate and has a different
+// foreign calling convention. Keep the SDK call behind a pointer argument,
+// then load exactly its vector argument before a leaf tail branch.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+core::arch::global_asm!(
+    ".text",
+    ".p2align 2",
+    ".globl _rax_hvf_arm64_set_simd_fp_reg",
+    "_rax_hvf_arm64_set_simd_fp_reg:",
+    "ldr q0, [x2]",
+    "b _hv_vcpu_set_simd_fp_reg",
+);
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+unsafe extern "C" {
+    fn rax_hvf_arm64_set_simd_fp_reg(
+        vcpu: hv_vcpu_t,
+        reg: hv_simd_fp_reg_t,
+        value: *const hv_simd_fp_uchar16_t,
+    ) -> hv_return_t;
+}
+
+/// Set the SDK vector through its native V0 argument register.
+///
+/// # Safety
+/// The caller must own the supplied live native vCPU on the current thread.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub unsafe extern "C" fn hv_vcpu_set_simd_fp_reg(
+    vcpu: hv_vcpu_t,
+    reg: hv_simd_fp_reg_t,
+    value: hv_simd_fp_uchar16_t,
+) -> hv_return_t {
+    // SAFETY: the aligned local contains exactly the 16 input bytes. The leaf
+    // bridge preserves the scalar arguments, places those bytes in V0 and
+    // returns the SDK status without retaining the pointer.
+    unsafe { rax_hvf_arm64_set_simd_fp_reg(vcpu, reg, &value) }
 }

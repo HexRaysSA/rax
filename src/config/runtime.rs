@@ -284,7 +284,7 @@ impl VmConfig {
         cli: CliConfig,
     ) -> Result<Self> {
         let base = bundle.base();
-        base.validate_for_restore()?;
+        bundle.validate_complete()?;
         Self::from_checkpoint_inner(
             base.config.clone(),
             cli,
@@ -389,7 +389,7 @@ impl VmConfig {
         &self,
         bundle: &crate::vm::snapshot::SnapshotBundle,
     ) -> Result<()> {
-        bundle.validate()?;
+        bundle.validate_complete()?;
         if let Some(clock) = bundle.clock() {
             clock.validate()?;
             if clock.mode != crate::vm::timing::ClockMode::Wall {

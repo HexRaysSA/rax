@@ -1,0 +1,336 @@
+{
+  "utc": "2026-10-30T10:28:01.706479+00:00",
+  "component_status": "Locally validated component; all four full findings remain incomplete",
+  "component": "Native owner/SDK ABI, stopped native checkpoint transport, in-flight scalar I/O, transactional fresh restoration and guest-driven CPU power/coordinator integration",
+  "current_source_manifest": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-psci-v39-source.json",
+  "prior_source_manifests": [
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-psci-v37-source.json",
+    "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-psci-v36-source.json"
+  ],
+  "current_results": {
+    "portable_passed": 94,
+    "native_targeted_passed": 3,
+    "zero_selected_test_skips": true
+  },
+  "broader_prior_results": {
+    "v37_native_checkpoint_passed": 20,
+    "v37_owner_clock_passed": 1,
+    "v36_runtime_passed": 59,
+    "v36_runtime_ignored": 21
+  },
+  "receipts": {
+    "native-psci-v39-power.json": {
+      "command": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "backend::arm64_hvf_power::tests::",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.030332666006870568,
+      "utc": "2026-10-30T10:25:17.112675+00:00",
+      "test_summaries": [
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 11406 filtered out; finished in 0.01s"
+      ]
+    },
+    "native-psci-v39-format.json": {
+      "command": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "backend::arm64_hvf_context::tests::",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.9909387919469737,
+      "utc": "2026-10-30T10:25:18.103882+00:00",
+      "test_summaries": [
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 11400 filtered out; finished in 0.97s"
+      ]
+    },
+    "native-psci-v39-snapshot.json": {
+      "command": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::snapshot::",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.5532815420301631,
+      "utc": "2026-10-30T10:25:18.657432+00:00",
+      "test_summaries": [
+        "test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 11341 filtered out; finished in 0.53s"
+      ]
+    },
+    "native-psci-v39-config.json": {
+      "command": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "config::",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.017116333998274058,
+      "utc": "2026-10-30T10:25:18.674748+00:00",
+      "test_summaries": [
+        "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 11399 filtered out; finished in 0.00s"
+      ]
+    },
+    "native-psci-v39-conduits.json": {
+      "command": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "native_psci_32_64_conduits_admit_arguments_and_copy_caller_endianness",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.06421479099662974,
+      "utc": "2026-10-30T10:25:18.739172+00:00",
+      "test_summaries": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11409 filtered out; finished in 0.05s"
+      ]
+    },
+    "native-psci-v39-frontier-wrap.json": {
+      "command": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "native_instruction_frontier_advance_wraps_the_sdk_pc_at_64_bits",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.025100416969507933,
+      "utc": "2026-10-30T10:25:18.764453+00:00",
+      "test_summaries": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11409 filtered out; finished in 0.01s"
+      ]
+    },
+    "native-psci-v39-owner-clock.json": {
+      "command": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "native_owner_requests_preserve_nested_caller_clocks_without_leaking_bindings",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.023072500014677644,
+      "utc": "2026-10-30T10:25:18.787737+00:00",
+      "test_summaries": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11409 filtered out; finished in 0.01s"
+      ]
+    },
+    "native-psci-v39-workspace-check.json": {
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "--lib",
+        "--workspace",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 24.921384165994823,
+      "utc": "2026-10-30T10:26:00.547890+00:00"
+    },
+    "native-psci-v39-workspace-clippy.json": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--lib",
+        "--workspace",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 25.792728332977276,
+      "utc": "2026-10-30T10:26:26.341255+00:00"
+    },
+    "native-psci-v39-workspace-format.json": {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 12.594705166993663,
+      "utc": "2026-10-30T10:26:38.936276+00:00"
+    },
+    "native-psci-v39-explicit-format.json": {
+      "utc": "2026-10-30T10:27:00.368304+00:00",
+      "command": [
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2024",
+        "capi/src/tests/run_loop.rs",
+        "src/backend/checkpoint.rs",
+        "src/backend/emulator/aarch64/vcpu.rs",
+        "src/backend/hvf/arm64.rs",
+        "src/backend/hvf/arm64_bindings.rs",
+        "src/backend/hvf/arm64_checkpoint.rs",
+        "src/backend/hvf/arm64_checkpoint_api.rs",
+        "src/backend/hvf/arm64_context_format.rs",
+        "src/backend/hvf/arm64_context_format_tests.rs",
+        "src/backend/hvf/arm64_mmio.rs",
+        "src/backend/hvf/arm64_power.rs",
+        "src/backend/hvf/arm64_power_tests.rs",
+        "src/backend/hvf/arm64_psci.rs",
+        "src/backend/hvf/arm64_restore.rs",
+        "src/backend/hvf/arm64_stack.rs",
+        "src/backend/hvf/arm64_state.rs",
+        "src/backend/hvf/arm64_vm_checkpoint.rs",
+        "src/backend/hvf/arm64_worker.rs",
+        "src/backend/mod.rs",
+        "src/config/runtime.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/backend_transaction.rs",
+        "src/vm/runtime/checkpoint_capture.rs",
+        "src/vm/runtime/checkpoint_restore.rs",
+        "src/vm/runtime/coordinator.rs",
+        "src/vm/runtime/execution.rs",
+        "src/vm/runtime/native_checkpoint_tests.rs",
+        "src/vm/runtime/native_psci_tests.rs",
+        "src/vm/snapshot.rs",
+        "src/vm/snapshot/backend_context.rs",
+        "src/vm/snapshot/bundle.rs",
+        "src/vm/snapshot/codec.rs",
+        "src/vm/snapshot/cpus.rs",
+        "src/vm/snapshot/native_bundle_tests.rs",
+        "src/vm/snapshot/producer.rs",
+        "src/vm/snapshot/vm_context.rs",
+        "src/vm/timing/context.rs",
+        "src/vm/vcpu/mod.rs",
+        "tests/suites/backend/retirement_budget.rs",
+        "tests/suites/backend/retirement_budget/register_updates.rs",
+        "tools/hvf/arm64_mmio_native_guest.rs",
+        "tools/hvf/arm64_state_native_guest.rs"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "native-psci-v37-native-regression.json": {
+      "command": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::native_checkpoint_tests::",
+        "--ignored",
+        "--skip",
+        "active_sme_modes_restore_all_storage_and_execute_za_after_real_file_resume",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1169.733379125013,
+      "utc": "2026-10-30T10:18:44.222076+00:00",
+      "test_summaries": [
+        "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 11389 filtered out; finished in 1169.72s"
+      ]
+    },
+    "native-psci-v37-owner-clock.json": {
+      "command": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "native_owner_requests_preserve_nested_caller_clocks_without_leaking_bindings",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.02827891701599583,
+      "utc": "2026-10-30T10:18:44.251090+00:00",
+      "test_summaries": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11408 filtered out; finished in 0.01s"
+      ]
+    },
+    "native-psci-v36-portable-runtime.json": {
+      "utc": "2026-10-30T10:15:40.866809+00:00",
+      "command": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1811.189298042038,
+      "signed_binary_sha256": "b9933470739b4363f83199329b5af9935ecef3a3d1c7ee0f4eda89f7d81551af",
+      "summaries": [
+        "test result: ok. 59 passed; 0 failed; 21 ignored; 0 measured; 11328 filtered out; finished in 1811.18s"
+      ]
+    }
+  },
+  "baseline_failures": {
+    "guest_cpu_on": "native-psci-baseline-v34-guest-startup.json",
+    "unsupported_big_endian_expectation": "native-psci-v35-conduits.stderr",
+    "affinity_parameter_width": "native-psci-affinity-baseline-v38-conduits.json",
+    "pc_overflow": "native-pc-overflow-source-baseline.json; exact extracted arithmetic with mocked register I/O, not a native pre-fix run"
+  },
+  "known_failure_excluded_from_v37": "active_sme_modes_restore_all_storage_and_execute_za_after_real_file_resume; earlier signed failure and independent SDK probes retained",
+  "assumptions": [
+    {
+      "id": "NP1",
+      "status": "confirmed for configured native EL1/AArch64 flat-Aff0 VMM",
+      "probe": "Signed startup/admission/conduit tests; no other profile claim"
+    },
+    {
+      "id": "NP2",
+      "status": "confirmed for represented partial-start and file transitions",
+      "probe": "CPU2 write failure after CPU1 ack, pending CPU3, blocked entries and actual resumed guest stores"
+    },
+    {
+      "id": "NP3",
+      "status": "falsified and corrected",
+      "probe": "BigEnd=0, SDK clears requested EE on entry; current profile admission rejects unsupported pending metadata"
+    }
+  ],
+  "primary_sources": [
+    "../../specifications/arm/psci-den0022.pdf sections5.1.5,5.5-5.7,6.4",
+    "../../specifications/apple/hypervisor-sdk-27.2/provenance.json",
+    "../../specifications/arm/native-context-feature-registers/provenance.json",
+    "references/arm-sme-ddi0616ba.provenance.json"
+  ],
+  "remaining_full_requirements": [
+    "Streaming guest-visible FPSR preservation fails in direct SDK re-entry; raw failure retained and excluded explicitly from the passing native regression selection.",
+    "Restoration into a native VM that already entered a CPU still rejects; reconstruction and transactional admission remain required.",
+    "Complete native counter epoch/timer semantics, all-writer coordination, broader I/O and IRQ profiles remain required.",
+    "Full debug/thread selection, deterministic clocks/replay and other ISA/hardware startup/bounded execution remain required.",
+    "Physical Intel HVF validation is unverified; seven visible Mac peers are offline and architectures unknown.",
+    "A32 restricted profile controls and coherent profile/security/debug semantics remain open."
+  ],
+  "unrun_gates": [
+    "Full current root library and all-target execution",
+    "Current C API runtime suite; production C API member compiles and passes Clippy",
+    "Physical Intel HVF",
+    "Streaming preservation and already-entered VM reconstruction"
+  ],
+  "cleanup_and_commit": {
+    "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/cleanup-native-psci-v39-2026-10-30.json",
+    "cache_and_scratch_removed": true,
+    "source_integrity": "identical around deletion; original checkout and protected guests preserved",
+    "commit": "Exact git add and red -m --staged --run workflow next; terminal receipt recorded externally to avoid a self-referential commit hash."
+  },
+  "component_quality_gates": {
+    "assumptions": "Reconciled, including falsified BE-host assumption and actual retry/entry probes",
+    "requirement_coverage": "Component implementation and direct evidence recorded; full four-finding requirements remain open",
+    "reproducibility": "Actual Cargo-reported signed binaries, frozen source/guest inputs, primary references and raw failures retained",
+    "contradictions_and_edges": "Known streaming failure, older-host hotplug and entered-VM limits explicit; affinity-width and checked-PC-overflow edges corrected",
+    "provenance": "SDK and exact Arm/Linux metadata verified; incorrect generic SVE attribution corrected",
+    "bounded_scope": "High/medium remaining requirements retained; no unrelated code changed",
+    "integrity": "Cleanup fingerprints match; exact-path staging and final commit-tree verification next",
+    "behavioral_evidence": "Current94 portable+3 native, prior21 native and59 runtime; skipped/excluded and prior-version scopes explicit",
+    "repository_consistency": "Guest binaries visible to Git, source inventories complete, schemas/documentation agree"
+  },
+  "reference_whitespace": {
+    "exception_scope": [
+      "Hypervisor.tbd blank-at-eol",
+      "hv_base.h blank-at-eof"
+    ],
+    "identity_receipt": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-upstream-whitespace-identity.json",
+    "initial_check_receipt": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-checkpoint-integration/native-staged-upstream-whitespace-before.json",
+    "sdk_bytes_modified": false
+  }
+}

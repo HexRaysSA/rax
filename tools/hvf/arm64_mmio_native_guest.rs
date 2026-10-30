@@ -1,6 +1,6 @@
 //! Actual signed native RAX ARM64 MMIO transaction consumer.
 use rax::backend::{
-    Backend,
+    Backend, Vm,
     hvf::{HvfArm64Backend, HvfArm64Vm},
 };
 use rax::vm::memory::GuestMemoryWrapper;
@@ -11,6 +11,18 @@ use std::{path::PathBuf, sync::Arc};
 use vm_memory::{Bytes, GuestAddress};
 const BASE: u64 = 0x40000000;
 const SEED: u64 = 0x1122334455667788;
+
+fn machine(backend: &HvfArm64Backend, memory: &GuestMemoryWrapper) -> Box<dyn Vm> {
+    let vm = backend.create_vm().unwrap();
+    vm.as_any()
+        .downcast_ref::<HvfArm64Vm>()
+        .unwrap()
+        .register_memory(memory, BASE, 0x4000)
+        .unwrap();
+    vm.configure_cpu_topology(1, BASE + 0x4000).unwrap();
+    vm
+}
+
 fn event(cpu: &mut dyn VCpu) -> VcpuExit {
     for _ in 0..100 {
         let e = cpu.run().unwrap();
@@ -60,17 +72,11 @@ fn record(rows: &mut Vec<u64>, cpu: &dyn VCpu, index: [u64; 4], exit: Option<Vcp
 fn main() {
     let out = PathBuf::from(std::env::args_os().nth(1).unwrap());
     let backend = HvfArm64Backend::new().unwrap();
-    let vm = backend.create_vm().unwrap();
     let memory = GuestMemoryWrapper::new(BASE + 0x4000).unwrap();
     let code = std::fs::read(out.join("guest.bin")).unwrap();
     memory
         .memory()
         .write_slice(&code, GuestAddress(BASE))
-        .unwrap();
-    vm.as_any()
-        .downcast_ref::<HvfArm64Vm>()
-        .unwrap()
-        .register_memory(&memory, BASE, 0x4000)
         .unwrap();
     let mut rows = Vec::new();
     for (case, size) in [1u8, 1, 1, 2, 2, 2, 4, 4, 8].into_iter().enumerate() {
@@ -89,6 +95,9 @@ fn main() {
             .into_iter()
             .enumerate()
             {
+                // Each independent case starts with fresh VM/controller state;
+                // no prior case's interrupt state can affect its observations.
+                let vm = machine(&backend, &memory);
                 let mut cpu = vm
                     .create_vcpu(0, Arc::new(memory.memory().clone()))
                     .unwrap();
@@ -141,6 +150,7 @@ fn main() {
     }
     // Invalid state admission must retain the old request. Successful state
     // replacement must cancel it, including a later reply for that request.
+    let vm = machine(&backend, &memory);
     let mut cpu = vm
         .create_vcpu(0, Arc::new(memory.memory().clone()))
         .unwrap();

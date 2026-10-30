@@ -114,7 +114,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `runtime_checkpoint_bundle` | `suites/vm/runtime_checkpoint_bundle.rs` | Coordinated represented CPU/device/physical memory admission and restore. |
 | `checkpoint_resume` | `suites/vm/checkpoint_resume.rs` | Typed detached file resume, page rounding and actual CLI UART/shutdown execution. |
 | `checkpoint_cpus` | `suites/vm/checkpoint_cpus.rs` | Every represented CPU context, full count domain and early all-context admission. |
-| `retirement_budget` | `suites/backend/retirement_budget.rs` | Bounded retirement, distinct exits, faults and zero-retirement transitions |
+| `retirement_budget` | `suites/backend/retirement_budget.rs` | Bounded retirement, distinct exits, faults, zero-retirement transitions and private-state-preserving register/PC updates |
 | `vm_timing` | `suites/vm/vm_timing.rs` | VM timing isolation, scoped binding and repeated restore |
 | `retired_clock` | `suites/vm/retired_clock.rs` | Exact retirement clock phase, wrap and state restoration |
 | `checkpoint_clock` | `suites/vm/checkpoint_clock.rs` | Required timing state, phase and restore admission |

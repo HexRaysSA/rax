@@ -85,7 +85,9 @@ fn compressed_limit(size: u64) -> u64 {
 }
 
 pub(super) fn write_to<W: Write>(snapshot: &Snapshot, writer: &mut W) -> Result<()> {
-    write_to_parts(snapshot, None, None, None, None, None, None, None, writer)
+    write_to_parts(
+        snapshot, None, None, None, None, None, None, None, None, writer,
+    )
 }
 fn write_to_parts<W: Write>(
     snapshot: &Snapshot,
@@ -93,11 +95,17 @@ fn write_to_parts<W: Write>(
     clock: Option<&crate::vm::timing::ClockState>,
     cpus: Option<&CpuSnapshots>,
     backend_contexts: Option<&super::BackendContexts>,
+    vm_context: Option<&super::BackendContext>,
     resources: Option<&super::ResourcesSnapshot>,
     pci: Option<&PciSnapshot>,
     physical: Option<&PhysicalMemorySnapshot>,
     writer: &mut W,
 ) -> Result<()> {
+    // Public base save validates its CPU payload before entering this framing
+    // layer. Extensions additionally require admission of their whole graph.
+    if cpus.is_some() || backend_contexts.is_some() || vm_context.is_some() {
+        super::producer::validate(snapshot, cpus, backend_contexts, vm_context)?;
+    }
     if snapshot.version != CHECKPOINT_VERSION {
         return Err(invalid(format!(
             "Unsupported checkpoint version {} (expected {})",
@@ -122,12 +130,8 @@ fn write_to_parts<W: Write>(
             super::clock::encode(state)
         })
         .transpose()?;
-    let cpu_records = cpus
-        .map(|c| {
-            c.validate(snapshot)?;
-            c.encoded()
-        })
-        .transpose()?;
+    let cpu_records = cpus.map(CpuSnapshots::encoded).transpose()?;
+    let shared_record = vm_context.map(super::vm_context::encode).transpose()?;
     let backend_records = backend_contexts
         .map(|c| c.encoded(snapshot.config.vcpus))
         .transpose()?;
@@ -163,6 +167,7 @@ fn write_to_parts<W: Write>(
         + u32::from(clock.is_some())
         + u32::from(cpus.is_some())
         + u32::from(backend_contexts.is_some())
+        + u32::from(vm_context.is_some())
         + u32::from(resources.is_some())
         + u32::from(physical.is_some())
         + if let Some(state) = pci {
@@ -199,6 +204,9 @@ fn write_to_parts<W: Write>(
             .write_all(&resources.encoded_len()?.to_le_bytes())
             .map_err(io)?;
         resources.write_to(writer)?;
+    }
+    if let Some(raw) = shared_record {
+        section(writer, 16, &raw)?;
     }
     if let Some(raw) = control {
         section(writer, 7, &raw)?;
@@ -237,6 +245,7 @@ pub(super) fn save_bundle_atomic(bundle: &SnapshotBundle, path: &Path) -> Result
             bundle.clock.as_ref(),
             bundle.cpus.as_ref(),
             bundle.backend_contexts.as_ref(),
+            bundle.vm_context.as_ref(),
             bundle.resources.as_ref(),
             bundle.pci.as_ref(),
             bundle.physical_memory.as_ref(),
@@ -385,6 +394,7 @@ fn read_sections<R: Read + Seek>(
     let mut physical_memory = None;
     let mut cpus = None;
     let mut backend_contexts = None;
+    let mut vm_context = None;
     let mut resources: Option<super::ResourcesSnapshot> = None;
     let mut clock = None;
     let mut execution = None;
@@ -393,13 +403,13 @@ fn read_sections<R: Read + Seek>(
         let kind = word(reader)?;
         let schema = word(reader)?;
         let length = long(reader)?;
-        if kind & OPTIONAL != 0 && (1..=15).contains(&(kind & !OPTIONAL)) {
+        if kind & OPTIONAL != 0 && (1..=16).contains(&(kind & !OPTIONAL)) {
             return Err(invalid("required checkpoint section marked optional"));
         }
         if !seen.insert(kind) {
             return Err(invalid("duplicate checkpoint section"));
         }
-        if !(1..=15).contains(&kind) {
+        if !(1..=16).contains(&kind) {
             if kind & OPTIONAL == 0 {
                 return Err(invalid("unknown required checkpoint section"));
             }
@@ -414,13 +424,35 @@ fn read_sections<R: Read + Seek>(
         if schema != SCHEMA && !(kind == 1 && schema == 2) {
             return Err(invalid("unsupported checkpoint section schema"));
         }
+        if kind == 16 {
+            if !allow_extensions {
+                return Err(invalid(
+                    "checkpoint contains required shared backend state; use SnapshotBundle::load",
+                ));
+            }
+            if [6, 7, 8, 9, 10].iter().any(|kind| seen.contains(kind)) {
+                return Err(invalid(
+                    "shared backend state must precede PCI/physical/media/RAM payloads",
+                ));
+            }
+            if cpus.is_none() || backend_contexts.is_none() {
+                return Err(invalid(
+                    "shared backend state requires preceding CPU and backend context sets",
+                ));
+            }
+            if length > remaining(reader, file_size)? {
+                return Err(invalid("truncated shared backend section"));
+            }
+            vm_context = Some(super::vm_context::read_from(reader, length)?);
+            continue;
+        }
         if kind == 15 {
             if !allow_extensions {
                 return Err(invalid(
                     "checkpoint contains required resources; use SnapshotBundle::load",
                 ));
             }
-            if [6, 7, 8, 9, 10].iter().any(|kind| seen.contains(kind)) {
+            if [6, 7, 8, 9, 10, 16].iter().any(|kind| seen.contains(kind)) {
                 return Err(invalid(
                     "resources must precede PCI/physical/media/RAM payloads",
                 ));
@@ -466,7 +498,10 @@ fn read_sections<R: Read + Seek>(
                     "checkpoint contains required backend contexts; use SnapshotBundle::load",
                 ));
             }
-            if [6, 7, 8, 9, 10, 15].iter().any(|kind| seen.contains(kind)) {
+            if [6, 7, 8, 9, 10, 15, 16]
+                .iter()
+                .any(|kind| seen.contains(kind))
+            {
                 return Err(invalid(
                     "backend contexts must precede PCI/physical/media/RAM payloads",
                 ));
@@ -491,7 +526,7 @@ fn read_sections<R: Read + Seek>(
                     "checkpoint contains required execution state; use SnapshotBundle::load",
                 ));
             }
-            if [6, 7, 8, 9, 10, 14, 15]
+            if [6, 7, 8, 9, 10, 14, 15, 16]
                 .iter()
                 .any(|kind| seen.contains(kind))
             {
@@ -512,7 +547,7 @@ fn read_sections<R: Read + Seek>(
                     "checkpoint contains required clock state; use SnapshotBundle::load",
                 ));
             }
-            if [6, 7, 8, 9, 10, 11, 13, 14, 15]
+            if [6, 7, 8, 9, 10, 11, 13, 14, 15, 16]
                 .iter()
                 .any(|k| seen.contains(k))
             {
@@ -542,7 +577,7 @@ fn read_sections<R: Read + Seek>(
                     "checkpoint contains required CPU set; use SnapshotBundle::load",
                 ));
             }
-            if [6, 7, 8, 9, 10, 13, 14, 15]
+            if [6, 7, 8, 9, 10, 13, 14, 15, 16]
                 .iter()
                 .any(|k| seen.contains(k))
             {
@@ -567,7 +602,12 @@ fn read_sections<R: Read + Seek>(
                 return Err(invalid("truncated CPU section"));
             }
             cpus = Some(CpuSnapshots::read_from(
-                reader, length, conf.vcpus, cpu, emulator,
+                reader,
+                length,
+                conf.vcpus,
+                cpu,
+                emulator,
+                super::producer::is_native(conf),
             )?);
             continue;
         }
@@ -708,6 +748,7 @@ fn read_sections<R: Read + Seek>(
         base,
         resources,
         backend_contexts,
+        vm_context,
         execution,
         clock,
         cpus,

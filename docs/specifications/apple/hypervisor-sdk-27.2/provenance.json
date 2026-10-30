@@ -1,0 +1,78 @@
+{
+  "issuer": "Apple Inc.",
+  "source": "Exact unmodified headers from the installed Xcode27.2 macOS27.2 SDK, build26B5091g.",
+  "toolchain_evidence": "/Users/int/dev/rax-audit-work/four-findings-native-private-state/native-arm64-baseline/primary-sdk-version-v1.json",
+  "files": [
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_vcpu.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_vcpu.h",
+      "sha256": "b2994fcff480214887eb1880e82dd69fb37855da32f28786cb2d9b402275f772"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_vcpu_types.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_vcpu_types.h",
+      "sha256": "6692e4fb14c622cdaec764bb3e2b7db77e5d41d6bf599d4c5f1f7352b8d65e21"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_gic.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_gic.h",
+      "sha256": "05caba2da304b657dda9c70c8424420d04195880d968d48a72bb29c85709a5a1"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_gic_state.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_gic_state.h",
+      "sha256": "e01241a093857bad8fd4389001882319c4ccaa0f56946668846eeb31bf84d835"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_gic_types.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_gic_types.h",
+      "sha256": "83aa7196c190ab046821c1e54e3494fab9d809ff75e4a57afd7cc425abdc7fe8"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_vcpu_config.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_vcpu_config.h",
+      "sha256": "48611524fc83bd4d6629375ec2f392fa193ceb9da27d4fc3502b530dc9c3764c"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_vm.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_vm.h",
+      "sha256": "f0e080fa024b144d6941d0e598eb57e4a8f6f1335d3762e2c4418cc5d7e6f40f"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_vm_config.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_vm_config.h",
+      "sha256": "d78e79fcba06933850637e4bc572839a59b7aa3592c0830d7bf80e201fbc6e6a"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_sme_config.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_sme_config.h",
+      "sha256": "fe19196aa5eca158fd8f62fec206a547f217af48052ea424df428d65da6f8150"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/Hypervisor.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/Hypervisor.h",
+      "sha256": "ef2dd179b54544dc37e158894272859474c1f886e534614a376ae676a6c667ff"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_gic_config.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_gic_config.h",
+      "sha256": "40716c3f6b1453cb4828a193c8099e0d9a81fd6cdbd1ccdcfab2c84ffd9de55b"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_base.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_base.h",
+      "sha256": "d939e9f9be177fe47de1761f6d81d9fd2c4e22028a5d10465af199888a17dc47"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_vm_types.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_vm_types.h",
+      "sha256": "70a9c6cad172df8249f6a5d5e2298c99311897a230396b894ac6ead7a1453ea6"
+    },
+    {
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_error.h",
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_error.h",
+      "sha256": "0479e1e2702a87a159b362aafee6d439ba1ec1f3b41971642c0f4f985faca2d8"
+    }
+  ],
+  "scope": "Primary native ABI, vCPU ownership/register/control and kernel-GIC checkpoint contracts."
+}

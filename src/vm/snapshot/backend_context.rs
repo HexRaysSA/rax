@@ -17,6 +17,8 @@ pub const RISCV_CONTEXT: u32 = 3;
 pub const X86_64_CONTEXT: u32 = 4;
 /// Software AArch64 core, memory observations and pending adapter execution.
 pub const AARCH64_CONTEXT: u32 = 5;
+/// Native ARM64 HVF CPU and shared VM producer, with distinct inner tags.
+pub const HVF_AARCH64_CONTEXT: u32 = 6;
 
 /// An opaque, bounded backend-owned record. Its kind identifies its producer;
 /// an architectural register projection cannot substitute for this payload.
@@ -33,6 +35,13 @@ pub struct BackendContexts {
 
 fn invalid(message: impl std::fmt::Display) -> Error {
     Error::Emulator(format!("backend checkpoint contexts: {message}"))
+}
+fn record_limit(kind: u32) -> u64 {
+    if kind == HVF_AARCH64_CONTEXT {
+        crate::backend::arm64_hvf_context::MAX_CPU_CONTEXT
+    } else {
+        MAX_RECORD
+    }
 }
 
 impl BackendContexts {
@@ -55,7 +64,7 @@ impl BackendContexts {
         for context in self.entries.iter().flatten() {
             if context.kind == 0
                 || context.data.is_empty()
-                || context.data.len() as u64 > MAX_RECORD
+                || context.data.len() as u64 > record_limit(context.kind)
             {
                 return Err(invalid("invalid context kind or record length"));
             }
@@ -128,7 +137,7 @@ impl BackendContexts {
             reader.read_exact(&mut row).map_err(invalid)?;
             let kind = u32::from_le_bytes(row[..4].try_into().unwrap());
             let size = u64::from_le_bytes(row[4..].try_into().unwrap());
-            if (kind == 0) != (size == 0) || size > MAX_RECORD {
+            if (kind == 0) != (size == 0) || size > record_limit(kind) {
                 return Err(invalid("invalid context kind or record length"));
             }
             total = total

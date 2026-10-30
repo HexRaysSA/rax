@@ -229,6 +229,12 @@ impl TimingContext {
         });
         TimingGuard { token }
     }
+
+    /// Capture the caller's binding for an explicitly dispatched worker request.
+    /// The worker must enter and drop its own guard; guards remain thread-bound.
+    pub(crate) fn current() -> Option<Arc<Self>> {
+        CURRENT.with(|stack| stack.borrow().last().map(|binding| binding.clock.clone()))
+    }
 }
 struct Binding {
     token: Rc<()>,

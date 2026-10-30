@@ -1,0 +1,10 @@
+{
+  "title": "The Cargo Book: Environment Variables",
+  "issuer": "The Rust Project",
+  "source_url": "https://doc.rust-lang.org/cargo/reference/environment-variables.html",
+  "retrieved_utc": "2026-10-30T05:00:08.692380+00:00",
+  "revision": "Current official page; exact publication revision unknown",
+  "sha256": "216e37a099fc1ad99e255509abb6b38a4af9f5fd29dbddc35b37d7192208dfc5",
+  "bytes": 60360,
+  "used_contract": "RUSTC_WORKSPACE_WRAPPER affects workspace artifact filename hashes; task-local /usr/bin/env is a pass-through preserving the compiler invocation."
+}

@@ -6,6 +6,7 @@ use std::path::Path;
 pub struct SnapshotBundle {
     pub(super) resources: Option<super::ResourcesSnapshot>,
     pub(super) backend_contexts: Option<super::BackendContexts>,
+    pub(super) vm_context: Option<super::BackendContext>,
     pub(super) execution: Option<super::ExecutionSnapshot>,
     pub(super) clock: Option<crate::vm::timing::ClockState>,
     pub(super) base: Snapshot,
@@ -19,6 +20,7 @@ impl std::fmt::Debug for SnapshotBundle {
             .field("base", &self.base.summary())
             .field("resources", &self.resources)
             .field("backend_contexts", &self.backend_contexts.is_some())
+            .field("vm_context", &self.vm_context.is_some())
             .field("execution", &self.execution.is_some())
             .field("clock", &self.clock)
             .field("pci", &self.pci.is_some())
@@ -33,6 +35,7 @@ impl SnapshotBundle {
             base,
             resources: None,
             backend_contexts: None,
+            vm_context: None,
             execution: None,
             clock: None,
             cpus: None,
@@ -81,12 +84,49 @@ impl SnapshotBundle {
     pub fn take_backend_contexts(&mut self) -> Option<super::BackendContexts> {
         self.backend_contexts.take()
     }
+    pub fn vm_context(&self) -> Option<&super::BackendContext> {
+        self.vm_context.as_ref()
+    }
+    pub fn take_vm_context(&mut self) -> Option<super::BackendContext> {
+        self.vm_context.take()
+    }
+    /// Admit public, private and shared producer state together. Native CPU
+    /// projections are incomplete until all three parts are available.
+    pub fn with_checkpoint_records(
+        mut self,
+        cpus: Vec<CpuSnapshot>,
+        contexts: Vec<Option<super::BackendContext>>,
+        shared: Option<super::BackendContext>,
+    ) -> Result<Self> {
+        self.cpus = Some(if super::producer::is_native(&self.base.config) {
+            CpuSnapshots::capture_native(cpus, &self.base)?
+        } else {
+            CpuSnapshots::capture(cpus, &self.base)?
+        });
+        self.backend_contexts = if contexts.iter().any(Option::is_some) {
+            Some(super::BackendContexts::capture(
+                contexts,
+                self.base.config.vcpus,
+            )?)
+        } else {
+            if contexts.len() != usize::from(self.base.config.vcpus) {
+                return Err(Error::Emulator(
+                    "backend context count differs from CPU count".into(),
+                ));
+            }
+            None
+        };
+        self.vm_context = shared;
+        self.validate()?;
+        Ok(self)
+    }
     pub fn execution(&self) -> Option<&super::ExecutionSnapshot> {
         self.execution.as_ref()
     }
     pub(crate) fn with_execution(mut self, state: super::ExecutionSnapshot) -> Result<Self> {
         state.validate(&self.base)?;
         self.execution = Some(state);
+        self.validate()?;
         Ok(self)
     }
     pub fn take_execution(&mut self) -> Option<super::ExecutionSnapshot> {
@@ -96,7 +136,7 @@ impl SnapshotBundle {
         self.clock.as_ref()
     }
     pub fn with_clock(mut self, state: crate::vm::timing::ClockState) -> Result<Self> {
-        self.base.validate_for_restore()?;
+        self.validate_cpu_graph()?;
         super::clock::validate(&state, &self.base)?;
         self.clock = Some(state);
         Ok(self)
@@ -142,6 +182,11 @@ impl SnapshotBundle {
     /// Compatibility with the immediately preceding unreleased bundle API.
     /// Required physical state cannot be silently discarded by pair extraction.
     pub fn into_parts(self) -> Result<(Snapshot, Option<PciSnapshot>)> {
+        if self.vm_context.is_some() {
+            return Err(Error::Emulator(
+                "checkpoint contains required shared backend state".into(),
+            ));
+        }
         if self.resources.is_some() {
             return Err(Error::Emulator(
                 "checkpoint contains required resources".into(),
@@ -176,6 +221,7 @@ impl SnapshotBundle {
     }
     pub fn into_base(self) -> Result<Snapshot> {
         if self.resources.is_some()
+            || self.vm_context.is_some()
             || self.backend_contexts.is_some()
             || self.execution.is_some()
             || self.pci.is_some()
@@ -192,23 +238,52 @@ impl SnapshotBundle {
     /// Verify all represented physical bytes and the reported-RAM projection.
     /// PCI media/controller validation remains available through PciSnapshot.
     pub fn verify_physical_memory(&self) -> Result<()> {
-        self.validate()?;
+        self.validate_complete()?;
         if let Some(state) = &self.physical_memory {
             state.verify_projection(&self.base.memory_data, self.base.memory_size)?;
         }
         Ok(())
     }
     pub fn save(&self, path: impl AsRef<Path>) -> Result<()> {
-        self.validate()?;
+        self.validate_complete()?;
         codec::save_bundle_atomic(self, path.as_ref())
     }
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {
         let bundle = codec::load_bundle(path.as_ref())?;
-        bundle.validate()?;
+        bundle.validate_complete()?;
         Ok(bundle)
     }
+    /// Builders may temporarily lack later sections. Materialized native files
+    /// must include every byte in the SDK-mapped RAM window.
+    pub(crate) fn validate_complete(&self) -> Result<()> {
+        self.validate()?;
+        if super::producer::is_native(&self.base.config) {
+            if self.execution.is_none() || self.clock.is_none() {
+                return Err(Error::InvalidConfig(
+                    "native checkpoint requires coordinator and clock state".into(),
+                ));
+            }
+            let physical = self.physical_memory.as_ref().ok_or_else(|| {
+                Error::InvalidConfig(
+                    "native checkpoint requires its complete physical RAM image".into(),
+                )
+            })?;
+            let base = crate::machine::arm_virt::AARCH64_RAM_BASE;
+            let end = base.checked_add(self.base.memory_size).ok_or_else(|| {
+                Error::InvalidConfig("native checkpoint RAM window overflows".into())
+            })?;
+            if !physical.layout().any(|(start, size)| {
+                start <= base && start.checked_add(size).is_some_and(|limit| limit >= end)
+            }) {
+                return Err(Error::InvalidConfig(
+                    "native physical image does not cover mapped RAM".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
     pub(crate) fn validate(&self) -> Result<()> {
-        self.base.validate_for_restore()?;
+        self.validate_cpu_graph()?;
         if let Some(resources) = &self.resources {
             if self.cpus.is_none() || self.backend_contexts.is_none() {
                 return Err(Error::Emulator(
@@ -232,17 +307,31 @@ impl SnapshotBundle {
                 ));
             }
             execution.validate(&self.base)?;
+            if super::producer::is_native(&self.base.config) {
+                let shared = self
+                    .vm_context
+                    .as_ref()
+                    .ok_or_else(|| Error::InvalidConfig("missing native power graph".into()))?;
+                crate::backend::arm64_hvf_context::GlobalContext::decode(&shared.data)?
+                    .power
+                    .validate_online(&execution.online)?;
+            }
         }
         if let Some(clock) = &self.clock {
             super::clock::validate(clock, &self.base)?;
-        }
-        if let Some(cpus) = &self.cpus {
-            cpus.validate(&self.base)?;
         }
         if let Some(pci) = &self.pci {
             pci.validate(&self.base.config, self.base.memory_size)?;
         }
         self.validate_physical_metadata()
+    }
+    fn validate_cpu_graph(&self) -> Result<()> {
+        super::producer::validate(
+            &self.base,
+            self.cpus.as_ref(),
+            self.backend_contexts.as_ref(),
+            self.vm_context.as_ref(),
+        )
     }
     fn validate_physical_metadata(&self) -> Result<()> {
         let media = self.pci.as_ref().map_or(0, |p| {

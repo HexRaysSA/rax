@@ -1,0 +1,48 @@
+{
+  "utc": "2026-10-30T05:28:47.683933+00:00",
+  "fixture": "terminal-psci.s",
+  "fixture_sha256": "7935df337fa29c49e67786d4e92ed71397d9cf702532e1170a4116d5e9e996bb",
+  "assembler": "/Users/int/local/bin/llvm-mc",
+  "assembler_version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore\n",
+  "command": [
+    "/Users/int/local/bin/llvm-mc",
+    "-triple=aarch64",
+    "-show-encoding"
+  ],
+  "encoding_words": [
+    "0x52800100",
+    "0x72b08000",
+    "0xd4000002",
+    "0xd28175a2",
+    "0xd4000002",
+    "0x52800120",
+    "0x72b08000",
+    "0xd4000002",
+    "0xd28175a2",
+    "0xd4000002",
+    "0x52800100",
+    "0x72b08000",
+    "0xd4000003",
+    "0xd28175a2",
+    "0xd4000003",
+    "0x52800120",
+    "0x72b08000",
+    "0xd4000003",
+    "0xd28175a2",
+    "0xd4000003"
+  ],
+  "semantic_reference": {
+    "document": "docs/specifications/arm/psci-den0022.pdf",
+    "title": "Power State Coordination Interface (PSCI) System Software on ARM Systems",
+    "revision": "ARM DEN 0022D",
+    "sha256": "ed924cebfe9f705327b0c07832c643023ad0525887477440a6195887dda37253",
+    "sections": [
+      "5.1.9 SYSTEM_OFF",
+      "5.1.10 SYSTEM_RESET",
+      "5.10 SYSTEM_OFF",
+      "5.11 SYSTEM_RESET"
+    ],
+    "scope": "Neither operation returns to the caller. RAX currently surfaces both as Shutdown. Explicit VCpu wake/set_state is an embedding API operation, not a claim that architectural cold boot is implemented."
+  },
+  "assembler_is_semantic_oracle": false
+}

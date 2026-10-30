@@ -90,9 +90,14 @@ impl Vmm {
         if !self.vcpus[index].supports_stepping() {
             // Native scheduling is being connected to each backend's bounded
             // entry contract separately; do not claim instruction retirement.
+            let exit = self.vcpus[index].run()?;
+            self.route_interprocessor_requests()?;
+            if !self.coordinator.online[index] {
+                return Ok(None);
+            }
             return Ok(Some(ExecutionTurn {
                 cpu_index: index,
-                exit: self.vcpus[index].run()?,
+                exit,
                 #[cfg(feature = "debug")]
                 debug_step_completed: false,
             }));
@@ -149,6 +154,7 @@ impl Vmm {
                                 Error::Emulator("CPU_OFF target exceeds VMM topology".into())
                             })?;
                         *online = false;
+                        self.vm.complete_cpu_stop(cpu_id)?;
                     }
                 }
             }

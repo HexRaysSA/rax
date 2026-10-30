@@ -1,0 +1,24 @@
+[
+  {
+    "file": "rust-thread-spawn.html",
+    "url": "https://doc.rust-lang.org/std/thread/fn.spawn.html",
+    "issuing_organization": "The Rust Project",
+    "title": "Rust standard library std::thread documentation",
+    "revision": "1.99.1,58cf8f9c3,2026-10-13 as verified in the published documentation",
+    "retrieved_utc": "2026-10-30T07:17:58.766198+00:00",
+    "sha256": "f8182e29191f4cdbe0218d1b5aaf411e420e360bc2d452c3c587fbd4b3629f5c",
+    "bytes": 11861,
+    "use": "OS thread creation failure: free spawn panics, Builder::spawn returns io::Result; same standard-library version as pinned validation compiler."
+  },
+  {
+    "file": "rust-thread-builder.html",
+    "url": "https://doc.rust-lang.org/std/thread/struct.Builder.html",
+    "issuing_organization": "The Rust Project",
+    "title": "Rust standard library std::thread documentation",
+    "revision": "1.99.1,58cf8f9c3,2026-10-13 as verified in the published documentation",
+    "retrieved_utc": "2026-10-30T07:17:59.182113+00:00",
+    "sha256": "7c33505928066471f13dca59aa65f7c7e51de5d726ef54b610a1666b9e9e9f35",
+    "bytes": 42194,
+    "use": "OS thread creation failure: free spawn panics, Builder::spawn returns io::Result; same standard-library version as pinned validation compiler."
+  }
+]

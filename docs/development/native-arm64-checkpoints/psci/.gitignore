@@ -1,0 +1,3 @@
+# Tiny LLVM-assembled guest fixtures required by include_bytes! tests.
+!boot-2.bin
+!boot-4.bin

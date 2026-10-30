@@ -6,7 +6,7 @@ fn unsupported_stack_mode(pstate: u64) -> Error {
         pstate & 0x1f,
     ))
 }
-impl HvfArm64Vcpu {
+impl HvfArm64Core {
     pub(super) fn native_state(&self) -> Result<CpuState> {
         let mut regs = Aarch64Registers::default();
 
@@ -45,6 +45,10 @@ impl HvfArm64Vcpu {
         sregs.tpidr_el0 = self.read_sys_reg(HV_SYS_REG_TPIDR_EL0)?;
         sregs.tpidr_el1 = self.read_sys_reg(HV_SYS_REG_TPIDR_EL1)?;
         sregs.tpidrro_el0 = self.read_sys_reg(HV_SYS_REG_TPIDRRO_EL0)?;
+        sregs.cntp_cval_el0 = self.read_sys_reg(HV_SYS_REG_CNTP_CVAL_EL0)?;
+        sregs.cntp_ctl_el0 = self.read_sys_reg(HV_SYS_REG_CNTP_CTL_EL0)?;
+        sregs.cntv_cval_el0 = self.read_sys_reg(HV_SYS_REG_CNTV_CVAL_EL0)?;
+        sregs.cntv_ctl_el0 = self.read_sys_reg(HV_SYS_REG_CNTV_CTL_EL0)?;
 
         regs.sp = stack::current_sp(regs.pstate, sregs.sp_el0, sregs.sp_el1)
             .ok_or_else(|| unsupported_stack_mode(regs.pstate))?;
@@ -95,6 +99,8 @@ impl HvfArm64Vcpu {
         self.write_sys_reg(HV_SYS_REG_TTBR1_EL1, sregs.ttbr1_el1)?;
         self.write_sys_reg(HV_SYS_REG_MAIR_EL1, sregs.mair_el1)?;
         self.write_sys_reg(HV_SYS_REG_VBAR_EL1, sregs.vbar_el1)?;
+        self.write_sys_reg(HV_SYS_REG_ESR_EL1, sregs.esr_el1)?;
+        self.write_sys_reg(HV_SYS_REG_FAR_EL1, sregs.far_el1)?;
         self.write_sys_reg(HV_SYS_REG_ELR_EL1, sregs.elr_el1)?;
         self.write_sys_reg(HV_SYS_REG_SPSR_EL1, sregs.spsr_el1)?;
         self.write_sys_reg(HV_SYS_REG_SP_EL0, sp_el0)?;
@@ -102,6 +108,11 @@ impl HvfArm64Vcpu {
         self.write_sys_reg(HV_SYS_REG_TPIDR_EL0, sregs.tpidr_el0)?;
         self.write_sys_reg(HV_SYS_REG_TPIDR_EL1, sregs.tpidr_el1)?;
         self.write_sys_reg(HV_SYS_REG_TPIDRRO_EL0, sregs.tpidrro_el0)?;
+        // Install compare values before enabling either timer.
+        self.write_sys_reg(HV_SYS_REG_CNTP_CVAL_EL0, sregs.cntp_cval_el0)?;
+        self.write_sys_reg(HV_SYS_REG_CNTV_CVAL_EL0, sregs.cntv_cval_el0)?;
+        self.write_sys_reg(HV_SYS_REG_CNTP_CTL_EL0, sregs.cntp_ctl_el0)?;
+        self.write_sys_reg(HV_SYS_REG_CNTV_CTL_EL0, sregs.cntv_ctl_el0)?;
 
         Ok(())
     }

@@ -327,7 +327,6 @@ impl VCpu for Aarch64Vcpu {
         self.cpu.set_fpsr_value(state.regs.fpsr);
         self.cpu.set_pc(state.regs.pc);
         self.cpu.set_sp(state.regs.sp);
-        self.shutdown = false;
         Ok(())
     }
 
