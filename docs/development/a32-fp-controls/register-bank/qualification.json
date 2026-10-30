@@ -1,0 +1,186 @@
+{
+  "utc": "2026-10-30T06:58:53.243445+00:00",
+  "semantic_group": "A32/T32 D16 register-bank admission",
+  "status": "represented register-bank correction validated; full four-finding objective remains incomplete",
+  "integration_head_before_commit": "e9d621ac3ba8e9a39c2d534a7b1edcd04f86c5ed",
+  "validation_tree": "Combined integration checkout with unrelated unfinished native checkpoint changes; exact A32 inputs recorded below.",
+  "receipts": {
+    "baseline-tests.json": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "a32_fp_controls",
+        "register_banks::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 109.98049429204548,
+      "utc": "2026-10-30T06:51:46.009789+00:00",
+      "summaries": [
+        "test result: FAILED. 1 passed; 4 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.00s"
+      ]
+    },
+    "expanded-tests.json": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "a32_fp_controls",
+        "register_banks::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.5294197910116054,
+      "utc": "2026-10-30T06:56:10.760166+00:00",
+      "summaries": [
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.00s"
+      ]
+    },
+    "expanded-format.json": {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 13.481324916996527,
+      "utc": "2026-10-30T06:56:09.230152+00:00",
+      "summaries": []
+    },
+    "gate-owning.json": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "a32_fp_controls",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.41195995797170326,
+      "utc": "2026-10-30T06:56:34.782651+00:00",
+      "summaries": [
+        "test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+      ]
+    },
+    "gate-vfp.json": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "arm_vfp_a32",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 49.09602300002007,
+      "utc": "2026-10-30T06:57:23.879499+00:00",
+      "summaries": [
+        "test result: ok. 497 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 46.31s"
+      ]
+    },
+    "gate-pairs.json": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "a32_fp_pairs",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.8137174579896964,
+      "utc": "2026-10-30T06:57:51.014496+00:00",
+      "summaries": [
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s"
+      ]
+    },
+    "gate-clippy.json": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--lib",
+        "--test",
+        "a32_fp_controls",
+        "--test",
+        "arm_vfp_a32"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 36.81480300001567,
+      "utc": "2026-10-30T06:58:27.830028+00:00",
+      "summaries": []
+    }
+  },
+  "counts": {
+    "owning_tests": 31,
+    "vfp_tests": 497,
+    "core_pair_tests": 5,
+    "total_tests": 533,
+    "new_tests": 8,
+    "standalone_instruction_executions": 140,
+    "mixed_width_instruction_executions": 70,
+    "access_denied_absence_executions": 40,
+    "absent_reserved_bank_executions": 6,
+    "independent_qemu_executions": 132
+  },
+  "coverage": [
+    "Every selected absent-register case returns Undefined before architectural register/FPSCR/CPSR/memory/base writeback changes.",
+    "All represented D32 operations execute; all mixed-width controls advance PC by4bytes and retire exactly one instruction.",
+    "S31 operands, fixed-point immediate bits, VMOV literal bits and zero-comparison bits do not invent high-D accesses.",
+    "Capability absence precedes ordinary FP access denial/trapping."
+  ],
+  "primary_sources": "provenance.json",
+  "source_sha256": {
+    "src/isa/arm/aarch32/fp_admission.rs": "53d10289100373263325e8f62c2eab1e367d0c73cf847c80482dc091c32debf5",
+    "src/isa/arm/aarch32/fp_registers.rs": "56f7c0d45b5c5b43b49cd3ba407a77e9c834ceb43ab3056622de280e8a8dc15e",
+    "tests/suites/backend/a32_fp_controls.rs": "063937121101a2432720da28ef6d548e54f8a906920b2c5158733b54b8c89890",
+    "tests/suites/backend/a32_fp_controls/register_banks.rs": "81f6a3c1878b3b7b47b3d6c82fbd68188f1dbb4fed873afafccfcf0c325eb456",
+    "docs/development/a32-fp-controls/register-bank/README.md": "68abdb8dda98cbf40992789d1690ced119ab33cb4a10d22a9a2cbd998b611aa2",
+    "docs/development/a32-fp-controls/register-bank/assembly.json": "017b35b7a5906f85b88e6704194d2b000eb83a6035f748d1cc317d4352d1c314",
+    "docs/development/a32-fp-controls/register-bank/cases.s": "554d26514b0f72c6a9c647db1125c8fbee8694bc878e48498e4db3de5f8f4449",
+    "docs/development/a32-fp-controls/register-bank/mvfr0-extract.txt": "85a178345f7f943db28750f594e43ce8534cc63c080b3500995d5df43336f7c1",
+    "docs/development/a32-fp-controls/register-bank/provenance.json": "326119d2a0d871dde9424fb1e7637436e643c8467ffb3d8462f49f15c154440a"
+  },
+  "limits": [
+    "Physical A32 execution is unverified.",
+    "QEMU executable/source identity beyond version string is unknown.",
+    "Cortex-A15 excludes newer directed-conversion instructions; these use manual-derived RAX controls.",
+    "This correction does not close remaining scalar precision, divide/sqrt, SIMD subfields, profile identity or remaining security/debug controls.",
+    "No complete current-source root-library/all-target/doctest/platform result is claimed for this scoped correction.",
+    "C-STATE, C-SMP and C-HVF remain incomplete."
+  ]
+}

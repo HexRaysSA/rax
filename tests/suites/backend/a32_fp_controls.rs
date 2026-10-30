@@ -668,3 +668,6 @@ fn invalid_fp_system_registers_preserve_the_existing_diagnostic_exit() {
         ExecResult::Exception(rax::isa::arm::ExceptionType::UndefinedInstruction)
     ));
 }
+
+#[path = "a32_fp_controls/register_banks.rs"]
+mod register_banks;

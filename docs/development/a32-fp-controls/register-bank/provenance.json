@@ -1,0 +1,35 @@
+{
+  "utc": "2026-10-30T06:55:15.555086+00:00",
+  "primary_arm_reference": {
+    "title": "ARM Architecture Reference Manual ARMv8, for ARMv8-A architecture profile",
+    "issuing_organization": "Arm Limited",
+    "revision": "DDI0487B.a ID033117",
+    "section": "G6.2.107, printed pages G6-5065 throughG6-5067",
+    "provenance": "../../../specifications/arm/aarch32-fp-profile/provenance.json",
+    "extract": "mvfr0-extract.txt",
+    "derivation": "pdftotext -layout; exact section extraction with trailing blank lines removed; copyright notices retained",
+    "interpretation_boundary": "Register bank field definitions apply to standalone A32. D16 is not an allowed ARMv8-A configuration and is not produced for the mixed-width PE."
+  },
+  "qemu_reference": {
+    "title": "QEMU Arm TCG implementation",
+    "issuing_organization": "QEMU Project",
+    "revision": "v11.1.2",
+    "provenance": "../references/qemu-11.1.2/provenance.json",
+    "guard_sites": "translate-vfp.c do_vfp_3op_dp, trans_VMOV_to_gp/from_gp, trans_VMOV_64_dp, trans_VLDM_VSTM_dp; cpu.c has_vfp_d32/has_neon profile coupling",
+    "runtime_version": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n",
+    "runtime_binary_matches_release_source": "unknown; version identity only"
+  },
+  "independent_execution": {
+    "directory": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/register-bank-qemu-v2",
+    "qualification": "qualification.json",
+    "passed": 132,
+    "matrix": "33 operations x ARM/Thumb x D16/D32. Two ARMv8 directed-conversion cases are excluded from Cortex-A15 oracle; they remain manual-derived RAX controls.",
+    "fixture_correction": "../register-bank-qemu-v1/fixture-correction.json"
+  },
+  "source_sha256": {
+    "docs/specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e",
+    "docs/development/a32-fp-controls/references/qemu-11.1.2/target/arm/cpu.c": "770dcec4a22de97a7c61ae724eff7f080b1faa9283490d10ccd3c3a56dd53453",
+    "docs/development/a32-fp-controls/references/qemu-11.1.2/target/arm/tcg/translate-vfp.c": "fb72857fb03c6b7b03ed47efb929550c2e12248a62ed0bb38fea2421aca50a82"
+  },
+  "assembler": "assembly.json records exact LLVM command, source hash and emitted instruction bytes. LLVM is an encoding tool, not the semantic oracle."
+}

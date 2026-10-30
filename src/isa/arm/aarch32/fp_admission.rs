@@ -5,6 +5,9 @@
 use super::vfp::VfpState;
 use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
 
+#[path = "fp_registers.rs"]
+mod registers;
+
 /// Decode-time capabilities precede access checks and architectural effects.
 /// The MVFR1/MVFR2 definitions are retained in ARM DDI 0487B.a, G6.2.108-109.
 pub(crate) fn instruction_supported(
@@ -13,7 +16,9 @@ pub(crate) fn instruction_supported(
     state: &VfpState,
     id_isar6: u32,
 ) -> bool {
-    if !half_supported(insn, advsimd, state, id_isar6) {
+    if !registers::instruction_supported(insn, advsimd, state)
+        || !half_supported(insn, advsimd, state, id_isar6)
+    {
         return false;
     }
     if matches!(

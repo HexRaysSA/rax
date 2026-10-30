@@ -1,0 +1,143 @@
+G6.2.107    MVFR0, Media and VFP Feature Register 0
+                  The MVFR0 characteristics are:
+
+                  Purpose
+                                  Describes the features provided by the AArch32 Advanced SIMD and Floating-point
+                                  implementation.
+                                  Must be interpreted with MVFR1 and MVFR2.
+                                  For general information about the interpretation of the ID registers see Principles of the ID scheme
+                                  for fields in ID registers on page G4-4701.
+
+                  Configurations
+                                  There is one instance of this register that is used in both Secure and Non-secure states.
+                                  AArch32 System register MVFR0 is architecturally mapped to AArch64 System register
+                                  MVFR0_EL1.
+                                  Implemented only if the implementation includes Advanced SIMD and floating-point instructions.
+
+                  Attributes
+                                  MVFR0 is a 32-bit register.
+
+
+                  Field descriptions
+                  The MVFR0 bit assignments are:
+
+
+
+                  31      28 27          24 23            20 19      16 15       12 11          8 7          4 3        0
+
+                   FPRound     FPShVec           FPSqrt       FPDivide   FPTrap          FPDP         FPSP     SIMDReg
+
+
+
+                  FPRound, bits [31:28]
+                                  Floating-Point Rounding modes. Indicates whether the floating-point implementation provides
+                                  support for rounding modes. Defined values are:
+                                  0000           Not implemented, or only Round to Nearest mode supported, except that Round towards
+                                                 Zero mode is supported for VCVT instructions that always use that rounding mode
+                                                 regardless of the FPSCR setting.
+                                  0001           All rounding modes supported.
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0001.
+
+                  FPShVec, bits [27:24]
+                                  Short Vectors. Indicates whether the floating-point implementation provides support for the use of
+                                  short vectors. Defined values are:
+                                  0000           Short vectors not supported.
+                                  0001           Short vector operation supported.
+                                  All other values are reserved.
+                                  In ARMv8-A the only permitted value is 0000.
+
+                  FPSqrt, bits [23:20]
+                                  Square Root. Indicates whether the floating-point implementation provides support for the ARMv6
+                                  VFP square root operations. Defined values are:
+                                  0000           Not supported in hardware.
+                                  0001           Supported.
+
+
+
+ARM DDI 0487B.a              Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.                          G6-5065
+ID033117                                             Non-Confidential
+G6 AArch32 System Register Descriptions
+G6.2 General system control registers
+
+
+
+                                   All other values are reserved.
+                                   In ARMv8-A the permitted values are 0000 and 0001.
+                                   The VSQRT.F32 instruction also requires the single-precision floating-point attribute, bits [7:4],
+                                   and the VSQRT.F64 instruction also requires the double-precision floating-point attribute, bits
+                                   [11:8].
+
+                    FPDivide, bits [19:16]
+                                   Indicates whether the floating-point implementation provides support for VFP divide operations.
+                                   Defined values are:
+                                   0000         Not supported in hardware.
+                                   0001         Supported.
+                                   All other values are reserved.
+                                   In ARMv8-A the permitted values are 0000 and 0001.
+                                   The VDIV.F32 instruction also requires the single-precision floating-point attribute, bits [7:4], and
+                                   the VDIV.F64 instruction also requires the double-precision floating-point attribute, bits [11:8].
+
+                    FPTrap, bits [15:12]
+                                   Floating Point Exception Trapping. Indicates whether the floating-point implementation provides
+                                   support for exception trapping. Defined values are:
+                                   0000         Not supported.
+                                   0001         Supported.
+                                   All other values are reserved.
+                                   A value of 0001 indicates that, when the corresponding trap is enabled, a floating-point exception
+                                   generates an exception.
+
+                    FPDP, bits [11:8]
+                                   Double Precision. Indicates whether the floating-point implementation provides support for
+                                   double-precision operations. Defined values are:
+                                   0000         Not supported in hardware.
+                                   0001         Supported, VFPv2.
+                                   0010         Supported, VFPv3, VFPv4, or ARMv8. VFPv3 and ARMv8 add an instruction to load
+                                                a double-precision floating-point constant, and conversions between double-precision
+                                                and fixed-point values.
+                                   All other values are reserved.
+                                   In ARMv8-A the permitted values are 0000 and 0010.
+                                   A value of 0b0001 or 0b0010 indicates support for all VFP double-precision instructions in the
+                                   supported version of VFP, except that, in addition to this field being nonzero:
+                                   •       VSQRT.F64 is only available if the Square root field is 0001.
+                                   •       VDIV.F64 is only available if the Divide field is 0001.
+                                   •       Conversion between double-precision and single-precision is only available if the
+                                           single-precision field is nonzero.
+
+                    FPSP, bits [7:4]
+                                   Single Precision. Indicates whether the floating-point implementation provides support for
+                                   single-precision operations. Defined values are:
+                                   0000         Not supported in hardware.
+                                   0001         Supported, VFPv2.
+                                   0010         Supported, VFPv3 or VFPv4. VFPv3 adds an instruction to load a single-precision
+                                                floating-point constant, and conversions between single-precision and fixed-point
+                                                values.
+
+
+
+G6-5066                       Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.              ARM DDI 0487B.a
+                                                      Non-Confidential                                                     ID033117
+                                                                                             G6 AArch32 System Register Descriptions
+                                                                                                 G6.2 General system control registers
+
+
+
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0010.
+                                  A value of 0b0001 or 0b0010 indicates support for all VFP single-precision instructions in the
+                                  supported version of VFP, except that, in addition to this field being nonzero:
+                                  •      VSQRT.F32 is only available if the Square root field is 0001.
+                                  •      VDIV.F32 is only available if the Divide field is 0001.
+                                  •      Conversion between double-precision and single-precision is only available if the
+                                         double-precision field is nonzero.
+
+                  SIMDReg, bits [3:0]
+                                  Advanced SIMD registers. Indicates whether the Advanced SIMD and floating-point
+                                  implementation provides support for the Advanced SIMD and floating-point register bank. Defined
+                                  values are:
+                                  0000        The implementation has no Advanced SIMD and floating-point support.
+                                  0001        The implementation includes floating-point support with 16 x 64-bit registers.
+                                  0010        The implementation includes Advanced SIMD and floating-point support with 32 x
+                                              64-bit registers.
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0010.
