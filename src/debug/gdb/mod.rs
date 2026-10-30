@@ -4,6 +4,7 @@
 //! communicating with the VMM via channels.
 
 mod commands;
+mod lifecycle;
 mod queries;
 mod thread_commands;
 pub mod threads;
@@ -20,6 +21,7 @@ use std::thread::{self, JoinHandle};
 use tracing::{debug, error, info, trace, warn};
 
 pub use commands::handle_command;
+pub(crate) use lifecycle::{OwnedServer, spawn_owned_server};
 pub use protocol::{parse_packet, send_packet, send_stop_reply};
 pub use registers::{pack_registers, unpack_registers};
 

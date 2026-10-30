@@ -393,6 +393,15 @@ assertion block, and target-description rejection or Python errors fail the test
 The wire cases use checksum-checked real TCP responses and the actual VMM loop.
 Native hardware debugger entry is a separate, unqualified execution profile.
 
+The same job runs `vm::runtime::gdb_lifecycle_tests::` for production listener
+shutdown with no client, a blocked attach, an idle client and a pending continue;
+malformed Unicode packets; controller loss; terminal-owner retries; and current
+session binding during checkpoint import. A bounded parent explicitly executes
+the otherwise ignored disconnected-owner subprocess and checks its marker. It
+terminates only its own child if the regression hangs. Do not use
+`--include-ignored` for the lifecycle filter: that would independently run the
+deliberately bounded child without its supervising parent.
+
 The memory cases cover distinct CR3 roots, read-only guest mappings, unchanged
 A/D bits, discontiguous pages, rejected late spans and malformed packets, live
 MMIO exclusions, reconnect mode reset and peer code-cache aliases. A second

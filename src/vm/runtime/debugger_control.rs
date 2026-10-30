@@ -3,6 +3,29 @@ use super::*;
 mod transaction;
 use crate::debug::gdb::{Resume, ResumeAction, threads::resume_plan};
 impl Vmm {
+    /// Keep the current request meaningful when importing guest CPU power state.
+    pub(super) fn validate_debugger_restore_online(&self, online: &[bool]) -> Result<()> {
+        let Some(plan) = &self.debugger.resume else {
+            return Ok(());
+        };
+        let dimensions_match = plan.len() == online.len() && online.len() == self.vcpus.len();
+        let offline_step = plan
+            .iter()
+            .zip(online)
+            .any(|(action, on)| !on && *action == ResumeAction::Step);
+        let running = plan.iter().any(|action| *action != ResumeAction::Stop);
+        let runnable = plan
+            .iter()
+            .zip(online)
+            .any(|(action, on)| *on && *action != ResumeAction::Stop);
+        if !dimensions_match || offline_step || (running && !runnable) {
+            return Err(Error::InvalidConfig(
+                "checkpoint execution conflicts with current debugger resume plan".into(),
+            ));
+        }
+        Ok(())
+    }
+
     pub(super) fn debugger_allows_cpu(&self, index: usize) -> bool {
         self.debugger.failure.is_none()
             && !self.gdb_stopped
@@ -153,5 +176,14 @@ impl Vmm {
         self.gdb_single_step = false;
         self.debugger = debugger::State::default();
         Ok(())
+    }
+
+    /// A dead controller cannot retain stop masks or host debug overlays.
+    /// Close channels before joining so response waits are cancelled as well.
+    pub(super) fn disconnect_debugger_transport(&mut self) -> Result<()> {
+        let result = self.detach_debugger();
+        drop(self.gdb_channels.take());
+        drop(self.gdb_thread.take());
+        result
     }
 }

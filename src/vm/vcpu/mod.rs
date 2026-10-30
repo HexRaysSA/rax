@@ -6,9 +6,13 @@ pub(crate) mod budget;
 pub use budget::{DEFAULT_RETIREMENT_QUANTUM, RetirementRun, RetirementStop};
 #[cfg(feature = "debug")]
 mod debug_memory;
+#[cfg(feature = "debug")]
+mod debugger;
 pub mod exit;
 #[cfg(feature = "debug")]
 pub use debug_memory::{DebugAddressSpace, X86DebugPaging};
+#[cfg(feature = "debug")]
+pub use debugger::DebuggerControls;
 mod power;
 pub mod state;
 
@@ -356,6 +360,24 @@ pub trait VCpu: Send {
     #[cfg(feature = "debug")]
     fn set_debugger_active(&mut self, active: bool) {
         let _ = active;
+    }
+
+    /// Host overlay carried by a prepared CPU replacement, when represented.
+    /// A whole-VM restore binds this to the current target debugger session.
+    #[cfg(feature = "debug")]
+    fn debugger_controls(&self) -> Option<DebuggerControls> {
+        None
+    }
+
+    /// Bind a prepared replacement before it or RAM can become live.
+    /// Providers exporting controls implement this without altering guest state.
+    /// Source-only host notifications must not complete the target's requests;
+    /// guest exceptions and pending device effects retain their imported state.
+    #[cfg(feature = "debug")]
+    fn bind_debugger_controls(&mut self, _controls: &DebuggerControls) -> Result<()> {
+        Err(crate::error::Error::InvalidConfig(
+            "CPU replacement cannot bind target debugger controls".into(),
+        ))
     }
 
     /// Snapshot the selected CPU's address space without executing a guest access.

@@ -1,8 +1,6 @@
 use std::sync::Arc;
 #[cfg(feature = "debug")]
 use std::sync::mpsc::TryRecvError;
-#[cfg(feature = "debug")]
-use std::thread::JoinHandle;
 
 use tracing::{debug, info};
 use vm_memory::Bytes;
@@ -285,7 +283,7 @@ pub struct Vmm {
     gdb_channels: Option<VmmGdbChannels>,
     /// GDB server thread handle.
     #[cfg(feature = "debug")]
-    gdb_thread: Option<JoinHandle<()>>,
+    gdb_thread: Option<gdb::OwnedServer>,
     /// Whether in single-step mode for GDB.
     #[cfg(feature = "debug")]
     gdb_single_step: bool,
@@ -655,7 +653,7 @@ impl Vmm {
         #[cfg(feature = "debug")]
         let (gdb_channels, gdb_thread) = if let Some(port) = config.gdb_port {
             let (gdb_ch, vmm_ch) = gdb::create_channels();
-            let handle = gdb::spawn_server(port, gdb_ch, config.wait_gdb)
+            let handle = gdb::spawn_owned_server(port, gdb_ch, config.wait_gdb)
                 .map_err(|e| Error::InvalidConfig(format!("failed to start GDB server: {}", e)))?;
             (Some(vmm_ch), Some(handle))
         } else {
@@ -969,6 +967,9 @@ mod checkpoint_restore;
 #[path = "runtime/gdb_smp_tests.rs"]
 mod gdb_smp_tests;
 
+#[cfg(all(test, feature = "debug"))]
+mod gdb_lifecycle_tests;
+
 #[cfg(feature = "debug")]
 mod debugger;
 #[cfg(feature = "debug")]
@@ -976,3 +977,13 @@ mod debugger_control;
 
 #[cfg(feature = "debug")]
 mod debugger_memory;
+
+#[cfg(feature = "debug")]
+impl Drop for Vmm {
+    fn drop(&mut self) {
+        // Cancel pending owner-response waits before joining the transport.
+        // Guest/backend resources remain alive until this shutdown completes.
+        drop(self.gdb_channels.take());
+        drop(self.gdb_thread.take());
+    }
+}

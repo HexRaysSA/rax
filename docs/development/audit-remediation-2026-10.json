@@ -2688,7 +2688,16 @@
         "src/vm/runtime/debugger_memory.rs",
         "src/isa/x86_64/inspection.rs",
         "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/native-fpsr-open.json",
-        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/raw-sdk-fpsr-reentry-v2/manifest.json"
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/raw-sdk-fpsr-reentry-v2/manifest.json",
+        "docs/development/software-smp-debugger/session-qualification.json",
+        "src/debug/gdb/lifecycle.rs",
+        "src/vm/runtime/gdb_lifecycle_tests.rs",
+        "src/vm/runtime/gdb_restore_tests.rs",
+        "src/vm/runtime/gdb_restore_admission_tests.rs",
+        "src/vm/runtime/gdb_transport_tests.rs",
+        "src/isa/x86_64/cpu_context/tests.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-red.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-green.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2710,7 +2719,8 @@
         "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure.",
         "Software x86 GDB per-CPU register/step/control, shared breakpoints, required exact x87 core bank and reconnect isolation are locally qualified, including an actual GDB client. The subsequent memory group covers selected-CPU ordinary RAM; complete live debugger-session restoration, other ISA/native debug entry, clocks/replay and physical Intel remain required; the full finding is not closed.",
         "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial.",
-        "Physical Apple Silicon streaming FPSR is reset on SDK entry: reproduced with RAX guest MRS and direct SDK-only first/repeated-entry controls; checkpoint write ordering alone cannot preserve the requested flags. A corrective implementation remains unqualified."
+        "Physical Apple Silicon streaming FPSR is reset on SDK entry: reproduced with RAX guest MRS and direct SDK-only first/repeated-entry controls; checkpoint write ordering alone cannot preserve the requested flags. A corrective implementation remains unqualified.",
+        "Current-session binding for software-x86 prepared CPUs and production GDB listener/socket shutdown are locally qualified by session-qualification.json. Native in-place host overlays/guest-TF ownership, other ISA/debugger profiles and the full original finding remain open; no physical Intel qualification."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2751,7 +2761,8 @@
         "per-cpu-task-priority-coherence-2026-10-30",
         "per-cpu-initial-apic-and-bsp-state-2026-10-30",
         "software-smp-debugger-control-2026-10-30",
-        "software-smp-debugger-memory-2026-10-30"
+        "software-smp-debugger-memory-2026-10-30",
+        "software-debugger-session-ownership-2026-10-30"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3371,7 +3382,17 @@
         "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/final-source.json",
         "docs/development/software-smp-debugger/memory-qualification.json",
         "src/vm/runtime/debugger_memory.rs",
-        "src/isa/x86_64/inspection.rs"
+        "src/isa/x86_64/inspection.rs",
+        "docs/development/software-smp-debugger/session-qualification.json",
+        "src/debug/gdb/lifecycle.rs",
+        "src/vm/runtime/gdb_lifecycle_tests.rs",
+        "src/vm/runtime/gdb_restore_tests.rs",
+        "src/vm/runtime/gdb_restore_admission_tests.rs",
+        "src/vm/runtime/gdb_transport_tests.rs",
+        "src/isa/x86_64/cpu_context/tests.rs",
+        "src/isa/x86_64/cpu_vcpu.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-red.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-green.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3388,7 +3409,8 @@
         "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
         "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure.",
         "Software x86 GDB per-CPU register/step/control, shared breakpoints, required exact x87 core bank and reconnect isolation are locally qualified, including an actual GDB client. The subsequent memory group covers selected-CPU ordinary RAM; complete live debugger-session restoration, other ISA/native debug entry, clocks/replay and physical Intel remain required; the full finding is not closed.",
-        "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial."
+        "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial.",
+        "Current-session binding for software-x86 prepared CPUs and production GDB listener/socket shutdown are locally qualified by session-qualification.json. Native in-place host overlays/guest-TF ownership, other ISA/debugger profiles and the full original finding remain open; no physical Intel qualification."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3418,7 +3440,8 @@
         "per-cpu-task-priority-coherence-2026-10-30",
         "per-cpu-initial-apic-and-bsp-state-2026-10-30",
         "software-smp-debugger-control-2026-10-30",
-        "software-smp-debugger-memory-2026-10-30"
+        "software-smp-debugger-memory-2026-10-30",
+        "software-debugger-session-ownership-2026-10-30"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -3993,7 +4016,17 @@
         "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json",
         "docs/development/software-smp-debugger/memory-qualification.json",
         "src/vm/runtime/debugger_memory.rs",
-        "src/isa/x86_64/inspection.rs"
+        "src/isa/x86_64/inspection.rs",
+        "docs/development/software-smp-debugger/session-qualification.json",
+        "src/debug/gdb/lifecycle.rs",
+        "src/vm/runtime/gdb_lifecycle_tests.rs",
+        "src/vm/runtime/gdb_restore_tests.rs",
+        "src/vm/runtime/gdb_restore_admission_tests.rs",
+        "src/vm/runtime/gdb_transport_tests.rs",
+        "src/isa/x86_64/cpu_context/tests.rs",
+        "src/isa/x86_64/cpu_vcpu.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-red.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-green.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4011,7 +4044,8 @@
         "Native mapping/routing group: 136 selected tests and Intel-target compilation; physical Intel failure/runtime proof, collateral instruction/page-table fetch, mixed-page operands, E820/resource consistency, remaining controller/private state and complete native scheduling remain open.",
         "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
         "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure.",
-        "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial."
+        "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial.",
+        "Current-session binding for software-x86 prepared CPUs and production GDB listener/socket shutdown are locally qualified by session-qualification.json. Native in-place host overlays/guest-TF ownership, other ISA/debugger profiles and the full original finding remain open; no physical Intel qualification."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4021,7 +4055,8 @@
         "hvf-native-memory-layout-and-pci-routing",
         "per-cpu-task-priority-coherence-2026-10-30",
         "per-cpu-initial-apic-and-bsp-state-2026-10-30",
-        "software-smp-debugger-memory-2026-10-30"
+        "software-smp-debugger-memory-2026-10-30",
+        "software-debugger-session-ownership-2026-10-30"
       ]
     },
     {
@@ -197466,6 +197501,95 @@
         "tools/execution/x86_debug_memory_oracle.py",
         "tools/hvf/mmio_alu_compare.rs",
         "tools/hvf/mmio_rmw_compare.rs"
+      ]
+    },
+    {
+      "id": "software-debugger-session-ownership-2026-10-30",
+      "status": "locally_validated",
+      "parent": "46b5f45a8aee15a0284b3e8fbb3fae3cfd65a5d5",
+      "scope": "Production GDB transport lifetime, malformed UTF-8 boundaries, dead-controller/terminal-owner admission and current-session binding for software-x86 prepared checkpoint replacements",
+      "qualification": "docs/development/software-smp-debugger/session-qualification.json",
+      "assumption_register": [
+        {
+          "id": "GS1",
+          "assumption": "The VMM exclusively owns its production command receiver and response sender",
+          "basis": "Private constructor fields and channel creation in runtime.rs",
+          "dependent_result": "Closing owner endpoints cancels response waits before joining the transport",
+          "stress_test": "No client in both wait modes, repeated same-port construction, blocked Attach, idle read and pending Continue",
+          "falsification_probe": "VMM destruction exceeds the bound, a socket remains connected, or immediate port reuse fails",
+          "status": "confirmed for the production software-VM TCP fixtures"
+        },
+        {
+          "id": "GS2",
+          "assumption": "The current target GDB session remains authoritative during whole-VM checkpoint import",
+          "basis": "Explicit user answer: Preserve the current GDB session and rebind CPU debug controls",
+          "dependent_result": "Target selections, physical-memory mode, breakpoint set and pending step remain current; raw CPU contexts still import their own payload",
+          "stress_test": "Actual .rxc save/load and TCP session on two and four CPUs, differing saved/current breakpoints, detached target, guest TF and pending step completion",
+          "falsification_probe": "A source breakpoint replaces the current set, a pending request is lost, guest state is changed by rebinding, or raw import loses its saved controls",
+          "status": "confirmed for represented software-x86 replacement controls; native in-place overlays remain open"
+        },
+        {
+          "id": "GS3",
+          "assumption": "Candidate binding is an offside preparation operation and cannot publish live CPU or RAM state",
+          "basis": "prepare_checkpoint_replacement runs before the checkpoint publication boundary",
+          "dependent_result": "Binding failure leaves the target unchanged and current resume plans are admitted against imported online state",
+          "stress_test": "Substitute first and last binders that modify a real prepared candidate before failing; reject a restore that offlines the current step target",
+          "falsification_probe": "Any live public/private CPU, RAM, device, coordinator or current-session field changes on rejection",
+          "status": "confirmed in the selected software profile with substituted binder failures"
+        },
+        {
+          "id": "GS4",
+          "assumption": "A terminal debugger failure must be reported before blocking for a controller command",
+          "basis": "Existing failure fence and observed blocked-retry baseline",
+          "dependent_result": "Retry cannot wait indefinitely or enter another CPU",
+          "stress_test": "Keep a command sender alive while invoking run on a stopped failed owner",
+          "falsification_probe": "Retry requires the supervising fixture to send Kill, or retirement advances",
+          "status": "confirmed by the bounded production-owner regression"
+        },
+        {
+          "id": "GS5",
+          "assumption": "Saved GDB stop notifications belong to the source frontend, while guest exceptions and device exits belong to the imported guest frontier",
+          "basis": "Explicit current-session user policy and distinct GdbStep/GdbBreakpoint serialized exit variants; public API probe reproduced both stale notifications after control binding",
+          "dependent_result": "Raw imports retain their complete payload; current-session binding discards source host notifications and a pending current step requires new retirement",
+          "stress_test": "Typed contexts cover six host/guest payload kinds under detached, continuing and stepping target controls; inspect raw retention and execute a real NOP after host-notification rebinding",
+          "falsification_probe": "A bound target emits a saved GDB notification with zero retirement, raw import loses it before binding, or guest debug/exception/I/O state is discarded",
+          "status": "Confirmed public-API red/green and typed-context cases; ordinary producer reachability of queued host notifications is not established"
+        }
+      ],
+      "pending_gates": [
+        "A32-FP: remaining capability/profile/security/debug controls and instruction admission",
+        "C-STATE: complete backend/private/in-flight state and coordinated restoration; native debugger overlays and streaming FPSR entry counterexample remain open",
+        "C-SMP: remaining ISA/native startup and scheduling, other debugger address spaces, ROM/device inspection, clocks and replay",
+        "C-HVF: remaining MMIO/intercept/IRQ/private-debug profiles and physical Intel validation"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/final-rust-source.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/cleanup-final.json",
+      "workflow": "git add -- exact owned paths; red -m --staged --run identical paths; no push",
+      "validation_scope": "Complete affected root/C API library binaries, production TCP/GDB, workspace all-target build/check/clippy, feature-disabled check, Intel-target compilation; native runtime requirements remain open",
+      "owned_paths": [
+        ".github/workflows/ci.yml",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/software-smp-debugger/README.md",
+        "docs/development/software-smp-debugger/session-qualification.json",
+        "docs/operations/observability.md",
+        "src/debug/gdb/commands.rs",
+        "src/debug/gdb/lifecycle.rs",
+        "src/debug/gdb/mod.rs",
+        "src/debug/gdb/protocol.rs",
+        "src/isa/x86_64/cpu_context/tests.rs",
+        "src/isa/x86_64/cpu_vcpu.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/checkpoint_restore.rs",
+        "src/vm/runtime/debugger_control.rs",
+        "src/vm/runtime/execution.rs",
+        "src/vm/runtime/gdb_lifecycle_tests.rs",
+        "src/vm/runtime/gdb_restore_admission_tests.rs",
+        "src/vm/runtime/gdb_restore_tests.rs",
+        "src/vm/runtime/gdb_transport_tests.rs",
+        "src/vm/vcpu/debugger.rs",
+        "src/vm/vcpu/mod.rs",
+        "tests/README.md"
       ]
     }
   ],

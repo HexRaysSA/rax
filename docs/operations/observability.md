@@ -148,8 +148,10 @@ Breakpoints apply to all CPUs and stop replies identify the CPU that stopped.
 Software x86 memory packets use the selected CPU's virtual address space. Use
 `Qqemu.PhyMemMode:1` for explicit physical RAM inspection and `:0` to return to
 virtual mode. Writes preflight the entire packet and invalidate peer caches.
-Complete live debugger-session checkpoint restoration and native backend debug
-entry remain independently unqualified. See the
+Software x86 whole-VM checkpoint import retains the current GDB session and
+rebinds its CPU controls before publication. Destroying the VMM closes its active
+connection and listener. Native session binding and native backend debug entry
+remain independently unqualified. See the
 [software SMP debugger qualification](../development/software-smp-debugger/README.md)
 for packet/state boundaries and validation.
 

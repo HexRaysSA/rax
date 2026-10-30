@@ -3,6 +3,8 @@ use super::*;
 
 impl Vmm {
     pub fn run(&mut self) -> Result<()> {
+        #[cfg(feature = "debug")]
+        self.debugger.ready()?;
         let _timing = self.timing_context.enter();
         info!(cpus = self.vcpus.len(), "starting execution coordinator");
 
@@ -25,6 +27,7 @@ impl Vmm {
                     }
                     Err(_) => {
                         info!("GDB channel closed before connection");
+                        self.disconnect_debugger_transport()?;
                     }
                 }
             }
@@ -44,6 +47,8 @@ impl Vmm {
         }
 
         loop {
+            #[cfg(feature = "debug")]
+            self.debugger.ready()?;
             // Drain host stdin through the console mux: forward guest bytes to the
             // UART and act on host escape commands. Then drive the legacy serial
             // RX/TX interrupt line. Release the serial lock before taking the PIC
@@ -126,8 +131,8 @@ impl Vmm {
                     }
                     Err(TryRecvError::Empty) => {}
                     Err(TryRecvError::Disconnected) => {
-                        // GDB disconnected, continue without GDB
                         debug!("GDB disconnected");
+                        self.disconnect_debugger_transport()?;
                     }
                 }
             }
@@ -149,8 +154,7 @@ impl Vmm {
                             // Fall through to run the VCPU
                         }
                         Err(_) => {
-                            // GDB disconnected
-                            self.gdb_stopped = false;
+                            self.disconnect_debugger_transport()?;
                         }
                     }
                 } else {

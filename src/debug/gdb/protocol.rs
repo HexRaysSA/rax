@@ -44,7 +44,11 @@ fn checksum(data: &[u8]) -> u8 {
 pub fn send_packet<W: Write>(writer: &mut W, data: &str) -> std::io::Result<()> {
     let sum = checksum(data.as_bytes());
     let display_data = if data.len() > 100 {
-        format!("{}...[{} chars total]", &data[..100], data.len())
+        let mut end = 100;
+        while !data.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}...[{} bytes total]", &data[..end], data.len())
     } else {
         data.to_string()
     };
@@ -84,9 +88,17 @@ pub fn decode_hex(hex: &str) -> Option<Vec<u8>> {
         return None;
     }
 
-    (0..hex.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
+    fn nibble(byte: u8) -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            b'A'..=b'F' => Some(byte - b'A' + 10),
+            _ => None,
+        }
+    }
+    hex.as_bytes()
+        .chunks_exact(2)
+        .map(|pair| Some((nibble(pair[0])? << 4) | nibble(pair[1])?))
         .collect()
 }
 
@@ -138,5 +150,26 @@ mod tests {
     fn test_parse_addr() {
         assert_eq!(parse_addr("1000"), Some(0x1000));
         assert_eq!(parse_addr("ffffffff"), Some(0xffffffff));
+    }
+
+    #[test]
+    fn hex_payloads_require_ascii_digits_for_every_byte() {
+        for invalid in ["💩", "€0", "+f", "-1", "0g", "00ff💩", "f", "00\0f"] {
+            assert_eq!(decode_hex(invalid), None, "{invalid:?}");
+        }
+        let bytes: Vec<_> = (0..=255).collect();
+        let hex = encode_hex(&bytes);
+        assert_eq!(decode_hex(&hex), Some(bytes.clone()));
+        assert_eq!(decode_hex(&hex.to_uppercase()), Some(bytes));
+        assert_eq!(decode_hex(""), Some(Vec::new()));
+    }
+
+    #[test]
+    fn long_unicode_packet_preview_preserves_wire_bytes_and_checksum() {
+        let payload = "€".repeat(36);
+        let mut wire = Vec::new();
+        send_packet(&mut wire, &payload).unwrap();
+        assert_eq!(wire, format!("${payload}#40").into_bytes());
+        assert_eq!(parse_packet(&wire), Some((payload, wire.len())));
     }
 }

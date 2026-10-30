@@ -1,0 +1,977 @@
+{
+  "schema": 1,
+  "utc": "2026-10-30T20:10:21.633382+00:00",
+  "status": "locally_validated_selected_profile",
+  "parent": "46b5f45a8aee15a0284b3e8fbb3fae3cfd65a5d5",
+  "scope": "Production GDB transport lifetime, malformed UTF-8 boundaries, dead-controller/terminal-owner admission and current-session binding for software-x86 prepared checkpoint replacements",
+  "original_four_findings_complete": false,
+  "assumption_register": [
+    {
+      "id": "GS1",
+      "assumption": "The VMM exclusively owns its production command receiver and response sender",
+      "basis": "Private constructor fields and channel creation in runtime.rs",
+      "dependent_result": "Closing owner endpoints cancels response waits before joining the transport",
+      "stress_test": "No client in both wait modes, repeated same-port construction, blocked Attach, idle read and pending Continue",
+      "falsification_probe": "VMM destruction exceeds the bound, a socket remains connected, or immediate port reuse fails",
+      "status": "confirmed for the production software-VM TCP fixtures"
+    },
+    {
+      "id": "GS2",
+      "assumption": "The current target GDB session remains authoritative during whole-VM checkpoint import",
+      "basis": "Explicit user answer: Preserve the current GDB session and rebind CPU debug controls",
+      "dependent_result": "Target selections, physical-memory mode, breakpoint set and pending step remain current; raw CPU contexts still import their own payload",
+      "stress_test": "Actual .rxc save/load and TCP session on two and four CPUs, differing saved/current breakpoints, detached target, guest TF and pending step completion",
+      "falsification_probe": "A source breakpoint replaces the current set, a pending request is lost, guest state is changed by rebinding, or raw import loses its saved controls",
+      "status": "confirmed for represented software-x86 replacement controls; native in-place overlays remain open"
+    },
+    {
+      "id": "GS3",
+      "assumption": "Candidate binding is an offside preparation operation and cannot publish live CPU or RAM state",
+      "basis": "prepare_checkpoint_replacement runs before the checkpoint publication boundary",
+      "dependent_result": "Binding failure leaves the target unchanged and current resume plans are admitted against imported online state",
+      "stress_test": "Substitute first and last binders that modify a real prepared candidate before failing; reject a restore that offlines the current step target",
+      "falsification_probe": "Any live public/private CPU, RAM, device, coordinator or current-session field changes on rejection",
+      "status": "confirmed in the selected software profile with substituted binder failures"
+    },
+    {
+      "id": "GS4",
+      "assumption": "A terminal debugger failure must be reported before blocking for a controller command",
+      "basis": "Existing failure fence and observed blocked-retry baseline",
+      "dependent_result": "Retry cannot wait indefinitely or enter another CPU",
+      "stress_test": "Keep a command sender alive while invoking run on a stopped failed owner",
+      "falsification_probe": "Retry requires the supervising fixture to send Kill, or retirement advances",
+      "status": "confirmed by the bounded production-owner regression"
+    },
+    {
+      "id": "GS5",
+      "assumption": "Saved GDB stop notifications belong to the source frontend, while guest exceptions and device exits belong to the imported guest frontier",
+      "basis": "Explicit current-session user policy and distinct GdbStep/GdbBreakpoint serialized exit variants; public API probe reproduced both stale notifications after control binding",
+      "dependent_result": "Raw imports retain their complete payload; current-session binding discards source host notifications and a pending current step requires new retirement",
+      "stress_test": "Typed contexts cover six host/guest payload kinds under detached, continuing and stepping target controls; inspect raw retention and execute a real NOP after host-notification rebinding",
+      "falsification_probe": "A bound target emits a saved GDB notification with zero retirement, raw import loses it before binding, or guest debug/exception/I/O state is discarded",
+      "status": "Confirmed public-API red/green and typed-context cases; ordinary producer reachability of queued host notifications is not established"
+    }
+  ],
+  "current_source_sha256": {
+    "src/vm/runtime/gdb_restore_tests.rs": "658ebfe72c423ea5234974f940727ae05813f09de4450904ee37da2ed55c1a03",
+    "src/vm/runtime/gdb_transport_tests.rs": "dc117c99c15b4b4c4d9d5820977c72e1fb29b1b8aa25832377e7e61de728ea52",
+    "src/isa/x86_64/cpu_context/tests.rs": "b50c4c61f68d896b0b1191145406d5f3e44614e8dd77686ce18421536fd465be",
+    "src/debug/gdb/commands.rs": "5beb47643a34b8c1654a02e578980d2557eb4eb607cd71a1491c5f5a3a8c4eb0",
+    "src/debug/gdb/lifecycle.rs": "fe8a964d1041cd4819a69566e60daaaf5e1bb417d30681bb808a84706667e373",
+    "src/debug/gdb/mod.rs": "2672453b22dc93bd5dc8935d1fd3ce04c598e553a7ee6cb3e7b89b1f8e379929",
+    "src/vm/runtime/gdb_lifecycle_tests.rs": "ee236bef6d3ec10de9fdda61a6cc5bd57062f7c36ed6d274868286628bae2dd3",
+    "src/vm/runtime/execution.rs": "c5cbe6c8e84f3cb9127a5c4e13bd028594c43ca65a2902dd32adab9ac891f0f2",
+    "src/vm/runtime.rs": "194b0e19461b906e2310a7de870cc75f50d564d1cb2468dbb3ab4c94321f5a50",
+    "src/vm/vcpu/mod.rs": "1e6fa28fa0eef51123956c372e6a009949d4dd914378aada138c9c830b196db0",
+    "src/isa/x86_64/cpu_vcpu.rs": "eee977777ba20064cdfa092f3123f65b1dfff05c106d9838a8f682af38ecfe7a",
+    "src/vm/vcpu/debugger.rs": "3558cb921d2568e376d0f7de3d596487aa14e1c5b53a9d52dc448f33d927942f",
+    "src/vm/runtime/checkpoint_restore.rs": "c31ab4f3de2f01765481254c7b024a421419134daea780c450fdf1f54544cc9b",
+    "src/vm/runtime/gdb_restore_admission_tests.rs": "230468b319af5177f4dda655e7087160a93584e35c3b8cd67f93b810f1f4b5d7",
+    "src/debug/gdb/protocol.rs": "b9d9cf9fbd2bba60bf48487bd451c7bdcd792cd28131398816c1bb9131bfcc7b",
+    "src/vm/runtime/debugger_control.rs": "f6e15326b5d6f3676575a956b37f49034c838ca447dabee211c9e4eec035ae59"
+  },
+  "current_checked_profile": {
+    "RUSTC_WRAPPER": "",
+    "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+    "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+    "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+    "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+    "CARGO_BUILD_JOBS": "8",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_NET_OFFLINE": "true",
+    "RUSTC_WORKSPACE_WRAPPER": "",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+    "RAX_GDB": "/opt/homebrew/bin/gdb"
+  },
+  "generated_root_inventory": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/generated-root-inventory-final.json",
+  "host_tools_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/host-tools-final.json",
+  "artifact_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/artifacts-final.json",
+  "ignored_test_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/ignored-tests-final.json",
+  "checks": {
+    "compile-final": {
+      "argv": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 246.58568150002975,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "lifecycle-final": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-7235eb1a7529f1a1",
+        "vm::runtime::gdb_lifecycle_tests::",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 134.04876895801863,
+      "test_results": [
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 1
+        }
+      ],
+      "source_unchanged": true
+    },
+    "raw-context-final": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-7235eb1a7529f1a1",
+        "isa::x86_64::cpu::checkpoint::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.07104399998206645,
+      "test_results": [
+        {
+          "passed": 21,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true
+    },
+    "protocol-final": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-7235eb1a7529f1a1",
+        "debug::gdb::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01852837501792237,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true
+    },
+    "wire-final": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-7235eb1a7529f1a1",
+        "vm::runtime::gdb_smp_tests::",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.6737692090100609,
+      "test_results": [
+        {
+          "passed": 29,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true
+    },
+    "library-final": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-7235eb1a7529f1a1",
+        "--test-threads=2"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1262.3991802500095,
+      "test_results": [
+        {
+          "passed": 11492,
+          "failed": 0,
+          "ignored": 34
+        }
+      ],
+      "source_unchanged": true
+    },
+    "capi-final": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-8a6ee794fd6cb81f",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.3514229169813916,
+      "test_results": [
+        {
+          "passed": 224,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true
+    },
+    "check-all-targets-final": {
+      "argv": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 76.43139862501994,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "build-all-targets-final": {
+      "argv": [
+        "cargo",
+        "build",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 117.10005195904523,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "clippy-all-targets-final": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 84.07948495796882,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "affected-integrations-final": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "hvf_guest_translation",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "ci_actions_pinned",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.828530291968491,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 37,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true
+    },
+    "cli-build-final": {
+      "argv": [
+        "cargo",
+        "build",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--bin",
+        "rax"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.21622620802372694,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "cli-help-final": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/rax",
+        "--help"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.014069708005990833,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "intel-check-final": {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 28.07977554196259,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "no-debug-check-final": {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 24.706269040994812,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "doctests-final": {
+      "argv": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.046253333974164,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true
+    },
+    "fmt-final": {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 16.392268666997552,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "debug-only-check-final": {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "debug",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 24.493625040980987,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "checkpoint-integrations-final": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "runtime_checkpoint_bundle",
+        "--test",
+        "checkpoint_resume",
+        "--test",
+        "checkpoint_cpus",
+        "--test",
+        "restore_admission",
+        "--test",
+        "checkpoint_clock",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 185.8057027500472,
+      "test_results": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executables": {
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_clock-5e7a7caf304b8642": "fef0f19c8e69bbd7ec3abfd26b1740a1570488231cbfe653f4b10f6eec42336f",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_cpus-99b882ff39417396": "6a66a0aacb1e04d7f94db35f100e1e9105b4350e7475583624ba98b7c08c7fff",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_resume-9d2a9e966a004236": "cf016b4ced1dbcc6006a3df7e458d6efe20ee7fd7ad3529142ae83fdf1a787ac",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/restore_admission-26dadfa608f3d451": "fa87dbf4f8695d6635590ef8b6ec8c96e5cfea9be92c3ad8aab5cbbd5fb577d4",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/runtime_checkpoint_bundle-015f9f016c9c580e": "40e4bfa1d55e6a3df6a5c074b7cbcafad8580ae65125e602b3c7be2403c2319f"
+      }
+    }
+  },
+  "observed_baselines": {
+    "baseline": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::gdb_lifecycle_tests::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 102.60501725005452,
+      "counts": [
+        [
+          "0",
+          "4",
+          "0"
+        ]
+      ]
+    },
+    "restore-red-clean": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e",
+        "vm::runtime::gdb_lifecycle_tests::restore::",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 41.434689834015444,
+      "counts": [
+        [
+          "0",
+          "1",
+          "0"
+        ]
+      ],
+      "executable_sha256_unchanged": true
+    },
+    "transport-red-v2": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::gdb_lifecycle_tests::transport::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 104.45627858303487,
+      "counts": [
+        [
+          "0",
+          "3",
+          "1"
+        ]
+      ],
+      "source_unchanged": true,
+      "executables": {
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e": "4310f87c1ef9c51ede9d242d9ac110f7b94b3562a36115fc7ee0e7563fef0675"
+      }
+    },
+    "topology-red-v1": {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::gdb_lifecycle_tests::restore_admission::restore_rejects_before_publication_if_it_would_offline_the_current_step_target",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 130.3300331250066,
+      "counts": [
+        [
+          "0",
+          "1",
+          "0"
+        ]
+      ],
+      "source_unchanged": true,
+      "executables": {
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e": "3208fbefab8cbc99f821983e7dff9908212af823bc13a66381e5a5c81223d880"
+      }
+    },
+    "pending-debug-exit-red": {
+      "compile_argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+        "--edition=2024",
+        "-C",
+        "opt-level=1",
+        "-C",
+        "debug-assertions=yes",
+        "-C",
+        "overflow-checks=yes",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-probe.rs",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-e483a02807478e6e.rlib",
+        "-o",
+        "/Users/int/dev/rax-audit-work/build-tmp/pending-debug-exit-probe"
+      ],
+      "compile_exit_code": 0,
+      "source_sha256": "0e1b6f16f340f4fd5b5a4af62e3904cb4d2dbdd2b36dcea86cbe1cac96252c34",
+      "library": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-e483a02807478e6e.rlib",
+      "library_sha256": "c9fd4a2d55bd7818bdcb379967bd04a571d10e3c86057ffeb1d38c7f04f4dea0",
+      "executable_sha256": "64502188ad1f1c6c9dba47c050b0177b438a92996c14873f585e8d99a9a888bf",
+      "exit_code": 1,
+      "stdout": "tag=15, after_target_binding=RetirementRun { retired: 0, stop: Exit(GdbStep) }\ntag=14, after_target_binding=RetirementRun { retired: 0, stop: Exit(GdbBreakpoint { addr: 256 }) }\n",
+      "stderr": "",
+      "elapsed_seconds": 0.48289824998937547
+    }
+  },
+  "invalidated_evidence": [
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/restore-collector-overlap.json",
+      "reason": "An invalid fixture compiler and corrected test runner shared output inodes; mixed stderr is not clean compiler provenance. Unique-path restore-red-clean supersedes it."
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/session-green-v1.json",
+      "reason": "Invalid fixture API prevented compilation; zero tests executed."
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/transport-red-v1.json",
+      "reason": "Incorrect fixture namespace prevented compilation; zero tests executed."
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/lifecycle-before-timeout-fixture.json",
+      "reason": "A socket option was set after peer closure; corrected fixture sets it before destruction. Corrected production lifetime suite passed."
+    }
+  ],
+  "test_scope": {
+    "lifecycle": "Production VMM listener and actual TCP; real two/four-CPU .rxc restore and pending step completion; detached target; substituted first/last binding failures; offline-step restore rejection",
+    "controller_loss": "Real VMM dispatch with a substituted one-entry Shutdown CPU in a bounded child. This is owner policy evidence, not guest ISA or native backend proof. The parent explicitly executes the otherwise ignored child.",
+    "raw_context": "Software-x86 full raw context retains saved debug overlay; later host rebinding leaves public/emulator/RAM state and guest TF unchanged",
+    "wire": "Existing 29-case actual TCP and explicitly included installed-GDB suite rerun on final source",
+    "capi": "Existing complete rax-capi library suite; no C ABI/header or raw context format change",
+    "intel": "x86_64-apple-darwin compilation only; no physical Intel runtime evidence"
+  },
+  "full_library_ignored": {
+    "total": 34,
+    "native_checkpoint": 27,
+    "native_owner_clock": 2,
+    "installed_gdb": 2,
+    "external_microkernel": 2,
+    "bounded_disconnected_owner_child": 1,
+    "disposition": "The two installed-GDB cases and bounded child are explicitly exercised by separate suites/parent. Native and external microkernel cases are not executed by this full-library invocation."
+  },
+  "native_debug_source_boundary": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/native-debug-source-boundary.json",
+  "retained_native_counterexample": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-virtual-memory-v1/native-fpsr-open.json",
+    "scope": "Prior physical M4 run: streaming guest FPSR reset reproduced in RAX and SDK-only first/repeated-entry controls. Native backend source unchanged in this group; remedy unknown and full C-STATE remains open."
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Native in-place debug controls and guest TF are not yet separately owned like the software-x86 overlay",
+      "disposition": "Explicitly remains within full C-STATE/C-HVF objective; portable callback tests and Intel compilation do not qualify it"
+    },
+    {
+      "impact": "high",
+      "finding": "Full architecture/private/scheduling goals remain incomplete",
+      "disposition": "Keep all four original findings partially_validated and retain their existing evidence and requirements"
+    },
+    {
+      "impact": "medium",
+      "finding": "Legacy public spawn_server returns an unowned JoinHandle",
+      "disposition": "Public API preserved; production VMM uses a new crate-private owned server handle. External callers of the legacy API retain its prior contract."
+    }
+  ],
+  "complexity": "Hex decoding is O(N) time/storage. Current-plan online admission is O(C) time and O(1) auxiliary storage. Exporting per-CPU breakpoint sets costs sum O(b log b); candidate HashSet binding is expected O(B+C) time and O(B) storage. Listener waiting parks for at most 0.1 s between checks and is explicitly unparked on destruction; wall-time bounds are tested, not a host scheduling guarantee.",
+  "primary_provenance": {
+    "protocol": "docs/development/software-smp-debugger/references/provenance.json; retained GNU RSP packet manual",
+    "owner_policy": "Explicit current user answer retained in preflight.json; runtime/channel and CPU implementation source hashes above",
+    "behavior": "Captured baseline/green commands, stdout/stderr and hashed Cargo executables in this evidence directory"
+  },
+  "remaining_requirements": [
+    "A32-FP: remaining capability/profile/security/debug controls and instruction admission",
+    "C-STATE: complete backend/private/in-flight state and coordinated restoration; native debugger overlays and streaming FPSR entry counterexample remain open",
+    "C-SMP: remaining ISA/native startup and scheduling, other debugger address spaces, ROM/device inspection, clocks and replay",
+    "C-HVF: remaining MMIO/intercept/IRQ/private-debug profiles and physical Intel validation"
+  ],
+  "unrun_gates": [
+    {
+      "gate": "Physical Intel HVF debugger/private-state execution",
+      "reason": "Current host is Apple M4 Max; target compilation is not runtime qualification"
+    },
+    {
+      "gate": "Five existing ignored Rust doctest examples",
+      "reason": "Doctest command runs zero examples and reports five ignored; no behavioral evidence from those examples"
+    },
+    {
+      "gate": "Remote CI execution",
+      "reason": "Workflow commands parsed and affected CI regression target run locally; no push or remote run authorized"
+    }
+  ],
+  "quality_gates": {
+    "QG1": "No normative judgment required",
+    "QG2": "Assumption register and falsification probes recorded",
+    "QG3": "Selected group requirements tested; original four-finding objective explicitly remains incomplete",
+    "QG4": "Byte, checksum and time bounds reproducible in tests and receipts",
+    "QG5": "Qualified software behavior has no unresolved test failure; native counterexamples and limits remain explicit",
+    "QG6": "Source, artifact and command provenance retained",
+    "QG7": "Adjacent native limitations bounded above"
+  },
+  "commit_workflow": "git add -- exact owned paths; red -m --staged --run identical paths; no push",
+  "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/cleanup-final.json",
+  "audit_complete": false,
+  "preceding_validation_phase": "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/before-pending-notification-fix/relocation-manifest.json",
+  "pending_notification_probe": {
+    "baseline": {
+      "compile_argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+        "--edition=2024",
+        "-C",
+        "opt-level=1",
+        "-C",
+        "debug-assertions=yes",
+        "-C",
+        "overflow-checks=yes",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-probe.rs",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-e483a02807478e6e.rlib",
+        "-o",
+        "/Users/int/dev/rax-audit-work/build-tmp/pending-debug-exit-probe"
+      ],
+      "compile_exit_code": 0,
+      "source_sha256": "0e1b6f16f340f4fd5b5a4af62e3904cb4d2dbdd2b36dcea86cbe1cac96252c34",
+      "library": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-e483a02807478e6e.rlib",
+      "library_sha256": "c9fd4a2d55bd7818bdcb379967bd04a571d10e3c86057ffeb1d38c7f04f4dea0",
+      "executable_sha256": "64502188ad1f1c6c9dba47c050b0177b438a92996c14873f585e8d99a9a888bf",
+      "exit_code": 1,
+      "stdout": "tag=15, after_target_binding=RetirementRun { retired: 0, stop: Exit(GdbStep) }\ntag=14, after_target_binding=RetirementRun { retired: 0, stop: Exit(GdbBreakpoint { addr: 256 }) }\n",
+      "stderr": "",
+      "elapsed_seconds": 0.48289824998937547
+    },
+    "corrected": {
+      "compile_argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+        "--edition=2024",
+        "-C",
+        "opt-level=1",
+        "-C",
+        "debug-assertions=yes",
+        "-C",
+        "overflow-checks=yes",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-probe.rs",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-e483a02807478e6e.rlib",
+        "-o",
+        "/Users/int/dev/rax-audit-work/build-tmp/pending-debug-exit-probe-green"
+      ],
+      "compile_exit_code": 0,
+      "source_sha256": "0e1b6f16f340f4fd5b5a4af62e3904cb4d2dbdd2b36dcea86cbe1cac96252c34",
+      "library": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-e483a02807478e6e.rlib",
+      "library_sha256": "c1f1f6239f2527647536a653da87cde76918c92ca0bf4c1ecb65fe22db533c86",
+      "exit_code": 0,
+      "stdout": "tag=15, after_target_binding=RetirementRun { retired: 1, stop: BudgetExhausted }\ntag=14, after_target_binding=RetirementRun { retired: 1, stop: BudgetExhausted }\n",
+      "stderr": "",
+      "executable_sha256": "2a734fd1ed7ce5d457137031be820af62c0eef48e9c1e5e8e9ddf15c131cc6b5",
+      "elapsed_seconds": 0.42527962499298155
+    },
+    "scope": "Public software CPU context API with admitted encoded payloads; typed regression covers six payload kinds under three current plans. Ordinary producer reachability is unknown; no native or whole-VM producer claim from the byte-payload probe."
+  },
+  "audit_ledger_status_counts": {
+    "locally_validated": 96,
+    "partially_validated": 10,
+    "pending": 10
+  },
+  "audit_remaining_entries": [
+    {
+      "id": "A32-FP",
+      "status": "partially_validated",
+      "area": "A32 VFP",
+      "finding": "Incorrect FPSCR behavior for infinity/NaN/division by zero, and incorrect rounding/FZ handling",
+      "remaining_validation": [
+        "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
+        "Physical A32 hardware and optional trapped profiles remain unverified.",
+        "The represented A64 six-capability flags/IDs/admission and supported legacy migration are corrected. Full cross-state feature consistency and remaining capability, FP8/FPMR and security/debug controls remain open; represented A64 structural FP-access priority is locally validated. No new native optional-instruction execution support.",
+        "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open.",
+        "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
+        "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope.",
+        "A64/A32/Thumb MVFR identity, selected half upper bounds and A64 TID3/RO semantics locally qualified; global EL0 Linux ID policy, restricted rounding/NaN/subnormal profiles and remaining security/debug controls remain open."
+      ]
+    },
+    {
+      "id": "C-STATE",
+      "status": "partially_validated",
+      "area": "Checkpoint",
+      "finding": "Serialized/restored device set is limited to PIC/PIT/16550/LAPIC",
+      "remaining_validation": [
+        "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
+        "Current VMM constructors select wall mode and reject retired-mode files before construction until coordinator support is selected.",
+        "Independent writers must be quiescent;native/resource post-admission rollback and replay remain open.",
+        "Legacy files without Clock12 retain elapsed-base projection and existing unrepresented tick/flag behavior.",
+        "Actual accepted128MiB full capture/save/load/typed construction proves fields,not guest/native/SMP execution.",
+        "Inherited RISC-V CLI oracle still verifies all physical/projection bytes and actual missing-kernel UART/shutdown execution.",
+        "Complete per-vCPU/private/inflight/device/topology checkpoint state, including coherent LAPIC ownership",
+        "Native Intel HVF state effects are unverified",
+        "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open.",
+        "The shared A64 Undefined-result retirement/delivery and tested user/backend/file/coordinator continuations are corrected. Complete backend/in-flight/platform state and bounded SMP native execution remain required.",
+        "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open.",
+        "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
+        "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope.",
+        "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO was subsequently reproduced and repaired in the terminal-I/O group; four represented phases now pass actual native file/wake continuation. Full original scope remains open.",
+        "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open.",
+        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
+        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure.",
+        "Software x86 GDB per-CPU register/step/control, shared breakpoints, required exact x87 core bank and reconnect isolation are locally qualified, including an actual GDB client. The subsequent memory group covers selected-CPU ordinary RAM; complete live debugger-session restoration, other ISA/native debug entry, clocks/replay and physical Intel remain required; the full finding is not closed.",
+        "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial.",
+        "Physical Apple Silicon streaming FPSR is reset on SDK entry: reproduced with RAX guest MRS and direct SDK-only first/repeated-entry controls; checkpoint write ordering alone cannot preserve the requested flags. A corrective implementation remains unqualified."
+      ]
+    },
+    {
+      "id": "C-SMP",
+      "status": "partially_validated",
+      "area": "System runtime",
+      "finding": "Creates multiple vCPUs, but the main execution loop runs only vCPU 0",
+      "remaining_validation": [
+        "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
+        "Hardware backend entry remains unbounded; physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
+        "Represented software A64/ARM/Thumb SEV broadcast, SEVL locality, WFE consumption and target event restoration are locally qualified. Additional ARM startup/control and architectural wait/trap profiles, plus RISC-V SBI startup/controller topology, remain required.",
+        "Complete backend/private/in-flight/platform state, all-writer quiescence and transactional late-failure restoration remain required.",
+        "GDB AP/thread selection, complete deterministic clock coordination and record/replay remain required.",
+        "The shared A64 Undefined-result delivery and tested native/software/user/backend/file/coordinator continuations are corrected within recorded scopes; full C-SMP and C-STATE remain incomplete.",
+        "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open.",
+        "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
+        "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope.",
+        "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO was subsequently reproduced and repaired in the terminal-I/O group; four represented phases now pass actual native file/wake continuation. Full original scope remains open.",
+        "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open.",
+        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
+        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure.",
+        "Software x86 GDB per-CPU register/step/control, shared breakpoints, required exact x87 core bank and reconnect isolation are locally qualified, including an actual GDB client. The subsequent memory group covers selected-CPU ordinary RAM; complete live debugger-session restoration, other ISA/native debug entry, clocks/replay and physical Intel remain required; the full finding is not closed.",
+        "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial."
+      ]
+    },
+    {
+      "id": "C-HVF",
+      "status": "partially_validated",
+      "area": "Intel Mac HVF",
+      "finding": "MMIO write data is a four-byte zero placeholder; read width is fixed; some CR/XSETBV exits only advance RIP",
+      "remaining_validation": [
+        "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
+        "Remaining CR0.NE and optional CR3/CR4 intercept semantics and complete MSR banks",
+        "Guest TF/pending-debug completion and full exception/error/reinjection frames",
+        "SDK TPR/software LAPIC/controller/scheduler coherence and IRQ conservation",
+        "Concurrent code/PTE inspection and complete checkpointv8 private state",
+        "Native Intel VMX/device/guest execution and host/device failure recovery",
+        "Actual MMIO operand/data/width and completion semantics",
+        "Remaining CR0.NE and optional CR3/CR4 intercept semantics",
+        "SDK TPR/software LAPIC/IRQ graph coherence",
+        "HLT retirement and exception-information-source behavior",
+        "Native Intel VMX event and VM/guest runtime validation",
+        "Scalar ADD/ADC/SUB/SBB/AND/OR/XOR register-result and CMP/TEST MMIO reads locally qualified with 65 tests, 5768 independent QEMU instruction records and Intel-target compile checks. Native RAM/device-hole mapping and PCI/collateral RAM routing are separately locally qualified by the memory-layout group; physical Intel SDK/device validation remains open. All original remaining C-HVF profiles and physical Intel requirements remain open.",
+        "Native mapping/routing group: 136 selected tests and Intel-target compilation; physical Intel failure/runtime proof, collateral instruction/page-table fetch, mixed-page operands, E820/resource consistency, remaining controller/private state and complete native scheduling remain open.",
+        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
+        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure.",
+        "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial."
+      ]
+    },
+    {
+      "id": "independent-oracles",
+      "status": "partially_validated",
+      "remaining_validation": [
+        "Other architecture/profile independent oracles and native hardware gates",
+        "A32 register-policy and operations beyond the140 listed instruction pairs"
+      ]
+    },
+    {
+      "id": "bounded-proofs",
+      "status": "pending"
+    },
+    {
+      "id": "x86-legacy-paging",
+      "status": "partially_validated",
+      "remaining_validation": [
+        "Legacy PAE walk, cached PDPTE loading/validation at control-register writes and fault rollback",
+        "32-bit Linux boot and physical x86 validation"
+      ]
+    },
+    {
+      "id": "arm32-lpae",
+      "status": "pending"
+    },
+    {
+      "id": "riscv-privileged-linux",
+      "status": "pending"
+    },
+    {
+      "id": "scalable-vectors",
+      "status": "pending"
+    },
+    {
+      "id": "cortex-m-fpu",
+      "status": "pending"
+    },
+    {
+      "id": "cortex-r-platform",
+      "status": "pending"
+    },
+    {
+      "id": "device-capabilities",
+      "status": "partially_validated",
+      "remaining_validation": [
+        "SnapshotBundle is a container extension, not complete running-VM capture/resume.",
+        "Original/tagged base files load with explicit absent PCI state; callers must not infer missing private state.",
+        "Full controller semantic validation occurs at runtime import after checked decompression; container admission checks framing/geometry/digests.",
+        "The 64 GiB boundary tests declared metadata without physically allocating that amount.",
+        "Typed deterministic serialization fixtures and independent system-zstd comparisons are not guest CPU, Linux boot or native hypervisor proof."
+      ]
+    },
+    {
+      "id": "deterministic-concurrent-scheduling",
+      "status": "pending"
+    },
+    {
+      "id": "record-replay",
+      "status": "pending"
+    },
+    {
+      "id": "H-MMIO-ORDER",
+      "status": "pending",
+      "area": "Hexagon packet execution",
+      "finding": "Ordered MMIO store/load packets need a continuation that preserves device access order and validates later effects; the current packet journal explicitly rejects this profile."
+    },
+    {
+      "id": "D-QEMU-NVME-REFERENCE-SETUP",
+      "status": "pending",
+      "area": "Independent QEMU NVMe SGL validation harness",
+      "finding": "An unchanged guest/input returned NVSGFAIL before transfer records once and passed exact replay;failure-site/root-cause is unknown.",
+      "remaining_validation": [
+        "Identify the setup failure site and validate any harness correction without weakening domains or timeouts."
+      ]
+    },
+    {
+      "id": "D-PHYSICAL-RAM",
+      "status": "partially_validated",
+      "area": "Checkpoint physical backing",
+      "finding": "Base checkpoint API omits actual offset/padding/ELF backing;three losses confirmed in predecessor.Explicit expanded capture/physical-restore component covers all mapped regions;coordinated VM/CLI restore remains required.",
+      "remaining_validation": [
+        "Represented CPU0/private/4legacy/PCI/media/all-backing file resume is wired;fullVM/SMP/platform/scheduler closure remains open.",
+        "Legacy --resume keeps CLI/file resolution and fresh construction semantics;--checkpoint is the source-independent workflow.",
+        "Old base entrypoints retain image-state guards;new typed configuration uses standard supported configuration limits.",
+        "Independent writers must stay quiescent;native setters/second-pass host failures are not established as transactional.",
+        "Actual LLVM-produced bare-metal RV guest writes UART and exits after missing original kernel;this is not Linux/native-hypervisor proof.",
+        "Writable resumed media are detached;changes persist in the VM and subsequent checkpoints."
+      ]
+    },
+    {
+      "id": "D-EXPLICIT-RETIREMENT-BOUNDARY",
+      "status": "partially_validated",
+      "area": "Retirement-limited execution interface",
+      "finding": "New additive instruction/packet budget API preserves exact bounded progress and distinct stops across tested stepping profiles;old VMM coordinator and native entry remain separate work.",
+      "remaining_validation": [
+        "The x86 software coordinator selects bounded stepping turns;bounded SMIR JIT and native backend entries remain required.",
+        "ARM/RISC-V startup and per-CPU IRQ/controller ownership remain required.",
+        "Full private/in-flight state,coordinated capture/restore,deterministic retirement time and replay remain required.",
+        "No physical Intel KVM/HVF retirement or hardware scheduling proof is established."
+      ]
+    },
+    {
+      "id": "D-RETIREMENT-CLOCK-PHASE",
+      "status": "partially_validated",
+      "area": "Exact modeled retirement time and state",
+      "finding": "Add explicit 3e9-unit/s clock with complete residual phase, full-u64 wrapping arithmetic and validated state import;deterministic default/coordinator/file integration remain separate.",
+      "remaining_validation": [
+        "Existing VMM constructors remain wall mode; deterministic policy and scheduler selection are separate work.",
+        "Retirement TSC helper is exact in the selected context; not every guest/backend counter instruction is yet rerouted.",
+        "Tick/notification writers must be quiescent during typed capture/import; coordinator quiescence remains open.",
+        "Required file timing sections, complete CPU/private/platform/timer state and replay integration remain open.",
+        "Eight-worker aggregate arithmetic does not establish deterministic multi-vCPU execution or native boundaries.",
+        "The 10000-event campaign is seeded boundary coverage, not exhaustive enumeration; the u128 bound covers every u64 delta."
+      ]
+    }
+  ],
+  "audit_scope_note": "These are ledger dispositions, not a count of distinct defects. The four original active finding umbrellas do not exhaust broader pending audit requirements. No additional entry is closed by this debugger group."
+}

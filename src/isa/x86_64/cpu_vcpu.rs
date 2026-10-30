@@ -352,6 +352,44 @@ impl VCpu for X86_64Vcpu {
     }
 
     #[cfg(feature = "debug")]
+    fn debugger_controls(&self) -> Option<crate::vm::vcpu::DebuggerControls> {
+        let mut breakpoints: Vec<_> = self.debug_breakpoints.iter().copied().collect();
+        breakpoints.sort_unstable();
+        Some(crate::vm::vcpu::DebuggerControls {
+            active: self.debugger_active,
+            single_step: self.single_step,
+            breakpoints,
+        })
+    }
+
+    #[cfg(feature = "debug")]
+    fn bind_debugger_controls(
+        &mut self,
+        controls: &crate::vm::vcpu::DebuggerControls,
+    ) -> Result<()> {
+        // Build the complete host breakpoint set before changing the candidate.
+        // Guest DR state, TF, registers, counts and pending exits remain intact.
+        let mut breakpoints = std::collections::HashSet::new();
+        breakpoints
+            .try_reserve(controls.breakpoints.len())
+            .map_err(|error| Error::Emulator(format!("debugger binding allocation: {error}")))?;
+        breakpoints.extend(controls.breakpoints.iter().copied());
+        self.set_debugger_active(controls.active);
+        self.set_single_step(controls.single_step);
+        self.debug_breakpoints = breakpoints;
+        // Saved host stop notifications belong to the source frontend. The
+        // current plan must execute against the imported guest frontier; guest
+        // exceptions, natural INT3 and pending device exits remain intact.
+        if matches!(
+            self.jit_callout_exit.as_ref(),
+            Some(VcpuExit::GdbStep | VcpuExit::GdbBreakpoint { .. })
+        ) {
+            self.jit_callout_exit = None;
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "debug")]
     fn debug_address_space(&self) -> Result<crate::vm::vcpu::DebugAddressSpace> {
         if self.mmu.has_flat_translation() {
             return Err(Error::InvalidConfig(

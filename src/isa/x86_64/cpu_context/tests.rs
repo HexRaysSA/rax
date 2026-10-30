@@ -554,3 +554,128 @@ fn saved_debug_breakpoint_and_pending_exit_keep_delivery_order() {
     ));
     assert_eq!(target.instruction_count(), 0);
 }
+
+#[cfg(feature = "debug")]
+#[test]
+fn raw_context_import_preserves_its_debug_overlay_and_host_rebinding_preserves_guest_tf() {
+    let (mut source, _) = cpu(&[0x90]);
+    let CpuState::X86_64(mut state) = source.get_state().unwrap() else {
+        panic!("x86 context fixture");
+    };
+    state.regs.rflags |= 1 << 8;
+    source.set_state(&CpuState::X86_64(state)).unwrap();
+    source.set_debugger_active(true);
+    source.set_single_step(true);
+    source.set_debug_breakpoint(0x100).unwrap();
+    let raw = source.save_context().unwrap();
+    let controls = source.debugger_controls().unwrap();
+    let (mut target, memory) = cpu(&[0x90]);
+    target.restore_context(&raw).unwrap();
+    assert_eq!(target.debugger_controls().unwrap(), controls);
+    let state = crate::codec::serialize(&target.get_state().unwrap()).unwrap();
+    let emulator = crate::codec::serialize(&target.get_emulator_state().unwrap()).unwrap();
+    let mut before = vec![0; 0x10000];
+    memory.read_slice(&mut before, GuestAddress(0)).unwrap();
+    let current = crate::vm::vcpu::DebuggerControls {
+        active: false,
+        single_step: false,
+        breakpoints: vec![0x200],
+    };
+    target.bind_debugger_controls(&current).unwrap();
+    assert_eq!(target.debugger_controls().unwrap(), current);
+    assert_eq!(
+        crate::codec::serialize(&target.get_state().unwrap()).unwrap(),
+        state
+    );
+    assert_eq!(
+        crate::codec::serialize(&target.get_emulator_state().unwrap()).unwrap(),
+        emulator
+    );
+    let mut after = vec![0; 0x10000];
+    memory.read_slice(&mut after, GuestAddress(0)).unwrap();
+    assert_eq!(after, before);
+    assert!(!target.is_single_step());
+    let CpuState::X86_64(state) = target.get_state().unwrap() else {
+        panic!("x86 rebound CPU");
+    };
+    assert_ne!(state.regs.rflags & (1 << 8), 0);
+}
+
+#[cfg(feature = "debug")]
+#[test]
+fn current_host_binding_discards_only_saved_gdb_notifications() {
+    use crate::vm::vcpu::DebuggerControls;
+
+    for (active, single_step) in [(false, false), (true, false), (true, true)] {
+        for exit in [
+            VcpuExit::GdbStep,
+            VcpuExit::GdbBreakpoint { addr: 0x100 },
+            VcpuExit::Debug,
+            VcpuExit::Exception(1),
+            VcpuExit::IoIn {
+                port: 0x60,
+                size: 1,
+            },
+            VcpuExit::IoOut {
+                port: 0x80,
+                data: vec![0x5a],
+            },
+        ] {
+            let host_notification =
+                matches!(&exit, VcpuExit::GdbStep | VcpuExit::GdbBreakpoint { .. });
+            let expected = format!("{exit:?}");
+            let (mut source, _) = cpu(&[0x90, 0xf4]);
+            source.insn_count = 17;
+            source.set_debugger_active(true);
+            source.set_single_step(matches!(&exit, VcpuExit::GdbStep));
+            source.set_debug_breakpoint(0x100).unwrap();
+            let mut context = Context::decode(&source.save_context().unwrap(), &source).unwrap();
+            context.pending_exit = Some(ExitContext::capture(&exit));
+            let raw = context.encode().unwrap();
+            let (mut target, _) = cpu(&[0x90, 0xf4]);
+            target.restore_context(&raw).unwrap();
+            assert_eq!(
+                format!("{:?}", target.jit_callout_exit.as_ref().unwrap()),
+                expected,
+                "raw imports retain the complete represented exit"
+            );
+            let state = crate::codec::serialize(&target.get_state().unwrap()).unwrap();
+            let emulator = crate::codec::serialize(&target.get_emulator_state()).unwrap();
+            target
+                .bind_debugger_controls(&DebuggerControls {
+                    active,
+                    single_step,
+                    breakpoints: if active { vec![0x200] } else { Vec::new() },
+                })
+                .unwrap();
+            assert_eq!(
+                crate::codec::serialize(&target.get_state().unwrap()).unwrap(),
+                state
+            );
+            assert_eq!(
+                crate::codec::serialize(&target.get_emulator_state()).unwrap(),
+                emulator
+            );
+            assert_eq!(target.instruction_count(), 17);
+            if host_notification {
+                assert!(target.jit_callout_exit.is_none(), "{expected}");
+                let result = target.run_retirement_budget(1).unwrap();
+                assert_eq!(result.retired, 1, "{expected}: {result:?}");
+                if single_step {
+                    assert!(matches!(
+                        result.stop,
+                        crate::vm::vcpu::RetirementStop::Exit(VcpuExit::GdbStep)
+                    ));
+                }
+                assert_eq!(target.instruction_count(), 18);
+                assert_eq!(target.get_regs().unwrap().rip, 0x101);
+            } else {
+                assert_eq!(
+                    format!("{:?}", target.jit_callout_exit.as_ref().unwrap()),
+                    expected,
+                    "guest exits survive host-session binding"
+                );
+            }
+        }
+    }
+}

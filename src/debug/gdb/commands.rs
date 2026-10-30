@@ -85,8 +85,9 @@ pub fn handle_command(
         return Ok(keep);
     }
     // Get first character (command type)
-    let cmd = packet.chars().next().unwrap_or(' ');
-    let args = if packet.len() > 1 { &packet[1..] } else { "" };
+    let mut characters = packet.chars();
+    let cmd = characters.next().unwrap_or(' ');
+    let args = characters.as_str();
 
     match cmd {
         // Read registers

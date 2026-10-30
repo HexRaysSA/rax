@@ -32,6 +32,31 @@ continue peer CPUs. Internal execute breakpoints cover every CPU without
 rewriting guest instruction bytes. Detach/disconnect clears debugger-owned
 breakpoints and stepping, then resumes normal scheduling.
 
+The VMM owns its listener and active socket. Destruction cancels owner-response
+waits, shuts down a blocked socket read and joins the worker before releasing
+guest resources. The port can be reused immediately, including when no client
+connected or the client is waiting for attach or continue. Loss of the server's
+command endpoint removes its stop mask and debug controls before another CPU
+entry; a terminal debugger failure returns before any blocking command wait.
+
+Whole-VM checkpoint import preserves the current target GDB session: selections,
+memory mode, breakpoints and resume/step policy remain current. Software x86
+replacement CPUs bind that session's host controls before publication. A target
+with no session does not inherit saved host controls. If binding fails, the
+prepared candidates are discarded. An import that would make a pending step's
+CPU offline, or leave a current running plan with no runnable CPU, is rejected
+before preparation. Guest TF and architectural registers remain
+part of the imported guest state. Raw CPU-context imports, including the C API,
+continue to import their represented debugger payload exactly. Native in-place
+restore and native guest-TF/host-step ownership remain separate requirements.
+
+Private CPU records can also contain pending GDB stop notifications. Raw imports
+retain them, while session binding discards source `GdbStep`/`GdbBreakpoint`
+notifications so they cannot complete a current request without guest progress.
+Guest exceptions, natural INT3 and pending device exits retain their imported
+state. This distinction is covered by typed context and actual instruction-step
+tests, plus a public-API counterexample using an admitted context payload.
+
 ## State and protocol boundaries
 
 The VMM owner applies complete resume plans before entry. Invalid thread IDs or
@@ -147,8 +172,8 @@ fallible TLB invalidation must succeed before data publication. Target
 compilation does not qualify SDK execution. Software legacy PAE inspection
 requires cached state that its current runtime does not provide and returns an
 explicit error. Other CPU adapters retain their prior untranslated view.
-ROM/device debugging, other target descriptions, complete live GDB-session
-checkpoint binding, native overlays/SDK failures, positive guest-OS signals,
+ROM/device debugging, other target descriptions, native GDB-session checkpoint
+binding, native overlays/SDK failures, positive guest-OS signals,
 clocks/replay and physical Intel qualification remain high-impact requirements
 within the original four-finding objective.
 
@@ -176,3 +201,17 @@ storage plus the O(N) output buffer; hole checks add O(P*H) time for H registere
 device ranges. Cache invalidation visits all C CPUs and clears their derived
 x86 entries. Scatter publication holds one writer-domain lock across all spans;
 exclusive-monitor checks cannot observe a partially published packet.
+
+Malformed Unicode in register/memory payloads is rejected before owner mutation;
+an unknown Unicode command receives the unsupported response. Hex payloads
+require ASCII hex digits in every pair. Trace previews truncate only at UTF-8
+boundaries and never alter packet bytes or checksums. Hex decoding takes O(N)
+time and O(N) storage for N input bytes. Binding C CPUs with B total internal
+breakpoint entries takes O(B + C) expected insertion time; exporting sorted sets
+adds the sum of O(b log b) per CPU. Worker shutdown has no guest callback under
+its socket-control mutex.
+
+Current-session assumptions, baseline failures, complete-suite results and
+remaining native requirements are recorded in
+[session-qualification.json](session-qualification.json). The earlier memory
+qualification remains a separate historical source and test boundary.

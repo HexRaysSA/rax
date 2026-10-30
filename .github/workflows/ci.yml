@@ -83,6 +83,10 @@ jobs:
         run: |
           cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib debug::gdb:: -- --test-threads=1
           cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib vm::runtime::debugger_control:: -- --test-threads=1
+      - name: Debugger lifetime and current-session checkpoint binding
+        run: |
+          cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib vm::runtime::gdb_lifecycle_tests:: -- --test-threads=1 --nocapture
+          cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib isa::x86_64::cpu::checkpoint:: -- --test-threads=1
       - name: Tracked debugger writes and shared x86 inspection
         run: |
           cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib vm::memory::reservations:: -- --test-threads=1

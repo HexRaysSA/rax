@@ -55,6 +55,10 @@ impl Vmm {
         )?;
         let snapshot = bundle.base();
         self.validate_snapshot_target(snapshot)?;
+        #[cfg(feature = "debug")]
+        if let Some(execution) = bundle.execution() {
+            self.validate_debugger_restore_online(execution.online())?;
+        }
         let timing_context = &self.timing_context;
         let clock_restore = bundle
             .clock()
@@ -153,8 +157,18 @@ impl Vmm {
             .try_reserve_exact(states.len())
             .map_err(|e| Error::Emulator(format!("CPU replacement allocation: {e}")))?;
         for (vcpu, (state, emulator, context)) in self.vcpus.iter().zip(&states) {
-            replacements
-                .push(vcpu.prepare_checkpoint_replacement(state, emulator, *context, &resources)?);
+            let mut replacement =
+                vcpu.prepare_checkpoint_replacement(state, emulator, *context, &resources)?;
+            #[cfg(feature = "debug")]
+            if let (Some(controls), Some(candidate)) =
+                (vcpu.debugger_controls(), replacement.as_mut())
+            {
+                // The frontend remains authoritative while guest state moves
+                // backward. Bind only offside CPUs; rejection cannot publish a
+                // prefix or roll the current controller back to a saved session.
+                candidate.bind_debugger_controls(&controls)?;
+            }
+            replacements.push(replacement);
         }
         let physical = bundle
             .physical_memory()
