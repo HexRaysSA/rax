@@ -1,0 +1,47 @@
+[
+  {
+    "file": "zw-open-event.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-zwopenevent",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-30T01:40:34.682749+00:00",
+    "bytes": 55760,
+    "sha256": "8fb20fad41b6565fa152705424c59af567f09abd4f924937854677a66f92abfe",
+    "license": "Original HTML and linked documentation notices preserved"
+  },
+  {
+    "file": "synchronization-access.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows/win32/sync/synchronization-object-security-and-access-rights",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-30T01:40:35.031996+00:00",
+    "bytes": 56499,
+    "sha256": "9fdd10a3230102868b52bfd0d46c6bba6a631f408634776c657281fa1e19805a",
+    "license": "Original HTML and linked documentation notices preserved"
+  },
+  {
+    "file": "nt-and-zw.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/using-nt-and-zw-versions-of-the-native-system-services-routines",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-30T01:40:35.382612+00:00",
+    "bytes": 51506,
+    "sha256": "c0c59725a4e86fa1edbcc2cee865ccf53f83d738c7f199f892c4972e6dc9f6b5",
+    "license": "Original HTML and linked documentation notices preserved"
+  },
+  {
+    "file": "get-mapped-file-name.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows/win32/api/psapi/nf-psapi-getmappedfilenamew",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-30T02:04:23.194605+00:00",
+    "bytes": 55651,
+    "sha256": "621efae82c046b8f7ca0c82c79888e125f1b68bc8f95788adc4c6f03cf813548",
+    "license": "Original HTML and linked documentation notices preserved"
+  },
+  {
+    "file": "query-dos-device.html",
+    "source_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-querydosdevicew",
+    "publisher": "Microsoft Learn",
+    "retrieved_utc": "2026-10-30T02:04:23.554899+00:00",
+    "bytes": 55341,
+    "sha256": "376202c9a4b055503446b20d0679f4a6e90bda4f4050f0b9e7d8256ecad4a6ce",
+    "license": "Original HTML and linked documentation notices preserved"
+  }
+]

@@ -1,6 +1,9 @@
 //! Native events use the same reference-counted objects as Win32 waits.
 //! Kernel probe order and WoW64 conversion follow the recorded build29683
 //! profile in docs/specifications/windows/native-events, not a host NT call.
+mod open;
+pub(super) use open::open;
+
 use super::object_create::{self, Attributes};
 use super::query::{guard_result, probe_write};
 use crate::user::windows::arch::WinArch;

@@ -744,3 +744,16 @@ unchanged. The Rust thread APC payload now distinguishes ordinary and I/O
 callbacks. [Native notification controls](../../specifications/windows/native-key-notify/README.md)
 record probe order, filter bits, retained objects, thread exit, synchronous
 cleanup, and callback arguments across the three Windows process ABIs.
+
+`NtOpenEvent` opens an existing private Event through the captured selected
+directories. Win32 creation, native state changes and waits share one object;
+each additional handle retains its own rights and inheritance flag. The opening
+service captures ABI-specific attributes, preserves measured fault/guard/store
+order, distinguishes missing intermediate directories from missing final names,
+and rolls back a handle if publication fails. Its separate tail export family
+preserves prior synthetic NTDLL ordinals and trap addresses. No guest name is
+forwarded to the host object manager. Explicit security/QoS and privilege policy
+remain unsupported boundaries, and named native Event creation is separate.
+[Native opening controls](../../specifications/windows/native-open-event/README.md)
+retain 1,521 observations from ARM64, x64 and x86 processes on ARM64 kernel
+10.0.29695, including actual mapped-provider hashes and finite-profile limits.

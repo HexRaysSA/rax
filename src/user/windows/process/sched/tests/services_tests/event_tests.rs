@@ -1,4 +1,7 @@
 //! Native NT events share the Win32 object and scheduler contract.
+#[path = "event_open_tests.rs"]
+mod open;
+
 use super::*;
 
 fn arguments(p: &mut Proc, t: &mut Thread, args: &[u64]) {

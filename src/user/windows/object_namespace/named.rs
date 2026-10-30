@@ -50,7 +50,15 @@ impl Namespace {
                 } else {
                     &name[..index]
                 };
-                (self.lookup(root, parent, flags)?, &name[index + 1..])
+                let directory = self
+                    .lookup(root, parent, flags)
+                    .map_err(|error| match error {
+                        LookupError::Status(STATUS_OBJECT_NAME_NOT_FOUND) => {
+                            LookupError::Status(STATUS_OBJECT_PATH_NOT_FOUND)
+                        }
+                        error => error,
+                    })?;
+                (directory, &name[index + 1..])
             }
             None => (
                 root.ok_or(LookupError::Status(STATUS_OBJECT_PATH_SYNTAX_BAD))?,
@@ -101,3 +109,7 @@ impl Namespace {
         self.named(Some(root), name, 0)
     }
 }
+
+#[cfg(test)]
+#[path = "named_tests.rs"]
+mod tests;

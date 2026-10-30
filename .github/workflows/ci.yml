@@ -259,6 +259,18 @@ jobs:
           name: native-local-settings-${{ matrix.name }}
           path: target/native-local-settings-v1
           if-no-files-found: error
+      - name: Verify retained Event opening producer identity
+        run: python tools/ci/windows_open_event.py --verify-corpus
+      - name: Native Event opening controls and guest replay
+        if: runner.os == 'Windows'
+        run: python tools/ci/windows_open_event.py
+      - name: Preserve native Event opening controls
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-open-event-${{ matrix.name }}
+          path: target/native-open-event-v1
+          if-no-files-found: error
       - name: Verify retained key enumeration producer identity
         run: python tools/ci/windows_key_enumeration.py --verify-corpus
       - name: Native key enumeration controls and guest replay

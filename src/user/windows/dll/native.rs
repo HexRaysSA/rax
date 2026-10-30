@@ -534,6 +534,14 @@ pub(super) static KEY_NOTIFY_EXPORTS: &[Export] = &[Export::func(
     registry::notify_key,
 )];
 
+// Keep every preceding synthetic ordinal and trap slot unchanged.
+pub(super) static EVENT_OPEN_EXPORTS: &[Export] = &[Export::func(
+    "NtOpenEvent",
+    Stdcall,
+    &[Ptr, I32, Ptr],
+    events::open,
+)];
+
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)
 }

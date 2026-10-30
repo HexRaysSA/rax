@@ -1,0 +1,2 @@
+*.jsonl -text whitespace=cr-at-eol
+*.html -text -whitespace

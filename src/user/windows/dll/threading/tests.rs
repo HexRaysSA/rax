@@ -14,6 +14,9 @@ mod native_wait_tests;
 #[path = "native_semaphore_tests.rs"]
 mod native_semaphore_tests;
 
+#[path = "native_event_open_tests.rs"]
+mod native_event_open_tests;
+
 #[path = "native_timer2_tests.rs"]
 mod native_timer2_tests;
 
@@ -64,6 +67,7 @@ fn api(name: &str) -> &'static Api {
         .chain(super::super::native::SEMAPHORE_EXPORTS.iter())
         .chain(super::super::native::TIMER2_EXPORTS.iter())
         .chain(super::super::native::THREAD_OPEN_EXPORTS.iter())
+        .chain(super::super::native::EVENT_OPEN_EXPORTS.iter())
         .find_map(|export| match &export.item {
             Item::Func(api) if api.name == name => Some(api),
             _ => None,
