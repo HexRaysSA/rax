@@ -205,6 +205,8 @@ jobs:
             --test hvf_xsetbv \
             --test hvf_run_loop \
             --test hvf_native_debug \
+            --test hvf_owner \
+            --test hvf_intel_owner \
             --test hvf_cr8 \
             --test hvf_apic_identity \
             --test hvf_sync_exits \

@@ -1,6 +1,6 @@
 //! Stopped SDK paging inspection and fallible post-debugger cache synchronization.
 use super::*;
-impl HvfVcpu {
+impl HvfCore {
     pub(super) fn debug_paging_state(&self) -> Result<crate::vm::vcpu::DebugAddressSpace> {
         use hv_vmx_vmcs_field_t::*;
         self.io_ready()?;

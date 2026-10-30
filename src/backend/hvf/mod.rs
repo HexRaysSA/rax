@@ -28,6 +28,12 @@ mod event_injection;
 #[cfg(target_arch = "x86_64")]
 mod guest_translation;
 #[cfg(target_arch = "x86_64")]
+mod intel_owner;
+#[cfg(target_arch = "x86_64")]
+mod intel_vm;
+#[cfg(target_arch = "x86_64")]
+mod intel_worker;
+#[cfg(target_arch = "x86_64")]
 mod interrupt_shadow;
 #[cfg(target_arch = "x86_64")]
 mod memory_layout;
@@ -35,6 +41,10 @@ mod memory_layout;
 mod mmio;
 #[cfg(target_arch = "x86_64")]
 mod native_memory;
+#[cfg(target_arch = "x86_64")]
+use intel_vm::Lifetime;
+#[cfg(target_arch = "x86_64")]
+pub use intel_worker::HvfVcpu;
 #[cfg(target_arch = "x86_64")]
 mod native_step;
 #[cfg(target_arch = "x86_64")]
@@ -140,8 +150,7 @@ impl Backend for HvfBackend {
 
         Ok(Box::new(HvfVm {
             cpuid_config: self.cpuid_config.clone(),
-            pending_irqs: Mutex::new(Vec::new()),
-            memory_layout: native_memory::Shared::default(),
+            lifetime: Arc::new(Lifetime::default()),
         }))
     }
 }
@@ -149,7 +158,7 @@ impl Backend for HvfBackend {
 #[cfg(target_arch = "x86_64")]
 impl Drop for HvfBackend {
     fn drop(&mut self) {
-        // VM is cleaned up in HvfVm::drop
+        // The final retained Lifetime owns SDK VM destruction.
     }
 }
 
@@ -158,10 +167,7 @@ impl Drop for HvfBackend {
 pub struct HvfVm {
     /// CPUID configuration
     cpuid_config: CpuidConfig,
-    /// Pending IRQs to inject
-    pending_irqs: Mutex<Vec<u32>>,
-    /// Native page ownership shared by every CPU, retaining host backing.
-    memory_layout: native_memory::Shared,
+    lifetime: Arc<Lifetime>,
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -178,41 +184,42 @@ impl HvfVm {
         holes: &[crate::devices::bus::MmioRange],
         pci: Option<Arc<Mutex<crate::devices::pci::PciStub>>>,
     ) -> Result<()> {
-        native_memory::register(&self.memory_layout, mem, holes, pci)
+        let _boundary = self.lifetime.stopped()?;
+        native_memory::register(&self.lifetime.memory_layout, mem, holes, pci)
     }
 }
 
 #[cfg(target_arch = "x86_64")]
 impl Vm for HvfVm {
+    fn checkpoint_boundary(&self) -> Result<crate::backend::CheckpointBoundary<'_>> {
+        self.lifetime.stopped()
+    }
+    fn poison_checkpoint_restore(&self) {
+        self.lifetime
+            .poison("checkpoint rollback could not restore the VM".into());
+    }
     fn create_vcpu(&self, id: u32, mem: Arc<GuestMemoryMmap>) -> Result<Box<dyn VCpu>> {
-        // Create vCPU
-        let mut vcpu_id: hv_vcpuid_t = 0;
-        let ret = unsafe { hv_vcpu_create(&mut vcpu_id, 0) };
-        if ret != HV_SUCCESS {
-            return Err(Error::Emulator(format!(
-                "Failed to create vCPU {}: {}",
-                id,
-                hv_error_string(ret)
-            )));
-        }
-
-        debug!(id, vcpu_id, "Created HVF vCPU");
-
-        // Initialize vCPU state
-        let vcpu = HvfVcpu::new(
-            vcpu_id,
+        Ok(Box::new(HvfVcpu::new(
             id,
             mem,
             self.cpuid_config.clone(),
-            self.memory_layout.clone(),
-        )?;
-
-        Ok(Box::new(vcpu))
+            self.lifetime.clone(),
+        )?))
     }
 
     fn set_irq_line(&self, irq: u32, level: bool) -> Result<()> {
+        let _boundary = self
+            .lifetime
+            .quiescence
+            .read()
+            .map_err(|_| Error::Emulator("Intel HVF exclusion lock poisoned".into()))?;
+        self.lifetime.ready()?;
         if level {
-            let mut irqs = self.pending_irqs.lock().unwrap();
+            let mut irqs = self
+                .lifetime
+                .pending_irqs
+                .lock()
+                .map_err(|_| Error::Emulator("Intel HVF IRQ queue lock poisoned".into()))?;
             if !irqs.contains(&irq) {
                 irqs.push(irq);
             }
@@ -225,19 +232,9 @@ impl Vm for HvfVm {
     }
 }
 
+/// Native core confined to its permanent SDK owner.
 #[cfg(target_arch = "x86_64")]
-impl Drop for HvfVm {
-    fn drop(&mut self) {
-        let ret = unsafe { hv_vm_destroy() };
-        if ret != HV_SUCCESS {
-            warn!("Failed to destroy VM: {}", hv_error_string(ret));
-        }
-    }
-}
-
-/// HVF vCPU.
-#[cfg(target_arch = "x86_64")]
-pub struct HvfVcpu {
+struct HvfCore {
     /// HVF vCPU ID
     vcpu_id: hv_vcpuid_t,
     /// Our vCPU ID (index)
@@ -256,27 +253,43 @@ pub struct HvfVcpu {
     native_step: native_step::State,
     /// Whether the vCPU is halted
     halted: bool,
+    _vm: Arc<Lifetime>,
+    _owner_thread: std::marker::PhantomData<std::rc::Rc<()>>,
 }
 
-// Safety: HvfVcpu is Send because the vCPU ID is a u32 identifier,
-// and we synchronize access appropriately.
 #[cfg(target_arch = "x86_64")]
-unsafe impl Send for HvfVcpu {}
-
-#[cfg(target_arch = "x86_64")]
-impl HvfVcpu {
+impl HvfCore {
+    fn create(
+        id: u32,
+        mem: Arc<GuestMemoryMmap>,
+        cpuid_config: CpuidConfig,
+        lifetime: Arc<Lifetime>,
+    ) -> Result<Self> {
+        lifetime.ready()?;
+        let mut native_id = 0;
+        // SAFETY: this factory runs on the permanent owner. The SDK receives
+        // a live exclusive output word; the resulting handle never leaves it.
+        let result = unsafe { hv_vcpu_create(&mut native_id, 0) };
+        if result != HV_SUCCESS {
+            return Err(Error::Emulator(format!(
+                "Failed to create vCPU {id}: {}",
+                hv_error_string(result)
+            )));
+        }
+        Self::new(native_id, id, mem, cpuid_config, lifetime)
+    }
     fn new(
         vcpu_id: hv_vcpuid_t,
         id: u32,
         mem: Arc<GuestMemoryMmap>,
         cpuid_config: CpuidConfig,
-        memory_layout: native_memory::Shared,
+        lifetime: Arc<Lifetime>,
     ) -> Result<Self> {
-        let vcpu = HvfVcpu {
+        let vcpu = HvfCore {
             vcpu_id,
             id,
             mem,
-            memory_layout,
+            memory_layout: lifetime.memory_layout.clone(),
             cpuid_config,
             priority: priority_native::new(),
             apic_base: AtomicU64::new(apic_profile::initial_apic_base(id)),
@@ -285,6 +298,8 @@ impl HvfVcpu {
             output: output::State::default(),
             native_step: native_step::State::default(),
             halted: false,
+            _vm: lifetime,
+            _owner_thread: std::marker::PhantomData,
         };
 
         // Initialize VMCS
@@ -316,7 +331,7 @@ impl HvfVcpu {
     /// Execute the VM-exited instruction or inject its architectural fault.
     fn handle_xsetbv(&self) -> Result<()> {
         struct Access<'a> {
-            vcpu: &'a HvfVcpu,
+            vcpu: &'a HvfCore,
         }
         impl xsetbv::XsetbvAccess for Access<'_> {
             type Error = Error;
@@ -359,7 +374,7 @@ impl HvfVcpu {
 
     fn handle_cr8(&self, qualification: u64) -> Result<bool> {
         struct Access<'a> {
-            vcpu: &'a HvfVcpu,
+            vcpu: &'a HvfCore,
         }
         impl cr8::Cr8Access for Access<'_> {
             type Error = Error;
@@ -630,7 +645,7 @@ impl HvfVcpu {
     fn advance_rip(&self, bytes: u64) -> Result<()> {
         self.native_step.ready().map_err(Error::Emulator)?;
         struct Access<'a> {
-            vcpu: &'a HvfVcpu,
+            vcpu: &'a HvfCore,
             next: u64,
         }
         impl retirement::Access for Access<'_> {
@@ -696,6 +711,7 @@ impl HvfVcpu {
     }
 
     fn io_ready(&self) -> Result<()> {
+        self._vm.ready()?;
         self.native_step.ready().map_err(Error::Emulator)?;
         self.priority.ready().map_err(Error::Emulator)?;
         self.output.ready().map_err(Error::Emulator)?;
@@ -833,7 +849,7 @@ impl HvfVcpu {
 
 #[cfg(target_arch = "x86_64")]
 struct EventAccess<'a> {
-    vcpu: &'a HvfVcpu,
+    vcpu: &'a HvfCore,
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -864,10 +880,10 @@ impl event_injection::Access for EventAccess<'_> {
 }
 
 #[cfg(target_arch = "x86_64")]
-impl sync_exit::HaltAccess for HvfVcpu {
+impl sync_exit::HaltAccess for HvfCore {
     type Error = Error;
     fn advance_current_instruction(&mut self) -> Result<()> {
-        HvfVcpu::advance_current_instruction(self)
+        HvfCore::advance_current_instruction(self)
     }
     fn set_halted(&mut self, halted: bool) -> Result<()> {
         vmcs_write(
@@ -881,7 +897,7 @@ impl sync_exit::HaltAccess for HvfVcpu {
 }
 
 #[cfg(target_arch = "x86_64")]
-impl run_loop::ExitHandler for HvfVcpu {
+impl run_loop::ExitHandler for HvfCore {
     type Exit = VcpuExit;
     type Error = Error;
     fn prepare(&mut self) -> Result<Option<VcpuExit>> {
@@ -921,6 +937,7 @@ impl run_loop::ExitHandler for HvfVcpu {
         Ok(None)
     }
     fn next_reason(&mut self) -> Result<u32> {
+        self._vm.ready()?;
         self.priority
             .prepare_entry(&mut priority_native::Host(self.vcpu_id))
             .map_err(Error::Emulator)?;
@@ -1099,7 +1116,7 @@ impl run_loop::ExitHandler for HvfVcpu {
 }
 
 #[cfg(target_arch = "x86_64")]
-impl VCpu for HvfVcpu {
+impl HvfCore {
     fn is_bootstrap_processor(&self) -> Result<bool> {
         self.priority.ready().map_err(Error::Emulator)?;
         Ok(self.apic_base.load(Ordering::SeqCst) & apic_profile::APIC_BASE_BSP != 0)
@@ -1183,7 +1200,7 @@ impl VCpu for HvfVcpu {
         }
         if self.mmio_input.pending() {
             struct Access<'a> {
-                vcpu: &'a HvfVcpu,
+                vcpu: &'a HvfCore,
             }
             impl mmio::CompletionAccess for Access<'_> {
                 type Error = Error;
@@ -1205,7 +1222,7 @@ impl VCpu for HvfVcpu {
             return;
         }
         struct Access<'a> {
-            vcpu: &'a HvfVcpu,
+            vcpu: &'a HvfCore,
         }
         impl port_io::CompletionAccess for Access<'_> {
             type Error = Error;
@@ -1297,10 +1314,17 @@ impl VCpu for HvfVcpu {
 }
 
 #[cfg(target_arch = "x86_64")]
-impl Drop for HvfVcpu {
+impl Drop for HvfCore {
     fn drop(&mut self) {
+        // SAFETY: the non-Send core is dropped on its creating worker, after
+        // every synchronous operation. The VM and RAM remain retained here.
         let ret = unsafe { hv_vcpu_destroy(self.vcpu_id) };
         if ret != HV_SUCCESS {
+            self._vm.poison(format!(
+                "vCPU {} SDK destruction failed: {}",
+                self.id,
+                hv_error_string(ret)
+            ));
             warn!(
                 "Failed to destroy vCPU {}: {}",
                 self.id,

@@ -1,0 +1,19 @@
+{
+  "issuer": "Apple Inc.",
+  "title": "Hypervisor.framework Intel vCPU lifetime, owner-thread and XSAVE API contracts",
+  "sdk_version": "27.2",
+  "retrieved_utc": "2026-10-30T21:52:16.966313+00:00",
+  "source": "Exact unmodified installed SDK headers; copyright retained",
+  "files": [
+    {
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv.h",
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv.h",
+      "sha256": "98387bf589442a8b8cd7416588e73d2e16a64c0e5036afcbbb08cb5772f41985"
+    },
+    {
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_arch_x86.h",
+      "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_arch_x86.h",
+      "sha256": "19926e960116d989531558066f21f237a8482d1feffbc911bcaae3b145bc3368"
+    }
+  ]
+}

@@ -388,6 +388,14 @@ name = "hvf_native_debug"
 path = "tests/suites/backend/hvf_native_debug.rs"
 
 [[test]]
+name = "hvf_intel_owner"
+path = "tests/suites/backend/hvf_intel_owner.rs"
+
+[[test]]
+name = "hvf_owner"
+path = "tests/suites/backend/hvf_owner.rs"
+
+[[test]]
 name = "hvf_cr8"
 path = "tests/suites/backend/hvf_cr8.rs"
 

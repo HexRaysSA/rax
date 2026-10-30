@@ -1,9 +1,9 @@
 //! SDK adapter for the shared stopped APIC_BASE access policy.
 use super::*;
 
-impl HvfVcpu {
+impl HvfCore {
     pub(super) fn handle_apic_base(&self, value: Option<u64>) -> Result<()> {
-        struct Access<'a>(&'a HvfVcpu);
+        struct Access<'a>(&'a HvfCore);
         impl apic_identity::Access for Access<'_> {
             type Error = Error;
             fn ready(&self) -> Result<()> {

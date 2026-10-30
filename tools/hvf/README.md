@@ -47,6 +47,46 @@ are retained in `docs/specifications/apple/hypervisor-sdk-27.2/`.
 
 ## SDK ABI verification
 
+Intel vCPU creation, access and destruction belong to the thread that created
+the SDK handle. The public Intel vCPU now forwards synchronous operations to a
+permanent worker; its private core is explicitly non-Send. Each request binds
+the caller's VM clock for that operation and restores the worker's previous
+binding afterward.
+
+The VM and registered RAM remain retained until every CPU owner has joined.
+Failed CPU destruction fences peer operations and new CPU creation. If final
+SDK VM destruction fails, mapped backing is quarantined rather than freed.
+CPU creation, ordinary requests, IRQ publication and RAM-map changes participate
+in the same VM exclusion. Checkpoint record operations use the matching held
+boundary without reacquiring its read lease.
+
+```sh
+cargo +stable test --locked --no-default-features --features hvf,debug \
+  --test hvf_owner --test hvf_intel_owner
+```
+
+`hvf_owner` tests the production worker and VM-lifetime policies on portable
+hosts. `hvf_intel_owner` runs the actual public Intel backend with SDK functions
+supplied by the test executable. It requires an Intel macOS target, creates no
+hardware VM, and is cfg-empty elsewhere. On Apple Silicon, the Intel executable
+can run through Rosetta when available. To discard its unused SDK framework
+dependency when cross-running, use a local target flag:
+
+```sh
+CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs" \
+  cargo +stable test --locked --no-default-features --features hvf,debug \
+  --target x86_64-apple-darwin --test hvf_intel_owner
+```
+
+These tests establish the listed Rust/SDK-boundary behavior, including moved
+front ends and held checkpoint leases. They do not establish physical Intel
+VMX execution, complete XSAVE/private context restoration, native scheduling,
+or interrupt-device conservation. The existing architectural register projection
+still omits SIMD/private state; complete native context support remains required.
+The exact SDK ownership and XSAVE API contracts are retained in
+`docs/specifications/apple/hypervisor-sdk-27.2/hv.h` with
+`intel-owner-provenance.json`.
+
 Run the compiler-backed check on macOS with Xcode command-line tools, Python 3,
 and stable Rust available:
 

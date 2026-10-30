@@ -1,0 +1,168 @@
+{
+  "group": "intel-native-owner-lifetime-2026-10-30",
+  "status": "locally_validated_with_physical_Intel_gate_open",
+  "parent": "b0d97190824018d3297174a37ab15f6be788aa08",
+  "scope": "Permanent Intel SDK vCPU ownership, retained VM/RAM lifetime, per-call VM clocks, matching checkpoint exclusion and fatal teardown fencing",
+  "assumption_register": [
+    {
+      "id": "IO1",
+      "assumption": "Intel vCPU creation, access and destruction must execute on its creating thread.",
+      "basis": "Retained Apple SDK hv.h/hv_vmx.h ownership contract; prior direct Send handle allowed movement",
+      "dependent_result": "Movable public facade forwarding to a non-Send core on a permanent worker",
+      "stress_test": "Move the facade twice, execute and destroy from other callers, use four independent CPU owners, inject constructor/operation/destructor panics",
+      "falsification_probe": "A substituted SDK callback observes a thread different from the handle creator",
+      "status": "Confirmed by portable worker tests and actual public backend SDK-substitution fixtures; physical Intel unknown"
+    },
+    {
+      "id": "IO2",
+      "assumption": "An owned CPU returned by Vm::create_vcpu may outlive the public VM wrapper.",
+      "basis": "Owned Box<dyn VCpu> has no Rust borrow tying its lifetime to Vm; independently observed premature baseline destruction",
+      "dependent_result": "Shared lifetime retained by every core and facade; final SDK VM destruction after CPU owners join",
+      "stress_test": "VM dropped first, multiple CPUs dropped on different callers, initialization failure and logical identity reuse",
+      "falsification_probe": "VM destruction is attempted while a healthy CPU owner remains alive, or registered backing is freed after failed SDK VM destruction",
+      "status": "Confirmed for the recorded source and SDK model; physical destruction behavior unknown"
+    },
+    {
+      "id": "IO3",
+      "assumption": "Checkpoint exclusion must cover backend-owned operations without recursive acquisition inside a held lease.",
+      "basis": "CheckpointBoundary ownership contract and existing coordinated runtime hooks",
+      "dependent_result": "Ordinary request/map/IRQ admission versus stopped capture/restore paths",
+      "stress_test": "Blocked ordinary read lease, matching/foreign boundary, bounded child capturing and restoring under held write lease",
+      "falsification_probe": "SDK access occurs through a foreign boundary, or scoped capture/restore hangs waiting on its own read lease",
+      "status": "Confirmed by actual boundary/lifetime tests and bounded public-backend child; arbitrary external device writers must remain quiescent"
+    },
+    {
+      "id": "IO4",
+      "assumption": "Failed SDK destruction may leave native resources and mappings active.",
+      "basis": "No undocumented rollback/cleanup-on-error guarantee is assumed",
+      "dependent_result": "Fence peers/new creation and quarantine mapped backing on failed VM destruction",
+      "stress_test": "CPU destroy failure, failed initialization cleanup, final VM destroy failure, worker panic",
+      "falsification_probe": "A peer or new CPU enters SDK after fatal owner loss, or mapping backing drops after failed VM destruction",
+      "status": "Confirmed in substituted SDK and actual lifetime policy; hardware failure recovery unknown"
+    },
+    {
+      "id": "IO5",
+      "assumption": "Each synchronous owner request must observe the caller VM clock and restore the previous worker binding.",
+      "basis": "Explicit TimingContext contract; worker threads do not inherit caller thread-local state",
+      "dependent_result": "Clock binding inside each request closure",
+      "stress_test": "Nested caller clocks with distinct public diagnostic counters and subsequent unbound call",
+      "falsification_probe": "SDK callback sees another VM diagnostic counter or retains a prior request clock",
+      "status": "Confirmed by public SDK-boundary fixture; native retirement/TSC scheduling remains open"
+    }
+  ],
+  "change_surface": {
+    "backend": "Intel facade/core split, owner transport, VM/RAM lifetime, request clocks, checkpoint exclusion and teardown",
+    "CPU_state": "Existing public architectural projection preserved; complete native private/XSAVE context is not added by this group",
+    "machine_devices": "Existing IRQ queue/mapping semantics retained and fenced by VM exclusion; full routing/conservation remains open",
+    "unaffected": [
+      "ISA decode/execute",
+      "software CPU contexts",
+      "SMIR and JIT semantics",
+      "C ABI layout and C API software engines",
+      "Arm64 native worker implementation",
+      "common VMM scheduling policy"
+    ]
+  },
+  "baseline": {
+    "combined": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/public-api-baseline.json",
+    "interpretation": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/baseline-interpretation.json",
+    "independent_moved_vcpu_case": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/moved-vcpu-red.json",
+    "linkage": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/baseline-linkage.json",
+    "caveat": "Combined baseline reproduces premature VM destruction; its later movement case was obscured by fixture mutex poisoning. The separate fresh-process movement run is the valid owner-thread counterexample. Fixture poisoning was repaired before green runs."
+  },
+  "validation": {
+    "state": "all listed checks passed",
+    "owner_fixtures": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/intel-public-final.json",
+    "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/final-source.json",
+    "driver": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/validate-final.py",
+    "scope": "Actual Intel backend with all SDK symbols substituted; no hardware VM/guest instruction. Portable owner/lifetime policies run separately.",
+    "iteration_failure": "owner-green-v1 failed to compile because the test used a private clock accessor; it provides no runtime result. The fixture now observes public diagnostic counters.",
+    "profile": "Green/final: debug assertions and overflow checks enabled, test optimization level 1, LTO off. Exact final environment and commands retained. Baseline profile differs as recorded; no hardware/code-generation conformance is inferred.",
+    "baseline_profile": {
+      "test_opt_level": 1,
+      "debug_assertions": true,
+      "overflow_checks": true,
+      "incremental": false,
+      "build_jobs": 8,
+      "Intel_target_flags": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs",
+      "LTO": "initial inherited/default setting; LLVM ThinLTO activity was sampled",
+      "provenance": "Known per-command overrides reconstructed from the executed baseline driver; its complete inherited environment was not separately captured"
+    },
+    "checks": {
+      "fmt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/fmt-final.json",
+      "intel-public": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/intel-public-final.json",
+      "backend-integrations": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/backend-integrations-final.json",
+      "check-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/check-all-targets-final.json",
+      "build-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/build-all-targets-final.json",
+      "clippy-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/clippy-all-targets-final.json",
+      "intel-debug-check": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/intel-debug-check-final.json",
+      "intel-no-debug-check": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/intel-no-debug-check-final.json",
+      "doctests": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/doctests-final.json"
+    },
+    "complete_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/validation-complete.json",
+    "host_backend_CI_cases": 176,
+    "Intel_public_SDK_substitution_cases": 8,
+    "repeated_portable_owner_cases_in_Intel_invocation": 10,
+    "physical_Intel_execution": false,
+    "root_library_runtime_executed": false,
+    "C_API_runtime_executed": false,
+    "doctest_cases_executed": 0,
+    "doctest_cases_ignored": 5,
+    "SDK_ABI_retention": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/sdk-abi-retention.json",
+    "SDK_substitution_linkage": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-owner-checkpoint-v1/final-linkage.json",
+    "complete_check_scope": "Workspace all-target check/build/clippy with C API JIT feature; Intel debug and no-debug library type checks; complete selected backend binaries without test-name filters. No current-source full root-library or C API runtime result is inferred."
+  },
+  "provenance": {
+    "SDK_owner_and_XSAVE_headers": "docs/specifications/apple/hypervisor-sdk-27.2/intel-owner-provenance.json",
+    "SDK_VMX_headers": "docs/specifications/apple/hypervisor-sdk-27.2/intel-debug-provenance.json"
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Complete native XSAVE/private/in-flight serialization and coordinated restoration remain required. The existing architectural projection still omits SIMD/private state.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Native bounded scheduling, complete interrupt/device conservation, remaining MMIO/MSR/intercept profiles and physical Intel VMX qualification remain required.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "The guest CPUID/XSAVE profile is static; host capability admission and full advertised-state capture remain required alongside private-state serialization.",
+      "evidence": "src/backend/hvf/rosetta.rs; src/backend/hvf/convert.rs",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "SDK failure recovery is modeled; actual kernel teardown/rollback behavior has not been executed on physical Intel.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "The SDK-substitution executable requires Intel macOS code. Running it through Rosetta validates the listed Rust/SDK-boundary behavior, not hardware virtualization.",
+      "blocks_full_goal": false
+    },
+    {
+      "impact": "medium",
+      "finding": "Cold Intel fixture baseline code generation took approximately 647 seconds under host memory pressure; sampled LLVM ThinLTO was active. Local LTO-off validation avoids repeating that optimization; no global profile was changed.",
+      "blocks_full_goal": false
+    },
+    {
+      "impact": "low",
+      "finding": "Only the existing integration checkout and canonical build/scratch roots are used. Build roots are removed after the tested commit.",
+      "blocks_full_goal": false
+    }
+  ],
+  "full_goal": "A32-FP/C-STATE/C-SMP/C-HVF remain incomplete; no audit finding status is promoted by this component group.",
+  "quality_gates": {
+    "scope": "This component only; full four-finding objective remains incomplete",
+    "QG1": "No normative assessment required",
+    "QG2": "IO1-IO5 list assumptions, dependent results and falsification probes",
+    "QG3": "Owner-thread, VM/RAM lifetime, clock binding, matching checkpoint exclusion and fatal teardown requirements covered; full-goal omissions explicit",
+    "QG4": "Commands, exact test counts, profiles and source hashes retained; no physical-VMX inference from Rosetta",
+    "QG5": "Baseline fixture-poisoning cascade separated from independent movement red; compile-only failed iteration excluded from runtime results; private-state and hardware edges remain open for full goal",
+    "QG6": "Unmodified installed SDK primary headers retained with SHA-256 and version; model/portable/native evidence boundaries explicit",
+    "QG7": "High, medium and low bounded findings and completion blockers recorded"
+  }
+}
