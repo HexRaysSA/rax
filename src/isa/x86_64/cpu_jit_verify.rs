@@ -102,6 +102,7 @@ impl X86_64Vcpu {
         let snap_fs_base = self.sregs.fs.base;
         let snap_gs_base = self.sregs.gs.base;
         let snap_kernel_gs_base = self.kernel_gs_base;
+        let snap_apic_base = self.apic_base;
         let snap_tsc_adjust = self.tsc_adjust;
         let snap_tsc_aux = self.tsc_aux;
         let snap_misc_enable = self.misc_enable;
@@ -143,6 +144,7 @@ impl X86_64Vcpu {
         let jit_fs_base = self.sregs.fs.base;
         let jit_gs_base = self.sregs.gs.base;
         let jit_kernel_gs_base = self.kernel_gs_base;
+        let jit_apic_base = self.apic_base;
         let jit_tsc_adjust = self.tsc_adjust;
         let jit_tsc_aux = self.tsc_aux;
         let jit_misc_enable = self.misc_enable;
@@ -217,6 +219,7 @@ impl X86_64Vcpu {
         self.sregs.fs.base = snap_fs_base;
         self.sregs.gs.base = snap_gs_base;
         self.kernel_gs_base = snap_kernel_gs_base;
+        self.apic_base = snap_apic_base;
         self.tsc_adjust = snap_tsc_adjust;
         self.tsc_aux = snap_tsc_aux;
         self.misc_enable = snap_misc_enable;
@@ -427,6 +430,7 @@ impl X86_64Vcpu {
                 ("fs_base", self.sregs.fs.base, jit_fs_base),
                 ("gs_base", self.sregs.gs.base, jit_gs_base),
                 ("kernel_gs_base", self.kernel_gs_base, jit_kernel_gs_base),
+                ("apic_base", self.apic_base, jit_apic_base),
                 ("tsc_adjust", self.tsc_adjust, jit_tsc_adjust),
                 ("tsc_aux", u64::from(self.tsc_aux), u64::from(jit_tsc_aux)),
                 ("misc_enable", self.misc_enable, jit_misc_enable),
@@ -655,6 +659,7 @@ impl X86_64Vcpu {
         self.sregs.fs.base = jit_fs_base;
         self.sregs.gs.base = jit_gs_base;
         self.kernel_gs_base = jit_kernel_gs_base;
+        self.apic_base = jit_apic_base;
         self.tsc_adjust = jit_tsc_adjust;
         self.tsc_aux = jit_tsc_aux;
         self.misc_enable = jit_misc_enable;

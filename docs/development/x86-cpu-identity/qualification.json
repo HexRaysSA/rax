@@ -1,0 +1,1113 @@
+{
+  "schema": 1,
+  "status": "locally_validated",
+  "utc": "2026-10-30T14:45:45.063216+00:00",
+  "parent": "667f62086433eb07bfbb0f0ad772a126a992d4d8",
+  "scope": "Per-CPU initial CPUID/LAPIC identity, writable BSP state, current-role software INIT/SIPI and version3 private-context preservation; original four findings remain active",
+  "baseline": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/baseline.json",
+    "passed": 1,
+    "failed": 3,
+    "passing_case": "Capture actual old-writer fixtures; temporary emitter removed from permanent tests"
+  },
+  "software_capi_policy_test_executions_passed": 448,
+  "rosetta_test_executions_passed": 52,
+  "c_cpp_consumers_passed": 19,
+  "test_count_scope": "Selected test executions, including repeated cases across host classes; not complete repository or physical-native coverage",
+  "checks": [
+    {
+      "name": "compile-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/compile-final.json",
+      "argv": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--features",
+        "rax-capi/jit",
+        "--lib",
+        "--test",
+        "hvf_apic_identity",
+        "--test",
+        "hvf_cr8",
+        "--test",
+        "x86_64",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 242.81196708296193
+    },
+    {
+      "name": "workspace-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/workspace-final.json",
+      "argv": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--features",
+        "rax-capi/jit",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 35.16823387501063
+    },
+    {
+      "name": "clippy-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/clippy-final.json",
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--lib",
+        "--test",
+        "hvf_apic_identity"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 43.14710008300608
+    },
+    {
+      "name": "fmt-check-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/fmt-check-final.json",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 24.36376920901239
+    },
+    {
+      "name": "intel-compile-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/intel-compile-final.json",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 161.11061195802176
+    },
+    {
+      "name": "intel-check-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/intel-check-final.json",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 88.3456271670293
+    },
+    {
+      "name": "final-fmt",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-fmt.json",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 15.906680042040534
+    },
+    {
+      "name": "consumer-build-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/consumer-build-final.json",
+      "argv": [
+        "rustc",
+        "--edition=2024",
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/tools/execution/x86_identity_compare.rs",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-110491fb7b919439.rlib",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "-o",
+        "/Users/int/dev/rax-audit-work/build-tmp/x86-identity-compare"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.017259375017602
+    },
+    {
+      "name": "consumer-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/consumer-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/build-tmp/x86-identity-compare",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/qemu-reference-v2"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.0079000000259839
+    },
+    {
+      "name": "standalone-inline-fixed-build",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/standalone-inline-fixed-build.json",
+      "argv": [
+        "rustc",
+        "--edition=2024",
+        "--crate-name",
+        "standalone_inline_fixed",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/standalone-inline-baseline.rs",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-110491fb7b919439.rlib",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "-o",
+        "/Users/int/dev/rax-audit-work/build-tmp/standalone-inline-fixed"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.358801249996759
+    },
+    {
+      "name": "standalone-inline-fixed",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/standalone-inline-fixed.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/build-tmp/standalone-inline-fixed"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.006121542013715953
+    },
+    {
+      "name": "unit-final-0",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/unit-final-0.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "isa::x86_64::cpu::identity_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.04230599995935336,
+      "test_results": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-1",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/unit-final-1.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "isa::x86_64::cpu::checkpoint::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.48999387497315183,
+      "test_results": [
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/unit-final-2.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "init_resets_control_flow_and_preserves_vector_fp_msr_and_retirement_state",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.02110775001347065,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-3",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/unit-final-3.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "isa::x86_64::execute::system::cpuid::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.020092207996640354,
+      "test_results": [
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-4",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/unit-final-4.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "isa::x86_64::execute::system::msr::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.020294582995120436,
+      "test_results": [
+        {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-5",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/unit-final-5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::cpu_identity_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 34.47294341697125,
+      "test_results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-6",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/unit-final-6.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::lapic",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 53.37205287499819,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-7",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/unit-final-7.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::execution_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 149.43474629102275,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-8",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/unit-final-8.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::checkpoint_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.03243308298988268,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-9",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/unit-final-9.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::bundle_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.04171933396719396,
+      "test_results": [
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "hvf_apic_identity-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/hvf_apic_identity-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_apic_identity-1321f6773c8c4a6b",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.010004749987274408,
+      "test_results": [
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "hvf_cr8-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/hvf_cr8-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_cr8-50a75790ccbbc448",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01040545798605308,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "capi-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/capi-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-5b2f2ba733550cef",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 25.604315874981694,
+      "test_results": [
+        {
+          "passed": 224,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "x86_64_system_cpuid-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/x86_64_system_cpuid-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/x86_64-d38a78e542d91e3f",
+        "x86_64_system_cpuid::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.02493337501073256,
+      "test_results": [
+        {
+          "passed": 45,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "x86_64_system_rdmsr-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/x86_64_system_rdmsr-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/x86_64-d38a78e542d91e3f",
+        "x86_64_system_rdmsr::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01611654198495671,
+      "test_results": [
+        {
+          "passed": 33,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "x86_64_system_wrmsr-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/x86_64_system_wrmsr-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/x86_64-d38a78e542d91e3f",
+        "x86_64_system_wrmsr::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.018391709018032998,
+      "test_results": [
+        {
+          "passed": 49,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "cross-host-gate-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/cross-host-gate-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "smir::lower::runtime::jit_gate_tests::cpuid::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.014853417000267655,
+      "test_results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "native-frame-layout-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/native-frame-layout-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "smir::lower::runtime::jit_gate_tests::sse4a::sse4a_state_detection_layout_and_o2_retention_are_exact",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.013712708023376763,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-0",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/rosetta-final-0.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "isa::x86_64::cpu::identity_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.792848791985307,
+      "test_results": [
+        {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-1",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/rosetta-final-1.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "isa::x86_64::cpu::jit_cpuid_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.13158441695850343,
+      "test_results": [
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/rosetta-final-2.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "isa::x86_64::cpu::jit_msr_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.16603299998678267,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-3",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/rosetta-final-3.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "isa::x86_64::cpu::checkpoint::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.000987667008303,
+      "test_results": [
+        {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-4",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/rosetta-final-4.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "init_resets_control_flow_and_preserves_vector_fp_msr_and_retirement_state",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.04270837502554059,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-5",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/rosetta-final-5.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "smir::lower::x86_64::tests::cpuid",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.05106974998489022,
+      "test_results": [
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-6",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/rosetta-final-6.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "smir::lower::x86_64::tests::msr",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.05175745900487527,
+      "test_results": [
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-7",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/rosetta-final-7.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "smir::lower::runtime::jit_gate_tests::sse4a::sse4a_state_detection_layout_and_o2_retention_are_exact",
+        "--exact",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.13875966699561104,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    }
+  ],
+  "c_cpp_consumers": {
+    "argv": [
+      "make",
+      "-C",
+      "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/capi",
+      "test",
+      "PROFILE=debug",
+      "TARGET_DIR=/Users/int/dev/rax-audit-work/main-integration-target",
+      "EXAMPLE_DIR=/Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples",
+      "TEST_DIR=/Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/tests"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 219.1277517079725,
+    "consumers_executed": 19,
+    "consumer_lines": [
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/decode_flow ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/mem_and_context ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/pauth ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/x86_64_basic ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/x86_64_hooks ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/x86_64_io ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/x86_64_memhook ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/x86_64_smir ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/x86_64_step ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/x86_64_user ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/x86_64_vector_smir ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/arm64_fp ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/cpp_engine ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/cpp_fault_recovery ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/cpp_instruction_info ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/cpp_process ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/cpp_registers ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/cpp_user_arm ==",
+      "== running /Users/int/dev/rax-audit-work/build-tmp/identity-capi-6d5utww5/examples/cpp_user_arm64 =="
+    ],
+    "input_sha256": {
+      "capi/examples/arm64_fp.cpp": "dda79292172f2f48619b70f13bb5f82fef7d79ce8e2be2b503dbb498b7eb8121",
+      "capi/examples/cpp_engine.cpp": "37b733ff2e8a54d1dd5be07d8a284bc708669ccc8b3314aa75eaff6ddbb9a009",
+      "capi/examples/cpp_fault_recovery.cpp": "346c71a64b444206248b5b5a636e5862c41641987ddfc1acd15f11549d35d420",
+      "capi/examples/cpp_instruction_info.cpp": "986c008eac83edd2ca1cb56db93b288b588f7f7df038ae00cd80d627ed8f710f",
+      "capi/examples/cpp_process.cpp": "a2052fde98ad8e2db87e0d7211b2bfcc25ea8e63b6555d6e2e43ef01a9206cd6",
+      "capi/examples/cpp_registers.cpp": "ee2161d46110ea3175398e93136209cffc0068c9aebc8f57b761eef4efc616c2",
+      "capi/examples/cpp_user_arm.cpp": "d893dba2223bd8b7f4229f35144a9c90e0a9ad1adc25ac3d1f55bff906676fd8",
+      "capi/examples/cpp_user_arm64.cpp": "1d13f6db7c11195f2fba3c418e43c2ade80ff0f4eabcbf8bfe723e40feb0392d",
+      "capi/examples/decode_flow.c": "d09235c3eecf2fd9bdf2f50ac3bf5c29fc74ba916f4571090489a819649c192c",
+      "capi/examples/mem_and_context.c": "e31db75e6371ec56a1de4f4c2790c283023eaf600a7e6fbe1e30eed07cba45f0",
+      "capi/examples/pauth.c": "60f84e34f97644ce63c42e4ebbf2786682bec227b831041487df7339713746d4",
+      "capi/examples/x86_64_basic.c": "8ca15995df10623cec28f94461377b919551be8fd4d4119f3b9d36591a04c0c1",
+      "capi/examples/x86_64_hooks.c": "833992c254c62352dfd6b20a8e05349a74c870c4480e86cffa0a700144afc991",
+      "capi/examples/x86_64_io.c": "afb0714389234ea181d9f9415d266251af80aaf4b5bbd50d36328de3c2221bcd",
+      "capi/examples/x86_64_memhook.c": "49f996a2f5bdce26940f5774a8b2f7a8ed5883a185b876f516502d2c732ae26f",
+      "capi/examples/x86_64_smir.c": "77e5831e6f25bab502bf0aa22ff901c3fcae6d40526f1e923482b43435690dd5",
+      "capi/examples/x86_64_step.c": "cb6ad88b9c3442bcb3d46b797f57dbe231815e365bf8b120b1f1786ad6f8cb45",
+      "capi/examples/x86_64_user.c": "372db399c4369df29eb2f3a0c6e13a6ac48ed475ab5c146fad9ff76305f1a212",
+      "capi/examples/x86_64_vector_smir.c": "bb5e28da0502998d23cc9aa505d263a83d09804f23ad7eef6e723188a46147f2",
+      "capi/tests/analyze_abi.c": "545eef56413a50602e0e7fdf0a91a87a46b95b67a1ee0fed361ae0ac102771fa",
+      "capi/tests/arm64_fp_abi.c": "1512c84e986ad2a1b67d07a0617a3f314311608b99231bd7f49cd518c04807bb",
+      "capi/tests/fault_abi.c": "9c2a22f09a9f7c37983bb9ecd465fc2e2ff062b089aaa9ff15867e90d9dea35c",
+      "capi/tests/instruction_info_abi.c": "7e9f127ee472eff493e8b1feecc757146bae4a6c49a88980644e6b3ad50e18be",
+      "capi/tests/pauth_abi.c": "dd2d3d2371e320c10f3d8c9bd4804430cf1f110d98eb7e254850263409289339",
+      "capi/tests/process_abi.c": "383150ba055c50910fb71a53bed084d1f8390963869a9576e7180f840142483d",
+      "capi/tests/user_abi.c": "165ae08ea81b877a9614c9c17ab96ad1a96a5e0ba6cb8020230fda8420045331"
+    },
+    "library_sha256": {
+      "/Users/int/dev/rax-audit-work/main-integration-target/debug/librax.dylib": "bf8f7b6515bdcc853348b76cc0d491d0ed07e943e8796eb068b89b1bcdc7ffa0",
+      "/Users/int/dev/rax-audit-work/main-integration-target/debug/librax.a": "1182e0a4ddbf7e1b297fd28a3a661afe569ee245537b3900fb37736512bd9097"
+    },
+    "scope": "Actual default-feature C/C++ shared-library consumers plus C ABI compile checks. Native examples/objects are task-temporary; no installation."
+  },
+  "source_sha256": {
+    "src/backend/hvf/apic_identity.rs": "1abe166d3bd0f90749ccc2bc4a40f460bab0852e3467b4ce217db5a8149b354c",
+    "src/backend/hvf/apic_identity_native.rs": "3f05adb1f93e8784bcb00c89244d3f98f8294be8212d10c8b0f847ee63136b28",
+    "src/backend/hvf/mod.rs": "964a71720c0767c0808cc0ae45d004b037658a8482a56085f9fc3479941b244f",
+    "src/backend/hvf/rosetta.rs": "9e5b07bff3c960a44e38a00bd2f17be118b28c6d6be11c0200045c2415fcb90e",
+    "src/isa/x86_64/cpu.rs": "fddb49ed065fd335c5df84bebcc0f8c13d6ec59885b7b712e3123522e799811b",
+    "src/isa/x86_64/cpu_context.rs": "2abd81e4f6270188089348b59aa30c98b1a7809a184b8ad625a914e2dba89c4e",
+    "src/isa/x86_64/cpu_context/codec.rs": "3cfd8f6c61e2a39162a35710d1047df9d3bb153e8bf479a106a8a5cf9cc5af29",
+    "src/isa/x86_64/cpu_context/identity_tests.rs": "7178704cc3b8f0aeeff6aed17e6498e4ec34fa32e9e2b0e50f310c74aa8b6282",
+    "src/isa/x86_64/cpu_context/tests.rs": "4d1cf6705e8e5adfb74783d4e1b02d422b4127ea59ef94da0e95f166330fa04a",
+    "src/isa/x86_64/cpu_identity_tests.rs": "efaf79ee9a59b70328f67838e493272807b9ae72a809c1a238180cbe84d05a2e",
+    "src/isa/x86_64/cpu_jit_cpuid.rs": "04b88f6ff39c4d1f6c81e812176a6c9884202a6f71294d888e8df23332011f13",
+    "src/isa/x86_64/cpu_jit_msr.rs": "5e29049dffabbc0857641e0651a3632063515e4e9e3d17c730a8f956b51218a6",
+    "src/isa/x86_64/cpu_jit_verify.rs": "82f59eee798234605e1b4e8339996715292ec6a4d62fa8c227206b99b8fdfb51",
+    "src/isa/x86_64/cpu_vcpu.rs": "e625903dc3d08b8263637b6ed22939b0f15b54efc67b6276a73144e0cb4a2b85",
+    "src/isa/x86_64/execute/system/cpuid.rs": "60d7a69eade996a477be93640b43664cd1a9111d1857181d76e07bca31807a94",
+    "src/isa/x86_64/execute/system/msr.rs": "aad3bb8584e7b4c1c14467b9502d84d8da3d82eed5584066fd6be0522180d46b",
+    "src/isa/x86_64/identity.rs": "ed8b7b36cf17d1825006e2f54aa20070a4d63e85d5b9dd86b6bb78bac07f281b",
+    "src/isa/x86_64/memory/shared_lapic.rs": "7326f4dad67c6938ba5198862a3b7aa96b9db9ab0290ef1596f1dee72529062e",
+    "src/isa/x86_64/mod.rs": "c9a89a63a3a33cd0f8e1bc062b297a260010cd6c22f7b1709329f1d6adbe9298",
+    "src/isa/x86_64/user_mode.rs": "6e67b857beccb8fa7c168509dce0e2681035d678b608410e5d7f67e2c41f6d36",
+    "src/smir/interpret/ops/system.rs": "ef531c9f1e8b79b8dbaebb2653cc8a9b414befaa9d6e775d0f069cdee6ffab7d",
+    "src/smir/ir/context.rs": "2001ef00478755ebd9736f22d592d887b15e06032ae8c7a1bbef9669f8f17dec",
+    "src/smir/lower/mod.rs": "7f4c28c368defeddd1d960702b8a61fb7371d68986fb596a96260f3099f3236d",
+    "src/vm/runtime.rs": "3075c0993cb35f04d7e2939a866f52e60699b77aecb2003981c63e3fd7119218",
+    "src/vm/runtime/coordinator.rs": "1acd27ae6425e3f38981ba329c07d082a1c0f46ccc545c64069365483ee20651",
+    "src/vm/runtime/cpu_identity_tests.rs": "073e556b4ba5529f52936cafd022ebfeb03037bb6503ef95edb3776272b005a9",
+    "src/vm/vcpu/mod.rs": "1d2e72c224bc05e58198bf255709dd09ce8d91c8ab84c20c955060bf0be7cedd",
+    "tests/suites/backend/hvf_apic_identity.rs": "6ecfbea39c36a113cffef791184680868dc5831045a43fb9cb2e711ef93b165e",
+    "tools/execution/x86_identity_compare.rs": "99a5ace4c9ec4b3f8d157a171507b8257edda62e01d6225f1558d6bcaf8221fe"
+  },
+  "environment": {
+    "utc": "2026-10-30T14:21:35.301939+00:00",
+    "commands": [
+      {
+        "argv": [
+          "rustc",
+          "-vV"
+        ],
+        "exit_code": 0,
+        "stdout": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "sw_vers"
+        ],
+        "exit_code": 0,
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "sysctl",
+          "-n",
+          "machdep.cpu.brand_string"
+        ],
+        "exit_code": 0,
+        "stdout": "Apple M4 Max\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "xcrun",
+          "--show-sdk-version"
+        ],
+        "exit_code": 0,
+        "stdout": "27.2\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/usr/bin/arch",
+          "-x86_64",
+          "/usr/bin/uname",
+          "-m"
+        ],
+        "exit_code": 0,
+        "stdout": "x86_64\n",
+        "stderr": ""
+      }
+    ],
+    "environment": {
+      "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+      "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+      "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+      "CARGO_BUILD_JOBS": "1",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_NET_OFFLINE": "true",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp"
+    },
+    "execution_switches": {},
+    "limits": "Rosetta and target compilation do not prove physical Intel VMX behavior"
+  },
+  "primary_source": {
+    "utc": "2026-10-30T13:53:36.638680+00:00",
+    "path": "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "revision": "Intel SDM086 December2024",
+    "selected_pdf_page_indices": [
+      814,
+      3481,
+      4625,
+      5187
+    ],
+    "claims": [
+      "Initial APIC identity is enumerated through CPUID and may differ from current APIC ID",
+      "IA32_APIC_BASE.BSP bit8 is writable; reset BSP selection is per processor"
+    ],
+    "limitations": "APIC global enable, relocation, x2APIC modes, full topology geometry and physical Intel remain open",
+    "sections": [
+      "Vol.2A CPUID leaf1 initial APIC ID, p3-223",
+      "Vol.3A 12.4.4 APIC status/reset selection, p12-8",
+      "Vol.4 Table2-2 IA32_APIC_BASE.BSP(R/W), p2-4",
+      "Vol.3A 10.11.1 P6 MP initialization: subsequent INITs consult current BSP flag, p10-56"
+    ],
+    "qemu_model_cross_check": {
+      "url": "https://raw.githubusercontent.com/qemu/qemu/master/hw/intc/apic.c",
+      "function": "apic_set_base",
+      "observed_utc": "2026-10-30T14:15:38.849933+00:00",
+      "observation": "Current upstream function carries BSP from the previous apicbase rather than the written value. Consistent with seven installed-reference write differences; not exact installed-binary source provenance.",
+      "primary_url": "https://raw.githubusercontent.com/qemu/qemu/master/hw/intc/apic.c"
+    }
+  },
+  "qemu_reference": {
+    "manifest": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/qemu-reference-v2/manifest.json",
+    "binary": {
+      "utc": "2026-10-30T14:27:37.553324+00:00",
+      "path": "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+      "sha256": "a8ee5cdeaa1b04fa6fcfbaf210c03209ab7c91357ce2b6eb4dff10c2b7bc7816",
+      "version": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n",
+      "scope": "Observed installed binary identity; no exact source-build mapping asserted"
+    },
+    "report": {
+      "cpu_observations": 7,
+      "initial_identity_mismatches": 0,
+      "restored_state_mismatches": 0,
+      "bsp_write_primary_disagreements": 7,
+      "unknown_reference_failures": 0,
+      "records": [
+        {
+          "cpu_count": 1,
+          "cpu_id": 0,
+          "initial_apic_id": 0,
+          "topology_id": 0,
+          "mmio_id": 0,
+          "initial_base": 4276095232,
+          "written_base": 4276095232,
+          "restored_base": 4276095232,
+          "fault_vector": 0,
+          "primary_bsp_write_matches": false
+        },
+        {
+          "cpu_count": 2,
+          "cpu_id": 0,
+          "initial_apic_id": 0,
+          "topology_id": 0,
+          "mmio_id": 0,
+          "initial_base": 4276095232,
+          "written_base": 4276095232,
+          "restored_base": 4276095232,
+          "fault_vector": 0,
+          "primary_bsp_write_matches": false
+        },
+        {
+          "cpu_count": 2,
+          "cpu_id": 1,
+          "initial_apic_id": 1,
+          "topology_id": 1,
+          "mmio_id": 1,
+          "initial_base": 4276094976,
+          "written_base": 4276094976,
+          "restored_base": 4276094976,
+          "fault_vector": 0,
+          "primary_bsp_write_matches": false
+        },
+        {
+          "cpu_count": 4,
+          "cpu_id": 0,
+          "initial_apic_id": 0,
+          "topology_id": 0,
+          "mmio_id": 0,
+          "initial_base": 4276095232,
+          "written_base": 4276095232,
+          "restored_base": 4276095232,
+          "fault_vector": 0,
+          "primary_bsp_write_matches": false
+        },
+        {
+          "cpu_count": 4,
+          "cpu_id": 1,
+          "initial_apic_id": 1,
+          "topology_id": 1,
+          "mmio_id": 1,
+          "initial_base": 4276094976,
+          "written_base": 4276094976,
+          "restored_base": 4276094976,
+          "fault_vector": 0,
+          "primary_bsp_write_matches": false
+        },
+        {
+          "cpu_count": 4,
+          "cpu_id": 2,
+          "initial_apic_id": 2,
+          "topology_id": 2,
+          "mmio_id": 2,
+          "initial_base": 4276094976,
+          "written_base": 4276094976,
+          "restored_base": 4276094976,
+          "fault_vector": 0,
+          "primary_bsp_write_matches": false
+        },
+        {
+          "cpu_count": 4,
+          "cpu_id": 3,
+          "initial_apic_id": 3,
+          "topology_id": 3,
+          "mmio_id": 3,
+          "initial_base": 4276094976,
+          "written_base": 4276094976,
+          "restored_base": 4276094976,
+          "fault_vector": 0,
+          "primary_bsp_write_matches": false
+        }
+      ]
+    },
+    "product_consumer": {
+      "cpu_observations": 7,
+      "independent_identity_and_restore_mismatches": 0,
+      "primary_bsp_write_mismatches": 0,
+      "raw_reference_bsp_write_differences": 7
+    },
+    "consumer_artifact_identities": {
+      "engine_rlib": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-110491fb7b919439.rlib",
+      "sha256": {
+        "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/tools/execution/x86_identity_compare.rs": "99a5ace4c9ec4b3f8d157a171507b8257edda62e01d6225f1558d6bcaf8221fe",
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-110491fb7b919439.rlib": "9162a11bc07a538cd5d7c851dff5d1d5e2e5f2aae49d4cf8a207bf9270d37cea",
+        "/Users/int/dev/rax-audit-work/build-tmp/x86-identity-compare": "dd27bc5af641e15aba0d6af56ba8bab44b07ee0b201d5b53d015733ccfa03130"
+      }
+    },
+    "scope": "Seven independent initial identity/default/restore observations. BSP writes follow Intel primary sources; seven installed-reference preserved-bit differences are retained. No complete RAX SMP, topology or physical Intel inference."
+  },
+  "compatibility": {
+    "writer": "RAXX8603 wraps the unchanged version2 base with represented APIC_BASE value",
+    "readers": [
+      "RAXX8601",
+      "RAXX8602",
+      "RAXX8603"
+    ],
+    "legacy_migration": "Absent APIC-base field uses corrected configured boot identity; legacy AP records no longer reproduce inherited BSP=1 reporting bug",
+    "native_frames": "No GuestRegs ABI field or established offset changes",
+    "outer_formats": "C API outer format and VM producer kind unchanged",
+    "legacy_fixture_provenance": "docs/development/x86-cpu-identity/legacy-v2.provenance.json"
+  },
+  "evidence_classes": [
+    "Actual software CPU guest/public state and optimized lifted SMIR execution",
+    "Actual VMM ICR dispatch/bundle restore and existing 2/4-CPU .rxc execution continuation",
+    "Production HVF policy with explicit SDK substitution plus actual configured CPUID projection",
+    "Actual emitted x86 under Rosetta and Intel-target compilation; no physical Intel VMX execution",
+    "Actual C API unit tests and C/C++ shared-library/ABI consumers"
+  ],
+  "assumption_register": [
+    {
+      "id": "I1",
+      "assumption": "Configured CPU IDs provide initial APIC identity; CPU zero is the selected reset BSP",
+      "basis": "VMM construction and Intel SDM086 CPUID/12.4.4",
+      "dependent_result": "Guest/public/JIT/SMIR/HVF initial identity and reset defaults",
+      "stress_test": "Multiple IDs, all 8-bit projection values, extended identity fields, changed current LAPIC ID, reset and private restore",
+      "falsification_probe": "Any secondary reports initial ID0 or BSP=1 before a write, or changing current LAPIC ID rewrites initial identity",
+      "status": "locally verified; physical Intel unverified"
+    },
+    {
+      "id": "I2",
+      "assumption": "BSP is writable and current flag determines the selected MP INIT role",
+      "basis": "Intel SDM086 Vol.4 Table2-2 BSP(R/W), Vol.3A10.11.1 subsequent INIT discussion",
+      "dependent_result": "Represented write state, INIT boot/wait and SIPI handling",
+      "stress_test": "Write both BSP values; change both CPUs roles; actual ICR queue and runtime dispatch; INIT preservation versus reset; SDK completion errors",
+      "falsification_probe": "A successful write is inert or current-role INIT/SIPI chooses CPU index instead of the flag",
+      "status": "primary-derived software/policy/JIT qualified; QEMU ignores BSP writes and is not a write oracle; physical Intel unverified"
+    },
+    {
+      "id": "I3",
+      "assumption": "Legacy version1/2 contexts contain no mutable APIC-base state",
+      "basis": "Preceding-writer raw fixtures and unchanged serde base representation",
+      "dependent_result": "Explicit default migration and version3 exact write-state restoration",
+      "stress_test": "Actual legacy bytes, exact old base encoding, frozen version1 user input, malformed new mode values and every-prefix rejection",
+      "falsification_probe": "Any old byte changes, old input is rejected, or written version3 state is reconstructed from reset identity",
+      "status": "locally verified; absent legacy BSP state uses corrected configured boot default"
+    },
+    {
+      "id": "I4",
+      "assumption": "SDK completion/fault injection errors may have partial effects",
+      "basis": "SDK failure atomicity is not established",
+      "dependent_result": "Completion-before-model publication and permanent entry exclusion on mutation failures",
+      "stress_test": "Each substituted SDK write/advance/fault phase mutates then fails; retries must not call SDK or publish model",
+      "falsification_probe": "Failed writes update model or any fenced CPU retries/enters",
+      "status": "production policy verified with SDK substitution; physical failure behavior unverified"
+    },
+    {
+      "id": "I5",
+      "assumption": "Capture and restore occur at the existing stopped publication boundary",
+      "basis": "Current VMM coordinator and prepared private-context publication",
+      "dependent_result": "Coherent full software bundle restoration and immutable target identity",
+      "stress_test": "Changed BSP flags in real VMM bundle, multi-CPU file continuation, malformed private-state rejection, user/debug binding and C API round-trips",
+      "falsification_probe": "Target state changes after rejected admission, private flag is lost, or getters re-enter held controller locks",
+      "status": "selected stopped software paths verified; complete backend/private/in-flight state and external raw writers remain open"
+    }
+  ],
+  "retained_failures": [
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/standalone-inline-baseline.json",
+      "meaning": "Actual standalone CPU3 initially read LAPIC_ID0 through guest MMIO; constructor seeds the inline ID and round-trip tests preserve changed current IDs"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/before-standalone-constructor-fix/capi-consumers-final.json",
+      "meaning": "Non-JIT C API consumer build exposed an unconditional JIT-runtime type reference in a layout constant; field arithmetic now works in both feature profiles and real-frame layout is checked"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/baseline.json",
+      "meaning": "Three actual software regressions before production edits"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/compile-final-before-ipi-fixture-fix.json",
+      "meaning": "Test attempted a module-private coordinator method; fixture changed to the actual ICR queue and public-to-parent dispatch, then final compiler/tests passed"
+    },
+    {
+      "reference": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/qemu-reference-v2/manifest.json",
+      "meaning": "QEMU ignores BSP writes; current upstream implementation preserves prior BSP. Raw differences retained; no ISA relaxation"
+    }
+  ],
+  "workflow_registration": {
+    "status": "passed",
+    "yaml_parser": "Ruby Psych YAML AST parser (Python PyYAML unavailable; no package installed)",
+    "stdout": ".github/workflows/ci.yml\n.github/workflows/full-suite.yml\n",
+    "stderr": "",
+    "test": {
+      "name": "hvf_apic_identity",
+      "path": "tests/suites/backend/hvf_apic_identity.rs"
+    }
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Global APIC modes, topology, full IRQ/native-private state and physical Intel remain unqualified",
+      "blocks_full_goal_completion": true
+    },
+    {
+      "impact": "high",
+      "finding": "External concurrent raw writers remain outside the stopped capture contract",
+      "blocks_full_goal_completion": true
+    }
+  ],
+  "remaining_full_goal": [
+    "A32-FP remaining selected profile controls and instruction-admission semantics",
+    "C-STATE complete backend/private/in-flight state and coordinated checkpoint restoration",
+    "C-SMP complete multi-CPU/startup/scheduling/debug/clocks/replay across supported backend/platform profiles",
+    "C-HVF remaining MMIO/intercept/interrupt profiles and physical Intel validation",
+    "APIC_BASE enable/disable/relocation, x2APIC mode/MSR banks, complete topology geometry and remaining advertised native feature controls",
+    "Full IRQ-source routing/conservation and native SDK thread ownership/bounded multi-CPU execution",
+    "Complete Intel backend-private/in-flight checkpoint state and host/device failure recovery; base-only legacy view is still a projection",
+    "Physical Intel VMX/guest/device/exception/failure validation remains unverified"
+  ],
+  "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/commit-receipt.json",
+  "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/cleanup-final.json",
+  "workflow": "git add -- exact owned paths; red -m --staged --run same exact paths; no push"
+}

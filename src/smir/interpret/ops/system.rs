@@ -265,6 +265,7 @@ impl SmirInterpreter {
                             return Ok(());
                         }
                         X86MsrState {
+                            apic_base: x86.apic.base,
                             cr0: x86.cr0,
                             tsc_adjust: x86.tsc_adjust,
                             tsc_aux: x86.tsc_aux,
@@ -309,6 +310,7 @@ impl SmirInterpreter {
                         unreachable!("validated x86 MSR state changed")
                     };
                     x86.tsc_adjust = effect.state.tsc_adjust;
+                    x86.apic.base = effect.state.apic_base;
                     x86.tsc_aux = effect.state.tsc_aux;
                     x86.efer = effect.state.efer;
                     x86.star = effect.state.star;
@@ -1685,6 +1687,7 @@ impl SmirInterpreter {
                     leaf,
                     subleaf,
                     crate::isa::x86_64::execute::system::X86CpuidState {
+                        initial_apic_id: x86.apic.initial_id,
                         cr4: x86.cr4,
                         xcr0: x86.xcr0,
                         xeon_phi_avx512: x86.xeon_phi_avx512,

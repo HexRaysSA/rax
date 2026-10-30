@@ -155,9 +155,6 @@ pub const X86_GUEST_CR2_OFFSET: i32 = X86_GUEST_AC_FLAG_OFFSET + 8;
 pub const X86_GUEST_CR3_OFFSET: i32 = X86_GUEST_CR2_OFFSET + 8;
 /// Byte offset of guest CR8.
 pub const X86_GUEST_CR8_OFFSET: i32 = X86_GUEST_CR3_OFFSET + 8;
-/// Append-only live priority callback; preceding native ABI offsets stay fixed.
-pub const X86_GUEST_CONTROL_READ_FN_OFFSET: i32 =
-    std::mem::offset_of!(runtime::GuestRegs, control_read_fn) as i32;
 /// Byte offset of guest DR0. Debug-register state is appended so every
 /// established helper/trampoline field retains its existing offset.
 pub const X86_GUEST_DR0_OFFSET: i32 = X86_GUEST_CR8_OFFSET + 8;
@@ -286,6 +283,9 @@ pub const X86_GUEST_ATOMIC_RMW_FN_OFFSET: i32 = X86_GUEST_VSIB_INSTRUCTION_ORDIN
 pub const X86_GUEST_X87_PAYLOAD_HIGH_OFFSET: i32 = X86_GUEST_ATOMIC_RMW_FN_OFFSET + 8;
 /// Offset of the append-only absolute guest retirement count.
 pub const X86_GUEST_RETIRED_COUNT_OFFSET: i32 = X86_GUEST_X87_PAYLOAD_HIGH_OFFSET + 8 * 8;
+/// Append-only live priority callback, after two u64 retirement fields. Keep
+/// this layout expression available to lowerers even without the JIT runtime.
+pub const X86_GUEST_CONTROL_READ_FN_OFFSET: i32 = X86_GUEST_RETIRED_COUNT_OFFSET + 2 * 8;
 /// Internal `vec_load_fn` destination namespace for
 /// [`runtime::GuestRegs::vector_scratch`]. Architectural ZMM indices remain
 /// exactly 0..=31. For `vec_store_fn`, this tag names an unmasked scratch

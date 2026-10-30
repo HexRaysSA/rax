@@ -459,7 +459,7 @@ fn versioned_user_context_preserves_consumed_debug_status() {
     let status = source.capture_user_debug_status();
     assert_eq!(status, (1 << 14) | (1 << 13));
     let raw = source.save_context().unwrap();
-    assert!(raw.starts_with(b"RAXX8602"));
+    assert!(raw.starts_with(b"RAXX8603"));
     let (mut target, _) = cpu(&[0x90]);
     target.enable_user_mode(Arc::new(Identity));
     target.restore_context(&raw).unwrap();
@@ -484,7 +484,7 @@ fn debug_status_binding_and_version_mismatches_reject_before_mutation() {
             base: &context,
             user_debug_status: if user_mode { None } else { Some(0) },
         };
-        let mut invalid = TAG.to_vec();
+        let mut invalid = VERSION2_TAG.to_vec();
         invalid.extend_from_slice(&crate::codec::serialize(&bad).unwrap());
         assert!(target.restore_context(&invalid).is_err());
         assert_eq!(target.save_context().unwrap(), before);

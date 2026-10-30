@@ -76,6 +76,16 @@ impl Default for CpuidConfig {
 }
 
 impl CpuidConfig {
+    /// Apply configured guest identity without exposing the host APIC ID.
+    pub fn cpuid_for_cpu(&self, leaf: u32, subleaf: u32, id: u32) -> (u32, u32, u32, u32) {
+        let value = self.cpuid(leaf, subleaf);
+        if leaf == 1 || (leaf <= self.max_basic_leaf && matches!(leaf, 0x0b | 0x1f)) {
+            crate::isa::x86_64::identity::project_cpuid(leaf, value, id)
+        } else {
+            value
+        }
+    }
+
     /// Generate CPUID response for a given leaf and subleaf.
     pub fn cpuid(&self, leaf: u32, subleaf: u32) -> (u32, u32, u32, u32) {
         match leaf {

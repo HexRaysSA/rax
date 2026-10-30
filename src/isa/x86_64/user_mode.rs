@@ -34,7 +34,7 @@ use std::sync::Arc;
 use super::cpu::X86_64Vcpu;
 use crate::error::{Error, Result};
 use crate::vm::memory::FlatTranslation;
-use crate::vm::vcpu::Registers;
+use crate::vm::vcpu::{Registers, VCpu};
 
 /// How the recorded event was raised.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -396,6 +396,7 @@ impl X86_64Vcpu {
             leaf,
             subleaf,
             X86CpuidState {
+                initial_apic_id: self.id(),
                 cr4: self.sregs.cr4,
                 xcr0: self.xcr0,
                 xeon_phi_avx512: self.xeon_phi_avx512,

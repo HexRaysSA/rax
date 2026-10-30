@@ -170,6 +170,23 @@ SDK tests do not prove physical Intel VMX/exception delivery. See
 for checkpoint bindings, PPR subclass behavior, evidence and the remaining
 APIC_BASE/x2APIC/interrupt-source/native scheduling gates.
 
+## Per-CPU initial APIC identity and BSP state
+
+```sh
+cargo +stable test --locked --no-default-features --features hvf --test hvf_apic_identity
+```
+
+Configured guest IDs now reach CPUID's initial-APIC field and the supported HVF
+extended-topology leaf. APIC-base reads start with BSP set on CPU zero, and BSP
+writes update represented state after SDK instruction completion. Failed native
+completion fences entry; unrepresented mode/enable/relocation writes inject
+`#GP(0)` without retirement. The seven tests cover identity masks, CPU defaults,
+successful publication, all other single-bit changes and partial SDK failures.
+The actual-profile CPUID case requires macOS with `hvf`; six portable policy
+cases remain available elsewhere. See [CPU identity](../../docs/development/x86-cpu-identity/README.md)
+for the context version boundary, software INIT/SIPI behavior, independent QEMU
+observations and remaining full-profile/native gates.
+
 ## Synchronous exit IP, halt and event information
 
 ```sh

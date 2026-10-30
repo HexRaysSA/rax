@@ -3,18 +3,25 @@
 use crate::isa::x86_64::execute::system::{X86CpuidState, evaluate_cpuid};
 use crate::smir::lower::runtime::GuestRegs;
 
-/// Inputs and mutable guest-profile state are read from the marshalled register
-/// file; no host CPUID result is observable by the guest.
+/// Inputs and mutable profile state come from the frame; initial identity comes
+/// from its owning CPU (zero for standalone frames). No host CPUID is exposed.
 pub(super) unsafe extern "C" fn rax_jit_cpuid(state: *mut GuestRegs) {
+    // SAFETY: the synchronous native entry exclusively owns this initialized,
+    // aligned frame and does not access a competing Rust reference.
     let Some(state) = (unsafe { state.as_mut() }) else {
         return;
     };
     let leaf = state.gpr[0] as u32;
     let subleaf = state.gpr[1] as u32;
+    // SAFETY: nonzero ctx is the owning live CPU, separate from this stack
+    // frame. Only its immutable identity is read; no reference is retained.
+    let initial_apic_id =
+        unsafe { (state.ctx as *const super::X86_64Vcpu).as_ref() }.map_or(0, |cpu| cpu.id);
     let (eax, ebx, ecx, edx) = evaluate_cpuid(
         leaf,
         subleaf,
         X86CpuidState {
+            initial_apic_id,
             cr4: state.cr4,
             xcr0: state.xcr0,
             xeon_phi_avx512: state.cpuid_xeon_phi_avx512 != 0,

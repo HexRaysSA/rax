@@ -388,6 +388,10 @@ name = "hvf_cr8"
 path = "tests/suites/backend/hvf_cr8.rs"
 
 [[test]]
+name = "hvf_apic_identity"
+path = "tests/suites/backend/hvf_apic_identity.rs"
+
+[[test]]
 name = "hvf_sync_exits"
 path = "tests/suites/backend/hvf_sync_exits.rs"
 

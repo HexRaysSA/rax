@@ -1,0 +1,19 @@
+{
+  "producer_commit": "667f62086433eb07bfbb0f0ad772a126a992d4d8",
+  "producer": "Actual software X86_64Vcpu::save_context before adding writable APIC_BASE state; baseline fixture source and logs retained",
+  "source": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/baseline-cpu_identity_tests.rs",
+  "result": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/baseline.json",
+  "cases": {
+    "legacy-v2-cpu-0.bin": {
+      "sha256": "c5feb8789eb6dc97201b5fefe49c7f93e7a85d7183fe0d0037cf8fd1d2006c21",
+      "bytes": 3250,
+      "cpu_id": 0
+    },
+    "legacy-v2-cpu-1.bin": {
+      "sha256": "ff76641bca399a5f7f54f0c762df26040352cadb89440bf2976030a809162226",
+      "bytes": 3250,
+      "cpu_id": 1
+    }
+  },
+  "migration": "Legacy format has no mutable APIC_BASE field. New readers initialize it from configured boot identity; subsequent version3 records preserve exact writable BSP state."
+}

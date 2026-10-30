@@ -434,9 +434,31 @@ impl X86X87State {
     }
 }
 
+/// CPU-local identity and APIC-base state used by standalone x86 execution.
+#[derive(Clone, Debug)]
+pub struct X86ApicState {
+    pub initial_id: u32,
+    pub base: u64,
+}
+impl X86ApicState {
+    pub fn new(initial_id: u32) -> Self {
+        Self {
+            initial_id,
+            base: crate::isa::x86_64::identity::initial_apic_base(initial_id),
+        }
+    }
+}
+impl Default for X86ApicState {
+    fn default() -> Self {
+        Self::new(0)
+    }
+}
+
 /// x86_64 register state
 #[derive(Clone, Debug, Default)]
 pub struct X86RegState {
+    /// Initial identity and the current writable APIC-base/BSP state.
+    pub apic: X86ApicState,
     /// General purpose registers: RAX, RCX, RDX, RBX, RSP, RBP, RSI, RDI, R8-R31
     pub gpr: [u64; 32],
     /// Instruction pointer
@@ -608,7 +630,12 @@ impl Default for X86SystemSegmentCache {
 
 impl X86RegState {
     pub fn new() -> Self {
+        Self::with_initial_apic_id(0)
+    }
+
+    pub fn with_initial_apic_id(id: u32) -> Self {
         let mut state = Self::default();
+        state.apic = X86ApicState::new(id);
         // Initialize RFLAGS with required bits
         state.rflags = 0x202; // IF=1, reserved bit 1 always set
         // Initialize MXCSR with default

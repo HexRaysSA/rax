@@ -9,6 +9,10 @@
 //! Apple's Hypervisor.framework only supports guests matching the host architecture.
 //! For x86_64 emulation on Apple Silicon, use the emulator backend.
 
+#[cfg(target_arch = "x86_64")]
+mod apic_identity;
+#[cfg(target_arch = "x86_64")]
+mod apic_identity_native;
 mod arm64_mmio;
 mod bindings;
 #[cfg(target_arch = "x86_64")]
@@ -35,6 +39,8 @@ mod port_io;
 mod priority;
 #[cfg(target_arch = "x86_64")]
 mod priority_native;
+#[cfg(target_arch = "x86_64")]
+use crate::isa::x86_64::identity as apic_profile;
 pub mod rosetta;
 mod run_loop;
 #[cfg(target_arch = "x86_64")]
@@ -54,6 +60,8 @@ pub use arm64::{HvfArm64Backend, HvfArm64Vcpu, HvfArm64Vm};
 
 #[cfg(target_arch = "x86_64")]
 use std::any::Any;
+#[cfg(target_arch = "x86_64")]
+use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(target_arch = "x86_64")]
 use std::sync::{Arc, Mutex};
 
@@ -230,6 +238,7 @@ pub struct HvfVcpu {
     /// CPUID configuration
     cpuid_config: CpuidConfig,
     priority: priority_native::State,
+    apic_base: AtomicU64,
     /// Scalar input request and terminal completion failure.
     port_input: port_io::InputState,
     mmio_input: mmio::InputState,
@@ -258,6 +267,7 @@ impl HvfVcpu {
             memory_layout,
             cpuid_config,
             priority: priority_native::new(),
+            apic_base: AtomicU64::new(apic_profile::initial_apic_base(id)),
             port_input: port_io::InputState::default(),
             mmio_input: mmio::InputState::default(),
             halted: false,
@@ -407,7 +417,7 @@ impl HvfVcpu {
         let leaf = rax as u32;
         let subleaf = rcx as u32;
 
-        let configured = self.cpuid_config.cpuid(leaf, subleaf);
+        let configured = self.cpuid_config.cpuid_for_cpu(leaf, subleaf, self.id);
         let (eax, ebx, ecx, edx) = if leaf == 1 || (leaf == 0x0d && subleaf == 0) {
             let cr4 = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_CR4)?;
             let xcr0 = if leaf == 0x0d {
@@ -434,10 +444,13 @@ impl HvfVcpu {
     /// Handle RDMSR exit.
     fn handle_rdmsr(&self) -> Result<Option<VcpuExit>> {
         let ecx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RCX)? as u32;
+        if ecx == 0x1b {
+            self.handle_apic_base(None)?;
+            return Ok(None);
+        }
 
         // Handle common MSRs
         let value = match ecx {
-            0x1B => 0xFEE00000 | 0x800, // IA32_APIC_BASE - LAPIC at default address, enabled
             0xC0000080 => {
                 // IA32_EFER - read from VMCS
                 vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_IA32_EFER)?
@@ -502,12 +515,12 @@ impl HvfVcpu {
         let eax = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX)? as u32;
         let edx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RDX)? as u32;
         let value = ((edx as u64) << 32) | (eax as u64);
+        if ecx == 0x1b {
+            self.handle_apic_base(Some(value))?;
+            return Ok(None);
+        }
 
         match ecx {
-            0x1B => {
-                // IA32_APIC_BASE - ignore for now
-                debug!(value = format!("{:#x}", value), "WRMSR IA32_APIC_BASE");
-            }
             0xC0000080 => {
                 // IA32_EFER
                 vmcs_write(
@@ -1005,6 +1018,10 @@ impl run_loop::ExitHandler for HvfVcpu {
 
 #[cfg(target_arch = "x86_64")]
 impl VCpu for HvfVcpu {
+    fn is_bootstrap_processor(&self) -> Result<bool> {
+        self.priority.ready().map_err(Error::Emulator)?;
+        Ok(self.apic_base.load(Ordering::SeqCst) & apic_profile::APIC_BASE_BSP != 0)
+    }
     fn run(&mut self) -> Result<VcpuExit> {
         run_loop::run(self)
     }

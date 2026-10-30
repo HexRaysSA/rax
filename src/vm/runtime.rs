@@ -1113,6 +1113,10 @@ mod native_mmio_tests;
 mod lapic_priority_tests;
 
 #[cfg(test)]
+#[path = "runtime/cpu_identity_tests.rs"]
+mod cpu_identity_tests;
+
+#[cfg(test)]
 mod aarch64_cluster_tests;
 
 #[cfg(all(test, feature = "hvf", target_os = "macos", target_arch = "aarch64"))]

@@ -166,6 +166,7 @@ jobs:
             --test hvf_xsetbv \
             --test hvf_run_loop \
             --test hvf_cr8 \
+            --test hvf_apic_identity \
             --test hvf_sync_exits \
             --test hvf_event_injection \
             --test hvf_interrupt_shadow \

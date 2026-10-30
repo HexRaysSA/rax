@@ -4,8 +4,9 @@ use super::X86_64Vcpu;
 use crate::isa::x86_64::execute::system::{X86MsrState, read_x86_msr, validate_x86_msr_write};
 use crate::smir::lower::runtime::GuestRegs;
 
-fn msr_state(state: &GuestRegs) -> X86MsrState {
+fn msr_state(state: &GuestRegs, apic_base: u64) -> X86MsrState {
     X86MsrState {
+        apic_base,
         cr0: state.cr0,
         tsc_adjust: state.tsc_adjust,
         tsc_aux: state.tsc_aux,
@@ -54,14 +55,17 @@ fn commit_msr_state(state: &mut GuestRegs, msr: X86MsrState) {
 /// `state` must reference the live [`GuestRegs`] image for the owning
 /// [`X86_64Vcpu`], and `state.ctx` must contain that vCPU's valid address.
 pub(super) unsafe extern "C" fn rax_jit_msr(state: *mut GuestRegs, write: u64) -> u64 {
+    // SAFETY: the synchronous caller exclusively owns this live, aligned frame.
     let Some(state) = (unsafe { state.as_mut() }) else {
         return 0;
     };
+    // SAFETY: ctx names the owning live CPU, separate from the native stack
+    // frame. This callback exclusively accesses it and retains no reference.
     let Some(vcpu) = (unsafe { (state.ctx as *mut X86_64Vcpu).as_mut() }) else {
         return 0;
     };
     let index = state.gpr[1] as u32;
-    let current = msr_state(state);
+    let current = msr_state(state, vcpu.apic_base);
     let tsc = vcpu.tsc();
 
     if write != 0 {
@@ -70,6 +74,7 @@ pub(super) unsafe extern "C" fn rax_jit_msr(state: *mut GuestRegs, write: u64) -
         let Ok(effect) = validate_x86_msr_write(index, value, current, tsc) else {
             return 0;
         };
+        vcpu.apic_base = effect.state.apic_base;
         commit_msr_state(state, effect.state);
         if effect.flush_tlb {
             vcpu.mmu.flush_tlb();

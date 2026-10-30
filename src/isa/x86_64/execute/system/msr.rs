@@ -29,7 +29,6 @@ pub(crate) const IA32_GS_BASE: u32 = 0xC000_0101;
 pub(crate) const IA32_KERNEL_GS_BASE: u32 = 0xC000_0102;
 pub(crate) const IA32_TSC_AUX: u32 = 0xC000_0103;
 
-const APIC_BASE_PROFILE_VALUE: u64 = (1 << 8) | (1 << 11) | 0xFEE0_0000;
 const CR0_PE: u64 = 1 << 0;
 const CR0_PG: u64 = 1 << 31;
 const EFER_SCE: u64 = 1 << 0;
@@ -64,6 +63,7 @@ const UMWAIT_CONTROL_RESERVED: u64 = (1 << 1) | 0xFFFF_FFFF_0000_0000;
 /// interpretation, and helper-backed native execution.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct X86MsrState {
+    pub apic_base: u64,
     pub cr0: u64,
     pub tsc_adjust: u64,
     pub tsc_aux: u32,
@@ -86,6 +86,7 @@ pub(crate) struct X86MsrState {
 impl Default for X86MsrState {
     fn default() -> Self {
         Self {
+            apic_base: crate::isa::x86_64::identity::initial_apic_base(0),
             cr0: 0,
             tsc_adjust: 0,
             tsc_aux: 0,
@@ -153,7 +154,7 @@ pub(crate) fn read_x86_msr(
         IA32_TSC => tsc,
         // Platform zero is the sole microcode platform in this virtual CPU.
         IA32_PLATFORM_ID => 0,
-        IA32_APIC_BASE => APIC_BASE_PROFILE_VALUE,
+        IA32_APIC_BASE => state.apic_base,
         IA32_TSC_ADJUST => state.tsc_adjust,
         // The deterministic profile has no updatable microcode image. Intel's
         // discovery sequence writes zero, executes CPUID, then reads this MSR;
@@ -204,12 +205,10 @@ pub(crate) fn validate_x86_msr_write(
         }
         IA32_PLATFORM_ID => return gp(),
         IA32_APIC_BASE => {
-            // The emulator's LAPIC MMIO window is fixed. A same-value write is
-            // architecturally observable as success; relocation/disable values
-            // cannot be represented by the current machine profile.
-            if value != APIC_BASE_PROFILE_VALUE {
+            if !crate::isa::x86_64::identity::valid_apic_base(value) {
                 return gp();
             }
+            state.apic_base = value;
         }
         IA32_TSC_ADJUST => state.tsc_adjust = value,
         IA32_BIOS_SIGN_ID => {
@@ -326,6 +325,7 @@ pub(crate) fn validate_x86_msr_write(
 
 fn vcpu_msr_state(vcpu: &X86_64Vcpu) -> X86MsrState {
     X86MsrState {
+        apic_base: vcpu.apic_base,
         cr0: vcpu.sregs.cr0,
         tsc_adjust: vcpu.tsc_adjust,
         tsc_aux: vcpu.tsc_aux,
@@ -347,6 +347,7 @@ fn vcpu_msr_state(vcpu: &X86_64Vcpu) -> X86MsrState {
 }
 
 fn commit_vcpu_msr_state(vcpu: &mut X86_64Vcpu, state: X86MsrState) {
+    vcpu.apic_base = state.apic_base;
     vcpu.tsc_adjust = state.tsc_adjust;
     vcpu.tsc_aux = state.tsc_aux;
     vcpu.sregs.efer = state.efer;

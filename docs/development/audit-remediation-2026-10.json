@@ -2677,7 +2677,10 @@
         "docs/development/native-arm64-checkpoints/terminal-io-qualification.json",
         "docs/development/task-priority-coherence-qualification.json",
         "docs/development/task-priority-coherence.md",
-        "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json"
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json",
+        "docs/development/x86-cpu-identity/qualification.json",
+        "docs/development/x86-cpu-identity/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2695,7 +2698,8 @@
         "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope.",
         "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO was subsequently reproduced and repaired in the terminal-I/O group; four represented phases now pass actual native file/wake continuation. Full original scope remains open.",
         "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open.",
-        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed."
+        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
+        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2733,7 +2737,8 @@
           "scope": "MVFR1.SIMDFMAC and MVFR2 FPMisc/SIMDMisc admission in the shared A32/T32 executor; exact bounded S3C entry/non-retirement and heartbeat preservation; backend profile state and real prepared-context two/four-CPU .rxc continuation. Full four findings remain incomplete.",
           "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
         },
-        "per-cpu-task-priority-coherence-2026-10-30"
+        "per-cpu-task-priority-coherence-2026-10-30",
+        "per-cpu-initial-apic-and-bsp-state-2026-10-30"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -3344,7 +3349,10 @@
         "docs/development/native-arm64-checkpoints/terminal-io-qualification.json",
         "docs/development/task-priority-coherence-qualification.json",
         "docs/development/task-priority-coherence.md",
-        "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json"
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json",
+        "docs/development/x86-cpu-identity/qualification.json",
+        "docs/development/x86-cpu-identity/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3358,7 +3366,8 @@
         "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope.",
         "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO was subsequently reproduced and repaired in the terminal-I/O group; four represented phases now pass actual native file/wake continuation. Full original scope remains open.",
         "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open.",
-        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed."
+        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
+        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3385,7 +3394,8 @@
           "scope": "MVFR1.SIMDFMAC and MVFR2 FPMisc/SIMDMisc admission in the shared A32/T32 executor; exact bounded S3C entry/non-retirement and heartbeat preservation; backend profile state and real prepared-context two/four-CPU .rxc continuation. Full four findings remain incomplete.",
           "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
         },
-        "per-cpu-task-priority-coherence-2026-10-30"
+        "per-cpu-task-priority-coherence-2026-10-30",
+        "per-cpu-initial-apic-and-bsp-state-2026-10-30"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -3954,7 +3964,10 @@
         "docs/development/audit-remediation-2026-10.json",
         "docs/development/task-priority-coherence-qualification.json",
         "docs/development/task-priority-coherence.md",
-        "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json"
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json",
+        "docs/development/x86-cpu-identity/qualification.json",
+        "docs/development/x86-cpu-identity/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -3970,7 +3983,8 @@
         "Native Intel VMX event and VM/guest runtime validation",
         "Scalar ADD/ADC/SUB/SBB/AND/OR/XOR register-result and CMP/TEST MMIO reads locally qualified with 65 tests, 5768 independent QEMU instruction records and Intel-target compile checks. Native RAM/device-hole mapping and PCI/collateral RAM routing are separately locally qualified by the memory-layout group; physical Intel SDK/device validation remains open. All original remaining C-HVF profiles and physical Intel requirements remain open.",
         "Native mapping/routing group: 136 selected tests and Intel-target compilation; physical Intel failure/runtime proof, collateral instruction/page-table fetch, mixed-page operands, E820/resource consistency, remaining controller/private state and complete native scheduling remain open.",
-        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed."
+        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
+        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3978,7 +3992,8 @@
         "native-arm64-hvf-pending-mmio-transaction",
         "hvf-scalar-mmio-read-alu",
         "hvf-native-memory-layout-and-pci-routing",
-        "per-cpu-task-priority-coherence-2026-10-30"
+        "per-cpu-task-priority-coherence-2026-10-30",
+        "per-cpu-initial-apic-and-bsp-state-2026-10-30"
       ]
     },
     {
@@ -197018,7 +197033,7 @@
     },
     {
       "id": "per-cpu-task-priority-coherence-2026-10-30",
-      "status": "locally_validated",
+      "status": "committed_locally",
       "parent": "0f6a35685e335480f83c790c0e38e7d1053cae02",
       "scope": "Full TPR ownership across CR8/direct guest/JIT/public state/controller/checkpoint/native SDK mirror; original four-finding goal remains active",
       "owned_paths": [
@@ -197126,6 +197141,125 @@
         "Previous native mapping limits remain: collateral instruction/page-table fetch, mixed-page operands and E820/resource consistency"
       ],
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/commit-receipt.json",
+      "workflow": "git add -- exact owned paths; red -m --staged --run same exact paths; no push",
+      "commit": "667f62086433eb07bfbb0f0ad772a126a992d4d8"
+    },
+    {
+      "id": "per-cpu-initial-apic-and-bsp-state-2026-10-30",
+      "status": "locally_validated",
+      "parent": "667f62086433eb07bfbb0f0ad772a126a992d4d8",
+      "scope": "Per-CPU initial CPUID/LAPIC identity, writable BSP state, current-role software INIT/SIPI and version3 private-context preservation; original four findings remain active",
+      "owned_paths": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        ".gitignore",
+        "Cargo.toml",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/x86-context-integration/README.md",
+        "docs/development/x86-cpu-identity/README.md",
+        "docs/development/x86-cpu-identity/legacy-v2-cpu-0.bin",
+        "docs/development/x86-cpu-identity/legacy-v2-cpu-1.bin",
+        "docs/development/x86-cpu-identity/legacy-v2.provenance.json",
+        "docs/development/x86-cpu-identity/qualification.json",
+        "src/backend/hvf/apic_identity.rs",
+        "src/backend/hvf/apic_identity_native.rs",
+        "src/backend/hvf/mod.rs",
+        "src/backend/hvf/rosetta.rs",
+        "src/isa/x86_64/cpu.rs",
+        "src/isa/x86_64/cpu_context.rs",
+        "src/isa/x86_64/cpu_context/codec.rs",
+        "src/isa/x86_64/cpu_context/identity_tests.rs",
+        "src/isa/x86_64/cpu_context/tests.rs",
+        "src/isa/x86_64/cpu_identity_tests.rs",
+        "src/isa/x86_64/cpu_jit_cpuid.rs",
+        "src/isa/x86_64/cpu_jit_msr.rs",
+        "src/isa/x86_64/cpu_jit_verify.rs",
+        "src/isa/x86_64/cpu_vcpu.rs",
+        "src/isa/x86_64/execute/system/cpuid.rs",
+        "src/isa/x86_64/execute/system/msr.rs",
+        "src/isa/x86_64/identity.rs",
+        "src/isa/x86_64/memory/shared_lapic.rs",
+        "src/isa/x86_64/mod.rs",
+        "src/isa/x86_64/user_mode.rs",
+        "src/smir/interpret/ops/system.rs",
+        "src/smir/ir/context.rs",
+        "src/smir/lower/mod.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/coordinator.rs",
+        "src/vm/runtime/cpu_identity_tests.rs",
+        "src/vm/vcpu/mod.rs",
+        "tests/README.md",
+        "tests/suites/backend/hvf_apic_identity.rs",
+        "tools/execution/x86_identity_compare.rs",
+        "tools/execution/x86_identity_guest.s",
+        "tools/execution/x86_identity_oracle.py",
+        "tools/hvf/README.md"
+      ],
+      "qualification": "docs/development/x86-cpu-identity/qualification.json",
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json",
+      "assumption_register": [
+        {
+          "id": "I1",
+          "assumption": "Configured CPU IDs provide initial APIC identity; CPU zero is the selected reset BSP",
+          "basis": "VMM construction and Intel SDM086 CPUID/12.4.4",
+          "dependent_result": "Guest/public/JIT/SMIR/HVF initial identity and reset defaults",
+          "stress_test": "Multiple IDs, all 8-bit projection values, extended identity fields, changed current LAPIC ID, reset and private restore",
+          "falsification_probe": "Any secondary reports initial ID0 or BSP=1 before a write, or changing current LAPIC ID rewrites initial identity",
+          "status": "locally verified; physical Intel unverified"
+        },
+        {
+          "id": "I2",
+          "assumption": "BSP is writable and current flag determines the selected MP INIT role",
+          "basis": "Intel SDM086 Vol.4 Table2-2 BSP(R/W), Vol.3A10.11.1 subsequent INIT discussion",
+          "dependent_result": "Represented write state, INIT boot/wait and SIPI handling",
+          "stress_test": "Write both BSP values; change both CPUs roles; actual ICR queue and runtime dispatch; INIT preservation versus reset; SDK completion errors",
+          "falsification_probe": "A successful write is inert or current-role INIT/SIPI chooses CPU index instead of the flag",
+          "status": "primary-derived software/policy/JIT qualified; QEMU ignores BSP writes and is not a write oracle; physical Intel unverified"
+        },
+        {
+          "id": "I3",
+          "assumption": "Legacy version1/2 contexts contain no mutable APIC-base state",
+          "basis": "Preceding-writer raw fixtures and unchanged serde base representation",
+          "dependent_result": "Explicit default migration and version3 exact write-state restoration",
+          "stress_test": "Actual legacy bytes, exact old base encoding, frozen version1 user input, malformed new mode values and every-prefix rejection",
+          "falsification_probe": "Any old byte changes, old input is rejected, or written version3 state is reconstructed from reset identity",
+          "status": "locally verified; absent legacy BSP state uses corrected configured boot default"
+        },
+        {
+          "id": "I4",
+          "assumption": "SDK completion/fault injection errors may have partial effects",
+          "basis": "SDK failure atomicity is not established",
+          "dependent_result": "Completion-before-model publication and permanent entry exclusion on mutation failures",
+          "stress_test": "Each substituted SDK write/advance/fault phase mutates then fails; retries must not call SDK or publish model",
+          "falsification_probe": "Failed writes update model or any fenced CPU retries/enters",
+          "status": "production policy verified with SDK substitution; physical failure behavior unverified"
+        },
+        {
+          "id": "I5",
+          "assumption": "Capture and restore occur at the existing stopped publication boundary",
+          "basis": "Current VMM coordinator and prepared private-context publication",
+          "dependent_result": "Coherent full software bundle restoration and immutable target identity",
+          "stress_test": "Changed BSP flags in real VMM bundle, multi-CPU file continuation, malformed private-state rejection, user/debug binding and C API round-trips",
+          "falsification_probe": "Target state changes after rejected admission, private flag is lost, or getters re-enter held controller locks",
+          "status": "selected stopped software paths verified; complete backend/private/in-flight state and external raw writers remain open"
+        }
+      ],
+      "software_capi_policy_tests_passed": 448,
+      "rosetta_tests_passed": 52,
+      "c_cpp_consumers_passed": 19,
+      "independent_cpu_observations": 7,
+      "retained_qemu_bsp_write_differences": 7,
+      "pending_gates": [
+        "A32-FP remaining selected profile controls and instruction-admission semantics",
+        "C-STATE complete backend/private/in-flight state and coordinated checkpoint restoration",
+        "C-SMP complete multi-CPU/startup/scheduling/debug/clocks/replay across supported backend/platform profiles",
+        "C-HVF remaining MMIO/intercept/interrupt profiles and physical Intel validation",
+        "APIC_BASE enable/disable/relocation, x2APIC mode/MSR banks, complete topology geometry and remaining advertised native feature controls",
+        "Full IRQ-source routing/conservation and native SDK thread ownership/bounded multi-CPU execution",
+        "Complete Intel backend-private/in-flight checkpoint state and host/device failure recovery; base-only legacy view is still a projection",
+        "Physical Intel VMX/guest/device/exception/failure validation remains unverified"
+      ],
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/commit-receipt.json",
       "workflow": "git add -- exact owned paths; red -m --staged --run same exact paths; no push"
     }
   ],

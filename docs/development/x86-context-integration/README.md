@@ -32,7 +32,11 @@ binding. Restore retains the target's memory and translation bindings.
 The attempt-local MOV/POP SS trace suppression resets at the next instruction;
 it is reconstructed as false at the synchronous checkpoint boundary.
 The C API outer format and VM producer kind remain unchanged: the inner record
-has its own explicit version tag. Both versions use strict bounded decoding.
+has its own explicit version tag. All versions use strict bounded decoding.
+RAXX8603 wraps the unchanged version-2 representation with the represented
+IA32_APIC_BASE value, preserving successful BSP-flag writes. Version-1 and
+version-2 inputs remain accepted; their absent APIC state starts from the
+configured CPU's boot identity. See [CPU identity](../x86-cpu-identity/README.md).
 
 ## Assumption register and limits
 

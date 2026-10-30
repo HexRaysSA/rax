@@ -1,7 +1,7 @@
 //! CPUID instruction.
 
 use crate::error::Result;
-use crate::vm::vcpu::VcpuExit;
+use crate::vm::vcpu::{VCpu, VcpuExit};
 
 use crate::isa::x86_64::cpu::{InsnContext, X86_64Vcpu};
 
@@ -84,6 +84,7 @@ fn compacted_xsave_area_size(xcr0: u64) -> u32 {
 /// without ever exposing the host processor's CPUID leaves.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct X86CpuidState {
+    pub initial_apic_id: u32,
     pub cr4: u64,
     pub xcr0: u64,
     pub xeon_phi_avx512: bool,
@@ -157,7 +158,11 @@ pub(crate) fn evaluate_cpuid(
                                   | (1 << 28)  // AVX
                                   | (1 << 29)  // F16C
                                   | (1 << 30); // RDRAND
-            (signature, 0x00000000, features_ecx, features_edx)
+            crate::isa::x86_64::identity::project_cpuid(
+                1,
+                (signature, 0, features_ecx, features_edx),
+                state.initial_apic_id,
+            )
         }
         0x0A => {
             // Architectural performance monitoring version zero selects the
@@ -372,6 +377,7 @@ pub fn cpuid(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
         vcpu.regs.rax as u32,
         vcpu.regs.rcx as u32,
         X86CpuidState {
+            initial_apic_id: vcpu.id(),
             cr4: vcpu.sregs.cr4,
             xcr0: vcpu.xcr0,
             xeon_phi_avx512: vcpu.xeon_phi_avx512,

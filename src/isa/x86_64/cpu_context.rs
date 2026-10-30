@@ -11,7 +11,8 @@ use exit::ExitContext;
 #[path = "cpu_context/user.rs"]
 mod user;
 const LEGACY_TAG: &[u8; 8] = b"RAXX8601";
-const TAG: &[u8; 8] = b"RAXX8602";
+const VERSION2_TAG: &[u8; 8] = b"RAXX8602";
+const TAG: &[u8; 8] = b"RAXX8603";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - TAG.len();
 
 #[derive(Serialize, Deserialize)]
@@ -19,6 +20,15 @@ struct Version2<T> {
     base: T,
     user_debug_status: Option<u64>,
 }
+
+#[derive(Serialize, Deserialize)]
+struct Version3<T> {
+    base: Version2<T>,
+    apic_base: u64,
+}
+
+#[path = "cpu_context/codec.rs"]
+mod codec;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct X86_64Config {
@@ -40,6 +50,9 @@ struct DebugContext {
 }
 #[derive(Serialize, Deserialize)]
 struct Context {
+    // Carried by the version3 envelope, preserving version1/2 base layout.
+    #[serde(skip)]
+    apic_base: u64,
     id: u32,
     insn_count: u64,
     instruction_faulted: bool,
@@ -67,44 +80,10 @@ fn invalid(message: impl std::fmt::Display) -> Error {
 }
 
 impl Context {
-    fn decode(raw: &[u8], target: &X86_64Vcpu) -> Result<Self> {
-        if raw.len() > TAG.len() + MAX_PAYLOAD {
-            return Err(invalid("invalid tag or length"));
-        }
-        let context = if let Some(payload) = raw.strip_prefix(LEGACY_TAG) {
-            crate::codec::deserialize_limited::<Self, MAX_PAYLOAD>(payload).map_err(invalid)?
-        } else if let Some(payload) = raw.strip_prefix(TAG) {
-            let Version2 {
-                mut base,
-                user_debug_status,
-            } = crate::codec::deserialize_limited::<Version2<Self>, MAX_PAYLOAD>(payload)
-                .map_err(invalid)?;
-            if base.user.is_some() != user_debug_status.is_some() {
-                return Err(invalid("user debug status binding differs"));
-            }
-            if let (Some(user), Some(status)) = (&mut base.user, user_debug_status) {
-                user.last_debug_status = status;
-            }
-            base
-        } else {
-            return Err(invalid("invalid tag or length"));
-        };
-        context.validate(target)?;
-        Ok(context)
-    }
-
-    fn encode(&self) -> Result<Vec<u8>> {
-        let versioned = Version2 {
-            base: self,
-            user_debug_status: self.user.as_ref().map(|user| user.last_debug_status),
-        };
-        let payload = crate::codec::serialize_limited(&versioned, MAX_PAYLOAD).map_err(invalid)?;
-        let mut raw = Vec::with_capacity(TAG.len() + payload.len());
-        raw.extend_from_slice(TAG);
-        raw.extend_from_slice(&payload);
-        Ok(raw)
-    }
     fn validate(&self, target: &X86_64Vcpu) -> Result<()> {
+        if !crate::isa::x86_64::identity::valid_apic_base(self.apic_base) {
+            return Err(invalid("unsupported APIC_BASE state"));
+        }
         if self.id != target.id || self.user.is_some() != target.user.is_some() {
             return Err(invalid("CPU identity or process binding mode differs"));
         }
@@ -144,6 +123,7 @@ impl Context {
         target.validate_checkpoint_quiescence()?;
         let mut cpu = X86_64Vcpu::new(self.id, target.mmu.checkpoint_memory());
         cpu.mmu = self.mmu.prepare(&target.mmu)?;
+        cpu.apic_base = self.apic_base;
         cpu.regs = self.regs;
         cpu.sregs = self.sregs;
         cpu.restore_emulator_state(&self.emulator)?;
@@ -187,6 +167,10 @@ impl Context {
 #[cfg(test)]
 #[path = "cpu_context/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "cpu_context/identity_tests.rs"]
+mod identity_tests;
 
 impl X86_64Vcpu {
     /// Selected optional instruction capabilities, independent of register state.
@@ -251,6 +235,7 @@ impl X86_64Vcpu {
         // state, target bindings, derived native caches, and verifier diagnostics.
         let Self {
             id,
+            apic_base,
             insn_count,
             instruction_faulted,
             regs,
@@ -351,6 +336,7 @@ impl X86_64Vcpu {
             })
             .transpose()?;
         let context = Context {
+            apic_base: *apic_base,
             id: *id,
             insn_count: *insn_count,
             instruction_faulted: *instruction_faulted,

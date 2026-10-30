@@ -7,6 +7,16 @@ use crate::error::{Error, Result};
 use super::{LAPIC_BASE, Mmu};
 
 impl Mmu {
+    /// Seed a fresh standalone controller only; restored current IDs remain intact.
+    pub(in crate::isa::x86_64) fn new_for_cpu(
+        memory: Arc<vm_memory::GuestMemoryMmap>,
+        id: u32,
+    ) -> Self {
+        let mmu = Self::new(memory);
+        mmu.lapic.borrow_mut().id = (id & 255) << 24;
+        mmu
+    }
+
     pub(in crate::isa::x86_64) fn import_cr8(&self, value: u64) -> Result<()> {
         let tpr = crate::devices::lapic::priority::import_value(self.task_priority()?, value)
             .ok_or_else(|| Error::InvalidConfig("invalid CR8/TPR priority projection".into()))?;

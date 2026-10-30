@@ -268,12 +268,15 @@ impl Vmm {
     }
 
     fn initialize_x86_cpu(&mut self, index: usize) -> Result<()> {
+        // INIT does not repeat BSP selection: the current writable flag decides
+        // whether this CPU resumes boot execution or waits for a SIPI.
+        let bootstrap = self.vcpus[index].is_bootstrap_processor()?;
         self.vcpus[index].deliver_init()?;
         self.local_apics[index]
             .lock()
             .map_err(|_| Error::Emulator("local APIC lock poisoned".into()))?
             .reset_for_init();
-        self.coordinator.online[index] = index == 0;
+        self.coordinator.online[index] = bootstrap;
         Ok(())
     }
 

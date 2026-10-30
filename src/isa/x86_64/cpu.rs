@@ -294,6 +294,7 @@ impl Default for LazyFlags {
 /// Emulated x86_64 vCPU.
 pub struct X86_64Vcpu {
     id: u32,
+    pub(super) apic_base: u64,
     /// Per-vCPU retired-instruction counter. Published to the global counter
     /// only at run() yield boundaries so the hot loop stays atomic-free. The
     /// architectural TSC uses the selected guest clock in [`Self::tsc`].
@@ -1036,11 +1037,12 @@ impl X86_64Vcpu {
 
         X86_64Vcpu {
             id,
+            apic_base: super::identity::initial_apic_base(id),
             insn_count: 0,
             instruction_faulted: false,
             regs: Registers::default(),
             sregs: SystemRegisters::default(),
-            mmu: Mmu::new(mem),
+            mmu: Mmu::new_for_cpu(mem, id),
             fpu: FpuState::default(),
             halted: false,
             interrupt_inhibit: false,
@@ -3059,6 +3061,7 @@ impl X86_64Vcpu {
     /// attached guest memory. Mirrors the field initialisation in [`new`] for
     /// every architectural and cache field touched by execution.
     pub fn reset_state(&mut self) {
+        self.apic_base = super::identity::initial_apic_base(self.id);
         let _ = self.mmu.set_task_priority(0);
         self.jit_vsib_resume_pc = None;
         self.jit_callout_exit = None;
@@ -5030,6 +5033,10 @@ mod jit_read_control_tests;
 #[cfg(all(test, feature = "smir-jit", target_arch = "x86_64"))]
 #[path = "cpu_priority_tests.rs"]
 mod priority_tests;
+
+#[cfg(test)]
+#[path = "cpu_identity_tests.rs"]
+mod identity_tests;
 
 #[cfg(all(test, feature = "smir-jit", target_arch = "x86_64"))]
 #[path = "cpu_jit_smsw_tests.rs"]

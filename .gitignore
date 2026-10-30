@@ -17,6 +17,8 @@ target/
 *.til
 *.o
 *.bin
+!docs/development/x86-cpu-identity/legacy-v2-cpu-0.bin
+!docs/development/x86-cpu-identity/legacy-v2-cpu-1.bin
 !tests/fixtures/hvf/mmio-rmw-v1/cases.bin
 !tests/fixtures/hvf/mmio-rmw-v1/records.bin
 !docs/development/x86-context-integration/user-v1.bin

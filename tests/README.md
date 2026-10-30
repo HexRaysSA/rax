@@ -85,6 +85,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `hvf_xsetbv` | `suites/backend/hvf_xsetbv.rs` |
 | `hvf_run_loop` | `suites/backend/hvf_run_loop.rs` |
 | `hvf_cr8` | `suites/backend/hvf_cr8.rs` |
+| `hvf_apic_identity` | `suites/backend/hvf_apic_identity.rs` |
 | `hvf_sync_exits` | `suites/backend/hvf_sync_exits.rs` |
 | `hvf_event_injection` | `suites/backend/hvf_event_injection.rs` |
 | `hvf_interrupt_shadow` | `suites/backend/hvf_interrupt_shadow.rs` |

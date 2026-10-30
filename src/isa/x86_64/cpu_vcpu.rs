@@ -3,6 +3,9 @@
 use super::*;
 
 impl VCpu for X86_64Vcpu {
+    fn is_bootstrap_processor(&self) -> Result<bool> {
+        Ok(self.apic_base & crate::isa::x86_64::identity::APIC_BASE_BSP != 0)
+    }
     fn run(&mut self) -> Result<VcpuExit> {
         self.run_loop()
     }

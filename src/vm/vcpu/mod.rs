@@ -386,6 +386,12 @@ pub trait VCpu: Send {
     /// Get vCPU ID.
     fn id(&self) -> u32;
 
+    /// Current bootstrap role used by x86 INIT. Static-role adapters retain
+    /// CPU zero; backends with writable IA32_APIC_BASE override this query.
+    fn is_bootstrap_processor(&self) -> Result<bool> {
+        Ok(self.id() == 0)
+    }
+
     /// Get current instruction count (for snapshotting).
     fn instruction_count(&self) -> u64 {
         0
