@@ -90,6 +90,10 @@ impl ExitHandler for Host {
         self.call("exception")?;
         Ok(0)
     }
+    fn monitor_trap(&mut self) -> Result<u32, Self::Error> {
+        self.call("monitor-trap")?;
+        Ok(37)
+    }
     fn interrupt_window(&mut self) -> Result<(), Self::Error> {
         self.call("window")
     }
@@ -117,6 +121,7 @@ fn each_public_exit_returns_once_without_reentry() {
         (48, "mmio"),
         (2, "shutdown"),
         (0, "exception"),
+        (37, "monitor-trap"),
         (0xffff, "unknown"),
     ] {
         let mut host = Host::new([reason]);
@@ -124,6 +129,14 @@ fn each_public_exit_returns_once_without_reentry() {
         assert_eq!(host.trace, ["prepare", "enter", call]);
         assert_eq!((host.entries, host.preparations), (1, 1));
     }
+}
+
+#[test]
+fn monitor_trap_has_a_distinct_host_debug_route() {
+    let mut host = Host::new([37]);
+    assert_eq!(run(&mut host), Ok(37));
+    assert_eq!(host.trace, ["prepare", "enter", "monitor-trap"]);
+    assert_eq!(host.entries, 1);
 }
 
 #[test]
@@ -170,6 +183,7 @@ fn every_host_phase_propagates_errors_without_a_later_effect() {
         (48, "mmio"),
         (2, "shutdown"),
         (0, "exception"),
+        (37, "monitor-trap"),
         (10, "cpuid"),
         (31, "rdmsr"),
         (32, "wrmsr"),

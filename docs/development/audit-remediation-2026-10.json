@@ -2697,7 +2697,12 @@
         "src/vm/runtime/gdb_transport_tests.rs",
         "src/isa/x86_64/cpu_context/tests.rs",
         "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-red.json",
-        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-green.json"
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-green.json",
+        "docs/development/hvf-native-debug-qualification.json",
+        "src/backend/hvf/native_step.rs",
+        "src/backend/hvf/retirement.rs",
+        "src/backend/hvf/output.rs",
+        "tests/suites/backend/hvf_native_debug.rs"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2762,7 +2767,8 @@
         "per-cpu-initial-apic-and-bsp-state-2026-10-30",
         "software-smp-debugger-control-2026-10-30",
         "software-smp-debugger-memory-2026-10-30",
-        "software-debugger-session-ownership-2026-10-30"
+        "software-debugger-session-ownership-2026-10-30",
+        "intel-native-host-debug-completion-2026-10-30"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -4026,19 +4032,24 @@
         "src/isa/x86_64/cpu_context/tests.rs",
         "src/isa/x86_64/cpu_vcpu.rs",
         "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-red.json",
-        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-green.json"
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-green.json",
+        "docs/development/hvf-native-debug-qualification.json",
+        "src/backend/hvf/native_step.rs",
+        "src/backend/hvf/retirement.rs",
+        "src/backend/hvf/output.rs",
+        "tests/suites/backend/hvf_native_debug.rs"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
         "Remaining CR0.NE and optional CR3/CR4 intercept semantics and complete MSR banks",
-        "Guest TF/pending-debug completion and full exception/error/reinjection frames",
+        "Physical Intel validation of supported non-branch guest TF/pending-debug completion and MTF boundaries; full exception/error/reinjection frames and guest data/I/O breakpoint synthesis",
         "SDK TPR/software LAPIC/controller/scheduler coherence and IRQ conservation",
         "Concurrent code/PTE inspection and complete checkpointv8 private state",
         "Native Intel VMX/device/guest execution and host/device failure recovery",
         "Actual MMIO operand/data/width and completion semantics",
         "Remaining CR0.NE and optional CR3/CR4 intercept semantics",
         "SDK TPR/software LAPIC/IRQ graph coherence",
-        "HLT retirement and exception-information-source behavior",
+        "Physical Intel HLT activity/debug delivery and full exception/error/reinjection behavior",
         "Native Intel VMX event and VM/guest runtime validation",
         "Scalar ADD/ADC/SUB/SBB/AND/OR/XOR register-result and CMP/TEST MMIO reads locally qualified with 65 tests, 5768 independent QEMU instruction records and Intel-target compile checks. Native RAM/device-hole mapping and PCI/collateral RAM routing are separately locally qualified by the memory-layout group; physical Intel SDK/device validation remains open. All original remaining C-HVF profiles and physical Intel requirements remain open.",
         "Native mapping/routing group: 136 selected tests and Intel-target compilation; physical Intel failure/runtime proof, collateral instruction/page-table fetch, mixed-page operands, E820/resource consistency, remaining controller/private state and complete native scheduling remain open.",
@@ -4056,7 +4067,8 @@
         "per-cpu-task-priority-coherence-2026-10-30",
         "per-cpu-initial-apic-and-bsp-state-2026-10-30",
         "software-smp-debugger-memory-2026-10-30",
-        "software-debugger-session-ownership-2026-10-30"
+        "software-debugger-session-ownership-2026-10-30",
+        "intel-native-host-debug-completion-2026-10-30"
       ]
     },
     {
@@ -197591,6 +197603,20 @@
         "src/vm/vcpu/mod.rs",
         "tests/README.md"
       ]
+    },
+    {
+      "id": "intel-native-host-debug-completion-2026-10-30",
+      "status": "locally_validated_with_physical_Intel_gate_open",
+      "parent": "663b7ee44ea096bc3254a75d4c2d3a2c46d2b634",
+      "scope": "Intel host MTF ownership, supported non-branch emulated completion, deferred scalar outputs, HLT activity admission and failure fencing",
+      "qualification": "docs/development/hvf-native-debug-qualification.json",
+      "assumption_register": "docs/development/hvf-native-debug-qualification.json#assumption_register",
+      "pending_gates": "Full native private state, remaining MMIO/intercept/IRQ/debug/clock profiles and physical Intel VMX execution remain open. All four goal IDs remain partial.",
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/final-source.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/cleanup-final.json",
+      "workflow": "git add -- <exact owned paths>; red -m --staged --run <same exact paths>",
+      "validation_scope": "159 portable backend/CI tests; SDK ABI and actual MTF-constant compiler probes; workspace all-target check/build/lint; Intel debug/no-debug and selected test compilation; no physical Intel execution; zero executed doctests."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

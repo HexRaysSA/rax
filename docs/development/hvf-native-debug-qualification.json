@@ -1,0 +1,182 @@
+{
+  "group": "intel-native-host-debug-completion-2026-10-30",
+  "status": "locally_validated_with_physical_Intel_gate_open",
+  "parent": "663b7ee44ea096bc3254a75d4c2d3a2c46d2b634",
+  "scope": "Intel host MTF ownership, supported non-branch emulated completion, deferred scalar outputs, HLT activity admission and failure fencing",
+  "assumption_register": [
+    {
+      "id": "ND1",
+      "assumption": "Host debugger step controls are separate from guest RFLAGS.TF and guest pending debug traps.",
+      "basis": "Current target debugger ownership decision and Intel SDM MTF versus architectural TF semantics",
+      "dependent_result": "MTF setter/getter and deferred guest debug delivery",
+      "stress_test": "TF zero/one, repeated host enable/disable, capability errors and compensated/failed SDK writes",
+      "falsification_probe": "Any host step transition accesses guest RFLAGS, changes a guest trap condition, or advances a guest instruction before its device effect",
+      "status": "Confirmed by extracted production-method probes and portable production-policy/SDK-bridge tests; physical Intel execution unknown"
+    },
+    {
+      "id": "ND2",
+      "assumption": "The admitted intercepted instruction completion is a non-branch operation that does not explicitly write TF or RF.",
+      "basis": "Current CPUID, represented MSR/CR8/XSETBV and scalar port/MMIO handlers; unsupported instruction/MSR profiles retain their existing boundaries; SDM 27.1.1 gives privilege/invalid-opcode/I/O-permission faults priority over the relevant instruction exits",
+      "dependent_result": "RF clearing, TF/BTF pending BS generation, STI/MOV-SS expiry",
+      "stress_test": "TF/RF/BTF combinations, retained pending causes, shadow masks, and each fallible completion stage",
+      "falsification_probe": "A handler using this boundary branches, explicitly changes TF/RF, or reaches it on a guest fault or incomplete device transfer",
+      "status": "Confirmed for inspected handlers and portable policy cases; hardware delivery and additional debug profiles unknown"
+    },
+    {
+      "id": "ND3",
+      "assumption": "The SDK capability query reports IA32_VMX_MISC activity-state capability bits as documented.",
+      "basis": "Retained Apple SDK HV_VMX_CAP_MISC definition and Intel SDM Appendix A.6",
+      "dependent_result": "Reject unsupported HLT activity before VMCS initialization; never enter an unsupported HLT state",
+      "stress_test": "Every one-hot capability bit, HLT support zero/one and SDK query failure",
+      "falsification_probe": "SDK bridge admits HLT without capability bit 6 or ignores a query failure",
+      "status": "Confirmed for source/portable bridge; physical Intel SDK behavior unknown"
+    },
+    {
+      "id": "ND4",
+      "assumption": "An SDK write that reports failure may have mutated the control word.",
+      "basis": "Conservative failure model; no undocumented SDK atomicity assumption",
+      "dependent_result": "Verify exact compensation or fence future entry/capture; do not retry acknowledged device effects",
+      "stress_test": "Failure before/after mutation, wrong readback, rollback write/read errors, prior enabled state and pending host completion",
+      "falsification_probe": "An unverified control value is reused, or acknowledged output is emitted again after architectural commit failure",
+      "status": "Stress-tested using actual portable policies and substituted SDK calls"
+    },
+    {
+      "id": "ND5",
+      "assumption": "Device acknowledgment marks successful dispatch; a failed callback does not imply device rollback.",
+      "basis": "Existing VCpu completion contract and VMM dispatch ordering; arbitrary device callback failure semantics remain unknown",
+      "dependent_result": "Retain unacknowledged output; fence after acknowledged completion failure",
+      "stress_test": "Repeated pending output, duplicate acknowledgment, short/invalid descriptors, SDK failure after device commit",
+      "falsification_probe": "A callback partially mutates a device and returns an error, followed by caller retry without device transaction recovery",
+      "status": "CPU-side boundary confirmed; device-wide transactional retry remains an open full-goal gate"
+    }
+  ],
+  "change_surface": {
+    "backend": "Intel HVF controls, emulated retirement, deferred output and HLT boundaries",
+    "cpu_state": "Guest TF preserved; pending BS generated; native pending output blocks architectural projection/capture",
+    "debugger": "Native host step state and error latching; existing software current-session restore binding unchanged",
+    "device_runtime": "Existing VMM dispatch/acknowledgment protocol consumed; bus implementations unchanged",
+    "unaffected": [
+      "direct ISA decode/execute",
+      "software CPU context format",
+      "SMIR lift/interpreter/optimizer/lowerers",
+      "JIT runtime",
+      "memory translation/mapping",
+      "C ABI layout",
+      "software scheduler and clocks"
+    ]
+  },
+  "baseline_probes": {
+    "guest_tf": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/legacy-native-tf-red.json",
+    "monitor_trap_dispatch": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/mtf-dispatch-red.json",
+    "output_before_ack": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/native-output-red.json"
+  },
+  "green_probes": {
+    "guest_tf": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/native-tf-green.json",
+    "output_after_ack": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/native-output-green.json"
+  },
+  "provenance": {
+    "intel_sdm": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "intel_sdm_sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "sections": [
+      "Vol.3B 19.3.1.1",
+      "Vol.3B 19.3.1.4",
+      "Vol.3C 27.1.1",
+      "Vol.3C 27.5.2",
+      "Vol.3C 28.3.1.5",
+      "Vol.3C 28.7.1-28.7.3",
+      "Vol.3C 29.3.3-29.3.4",
+      "Vol.3D Appendix A.3",
+      "Vol.3D Appendix A.6"
+    ],
+    "apple_sdk": "docs/specifications/apple/hypervisor-sdk-27.2/intel-debug-provenance.json",
+    "extracted_passages": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/intel-mtf-passages.txt"
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Physical Intel VMX execution, guest event delivery and actual device effects have not been run on this Apple Silicon host.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Native private/checkpoint state, SDK thread-affinity and platform ownership are not fully qualified; input-request retry, IRQ/intercept coherence, additional MMIO/MSR/debug profiles and native retirement/clock accounting remain required.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Guest data/I/O breakpoint synthesis for emulated accesses and complete exception/error/reinjection frames remain open.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "CPU-side retained output does not roll back arbitrary partially failed device callbacks.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "MTF stops can follow event delivery or one REP iteration; no exact guest retirement credit is assigned.",
+      "blocks_full_goal": false
+    },
+    {
+      "impact": "low",
+      "finding": "One existing audit integration worktree is retained; no new worktree or subagent was created. Canonical build/scratch roots are removed after the group.",
+      "blocks_full_goal": false
+    }
+  ],
+  "validation": {
+    "state": "complete for local scope; full native qualification incomplete",
+    "backend_and_CI_tests": {
+      "binaries": 14,
+      "passed": 159,
+      "failed": 0,
+      "ignored": 0,
+      "new_native_debug_tests": 18
+    },
+    "checks": {
+      "fmt-final": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/fmt-final.json",
+      "intel-debug-check-final": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/intel-debug-check-final.json",
+      "intel-no-debug-check-final": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/intel-no-debug-check-final.json",
+      "backend-integrations-final": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/backend-integrations-final.json",
+      "check-all-targets-final": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/check-all-targets-final.json",
+      "build-all-targets-final": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/build-all-targets-final.json",
+      "clippy-all-targets-final": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/clippy-all-targets-final.json",
+      "intel-tests-check-final": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/intel-tests-check-final.json",
+      "doctests-final": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/doctests-final.json"
+    },
+    "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/final-source.json",
+    "driver": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/validate-final.py",
+    "sdk_abi_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/sdk-abi-final/manifest.json",
+    "mtf_constants_sdk_probe": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/native-mtf-sdk.json",
+    "physical_Intel_execution": false,
+    "root_library_tests_executed": false,
+    "root_library_reason": "Runtime changes are Intel-native cfg; portable integration binaries execute the shared production policies. The Arm64 root library full run from the parent is not attributed to this source.",
+    "C_API_runtime_tests_executed": false,
+    "C_API_reason": "The C API constructs software cores; neither its executable behavior nor ABI layout changed. Workspace all-target checks/build/lint include C API compilation.",
+    "doctests": {
+      "executed": 0,
+      "ignored": 5
+    },
+    "profile": {
+      "test_opt_level": 1,
+      "test_debug_assertions": true,
+      "test_overflow_checks": true,
+      "incremental": false,
+      "build_jobs": 8
+    },
+    "workflow": "git add -- <exact owned paths>; red -m --staged --run <same exact paths>",
+    "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/commit-receipt.json",
+    "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-debug-controls-v1/cleanup-final.json"
+  },
+  "full_goal": "A32-FP, C-STATE, C-SMP and C-HVF remain incomplete; no audit finding status is promoted by this bounded group.",
+  "quality_gates": {
+    "assumptions": "Recorded with stress tests and falsification probes; physical and device-recovery unknowns retained.",
+    "coverage": "Current bounded semantic group maps to source, 18 new tests, complete affected binaries and three observed baseline/green probes. Full audit requirements remain open.",
+    "reproducibility": "Pinned source/SDK hashes and exact commands retained; no dependency/lock/global-toolchain change.",
+    "edges": "SDK compensation, failed/duplicate acknowledgments, guest TF/RF/BTF, pending traps and HLT capability/admission are explicit.",
+    "provenance": "Local Intel primary passages and exact Apple headers verified; native execution not inferred from compilation.",
+    "bounded_scope": "High/medium/low limits recorded without promoting global finding status.",
+    "ownership": "Existing integration checkout only; exact path staging; source checksums frozen throughout compiler/test checks.",
+    "behavioral_evidence": "159 affected tests passed with no filters/ignored cases; five doctests were ignored and provide no behavioral evidence.",
+    "repository_consistency": "Test target registered in Cargo, test registry and CI; SDK/source paths and documentation validated separately."
+  }
+}

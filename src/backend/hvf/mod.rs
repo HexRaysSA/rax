@@ -36,11 +36,19 @@ mod mmio;
 #[cfg(target_arch = "x86_64")]
 mod native_memory;
 #[cfg(target_arch = "x86_64")]
+mod native_step;
+#[cfg(target_arch = "x86_64")]
+mod native_step_host;
+#[cfg(target_arch = "x86_64")]
+mod output;
+#[cfg(target_arch = "x86_64")]
 mod port_io;
 #[cfg(target_arch = "x86_64")]
 mod priority;
 #[cfg(target_arch = "x86_64")]
 mod priority_native;
+#[cfg(target_arch = "x86_64")]
+mod retirement;
 #[cfg(target_arch = "x86_64")]
 use crate::isa::x86_64::identity as apic_profile;
 pub mod rosetta;
@@ -244,6 +252,8 @@ pub struct HvfVcpu {
     /// Scalar input request and terminal completion failure.
     port_input: port_io::InputState,
     mmio_input: mmio::InputState,
+    output: output::State<VcpuExit>,
+    native_step: native_step::State,
     /// Whether the vCPU is halted
     halted: bool,
 }
@@ -272,11 +282,17 @@ impl HvfVcpu {
             apic_base: AtomicU64::new(apic_profile::initial_apic_base(id)),
             port_input: port_io::InputState::default(),
             mmio_input: mmio::InputState::default(),
+            output: output::State::default(),
+            native_step: native_step::State::default(),
             halted: false,
         };
 
         // Initialize VMCS
+        native_step_host::validate_halt_activity().map_err(Error::Emulator)?;
         vcpu.init_vmcs()?;
+        vcpu.native_step
+            .configure(&mut native_step_host::Host(vcpu_id), false)
+            .map_err(Error::Emulator)?;
 
         Ok(vcpu)
     }
@@ -612,12 +628,38 @@ impl HvfVcpu {
     }
 
     fn advance_rip(&self, bytes: u64) -> Result<()> {
+        self.native_step.ready().map_err(Error::Emulator)?;
         struct Access<'a> {
             vcpu: &'a HvfVcpu,
             next: u64,
         }
-        impl interrupt_shadow::Access for Access<'_> {
+        impl retirement::Access for Access<'_> {
             type Error = Error;
+            fn rflags(&mut self) -> Result<u64> {
+                read_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS)
+            }
+            fn debug_control(&mut self) -> Result<u64> {
+                vmcs_read(
+                    self.vcpu.vcpu_id,
+                    hv_vmx_vmcs_field_t::VMCS_GUEST_IA32_DEBUGCTL,
+                )
+            }
+            fn pending_debug(&mut self) -> Result<u64> {
+                vmcs_read(
+                    self.vcpu.vcpu_id,
+                    hv_vmx_vmcs_field_t::VMCS_GUEST_PENDING_DBG_EXCEPTIONS,
+                )
+            }
+            fn write_rflags(&mut self, value: u64) -> Result<()> {
+                write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS, value)
+            }
+            fn write_pending_debug(&mut self, value: u64) -> Result<()> {
+                vmcs_write(
+                    self.vcpu.vcpu_id,
+                    hv_vmx_vmcs_field_t::VMCS_GUEST_PENDING_DBG_EXCEPTIONS,
+                    value,
+                )
+            }
             fn interruptibility(&mut self) -> Result<u64> {
                 vmcs_read(
                     self.vcpu.vcpu_id,
@@ -647,11 +689,16 @@ impl HvfVcpu {
                 "invalid HVF instruction advance:{reason:?},length={bytes},bits={bits}"
             ))
         })?;
-        interrupt_shadow::complete(&mut Access { vcpu: self, next })
+        retirement::complete(&mut Access { vcpu: self, next })
+            .map_err(|error| Error::Emulator(self.native_step.poison(error.to_string())))?;
+        self.native_step.complete_instruction();
+        Ok(())
     }
 
     fn io_ready(&self) -> Result<()> {
+        self.native_step.ready().map_err(Error::Emulator)?;
         self.priority.ready().map_err(Error::Emulator)?;
+        self.output.ready().map_err(Error::Emulator)?;
         self.port_input
             .ready()
             .and_then(|()| self.mmio_input.ready())
@@ -659,22 +706,7 @@ impl HvfVcpu {
     }
 
     fn retire_mmio(&self, length: u64) -> Result<()> {
-        struct Access<'a> {
-            vcpu: &'a HvfVcpu,
-        }
-        impl mmio::RetirementAccess for Access<'_> {
-            type Error = Error;
-            fn rflags(&mut self) -> Result<u64> {
-                read_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS)
-            }
-            fn advance_instruction(&mut self, length: u64) -> Result<()> {
-                self.vcpu.advance_rip(length)
-            }
-            fn write_rflags(&mut self, flags: u64) -> Result<()> {
-                write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS, flags)
-            }
-        }
-        mmio::retire(&mut Access { vcpu: self }, length)
+        self.advance_rip(length)
     }
 
     fn prepare_mmio(&self) -> Result<mmio::Plan> {
@@ -837,8 +869,14 @@ impl sync_exit::HaltAccess for HvfVcpu {
     fn advance_current_instruction(&mut self) -> Result<()> {
         HvfVcpu::advance_current_instruction(self)
     }
-    fn set_halted(&mut self, halted: bool) {
+    fn set_halted(&mut self, halted: bool) -> Result<()> {
+        vmcs_write(
+            self.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_GUEST_ACTIVITY_STATE,
+            u64::from(halted),
+        )?;
         self.halted = halted;
+        Ok(())
     }
 }
 
@@ -847,11 +885,37 @@ impl run_loop::ExitHandler for HvfVcpu {
     type Exit = VcpuExit;
     type Error = Error;
     fn prepare(&mut self) -> Result<Option<VcpuExit>> {
+        self.native_step.ready().map_err(Error::Emulator)?;
+        self.priority.ready().map_err(Error::Emulator)?;
+        if let Some(exit) = self.output.pending().map_err(Error::Emulator)? {
+            return Ok(Some(exit));
+        }
         self.io_ready()?;
         native_memory::validate_cpu_backing(&self.memory_layout, &self.mem)?;
-        // Only successful event injection or explicit wake clears the halt.
+        #[cfg(feature = "debug")]
+        if self
+            .native_step
+            .take_completion()
+            .map_err(Error::Emulator)?
+        {
+            return Ok(Some(VcpuExit::GdbStep));
+        }
         if self.halted {
-            return Ok(Some(VcpuExit::Hlt));
+            let pending = vmcs_read(
+                self.vcpu_id,
+                hv_vmx_vmcs_field_t::VMCS_GUEST_PENDING_DBG_EXCEPTIONS,
+            )?;
+            let shadow = vmcs_read(
+                self.vcpu_id,
+                hv_vmx_vmcs_field_t::VMCS_GUEST_INTERRUPTIBILITY_STATE,
+            )?;
+            if retirement::pending_trap(pending, shadow) {
+                // Leave the VMCS in HLT: hardware delivers the guest trap and
+                // wakes it before executing any subsequent guest instruction.
+                self.halted = false;
+            } else {
+                return Ok(Some(VcpuExit::Hlt));
+            }
         }
 
         Ok(None)
@@ -912,11 +976,15 @@ impl run_loop::ExitHandler for HvfVcpu {
             port_io::Direction::Out => {
                 let data = port_io::output_bytes(rax, io.size)
                     .ok_or_else(|| Error::Emulator("invalid HVF output width".into()))?;
-                self.advance_rip(length)?;
-                Ok(VcpuExit::IoOut {
-                    port: io.port,
-                    data,
-                })
+                self.output
+                    .begin(
+                        VcpuExit::IoOut {
+                            port: io.port,
+                            data,
+                        },
+                        length,
+                    )
+                    .map_err(Error::Emulator)
             }
         }
     }
@@ -942,13 +1010,16 @@ impl run_loop::ExitHandler for HvfVcpu {
                     size,
                 })
             }
-            mmio::Action::Write(data) => {
-                self.retire_mmio(plan.length)?;
-                Ok(VcpuExit::MmioWrite {
-                    addr: plan.physical,
-                    data,
-                })
-            }
+            mmio::Action::Write(data) => self
+                .output
+                .begin(
+                    VcpuExit::MmioWrite {
+                        addr: plan.physical,
+                        data,
+                    },
+                    plan.length,
+                )
+                .map_err(Error::Emulator),
             mmio::Action::Rmw(input) => {
                 let size = input.size;
                 let operation = input.operation;
@@ -1004,6 +1075,15 @@ impl run_loop::ExitHandler for HvfVcpu {
     fn xsetbv(&mut self) -> Result<()> {
         self.handle_xsetbv()
     }
+    fn monitor_trap(&mut self) -> Result<VcpuExit> {
+        self.native_step.monitor_trap().map_err(Error::Emulator)?;
+        #[cfg(feature = "debug")]
+        return Ok(VcpuExit::GdbStep);
+        #[cfg(not(feature = "debug"))]
+        Err(Error::Emulator(self.native_step.poison(
+            "monitor-trap exit in a build without debugger support".into(),
+        )))
+    }
     fn fail_entry(&mut self, raw_reason: u32) -> Result<VcpuExit> {
         Ok(VcpuExit::FailEntry {
             reason: u64::from(raw_reason),
@@ -1026,14 +1106,20 @@ impl VCpu for HvfVcpu {
     }
     fn run(&mut self) -> Result<VcpuExit> {
         run_loop::run(self)
+            .map_err(|error| Error::Emulator(self.native_step.poison(error.to_string())))
     }
 
     fn wake(&mut self) {
-        sync_exit::wake(self);
+        if self.native_step.ready().is_err() {
+            return;
+        }
+        if let Err(error) = sync_exit::wake(self) {
+            self.native_step.poison(error.to_string());
+        }
     }
 
     fn get_state(&self) -> Result<CpuState> {
-        self.priority.ready().map_err(Error::Emulator)?;
+        self.io_ready()?;
         let regs = regs_from_hvf(self.vcpu_id)?;
         let mut sregs = sregs_from_hvf(self.vcpu_id)?;
         sregs.cr8 = self.priority.read().map_err(Error::Emulator)? >> 4;
@@ -1074,7 +1160,17 @@ impl VCpu for HvfVcpu {
             self.priority.commit_import(tpr).map_err(Error::Emulator)?;
         }
 
+        self.native_step.discard_completion();
         Ok(())
+    }
+
+    fn complete_io_out(&mut self) -> Result<()> {
+        self.native_step.ready().map_err(Error::Emulator)?;
+        let mut output = std::mem::take(&mut self.output);
+        let result = output
+            .acknowledge(|length| self.advance_rip(length).map_err(|error| error.to_string()));
+        self.output = output;
+        result.map_err(|error| Error::Emulator(self.native_step.poison(error)))
     }
 
     fn io_completion_result(&self) -> Result<()> {
@@ -1082,6 +1178,9 @@ impl VCpu for HvfVcpu {
     }
 
     fn complete_io_in(&mut self, data: &[u8]) {
+        if self.native_step.ready().is_err() {
+            return;
+        }
         if self.mmio_input.pending() {
             struct Access<'a> {
                 vcpu: &'a HvfVcpu,
@@ -1155,22 +1254,19 @@ impl VCpu for HvfVcpu {
 
     #[cfg(feature = "debug")]
     fn set_single_step(&mut self, enabled: bool) {
-        // Enable trap flag for single-stepping
-        if let Ok(rflags) = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS) {
-            let new_rflags = if enabled {
-                rflags | RFLAGS_TF
-            } else {
-                rflags & !RFLAGS_TF
-            };
-            let _ = write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS, new_rflags);
+        if let Err(error) = self
+            .native_step
+            .configure(&mut native_step_host::Host(self.vcpu_id), enabled)
+        {
+            // The compatibility setter cannot return errors. Retain failure
+            // before any subsequent entry or architectural-state capture.
+            self.native_step.poison(error);
         }
     }
 
     #[cfg(feature = "debug")]
     fn is_single_step(&self) -> bool {
-        read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS)
-            .map(|f| (f & RFLAGS_TF) != 0)
-            .unwrap_or(false)
+        self.native_step.enabled()
     }
 
     #[cfg(feature = "debug")]
@@ -1185,10 +1281,8 @@ impl VCpu for HvfVcpu {
 
     #[cfg(feature = "debug")]
     fn invalidate_code_cache(&mut self, _addr: u64) {
-        // HVF doesn't have a software decode cache to invalidate
-        // Just invalidate TLB to be safe
-        unsafe {
-            hv_vcpu_invalidate_tlb(self.vcpu_id);
+        if let Err(error) = self.debug_invalidate_translation() {
+            self.native_step.poison(error.to_string());
         }
     }
 

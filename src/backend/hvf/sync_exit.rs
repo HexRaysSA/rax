@@ -31,17 +31,16 @@ pub(crate) fn next_ip(current: u64, length: u64, bits: u32) -> Result<u64, Advan
 pub(crate) trait HaltAccess {
     type Error;
     fn advance_current_instruction(&mut self) -> Result<(), Self::Error>;
-    fn set_halted(&mut self, halted: bool);
+    fn set_halted(&mut self, halted: bool) -> Result<(), Self::Error>;
 }
 
 pub(crate) fn halt<T: HaltAccess>(host: &mut T) -> Result<(), T::Error> {
     host.advance_current_instruction()?;
-    host.set_halted(true);
-    Ok(())
+    host.set_halted(true)
 }
 
-pub(crate) fn wake<T: HaltAccess>(host: &mut T) {
-    host.set_halted(false);
+pub(crate) fn wake<T: HaltAccess>(host: &mut T) -> Result<(), T::Error> {
+    host.set_halted(false)
 }
 
 /// SDK/Intel VM-exit interruption-information field; checked against the SDK probe.

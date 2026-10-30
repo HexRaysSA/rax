@@ -384,6 +384,10 @@ name = "hvf_run_loop"
 path = "tests/suites/backend/hvf_run_loop.rs"
 
 [[test]]
+name = "hvf_native_debug"
+path = "tests/suites/backend/hvf_native_debug.rs"
+
+[[test]]
 name = "hvf_cr8"
 path = "tests/suites/backend/hvf_cr8.rs"
 

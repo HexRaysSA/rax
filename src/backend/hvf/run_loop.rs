@@ -14,6 +14,7 @@ pub(crate) mod reason {
     pub const VMX_EXIT_REASON_IRQ_WINDOW: u32 = 7;
     pub const VMX_EXIT_REASON_CR_ACCESS: u32 = 28;
     pub const VMX_EXIT_REASON_XSETBV: u32 = 55;
+    pub const VMX_EXIT_REASON_MONITOR_TRAP: u32 = 37;
 }
 use reason::*;
 
@@ -31,6 +32,7 @@ pub(crate) trait ExitHandler {
     fn wrmsr(&mut self) -> Result<Option<Self::Exit>, Self::Error>;
     fn shutdown(&mut self) -> Result<Self::Exit, Self::Error>;
     fn exception(&mut self) -> Result<Self::Exit, Self::Error>;
+    fn monitor_trap(&mut self) -> Result<Self::Exit, Self::Error>;
     fn interrupt_window(&mut self) -> Result<(), Self::Error>;
     fn control_register(&mut self) -> Result<(), Self::Error>;
     fn xsetbv(&mut self) -> Result<(), Self::Error>;
@@ -65,6 +67,7 @@ pub(crate) fn run<T: ExitHandler>(handler: &mut T) -> Result<T::Exit, T::Error> 
             }
             VMX_EXIT_REASON_TRIPLE_FAULT => return handler.shutdown(),
             VMX_EXIT_REASON_EXCEPTION_NMI => return handler.exception(),
+            VMX_EXIT_REASON_MONITOR_TRAP => return handler.monitor_trap(),
             VMX_EXIT_REASON_EXT_INTERRUPT => {}
             VMX_EXIT_REASON_IRQ_WINDOW => handler.interrupt_window()?,
             VMX_EXIT_REASON_CR_ACCESS => handler.control_register()?,

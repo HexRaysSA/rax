@@ -3,7 +3,7 @@ use super::*;
 impl HvfVcpu {
     pub(super) fn debug_paging_state(&self) -> Result<crate::vm::vcpu::DebugAddressSpace> {
         use hv_vmx_vmcs_field_t::*;
-        self.priority.ready().map_err(Error::Emulator)?;
+        self.io_ready()?;
         let guard = self
             .memory_layout
             .read()
@@ -45,7 +45,7 @@ impl HvfVcpu {
         ))
     }
     pub(super) fn debug_invalidate_translation(&self) -> Result<()> {
-        self.priority.ready().map_err(Error::Emulator)?;
+        self.io_ready()?;
         // SAFETY: the serialized VMM owns this live SDK vCPU and no entry runs
         // during debugger publication. The call retains no Rust reference.
         let result = unsafe { hv_vcpu_invalidate_tlb(self.vcpu_id) };

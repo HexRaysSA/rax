@@ -80,9 +80,10 @@ impl HaltAccess for HaltHost {
         self.rip = next_ip(self.rip, self.length, self.bits).map_err(|_| "invalid advance")?;
         Ok(())
     }
-    fn set_halted(&mut self, halted: bool) {
+    fn set_halted(&mut self, halted: bool) -> Result<(), Self::Error> {
         self.events.push(if halted { "halt" } else { "wake" });
         self.halted = halted;
+        Ok(())
     }
 }
 
@@ -205,7 +206,7 @@ fn halt_wake_halt_preserves_the_resumption_pointer_and_retires_each_halt_once() 
     halt(&mut host).unwrap();
     assert_eq!(host.rip, 1);
     assert!(host.halted);
-    sync_exit::wake(&mut host);
+    sync_exit::wake(&mut host).unwrap();
     assert_eq!(host.rip, 1);
     assert!(!host.halted);
     host.length = 2;
@@ -213,4 +214,26 @@ fn halt_wake_halt_preserves_the_resumption_pointer_and_retires_each_halt_once() 
     assert_eq!(host.rip, 3);
     assert!(host.halted);
     assert_eq!(host.events, ["advance", "halt", "wake", "advance", "halt"]);
+}
+
+#[test]
+fn failed_native_activity_writes_are_reported_by_halt_and_wake() {
+    struct ActivityFailure(Vec<&'static str>);
+    impl HaltAccess for ActivityFailure {
+        type Error = &'static str;
+        fn advance_current_instruction(&mut self) -> Result<(), Self::Error> {
+            self.0.push("advance");
+            Ok(())
+        }
+        fn set_halted(&mut self, halted: bool) -> Result<(), Self::Error> {
+            self.0.push(if halted { "halt" } else { "wake" });
+            Err("activity write failed")
+        }
+    }
+    let mut host = ActivityFailure(vec![]);
+    assert_eq!(halt(&mut host), Err("activity write failed"));
+    assert_eq!(host.0, ["advance", "halt"]);
+    host.0.clear();
+    assert_eq!(sync_exit::wake(&mut host), Err("activity write failed"));
+    assert_eq!(host.0, ["wake"]);
 }

@@ -1,0 +1,19 @@
+{
+  "issuer": "Apple Inc.",
+  "title": "Hypervisor.framework Intel VMX SDK headers",
+  "sdk_version": "27.2",
+  "retrieved_utc": "2026-10-30T20:29:05.924039+00:00",
+  "source": "Installed Command Line Tools SDK, exact unmodified header bytes; copyright retained",
+  "files": [
+    {
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_vmx.h",
+      "source": "/Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/System/Library/Frameworks/Hypervisor.framework/Versions/A/Headers/hv_vmx.h",
+      "sha256": "e62a6b975fdb9509ee632e4449f0d40626c78fcb0fc7b36ce1a178685e5b1413"
+    },
+    {
+      "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_arch_vmx.h",
+      "source": "/Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/System/Library/Frameworks/Hypervisor.framework/Versions/A/Headers/hv_arch_vmx.h",
+      "sha256": "a6742cf27e2994ee27d4442cd18e36b379a861150f02a5696183748569464c4b"
+    }
+  ]
+}

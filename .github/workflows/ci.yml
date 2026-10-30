@@ -204,6 +204,7 @@ jobs:
             --test hvf_sdk_abi \
             --test hvf_xsetbv \
             --test hvf_run_loop \
+            --test hvf_native_debug \
             --test hvf_cr8 \
             --test hvf_apic_identity \
             --test hvf_sync_exits \

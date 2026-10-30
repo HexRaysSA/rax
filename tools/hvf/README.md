@@ -1,5 +1,52 @@
 # Hypervisor.framework SDK contract
 
+## Intel host stepping and deferred output completion
+
+```sh
+cargo +stable test --locked --no-default-features --features hvf,debug \
+  --test hvf_native_debug --test hvf_run_loop --test hvf_sync_exits
+```
+
+Intel host single stepping uses VMX monitor-trap control, independently of guest
+RFLAGS.TF. Changing host step mode preserves guest registers and modifies only
+the monitor-trap bit of the current primary processor controls. Capability
+checks precede changes; SDK writes require exact readback. A failed change is
+recoverable only after the complete previous control word is verified restored.
+The compatibility setter cannot return errors, so any unsuccessful request
+latches a failure that prohibits subsequent execution and state capture.
+
+MTF exits return a host debugger stop. They can follow event delivery or one
+REP iteration and do not establish an exact retired-instruction count. Supported
+non-branch instruction emulation clears RF, expires STI/MOV-SS blocking, and
+retains or generates the guest's pending instruction-step trap according to TF
+and IA32_DEBUGCTL.BTF. Host stops leave that guest trap pending. The native
+profile checks IA32_VMX_MISC.HLT support before admitting VM-entry HLT activity;
+a pending unblocked guest debug trap can wake a halted CPU on entry.
+
+Scalar port and MMIO writes retain their output operands until
+`complete_io_out` acknowledges device dispatch. Before acknowledgment, another
+run returns the same output and architectural-state capture is rejected.
+Acknowledgment retires the instruction and completes a pending host step. An
+SDK failure after device acknowledgment fences the CPU and prevents replaying
+the committed device effect. Inputs retain their existing completion-error
+latches; full input-request retry and serialized native private state remain
+separate requirements. Device callbacks that partially mutate before returning
+an error do not acquire rollback semantics from this CPU-side protocol.
+
+`hvf_native_debug` executes production control, retirement, output and SDK-bridge
+policies with injected host failures. It does not create a native VM. SDK ABI
+checks and Intel-target compilation provide separate evidence; physical Intel
+VMX execution remains required. Full guest data/I/O breakpoint synthesis for
+emulated accesses, other MMIO/intercept profiles, native checkpoint restoration,
+and native clock/retirement accounting remain open.
+
+Architectural sources are the retained December 2024 Intel SDM, Vol.3B
+19.3.1.1/19.3.1.4, Vol.3C 27.5.2, 28.3.1.5, 28.7.1–28.7.3, 29.3.3–29.3.4,
+and Vol.3D Appendix A.3/A.6. Exact installed Apple SDK VMX headers and provenance
+are retained in `docs/specifications/apple/hypervisor-sdk-27.2/`.
+
+## SDK ABI verification
+
 Run the compiler-backed check on macOS with Xcode command-line tools, Python 3,
 and stable Rust available:
 

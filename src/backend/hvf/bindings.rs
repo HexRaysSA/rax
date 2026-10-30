@@ -281,6 +281,7 @@ pub const HV_VMX_CAP_PROCBASED: hv_vmx_capability_t = 1;
 pub const HV_VMX_CAP_PROCBASED2: hv_vmx_capability_t = 2;
 pub const HV_VMX_CAP_ENTRY: hv_vmx_capability_t = 3;
 pub const HV_VMX_CAP_EXIT: hv_vmx_capability_t = 4;
+pub const HV_VMX_CAP_MISC: hv_vmx_capability_t = 10;
 pub const HV_VMX_CAP_PREEMPTION_TIMER: hv_vmx_capability_t = 32;
 
 // Pin-based VM-execution controls
