@@ -1,6 +1,7 @@
 use crate::error::{Error, Result};
 
 mod fallback;
+mod override_device;
 mod rmw;
 pub use rmw::MmioRmwOp;
 

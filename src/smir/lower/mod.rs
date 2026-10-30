@@ -155,6 +155,9 @@ pub const X86_GUEST_CR2_OFFSET: i32 = X86_GUEST_AC_FLAG_OFFSET + 8;
 pub const X86_GUEST_CR3_OFFSET: i32 = X86_GUEST_CR2_OFFSET + 8;
 /// Byte offset of guest CR8.
 pub const X86_GUEST_CR8_OFFSET: i32 = X86_GUEST_CR3_OFFSET + 8;
+/// Append-only live priority callback; preceding native ABI offsets stay fixed.
+pub const X86_GUEST_CONTROL_READ_FN_OFFSET: i32 =
+    std::mem::offset_of!(runtime::GuestRegs, control_read_fn) as i32;
 /// Byte offset of guest DR0. Debug-register state is appended so every
 /// established helper/trampoline field retains its existing offset.
 pub const X86_GUEST_DR0_OFFSET: i32 = X86_GUEST_CR8_OFFSET + 8;

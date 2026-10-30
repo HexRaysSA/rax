@@ -2674,7 +2674,10 @@
         "docs/development/native-arm64-checkpoints/standalone-power.md",
         "docs/development/native-arm64-checkpoints/standalone-power-qualification.json",
         "docs/development/native-arm64-checkpoints/terminal-io.md",
-        "docs/development/native-arm64-checkpoints/terminal-io-qualification.json"
+        "docs/development/native-arm64-checkpoints/terminal-io-qualification.json",
+        "docs/development/task-priority-coherence-qualification.json",
+        "docs/development/task-priority-coherence.md",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2691,7 +2694,8 @@
         "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
         "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope.",
         "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO was subsequently reproduced and repaired in the terminal-I/O group; four represented phases now pass actual native file/wake continuation. Full original scope remains open.",
-        "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open."
+        "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open.",
+        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2728,7 +2732,8 @@
           "status": "locally_validated",
           "scope": "MVFR1.SIMDFMAC and MVFR2 FPMisc/SIMDMisc admission in the shared A32/T32 executor; exact bounded S3C entry/non-retirement and heartbeat preservation; backend profile state and real prepared-context two/four-CPU .rxc continuation. Full four findings remain incomplete.",
           "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
-        }
+        },
+        "per-cpu-task-priority-coherence-2026-10-30"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -3336,7 +3341,10 @@
         "docs/development/native-arm64-checkpoints/standalone-power.md",
         "docs/development/native-arm64-checkpoints/standalone-power-qualification.json",
         "docs/development/native-arm64-checkpoints/terminal-io.md",
-        "docs/development/native-arm64-checkpoints/terminal-io-qualification.json"
+        "docs/development/native-arm64-checkpoints/terminal-io-qualification.json",
+        "docs/development/task-priority-coherence-qualification.json",
+        "docs/development/task-priority-coherence.md",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3349,7 +3357,8 @@
         "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
         "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope.",
         "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO was subsequently reproduced and repaired in the terminal-I/O group; four represented phases now pass actual native file/wake continuation. Full original scope remains open.",
-        "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open."
+        "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open.",
+        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3375,7 +3384,8 @@
           "status": "locally_validated",
           "scope": "MVFR1.SIMDFMAC and MVFR2 FPMisc/SIMDMisc admission in the shared A32/T32 executor; exact bounded S3C entry/non-retirement and heartbeat preservation; backend profile state and real prepared-context two/four-CPU .rxc continuation. Full four findings remain incomplete.",
           "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
-        }
+        },
+        "per-cpu-task-priority-coherence-2026-10-30"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -3941,7 +3951,10 @@
         "tests/suites/backend/hvf_memory/native_adapter.rs",
         "docs/development/hvf-memory-layout.md",
         "docs/development/hvf-memory-layout-qualification.json",
-        "docs/development/audit-remediation-2026-10.json"
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/task-priority-coherence-qualification.json",
+        "docs/development/task-priority-coherence.md",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -3956,14 +3969,16 @@
         "HLT retirement and exception-information-source behavior",
         "Native Intel VMX event and VM/guest runtime validation",
         "Scalar ADD/ADC/SUB/SBB/AND/OR/XOR register-result and CMP/TEST MMIO reads locally qualified with 65 tests, 5768 independent QEMU instruction records and Intel-target compile checks. Native RAM/device-hole mapping and PCI/collateral RAM routing are separately locally qualified by the memory-layout group; physical Intel SDK/device validation remains open. All original remaining C-HVF profiles and physical Intel requirements remain open.",
-        "Native mapping/routing group: 136 selected tests and Intel-target compilation; physical Intel failure/runtime proof, collateral instruction/page-table fetch, mixed-page operands, E820/resource consistency, remaining controller/private state and complete native scheduling remain open."
+        "Native mapping/routing group: 136 selected tests and Intel-target compilation; physical Intel failure/runtime proof, collateral instruction/page-table fetch, mixed-page operands, E820/resource consistency, remaining controller/private state and complete native scheduling remain open.",
+        "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
         "software-vmm-coordinator-startup-fault-retirement",
         "native-arm64-hvf-pending-mmio-transaction",
         "hvf-scalar-mmio-read-alu",
-        "hvf-native-memory-layout-and-pci-routing"
+        "hvf-native-memory-layout-and-pci-routing",
+        "per-cpu-task-priority-coherence-2026-10-30"
       ]
     },
     {
@@ -196920,7 +196935,7 @@
     },
     {
       "id": "hvf-native-memory-layout-and-pci-routing-2026-10-30",
-      "status": "locally_validated",
+      "status": "committed_locally",
       "parent": "755cadf883b233b5f6b9ad56561d15df1696460f",
       "scope": "Reported RAM and fixed/live PCI device-hole mapping, serialized native map publication/entry and hardware-exit PCI/collateral RAM dispatch; original full four-finding goal remains open",
       "owned_paths": [
@@ -196998,7 +197013,120 @@
         "External concurrent bridge mutation is outside the current VMM serialized service contract"
       ],
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/memory-layout-v1/commit-receipt.json",
-      "workflow": "git add exact owned paths, then red -m --staged --run same exact paths; commits explicitly authorized"
+      "workflow": "git add exact owned paths, then red -m --staged --run same exact paths; commits explicitly authorized",
+      "commit": "0f6a35685e335480f83c790c0e38e7d1053cae02"
+    },
+    {
+      "id": "per-cpu-task-priority-coherence-2026-10-30",
+      "status": "locally_validated",
+      "parent": "0f6a35685e335480f83c790c0e38e7d1053cae02",
+      "scope": "Full TPR ownership across CR8/direct guest/JIT/public state/controller/checkpoint/native SDK mirror; original four-finding goal remains active",
+      "owned_paths": [
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/per-vcpu-lapic-ownership.md",
+        "docs/development/task-priority-coherence-qualification.json",
+        "docs/development/task-priority-coherence.md",
+        "src/backend/hvf/mod.rs",
+        "src/backend/hvf/priority.rs",
+        "src/backend/hvf/priority_native.rs",
+        "src/devices/bus.rs",
+        "src/devices/bus/override_device.rs",
+        "src/devices/lapic.rs",
+        "src/devices/lapic/priority.rs",
+        "src/isa/x86_64/cpu.rs",
+        "src/isa/x86_64/cpu_context.rs",
+        "src/isa/x86_64/cpu_jit_control.rs",
+        "src/isa/x86_64/cpu_jit_read_control_tests.rs",
+        "src/isa/x86_64/cpu_jit_verify.rs",
+        "src/isa/x86_64/cpu_jit_write_control_tests.rs",
+        "src/isa/x86_64/cpu_priority_tests.rs",
+        "src/isa/x86_64/cpu_rex2_admission_tests.rs",
+        "src/isa/x86_64/cpu_vcpu.rs",
+        "src/isa/x86_64/execute/system/control_regs.rs",
+        "src/isa/x86_64/memory.rs",
+        "src/isa/x86_64/memory/checkpoint.rs",
+        "src/isa/x86_64/memory/shared_lapic.rs",
+        "src/smir/lower/mod.rs",
+        "src/smir/lower/runtime/jit_gate_tests/sse4a.rs",
+        "src/smir/lower/runtime/x86_guest_regs.rs",
+        "src/smir/lower/x86_64/read_control.rs",
+        "src/smir/lower/x86_64/read_control/live_priority.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/checkpoint_restore.rs",
+        "src/vm/runtime/execution.rs",
+        "src/vm/runtime/lapic_priority_tests.rs",
+        "src/vm/runtime/mmio.rs",
+        "src/vm/snapshot/bundle.rs",
+        "tests/suites/backend/hvf_cr8.rs",
+        "tests/suites/backend/hvf_cr8/priority.rs",
+        "tools/hvf/README.md",
+        "tools/hvf/priority_compare.rs"
+      ],
+      "qualification": "docs/development/task-priority-coherence-qualification.json",
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json",
+      "assumption_register": [
+        {
+          "id": "P1",
+          "assumption": "The attached per-CPU LAPIC owns full TPR in the enabled fixed-base xAPIC profile",
+          "basis": "Production MMU binding, software APIC_BASE profile and Intel SDM086 Vol.3A12.8.6.1",
+          "dependent_result": "CPU/guest/controller/native-mirror priority coherence",
+          "stress_test": "Every TPR byte and CR8 class, both guest transfer directions, per-CPU hardware-style exits, unchanged public class and SDK mirror changes",
+          "falsification_probe": "Any public/guest/controller class differs, subclass disappears on unrelated GPR import, or an AP accesses the BSP owner",
+          "status": "confirmed in selected software/JIT/policy evidence; physical Intel unverified"
+        },
+        {
+          "id": "P2",
+          "assumption": "Writers are stopped at the existing coordinator/controller capture and restoration boundary",
+          "basis": "Production checkpoint lock order and prepared publication; atomics do not independently create quiescence",
+          "dependent_result": "Frozen capture, lock-free getter access under held locks and coherent restore",
+          "stress_test": "Actual bundle capture, private contexts, malformed priority graph rejection, retained live handles and multi-CPU continuation",
+          "falsification_probe": "Capture deadlocks, saved values change after capture, restore loses binding, or a rejected graph changes CPU/RAM/controller state",
+          "status": "confirmed for selected stopped software paths; external concurrent writers and full native private state remain open"
+        },
+        {
+          "id": "P3",
+          "assumption": "Existing positional TPR codec fields are u32 values",
+          "basis": "Parent source and explicit primitive serde implementation",
+          "dependent_result": "Preserved controller and inline-context wire layout",
+          "stress_test": "Exact primitive wire bytes at 0,0x5f,0xff,u32::MAX plus existing versioned/private context suites",
+          "falsification_probe": "Any serialized byte differs from the prior primitive field or an admitted legacy projection changes",
+          "status": "confirmed locally; contradictory legacy records intentionally rejected"
+        },
+        {
+          "id": "P4",
+          "assumption": "A failed SDK priority/state publication can have partial effects",
+          "basis": "SDK failure atomicity is not established",
+          "dependent_result": "SDK-first publication and permanent per-CPU entry exclusion after mutation failure",
+          "stress_test": "SDK substitute mutates then fails; entry sync write failure; rejected invalid bits; rebind/import after poison; retryable read failure",
+          "falsification_probe": "Owner publishes after a failed priority write or a poisoned CPU performs a later entry/publication",
+          "status": "policy verified with substituted SDK; physical failure behavior unverified"
+        },
+        {
+          "id": "P5",
+          "assumption": "Physical Intel VMX behavior is not established by this Apple Silicon host",
+          "basis": "Fresh host/toolchain record and remote-peer discovery",
+          "dependent_result": "Evidence classification and original full-goal completion gate",
+          "stress_test": "Actual x86 target compilation and generated-code Rosetta execution are retained separately from SDK substitution",
+          "falsification_probe": "Signed native qualification on a verified physical Intel Mac with guest/MMIO/interrupt/checkpoint observations",
+          "status": "retained; physical Intel gate remains unverified"
+        }
+      ],
+      "software_and_policy_tests_passed": 356,
+      "rosetta_tests_passed": 34,
+      "independent_legal_qemu_cases": 272,
+      "known_reference_reserved_cases": 63,
+      "pending_gates": [
+        "A32-FP remaining selected profile controls and instruction-admission semantics",
+        "C-STATE complete backend/private/in-flight state and coordinated checkpoint restoration",
+        "C-SMP complete actual multi-CPU/startup/scheduling/debug/clocks/replay across supported backend/platform profiles",
+        "C-HVF remaining MMIO/intercept/interrupt profiles and physical Intel validation",
+        "APIC_BASE disable/relocation and per-CPU identity, advertised x2APIC/MSR behavior, complete IRQ source routing and conservation",
+        "Intel native SDK thread ownership, bounded native CPU execution, full private/in-flight checkpoint state and host/device failure recovery",
+        "Physical Intel VMX/exception/device/guest runtime and failure injection remain unverified",
+        "Previous native mapping limits remain: collateral instruction/page-table fetch, mixed-page operands and E820/resource consistency"
+      ],
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/commit-receipt.json",
+      "workflow": "git add -- exact owned paths; red -m --staged --run same exact paths; no push"
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

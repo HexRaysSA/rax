@@ -421,7 +421,7 @@ pub fn mov_r_cr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<V
         2 => vcpu.sregs.cr2,
         3 => vcpu.sregs.cr3,
         4 => vcpu.sregs.cr4,
-        8 => vcpu.sregs.cr8,
+        8 => u64::from(vcpu.mmu.task_priority()? >> 4),
         _ => unreachable!("validated readable control register changed"),
     };
     // Outside 64-bit mode this instruction always has a 32-bit operand; 66H
@@ -583,7 +583,10 @@ pub fn mov_cr_r(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<V
         2 => vcpu.sregs.cr2 = effect.value,
         3 => vcpu.sregs.cr3 = effect.value,
         4 => vcpu.sregs.cr4 = effect.value,
-        8 => vcpu.sregs.cr8 = effect.value,
+        8 => {
+            vcpu.mmu.set_task_priority((effect.value << 4) as u32)?;
+            vcpu.sregs.cr8 = effect.value;
+        }
         _ => unreachable!("validated writable control register changed"),
     }
     vcpu.sregs.efer = effect.efer;

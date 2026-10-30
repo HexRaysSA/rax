@@ -23,6 +23,7 @@ fn test_vcpu(memory: Arc<GuestMemoryMmap>) -> X86_64Vcpu {
     vcpu.sregs.cr3 = 0x0000_1234_5000_0ABC;
     vcpu.sregs.cr4 = 0x0000_0000_0044_06F0;
     vcpu.sregs.cr8 = 0xD;
+    vcpu.mmu.set_task_priority((0xD << 4) as u32).unwrap();
     vcpu.regs.rip = 0;
     vcpu.regs.rsp = 0x8000;
     vcpu.regs.rbp = 0x7000;

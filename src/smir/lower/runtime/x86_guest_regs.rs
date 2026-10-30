@@ -337,6 +337,10 @@ pub struct GuestRegs {
     pub retired_count: u64,
     /// One for a runtime retirement-aware frame; legacy helper frames use zero.
     pub retirement_active: u64,
+    /// Optional `extern "C" fn(state) -> CR8+1`; zero result deoptimizes.
+    /// The real CPU supplies a live controller read. Zero pointer retains the
+    /// standalone GuestRegs projection. Append-only, never serialized.
+    pub control_read_fn: u64,
 }
 
 pub const X86_VECTOR_STATE_INACTIVE: u64 = 0;
@@ -449,6 +453,7 @@ impl Default for GuestRegs {
             x87_payload_high: [0; 8],
             retired_count: 0,
             retirement_active: 0,
+            control_read_fn: 0,
         }
     }
 }

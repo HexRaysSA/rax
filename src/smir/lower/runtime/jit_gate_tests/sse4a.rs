@@ -250,11 +250,20 @@ fn sse4a_state_detection_layout_and_o2_retention_are_exact() {
     );
     assert_eq!(GuestRegs::default().retired_count, 0);
     assert_eq!(GuestRegs::default().retirement_active, 0);
-    let field_end = std::mem::offset_of!(GuestRegs, retirement_active) + 8;
+    assert_eq!(
+        std::mem::offset_of!(GuestRegs, control_read_fn),
+        std::mem::offset_of!(GuestRegs, retirement_active) + 8
+    );
+    assert_eq!(
+        std::mem::offset_of!(GuestRegs, control_read_fn),
+        crate::smir::lower::X86_GUEST_CONTROL_READ_FN_OFFSET as usize
+    );
+    assert_eq!(GuestRegs::default().control_read_fn, 0);
+    let field_end = std::mem::offset_of!(GuestRegs, control_read_fn) + 8;
     assert!(field_end <= std::mem::size_of::<GuestRegs>());
     assert!(
         std::mem::size_of::<GuestRegs>() - field_end < std::mem::align_of::<GuestRegs>(),
-        "only trailing repr(C) alignment padding may follow retirement metadata"
+        "only trailing repr(C) alignment padding may follow the live control callback"
     );
 
     let mut function = function_with(bitfield(

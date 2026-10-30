@@ -31,6 +31,10 @@ mod mmio;
 mod native_memory;
 #[cfg(target_arch = "x86_64")]
 mod port_io;
+#[cfg(target_arch = "x86_64")]
+mod priority;
+#[cfg(target_arch = "x86_64")]
+mod priority_native;
 pub mod rosetta;
 mod run_loop;
 #[cfg(target_arch = "x86_64")]
@@ -225,6 +229,7 @@ pub struct HvfVcpu {
     memory_layout: native_memory::Shared,
     /// CPUID configuration
     cpuid_config: CpuidConfig,
+    priority: priority_native::State,
     /// Scalar input request and terminal completion failure.
     port_input: port_io::InputState,
     mmio_input: mmio::InputState,
@@ -252,6 +257,7 @@ impl HvfVcpu {
             mem,
             memory_layout,
             cpuid_config,
+            priority: priority_native::new(),
             port_input: port_io::InputState::default(),
             mmio_input: mmio::InputState::default(),
             halted: false,
@@ -336,10 +342,13 @@ impl HvfVcpu {
                 write_register(self.vcpu.vcpu_id, general_register(index)?, value)
             }
             fn read_tpr(&mut self) -> Result<u64> {
-                read_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_TPR)
+                self.vcpu.priority.read().map_err(Error::Emulator)
             }
             fn write_tpr(&mut self, value: u64) -> Result<()> {
-                write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_TPR, value)
+                self.vcpu
+                    .priority
+                    .write(&mut priority_native::Host(self.vcpu.vcpu_id), value)
+                    .map_err(Error::Emulator)
             }
             fn inject_gp(&mut self) -> Result<()> {
                 self.vcpu
@@ -627,6 +636,7 @@ impl HvfVcpu {
     }
 
     fn io_ready(&self) -> Result<()> {
+        self.priority.ready().map_err(Error::Emulator)?;
         self.port_input
             .ready()
             .and_then(|()| self.mmio_input.ready())
@@ -832,6 +842,9 @@ impl run_loop::ExitHandler for HvfVcpu {
         Ok(None)
     }
     fn next_reason(&mut self) -> Result<u32> {
+        self.priority
+            .prepare_entry(&mut priority_native::Host(self.vcpu_id))
+            .map_err(Error::Emulator)?;
         // Run the vCPU
         let ret = native_memory::enter(&self.memory_layout, self.vcpu_id)?;
         if ret != HV_SUCCESS {
@@ -1001,8 +1014,10 @@ impl VCpu for HvfVcpu {
     }
 
     fn get_state(&self) -> Result<CpuState> {
+        self.priority.ready().map_err(Error::Emulator)?;
         let regs = regs_from_hvf(self.vcpu_id)?;
-        let sregs = sregs_from_hvf(self.vcpu_id)?;
+        let mut sregs = sregs_from_hvf(self.vcpu_id)?;
+        sregs.cr8 = self.priority.read().map_err(Error::Emulator)? >> 4;
         Ok(CpuState::X86_64(X86_64CpuState { regs, sregs }))
     }
 
@@ -1024,8 +1039,21 @@ impl VCpu for HvfVcpu {
                 state.sregs.cr8
             )));
         }
-        regs_to_hvf(self.vcpu_id, &state.regs)?;
-        sregs_to_hvf(self.vcpu_id, &state.sregs)?;
+        let tpr = crate::devices::lapic::priority::import_value(
+            self.priority.read().map_err(Error::Emulator)? as u32,
+            state.sregs.cr8,
+        )
+        .ok_or_else(|| Error::InvalidConfig("invalid CR8/TPR priority projection".into()))?;
+        regs_to_hvf(self.vcpu_id, &state.regs)
+            .and_then(|()| sregs_to_hvf(self.vcpu_id, &state.sregs))
+            .map_err(|e| Error::Emulator(self.priority.poison(e.to_string())))?;
+        if tpr & 15 != 0 {
+            self.priority
+                .write(&mut priority_native::Host(self.vcpu_id), u64::from(tpr))
+                .map_err(Error::Emulator)?;
+        } else {
+            self.priority.commit_import(tpr).map_err(Error::Emulator)?;
+        }
 
         Ok(())
     }
@@ -1079,6 +1107,16 @@ impl VCpu for HvfVcpu {
 
     fn inject_interrupt(&mut self, vector: u8) -> Result<bool> {
         self.inject_event(event_injection::Event::Interrupt(vector))
+    }
+
+    fn attach_local_apic(&mut self, lapic: Arc<Mutex<crate::devices::lapic::LocalApic>>) {
+        match lapic.lock() {
+            Ok(owner) => self.priority.rebind(owner.priority_handle()),
+            Err(_) => {
+                self.priority
+                    .poison("attached local APIC lock poisoned".into());
+            }
+        }
     }
 
     fn can_inject_interrupt(&self) -> bool {

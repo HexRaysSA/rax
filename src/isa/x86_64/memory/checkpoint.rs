@@ -53,6 +53,7 @@ impl Mmu {
             smc_dirty_pages: _,
             lapic,
             shared_lapic,
+            shared_priority: _,
             ram_host_base: _,
             ram_len: _,
             ram_fast_len: _,
@@ -110,6 +111,15 @@ impl Mmu {
 }
 
 impl MmuContext {
+    pub(in crate::isa::x86_64) fn validate_priority_projection(&self, cr8: u64) -> Result<()> {
+        if cr8 > 15
+            || (!self.shared_lapic
+                && (self.lapic.tpr.load() > 255 || u64::from(self.lapic.tpr.load() >> 4) != cr8))
+        {
+            return Err(invalid("CPU CR8 and inline local APIC TPR disagree"));
+        }
+        Ok(())
+    }
     pub(in crate::isa::x86_64) fn validate(&self, target: &Mmu) -> Result<()> {
         if self.shared_lapic != target.shared_lapic.is_some()
             || self.pci != target.pci.is_some()
@@ -141,6 +151,7 @@ impl MmuContext {
         self.validate(target)?;
         let mut result = Mmu::new(target.memory.clone());
         result.shared_lapic = target.shared_lapic.clone();
+        result.shared_priority = target.shared_priority.clone();
         result.pci = target.pci.clone();
         result.pci_ap_lo = target.pci_ap_lo;
         result.pci_ap_hi = target.pci_ap_hi;

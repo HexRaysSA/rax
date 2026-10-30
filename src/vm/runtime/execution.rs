@@ -350,12 +350,24 @@ impl Vmm {
                 }
                 VcpuExit::MmioRead { addr, size } => {
                     let mut data = vec![0u8; size as usize];
-                    self.mmio_bus.read(addr, &mut data)?;
+                    mmio::read(
+                        &mut self.mmio_bus,
+                        &self.local_apics,
+                        turn.cpu_index,
+                        addr,
+                        &mut data,
+                    )?;
                     vcpu.complete_io_in(&data);
                     vcpu.io_completion_result()?;
                 }
                 VcpuExit::MmioWrite { addr, data } => {
-                    self.mmio_bus.write(addr, &data)?;
+                    mmio::write(
+                        &mut self.mmio_bus,
+                        &self.local_apics,
+                        turn.cpu_index,
+                        addr,
+                        &data,
+                    )?;
                     vcpu.complete_io_out()?;
                 }
                 VcpuExit::MmioRmw {
@@ -363,7 +375,14 @@ impl Vmm {
                     size,
                     operation,
                 } => {
-                    let old = self.mmio_bus.read_modify_write(addr, size, operation)?;
+                    let old = mmio::rmw(
+                        &mut self.mmio_bus,
+                        &self.local_apics,
+                        turn.cpu_index,
+                        addr,
+                        size,
+                        operation,
+                    )?;
                     // Device locks are released before native register/flag
                     // callbacks or instruction completion can reenter the VM.
                     vcpu.complete_io_in(&old);

@@ -12,10 +12,9 @@ impl VCpu for X86_64Vcpu {
         let rflags = self.compute_materialized_rflags();
         let mut regs = self.regs.clone();
         regs.rflags = rflags;
-        Ok(CpuState::X86_64(X86_64CpuState {
-            regs,
-            sregs: self.sregs.clone(),
-        }))
+        let mut sregs = self.sregs.clone();
+        sregs.cr8 = u64::from(self.mmu.task_priority()? >> 4);
+        Ok(CpuState::X86_64(X86_64CpuState { regs, sregs }))
     }
 
     fn validate_checkpoint_state(
@@ -123,6 +122,10 @@ impl VCpu for X86_64Vcpu {
                 ));
             }
         };
+        if state.sregs.cr8 > 15 {
+            return Err(Error::InvalidConfig("invalid CR8 priority class".into()));
+        }
+        self.mmu.import_cr8(state.sregs.cr8)?;
         self.regs = state.regs.clone();
         self.sregs = state.sregs.clone();
         self.mmu.set_data_access_state(self.regs.rflags, self.pkru);

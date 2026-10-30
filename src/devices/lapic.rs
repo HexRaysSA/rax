@@ -126,7 +126,7 @@ pub struct LocalApic {
     /// LAPIC Version register
     version: u32,
     /// Task Priority Register
-    tpr: u32,
+    tpr: priority::TaskPriority,
     /// Logical Destination Register
     ldr: u32,
     /// Destination Format Register
@@ -195,7 +195,7 @@ impl LocalApic {
             // Version: bits 0-7 = version (0x14 = modern APIC)
             // bits 16-23 = max LVT entry (6 entries = 0x05)
             version: 0x00050014,
-            tpr: 0,
+            tpr: priority::TaskPriority::new(0),
             ldr: 0,
             dfr: 0xFFFFFFFF, // Flat model
             svr: 0x1FF,      // APIC enabled (bit 8), spurious vector 0xFF
@@ -226,6 +226,17 @@ impl LocalApic {
     /// Check if APIC is enabled
     pub fn is_enabled(&self) -> bool {
         (self.svr & SVR_APIC_ENABLED) != 0
+    }
+
+    pub(crate) fn priority_handle(&self) -> priority::PriorityHandle {
+        self.tpr.handle()
+    }
+
+    /// Keep CPU bindings live when replacing captured controller state.
+    pub(crate) fn replace_state(&mut self, mut restored: Self) {
+        std::mem::swap(&mut restored.tpr, &mut self.tpr);
+        restored.tpr.restore_from(&self.tpr);
+        *self = restored;
     }
 
     /// Get the timer divisor from the divide configuration register
@@ -403,7 +414,7 @@ impl LocalApic {
         let pending = self.pending_ipi.take();
         let pending_ipis = std::mem::take(&mut self.pending_ipis);
         let coordinated = self.coordinated_ipis;
-        *self = Self::new(u32::from(self.apic_id()));
+        self.replace_state(Self::new(u32::from(self.apic_id())));
         self.id = id;
         self.version = version;
         self.svr = 0xff;
@@ -632,11 +643,11 @@ impl LocalApic {
         match offset {
             LAPIC_ID => self.id,
             LAPIC_VERSION => self.version,
-            LAPIC_TPR => self.tpr,
+            LAPIC_TPR => self.tpr.load(),
             LAPIC_APR => 0, // Arbitration priority (read-only, usually 0)
             LAPIC_PPR => {
                 // Processor priority = max(TPR, highest ISR priority)
-                let tpr_class = (self.tpr >> 4) & 0xF;
+                let tpr_class = (self.tpr.load() >> 4) & 0xF;
                 let mut max_isr = 0u32;
                 for i in (0..8).rev() {
                     if self.isr[i] != 0 {
@@ -649,7 +660,11 @@ impl LocalApic {
                         break;
                     }
                 }
-                std::cmp::max(tpr_class, max_isr) << 4
+                if tpr_class > max_isr {
+                    self.tpr.load()
+                } else {
+                    max_isr << 4
+                }
             }
             LAPIC_RRD => 0,
             LAPIC_LDR => self.ldr,
@@ -725,7 +740,7 @@ impl LocalApic {
                 self.id = value & 0xFF000000;
             }
             LAPIC_TPR => {
-                self.tpr = value & 0xFF;
+                self.tpr.store(value & 0xFF);
             }
             LAPIC_EOI => {
                 // Any write triggers EOI
@@ -875,4 +890,5 @@ impl MmioDevice for LapicDevice {
 mod tests;
 
 mod checkpoint;
+pub(crate) mod priority;
 pub(crate) use checkpoint::LapicCheckpoint;

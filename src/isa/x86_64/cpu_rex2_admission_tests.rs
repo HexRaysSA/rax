@@ -158,6 +158,10 @@ fn direct_rex2_control_debug_transfers_use_full_extensions_on_cold_and_cache_hit
     let mut read_control = test_vcpu(memory_with_code(&[0xD5, 0x95, 0x20, 0xC7]));
     read_control.set_apx_enabled(true);
     read_control.sregs.cr8 = 0xD;
+    read_control
+        .mmu
+        .set_task_priority((0xD << 4) as u32)
+        .unwrap();
     for pass in 0..2 {
         read_control.regs.rip = 0;
         read_control.regs.r31 = u64::MAX;
@@ -321,6 +325,7 @@ fn native_rex2_control_debug_transfers_match_direct_and_recheck_apx() {
     for vcpu in [&mut direct, &mut native] {
         vcpu.set_apx_enabled(true);
         vcpu.sregs.cr8 = 0xD;
+        vcpu.mmu.set_task_priority((0xD << 4) as u32).unwrap();
         vcpu.regs.r31 = u64::MAX;
     }
     for _ in 0..2 {
@@ -402,6 +407,7 @@ fn native_rex2_control_debug_transfers_match_direct_and_recheck_apx() {
     let mut disabled = test_vcpu(memory);
     disabled.set_apx_enabled(true);
     disabled.sregs.cr8 = 0xD;
+    disabled.mmu.set_task_priority((0xD << 4) as u32).unwrap();
     disabled.sregs.cs.selector = 3;
     disabled.regs.r31 = 0x3131_3131_3131_3131;
     let region = disabled

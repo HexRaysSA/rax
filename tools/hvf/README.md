@@ -111,11 +111,15 @@ writes TPR=value<<4, clearing its low subclass nibble, before advancing RIP.
 MOV from CR8 writes a zero-extended64-bit TPR[7:4] into the selected GPR.
 Reserved CR8 bits require #GP(0) with unchanged TPR/GPR and faulting RIP.
 
-System-state reads expose the live SDK TPR priority class as CR8. System-state
-writes restore it; invalid CR8 values fail before any supplied CPU state is
-written. This uses the already serialized CR8 field and adds no checkpoint
-layout field. Host API failures propagate; an error after a successful TPR write
-can leave that write visible without a successful RIP advance.
+The attached per-CPU software LAPIC now owns the complete TPR byte; CR8 reads
+its high nibble. Native entry refreshes the SDK mirror from that owner. Public
+state import preserves the subclass when its CR8 class is unchanged, including
+when only GPRs change; a changed class clears the subclass. Explicit MOV-to-CR8
+always clears the subclass. Invalid CR8 values reject before any CPU-state
+write. A failed SDK priority/state publication permanently prohibits entry
+through that CPU because the SDK may have partially changed. Rebinding or
+import cannot clear this failure. A read failure before mutation is retryable.
+The existing CR8 and `u32` TPR wire fields retain their layouts.
 
 ```text
 qualification -> recognized CR8 transfer -> GPR/TPR commit -> RIP advance
@@ -128,10 +132,13 @@ qualification and leave RIP unchanged. CR0.NE mask/shadow semantics and optional
 CR3/CR4 intercepts still need implementation; this bounded group does not claim
 to implement them.
 
-The six complete host-independent tests cover all16 GPRs, all256 TPR byte reads,
+The six original host-independent tests cover all16 GPRs, all256 TPR byte reads,
 all16 valid CR8 writes, every one of60 reserved CR8 bits, unrepresented control
-forms, every reserved qualification bit and host-failure boundaries. The actual
-QEMU long-mode guest executes335 instructions and retains all raw records.
+forms, every reserved qualification bit and host-failure boundaries. Seven
+additional tests execute the production priority-publication policy with an
+explicit SDK substitute, including partial-write failures and entry exclusion.
+The actual QEMU long-mode guest executes335 instructions and retains all raw
+records.
 
 | Input class | RAX requirement | QEMU11.1.2 TCG result |
 | --- | --- | --- |
@@ -143,9 +150,25 @@ compares legal transfers independently. It reports all63 raw disagreements;
 reserved-bit exception behavior is primary-source validation, not a QEMU match.
 The installed reference permits precisely this known masking behavior or the
 correct architectural fault, and rejects other unexplained reference results.
-Native Intel VMX/exception delivery and SDK-TPR/software-LAPIC/IRQ coherence remain
-separate. The VMM LocalApic and software x86 InlineLapic ownership also require
-reconciliation with the pending platform/checkpoint/SMP work.
+The product consumer additionally executes actual software guest MMIO and CR8
+instructions against the same controller, comparing all272 legal records:
+
+```sh
+cargo +stable build --locked --no-default-features --features x86_64-suite,smir-jit,hvf --lib
+rustc +stable --edition=2024 tools/hvf/priority_compare.rs \
+  --extern "rax=${CARGO_TARGET_DIR:-target}/debug/librax.rlib" \
+  -L "dependency=${CARGO_TARGET_DIR:-target}/debug/deps" \
+  -o "${CARGO_TARGET_DIR:-target}/priority-compare"
+"${CARGO_TARGET_DIR:-target}/priority-compare" target/hvf-cr8/cases.bin target/hvf-cr8/results.bin
+```
+
+Expected output reports `compared_legal:272`, `retained_reserved_primary_cases:63`
+and `mismatches:0`. The63 reserved-bit records remain assessed separately by
+the original driver. Generated x86 JIT execution under Rosetta and substituted
+SDK tests do not prove physical Intel VMX/exception delivery. See
+[task-priority coherence](../../docs/development/task-priority-coherence.md)
+for checkpoint bindings, PPR subclass behavior, evidence and the remaining
+APIC_BASE/x2APIC/interrupt-source/native scheduling gates.
 
 ## Synchronous exit IP, halt and event information
 

@@ -109,6 +109,7 @@ impl Context {
             return Err(invalid("CPU identity or process binding mode differs"));
         }
         self.mmu.validate(&target.mmu)?;
+        self.mmu.validate_priority_projection(self.sregs.cr8)?;
         X86_64Vcpu::validate_emulator_state(&self.emulator)?;
         if !crate::isa::x86_64::user_mode::xcr0_value_is_valid(self.xcr0, self.profile.apx) {
             return Err(invalid(
@@ -354,7 +355,11 @@ impl X86_64Vcpu {
             insn_count: *insn_count,
             instruction_faulted: *instruction_faulted,
             regs: regs.clone(),
-            sregs: sregs.clone(),
+            sregs: {
+                let mut value = sregs.clone();
+                value.cr8 = u64::from(mmu.task_priority()? >> 4);
+                value
+            },
             emulator: self
                 .snapshot_emulator_state()
                 .ok_or_else(|| invalid("missing software emulator state"))?,
@@ -437,6 +442,11 @@ impl X86_64Vcpu {
         let mut candidate = X86_64Vcpu::new(context.id, self.mmu.checkpoint_memory());
         candidate.regs = context.regs;
         candidate.sregs = context.sregs;
+        // This detached projection is validated before shared controller
+        // publication. Seed its private inline owner from the saved CPU record.
+        candidate
+            .mmu
+            .set_task_priority((candidate.sregs.cr8 << 4) as u32)?;
         candidate.restore_emulator_state(&context.emulator)?;
         if crate::codec::serialize(&candidate.get_state()?).map_err(invalid)?
             != crate::codec::serialize(state).map_err(invalid)?

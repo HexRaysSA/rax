@@ -112,7 +112,8 @@ impl X86_64Vcpu {
         let snap_cr2 = self.sregs.cr2;
         let snap_cr3 = self.sregs.cr3;
         let snap_cr4 = self.sregs.cr4;
-        let snap_cr8 = self.sregs.cr8;
+        let snap_tpr = self.mmu.task_priority().ok();
+        let snap_cr8 = snap_tpr.map_or(self.sregs.cr8, |v| u64::from(v >> 4));
         let snap_efer = self.sregs.efer;
         let snap_star = self.sregs.star;
         let snap_lstar = self.sregs.lstar;
@@ -152,7 +153,8 @@ impl X86_64Vcpu {
         let jit_cr2 = self.sregs.cr2;
         let jit_cr3 = self.sregs.cr3;
         let jit_cr4 = self.sregs.cr4;
-        let jit_cr8 = self.sregs.cr8;
+        let jit_tpr = self.mmu.task_priority().ok();
+        let jit_cr8 = jit_tpr.map_or(self.sregs.cr8, |v| u64::from(v >> 4));
         let jit_efer = self.sregs.efer;
         let jit_star = self.sregs.star;
         let jit_lstar = self.sregs.lstar;
@@ -226,6 +228,11 @@ impl X86_64Vcpu {
         self.sregs.cr3 = snap_cr3;
         self.sregs.cr4 = snap_cr4;
         self.sregs.cr8 = snap_cr8;
+        if let Some(value) = snap_tpr {
+            self.mmu
+                .set_task_priority(value)
+                .expect("priority binding remains stable during native replay");
+        }
         self.sregs.efer = snap_efer;
         self.sregs.star = snap_star;
         self.sregs.lstar = snap_lstar;
@@ -430,7 +437,18 @@ impl X86_64Vcpu {
                 ("cr2", self.sregs.cr2, jit_cr2),
                 ("cr3", self.sregs.cr3, jit_cr3),
                 ("cr4", self.sregs.cr4, jit_cr4),
-                ("cr8", self.sregs.cr8, jit_cr8),
+                (
+                    "cr8",
+                    self.mmu
+                        .task_priority()
+                        .map_or(self.sregs.cr8, |v| u64::from(v >> 4)),
+                    jit_cr8,
+                ),
+                (
+                    "tpr",
+                    u64::from(self.mmu.task_priority().unwrap_or(u32::MAX)),
+                    u64::from(jit_tpr.unwrap_or(u32::MAX)),
+                ),
                 ("efer", self.sregs.efer, jit_efer),
                 ("star", self.sregs.star, jit_star),
                 ("lstar", self.sregs.lstar, jit_lstar),
@@ -648,6 +666,11 @@ impl X86_64Vcpu {
         self.sregs.cr3 = jit_cr3;
         self.sregs.cr4 = jit_cr4;
         self.sregs.cr8 = jit_cr8;
+        if let Some(value) = jit_tpr {
+            self.mmu
+                .set_task_priority(value)
+                .expect("priority binding remains stable during native replay");
+        }
         self.sregs.efer = jit_efer;
         self.sregs.star = jit_star;
         self.sregs.lstar = jit_lstar;

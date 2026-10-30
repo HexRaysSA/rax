@@ -86,6 +86,9 @@ impl X86_64Lowerer {
         let fault = self.emit_jcc_placeholder(X86Cond::Ne);
 
         self.patch_rel32_to_current(real_mode)?;
+        if matches!(control, X86ControlReg::Cr8) {
+            self.emit_live_cr8_read(op.guest_pc)?;
+        }
         if !matches!(control, X86ControlReg::Cr8) {
             self.emit_x86_serialize();
         }
@@ -121,3 +124,4 @@ impl X86_64Lowerer {
         Ok(())
     }
 }
+mod live_priority;

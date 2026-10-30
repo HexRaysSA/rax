@@ -3,6 +3,14 @@ use super::*;
 
 impl Vmm {
     fn validate_snapshot_target(&self, snapshot: &Snapshot) -> Result<()> {
+        if let CpuState::X86_64(cpu) = &snapshot.cpu_state {
+            let tpr = snapshot.devices.lapic.priority_handle().load();
+            if tpr > 255 || cpu.sregs.cr8 > 15 || u64::from(tpr >> 4) != cpu.sregs.cr8 {
+                return Err(Error::InvalidConfig(
+                    "checkpoint BSP CR8 and local APIC TPR disagree".into(),
+                ));
+            }
+        }
         snapshot.validate_envelope()?;
         if snapshot.config.arch != self.checkpoint_config.arch {
             return Err(Error::InvalidConfig(
@@ -356,10 +364,10 @@ impl Vmm {
                 let resume = std::time::Instant::now();
                 for (target, mut restored) in lapics.iter_mut().zip(apics) {
                     restored.resume_timer_at(resume);
-                    **target = restored;
+                    target.replace_state(restored);
                 }
             } else {
-                *lapics[0] = devices.lapic;
+                lapics[0].replace_state(devices.lapic);
                 lapics[0].enable_coordinated_delivery();
             }
             if let Some(clock) = clock_restore {
@@ -415,7 +423,7 @@ impl Vmm {
         *pic = devices.pic;
         *pit = devices.pit;
         *serial = devices.serial;
-        *lapic = devices.lapic;
+        lapic.replace_state(devices.lapic);
         lapic.enable_coordinated_delivery();
         crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
 

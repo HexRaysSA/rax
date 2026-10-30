@@ -307,6 +307,28 @@ impl SnapshotBundle {
                 ));
             }
             execution.validate(&self.base)?;
+            if self.base.config.arch == crate::config::ArchKind::X86_64 {
+                for (cpu, apic) in self
+                    .cpus
+                    .as_ref()
+                    .unwrap()
+                    .entries()
+                    .iter()
+                    .zip(&execution.local_apics)
+                {
+                    let crate::vm::vcpu::CpuState::X86_64(cpu) = &cpu.state else {
+                        return Err(Error::InvalidConfig(
+                            "x86 priority graph contains another CPU architecture".into(),
+                        ));
+                    };
+                    let tpr = apic.registers.priority_handle().load();
+                    if tpr > 255 || cpu.sregs.cr8 > 15 || u64::from(tpr >> 4) != cpu.sregs.cr8 {
+                        return Err(Error::InvalidConfig(
+                            "checkpoint CR8 and local APIC TPR disagree".into(),
+                        ));
+                    }
+                }
+            }
             if super::producer::is_native(&self.base.config) {
                 let shared = self
                     .vm_context

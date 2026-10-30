@@ -3059,6 +3059,7 @@ impl X86_64Vcpu {
     /// attached guest memory. Mirrors the field initialisation in [`new`] for
     /// every architectural and cache field touched by execution.
     pub fn reset_state(&mut self) {
+        let _ = self.mmu.set_task_priority(0);
         self.jit_vsib_resume_pc = None;
         self.jit_callout_exit = None;
         self.insn_count = 0;
@@ -3290,7 +3291,7 @@ use jit_cpuid::rax_jit_cpuid;
 #[path = "cpu_jit_control.rs"]
 mod jit_control;
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-use jit_control::rax_jit_write_control;
+use jit_control::{rax_jit_read_cr8, rax_jit_write_control};
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 #[path = "cpu_jit_cli.rs"]
@@ -3986,6 +3987,7 @@ impl X86_64Vcpu {
         // Canonical MOV-to-control-register validator/commit helper. Successful
         // writes end the region immediately after this call.
         gr.control_write_fn = rax_jit_write_control as usize as u64;
+        gr.control_read_fn = rax_jit_read_cr8 as usize as u64;
         gr.msr_fn = rax_jit_msr as usize as u64;
         gr.pmc_fn = rax_jit_pmc as usize as u64;
         gr.descriptor_store_fn = rax_jit_descriptor_table_store as usize as u64;
@@ -4023,7 +4025,10 @@ impl X86_64Vcpu {
         gr.cr0 = self.sregs.cr0;
         gr.cr2 = self.sregs.cr2;
         gr.cr3 = self.sregs.cr3;
-        gr.cr8 = self.sregs.cr8;
+        gr.cr8 = match self.mmu.task_priority() {
+            Ok(tpr) => u64::from(tpr >> 4),
+            Err(_) => return (0, 0),
+        };
         gr.dr0 = self.sregs.dr0;
         gr.dr1 = self.sregs.dr1;
         gr.dr2 = self.sregs.dr2;
@@ -4156,6 +4161,9 @@ impl X86_64Vcpu {
         self.sregs.cr3 = gr.cr3;
         self.sregs.cr4 = gr.cr4;
         self.sregs.cr8 = gr.cr8;
+        if let Ok(tpr) = self.mmu.task_priority() {
+            self.sregs.cr8 = u64::from(tpr >> 4);
+        }
         self.sregs.dr0 = gr.dr0;
         self.sregs.dr1 = gr.dr1;
         self.sregs.dr2 = gr.dr2;
@@ -5018,6 +5026,10 @@ mod jit_cache_maintenance_tests;
 #[cfg(all(test, feature = "smir-jit", target_arch = "x86_64"))]
 #[path = "cpu_jit_read_control_tests.rs"]
 mod jit_read_control_tests;
+
+#[cfg(all(test, feature = "smir-jit", target_arch = "x86_64"))]
+#[path = "cpu_priority_tests.rs"]
+mod priority_tests;
 
 #[cfg(all(test, feature = "smir-jit", target_arch = "x86_64"))]
 #[path = "cpu_jit_smsw_tests.rs"]

@@ -51,18 +51,19 @@ identity. Additional delivery tests exercise rejected injection, lock re-entry,
 TPR/PPR, EOI and software enable. These tests provide software execution and
 controller evidence. They do not provide physical Intel HVF evidence.
 
-The full four-finding objective remains active. High-impact remaining work
-includes executing every online CPU through the actual VMM coordinator,
-architectural secondary startup and cross-CPU IPI routing, complete per-CPU
-controller/private/in-flight checkpoint state, native HVF TPR/interrupt state
-synchronization and actual Intel-host execution. Allocating controller owners
-does not close C-SMP or C-STATE.
+The [execution coordinator](execution-coordinator.md) subsequently added actual
+software CPU turns, INIT/SIPI startup and cross-CPU IPI routing. The full
+four-finding objective remains active. High-impact remaining work includes
+complete backend/private/in-flight checkpoint state, native scheduling and
+interrupt coherence, and physical Intel execution. Controller ownership and
+the qualified software coordinator do not close C-SMP or C-STATE.
 
-High-impact remaining state work includes the inactive standalone inline-controller
-profile and complete modeled timer phase. Those state owners must also be
-covered by the final checkpoint inventory. The current base checkpoint view
-continues to name the BSP controller. Low-impact organization: legacy local
-APIC tests move to a child module with their test paths and assertions intact.
+The software x86 private-context codec also captures the standalone inline
+controller and represented timer phase; its tests check phase rebasing across
+earlier and later clock origins. Complete backend/private/in-flight coverage
+still requires the full checkpoint inventory. The current base checkpoint view
+continues to name the BSP controller. Legacy local APIC tests remain in a child
+module with their test paths and assertions intact.
 
 ## MMIO transaction boundaries
 
@@ -91,8 +92,10 @@ two devices or implement an unsupported atomic MMIO instruction profile.
 |---|---|---|---|---|
 | B1 | The MMIO device interface receives complete mapped transactions rather than independent byte operations. Register side effects depend on width and callback count. | The interface accepts byte slices; the actual TPR inverse-direction test fails with fragmentation. | Check exact callback traces for six widths, boundaries and gaps. Unexpected fragmentation, extra side effects or payload changes falsify the claim. | Confirmed in local software checks |
 
-High-impact remaining coherence work also includes direct `MOV CR8`: its
-current execution owner accesses `sregs.cr8` separately from the attached TPR.
-That state must be reconciled with controller capture and native SDK state
-without introducing lock re-entry during coordinated restoration. This
-component does not claim that synchronization is complete.
+[Task-priority coherence](task-priority-coherence.md) subsequently connected
+direct and native-JIT `MOV CR8`, public CPU state, checkpoint publication and
+the Intel HVF SDK mirror to the owning controller. Hardware MMIO exits select
+the originating CPU's controller. This avoids controller-lock re-entry during
+coordinated capture and retains live bindings through restoration. APIC_BASE,
+x2APIC, complete interrupt-source routing and physical Intel qualification
+remain outside that component's completed evidence.

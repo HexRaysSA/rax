@@ -1,0 +1,933 @@
+{
+  "schema": 1,
+  "status": "locally_validated",
+  "utc": "2026-10-30T13:45:36.186898+00:00",
+  "parent": "0f6a35685e335480f83c790c0e38e7d1053cae02",
+  "scope": "Full TPR ownership across CR8/direct guest/JIT/public state/controller/checkpoint/native SDK mirror; original four-finding goal remains active",
+  "baseline": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/baseline.json",
+    "result": "0 passed, 4 failed against parent source"
+  },
+  "software_and_policy_test_executions_passed": 356,
+  "rosetta_test_executions_passed": 34,
+  "test_count_scope": "Selected test executions, not a claim of complete repository or physical-native coverage; tests repeated across host classes are counted separately",
+  "checks": [
+    {
+      "name": "compile-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/compile-final-v2.json",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--lib",
+        "--test",
+        "hvf_cr8",
+        "--test",
+        "hvf_memory",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_event_injection",
+        "--test",
+        "hvf_controls",
+        "--test",
+        "controller_irq",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 209.02434312499827
+    },
+    {
+      "name": "workspace-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/workspace-final-v2.json",
+      "argv": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 34.71646500000497
+    },
+    {
+      "name": "clippy-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/clippy-final-v2.json",
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--lib",
+        "--test",
+        "hvf_cr8"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 26.734238707984332
+    },
+    {
+      "name": "fmt-check-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/fmt-check-final-v2.json",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 13.190155624994077
+    },
+    {
+      "name": "consumer-build-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/consumer-build-final-v2.json",
+      "argv": [
+        "rustc",
+        "--edition=2024",
+        "tools/hvf/priority_compare.rs",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-110491fb7b919439.rlib",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "-o",
+        "/Users/int/dev/rax-audit-work/build-tmp/priority-compare"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.9840597090078518
+    },
+    {
+      "name": "consumer-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/consumer-final-v2.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/build-tmp/priority-compare",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/qemu-reference-v1/cases.bin",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/qemu-reference-v1/results.bin"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01018020900664851
+    },
+    {
+      "name": "intel-unit-compile-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/intel-unit-compile-final-v2.json",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 142.89001754199853
+    },
+    {
+      "name": "intel-lib-check-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/intel-lib-check-final-v2.json",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 33.253074959036894
+    },
+    {
+      "name": "final-fmt-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-fmt-v2.json",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 12.582528917002492
+    },
+    {
+      "name": "unit-final-v2-0",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-final-v2-0.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::lapic",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 51.9091738749994,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-v2-1",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-final-v2-1.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "devices::lapic::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.2171430829912424,
+      "test_results": [
+        {
+          "passed": 110,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-v2-2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-final-v2-2.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "devices::bus::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.019348833011463284,
+      "test_results": [
+        {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-v2-3",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-final-v2-3.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "isa::x86_64::cpu::checkpoint::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.4739439580007456,
+      "test_results": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-v2-4",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-final-v2-4.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::checkpoint_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.017228915996383876,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-v2-5",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-final-v2-5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::bundle_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.019737750000786036,
+      "test_results": [
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-v2-6",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-final-v2-6.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::execution_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 144.07872900000075,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-v2-7",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-final-v2-7.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::snapshot::execution::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.05191049998393282,
+      "test_results": [
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-v2-8",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-final-v2-8.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "isa::x86_64::memory::checkpoint::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01840091700432822,
+      "test_results": [
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-v2-9",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-final-v2-9.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "sse4a_state_detection_layout_and_o2_retention_are_exact",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.025115332973655313,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "hvf_cr8-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/hvf_cr8-final-v2.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_cr8-50a75790ccbbc448",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.007504375011194497,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "hvf_memory-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/hvf_memory-final-v2.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_memory-d9a3897b554182ab",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.011843542044516653,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "hvf_mmio-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/hvf_mmio-final-v2.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_mmio-dda9c641641c54f4",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.7772661669878289,
+      "test_results": [
+        {
+          "passed": 37,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "hvf_event_injection-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/hvf_event_injection-final-v2.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_event_injection-e2fca31fcad298ef",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01004379102960229,
+      "test_results": [
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "hvf_controls-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/hvf_controls-final-v2.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_controls-4bc6e816be0a2218",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.020661125017795712,
+      "test_results": [
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "controller_irq-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/controller_irq-final-v2.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/controller_irq-3286a94171e37b64",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.008683791966177523,
+      "test_results": [
+        {
+          "passed": 31,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "adjacent-runtime-final-v2-0",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/adjacent-runtime-final-v2-0.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::mmio_rmw_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 38.416105290991254,
+      "test_results": [
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "adjacent-runtime-final-v2-1",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/adjacent-runtime-final-v2-1.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57",
+        "vm::runtime::native_mmio_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 34.590535500028636,
+      "test_results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "direct-controls-corrected-final-v2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/direct-controls-corrected-final-v2.json",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "x86_64",
+        "x86_64_system_mov_cr::",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.19896216702181846,
+      "test_results": [
+        {
+          "passed": 57,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-v2-0",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/rosetta-final-v2-0.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "isa::x86_64::cpu::priority_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.876421625027433,
+      "test_results": [
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-v2-1",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/rosetta-final-v2-1.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "isa::x86_64::cpu::jit_read_control_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.11878283298574388,
+      "test_results": [
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-v2-2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/rosetta-final-v2-2.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "isa::x86_64::cpu::jit_write_control_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.1117944159777835,
+      "test_results": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-v2-3",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/rosetta-final-v2-3.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "isa::x86_64::cpu::rex2_admission_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.1602958330186084,
+      "test_results": [
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-v2-4",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/rosetta-final-v2-4.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "smir::lower::x86_64::tests::read_control",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.049539375002495944,
+      "test_results": [
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-v2-5",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/rosetta-final-v2-5.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "devices::lapic::priority::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.03705741703743115,
+      "test_results": [
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "rosetta-final-v2-6",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/rosetta-final-v2-6.json",
+      "argv": [
+        "/usr/bin/arch",
+        "-x86_64",
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/rax-b97c73234addd10d",
+        "sse4a_state_detection_layout_and_o2_retention_are_exact",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.059808499994687736,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    }
+  ],
+  "source_sha256": {
+    "src/backend/hvf/mod.rs": "98f188df6c518b51aa66f3ac8d0dc6bb8cef478d5cb6bc91ffd78fd1be48e841",
+    "src/devices/bus.rs": "a4ee869b465cc4fc14d5a90eecb2677f3bb90736ca3de057a34ad2f4612f507f",
+    "src/devices/lapic.rs": "fd156d11ab6f6979b48f82b94085a9a0d0fa7278fc3056395a381aa2be2476c8",
+    "src/isa/x86_64/cpu.rs": "fb53cf508d090ae122a2fa45dabd04a8ddd6a498ddca371348197452993350cd",
+    "src/isa/x86_64/cpu_context.rs": "125f806e87af74d63c0da9df43e75a203807dc61c61d5d600ec44b9150fd85ca",
+    "src/isa/x86_64/cpu_jit_control.rs": "0ba3234932b5b75557e6a844fb5935e806a935d0c8f13379014669841f496b8a",
+    "src/isa/x86_64/cpu_jit_read_control_tests.rs": "c32fafbeedbd52a2a2b4156415e232d86394c0de1dadcc00e901dd9325bea359",
+    "src/isa/x86_64/cpu_jit_verify.rs": "d834c204ec36e85492517dfdc2ff964c83a14a3a748133d8c94a02ca68419786",
+    "src/isa/x86_64/cpu_jit_write_control_tests.rs": "cfa7f904a27a977a5a2f086d17a8df2bdb17eaadda9cae66dae84cd2a9b0a0bd",
+    "src/isa/x86_64/cpu_rex2_admission_tests.rs": "cc06ba5f952ab7dd5211886af9e45286c9528f54dc95b36e31fd58732f6efe1c",
+    "src/isa/x86_64/cpu_vcpu.rs": "686976eee2351ab71f9257cf9f56f559ae8e68f7746a8229698e5de792e6bca5",
+    "src/isa/x86_64/execute/system/control_regs.rs": "c1bb10560a2b8769115dbc14b93db26e387bf84af2b3d921226ffc0664ebed99",
+    "src/isa/x86_64/memory.rs": "34225e0ca32266d11a8116b5168ac7e686477c1c8379d34ea586f45cc512098a",
+    "src/isa/x86_64/memory/checkpoint.rs": "c236e933234682e115f6687e56490111e0bcdd41d2c713bf3ee1e5b3d1e8e029",
+    "src/isa/x86_64/memory/shared_lapic.rs": "cf782d2ffba00b55af146682c912d0772369407e83ff4df7c3b65f81c98e32bb",
+    "src/smir/lower/mod.rs": "5947b91fe2de7053dd35e0b8378f8aba255a6bd864e9e47c40756d749837492b",
+    "src/smir/lower/runtime/jit_gate_tests/sse4a.rs": "82d73bb125bc1c4c9c1b4b3537a62112aa1a53a53aba315be9606e50f5586236",
+    "src/smir/lower/runtime/x86_guest_regs.rs": "3bb7e05e2b30b49537441c144bdadc05690868cc2a80a75d5dfd97aa0397a041",
+    "src/smir/lower/x86_64/read_control.rs": "247da8afbb19f9340f4ab38a1353ddb18ffaa90ea31ea3a399e816b165d1f033",
+    "src/vm/runtime.rs": "3e9748f3dc1c4bc1409fb259b63d61fdaf9c8b92b07ff56ac984de077b2a1525",
+    "src/vm/runtime/checkpoint_restore.rs": "c12f9f10608f912e4caa51ef1ec2f33bae65f9b5998dea282caa38f56ac251c6",
+    "src/vm/runtime/execution.rs": "067713b7c32b9b48950d08ddf203d967878ec96fa278cc442b8e82d5efecd226",
+    "src/vm/snapshot/bundle.rs": "4f2a259c63cb812fd148fd913744939e04983bc0031b48e22701eaa88072e483",
+    "tests/suites/backend/hvf_cr8.rs": "36dcd09262c15166cc2226259f06a8349d8acba4587770cee3dd1cf01a76ab7a",
+    "src/backend/hvf/priority.rs": "995c91f37e0ad2a1a97b207145c55c756d3fe19a7ad7783bb84db49de741d22c",
+    "src/backend/hvf/priority_native.rs": "49371900d90c7adcab6a6febe0966eb51940f75a1f1dbe2373cea116988cbd3f",
+    "src/devices/bus/override_device.rs": "df1d41b3a1f403b96814d34996399212c182fb860b43e2dcd58e0f017fe971dd",
+    "src/devices/lapic/priority.rs": "9ffd3b49f9f1369b49824884a74d5fca9f0c9a971c1745090cd727653233202f",
+    "src/isa/x86_64/cpu_priority_tests.rs": "53e8380e05e5fb0d4e65ad67001eed37de65837827c09a718a25fa1456e5a048",
+    "src/smir/lower/x86_64/read_control/live_priority.rs": "25396bfac833f74bf6bbd9c198f4ce7c52b5db769eb406df4ce138e429a2d79c",
+    "src/vm/runtime/lapic_priority_tests.rs": "05da2d1d20fcce75a4bce015c82788468ef1e5c16f644e3f67ff6ea8215d7dee",
+    "src/vm/runtime/mmio.rs": "4dee754d016932301a22264de4a3ac37fd75a10934e7984a3f5d4e91e29a4513",
+    "tests/suites/backend/hvf_cr8/priority.rs": "530c7fd726fce4dbfc2a7a9b02f9bbe19d822bfe88b64efeaa2e30eeb7ddbb2c",
+    "tools/hvf/priority_compare.rs": "e8c79bbff3e7a3a9f88d9e37c349b09f631e8557f00fa90ce096f8cfe94578c2"
+  },
+  "environment": {
+    "utc": "2026-10-30T13:40:11.630852+00:00",
+    "commands": [
+      {
+        "argv": [
+          "rustc",
+          "-vV"
+        ],
+        "exit_code": 0,
+        "stdout": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "sw_vers"
+        ],
+        "exit_code": 0,
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "sysctl",
+          "-n",
+          "machdep.cpu.brand_string"
+        ],
+        "exit_code": 0,
+        "stdout": "Apple M4 Max\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "xcrun",
+          "--show-sdk-version"
+        ],
+        "exit_code": 0,
+        "stdout": "27.2\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/usr/bin/arch",
+          "-x86_64",
+          "/usr/bin/uname",
+          "-m"
+        ],
+        "exit_code": 0,
+        "stdout": "x86_64\n",
+        "stderr": ""
+      }
+    ],
+    "environment": {
+      "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+      "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+      "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+      "CARGO_BUILD_JOBS": "1",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_NET_OFFLINE": "true",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp"
+    },
+    "arm_dep_info": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0997af40a837af57.d",
+      "sha256": "cbc27a8f4ff4b5a97dd6d958bab5db7e08a026284f95f07ddf7600b4048c0e1b",
+      "contains_x86_only_cpu_priority_tests": false
+    },
+    "limitation": "Rosetta x86 execution and target compilation do not establish physical Intel VMX behavior",
+    "execution_switches": {}
+  },
+  "primary_source": {
+    "path": "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "revision": "Intel SDM086, December 2024",
+    "sections": [
+      "Vol.3A 12.8.3.1 task and processor priorities, p12-29",
+      "Vol.3A 12.8.6.1 CR8/APIC interaction, p12-32"
+    ],
+    "scope": "CR8 alias assumes hardware APIC enabled; no ordering between mixed direct TPR and CR8 accesses absent a serializing instruction; PPR equal-class subclass is model-specific. This profile selects zero for equal classes.",
+    "remaining": "Full APIC_BASE enable/relocation, x2APIC/MSR banks, IRQ source graph and physical Intel execution remain open.",
+    "verified_excerpts": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/intel-priority-excerpts-corrected.txt",
+    "superseded_excerpts": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/intel-priority-excerpts.txt",
+    "sdk_representation_cross_check": {
+      "url": "https://raw.githubusercontent.com/qemu/qemu/master/target/i386/hvf/hvf.c",
+      "observed_utc": "2026-10-30T13:45:32.693244+00:00",
+      "functions": [
+        "vmx_update_tpr",
+        "update_apic_tpr"
+      ],
+      "observation": "Upstream QEMU shifts the software APIC class left by 4 when writing HV_X86_TPR and right by 4 when importing it. This is consistent with the full-byte SDK mirror interpretation.",
+      "evidence_class": "Primary implementation cross-check; no native SDK execution or failure-atomicity guarantee"
+    }
+  },
+  "qemu_reference": {
+    "manifest": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/qemu-reference-v1/manifest.json",
+    "recorded_artifact_sha256": {
+      "cases.bin": "318b9ce1812c86354ff4277359c2a9b65e6a520868a77b14ef9c9f38fb7c54f7",
+      "results.bin": "31bf58c7c63c4b2fc7158a887479a8b4356b757bae7bb057a960a6fcdf2bdd34",
+      "guest.s": "efa53dc3efa1e797f3eee3704fa7e37bc5710ac5fbfd24f11b005b178606db9e",
+      "guest.elf": "189d83cc1f830d77394a756a927f7e85a92713b82ec271c6e6806109682dd3f4",
+      "compare.rs": "2e516d0d2a9d5046fca35630ff4143940937dd86225d2c1b3b5f5250ec9e657f"
+    },
+    "retained_record_and_source_files": [
+      "cases.bin",
+      "results.bin",
+      "guest.s",
+      "compare.rs"
+    ],
+    "removed_build_outputs": [
+      "guest.elf",
+      "guest.o",
+      "compare"
+    ],
+    "known_reference_disagreements": 63,
+    "report": {
+      "cases": 335,
+      "independent_legal_cases": 272,
+      "reserved_primary_cases": 63,
+      "local_profile_failed": 0,
+      "independent_legal_failed": 0,
+      "commit_order_failed": 0,
+      "qemu_raw_differences": 63,
+      "unknown_reference_profile_failed": 0
+    },
+    "product_consumer": {
+      "compared_legal": 272,
+      "retained_reserved_primary_cases": 63,
+      "mismatches": 0
+    },
+    "identities": {
+      "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-110491fb7b919439.rlib": "f9c8e7edefba55f3ac35b3553b707c377bb57b0f78dd6ccec4e7440092c8d055",
+      "/Users/int/dev/rax-audit-work/build-tmp/priority-compare": "c2be4a56f4cf0e2d171d57dea2379c8331f09044c7b36f83599b22dc0a511c58",
+      "/Users/int/dev/rax-audit-work/rax-main-integration-worktree/tools/hvf/priority_compare.rs": "e8c79bbff3e7a3a9f88d9e37c349b09f631e8557f00fa90ce096f8cfe94578c2"
+    },
+    "scope": "272 independently observed legal transfers; 63 reserved-bit requirements checked from primary source and retained separately; no physical ordering inference"
+  },
+  "evidence_classes": [
+    "Actual software guest instructions and VMM coordinator/device/checkpoint paths",
+    "Production portable SDK-publication policy with explicit SDK substitute; scripted CPU for native-style VMM exits",
+    "Actual emitted x86 code under Rosetta on Apple Silicon",
+    "Intel-target compilation only; physical Intel VMX not executed"
+  ],
+  "assumption_register": [
+    {
+      "id": "P1",
+      "assumption": "The attached per-CPU LAPIC owns full TPR in the enabled fixed-base xAPIC profile",
+      "basis": "Production MMU binding, software APIC_BASE profile and Intel SDM086 Vol.3A12.8.6.1",
+      "dependent_result": "CPU/guest/controller/native-mirror priority coherence",
+      "stress_test": "Every TPR byte and CR8 class, both guest transfer directions, per-CPU hardware-style exits, unchanged public class and SDK mirror changes",
+      "falsification_probe": "Any public/guest/controller class differs, subclass disappears on unrelated GPR import, or an AP accesses the BSP owner",
+      "status": "confirmed in selected software/JIT/policy evidence; physical Intel unverified"
+    },
+    {
+      "id": "P2",
+      "assumption": "Writers are stopped at the existing coordinator/controller capture and restoration boundary",
+      "basis": "Production checkpoint lock order and prepared publication; atomics do not independently create quiescence",
+      "dependent_result": "Frozen capture, lock-free getter access under held locks and coherent restore",
+      "stress_test": "Actual bundle capture, private contexts, malformed priority graph rejection, retained live handles and multi-CPU continuation",
+      "falsification_probe": "Capture deadlocks, saved values change after capture, restore loses binding, or a rejected graph changes CPU/RAM/controller state",
+      "status": "confirmed for selected stopped software paths; external concurrent writers and full native private state remain open"
+    },
+    {
+      "id": "P3",
+      "assumption": "Existing positional TPR codec fields are u32 values",
+      "basis": "Parent source and explicit primitive serde implementation",
+      "dependent_result": "Preserved controller and inline-context wire layout",
+      "stress_test": "Exact primitive wire bytes at 0,0x5f,0xff,u32::MAX plus existing versioned/private context suites",
+      "falsification_probe": "Any serialized byte differs from the prior primitive field or an admitted legacy projection changes",
+      "status": "confirmed locally; contradictory legacy records intentionally rejected"
+    },
+    {
+      "id": "P4",
+      "assumption": "A failed SDK priority/state publication can have partial effects",
+      "basis": "SDK failure atomicity is not established",
+      "dependent_result": "SDK-first publication and permanent per-CPU entry exclusion after mutation failure",
+      "stress_test": "SDK substitute mutates then fails; entry sync write failure; rejected invalid bits; rebind/import after poison; retryable read failure",
+      "falsification_probe": "Owner publishes after a failed priority write or a poisoned CPU performs a later entry/publication",
+      "status": "policy verified with substituted SDK; physical failure behavior unverified"
+    },
+    {
+      "id": "P5",
+      "assumption": "Physical Intel VMX behavior is not established by this Apple Silicon host",
+      "basis": "Fresh host/toolchain record and remote-peer discovery",
+      "dependent_result": "Evidence classification and original full-goal completion gate",
+      "stress_test": "Actual x86 target compilation and generated-code Rosetta execution are retained separately from SDK substitution",
+      "falsification_probe": "Signed native qualification on a verified physical Intel Mac with guest/MMIO/interrupt/checkpoint observations",
+      "status": "retained; physical Intel gate remains unverified"
+    }
+  ],
+  "wire_and_compatibility": "Existing u32 TPR encoding and previous GuestRegs field offsets retained; callback appended. Older contradictory CR8/TPR records reject before publication.",
+  "retained_failures": [
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/direct-controls-final-v2.json",
+      "meaning": "Guessed integration module path selected zero tests; driver rejected it; corrected selection discovered from actual --list output"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/baseline.json",
+      "meaning": "Expected four actual baseline regressions"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-v3-4.json",
+      "meaning": "Broader LAPIC regression exposed same-class public import losing subclass; corrected and final tests pass"
+    },
+    {
+      "path": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-build-v2.stdout",
+      "meaning": "Initial host-gating compile errors corrected before final build"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/product-compare-build.json",
+      "meaning": "Initial wrong dependency search path; corrected consumer uses actual Cargo-reported rlib and debug/deps"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/unit-final-8.json",
+      "meaning": "Earlier driver selected zero tests using stale mmu module alias; rejected as empty, final memory::checkpoint selection runs five tests"
+    },
+    {
+      "path": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/intel-priority-excerpts.txt",
+      "meaning": "Superseded incorrectly selected manual excerpt; corrected exact pages retained and subsection citations repaired"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Physical Intel and complete four-finding requirements remain open",
+      "blocks_component_commit": false,
+      "blocks_full_goal_completion": true
+    },
+    {
+      "impact": "high",
+      "finding": "External concurrent raw writers are outside the stopped publication contract",
+      "blocks_component_commit": false,
+      "blocks_full_goal_completion": true
+    }
+  ],
+  "remaining_full_goal": [
+    "A32-FP remaining selected profile controls and instruction-admission semantics",
+    "C-STATE complete backend/private/in-flight state and coordinated checkpoint restoration",
+    "C-SMP complete actual multi-CPU/startup/scheduling/debug/clocks/replay across supported backend/platform profiles",
+    "C-HVF remaining MMIO/intercept/interrupt profiles and physical Intel validation",
+    "APIC_BASE disable/relocation and per-CPU identity, advertised x2APIC/MSR behavior, complete IRQ source routing and conservation",
+    "Intel native SDK thread ownership, bounded native CPU execution, full private/in-flight checkpoint state and host/device failure recovery",
+    "Physical Intel VMX/exception/device/guest runtime and failure injection remain unverified",
+    "Previous native mapping limits remain: collateral instruction/page-table fetch, mixed-page operands and E820/resource consistency"
+  ],
+  "workflow": "git add -- exact owned paths; red -m --staged --run same exact paths; no push",
+  "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/commit-receipt.json",
+  "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/cleanup-final-v2.json"
+}

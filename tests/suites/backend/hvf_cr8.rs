@@ -1,6 +1,8 @@
 //! Execute the actual CR8 transfer boundary without native VMX calls.
 #[path = "../../../src/backend/hvf/cr8.rs"]
 mod cr8;
+#[path = "hvf_cr8/priority.rs"]
+mod priority_tests;
 use cr8::{Cr8Access, handle};
 
 #[derive(Debug, PartialEq, Eq)]

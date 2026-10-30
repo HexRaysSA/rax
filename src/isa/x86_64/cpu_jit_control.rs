@@ -6,7 +6,7 @@ use crate::smir::lower::runtime::GuestRegs;
 
 /// Validate and commit one native MOV-to-control-register operation.
 ///
-/// The helper updates only the marshalled architectural state. CR0/CR3/CR4
+/// CR8 writes also update the attached task-priority owner. CR0/CR3/CR4
 /// writes additionally invalidate the owning vCPU's software TLB before native
 /// execution returns to the exact next-instruction frontier.
 ///
@@ -22,6 +22,8 @@ pub(super) unsafe extern "C" fn rax_jit_write_control(
     if !matches!(control, 0 | 2 | 3 | 4 | 8) {
         return 0;
     }
+    // SAFETY: the native caller exclusively owns this aligned, initialized
+    // frame for the synchronous callback and does not retain a Rust alias.
     let Some(state) = (unsafe { state.as_mut() }) else {
         return 0;
     };
@@ -46,7 +48,10 @@ pub(super) unsafe extern "C" fn rax_jit_write_control(
     };
 
     // Resolve every fallible runtime dependency before committing state.
-    let vcpu = if effect.flush_tlb {
+    let vcpu = if effect.flush_tlb || (control == 8 && state.ctx != 0) {
+        // SAFETY: a nonzero ctx names the owning live CPU; the frame is a
+        // separate stack allocation. This synchronous callback exclusively
+        // accesses its MMU and retains no reference after returning.
         let Some(vcpu) = (unsafe { (state.ctx as *mut X86_64Vcpu).as_mut() }) else {
             return 0;
         };
@@ -55,6 +60,17 @@ pub(super) unsafe extern "C" fn rax_jit_write_control(
         None
     };
 
+    if control == 8 {
+        if let Some(vcpu) = vcpu.as_ref() {
+            if vcpu
+                .mmu
+                .set_task_priority((effect.value << 4) as u32)
+                .is_err()
+            {
+                return 0;
+            }
+        }
+    }
     match control {
         0 => state.cr0 = effect.value,
         2 => state.cr2 = effect.value,
@@ -64,8 +80,35 @@ pub(super) unsafe extern "C" fn rax_jit_write_control(
         _ => unreachable!("validated control selector changed"),
     }
     state.efer = effect.efer;
-    if let Some(vcpu) = vcpu {
-        vcpu.mmu.flush_tlb();
+    if effect.flush_tlb {
+        if let Some(vcpu) = vcpu {
+            vcpu.mmu.flush_tlb();
+        }
     }
     1
+}
+
+/// Return CR8+1, reserving zero for a non-committing runtime binding failure.
+///
+/// # Safety
+/// `state` is the live frame and a nonzero ctx is its owning live CPU address.
+pub(super) unsafe extern "C" fn rax_jit_read_cr8(state: *mut GuestRegs) -> u64 {
+    // SAFETY: the native entry owns this live, aligned frame exclusively for
+    // the synchronous callback; no Rust alias accesses it during native entry.
+    let Some(state) = (unsafe { state.as_mut() }) else {
+        return 0;
+    };
+    if state.ctx == 0 {
+        return (state.cr8 & 15) + 1;
+    }
+    // SAFETY: the caller-provided ctx is the owning live CPU and the frame is
+    // a separate stack allocation. The callback only reads its stable MMU
+    // binding/atomic priority and does not retain either reference.
+    let Some(cpu) = (unsafe { (state.ctx as *mut X86_64Vcpu).as_ref() }) else {
+        return 0;
+    };
+    match cpu.mmu.task_priority() {
+        Ok(tpr) => u64::from((tpr >> 4) & 15) + 1,
+        Err(_) => 0,
+    }
 }

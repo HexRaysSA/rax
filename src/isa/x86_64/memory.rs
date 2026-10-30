@@ -58,7 +58,7 @@ const SVR_APIC_ENABLED: u32 = 1 << 8;
 struct InlineLapic {
     id: u32,
     version: u32,
-    tpr: u32,
+    tpr: crate::devices::lapic::priority::TaskPriority,
     ldr: u32,
     dfr: u32,
     svr: u32,
@@ -86,7 +86,7 @@ impl InlineLapic {
         InlineLapic {
             id: 0,
             version: 0x00050014, // Modern APIC
-            tpr: 0,
+            tpr: crate::devices::lapic::priority::TaskPriority::new(0),
             ldr: 0,
             dfr: 0xFFFFFFFF,
             svr: 0x1FF, // APIC enabled (bit 8), spurious vector 0xFF - Virtual Wire Mode
@@ -126,7 +126,7 @@ impl InlineLapic {
         match offset {
             LAPIC_ID => self.id,
             LAPIC_VERSION => self.version,
-            LAPIC_TPR => self.tpr,
+            LAPIC_TPR => self.tpr.load(),
             LAPIC_LDR => self.ldr,
             LAPIC_DFR => self.dfr,
             LAPIC_SVR => self.svr,
@@ -200,7 +200,7 @@ impl InlineLapic {
     fn write(&mut self, offset: u64, value: u32) {
         match offset {
             LAPIC_ID => self.id = value & 0xFF000000,
-            LAPIC_TPR => self.tpr = value & 0xFF,
+            LAPIC_TPR => self.tpr.store(value & 0xFF),
             LAPIC_EOI => {
                 // Clear highest priority in-service bit
                 for i in (0..8).rev() {
@@ -453,6 +453,7 @@ pub struct Mmu {
     lapic: RefCell<InlineLapic>,
     /// VM-owned controller shared with interrupt delivery and checkpoint capture.
     shared_lapic: Option<Arc<Mutex<crate::devices::lapic::LocalApic>>>,
+    shared_priority: Option<crate::devices::lapic::priority::PriorityHandle>,
     /// Cached host base pointer + length of the contiguous RAM region at GPA 0.
     /// Lets read_phys/write_phys serve in-RAM accesses with a direct pointer copy,
     /// skipping vm-memory's per-access region search + bounds-checked volatile copy.
@@ -525,6 +526,7 @@ impl Mmu {
             smc_dirty_pages: Vec::new(),
             lapic: RefCell::new(InlineLapic::new()),
             shared_lapic: None,
+            shared_priority: None,
             ram_host_base,
             ram_len,
             ram_fast_len,

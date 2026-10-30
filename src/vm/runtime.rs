@@ -1097,6 +1097,8 @@ mod execution_tests;
 mod checkpoint_capture;
 mod coordinator;
 mod execution;
+#[path = "runtime/mmio.rs"]
+mod mmio;
 
 #[cfg(test)]
 #[path = "runtime/mmio_rmw_tests.rs"]
@@ -1105,6 +1107,10 @@ mod mmio_rmw_tests;
 #[cfg(test)]
 #[path = "runtime/native_mmio_tests.rs"]
 mod native_mmio_tests;
+
+#[cfg(test)]
+#[path = "runtime/lapic_priority_tests.rs"]
+mod lapic_priority_tests;
 
 #[cfg(test)]
 mod aarch64_cluster_tests;

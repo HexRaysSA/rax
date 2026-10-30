@@ -7,8 +7,52 @@ use crate::error::{Error, Result};
 use super::{LAPIC_BASE, Mmu};
 
 impl Mmu {
+    pub(in crate::isa::x86_64) fn import_cr8(&self, value: u64) -> Result<()> {
+        let tpr = crate::devices::lapic::priority::import_value(self.task_priority()?, value)
+            .ok_or_else(|| Error::InvalidConfig("invalid CR8/TPR priority projection".into()))?;
+        self.set_task_priority(tpr)
+    }
     pub(crate) fn attach_local_apic(&mut self, lapic: Arc<Mutex<LocalApic>>) {
+        self.shared_priority = lapic.lock().ok().map(|v| v.priority_handle());
         self.shared_lapic = Some(lapic);
+    }
+
+    pub(in crate::isa::x86_64) fn task_priority(&self) -> Result<u32> {
+        if let Some(priority) = &self.shared_priority {
+            let value = priority.load();
+            return if value <= 255 {
+                Ok(value)
+            } else {
+                Err(Error::InvalidConfig(
+                    "local APIC TPR has reserved bits".into(),
+                ))
+            };
+        }
+        if self.shared_lapic.is_some() {
+            return Err(Error::Emulator(
+                "local APIC priority binding unavailable".into(),
+            ));
+        }
+        let value = self.lapic.borrow().tpr.load();
+        if value > 255 {
+            return Err(Error::InvalidConfig(
+                "inline APIC TPR has reserved bits".into(),
+            ));
+        }
+        Ok(value)
+    }
+    pub(in crate::isa::x86_64) fn set_task_priority(&self, value: u32) -> Result<()> {
+        if let Some(priority) = &self.shared_priority {
+            priority.store(value & 0xff);
+            return Ok(());
+        }
+        if self.shared_lapic.is_some() {
+            return Err(Error::Emulator(
+                "local APIC priority binding unavailable".into(),
+            ));
+        }
+        self.lapic.borrow().tpr.store(value & 0xff);
+        Ok(())
     }
 
     pub(super) fn read_shared_lapic(&self, address: u64, data: &mut [u8]) -> Result<bool> {
