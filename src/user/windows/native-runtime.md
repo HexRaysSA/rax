@@ -3567,3 +3567,14 @@ hashes retain their separate provenance.
 This query does not establish complete CMD startup or policy enforcement.
 The six-argument extended selector and protected IFEO acquisition under an
 ordinary token remain separate boundaries.
+
+### TokenStatistics publication
+
+Class 10 of `NtQueryInformationToken` publishes the exact captured subject's
+pointer-free 56-byte statistics. Capture requires aligned opposite-poison
+agreement and consistent group/privilege counts. Native64 probes full capacity
+and mandatory ReturnLength, then stores length before data. WoW64 uses bounded
+private scratch, copies only the record and stores optional length afterward.
+Handle/type/access faults and last-error effects follow 28,236 independent
+native calls, including 6,600 interior-page cases with no partial output stores.
+[Producer, primary references, reproduction and exact observation scope](../../../docs/specifications/windows/native-token-statistics/README.md).

@@ -128,6 +128,7 @@ fn native_token_security_attributes_impersonation_alias_owns_values_without_prim
         let p = process.state_mut();
         assert!(p.objects.primary_token_subject().is_none());
         let subject = Arc::new(Subject {
+            statistics: None,
             user_attributes: 0,
             user: vec![1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0],
             groups: vec![],
@@ -213,6 +214,7 @@ fn native_token_security_attributes_empty_set_matches_all_32_native_rows() {
         );
         let p = process.state_mut();
         let subject = Subject {
+            statistics: None,
             user_attributes: 0,
             user: vec![1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0],
             groups: vec![],
@@ -292,6 +294,7 @@ fn native_token_security_attributes_upper_output_faults_match_all_576_native_row
         );
         let p = process.state_mut();
         let subject = Subject {
+            statistics: None,
             user_attributes: 0,
             user: vec![1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0],
             groups: vec![],

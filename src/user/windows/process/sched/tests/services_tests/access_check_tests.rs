@@ -33,6 +33,7 @@ fn subject_fixture() -> Subject {
             .collect()
     };
     Subject {
+        statistics: None,
         attributes: None,
         user_attributes: 0,
         user: hex(s["user"]["sid"].as_str().unwrap()),

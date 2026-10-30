@@ -1,5 +1,6 @@
 //! Captured primary-token properties with measured caller-probe ordering.
 mod bno_copy;
+mod statistics;
 mod user;
 
 use super::query::{guard_result, probe_write, write_guard_result};
@@ -23,7 +24,7 @@ pub(super) fn information(c: &mut Ctx) -> ApiResult {
 fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
     let (token, class, output, length, returned) =
         (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?, c.ptr(4)?);
-    if !matches!(class, 1 | 12 | 29 | 44) && !scalars::is_class(class) {
+    if !matches!(class, 1 | 10 | 12 | 29 | 44) && !scalars::is_class(class) {
         return Err(c.unsupported(format!("NtQueryInformationToken class {class}")));
     }
     // These WoW64 wrappers reject the selector without touching either
@@ -33,10 +34,16 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
     }
     // WoW64 User and BNO converters use private native results, followed by
     // direct caller stores. They do not align or preflight the caller capacity.
-    *direct_copies = c.arch() == WinArch::X86 && matches!(class, 1 | 44);
+    *direct_copies = c.arch() == WinArch::X86 && matches!(class, 1 | 10 | 44);
     if c.arch() == WinArch::X86
         && class == 1
         && let Some(status) = user::preflight(c, output, length, returned)?
+    {
+        return Flow::ret(status.into());
+    }
+    if c.arch() == WinArch::X86
+        && class == 10
+        && let Some(status) = statistics::preflight(c, output, length, returned)?
     {
         return Flow::ret(status.into());
     }
@@ -86,7 +93,7 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                 if c.p.objects.access(token).unwrap_or(0) & 8 == 0 {
                     return user::handle_error(c, class, returned, STATUS_ACCESS_DENIED);
                 }
-                if class == 1 {
+                if matches!(class, 1 | 10) {
                     captured_user = Some(subject.clone());
                 } else if class != 29 {
                     return Err(c.unsupported(if class == 12 {
@@ -112,6 +119,13 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
     }
     if class == 44 {
         return bno_information(c, output, length, returned);
+    }
+    if class == 10 {
+        let expected_type = if captured_user.is_some() { 2 } else { 1 };
+        let subject = captured_user
+            .or_else(|| c.p.objects.primary_token_subject())
+            .ok_or_else(|| c.unsupported("token statistics subject is not captured"))?;
+        return statistics::publish(c, &subject, expected_type, output, length, returned);
     }
     let primary = match class {
         12 if c.p.objects.primary_token_app_container().is_some() => {

@@ -253,6 +253,7 @@ fn native_token_bno_requires_a_primary_subject_and_keeps_impersonation_explicit(
         assert_eq!(p.space.u32(returned).unwrap(), 0xa5a5_a5a5);
         select_bno(p, Isolation::new(None).unwrap());
         let subject = crate::user::windows::security::Subject {
+            statistics: None,
             attributes: None,
             user_attributes: 0,
             user: vec![],

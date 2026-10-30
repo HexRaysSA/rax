@@ -1,0 +1,29 @@
+{
+  "sources": [
+    {
+      "file": "token-statistics.md",
+      "url": "https://github.com/MicrosoftDocs/sdk-api/blob/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/winnt/ns-winnt-token_statistics.md",
+      "bytes": 5089,
+      "sha256": "65f638302c3c5764b5d979b5ecca86cbbb6567ec98c67b5ccffbfec645e7d492"
+    },
+    {
+      "file": "token-information-class.md",
+      "url": "https://github.com/MicrosoftDocs/sdk-api/blob/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/winnt/ne-winnt-token_information_class.md",
+      "bytes": 18602,
+      "sha256": "dac37af4909a1e44a3c558440e47ce9cdec5bb5530bb6ba808457224f01d9713"
+    },
+    {
+      "file": "MICROSOFT-DOCS-LICENSE",
+      "url": "https://github.com/MicrosoftDocs/sdk-api/blob/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE",
+      "bytes": 18650,
+      "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+    },
+    {
+      "file": "MICROSOFT-CODE-LICENSE",
+      "url": "https://github.com/MicrosoftDocs/sdk-api/blob/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE-CODE",
+      "bytes": 1090,
+      "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+    }
+  ],
+  "attribution": "Microsoft documentation and code, pinned at 656e9656bfaef34dd29cd7ee9e1146aec17e924c; corresponding source licenses retained."
+}

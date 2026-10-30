@@ -7,6 +7,7 @@ use crate::user::windows::nt::status::{
 pub(crate) mod attributes;
 pub(crate) mod bno;
 pub(crate) mod scalars;
+pub(crate) mod statistics;
 
 const ALL_ACCESS: u32 = 0x000F_01FF;
 const LEGAL_ACCESS: u32 = 0x031F_FFFF;

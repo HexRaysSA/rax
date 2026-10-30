@@ -781,3 +781,11 @@ never enter a host query, and no guest-length-sized host workspace is allocated.
 retain 9,840 complete-arena observations across three process ABIs on one ARM64
 kernel. These metadata queries do not implement policy mutation or signature
 enforcement, and do not establish complete installed-process startup.
+
+### Captured token statistics
+
+`NtQueryInformationToken` class 10 serves immutable 56-byte statistics from the
+same captured token subject as its SID, groups and privileges. Native64 and
+WoW64 retain independently observed probe, rights, copy and ReturnLength order.
+The WoW64 scratch check uses guest budgets and no guest-sized host allocation.
+[Native source, complete-arena controls and boundaries](../../specifications/windows/native-token-statistics/README.md).

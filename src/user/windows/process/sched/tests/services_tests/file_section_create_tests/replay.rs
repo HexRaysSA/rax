@@ -32,6 +32,7 @@ fn subject(p: &mut Proc) {
     // Only the enabled SeSecurityPrivilege field affects this constructor.
     // The independent native corpus was captured under this enabled privilege.
     let subject = Subject {
+        statistics: None,
         attributes: None,
         user_attributes: 0,
         user: vec![1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0],

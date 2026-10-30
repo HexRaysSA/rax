@@ -8,6 +8,7 @@ use std::ptr::null_mut;
 mod access;
 mod bno;
 mod scalars;
+mod statistics;
 
 type Handle = *mut c_void;
 #[link(name = "kernel32")]
@@ -131,13 +132,19 @@ fn capture(
     if count > 4096 || raw_privileges.len() != 4 + 12 * count {
         return Err(invalid("token privileges exceed their bounded buffer"));
     }
-    let privileges = raw_privileges[4..]
+    let privileges: Vec<Privilege> = raw_privileges[4..]
         .chunks_exact(12)
         .map(|record| Privilege {
             luid: u64::from_ne_bytes(record[..8].try_into().unwrap()),
             attributes: u32::from_ne_bytes(record[8..].try_into().unwrap()),
         })
         .collect();
+    let statistics = statistics::capture(token)?;
+    if !statistics.matches_counts(enabled_groups.len(), privileges.len()) {
+        return Err(invalid(
+            "native token statistics disagree with captured groups or privileges",
+        ));
+    }
     let flags = information(token, 29)?;
     if flags.len() != 4 {
         return Err(invalid("WNF AppContainer flag is not a DWORD"));
@@ -149,6 +156,7 @@ fn capture(
     let session = u32::from_ne_bytes(session.try_into().unwrap());
     Ok((
         Subject {
+            statistics: Some(statistics),
             user_attributes: user.attributes,
             attributes: Some(crate::user::windows::security::token::attributes::capture(
                 token.0,
