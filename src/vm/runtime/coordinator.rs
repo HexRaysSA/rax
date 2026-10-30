@@ -45,6 +45,10 @@ impl ExecutionCoordinator {
 
 impl Vmm {
     pub(super) fn capture_execution_state(&self) -> Result<crate::vm::snapshot::ExecutionSnapshot> {
+        #[cfg(feature = "debug")]
+        if let Some(error) = &self.debugger.failure {
+            return Err(Error::Emulator(error.clone()));
+        }
         let now = std::time::Instant::now();
         let mut local_apics = Vec::with_capacity(self.local_apics.len());
         for controller in &self.local_apics {
@@ -84,9 +88,25 @@ impl Vmm {
     pub(super) fn execute_turn(&mut self) -> Result<Option<ExecutionTurn>> {
         let _timing = self.timing_context.enter();
         self.route_interprocessor_requests()?;
-        let Some(index) = self.coordinator.next() else {
+        let mut selected = None;
+        for _ in 0..self.vcpus.len() {
+            let Some(index) = self.coordinator.next() else {
+                break;
+            };
+            #[cfg(feature = "debug")]
+            if !self.debugger_allows_cpu(index) {
+                continue;
+            }
+            selected = Some(index);
+            break;
+        }
+        let Some(index) = selected else {
             return Ok(None);
         };
+        #[cfg(feature = "debug")]
+        {
+            self.debugger.last_cpu = index;
+        }
         if !self.vcpus[index].supports_stepping() {
             // Native scheduling is being connected to each backend's bounded
             // entry contract separately; do not claim instruction retirement.

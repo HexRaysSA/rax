@@ -289,6 +289,8 @@ pub struct Vmm {
     /// Whether in single-step mode for GDB.
     #[cfg(feature = "debug")]
     gdb_single_step: bool,
+    #[cfg(feature = "debug")]
+    debugger: debugger::State,
     /// Whether GDB requested a stop.
     #[cfg(feature = "debug")]
     gdb_stopped: bool,
@@ -704,6 +706,8 @@ impl Vmm {
             #[cfg(feature = "debug")]
             gdb_single_step: false,
             #[cfg(feature = "debug")]
+            debugger: debugger::State::default(),
+            #[cfg(feature = "debug")]
             gdb_stopped: false,
             #[cfg(feature = "debug")]
             gdb_breakpoints: std::collections::HashSet::new(),
@@ -882,174 +886,6 @@ impl Vmm {
 
         Ok(())
     }
-
-    /// Handle a GDB command from the debug server.
-    /// Returns Some(true) to break the run loop, Some(false) to continue, None for commands that resume execution.
-    #[cfg(feature = "debug")]
-    fn handle_gdb_command(&mut self, cmd: GdbCommand) -> Result<Option<bool>> {
-        use crate::debug::gdb::protocol::encode_hex;
-        use crate::debug::gdb::registers::{pack_registers, unpack_registers};
-
-        let channels = match &self.gdb_channels {
-            Some(ch) => ch,
-            None => return Ok(None),
-        };
-
-        match cmd {
-            GdbCommand::Continue => {
-                self.gdb_stopped = false;
-                self.gdb_single_step = false;
-                // Disable single-step mode on vcpu
-                if let Some(vcpu) = self.vcpus.get_mut(0) {
-                    vcpu.set_single_step(false);
-                }
-                return Ok(None); // Resume execution
-            }
-            GdbCommand::Step => {
-                self.gdb_stopped = false;
-                self.gdb_single_step = true;
-                // Enable single-step mode on vcpu
-                if let Some(vcpu) = self.vcpus.get_mut(0) {
-                    vcpu.set_single_step(true);
-                }
-                return Ok(None); // Resume execution for one instruction
-            }
-            GdbCommand::Interrupt => {
-                // Debugger requested pause (Ctrl+C / suspend)
-                self.gdb_stopped = true;
-                self.gdb_single_step = false;
-                if let Some(vcpu) = self.vcpus.get_mut(0) {
-                    vcpu.set_single_step(false);
-                }
-                let _ = channels.resp_tx.send(GdbResponse::StopReply(2)); // SIGINT
-            }
-            GdbCommand::ReadRegisters => {
-                let vcpu = self
-                    .vcpus
-                    .get(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-                match vcpu.get_state()? {
-                    CpuState::X86_64(state) => {
-                        let hex = pack_registers(&state);
-                        let _ = channels.resp_tx.send(GdbResponse::Registers(hex));
-                    }
-                    _ => {
-                        let _ = channels.resp_tx.send(GdbResponse::Error(1));
-                    }
-                }
-            }
-            GdbCommand::WriteRegisters(data) => {
-                let vcpu = self
-                    .vcpus
-                    .get_mut(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-                match vcpu.get_state()? {
-                    CpuState::X86_64(mut state) => {
-                        let hex = String::from_utf8_lossy(&data).to_string();
-                        if unpack_registers(&hex, &mut state) {
-                            vcpu.set_state(&CpuState::X86_64(state))?;
-                            let _ = channels.resp_tx.send(GdbResponse::Ok);
-                        } else {
-                            let _ = channels.resp_tx.send(GdbResponse::Error(1));
-                        }
-                    }
-                    _ => {
-                        let _ = channels.resp_tx.send(GdbResponse::Error(1));
-                    }
-                }
-            }
-            GdbCommand::ReadMemory { addr, len } => {
-                let mem = self.guest_mem.memory();
-                let mut data = vec![0u8; len];
-                if mem
-                    .read_slice(&mut data, vm_memory::GuestAddress(addr))
-                    .is_ok()
-                {
-                    let hex = encode_hex(&data);
-                    let _ = channels.resp_tx.send(GdbResponse::Memory(hex));
-                } else {
-                    let _ = channels.resp_tx.send(GdbResponse::Error(1));
-                }
-            }
-            GdbCommand::WriteMemory { addr, data } => {
-                let mem = self.guest_mem.memory();
-                if crate::vm::memory::reservations::write(mem, addr, &data).is_ok() {
-                    if !data.is_empty() {
-                        if let Some(vcpu) = self.vcpus.get_mut(0) {
-                            let end = addr.saturating_add(data.len().saturating_sub(1) as u64);
-                            let end_page = end & !0xFFF;
-                            let mut page = addr & !0xFFF;
-                            loop {
-                                vcpu.invalidate_code_cache(page);
-                                if page == end_page {
-                                    break;
-                                }
-                                page = page.wrapping_add(0x1000);
-                            }
-                        }
-                    }
-                    let _ = channels.resp_tx.send(GdbResponse::Ok);
-                } else {
-                    let _ = channels.resp_tx.send(GdbResponse::Error(1));
-                }
-            }
-            GdbCommand::SetBreakpoint { addr } => {
-                let result = self
-                    .vcpus
-                    .get_mut(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))
-                    .and_then(|vcpu| vcpu.set_debug_breakpoint(addr));
-                match result {
-                    Ok(()) => {
-                        self.gdb_breakpoints.insert(addr);
-                        debug!(addr = format!("{:#x}", addr), "Set internal breakpoint");
-                        let _ = channels.resp_tx.send(GdbResponse::Ok);
-                    }
-                    Err(e) => {
-                        debug!(addr = format!("{:#x}", addr), error = %e, "Failed to set breakpoint");
-                        let _ = channels.resp_tx.send(GdbResponse::Error(1));
-                    }
-                }
-            }
-            GdbCommand::RemoveBreakpoint { addr } => {
-                let was_tracked = self.gdb_breakpoints.remove(&addr);
-                let result = if was_tracked {
-                    self.vcpus
-                        .get_mut(0)
-                        .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))
-                        .and_then(|vcpu| vcpu.clear_debug_breakpoint(addr))
-                } else {
-                    Ok(())
-                };
-
-                match result {
-                    Ok(()) => {
-                        debug!(addr = format!("{:#x}", addr), "Removed internal breakpoint");
-                        let _ = channels.resp_tx.send(GdbResponse::Ok);
-                    }
-                    Err(e) => {
-                        self.gdb_breakpoints.insert(addr);
-                        debug!(addr = format!("{:#x}", addr), error = %e, "Failed to remove breakpoint");
-                        let _ = channels.resp_tx.send(GdbResponse::Error(1));
-                    }
-                }
-            }
-            GdbCommand::QueryHaltReason => {
-                let _ = channels.resp_tx.send(GdbResponse::StopReply(5)); // SIGTRAP
-            }
-            GdbCommand::Detach => {
-                self.gdb_stopped = false;
-                self.gdb_single_step = false;
-                let _ = channels.resp_tx.send(GdbResponse::Detached);
-                return Ok(Some(false));
-            }
-            GdbCommand::Kill => {
-                return Ok(Some(true)); // Break run loop
-            }
-        }
-
-        Ok(Some(false)) // Don't break, but don't resume execution either
-    }
 }
 
 #[cfg(test)]
@@ -1124,3 +960,12 @@ mod native_checkpoint_tests;
 
 mod backend_transaction;
 mod checkpoint_restore;
+
+#[cfg(all(test, feature = "debug"))]
+#[path = "runtime/gdb_smp_tests.rs"]
+mod gdb_smp_tests;
+
+#[cfg(feature = "debug")]
+mod debugger;
+#[cfg(feature = "debug")]
+mod debugger_control;

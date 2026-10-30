@@ -375,3 +375,20 @@ That case compares status and the output marker with native execution, and
 checks the DLL signature against the installed pure x86 KERNEL32 file.
 Host-ABI cases compare the complete output with native execution. CHPE execution
 remains a separate, incomplete capability.
+
+### Software SMP debugger
+
+The `debug` feature adds actual TCP/RSP multi-CPU regressions under the library
+filter `vm::runtime::gdb_smp_tests::`. The dedicated CI debugger job installs GDB
+and explicitly includes its otherwise ignored external-client case:
+
+```sh
+RAX_GDB=gdb cargo test --locked --no-default-features \
+  --features x86_64-suite,smir-jit,debug --lib vm::runtime::gdb_smp_tests:: \
+  -- --include-ignored --test-threads=1 --nocapture
+```
+
+A missing client fails that explicit run. Its success marker follows one Python
+assertion block, and target-description rejection or Python errors fail the test.
+The wire cases use checksum-checked real TCP responses and the actual VMM loop.
+Native hardware debugger entry is a separate, unqualified execution profile.

@@ -163,12 +163,16 @@ impl Vmm {
             // IRQ0 first on every host iteration can otherwise indefinitely
             // starve lower-priority legacy lines such as the serial IRQ4.
             {
+                #[cfg(feature = "debug")]
+                let delivery_allowed = self.debugger_allows_cpu(0);
+                #[cfg(not(feature = "debug"))]
+                let delivery_allowed = true;
                 let vcpu = self
                     .vcpus
                     .get_mut(0)
                     .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
 
-                if vcpu.can_inject_interrupt() {
+                if delivery_allowed && vcpu.can_inject_interrupt() {
                     if let Ok(mut pic) = self.pic.lock() {
                         pic.try_deliver_pending(|vector| vcpu.inject_interrupt(vector))?;
                     }
@@ -197,6 +201,10 @@ impl Vmm {
             self.route_interprocessor_requests()?;
             for index in 0..self.vcpus.len() {
                 if self.coordinator.online[index] {
+                    #[cfg(feature = "debug")]
+                    if !self.debugger_allows_cpu(index) {
+                        continue;
+                    }
                     self.poll_local_apic(index)?;
                 }
             }
@@ -444,16 +452,19 @@ impl Vmm {
             self.maybe_snapshot(self.coordinator.retired)?;
             #[cfg(feature = "debug")]
             if debug_stop {
-                self.gdb_stopped = true;
-                self.gdb_single_step = false;
-                for vcpu in &mut self.vcpus {
-                    vcpu.set_single_step(false);
-                }
+                self.stop_debugger(turn.cpu_index, 5)?;
                 if let Some(ref channels) = self.gdb_channels {
-                    let _ = channels.resp_tx.send(GdbResponse::StopReply(5));
+                    let _ = channels.resp_tx.send(GdbResponse::ThreadStop {
+                        signal: 5,
+                        index: turn.cpu_index,
+                    });
                 }
             }
             if shutdown {
+                #[cfg(feature = "debug")]
+                if let Some(ref channels) = self.gdb_channels {
+                    let _ = channels.resp_tx.send(GdbResponse::Exited(0));
+                }
                 break;
             }
         }

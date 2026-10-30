@@ -1,0 +1,649 @@
+{
+  "schema": 1,
+  "status": "locally_validated",
+  "utc": "2026-10-30T15:28:22.464845+00:00",
+  "parent": "7e810f0ad4272eec37d48f20e3c86685027d87d9",
+  "scope": "Actual per-CPU software x86 GDB control, ordered all-stop resume, thread-bearing stops, shared breakpoint/cache ownership, exact required amd64 core bank and reconnect isolation; original four findings remain active",
+  "selected_test_executions_passed": 329,
+  "independent_client_included": true,
+  "tests_are_selected_not_the_entire_repository": true,
+  "checks": [
+    {
+      "name": "compile-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/compile-final.json",
+      "argv": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--lib",
+        "--test",
+        "ci_actions_pinned",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 190.98327616602182
+    },
+    {
+      "name": "workspace-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/workspace-final.json",
+      "argv": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 35.35506054200232
+    },
+    {
+      "name": "clippy-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/clippy-final.json",
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 26.32375104201492
+    },
+    {
+      "name": "cli-build-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/cli-build-final.json",
+      "argv": [
+        "cargo",
+        "build",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--bin",
+        "rax"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 123.82577100000344
+    },
+    {
+      "name": "cli-help-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/cli-help-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/rax",
+        "--help"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.013537959021050483
+    },
+    {
+      "name": "no-debug-check-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/no-debug-check-final.json",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 22.531787290994544
+    },
+    {
+      "name": "fmt-check-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/fmt-check-final.json",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 12.65045174997067
+    },
+    {
+      "name": "intel-check-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/intel-check-final.json",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 48.793433249986265,
+      "scope": "Intel macOS compilation with HVF and debug; no physical Intel SDK execution"
+    },
+    {
+      "name": "xml-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/xml-final.json",
+      "argv": [
+        "/opt/homebrew/bin/gdb",
+        "--batch",
+        "-nx",
+        "-ex",
+        "set architecture i386:x86-64",
+        "-ex",
+        "set tdesc filename /Users/int/dev/rax-audit-work/rax-main-integration-worktree/src/debug/gdb/target.xml",
+        "-ex",
+        "maintenance print xml-tdesc"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "hardened-debugger-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/hardened-debugger-final.json",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::gdb_smp_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 146.2132021249854,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-1",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/unit-final-1.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e",
+        "debug::gdb::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.02026649995241314,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-2",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/unit-final-2.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e",
+        "vm::runtime::debugger_control::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.017698500014375895,
+      "test_results": [
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-3",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/unit-final-3.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e",
+        "vm::runtime::execution_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 145.3572145840153,
+      "test_results": [
+        {
+          "passed": 20,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-4",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/unit-final-4.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e",
+        "vm::runtime::cpu_identity_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 34.008837792032864,
+      "test_results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-5",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/unit-final-5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e",
+        "vm::runtime::lapic",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 52.01543450000463,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-6",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/unit-final-6.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e",
+        "vm::runtime::checkpoint_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01993791596032679,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-7",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/unit-final-7.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e",
+        "vm::runtime::bundle_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.0216412500012666,
+      "test_results": [
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-8",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/unit-final-8.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e",
+        "isa::x86_64::cpu::checkpoint::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.4888769579702057,
+      "test_results": [
+        {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "unit-final-9",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/unit-final-9.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e",
+        "isa::x86_64::cpu::identity_tests::",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.027527333004400134,
+      "test_results": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "capi-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/capi-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-6c0d4b8b488a79a4",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 22.26773341599619,
+      "test_results": [
+        {
+          "passed": 224,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "name": "ci-pins-final",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/ci-pins-final.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-ff7c9634d4768b63",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.050149874994531274,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    }
+  ],
+  "source_sha256": {
+    "parent": "7e810f0ad4272eec37d48f20e3c86685027d87d9",
+    "rust_source_sha256": {
+      "src/debug/gdb/commands.rs": "4f9a6614054973e123315780a17b9bfa2f8b0880eeb6511108953ec97fcc86e1",
+      "src/debug/gdb/mod.rs": "1d6af9c3d18c704782f847d609baca01ea4ec0f32f4032f4c6954556fbef01b4",
+      "src/debug/gdb/queries.rs": "1396f74e0314199906c1548fd1efb820d2163b4c947ca6a8f52b311c305b587d",
+      "src/debug/gdb/registers.rs": "afbc807b243bea6067156959f03e987a9d56a70aa449ef9250b96dd250696d67",
+      "src/debug/gdb/test_support.rs": "6c41520bd0b7b0e5db3d19dae1c605634e9f2884b4215f8f4d7158945a73e26d",
+      "src/debug/gdb/thread_commands.rs": "1ad29c59602314adfaec2fcb34701fcc4a6a935396964fe3f2471cff9db6426e",
+      "src/debug/gdb/threads.rs": "3f0b962aafc090177b736b85fb27fbec11f8b636dbbe914db32d4409cd77367a",
+      "src/debug/gdb/x86_registers.rs": "52392fe06e0899378f8de3042c93fdfba534f6c01c90f6f5eb300e289f3a3497",
+      "src/isa/x86_64/cpu_vcpu.rs": "822b273f17a6ecae6504ea96d7b85340d771b30d5f3d68ccae1e025b05cba08e",
+      "src/vm/runtime.rs": "dcd03f0d79e2b592ec737590ffaf7852eb906b25edfe0d8aff595031afd19a3a",
+      "src/vm/runtime/coordinator.rs": "227ac3202b3879a23525aa1a26c1337ec3fc2456485fb758264489ccdc23d0df",
+      "src/vm/runtime/debugger.rs": "430ffc1b8bbe7b8ad09c8335be91ea7ad8a16c8a45d183c25229910c101fbb72",
+      "src/vm/runtime/debugger_control.rs": "306959f2310c3ce9507888b4638c2e88f0120a8df80c58424b527de9113bba07",
+      "src/vm/runtime/debugger_control/transaction.rs": "1a6f81db33843d6a82d50d5082e7d9fc338d978c80cefa0b7d7a0bf93bf30b80",
+      "src/vm/runtime/execution.rs": "0b264d87e2304dea6885229d9d000b7cd45bbd2212f28304b2d2f9717d6a593f",
+      "src/vm/runtime/execution_tests.rs": "ece444363aae79bb77ff064c9ea5c965b7551a1c71a73311e6d9dc724c793435",
+      "src/vm/runtime/gdb_smp_client_tests.rs": "8ce3b0b68614d85f48221dd870083e68fcee5a5f91b9b7992f1cb42233b32d8d",
+      "src/vm/runtime/gdb_smp_tests.rs": "7a7874bef8fb880965c91d9f636c92bcebce8abb8d599652c022ed746a118c3f",
+      "src/vm/vcpu/mod.rs": "8f479210f6df7f60a79c29f984e3e3061352c0eea5d0af4fc6806baaeb133a30"
+    },
+    "target_xml_sha256": "8b955551a81e5d74c618331371c28eff8321e8e86aa12c0657daf462ca9ed5af"
+  },
+  "environment": {
+    "utc": "2026-10-30T15:19:01.086889+00:00",
+    "commands": [
+      {
+        "argv": [
+          "/opt/homebrew/bin/gdb",
+          "--version"
+        ],
+        "exit_code": 0,
+        "stdout": "GNU gdb (GDB) 18.1\nCopyright (C) 2026 Free Software Foundation, Inc.\nLicense GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\nThis is free software: you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "rustc",
+          "-vV"
+        ],
+        "exit_code": 0,
+        "stdout": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "sw_vers"
+        ],
+        "exit_code": 0,
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "sysctl",
+          "-n",
+          "machdep.cpu.brand_string"
+        ],
+        "exit_code": 0,
+        "stdout": "Apple M4 Max\n",
+        "stderr": ""
+      }
+    ],
+    "gdb_binary": {
+      "path": "/opt/homebrew/Cellar/gdb/18.1/bin/gdb",
+      "sha256": "1af832db26b1776fcef35b4235cb3dd956598772cc9b27f3c5b67aef12ce3a9e"
+    },
+    "primary_sources": [
+      "https://sourceware.org/gdb/current/onlinedocs/gdb.html/Packets.html",
+      "https://sourceware.org/gdb/current/onlinedocs/gdb.html/General-Query-Packets.html",
+      "https://sourceware.org/gdb/current/onlinedocs/gdb.html/Stop-Reply-Packets.html",
+      "https://sourceware.org/gdb/current/onlinedocs/gdb.html/i386-Features.html"
+    ],
+    "physical_intel": "Not exercised; compilation or Rosetta cannot qualify it"
+  },
+  "workflow_registration": {
+    "status": "passed",
+    "yaml_parser": "Ruby Psych AST",
+    "workflow_sha256": "8c2221aa504ca9e74d895c0c7829c2da7b7da38e4e6d56a5ca7dc56bb14660bd",
+    "semantic_checks": "Dedicated GDB installation and explicit debug/external-client runs; protocol and transaction filters registered",
+    "stdout": "YAML AST valid\n"
+  },
+  "remote_ci": "Configured and syntax/registration checked locally; remote workflow was not triggered",
+  "baseline": {
+    "argv": [
+      "cargo",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--lib",
+      "vm::runtime::gdb_smp_tests::",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 155.20669220894342,
+    "test_results": [
+      [
+        "0",
+        "3",
+        "0"
+      ]
+    ]
+  },
+  "phases": {
+    "broader_production_validation": {
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/production-validation-source.json",
+      "artifact_identities": {
+        "utc": "2026-10-30T15:25:42.470724+00:00",
+        "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/production-validation-source.json",
+        "artifacts": {
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-6c0d4b8b488a79a4": {
+            "sha256": "1ba1ee0192980d1b22d4362fd2229391c86a492de6ad7b8e9429d6fac5f1afee",
+            "mtime": 1793373468.056368,
+            "package_id": "path+file:///Users/int/dev/rax-audit-work/rax-main-integration-worktree/capi#rax-capi@0.1.2",
+            "target": "rax"
+          },
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/rax-trace-map": {
+            "sha256": "864a68094fc3c5140c049c464741b8a79b8325438cc2cc222b698d0ab941149a",
+            "mtime": 1793373468.4576554,
+            "package_id": "path+file:///Users/int/dev/rax-audit-work/rax-main-integration-worktree#rax@0.1.0",
+            "target": "rax-trace-map"
+          },
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/rax": {
+            "sha256": "6198b63d2c67ccb63b60f7da2655018b817895cf913750a389702fc4dfe2c014",
+            "mtime": 1793373469.1851888,
+            "package_id": "path+file:///Users/int/dev/rax-audit-work/rax-main-integration-worktree#rax@0.1.0",
+            "target": "rax"
+          },
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/rax-user": {
+            "sha256": "714d63f274407e634d7825f52cc7f90df7e5004010492a4163068452b993641d",
+            "mtime": 1793373469.8557127,
+            "package_id": "path+file:///Users/int/dev/rax-audit-work/rax-main-integration-worktree#rax@0.1.0",
+            "target": "rax-user"
+          },
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/rax-isa-oracle": {
+            "sha256": "9af0afff80cecd3bbd75336582e64243fd57afd1688749918b515eb7e30ff06e",
+            "mtime": 1793373470.379068,
+            "package_id": "path+file:///Users/int/dev/rax-audit-work/rax-main-integration-worktree#rax@0.1.0",
+            "target": "rax-isa-oracle"
+          },
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-ff7c9634d4768b63": {
+            "sha256": "3065f13943fabddcdcf1c8c2fa4d4a6bbf6bc73b5ca739299b9a0abc4ca00d27",
+            "mtime": 1793373470.606323,
+            "package_id": "path+file:///Users/int/dev/rax-audit-work/rax-main-integration-worktree#rax@0.1.0",
+            "target": "ci_actions_pinned"
+          },
+          "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-0117b9958a66070e": {
+            "sha256": "de5dc6e5776f922b47c2d5d63c5b714038c4de951874f9de637cc827d2256250",
+            "mtime": 1793373596.5003695,
+            "package_id": "path+file:///Users/int/dev/rax-audit-work/rax-main-integration-worktree#rax@0.1.0",
+            "target": "rax"
+          }
+        }
+      }
+    },
+    "final_hardened_client": {
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/final-rust-source.json",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/hardened-debugger-final.json"
+    },
+    "equivalence": {
+      "status": "verified",
+      "production_source_unchanged": true,
+      "changed_files": [
+        "src/vm/runtime/gdb_smp_client_tests.rs"
+      ],
+      "before": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/production-validation-source.json",
+      "after": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/final-rust-source.json",
+      "reason": "Additional independent-client acceptance rejection patterns only; all production source and other test bodies retain identical hashes",
+      "exact_change_verified": "Remove exactly the three added error-rejection predicates to reproduce the preceding test-source SHA256",
+      "preceding_test_source": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/production-validation-test-client.rs"
+    },
+    "counting": "Exclude the earlier duplicate debugger slice; count its final hardened rerun once. Broader tests exercised identical production source and unchanged test bodies."
+  },
+  "assumption_register": [
+    {
+      "id": "D1",
+      "assumption": "The existing GDB register description is x86-64; all configured CPU slots have stable IDs for the lifetime of a connection",
+      "basis": "Current target XML and VMM constructor",
+      "dependent_result": "1-based RSP thread IDs and CPU-local register selection",
+      "stress_test": "2/4 CPUs, invalid/zero/all IDs, offline APs and changed current CPU",
+      "falsification_probe": "A thread selects a different CPU or reports another CPU register state",
+      "status": "locally qualified in the selected software x86 profile; native/runtime and complete live-session restoration remain unqualified"
+    },
+    {
+      "id": "D2",
+      "assumption": "Debugger control is serviced at the existing single-owner VMM publication boundary",
+      "basis": "VMM execution loop and coordinator",
+      "dependent_result": "All-stop inspection, selected stepping, shared breakpoint/cache publication",
+      "stress_test": "Peer CPUs, I/O completion, pending interrupts, disconnect/reconnect and invalid compound resume",
+      "falsification_probe": "A parked peer retires, inspection injects a pending interrupt, or a rejected command partially changes resume state",
+      "status": "locally qualified in the selected software x86 profile; native/runtime and complete live-session restoration remain unqualified"
+    },
+    {
+      "id": "D3",
+      "assumption": "Independent-client acceptance requires every command and the target description to succeed",
+      "basis": "Initial nominally passing GDB output contained an assertion error and rejected XML",
+      "dependent_result": "Independent RSP interoperability qualification",
+      "stress_test": "Single Python assertion sequence, scheduler locking, target XML validation, explicit rejection of both observed XML error forms and Python errors",
+      "falsification_probe": "Any failed assertion can still print the marker, an error appears in final output, or GDB falls back from the supplied description",
+      "status": "Original acceptance falsified and replaced; final real-client output passes"
+    }
+  ],
+  "retained_failures": [
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/baseline.json",
+      "meaning": "All three real TCP regressions failed before production changes"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/initial-fix.json",
+      "meaning": "Handler extraction initially kept module-private visibility; compiler rejected three sibling calls, then visibility was corrected"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/external-client-v1-invalidated.json",
+      "meaning": "Nominal client success invalidated by actual assertion/XML errors; later strict client and corrected core bank qualified independently"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/xml-candidate.json",
+      "meaning": "A description with the flags type fixed but mandatory x87 still absent was rejected by actual GDB"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/workflow-before-scalar-fix.json",
+      "meaning": "Unquoted YAML command containing selector colons failed parsing; block scalar correction passed the parser"
+    }
+  ],
+  "coverage": {
+    "configured_threads": "Actual 2/4-CPU TCP enumeration and CPU-local reads/writes",
+    "execution": "Legacy selected step, compound vCont validation and first-match ordering, explicit stop identity and peer parking",
+    "state": "Selected x87 payload/TOP/control/pointer conversion, G/P register writes and exact 276-byte amd64 core bank",
+    "lifecycle": "Owner-side connection barrier, stale prior event exclusion, detach/disconnect step/breakpoint cleanup; complete host-resource/checkpoint binding remains open",
+    "publication": "Production breakpoint compensation helper tested with mutating failed setters and failed compensation; not native SDK qualification",
+    "broader": "Actual software INIT/SIPI/execution/checkpoint continuations, private contexts, C API unit tests and CI registration",
+    "platform": "Apple-Silicon software runtime, independent GDB18.1 client, Intel HVF/debug compilation only"
+  },
+  "compatibility": {
+    "public_integer_codec": "Existing 164-byte base codec preserved; actual negotiated RSP core bank now includes 112-byte required x87 portion",
+    "private_cpu_context": "No serialized CPU field or version change",
+    "c_abi": "No C ABI definition or export changed",
+    "known_limits": "Physical RAM debugger memory, unimplemented live-session restoration and native debug overlays remain explicitly required"
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Per-CPU virtual debugger memory and complete live-session checkpoint reconstruction are unfinished",
+      "blocks_full_goal_completion": true
+    },
+    {
+      "impact": "high",
+      "finding": "Native bounded/debug entry, TF/private overlays/SDK errors and physical Intel execution remain unqualified",
+      "blocks_full_goal_completion": true
+    },
+    {
+      "impact": "medium",
+      "finding": "Other target descriptions and guest-OS signal delivery remain unimplemented; malformed/unsupported requests must not be treated as successful execution",
+      "blocks_full_goal_completion": true
+    }
+  ],
+  "remaining_full_goal": [
+    "A32-FP: remaining capability/profile/security/debug and instruction-admission requirements",
+    "C-STATE: complete backend/private/in-flight state and coordinated restoration, including live debugger-session fields/bindings",
+    "C-SMP: remaining startup/ISA/native bounded entry, per-CPU virtual debugger memory, deterministic clocks and replay",
+    "C-HVF: remaining MMIO/intercept/IRQ profiles, native debug overlays/SDK errors and physical Intel qualification",
+    "Complete debugger-session checkpoint binding/restoration and lifecycle of native/host resources remain required",
+    "GDB memory packets retain the existing physical RAM view; per-CPU virtual translation is not implemented here",
+    "Other target register descriptions, positive guest-OS signal delivery and native backend debugger entry remain unqualified",
+    "Physical Intel VMX/device/guest and failure execution remains unverified"
+  ],
+  "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/commit-receipt.json",
+  "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/cleanup-final.json",
+  "workflow": "git add -- exact owned files; red -m --staged --run identical paths; no push; remove idle task-owned build/scratch roots"
+}

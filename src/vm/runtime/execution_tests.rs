@@ -9,17 +9,17 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use vm_memory::GuestAddress;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
-const BSP: u64 = 0x8000;
+pub(super) const BSP: u64 = 0x8000;
 const AP: u64 = 0x9000;
 const FLAGS: u64 = 0x7000;
 
-struct Fixture {
+pub(super) struct Fixture {
     kernel: PathBuf,
-    vm: Vmm,
+    pub(super) vm: Vmm,
 }
 
 impl Fixture {
-    fn new(count: u8) -> Self {
+    pub(super) fn new(count: u8) -> Self {
         Self::with_memory(count, 65536)
     }
 
@@ -88,7 +88,7 @@ impl Fixture {
         fixture
     }
 
-    fn write(&self, address: u64, bytes: &[u8]) {
+    pub(super) fn write(&self, address: u64, bytes: &[u8]) {
         self.vm
             .guest_mem
             .memory()
@@ -575,7 +575,16 @@ fn gdb_io_single_step_completes_input_and_stops_before_the_next_instruction() {
     let _ = client.cmd_tx.send(GdbCommand::Kill);
     let (outcome, pc, value, marker, retired) = worker.join().unwrap();
     assert!(outcome.is_ok(), "{outcome:?}");
-    assert!(matches!(reply, Ok(GdbResponse::StopReply(5))), "{reply:?}");
+    assert!(
+        matches!(
+            reply,
+            Ok(GdbResponse::ThreadStop {
+                signal: 5,
+                index: 0
+            })
+        ),
+        "{reply:?}"
+    );
     assert_eq!(pc, BSP + 2);
     assert_eq!(value, 0xff, "I/O completion precedes the debug stop");
     assert_eq!(marker, 0, "the following store did not execute");
@@ -612,7 +621,16 @@ fn gdb_single_step_stops_after_output_or_halt_before_the_following_store() {
         let _ = client.cmd_tx.send(GdbCommand::Kill);
         let (outcome, pc, marker, retired) = worker.join().unwrap();
         assert!(outcome.is_ok(), "{outcome:?}");
-        assert!(matches!(reply, Ok(GdbResponse::StopReply(5))), "{reply:?}");
+        assert!(
+            matches!(
+                reply,
+                Ok(GdbResponse::ThreadStop {
+                    signal: 5,
+                    index: 0
+                })
+            ),
+            "{reply:?}"
+        );
         assert_eq!(pc, BSP + length);
         assert_eq!(
             marker, 0,

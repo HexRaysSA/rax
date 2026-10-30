@@ -354,6 +354,12 @@ pub trait VCpu: Send {
         let _ = active;
     }
 
+    /// Whether internal execute breakpoints can be installed on this CPU.
+    #[cfg(feature = "debug")]
+    fn supports_debug_breakpoints(&self) -> bool {
+        false
+    }
+
     /// Set an internal debugger execute breakpoint.
     ///
     /// This must not modify guest memory: guest-owned `INT3` instructions and

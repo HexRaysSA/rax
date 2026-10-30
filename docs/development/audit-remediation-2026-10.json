@@ -2680,7 +2680,10 @@
         "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json",
         "docs/development/x86-cpu-identity/qualification.json",
         "docs/development/x86-cpu-identity/README.md",
-        "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json"
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json",
+        "docs/development/software-smp-debugger/qualification.json",
+        "docs/development/software-smp-debugger/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/final-source.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2699,7 +2702,8 @@
         "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO was subsequently reproduced and repaired in the terminal-I/O group; four represented phases now pass actual native file/wake continuation. Full original scope remains open.",
         "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open.",
         "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
-        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure."
+        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure.",
+        "Software x86 GDB per-CPU register/step/control, shared breakpoints, required exact x87 core bank and reconnect isolation are locally qualified, including an actual GDB client. Per-CPU virtual debugger memory, complete live debugger-session restoration, other ISA/native debug entry, clocks/replay and physical Intel remain required; the full finding is not closed."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2738,7 +2742,8 @@
           "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
         },
         "per-cpu-task-priority-coherence-2026-10-30",
-        "per-cpu-initial-apic-and-bsp-state-2026-10-30"
+        "per-cpu-initial-apic-and-bsp-state-2026-10-30",
+        "software-smp-debugger-control-2026-10-30"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -3352,7 +3357,10 @@
         "/Users/int/dev/rax-audit-work/four-findings-lapic/priority-coherence-v1/final-source.json",
         "docs/development/x86-cpu-identity/qualification.json",
         "docs/development/x86-cpu-identity/README.md",
-        "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json"
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/final-source.json",
+        "docs/development/software-smp-debugger/qualification.json",
+        "docs/development/software-smp-debugger/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/final-source.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3367,7 +3375,8 @@
         "Standalone native terminal graph and retention of restored pending power states are locally qualified by signed physical API tests plus configured native shutdown/CPU_OFF real-file regressions. Simultaneously entered SDK CPU shutdown remains unverified. Native terminal plus peer pending MMIO was subsequently reproduced and repaired in the terminal-I/O group; four represented phases now pass actual native file/wake continuation. Full original scope remains open.",
         "Terminal peer-IO conservation is locally qualified in four represented phases with actual two-CPU native file/wake continuation, retained FIFO data and saved-error/output-ack semantics. Complete original C-STATE/C-SMP, other backend/private/platform profiles, concurrent SDK entry, clocks/debug/replay and Intel requirements remain open.",
         "Per-CPU TPR/CR8/public state/JIT/checkpoint and stopped SDK mirror coherence are locally qualified by the task-priority group. APIC_BASE/x2APIC/full IRQ source graph, complete backend/private/in-flight restoration, native thread/scheduling and physical Intel qualification remain open; the original full finding is not closed.",
-        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure."
+        "Per-CPU initial APIC identity, writable BSP state, current-role software INIT/SIPI and version3 private context are locally qualified. Full APIC modes/topology/IRQ/native-private scheduling and physical Intel requirements remain open; no full finding closure.",
+        "Software x86 GDB per-CPU register/step/control, shared breakpoints, required exact x87 core bank and reconnect isolation are locally qualified, including an actual GDB client. Per-CPU virtual debugger memory, complete live debugger-session restoration, other ISA/native debug entry, clocks/replay and physical Intel remain required; the full finding is not closed."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3395,7 +3404,8 @@
           "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
         },
         "per-cpu-task-priority-coherence-2026-10-30",
-        "per-cpu-initial-apic-and-bsp-state-2026-10-30"
+        "per-cpu-initial-apic-and-bsp-state-2026-10-30",
+        "software-smp-debugger-control-2026-10-30"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -197146,7 +197156,7 @@
     },
     {
       "id": "per-cpu-initial-apic-and-bsp-state-2026-10-30",
-      "status": "locally_validated",
+      "status": "committed_locally",
       "parent": "667f62086433eb07bfbb0f0ad772a126a992d4d8",
       "scope": "Per-CPU initial CPUID/LAPIC identity, writable BSP state, current-role software INIT/SIPI and version3 private-context preservation; original four findings remain active",
       "owned_paths": [
@@ -197260,7 +197270,87 @@
         "Physical Intel VMX/guest/device/exception/failure validation remains unverified"
       ],
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-lapic/identity-coherence-v1/commit-receipt.json",
-      "workflow": "git add -- exact owned paths; red -m --staged --run same exact paths; no push"
+      "workflow": "git add -- exact owned paths; red -m --staged --run same exact paths; no push",
+      "commit": "7e810f0ad4272eec37d48f20e3c86685027d87d9"
+    },
+    {
+      "id": "software-smp-debugger-control-2026-10-30",
+      "status": "locally_validated",
+      "parent": "7e810f0ad4272eec37d48f20e3c86685027d87d9",
+      "scope": "Actual per-CPU software x86 GDB control, ordered all-stop resume, thread-bearing stops, shared breakpoint/cache ownership, exact required amd64 core bank and reconnect isolation; original four findings remain active",
+      "owned_paths": [
+        ".github/workflows/ci.yml",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/software-smp-debugger/README.md",
+        "docs/development/software-smp-debugger/qualification.json",
+        "docs/operations/observability.md",
+        "src/debug/gdb/commands.rs",
+        "src/debug/gdb/mod.rs",
+        "src/debug/gdb/queries.rs",
+        "src/debug/gdb/registers.rs",
+        "src/debug/gdb/target.xml",
+        "src/debug/gdb/test_support.rs",
+        "src/debug/gdb/thread_commands.rs",
+        "src/debug/gdb/threads.rs",
+        "src/debug/gdb/x86_registers.rs",
+        "src/isa/x86_64/cpu_vcpu.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/coordinator.rs",
+        "src/vm/runtime/debugger.rs",
+        "src/vm/runtime/debugger_control.rs",
+        "src/vm/runtime/debugger_control/transaction.rs",
+        "src/vm/runtime/execution.rs",
+        "src/vm/runtime/execution_tests.rs",
+        "src/vm/runtime/gdb_smp_client_tests.rs",
+        "src/vm/runtime/gdb_smp_tests.rs",
+        "src/vm/vcpu/mod.rs",
+        "tests/README.md"
+      ],
+      "qualification": "docs/development/software-smp-debugger/qualification.json",
+      "selected_tests_passed": 329,
+      "independent_client": "Actual installed GDB18.1 over TCP/RSP; included in final hardened slice",
+      "assumption_register": [
+        {
+          "id": "D1",
+          "assumption": "The existing GDB register description is x86-64; all configured CPU slots have stable IDs for the lifetime of a connection",
+          "basis": "Current target XML and VMM constructor",
+          "dependent_result": "1-based RSP thread IDs and CPU-local register selection",
+          "stress_test": "2/4 CPUs, invalid/zero/all IDs, offline APs and changed current CPU",
+          "falsification_probe": "A thread selects a different CPU or reports another CPU register state",
+          "status": "locally qualified in the selected software x86 profile; native/runtime and complete live-session restoration remain unqualified"
+        },
+        {
+          "id": "D2",
+          "assumption": "Debugger control is serviced at the existing single-owner VMM publication boundary",
+          "basis": "VMM execution loop and coordinator",
+          "dependent_result": "All-stop inspection, selected stepping, shared breakpoint/cache publication",
+          "stress_test": "Peer CPUs, I/O completion, pending interrupts, disconnect/reconnect and invalid compound resume",
+          "falsification_probe": "A parked peer retires, inspection injects a pending interrupt, or a rejected command partially changes resume state",
+          "status": "locally qualified in the selected software x86 profile; native/runtime and complete live-session restoration remain unqualified"
+        },
+        {
+          "id": "D3",
+          "assumption": "Independent-client acceptance requires every command and the target description to succeed",
+          "basis": "Initial nominally passing GDB output contained an assertion error and rejected XML",
+          "dependent_result": "Independent RSP interoperability qualification",
+          "stress_test": "Single Python assertion sequence, scheduler locking, target XML validation, explicit rejection of both observed XML error forms and Python errors",
+          "falsification_probe": "Any failed assertion can still print the marker, an error appears in final output, or GDB falls back from the supplied description",
+          "status": "Original acceptance falsified and replaced; final real-client output passes"
+        }
+      ],
+      "pending_gates": [
+        "A32-FP: remaining capability/profile/security/debug and instruction-admission requirements",
+        "C-STATE: complete backend/private/in-flight state and coordinated restoration, including live debugger-session fields/bindings",
+        "C-SMP: remaining startup/ISA/native bounded entry, per-CPU virtual debugger memory, deterministic clocks and replay",
+        "C-HVF: remaining MMIO/intercept/IRQ profiles, native debug overlays/SDK errors and physical Intel qualification",
+        "Complete debugger-session checkpoint binding/restoration and lifecycle of native/host resources remain required",
+        "GDB memory packets retain the existing physical RAM view; per-CPU virtual translation is not implemented here",
+        "Other target register descriptions, positive guest-OS signal delivery and native backend debugger entry remain unqualified",
+        "Physical Intel VMX/device/guest and failure execution remains unverified"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/final-source.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/smp-debugger-control-v1/commit-receipt.json",
+      "workflow": "git add -- exact owned files; red -m --staged --run identical paths; no push; remove idle task-owned build/scratch roots"
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

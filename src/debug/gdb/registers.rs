@@ -1,4 +1,4 @@
-//! x86_64 register mapping for GDB.
+//! Integer portion of the x86_64 GDB core bank.
 //!
 //! GDB x86_64 register order:
 //! 0-15: rax, rbx, rcx, rdx, rsi, rdi, rbp, rsp, r8-r15 (64-bit each)
@@ -6,7 +6,8 @@
 //! 17: eflags (32-bit)
 //! 18-23: cs, ss, ds, es, fs, gs (32-bit each)
 //!
-//! Total: 17 * 8 + 4 + 6 * 4 = 136 + 4 + 24 = 164 bytes
+//! Integer portion: 17 * 8 + 4 + 6 * 4 = 164 bytes.
+//! `x86_registers` adds the required x87 bank for the actual RSP transport.
 
 use super::protocol::{decode_hex, encode_hex};
 use crate::vm::vcpu::state::X86_64CpuState;

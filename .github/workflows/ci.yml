@@ -60,6 +60,30 @@ jobs:
       - name: clippy (all targets, default features)
         run: cargo clippy --all-targets --features x86_64-suite
 
+  test-smp-debugger:
+    name: software SMP debugger (wire + GDB)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      RAX_GDB: gdb
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+          cache-key: smp-debugger
+      - name: Install the independent GDB client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdb
+      - name: RSP and installed-GDB multi-CPU regressions
+        run: |
+          cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib vm::runtime::gdb_smp_tests:: -- --include-ignored --test-threads=1 --nocapture
+      - name: Protocol, register banks and publication failures
+        run: |
+          cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib debug::gdb:: -- --test-threads=1
+          cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug --lib vm::runtime::debugger_control:: -- --test-threads=1
+
   # ---------------------------------------------------------------------------
   # Compile everything on every native platform. This is the breadth guarantee:
   # the whole crate + all test binaries must *build* on each OS/arch even if the

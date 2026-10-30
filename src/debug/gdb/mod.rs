@@ -4,6 +4,11 @@
 //! communicating with the VMM via channels.
 
 mod commands;
+mod queries;
+mod thread_commands;
+pub mod threads;
+pub(crate) mod x86_registers;
+pub use threads::{Resume, ResumeAction, ThreadId};
 pub mod protocol;
 pub mod registers;
 
@@ -21,6 +26,23 @@ pub use registers::{pack_registers, unpack_registers};
 /// Commands sent from GDB server to VMM.
 #[derive(Debug, Clone)]
 pub enum GdbCommand {
+    /// Begin a new all-stop connection.
+    Attach,
+    /// Resume after the controlling connection closes.
+    ConnectionClosed,
+    /// Select the CPU for register/memory or legacy execution operations.
+    SelectThread { execution: bool, thread: ThreadId },
+    /// Enumerate configured virtual CPU threads.
+    Threads,
+    /// Query the selected CPU thread.
+    CurrentThread,
+    /// Query a CPU's presence or its descriptive label.
+    ThreadInfo { thread: ThreadId, describe: bool },
+    /// Apply an ordered, fully validated set of per-CPU actions.
+    Resume(Vec<Resume>),
+    /// Write one register of the selected CPU.
+    WriteRegister { index: usize, data: Vec<u8> },
+
     /// Continue execution.
     Continue,
     /// Single step one instruction.
@@ -50,6 +72,15 @@ pub enum GdbCommand {
 /// Responses sent from VMM to GDB server.
 #[derive(Debug, Clone)]
 pub enum GdbResponse {
+    /// Owner-side new-connection barrier.
+    Attached,
+    /// Thread-bearing all-stop event (RSP IDs are one-based).
+    ThreadStop { signal: u8, index: usize },
+    /// Generic query data.
+    Text(String),
+    /// Guest exit status.
+    Exited(u8),
+
     /// Command succeeded.
     Ok,
     /// Error with code.
@@ -134,8 +165,31 @@ impl GdbServer {
     }
 
     /// Handle a single GDB client connection.
-    fn handle_client(&mut self, mut stream: TcpStream) -> std::io::Result<()> {
+    fn handle_client(&mut self, stream: TcpStream) -> std::io::Result<()> {
+        let result = self.client_loop(stream);
+        let _ = self.channels.cmd_tx.send(GdbCommand::ConnectionClosed);
+        result
+    }
+
+    fn client_loop(&mut self, mut stream: TcpStream) -> std::io::Result<()> {
         stream.set_nodelay(true)?;
+        self.channels
+            .cmd_tx
+            .send(GdbCommand::Attach)
+            .map_err(std::io::Error::other)?;
+        loop {
+            match self
+                .channels
+                .resp_rx
+                .recv_timeout(std::time::Duration::from_secs(5))
+            {
+                Ok(GdbResponse::Attached) => break,
+                // The owner processes this barrier after all prior-connection
+                // commands, so earlier asynchronous events cannot leak across it.
+                Ok(_) => continue,
+                Err(error) => return Err(std::io::Error::other(error)),
+            }
+        }
 
         let mut buf = [0u8; 4096];
         let mut pending = Vec::new();
@@ -189,7 +243,8 @@ impl GdbServer {
             if !pending.is_empty() && pending[0] == 0x03 {
                 pending.remove(0);
                 debug!("Received interrupt");
-                protocol::send_stop_reply(&mut stream, 2)?; // SIGINT
+                let reply = thread_commands::request(&self.channels, GdbCommand::Interrupt)?;
+                thread_commands::send_response(&mut stream, reply)?;
             }
         }
     }
@@ -230,3 +285,6 @@ pub fn spawn_server(
 
     Ok(handle)
 }
+
+#[cfg(test)]
+pub(crate) mod test_support;

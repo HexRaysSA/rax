@@ -139,7 +139,17 @@ cargo build --release --no-default-features --features debug
     --wait-gdb
 ```
 
-Connect a GDB-compatible client to `localhost:1234`. The server exposes the register/memory/continue/step operations implemented by the current architecture adapter.
+Connect a GDB-compatible client to `localhost:1234`. The software x86 adapter
+exposes each configured CPU as a thread (`CPU 0` is thread 1). Use `info threads`,
+`thread 2` and `set scheduler-locking step` to inspect and step an AP while its
+peers remain parked. The amd64 core bank includes integer and exact x87 state.
+Breakpoints apply to all CPUs and stop replies identify the CPU that stopped.
+
+Memory packets currently address physical RAM; higher-half/per-CPU virtual
+translation and complete live debugger-session checkpoint restoration remain
+required work. Native backend debug entry is independently unqualified. See the
+[software SMP debugger qualification](../development/software-smp-debugger/README.md)
+for packet/state boundaries and validation.
 
 ### IDA Pro
 

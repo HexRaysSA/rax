@@ -352,6 +352,11 @@ impl VCpu for X86_64Vcpu {
     }
 
     #[cfg(feature = "debug")]
+    fn supports_debug_breakpoints(&self) -> bool {
+        true
+    }
+
+    #[cfg(feature = "debug")]
     fn set_debug_breakpoint(&mut self, addr: u64) -> Result<()> {
         self.debug_breakpoints.insert(addr);
         Ok(())
