@@ -1,0 +1,405 @@
+{
+  "versions": {
+    "qemu": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n",
+    "llvm": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore\n"
+  },
+  "matched": 44,
+  "rows": [
+    {
+      "case": "neon1-thumb0-integer_add",
+      "cpu": "cortex-a15",
+      "thumb": false,
+      "instruction": "vadd.i8 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-core_duplicate",
+      "cpu": "cortex-a15",
+      "thumb": false,
+      "instruction": "vdup.8 q0,r1",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-core_lane",
+      "cpu": "cortex-a15",
+      "thumb": false,
+      "instruction": "vmov.8 d0[0],r1",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-load1",
+      "cpu": "cortex-a15",
+      "thumb": false,
+      "instruction": "vld1.8 {d0},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-store1",
+      "cpu": "cortex-a15",
+      "thumb": false,
+      "instruction": "vst1.8 {d0},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-load2",
+      "cpu": "cortex-a15",
+      "thumb": false,
+      "instruction": "vld2.8 {d0,d1},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-store2",
+      "cpu": "cortex-a15",
+      "thumb": false,
+      "instruction": "vst2.8 {d0,d1},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-load3",
+      "cpu": "cortex-a15",
+      "thumb": false,
+      "instruction": "vld3.8 {d0,d1,d2},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-store3",
+      "cpu": "cortex-a15",
+      "thumb": false,
+      "instruction": "vst3.8 {d0,d1,d2},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-load4",
+      "cpu": "cortex-a15",
+      "thumb": false,
+      "instruction": "vld4.8 {d0,d1,d2,d3},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb0-store4",
+      "cpu": "cortex-a15",
+      "thumb": false,
+      "instruction": "vst4.8 {d0,d1,d2,d3},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-integer_add",
+      "cpu": "cortex-a15",
+      "thumb": true,
+      "instruction": "vadd.i8 q0,q1,q2",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-core_duplicate",
+      "cpu": "cortex-a15",
+      "thumb": true,
+      "instruction": "vdup.8 q0,r1",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-core_lane",
+      "cpu": "cortex-a15",
+      "thumb": true,
+      "instruction": "vmov.8 d0[0],r1",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-load1",
+      "cpu": "cortex-a15",
+      "thumb": true,
+      "instruction": "vld1.8 {d0},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-store1",
+      "cpu": "cortex-a15",
+      "thumb": true,
+      "instruction": "vst1.8 {d0},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-load2",
+      "cpu": "cortex-a15",
+      "thumb": true,
+      "instruction": "vld2.8 {d0,d1},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-store2",
+      "cpu": "cortex-a15",
+      "thumb": true,
+      "instruction": "vst2.8 {d0,d1},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-load3",
+      "cpu": "cortex-a15",
+      "thumb": true,
+      "instruction": "vld3.8 {d0,d1,d2},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-store3",
+      "cpu": "cortex-a15",
+      "thumb": true,
+      "instruction": "vst3.8 {d0,d1,d2},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-load4",
+      "cpu": "cortex-a15",
+      "thumb": true,
+      "instruction": "vld4.8 {d0,d1,d2,d3},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon1-thumb1-store4",
+      "cpu": "cortex-a15",
+      "thumb": true,
+      "instruction": "vst4.8 {d0,d1,d2,d3},[r0]!",
+      "expected_endpoint": "P",
+      "observed": "S1011022211111111P",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-integer_add",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vadd.i8 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-core_duplicate",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vdup.8 q0,r1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-core_lane",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vmov.8 d0[0],r1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-load1",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vld1.8 {d0},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-store1",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vst1.8 {d0},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-load2",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vld2.8 {d0,d1},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-store2",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vst2.8 {d0,d1},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-load3",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vld3.8 {d0,d1,d2},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-store3",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vst3.8 {d0,d1,d2},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-load4",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vld4.8 {d0,d1,d2,d3},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb0-store4",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": false,
+      "instruction": "vst4.8 {d0,d1,d2,d3},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-integer_add",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vadd.i8 q0,q1,q2",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-core_duplicate",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vdup.8 q0,r1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-core_lane",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vmov.8 d0[0],r1",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-load1",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vld1.8 {d0},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-store1",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vst1.8 {d0},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-load2",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vld2.8 {d0,d1},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-store2",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vst2.8 {d0,d1},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-load3",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vld3.8 {d0,d1,d2},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-store3",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vst3.8 {d0,d1,d2},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-load4",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vld4.8 {d0,d1,d2,d3},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    },
+    {
+      "case": "neon0-thumb1-store4",
+      "cpu": "cortex-a15,neon=off,vfp-d32=off",
+      "thumb": true,
+      "instruction": "vst4.8 {d0,d1,d2,d3},[r0]!",
+      "expected_endpoint": "U",
+      "observed": "S1011022111000011U",
+      "matched": true
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "primary": {
+    "title": "ARM Architecture Reference Manual ARMv8, for ARMv8-A architecture profile",
+    "issuer": "Arm Limited",
+    "revision": "DDI0487B.a ID033117",
+    "section": "G6.2.108 MVFR1, printed pages G6-5069 through G6-5071",
+    "path": "../../../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf",
+    "sha256": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e",
+    "extract": "mvfr1-extract.txt"
+  },
+  "qemu_primary_source": "../references/qemu-11.1.2/provenance.json",
+  "qemu_runtime": "QEMU 11.1.2 version identity; binary identity with retained upstream source is unknown",
+  "qemu_profile_coupling": "QEMU requires VFP-D32 and Neon together. Disabled controls use cortex-a15,neon=off,vfp-d32=off; no independent hardware field-isolation claim.",
+  "first_oracle_attempt": {
+    "path": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-base-qemu-v1",
+    "result": "22 enabled controls passed; 22 disabled launches rejected configuration because Neon was off while D32 remained enabled; raw outputs preserved."
+  },
+  "synthetic_field_controls": "RAX independently varies absent and reserved fields. These are manual-derived admission controls, not identities of processors combining all selected fields."
+}

@@ -18,6 +18,29 @@ pub(crate) fn instruction_supported(
     state: &VfpState,
     id_isar6: u32,
 ) -> bool {
+    if advsimd {
+        // Arm DDI0487B.a G6.2.108: SIMDLS admits structure memory
+        // operations; SIMDInt admits integer/register operations and is also
+        // required by SIMDSP. Only field value 1 denotes implementation.
+        let shift = if matches!(
+            insn.mnemonic,
+            Mnemonic::VLD1
+                | Mnemonic::VLD2
+                | Mnemonic::VLD3
+                | Mnemonic::VLD4
+                | Mnemonic::VST1
+                | Mnemonic::VST2
+                | Mnemonic::VST3
+                | Mnemonic::VST4
+        ) {
+            8
+        } else {
+            12
+        };
+        if (state.mvfr1 >> shift) & 15 != 1 {
+            return false;
+        }
+    }
     if !registers::instruction_supported(insn, advsimd, state)
         || !precision::instruction_supported(insn, advsimd, state)
         || !half_supported(insn, advsimd, state, id_isar6)

@@ -674,3 +674,6 @@ mod register_banks;
 
 #[path = "a32_fp_controls/base_precision.rs"]
 mod base_precision;
+
+#[path = "a32_fp_controls/simd_base.rs"]
+mod simd_base;

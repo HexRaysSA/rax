@@ -1,0 +1,193 @@
+                                                                                               G6 AArch32 System Register Descriptions
+                                                                                                   G6.2 General system control registers
+
+
+
+G6.2.108    MVFR1, Media and VFP Feature Register 1
+                  The MVFR1 characteristics are:
+
+                  Purpose
+                                  Describes the features provided by the AArch32 Advanced SIMD and Floating-point
+                                  implementation.
+                                  Must be interpreted with MVFR0 and MVFR2.
+                                  For general information about the interpretation of the ID registers see Principles of the ID scheme
+                                  for fields in ID registers on page G4-4701.
+
+                  Configurations
+                                  There is one instance of this register that is used in both Secure and Non-secure states.
+                                  AArch32 System register MVFR1 is architecturally mapped to AArch64 System register
+                                  MVFR1_EL1.
+                                  Implemented only if the implementation includes Advanced SIMD and floating-point instructions.
+
+                  Attributes
+                                  MVFR1 is a 32-bit register.
+
+
+                  Field descriptions
+                  The MVFR1 bit assignments are:
+
+
+
+                  31      28 27          24 23         20 19        16 15        12 11         8 7          4 3           0
+
+                                  FPHP       SIMDHP         SIMDSP       SIMDInt      SIMDLS       FPDNaN         FPFtZ
+
+
+     SIMDFMAC
+
+
+                  SIMDFMAC, bits [31:28]
+                                  Advanced SIMD Fused Multiply-Accumulate. Indicates whether the Advanced SIMD
+                                  implementation provides fused multiply accumulate instructions. Defined values are:
+                                  0000           Not implemented.
+                                  0001           Implemented.
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0001.
+                                  The Advanced SIMD and floating-point implementations must provide the same level of support
+                                  for these instructions.
+
+                  FPHP, bits [27:24]
+                                  Floating Point Half Precision. Indicates the level of half-precision floating-point support. Defined
+                                  values are:
+                                  0000           Not supported.
+                                  0001           Floating-point half-precision conversion instructions are supported for conversion
+                                                 between single-precision and half-precision.
+                                  0010           Floating-point half-precision conversion instructions are supported for conversion
+                                                 between single-precision and half-precision and between double-precision and
+                                                 half-precision.
+                                  0011           As for 0010, and also includes support for half-precision floating-point arithmetic.
+                                  All other values are reserved.
+
+
+
+ARM DDI 0487B.a             Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.                            G6-5069
+ID033117                                            Non-Confidential
+G6 AArch32 System Register Descriptions
+G6.2 General system control registers
+
+
+
+                                   The permitted values are:
+                                   •      0000 in an implementation without floating-point support.
+                                   •      0010 in an implementation with floating-point support, that does not include the
+                                          ARMv8.2-FP16 extension.
+                                   •      0011 in an implementation with floating-point support, that includes the ARMv8.2-FP16
+                                          extension.
+
+                    SIMDHP, bits [23:20]
+                                   Advanced SIMD Half Precision. Indicates the level of half-precision floating-point support.
+                                   Defined values are:
+                                   0000        Not supported.
+                                   0001        SIMD half-precision conversion instructions are supported for conversion between
+                                               single-precision and half-precision.
+                                   0010        As for 0010, and also includes support for half-precision floating-point arithmetic.
+                                   All other values are reserved.
+                                   The permitted values are:
+                                   •      0000 in an implementation without SIMD floating-point support.
+                                   •      0001 in an implementation with SIMD floating-point support, that does not include the
+                                          ARMv8.2-FP16 extension.
+                                   •      0010 in an implementation with SIMD floating-point support, that includes the
+                                          ARMv8.2-FP16 extension.
+
+                    SIMDSP, bits [19:16]
+                                   Advanced SIMD Single Precision. Indicates whether the Advanced SIMD and floating-point
+                                   implementation provides single-precision floating-point instructions. Defined values are:
+                                   0000        Not implemented.
+                                   0001        Implemented. This value is permitted only if the SIMDInt field is 0001.
+                                   All other values are reserved.
+                                   In ARMv8-A the permitted values are 0000 and 0001.
+
+                    SIMDInt, bits [15:12]
+                                   Advanced SIMD Integer. Indicates whether the Advanced SIMD and floating-point implementation
+                                   provides integer instructions. Defined values are:
+                                   0000        Not implemented.
+                                   0001        Implemented.
+                                   All other values are reserved.
+                                   In ARMv8-A the permitted values are 0000 and 0001.
+
+                    SIMDLS, bits [11:8]
+                                   Advanced SIMD Load/Store. Indicates whether the Advanced SIMD and floating-point
+                                   implementation provides load/store instructions. Defined values are:
+                                   0000        Not implemented.
+                                   0001        Implemented.
+                                   All other values are reserved.
+                                   In ARMv8-A the permitted values are 0000 and 0001.
+
+                    FPDNaN, bits [7:4]
+                                   Default NaN mode. Indicates whether the floating-point implementation provides support only for
+                                   the Default NaN mode. Defined values are:
+                                   0000        Not implemented, or hardware supports only the Default NaN mode.
+
+
+
+G6-5070                       Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.              ARM DDI 0487B.a
+                                                      Non-Confidential                                                     ID033117
+                                                                                             G6 AArch32 System Register Descriptions
+                                                                                                 G6.2 General system control registers
+
+
+
+                                  0001        Hardware supports propagation of NaN values.
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0001.
+
+                  FPFtZ, bits [3:0]
+                                  Flush to Zero mode. Indicates whether the floating-point implementation provides support only for
+                                  the Flush-to-Zero mode of operation. Defined values are:
+                                  0000        Not implemented, or hardware supports only the Flush-to-Zero mode of operation.
+                                  0001        Hardware supports full denormalized number arithmetic.
+                                  All other values are reserved.
+                                  In ARMv8-A the permitted values are 0000 and 0001.
+
+
+                  Accessing the MVFR1
+                  This register can be read using VMRS with the following syntax:
+
+                  VMRS <Rt>, <spec_reg>
+
+                  This syntax is encoded with the following settings in the instruction encoding:
+
+
+                                                                                                               <spec_reg>        reg
+
+                                                                                                               MVFR1             0110
+
+
+
+                  Accessibility
+                  The register is accessible in software as follows:
+
+
+                                                                               Control                   Accessibility
+
+                                                                               E2H      TGE      NS      EL0   EL1       EL2    EL3
+
+                                                                               x        x        0       -     RO        n/a    RO
+
+                                                                               x        0        1       -     RO        RO     RO
+
+                                                                               x        1        1       -     n/a       RO     RO
+
+
+                  Traps and Enables
+                  For a description of the prioritization of any generated exceptions, see Synchronous exception prioritization for
+                  exceptions taken to AArch32 state on page G1-4344 for exceptions taken to AArch32 state and Synchronous
+                  exception prioritization for exceptions taken to AArch64 on page D1-1827 for exceptions taken to AArch64 state.
+                  Subject to the prioritization rules:
+
+                  •     When HCR_EL2.E2H == 0:
+                        —      If CPACR.cp10==00, read accesses to this register from PL1 are UNDEFINED.
+
+                  •     When EL2 is implemented and is using AArch64 and (SCR_EL3.NS == 1) && (HCR_EL2.E2H == 0):
+                        —      If CPTR_EL2.TFP==1, Non-secure read accesses to this register from EL1 are trapped to EL2.
+                        —      If HCR_EL2.TID3==1, Non-secure read accesses to this register from EL1 are trapped to EL2.
+
+                  •     When EL2 is implemented and is using AArch64 and (SCR_EL3.NS == 1) && (HCR_EL2.E2H == 1) &&
+                        (HCR_EL2.TGE == 0):
+                        —      If CPTR_EL2.FPEN==00, Non-secure read accesses to this register from EL1 are trapped to EL2.
+
+
+
+ARM DDI 0487B.a              Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.                         G6-5071
+ID033117                                             Non-Confidential
+

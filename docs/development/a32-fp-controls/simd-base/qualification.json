@@ -1,0 +1,97 @@
+{
+  "utc": "2026-10-30T08:39:20.720270+00:00",
+  "scope": "MVFR1 SIMDInt/SIMDLS base instruction admission only",
+  "baseline": {
+    "path": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-base-v1/baseline-v2.json",
+    "passed": 40,
+    "failed": 6
+  },
+  "corrected": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--test",
+      "a32_fp_controls",
+      "--test",
+      "arm_vfp_a32",
+      "--test",
+      "a32_fp_pairs",
+      "--",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 86.54779504198814,
+    "test_summaries": [
+      "test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+      "test result: ok. 497 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 27.37s"
+    ]
+  },
+  "normal_check": {
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "--workspace",
+      "--lib",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 24.995600540947635,
+    "test_summaries": []
+  },
+  "clippy": {
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf",
+      "--test",
+      "a32_fp_controls"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 25.168353541987017,
+    "test_summaries": []
+  },
+  "independent_qemu_controls": 44,
+  "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-a32-profile/simd-base-v1/corrected-source.json",
+  "remaining": "SIMDSP and other FP profile/rounding/denormal/coherent-profile controls; C-STATE/C-SMP/C-HVF remain open",
+  "assumption_register": [
+    {
+      "id": "SB1",
+      "assumption": "Only MVFR1 field1 advertises implementation",
+      "basis": "Arm G6.2.108",
+      "dependent_result": "Missing/reserved admission before traps/effects",
+      "stress_test": "Both ARM/Thumb, field0 and2..15, access denied, memory/register/writeback invariance",
+      "falsification_probe": "Unavailable instruction executes or mutates state",
+      "status": "baseline falsified old implementation; corrected controls pass"
+    },
+    {
+      "id": "SB2",
+      "assumption": "SIMD structure memory and integer/register operations use their own base fields",
+      "basis": "Arm field definitions; SIMDSP1 requires SIMDInt1",
+      "dependent_result": "Independent class admission and scalar VFP preservation",
+      "stress_test": "Clear unrelated base field; scalar FP controls remain executable",
+      "falsification_probe": "Unrelated class incorrectly rejects",
+      "status": "confirmed for represented manual-derived controls"
+    },
+    {
+      "id": "SB3",
+      "assumption": "QEMU oracle can isolate Neon absence with unchanged D32",
+      "basis": "Exploratory v1 invocation",
+      "dependent_result": "Independent profile claim",
+      "stress_test": "Launch cortex-a15,neon=off",
+      "falsification_probe": "QEMU rejects profile",
+      "status": "falsified; v2 clears both and qualification explicitly limits field isolation"
+    }
+  ]
+}
