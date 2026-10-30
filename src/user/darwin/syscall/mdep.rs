@@ -1,6 +1,7 @@
 //! Machine-dependent calls: x86-64 class 3 (`machdep_syscall64`) and arm64
 //! platform calls (`platform_syscall`).
 
+use super::trace::{self, CallSite};
 use crate::user::darwin::mach::kr;
 use crate::user::darwin::process::{Proc, Thread};
 
@@ -28,7 +29,9 @@ pub fn machdep(proc: &mut Proc, thread: &mut Thread, nr: u32) {
         _ => kr::KERN_INVALID_ARGUMENT as u64,
     };
     if proc.config.strace {
-        eprintln!("[{:#x}] machdep({nr}, {arg0:#x}) = {r:#x}", thread.tid);
+        let site = CallSite::capture(proc, thread, thread.cpu.pc());
+        let text = format!("machdep({nr}, {arg0:#x}) = {r:#x}");
+        trace::print(thread.tid, site.as_ref(), &text);
     }
     thread.cpu.set_reg(0, r);
 }
@@ -50,10 +53,9 @@ pub fn platform(proc: &mut Proc, thread: &mut Thread, code: u32) {
         _ => {}
     }
     if proc.config.strace {
-        eprintln!(
-            "[{:#x}] platform_syscall({code}) x0={:#x}",
-            thread.tid,
-            thread.cpu.reg(0)
-        );
+        // The call changes X0 alone, so the registers still show its site.
+        let site = CallSite::capture(proc, thread, thread.cpu.pc());
+        let text = format!("platform_syscall({code}) x0={:#x}", thread.cpu.reg(0));
+        trace::print(thread.tid, site.as_ref(), &text);
     }
 }

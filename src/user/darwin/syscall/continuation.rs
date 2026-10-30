@@ -2,7 +2,7 @@
 use super::super::abi;
 use super::super::arch::{DarwinCpu, SysResult};
 use super::super::process::{Proc, Thread};
-use super::{Ctx, bsd, finish, util};
+use super::{Ctx, bsd, finish, trace, util};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct PendingUnix {
@@ -112,6 +112,9 @@ fn service(proc: &mut Proc, thread: &mut Thread, entry: PendingUnix) {
     // __pthread_testcancel clears this for cancellation points. A parked
     // continuation remains inside the same kernel entry until final return.
     thread.sig.uflags |= super::super::signal::uflag::NOTCANCELPT;
+    // Taken before the service runs; a resumed entry is still parked at its
+    // trap, so its registers still show the caller.
+    let site = trace::CallSite::capture(proc, thread, pc);
     let mut ctx = Ctx {
         proc,
         thread,
@@ -123,7 +126,8 @@ fn service(proc: &mut Proc, thread: &mut Thread, entry: PendingUnix) {
         ctx.thread.sig.uflags &= !super::super::signal::uflag::NOTCANCELPT;
     }
     if ctx.proc.config.strace {
-        util::trace_unix(&ctx, sc.name, &args[..sc.nargs as usize], &result);
+        let args = &args[..sc.nargs as usize];
+        util::trace_unix(&ctx, site.as_ref(), sc.name, args, &result);
     }
     finish(ctx.thread, sc.ret, result);
 }

@@ -1,5 +1,6 @@
 //! Mach traps.
 
+pub mod dump;
 pub mod entry;
 pub mod guard;
 pub mod kmsg;
@@ -53,6 +54,7 @@ pub fn trap(proc: &mut Proc, thread: &mut Thread, nr: u32) {
     {
         thread.resume = None;
     }
+    let site = super::trace::CallSite::capture(proc, thread, pc);
     let mut ctx = Ctx {
         proc,
         thread,
@@ -65,13 +67,8 @@ pub fn trap(proc: &mut Proc, thread: &mut Thread, nr: u32) {
             .iter()
             .map(|v| super::util::fmt_arg(*v))
             .collect();
-        eprintln!(
-            "[{:#x}] {}({}) = {:#x}",
-            ctx.thread.tid,
-            info.name,
-            a.join(", "),
-            r
-        );
+        let text = format!("{}({}) = {:#x}", info.name, a.join(", "), r);
+        super::trace::print(ctx.thread.tid, site.as_ref(), &text);
     }
     kmsg::flush(ctx.proc);
     match r {

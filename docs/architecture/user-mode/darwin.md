@@ -85,6 +85,15 @@ polled together, each once for every readiness asked of it (the host
 answers a descriptor listed twice in only one entry), and each waiter is
 woken for the direction it waits for.
 
+With `--strace` every kernel entry is logged as `[tid] name(args) =
+result`. `--strace-pc` and `--strace-stack` add the caller's PC and a
+frame-pointer backtrace taken on entry (`syscall::trace`); the first return
+address is the leaf stub's (the word at `RSP`, or `LR` with its pointer
+authentication code stripped), kept only when it points into executable
+memory. `--strace-mach-msg` dumps every message at copy-in and copy-out
+(`syscall::mach::dump`); see
+[Observability](../../operations/observability.md#user-mode-process-observability).
+
 ## Mach IPC
 
 | Area | Module | XNU counterpart |

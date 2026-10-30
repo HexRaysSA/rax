@@ -87,6 +87,17 @@ pub struct DarwinConfig {
     pub abi: Option<DarwinAbi>,
     /// Log every system call and trap to standard error.
     pub strace: bool,
+    /// With `strace`: dump each Mach message sent and received (header,
+    /// descriptors, and at most this many bytes of its contents, of each
+    /// out-of-line region, and of its auxiliary data); `None`: no dumps
+    /// ([`syscall::mach::dump`]).
+    pub strace_messages: Option<usize>,
+    /// With `strace`: prefix each traced call with the caller's PC.
+    pub strace_pc: bool,
+    /// With `strace`: follow each traced call with a frame-pointer
+    /// backtrace of at most this many frames; 0: none
+    /// ([`syscall::trace`]).
+    pub strace_stack: usize,
     /// Write every executed guest instruction to this file
     /// ([`crate::user::trace`]).
     pub instruction_trace: Option<PathBuf>,
@@ -150,6 +161,9 @@ impl DarwinConfig {
             cwd: "/".into(),
             abi: None,
             strace: false,
+            strace_messages: None,
+            strace_pc: false,
+            strace_stack: 0,
             instruction_trace: None,
             seed: None,
             stack_limit: None,

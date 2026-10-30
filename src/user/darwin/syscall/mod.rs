@@ -14,6 +14,7 @@ pub mod bsd;
 pub mod mach;
 pub mod mdep;
 pub mod mem;
+pub mod trace;
 pub mod util;
 
 mod continuation;
@@ -84,7 +85,8 @@ fn unix(proc: &mut Proc, thread: &mut Thread, code: u32) {
             // nosys: SIGSYS to the thread (default action: terminate with
             // a core dump), and ENOSYS should it return.
             if proc.config.strace {
-                eprintln!("[{:#x}] nosys({nr})", thread.tid);
+                let site = trace::CallSite::capture(proc, thread, pc);
+                trace::print(thread.tid, site.as_ref(), &format!("nosys({nr})"));
             }
             let (tid, origin) = (thread.tid, super::signal::Origin::own(proc));
             super::signal::psignal_thread(proc, Some(thread), tid, super::signal::SIGSYS, origin);

@@ -17,6 +17,8 @@
 //!   sources.
 //! - `layouts`: the signal-frame and thread-state layouts the personality
 //!   writes equal the SDK's (a probe compiled with the SDK's `clang`).
+//! - `strace`: `--strace` dumps the Mach messages a fixture sends and
+//!   receives, and the PC and backtrace of each call.
 //!
 //! Run with:
 //!
@@ -32,4 +34,5 @@ mod pipe_drain;
 mod programs;
 mod ptrace_exception_fixtures;
 mod ptrace_registry;
+mod strace;
 mod support;

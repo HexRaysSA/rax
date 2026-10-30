@@ -124,6 +124,34 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
         /// Log every system call to standard error.
         #[arg(long)]
         pub strace: bool,
+        /// Darwin guests: dump each Mach message sent and received (its
+        /// header, its descriptors, and at most LIMIT bytes, default 4K,
+        /// of its contents, of each out-of-line region, and of its
+        /// auxiliary data). Implies --strace.
+        #[arg(
+            long,
+            value_name = "LIMIT",
+            num_args = 0..=1,
+            require_equals = true,
+            default_missing_value = "4K",
+            value_parser = parse_size
+        )]
+        pub strace_mach_msg: Option<u64>,
+        /// Darwin guests: show the caller's PC (`rip=` on x86-64, `pc=` on
+        /// arm64) on each traced call. Implies --strace.
+        #[arg(long)]
+        pub strace_pc: bool,
+        /// Darwin guests: follow each traced call with a frame-pointer
+        /// backtrace of its caller, at most DEPTH frames (default 16).
+        /// Implies --strace.
+        #[arg(
+            long,
+            value_name = "DEPTH",
+            num_args = 0..=1,
+            require_equals = true,
+            default_missing_value = "16"
+        )]
+        pub strace_stack: Option<usize>,
         /// Write a binary instruction and memory-access trace to FILE
         /// (inspect with `rax-trace-map FILE`).
         #[arg(long, value_name = "FILE")]
@@ -525,7 +553,15 @@ mod darwin {
         if let Some(cwd) = &cli.cwd {
             config.cwd = cwd.clone();
         }
-        config.strace = cli.strace;
+        config.strace_messages = cli
+            .strace_mach_msg
+            .map(|limit| usize::try_from(limit).unwrap_or(usize::MAX));
+        config.strace_pc = cli.strace_pc;
+        config.strace_stack = cli.strace_stack.unwrap_or(0);
+        config.strace = cli.strace
+            || config.strace_messages.is_some()
+            || config.strace_pc
+            || config.strace_stack != 0;
         config.instruction_trace = cli.trace.clone();
         config.seed = cli.seed;
         config.stack_limit = cli.stack_size;
@@ -547,6 +583,7 @@ mod darwin {
             }
             config.host_job_control = true;
         }
+        let traced = config.strace;
         let mut process = match DarwinProcess::spawn(config, image) {
             Ok(p) => p,
             Err(e) => {
@@ -561,7 +598,7 @@ mod darwin {
         let quiet = matches!(
             status,
             ExitStatus::Exited(_) | ExitStatus::Signaled { core: false, .. }
-        ) && !cli.strace
+        ) && !traced
             && std::env::var_os("RAX_DARWIN_WARN").is_none();
         if !quiet {
             eprintln!("rax-user: {program}: {status}");

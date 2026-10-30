@@ -92,19 +92,23 @@ impl Ctx<'_> {
     }
 }
 
-/// Logs one BSD call in `strace` style.
-pub fn trace_unix(ctx: &Ctx<'_>, name: &str, args: &[u64], r: &SysResult) {
+/// Logs one BSD call in `strace` style, with where it came from when
+/// `site` says ([`super::trace`]).
+pub fn trace_unix(
+    ctx: &Ctx<'_>,
+    site: Option<&super::trace::CallSite>,
+    name: &str,
+    args: &[u64],
+    r: &SysResult,
+) {
     let args: Vec<String> = args.iter().map(|a| fmt_arg(*a)).collect();
     let res = match r {
         Ok(v) => fmt_arg(v.0),
         Err(e) if *e == Errno::ERESTART && ctx.thread.wait.is_some() => "? (sleeping)".into(),
         Err(e) => format!("-1 {e:?}"),
     };
-    eprintln!(
-        "[{:#x}] {name}({}) = {res}",
-        ctx.thread.tid,
-        args.join(", ")
-    );
+    let text = format!("{name}({}) = {res}", args.join(", "));
+    super::trace::print(ctx.thread.tid, site, &text);
 }
 
 /// Formats an argument: small values in decimal, others in hex.

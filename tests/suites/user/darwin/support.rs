@@ -328,11 +328,7 @@ pub fn emulated_cmd(
     env: &[(&str, &str)],
     cwd: Option<&Path>,
 ) -> Command {
-    // A long oracle campaign can pin a copied engine while other workspace
-    // builds replace Cargo's normal output. Native runs remain unchanged.
-    let runner = std::env::var_os("RAX_USER_DARWIN_RUNNER")
-        .unwrap_or_else(|| env!("CARGO_BIN_EXE_rax-user").into());
-    let mut cmd = Command::new(runner);
+    let mut cmd = Command::new(runner());
     cmd.args(["--arch", arch]).arg(program).args(args);
     for (k, v) in env {
         cmd.env(k, v);
@@ -341,6 +337,14 @@ pub fn emulated_cmd(
         cmd.current_dir(d);
     }
     cmd
+}
+
+/// The `rax-user` to run. A long oracle campaign can pin a copied engine
+/// while other workspace builds replace Cargo's normal output. Native runs
+/// remain unchanged.
+fn runner() -> std::ffi::OsString {
+    std::env::var_os("RAX_USER_DARWIN_RUNNER")
+        .unwrap_or_else(|| env!("CARGO_BIN_EXE_rax-user").into())
 }
 
 /// `cmd` under the QoS clamp `qos` (`taskpolicy -c`), which its process
@@ -402,6 +406,14 @@ pub fn emulated(
     cwd: Option<&Path>,
 ) -> (Run, String) {
     wait(emulated_cmd(program, arch, args, env, cwd), None)
+}
+
+/// Runs `program` without arguments under `rax-user` as `arch`, with the
+/// emulator `options`; returns the run and the emulator's diagnostics.
+pub fn emulated_with(program: &Path, arch: &str, options: &[&str]) -> (Run, String) {
+    let mut cmd = Command::new(runner());
+    cmd.args(["--arch", arch]).args(options).arg(program);
+    wait(cmd, None)
 }
 
 /// Whether `arch` can be compared on this host; reports the reason when not
