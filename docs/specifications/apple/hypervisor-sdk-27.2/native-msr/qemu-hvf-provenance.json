@@ -1,0 +1,7 @@
+{
+  "issuer": "QEMU project",
+  "url": "https://raw.githubusercontent.com/qemu/qemu/master/target/i386/hvf/hvf.c",
+  "retrieved_utc": "2026-10-30T23:28:53.161769+00:00",
+  "sha256": "cd4dfb1ef0d6b711248da97a327d7557013e7fd07080de555ad83d875c8ec1b6",
+  "purpose": "Independent SDK client implementation: native MSR binding and state access only; not a physical Intel validation result; source license notices retained"
+}

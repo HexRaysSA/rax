@@ -6,7 +6,7 @@
 use rax::backend::Backend;
 use rax::backend::hvf::{HvfBackend, HvfVm};
 use rax::vm::memory::GuestMemoryWrapper;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::ffi::c_void;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, ThreadId};
@@ -14,10 +14,16 @@ use std::thread::{self, ThreadId};
 static SERIAL: Mutex<()> = Mutex::new(());
 static SDK: Mutex<Sdk> = Mutex::new(Sdk::new());
 
+#[path = "hvf_intel_owner/native_msr.rs"]
+mod native_msr;
+
 struct Cpu {
     owner: ThreadId,
     registers: BTreeMap<u32, u64>,
     vmcs: BTreeMap<u32, u64>,
+    msrs: BTreeMap<u32, u64>,
+    native_msrs: BTreeSet<u32>,
+    exits: VecDeque<u32>,
 }
 
 struct Sdk {
@@ -30,6 +36,10 @@ struct Sdk {
     fail_capability: bool,
     fail_cpu_destroy: bool,
     clock_history: Vec<u64>,
+    fail_msr_enable: Option<u32>,
+    fail_msr_read: Option<u32>,
+    fail_msr_write: Option<u32>,
+    msr_read_xor: u64,
 }
 
 impl Sdk {
@@ -44,6 +54,10 @@ impl Sdk {
             fail_capability: false,
             fail_cpu_destroy: false,
             clock_history: Vec::new(),
+            fail_msr_enable: None,
+            fail_msr_read: None,
+            fail_msr_write: None,
+            msr_read_xor: 0,
         }
     }
     fn cpu(&mut self, id: u32, operation: &str) -> Result<&mut Cpu, i32> {
@@ -115,6 +129,12 @@ pub unsafe extern "C" fn hv_vcpu_create(output: *mut u32, _: u64) -> i32 {
             owner: thread::current().id(),
             registers: BTreeMap::new(),
             vmcs: BTreeMap::new(),
+            msrs: native_msr::NATIVE
+                .into_iter()
+                .map(|msr| (msr, 0xa5a5_5a5a_1234_5678))
+                .collect(),
+            native_msrs: BTreeSet::new(),
+            exits: VecDeque::new(),
         },
     );
     sdk.trace.push(format!("cpu-create:{id}"));
@@ -233,7 +253,8 @@ pub extern "C" fn hv_vmx_vcpu_write_vmcs(id: u32, field: u32, value: u64) -> i32
 #[unsafe(no_mangle)]
 pub extern "C" fn hv_vcpu_run(id: u32) -> i32 {
     access(id, "run", |cpu| {
-        cpu.vmcs.insert(0x4402, 12);
+        cpu.vmcs
+            .insert(0x4402, u64::from(cpu.exits.pop_front().unwrap_or(12)));
     })
 }
 #[unsafe(no_mangle)]
@@ -493,6 +514,10 @@ fn held_checkpoint_boundary_captures_and_restores_without_recursive_locking() {
         let mut initial = cpu.get_state().unwrap();
         if let rax::vm::vcpu::CpuState::X86_64(state) = &mut initial {
             state.regs.rax = 42;
+            state.sregs.star = 0x0023_0010_0000_0000;
+            state.sregs.lstar = 0xffff_8000_0000_1234;
+            state.sregs.cstar = 0xffff_8000_0000_5678;
+            state.sregs.fmask = 0x0004_7700;
         }
         cpu.set_state(&initial).unwrap();
         let boundary = vm.checkpoint_boundary().unwrap();
@@ -506,6 +531,10 @@ fn held_checkpoint_boundary_captures_and_restores_without_recursive_locking() {
         drop(boundary);
         if let rax::vm::vcpu::CpuState::X86_64(state) = &mut initial {
             state.regs.rax = 99;
+            state.sregs.star = 0;
+            state.sregs.lstar = 0;
+            state.sregs.cstar = 0;
+            state.sregs.fmask = 0;
         }
         cpu.set_state(&initial).unwrap();
         let boundary = vm.checkpoint_boundary().unwrap();
@@ -516,6 +545,10 @@ fn held_checkpoint_boundary_captures_and_restores_without_recursive_locking() {
             panic!("wrong architecture")
         };
         assert_eq!(state.regs.rax, 42);
+        assert_eq!(state.sregs.star, 0x0023_0010_0000_0000);
+        assert_eq!(state.sregs.lstar, 0xffff_8000_0000_1234);
+        assert_eq!(state.sregs.cstar, 0xffff_8000_0000_5678);
+        assert_eq!(state.sregs.fmask, 0x0004_7700);
         drop(boundary);
         drop(cpu);
         drop(vm);

@@ -45,7 +45,7 @@ Architectural sources are the retained December 2024 Intel SDM, Vol.3B
 and Vol.3D Appendix A.3/A.6. Exact installed Apple SDK VMX headers and provenance
 are retained in `docs/specifications/apple/hypervisor-sdk-27.2/`.
 
-## SDK ABI verification
+## Intel owner and VM lifetime
 
 Intel vCPU creation, access and destruction belong to the thread that created
 the SDK handle. The public Intel vCPU now forwards synchronous operations to a
@@ -86,6 +86,35 @@ still omits SIMD/private state; complete native context support remains required
 The exact SDK ownership and XSAVE API contracts are retained in
 `docs/specifications/apple/hypervisor-sdk-27.2/hv.h` with
 `intel-owner-provenance.json`.
+
+## Native syscall and SWAPGS MSRs
+
+Intel CPU creation binds STAR, LSTAR, CSTAR, FMASK, KERNEL_GS_BASE and TSC_AUX
+to SDK-managed native state. Each binding, initial zero write and readback must
+succeed before the CPU is returned. A failed setup destroys the partial CPU on
+its owner thread. This gives native SYSCALL/SYSRET, SWAPGS and RDTSCP the same
+backing used by handled MSR accesses; syscall targets are no longer discarded.
+CSTAR remains a readable/writable register on Intel; this does not enable
+SYSCALL in compatibility mode.
+
+The public STAR/LSTAR/CSTAR/FMASK fields read and write that SDK execution bank,
+including during architectural checkpoint projection. SDK errors propagate;
+failed register import or handled execution fences subsequent CPU entry and
+capture. Kernel-GS and TSC_AUX still require the complete native private record
+to participate in checkpoint restoration; their live SDK backing alone does not
+provide that serialization. Full XSAVE/private/in-flight state remains open.
+
+Run the complete `hvf_intel_owner` target with the Intel cross-running command
+above. Its `native_msr` cases substitute SDK functions and execute the actual
+backend constructor, public projection, MSR exit handlers and held checkpoint
+path. They do not execute hardware SYSCALL, SYSRET, SWAPGS or RDTSCP. Physical
+Intel qualification remains required. SDK ABI checks include all three added
+native-MSR function signatures. Primary SDK/article sources and an independent
+QEMU SDK client are retained under
+`docs/specifications/apple/hypervisor-sdk-27.2/native-msr/`; the Intel SDM
+December 2024 Vol.4 Table 2-2 defines the corresponding architectural MSRs.
+
+## SDK ABI verification
 
 Run the compiler-backed check on macOS with Xcode command-line tools, Python 3,
 and stable Rust available:

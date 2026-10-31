@@ -1,0 +1,8 @@
+{
+  "issuer": "Apple Inc.",
+  "title": "Extending vCPU Capabilities Using Model-Specific Registers",
+  "url": "https://developer.apple.com/documentation/hypervisor/extending-vcpu-capabilities-using-model-specific-registers.md",
+  "retrieved_utc": "2026-10-30T23:27:16.677545+00:00",
+  "sha256": "8928fde32df63f8ab110e3a162da03244c5419a0b1dfa58e100fc3c05281cc82",
+  "source": "Unmodified official Markdown response; SDK signatures retained in parent hv.h"
+}

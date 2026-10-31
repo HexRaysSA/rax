@@ -1,0 +1,150 @@
+{
+  "group": "intel-native-syscall-msr-state-2026-10-31",
+  "status": "locally_validated_with_physical_Intel_gate_open",
+  "parent": "fb24113188a40116b03f8483c70cfec841a98723",
+  "scope": "SDK-backed STAR/LSTAR/CSTAR/FMASK/KERNEL_GS_BASE/TSC_AUX admission and execution; public syscall-register projection and held-boundary restoration",
+  "assumption_register": [
+    {
+      "id": "M1",
+      "assumption": "Advertised SYSCALL/SYSRET and SWAPGS require guest-owned SDK-managed syscall and kernel-GS MSRs",
+      "basis": "Apple SDK hv.h managed/native/read/write MSR APIs; current handlers discard writes",
+      "dependent_result": "Native SDK binding and guest execution backing",
+      "stress_test": "Actual public Intel backend fixture with independent SDK MSR storage, native binding and write/read fault injection",
+      "falsification_probe": "A native MSR is unbound, SDK state differs from guest-access backing, or owner-thread access fails",
+      "status": "Confirmed within actual-backend SDK-substitution fixtures; physical Intel execution remains unknown"
+    },
+    {
+      "id": "M2",
+      "assumption": "Public STAR/LSTAR/CSTAR/FMASK projection must preserve the same backing used during SDK guest execution",
+      "basis": "SystemRegisters fields and current sregs conversion zeros",
+      "dependent_result": "Public syscall-register projection and held checkpoint restoration",
+      "stress_test": "Distinct per-CPU MSR values through set/get state and intercepted RDMSR/WRMSR",
+      "falsification_probe": "Imported or SDK-modified syscall values read back as zeros or another CPU value",
+      "status": "Confirmed within actual-backend SDK-substitution fixtures; physical Intel execution remains unknown"
+    },
+    {
+      "id": "M3",
+      "assumption": "Native MSR admission failure must fail CPU creation rather than advertise silently missing syscall state",
+      "basis": "SDK error contract and existing constructor teardown",
+      "dependent_result": "Mandatory constructor admission and owner teardown",
+      "stress_test": "Fail each binding index and verify creator-thread destruction, VM reusability and identity reuse",
+      "falsification_probe": "An initialization failure returns a usable CPU, leaks the logical slot, or leaves the VM fenced",
+      "status": "Confirmed within actual-backend SDK-substitution fixtures; physical Intel execution remains unknown"
+    }
+  ],
+  "change_surface": {
+    "backend": "Intel SDK bindings, constructor, handled MSR accesses and architectural conversion",
+    "CPU_state": "Existing public syscall fields now use the native execution bank; no wire layout change",
+    "unaffected": [
+      "ISA decode and software execute",
+      "SMIR, optimizer, JIT and C API software engines",
+      "Arm64 backend",
+      "common VMM scheduling and device routing",
+      "native private context format, not introduced here"
+    ]
+  },
+  "implementation": {
+    "source": [
+      "src/backend/hvf/native_msr.rs",
+      "src/backend/hvf/mod.rs",
+      "src/backend/hvf/convert.rs",
+      "src/backend/hvf/bindings.rs"
+    ],
+    "native_MSRS": [
+      "STAR",
+      "LSTAR",
+      "CSTAR",
+      "FMASK",
+      "KERNEL_GS_BASE",
+      "TSC_AUX"
+    ],
+    "initialization": "Each native binding, zero write and zero readback required before returning CPU; failures destroy the partial owner and release its logical slot",
+    "execution": "SDK-managed backing participates in native entry/exit; handled RDMSR/WRMSR use the same backing and preserve EDX:EAX/ECX truncation",
+    "publication": "Public STAR/LSTAR/CSTAR/FMASK writes propagate SDK errors through the existing import fence; handled execution errors fence entry/capture before instruction retirement",
+    "host_debugger": "No change to current-session ownership or host stepping mode; raw imports retain existing semantics",
+    "complexity": "Six fixed MSRs and four public fields: O(1) time and auxiliary storage per operation"
+  },
+  "baseline": {
+    "build": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/baseline-build-v2.json",
+    "failures": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/syscall_and_swapgs_registers_are_bound_to_each_native_owner-red.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/syscall_public_projection_round_trips_independent_cpu_values-red.json"
+    ],
+    "observed": "Separate fresh processes observed empty native binding sets for both CPUs, and zero public syscall fields after nonzero import",
+    "iteration_failure": "Initial baseline fixture compilation failed E0308: u32 exit reason inserted into u64 VMCS map. No runtime evidence from that attempt; explicit widening fixed the fixture before observed red runs."
+  },
+  "validation": {
+    "checks": {
+      "fmt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/fmt-final.json",
+      "intel-public": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/intel-public-final.json",
+      "backend-integrations": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/backend-integrations-final.json",
+      "check-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/check-all-targets-final.json",
+      "build-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/build-all-targets-final.json",
+      "clippy-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/clippy-all-targets-final.json",
+      "intel-debug-check": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/intel-debug-check-final.json",
+      "intel-no-debug-check": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/intel-no-debug-check-final.json",
+      "doctests": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/doctests-final.json"
+    },
+    "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/final-source.json",
+    "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/final-environment.json",
+    "driver": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/validate-final.py",
+    "host_backend_CI_cases": 176,
+    "Intel_SDK_substitution_cases": 17,
+    "portable_owner_cases_repeated_in_Intel_invocation": 10,
+    "SDK_ABI": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/sdk-abi.json",
+    "SDK_ABI_retention": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/sdk-abi-retention.json",
+    "host_sleep_evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/host-sleep-evidence.json",
+    "linkage": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/final-linkage.json",
+    "physical_Intel_execution": false,
+    "root_library_runtime_executed": false,
+    "C_API_runtime_executed": false,
+    "doctest_cases_executed": 0,
+    "doctest_cases_ignored": 5,
+    "scope": "Actual Intel Backend/Vm/VCpu and SDK bridge executed through Rosetta with SDK symbols supplied by test executable. No native VM or guest instruction executed. Complete affected binary unfiltered; final extra case checks success-with-wrong-readback and initial dirty SDK values.",
+    "broader": "Workspace all-target check/build/clippy with C API JIT feature; full Intel debug and no-debug library compilation"
+  },
+  "provenance": {
+    "Apple_SDK": "docs/specifications/apple/hypervisor-sdk-27.2/hv.h",
+    "Apple_article": "docs/specifications/apple/hypervisor-sdk-27.2/native-msr/provenance.json",
+    "independent_QEMU_client": "docs/specifications/apple/hypervisor-sdk-27.2/native-msr/qemu-hvf-provenance.json",
+    "Intel_architecture": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf; December 2024, Vol.4 Table 2-2 and Vol.2 SYSCALL/SWAPGS/RDMSR/WRMSR"
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Complete native XSAVE/private/in-flight records and coordinated restoration remain required. KERNEL_GS_BASE and TSC_AUX now have live SDK backing but are still absent from the legacy public checkpoint projection.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Physical Intel native SYSCALL/SYSRET/SWAPGS/RDTSCP, unsupported-host admission, SDK fault recovery and guest exception behavior have not executed locally.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Other MSR/intercept, MMIO, IRQ/device conservation, native bounded scheduling and A32 FP requirements remain open. This group does not change their profiles.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "Public import remains fallible and may partially write before its failure fence. Full coordinated native rollback is a remaining C-STATE requirement.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "low",
+      "finding": "Existing checkout and canonical build/scratch roots reused; guarded post-commit cleanup removes generated build roots.",
+      "blocks_full_goal": false
+    }
+  ],
+  "quality_gates": {
+    "scope": "Component evidence only; full four-finding goal remains incomplete",
+    "assumptions": "M1-M3 carry dependent probes and evidence boundaries",
+    "coverage": "Managed backing, constructor stages, public projection, handled execution, SDK errors, independent CPUs and held-boundary syscall restoration covered",
+    "reproducibility": "Exact environments, commands, source hashes and red/green results retained; no skipped cases counted as executed",
+    "edges": "CSTAR is R/W but Intel compatibility SYSCALL is not enabled; private KERNEL_GS_BASE/TSC_AUX capture remains explicitly open",
+    "provenance": "Primary SDK signatures ABI-checked; unmodified official article and independent SDK client retained with hashes",
+    "bounded_scope": "High/medium/low limits recorded",
+    "integrity": "Exact owned paths staged and committed by authorized red workflow; unrelated primary checkout and protected guests preserved"
+  },
+  "full_goal": "A32-FP/C-STATE/C-SMP/C-HVF remain incomplete; no full finding status promotion"
+}

@@ -487,6 +487,15 @@ unsafe extern "C" {
     /// Write vCPU register.
     pub fn hv_vcpu_write_register(vcpu: hv_vcpuid_t, reg: u32, value: u64) -> hv_return_t;
 
+    /// Bind a guest MSR to SDK-managed native entry/exit state.
+    pub fn hv_vcpu_enable_native_msr(vcpu: hv_vcpuid_t, msr: u32, enable: bool) -> hv_return_t;
+
+    /// Read an SDK-managed guest MSR.
+    pub fn hv_vcpu_read_msr(vcpu: hv_vcpuid_t, msr: u32, value: *mut u64) -> hv_return_t;
+
+    /// Write an SDK-managed guest MSR.
+    pub fn hv_vcpu_write_msr(vcpu: hv_vcpuid_t, msr: u32, value: u64) -> hv_return_t;
+
     /// Read vCPU floating point state.
     pub fn hv_vcpu_read_fpstate(vcpu: hv_vcpuid_t, buffer: *mut c_void, size: usize)
     -> hv_return_t;

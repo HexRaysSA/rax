@@ -301,10 +301,10 @@ pub fn sregs_from_hvf(vcpu: hv_vcpuid_t) -> Result<SystemRegisters> {
         cr4,
         cr8: (read_register(vcpu, HV_X86_TPR)? >> 4) & 0x0f,
         efer,
-        star: 0,  // These MSRs require MSR load/store areas
-        lstar: 0, // which we'll handle separately
-        cstar: 0,
-        fmask: 0,
+        star: super::native_msr::read(vcpu, super::native_msr::STAR)?,
+        lstar: super::native_msr::read(vcpu, super::native_msr::LSTAR)?,
+        cstar: super::native_msr::read(vcpu, super::native_msr::CSTAR)?,
+        fmask: super::native_msr::read(vcpu, super::native_msr::FMASK)?,
         sysenter_cs,
         sysenter_esp,
         sysenter_eip,
@@ -430,6 +430,12 @@ pub fn sregs_to_hvf(vcpu: hv_vcpuid_t, sregs: &SystemRegisters) -> Result<()> {
     write_register(vcpu, HV_X86_DR3, sregs.dr3)?;
     write_register(vcpu, HV_X86_DR6, sregs.dr6)?;
     vmcs_write(vcpu, VMCS_GUEST_DR7, sregs.dr7)?;
+
+    // The SDK execution bank is also the public syscall-register backing.
+    super::native_msr::write(vcpu, super::native_msr::STAR, sregs.star)?;
+    super::native_msr::write(vcpu, super::native_msr::LSTAR, sregs.lstar)?;
+    super::native_msr::write(vcpu, super::native_msr::CSTAR, sregs.cstar)?;
+    super::native_msr::write(vcpu, super::native_msr::FMASK, sregs.fmask)?;
 
     // SYSENTER MSRs
     vmcs_write(vcpu, VMCS_GUEST_IA32_SYSENTER_CS, sregs.sysenter_cs)?;

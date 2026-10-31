@@ -42,6 +42,8 @@ mod mmio;
 #[cfg(target_arch = "x86_64")]
 mod native_memory;
 #[cfg(target_arch = "x86_64")]
+mod native_msr;
+#[cfg(target_arch = "x86_64")]
 use intel_vm::Lifetime;
 #[cfg(target_arch = "x86_64")]
 pub use intel_worker::HvfVcpu;
@@ -308,6 +310,7 @@ impl HvfCore {
         vcpu.native_step
             .configure(&mut native_step_host::Host(vcpu_id), false)
             .map_err(Error::Emulator)?;
+        native_msr::initialize(vcpu_id)?;
 
         Ok(vcpu)
     }
@@ -488,10 +491,12 @@ impl HvfCore {
                 // IA32_EFER - read from VMCS
                 vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_IA32_EFER)?
             }
-            0xC0000081 => 0, // IA32_STAR
-            0xC0000082 => 0, // IA32_LSTAR
-            0xC0000083 => 0, // IA32_CSTAR
-            0xC0000084 => 0, // IA32_FMASK
+            native_msr::STAR
+            | native_msr::LSTAR
+            | native_msr::CSTAR
+            | native_msr::FMASK
+            | native_msr::KERNEL_GS_BASE
+            | native_msr::TSC_AUX => native_msr::read(self.vcpu_id, ecx)?,
             0xC0000100 => {
                 // IA32_FS_BASE - read from VMCS
                 vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_FS_BASE)?
@@ -500,7 +505,6 @@ impl HvfCore {
                 // IA32_GS_BASE - read from VMCS
                 vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_GS_BASE)?
             }
-            0xC0000102 => 0, // IA32_KERNEL_GS_BASE
             0x174 => {
                 // IA32_SYSENTER_CS
                 vmcs_read(
@@ -562,22 +566,12 @@ impl HvfCore {
                     value,
                 )?;
             }
-            0xC0000081 => {
-                // IA32_STAR - store somewhere or handle syscall
-                debug!(value = format!("{:#x}", value), "WRMSR IA32_STAR");
-            }
-            0xC0000082 => {
-                // IA32_LSTAR
-                debug!(value = format!("{:#x}", value), "WRMSR IA32_LSTAR");
-            }
-            0xC0000083 => {
-                // IA32_CSTAR
-                debug!(value = format!("{:#x}", value), "WRMSR IA32_CSTAR");
-            }
-            0xC0000084 => {
-                // IA32_FMASK
-                debug!(value = format!("{:#x}", value), "WRMSR IA32_FMASK");
-            }
+            native_msr::STAR
+            | native_msr::LSTAR
+            | native_msr::CSTAR
+            | native_msr::FMASK
+            | native_msr::KERNEL_GS_BASE
+            | native_msr::TSC_AUX => native_msr::write(self.vcpu_id, ecx, value)?,
             0xC0000100 => {
                 // IA32_FS_BASE
                 vmcs_write(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_FS_BASE, value)?;
@@ -585,10 +579,6 @@ impl HvfCore {
             0xC0000101 => {
                 // IA32_GS_BASE
                 vmcs_write(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_GS_BASE, value)?;
-            }
-            0xC0000102 => {
-                // IA32_KERNEL_GS_BASE
-                debug!(value = format!("{:#x}", value), "WRMSR IA32_KERNEL_GS_BASE");
             }
             0x174 => {
                 // IA32_SYSENTER_CS
