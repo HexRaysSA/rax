@@ -408,3 +408,7 @@ mod tests {
         dev.write(0x1234, 0x99);
     }
 }
+
+#[path = "sysctl/checkpoint.rs"]
+mod checkpoint;
+pub(crate) use checkpoint::{PreparedSystemControlCheckpoint, SystemControlCheckpoint};

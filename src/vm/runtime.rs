@@ -257,6 +257,7 @@ pub struct Vmm {
     timing_context: Arc<crate::vm::timing::TimingContext>,
     /// Typed ownership of the x86 bridge and every optional endpoint.
     pci_devices: Option<PciDevices>,
+    pc_devices: Option<crate::machine::pc::PcDevices>,
     vm: Box<dyn Vm>,
     backend_kind: BackendKind,
     guest_mem: GuestMemoryWrapper,
@@ -352,6 +353,15 @@ impl Vmm {
         bundle: &crate::vm::snapshot::SnapshotBundle,
     ) -> Result<Self> {
         config.validate_resume_bundle(bundle)?;
+        if config.arch == ArchKind::X86_64
+            && bundle.execution().is_some_and(|state| state.pc.is_none())
+        {
+            return Err(Error::InvalidConfig(
+                "checkpoint PC component is missing; complete restore requires its device image"
+                    .into(),
+            ));
+        }
+
         if config.storage.has_images() {
             info!(
                 "using captured media; writable disk changes are retained in memory and subsequent checkpoints"
@@ -434,7 +444,7 @@ impl Vmm {
         // Setup I/O devices
         let mut io_bus = IoBus::new();
         let mut mmio_bus = MmioBus::new();
-        machine.setup_devices(&mut io_bus, &mut mmio_bus)?;
+        let pc_devices = machine.setup_owned_devices(&mut io_bus, &mut mmio_bus)?;
 
         // PCI host bridge (x86). Owned here so it can be shared with the
         // emulator MMU for BAR-mapped MMIO routing. The bridge (config ports
@@ -565,7 +575,7 @@ impl Vmm {
         let boot_info = if resume {
             null_boot_info(config.arch)
         } else {
-            machine.load_kernel(guest_mem.memory(), &config)?
+            machine.load_kernel_with_devices(guest_mem.memory(), &config, pc_devices.as_ref())?
         };
 
         // Initialize VM (backend-specific). Skipped on resume: the emulator
@@ -679,6 +689,7 @@ impl Vmm {
         Ok(Vmm {
             timing_context,
             pci_devices,
+            pc_devices,
             vm,
             backend_kind: config.backend,
             guest_mem,
@@ -997,3 +1008,6 @@ impl Drop for Vmm {
 
 #[cfg(test)]
 mod lapic_clock_tests;
+
+#[cfg(test)]
+mod pc_owned_capture_tests;

@@ -85,6 +85,7 @@ fn complete(count: u8) -> SnapshotBundle {
             })
             .collect(),
         arm_cluster: None,
+        pc: None,
         pl011: None,
     };
     let mut clock = crate::vm::timing::TimingContext::default().checkpoint_state();

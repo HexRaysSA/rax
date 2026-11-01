@@ -889,3 +889,7 @@ mod tests {
         assert_eq!(century, 0x20, "century should be 20 (BCD) for 20xx");
     }
 }
+
+#[path = "rtc/checkpoint.rs"]
+mod checkpoint;
+pub(crate) use checkpoint::{PreparedRtcCheckpoint, RtcCheckpoint};

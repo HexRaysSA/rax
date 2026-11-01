@@ -118,7 +118,7 @@ const SCSI_READ_DISC_INFO: u8 = 0x51;
 
 /// What the PIO buffer is being used for, which determines the transfer
 /// direction and what to do once the buffer is drained/filled.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum Transfer {
     /// No transfer in progress.
     None,
@@ -132,6 +132,7 @@ enum Transfer {
 ///
 /// The disk image length divided by [`SECTOR_SIZE`] is the reported LBA
 /// capacity (a partial trailing sector is ignored for addressing purposes).
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct IdeController {
     /// Command-block base port (0x1F0 primary, 0x170 secondary).
     cmd_base: u16,
@@ -139,6 +140,7 @@ pub struct IdeController {
     ctrl_base: u16,
 
     // ---- Backing disk (master / device 0 only) ----
+    #[serde(skip)]
     disk: Vec<u8>,
 
     // ---- Task-file registers ----
@@ -160,6 +162,7 @@ pub struct IdeController {
 
     // ---- PIO transfer state ----
     /// Sector buffer; sized to a single sector and refilled as needed.
+    #[serde(skip)]
     buffer: Vec<u8>,
     /// Read/write cursor (in bytes) into `buffer`.
     buf_pos: usize,
@@ -186,6 +189,7 @@ pub struct IdeController {
     /// When `Some`, the master device is an ATAPI CD-ROM whose medium is this
     /// ISO image (read-only, 2048-byte logical blocks). When `None`, the master
     /// is an ATA disk backed by `disk` (existing behavior).
+    #[serde(skip)]
     cdrom: Option<Arc<Vec<u8>>>,
     /// True while a PACKET command is waiting for the 12-byte command packet to
     /// be written by the host (PIO-out into `packet`).
@@ -194,6 +198,7 @@ pub struct IdeController {
     packet: [u8; 12],
     /// Full PIO-in result of the current small ATAPI command; transferred to
     /// the host in DRQ blocks bounded by the byte-count limit.
+    #[serde(skip)]
     atapi_data: Vec<u8>,
     /// Read cursor into `atapi_data`.
     atapi_pos: usize,
@@ -1708,3 +1713,6 @@ mod tests {
         assert_eq!(w0, 0x0040, "secondary data port serves IDENTIFY");
     }
 }
+
+// Private PC checkpoint wire layout; changing fields requires a new PC image tag.
+mod checkpoint;

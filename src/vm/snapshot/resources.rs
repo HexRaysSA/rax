@@ -1,4 +1,4 @@
-//! Deduplicated immutable resources referenced by backend checkpoint contexts.
+//! Deduplicated immutable bytes referenced by CPU and machine checkpoint images.
 use super::stream::{FallibleBytes, compressed_limit};
 use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
@@ -8,6 +8,7 @@ use std::io::{Cursor, Read, Write};
 use std::sync::{Arc, OnceLock};
 
 pub const BOOT_CDROM_RESOURCE: u32 = 1;
+pub(crate) const PC_DEVICE_BYTES_RESOURCE: u32 = 2;
 const TAG: &[u8; 8] = b"RAXRES01";
 const MAX_RESOURCES: usize = 1024;
 // Version1 bounds decoder history to8MiB independently of full media size.
@@ -50,8 +51,10 @@ impl ResourceKey {
     pub fn sha256(self) -> [u8; 32] {
         self.digest
     }
-    fn validate(self) -> Result<()> {
-        if self.kind != BOOT_CDROM_RESOURCE || self.size > MAX_TOTAL {
+    pub(crate) fn validate(self) -> Result<()> {
+        if ![BOOT_CDROM_RESOURCE, PC_DEVICE_BYTES_RESOURCE].contains(&self.kind)
+            || self.size > MAX_TOTAL
+        {
             return Err(invalid("unknown resource kind or excessive size"));
         }
         Ok(())
@@ -66,11 +69,18 @@ pub struct CheckpointResource {
 }
 impl CheckpointResource {
     pub fn boot_cdrom(bytes: Arc<Vec<u8>>) -> Result<Self> {
+        Self::from_bytes(BOOT_CDROM_RESOURCE, bytes)
+    }
+    /// Immutable checkpoint bytes copied into a mutable device owner on restore.
+    pub(crate) fn pc_device_bytes(bytes: Vec<u8>) -> Result<Self> {
+        Self::from_bytes(PC_DEVICE_BYTES_RESOURCE, Arc::new(bytes))
+    }
+    fn from_bytes(kind: u32, bytes: Arc<Vec<u8>>) -> Result<Self> {
         if bytes.len() as u64 > MAX_TOTAL {
             return Err(invalid("resource exceeds size limit"));
         }
         let key = ResourceKey {
-            kind: BOOT_CDROM_RESOURCE,
+            kind,
             size: bytes.len() as u64,
             digest: Sha256::digest(bytes.as_slice()).into(),
         };
@@ -88,7 +98,7 @@ struct Record {
     data: Vec<u8>,
 }
 
-/// Fully verified resources, shared by every restored CPU that references them.
+/// Verified bytes shared by immutable bindings and copied into mutable owners.
 #[derive(Default)]
 pub struct PreparedResources {
     entries: BTreeMap<ResourceKey, Arc<Vec<u8>>>,

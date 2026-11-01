@@ -36,7 +36,8 @@ impl Vmm {
     }
 
     /// Restore represented public/base-private CPU contexts, four legacy models,
-    /// physical backing (or reported projection), PCI/media and explicit timing
+    /// physical backing (or reported projection), the PC inventory when present,
+    /// PCI/media and explicit timing
     /// state when present. Independent writers must be quiescent. Additional
     /// backend-private/platform state and native setter/resource transactions
     /// remain separate.
@@ -108,6 +109,16 @@ impl Vmm {
                 ));
             }
         }
+        let pc_image = bundle.execution().and_then(|state| state.pc.as_ref());
+        match (&self.pc_devices, pc_image) {
+            (Some(_), Some(_)) | (None, None) => (),
+            (Some(_), None) if bundle.execution().is_none() => (),
+            _ => {
+                return Err(Error::InvalidConfig(
+                    "checkpoint PC component is missing or target binding differs".into(),
+                ));
+            }
+        }
         let mut states = Vec::new();
         let count = bundle.cpus().map_or(1, |c| c.entries().len());
         if count > self.vcpus.len() {
@@ -147,6 +158,15 @@ impl Vmm {
                 referenced.insert(key);
             }
         }
+        if let Some(image) = pc_image {
+            for key in image.references()? {
+                resources.resolve(key)?;
+                referenced.insert(key);
+            }
+        }
+        let pc_restore = pc_image
+            .map(|image| image.prepare(&resources))
+            .transpose()?;
         if referenced != resources.keys().collect() {
             return Err(Error::InvalidConfig(
                 "checkpoint contains unreferenced resources".into(),
@@ -283,7 +303,7 @@ impl Vmm {
         let devices = snapshot.devices.clone();
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
-        // UART/PCI -> shared platform -> legacy devices -> owned GIC -> RAM.
+        // UART/PCI -> PC inventory -> shared platform -> legacy -> owned GIC -> RAM.
         let mut uart = self
             .pl011
             .as_ref()
@@ -404,6 +424,11 @@ impl Vmm {
         let commit = || match arm_restore {
             Some((cluster, state)) => cluster.restore_with(state, commit),
             None => commit(),
+        };
+        let commit = || match (&self.pc_devices, pc_restore) {
+            (Some(devices), Some(state)) => devices.restore_with(state, commit),
+            (_, None) => commit(),
+            _ => unreachable!("PC target admitted before commit"),
         };
         let result = match (&self.pci_devices, pci) {
             (Some(devices), Some(pci)) => devices.restore_checkpoint_with(pci, commit),

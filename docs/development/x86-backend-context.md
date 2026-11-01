@@ -73,7 +73,9 @@ has no padding:
 | Each table row: kind, logical byte length, SHA-256, compressed byte length | 4 + 8 + 32 + 8 |
 | Resource frames in table order | Explicit lengths |
 
-Kind 1 identifies a complete boot CD medium. A present empty medium differs
+Kind 1 identifies a complete boot CD medium. Kind 2 carries immutable PC
+checkpoint byte images copied into mutable device owners before publication
+(see [PC device checkpoints](pc-machine-checkpoint/README.md)). A present empty medium differs
 from an absent binding. Keys are strictly ordered and unique. The format admits
 at most 1024 resources and 68,719,476,736 logical bytes in aggregate. Each medium
 uses exactly one regular Zstandard frame with at most 8,388,608 bytes of decoder
@@ -89,7 +91,9 @@ reading compressed payloads. Full physical backing retains its existing
 separate limit accounting for RAM padding.
 
 Restoration verifies that the resource dictionary equals the union of all CPU
-references. Missing and unreferenced media reject before changing live CPUs,
+and PC device references. A machine-only dictionary can use its public CPU and
+PC ownership records without an opaque CPU context section; native producers
+still require their complete private graph. Missing and unreferenced media reject before changing live CPUs,
 RAM or devices. Verified media are shared through `Arc` across restored CPUs.
 Existing immutable bindings can be retained during map reconstruction without
 copying or recompressing them.

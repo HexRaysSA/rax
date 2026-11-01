@@ -56,7 +56,7 @@ use super::bus::IoDevice;
 /// For the 8-bit controller these are byte addresses/counts; for the 16-bit
 /// controller they are word addresses/counts (the hardware shifts them when
 /// driving the physical bus, which is not modeled here).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Channel {
     /// Current address register (decremented during a real transfer).
     pub current_address: u16,
@@ -76,6 +76,7 @@ pub struct Channel {
 }
 
 /// A single 8237A controller (4 channels).
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct Controller {
     channels: [Channel; 4],
     /// Byte-pointer flip-flop: false selects the low byte, true the high byte.
@@ -146,6 +147,7 @@ impl Controller {
 }
 
 /// The legacy DMA controller pair plus the page-register file.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Dma {
     /// Controller 1 (channels 0-3).
     c1: Controller,
@@ -663,3 +665,6 @@ mod tests {
         assert!(d.flip_flop(1));
     }
 }
+
+// Private PC checkpoint wire layout; changing fields requires a new PC image tag.
+mod checkpoint;

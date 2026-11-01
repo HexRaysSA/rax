@@ -48,17 +48,19 @@ pub const FW_CFG_FEATURE_TRADITIONAL: u32 = 0x1;
 const FW_CFG_FILE_NAME_LEN: usize = 56;
 
 /// A single entry in the fw_cfg file directory.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 struct FileEntry {
     /// Selector key the firmware uses to read the file's contents.
     select: u16,
     /// Size of the file in bytes.
     size: u32,
     /// NUL-terminated, NUL-padded file name.
+    #[serde(with = "checkpoint::name_bytes")]
     name: [u8; FW_CFG_FILE_NAME_LEN],
 }
 
 /// QEMU-compatible fw_cfg device.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct FwCfg {
     /// Feature bitmap returned for the ID item.
     id: u32,
@@ -67,8 +69,10 @@ pub struct FwCfg {
     /// Read offset into the currently selected item.
     offset: usize,
     /// Generic key -> raw bytes store (used for both well-known and custom keys).
+    #[serde(deserialize_with = "checkpoint::items")]
     items: BTreeMap<u16, Vec<u8>>,
     /// File directory entries, in insertion order.
+    #[serde(deserialize_with = "checkpoint::files")]
     files: Vec<FileEntry>,
     /// Next selector value to hand out to `add_file`.
     next_file_selector: u16,
@@ -347,3 +351,6 @@ mod tests {
         assert_eq!(IoDevice::read(&mut dev, FW_CFG_PORT_DATA), 0);
     }
 }
+
+// Private PC checkpoint wire layout; changing fields requires a new PC image tag.
+mod checkpoint;

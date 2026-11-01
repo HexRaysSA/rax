@@ -49,11 +49,20 @@ impl SnapshotBundle {
     pub fn resources(&self) -> Option<&super::ResourcesSnapshot> {
         self.resources.as_ref()
     }
-    /// Store complete immutable media once, independently of CPU record limits.
+    /// Resources must bind to represented CPU or machine ownership.
+    fn has_resource_owner(&self) -> bool {
+        self.cpus.is_some()
+            && (self.backend_contexts.is_some()
+                || self
+                    .execution
+                    .as_ref()
+                    .is_some_and(|state| state.pc.is_some()))
+    }
+    /// Store immutable checkpoint bytes independently of CPU record limits.
     pub fn with_resources(mut self, resources: Vec<super::CheckpointResource>) -> Result<Self> {
-        if self.cpus.is_none() || self.backend_contexts.is_none() {
+        if !self.has_resource_owner() {
             return Err(Error::Emulator(
-                "checkpoint resources require CPU and backend context sets".into(),
+                "checkpoint resources require a CPU table and a backend or PC owner".into(),
             ));
         }
         self.resources = Some(super::ResourcesSnapshot::capture(resources)?);
@@ -126,6 +135,20 @@ impl SnapshotBundle {
     pub(crate) fn with_execution(mut self, state: super::ExecutionSnapshot) -> Result<Self> {
         state.validate(&self.base)?;
         self.execution = Some(state);
+        self.validate()?;
+        Ok(self)
+    }
+    /// Admit the machine graph and its resources together. A resource-only PC
+    /// producer need not manufacture an empty opaque CPU context extension.
+    pub(crate) fn with_machine_state(
+        mut self,
+        state: super::ExecutionSnapshot,
+        resources: Vec<super::CheckpointResource>,
+    ) -> Result<Self> {
+        self.execution = Some(state);
+        if !resources.is_empty() {
+            self.resources = Some(super::ResourcesSnapshot::capture(resources)?);
+        }
         self.validate()?;
         Ok(self)
     }
@@ -298,9 +321,9 @@ impl SnapshotBundle {
     pub(crate) fn validate(&self) -> Result<()> {
         self.validate_cpu_graph()?;
         if let Some(resources) = &self.resources {
-            if self.cpus.is_none() || self.backend_contexts.is_none() {
+            if !self.has_resource_owner() {
                 return Err(Error::Emulator(
-                    "checkpoint resources require CPU and backend context sets".into(),
+                    "checkpoint resources require a CPU table and a backend or PC owner".into(),
                 ));
             }
             resources.validate_metadata()?;
@@ -320,6 +343,18 @@ impl SnapshotBundle {
                 ));
             }
             execution.validate(&self.base)?;
+            if let Some(pc) = &execution.pc {
+                let keys: std::collections::BTreeSet<_> = self
+                    .resources
+                    .as_ref()
+                    .map(|r| r.keys().collect())
+                    .unwrap_or_default();
+                if pc.references()?.iter().any(|key| !keys.contains(key)) {
+                    return Err(Error::InvalidConfig(
+                        "PC device references missing checkpoint media".into(),
+                    ));
+                }
+            }
             if self.base.config.arch == crate::config::ArchKind::X86_64 {
                 for (cpu, apic) in self
                     .cpus

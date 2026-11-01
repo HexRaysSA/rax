@@ -23,7 +23,7 @@ impl Fixture {
         Self::with_memory(count, 65536)
     }
 
-    fn with_memory(count: u8, bytes: u64) -> Self {
+    pub(super) fn with_memory(count: u8, bytes: u64) -> Self {
         Self::with_devices(count, bytes, false)
     }
 

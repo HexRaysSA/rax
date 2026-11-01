@@ -186,7 +186,8 @@ impl Default for EmulatorState {
     }
 }
 
-/// Snapshot of all stateful device models. Devices implement `Serialize` /
+/// Stable base projection of PIC, PIT, UART and BSP local-controller models.
+/// The execution extension carries additional PC/ARM models. Devices implement `Serialize` /
 /// `Deserialize` directly; transient host-only fields (e.g. the LAPIC's
 /// wall-clock `Instant`) are `#[serde(skip)]` and re-derived on restore.
 #[derive(Clone, Serialize, Deserialize)]
@@ -556,3 +557,5 @@ mod codec_tests;
 
 #[cfg(test)]
 mod intel_bundle_tests;
+
+pub(crate) use resources::PC_DEVICE_BYTES_RESOURCE;

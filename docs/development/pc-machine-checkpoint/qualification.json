@@ -1,0 +1,267 @@
+{
+  "utc": "2026-11-01T21:10:09.604313+00:00",
+  "scope": "Transport and target ownership of nine modeled PC devices; full owning library targets executed and workspace all targets checked/built within the recorded host profile.",
+  "parent": "e5b9e5a4a81672a3ccae1597f34ba437ecf19eac",
+  "full_goal_complete": false,
+  "original_full_findings": [
+    "A32-FP",
+    "C-STATE",
+    "C-SMP",
+    "C-HVF"
+  ],
+  "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/candidate-paths-final-v6.json",
+  "source_sha256": {
+    "src/devices/rtc.rs": "dcff15f61ace5a91d814e39fd975e410600a75eb8422cb1aeb14e672b9fa26ac",
+    "src/devices/rtc/checkpoint.rs": "70c1b825a50dd9840dbbab683323a790f86ef9ec7f86297b8d4a73114d9f1d50",
+    "src/devices/ioapic.rs": "f73d5f1ec75f8d1c9c52192304aab94cd899852de0d4418b3676ae4fae6b8a1f",
+    "src/devices/ioapic/checkpoint.rs": "c344c61fa66823a3de6b80200e7382f4c6e95d5c2716300bca24414a90404174",
+    "src/devices/sysctl.rs": "3945b1a5923aed5cf7b9549db3229fed4cafc0cc83ffdb1ba4eb3969760a9bc2",
+    "src/devices/sysctl/checkpoint.rs": "c1c1331626baa7c2a1af3659930a51e892eb2fbe30e2cac1c8d9f1f35d099aa0",
+    "src/devices/dma.rs": "fcb202436822f4b8950cefb5afa4056279f7ab37e81ac43df5cb5028ed658963",
+    "src/devices/dma/checkpoint.rs": "d265f8c1374b8ce3a6944ab4e36addcea6cc4743c8d2d40f7e0beaecdab71b0e",
+    "src/devices/i8042.rs": "3d7fbfc239114456c7c1118321eab0a3a76d9b4b95466035a017d79aa343cf51",
+    "src/devices/i8042/checkpoint.rs": "84b7620e90ccaebd1cb25e260141d08f3c5a7ffd9b77dc3e179c3728835f7ca1",
+    "src/devices/ide.rs": "d3f8951fd096af4ae8a1c71702ef9dc6458fa1fd9332f475beaea7dae8b7c575",
+    "src/devices/ide/checkpoint.rs": "edd1a9f8047354299f2e8708512eac17ee60dc7a47d66d14533f4908ed12292f",
+    "src/devices/fdc.rs": "613da14d0eb5a1a933ff8b22caa98bc8b84482ec02bc135d2d7721d49a4df247",
+    "src/devices/fdc/checkpoint.rs": "6637e404b5b067828cbcfcbfe18fe3f137a65cec6ca1004be3240f141b0542d8",
+    "src/devices/fw_cfg.rs": "f0f6357abb50d81e4435ab8039011cd7443425c672135d5b9dfafddaad48d548",
+    "src/devices/fw_cfg/checkpoint.rs": "0bbd78e658580282c7bc019fdc1cf52d741e96e11cd834426df2124580013e60",
+    "src/devices/checkpoint_serde.rs": "b398d6528df1626677866214fb0d1a4495ace56727190375d040109d3d05ae2e",
+    "src/machine/pc/mod.rs": "530805218caec211bc11e3de960a20ea4fd0a4e39327c5d309c4ec19d3eaddf8",
+    "src/machine/pc/devices.rs": "64c13a4d616b723b03a519892aeb65f6e4165902c84ac30dd57c2a4eb75ff080",
+    "src/machine/pc/owned_setup.rs": "e3dbc29f4f1a8a8e894fe2a0f21b280cc38093265270f73ae539384776396706",
+    "src/machine/mod.rs": "512100140a78162285673b2ba8e91097177226f3e9ec9e733f9fe44740f03ba0",
+    "src/vm/runtime.rs": "93c7d93764b2c7f52f72b507a044feb558f6d87a581dd089b6d7d1b79463a961",
+    "src/vm/runtime/checkpoint_capture.rs": "45cb6de52bb864d080f8249011bb08885be7b816bff0ab889a1e6def61f303fd",
+    "src/vm/runtime/checkpoint_restore.rs": "acecbd5b3f024955b4c8624536f380655f3c604f7f1b6d5fabc44a3415cf20fc",
+    "src/vm/runtime/coordinator.rs": "95850c0ff645bddb960cfdd3288cb416ccf7dd41fd153d27ab65a361793618d9",
+    "src/vm/runtime/pc_owned_capture_tests.rs": "347f34e583595f6c1116d4aab9122f8759db9a96c3811f4f323cc99604accfb3",
+    "src/vm/runtime/execution_tests.rs": "9cffa2d82566dd15f3771aa558c59dbd06b07c282dd1a85e93bcad47e7602e4b",
+    "src/vm/snapshot/execution.rs": "c0b4bc0c5d4cb3dda80860f447a8eefcbd2c57bc097f112d916ba1705b074703",
+    "src/vm/snapshot/bundle.rs": "370779b76277e7a008640929ac38ffd05fc4dc062b7f134c1e7ca57f15465a2b",
+    "src/devices/mod.rs": "1c4945e1c249660bb470f75f8a5964115be9c76f3230edacb3a693adda96b6d2",
+    "src/vm/snapshot/native_bundle_tests.rs": "f37470f6634874d05a020dd5957cb0ebc795352f1b7484fe1c158f07d07a45c5",
+    "src/vm/snapshot/intel_bundle_tests.rs": "4a50467e6067874cd99fca4f451e4c25abbec3934f608bc2c3b06ebcb0f06cea",
+    "src/vm/snapshot.rs": "3d16b3c9f270ad11f78a4e4a6cd7f4fb6c43b4701cb2b6183feda56fcbc0673e",
+    "src/vm/snapshot/resources.rs": "d1d9ecf2f299bf7ed055d463d938364df8e9d2413c9faf830725808226cd4876",
+    "src/machine/pc/devices/tests.rs": "ae859aab99663f136308d3cb21708c88c04a322927aa2ec4adc23037fe42c274",
+    "src/vm/snapshot/resources/tests.rs": "2814f03dd6750b07b0ccf75a1200c903fe58a990d680e0d918f3532f50c9806b",
+    "src/vm/runtime/x86_context_tests.rs": "3181ba312aa71d5b1a024a795e4beb0a0ff1f173c46610253c17fd2b2a644edb",
+    "src/vm/snapshot/codec.rs": "078c5645dc9d242328b132ec3e641182c9818e4421b220db6549a63b997d1275"
+  },
+  "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/environment.json",
+  "baseline": {
+    "state_regressions": {
+      "passed": 0,
+      "behavioral_failures": 3
+    },
+    "file_fixture_error": "Initial64KiB file fixture failed the128MiB configuration policy, not a checkpoint-state assertion; corrected fixture passed.",
+    "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/baseline-behavior-v1.json",
+    "resource_only_regression": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/slot-baseline-behavior-v5.json"
+  },
+  "tests": {
+    "pc-inventory-focused-v6": {
+      "results": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/pc-inventory-focused-v6.json",
+      "elapsed_seconds": 0.05142058397177607
+    },
+    "device-models-focused-v6": {
+      "results": [
+        {
+          "passed": 586,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/device-models-focused-v6.json",
+      "elapsed_seconds": 0.1633643340319395
+    },
+    "resources-focused-v6": {
+      "results": [
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/resources-focused-v6.json",
+      "elapsed_seconds": 0.15622720803366974
+    },
+    "pc-vmm-focused-v6": {
+      "results": [
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/pc-vmm-focused-v6.json",
+      "elapsed_seconds": 144.130987459037
+    },
+    "owning-root-library-v6": {
+      "results": [
+        {
+          "passed": 11603,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/owning-root-library-v6.json",
+      "elapsed_seconds": 1548.0592151249875
+    },
+    "owning-C_API-library-v6": {
+      "results": [
+        {
+          "passed": 225,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/owning-C_API-library-v6.json",
+      "elapsed_seconds": 3.684345875051804
+    },
+    "native-file-continuation-v6": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/native-file-continuation-v6.json",
+      "elapsed_seconds": 180.28286929201568
+    },
+    "doctests-workspace-v6": {
+      "results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/doctests-workspace-v6.json",
+      "elapsed_seconds": 6.924086000013631
+    },
+    "portable-real-mode-execution-v6": {
+      "results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/portable-real-mode-execution-v6.json",
+      "elapsed_seconds": 0.005580083990935236
+    }
+  },
+  "checks": {
+    "fmt-workspace-v6": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/fmt-workspace-v6.json"
+    },
+    "check-workspace-all-targets-v6": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/check-workspace-all-targets-v6.json"
+    },
+    "build-workspace-all-targets-v6": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/build-workspace-all-targets-v6.json"
+    },
+    "clippy-workspace-all-targets-v6": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/clippy-workspace-all-targets-v6.json"
+    }
+  },
+  "assumption_register": [
+    {
+      "id": "PC-1",
+      "assumption": "Complete PC restoration recovers modeled PC device state.",
+      "basis": "Current machine registration and the three observed unchanged-production regressions.",
+      "dependent_result": "Capture and restore all nine mutable PC models.",
+      "stress_test": "Post-capture CMOS/FW cursor/IOAPIC mutation, fresh-VM actual-file restoration and missing-component rejection.",
+      "falsification_probe": "Retained target/default bytes, missing continuation, or CPU/RAM mutation on rejected import.",
+      "status": "confirmed_with_recorded_model_and_host_scope"
+    },
+    {
+      "id": "PC-2",
+      "assumption": "Aliased windows must retain one logical target device owner.",
+      "basis": "Shared PIO/MMIO adapters and the original fixed PC wiring.",
+      "dependent_result": "Retain typed target Arcs and publish raw fields once.",
+      "stress_test": "Partial DMA/keyboard/floppy commands, Arc identity, poisoned final lock and rejected publication.",
+      "falsification_probe": "Divergent alias state, source live-device handle reuse, or prefix mutation.",
+      "status": "confirmed_with_recorded_model_and_host_scope"
+    },
+    {
+      "id": "PC-3",
+      "assumption": "Device media and transfer cursors must survive without source paths or shared mutable ownership.",
+      "basis": "ATA/ATAPI/FDC modeled buffers, cursors and owned bytes.",
+      "dependent_result": "Resource-backed immutable images, offside mutable copies and per-VM ISO binding.",
+      "stress_test": "Deleted source kernel, partial file-backed ATAPI packet, large PIO buffer, partial ATA/floppy writes, empty/shared CDs and two independent disk owners.",
+      "falsification_probe": "Reopened source path, changed source/second target bytes, lost cursor or wrong ISO binding.",
+      "status": "confirmed_with_recorded_model_and_host_scope"
+    },
+    {
+      "id": "PC-4",
+      "assumption": "Machine-owned resource bytes can exist when a producer provides no opaque CPU payload.",
+      "basis": "The public CPU table and PC image are complete resource owners; all-empty opaque backend extensions are explicitly invalid.",
+      "dependent_result": "Atomic machine/resource builder and ordered resource admission without fabricating private CPU bytes.",
+      "stress_test": "Controlled no-private producer observed failing before repair, actual file save/load, orphaned dictionary and resources-before-owner rejection.",
+      "falsification_probe": "Save/load failure for owned resources, acceptance of orphan/reordered resources, or relaxed native private graph requirements.",
+      "status": "confirmed_for_framing_only_not_backend_completeness"
+    }
+  ],
+  "wire": {
+    "execution_tag": "RAXEXE04",
+    "pc_control_tag": "RAXPCD01",
+    "control_limit_bytes": 62914560,
+    "execution_limit_bytes": 67108864,
+    "resource_tag": "RAXRES01",
+    "PC_bytes_resource_kind": 2,
+    "boot_CD_resource_kind": 1,
+    "resource_owner": "Public CPU table plus preceding private backend or PC ownership record; native private graph requirements unchanged."
+  },
+  "C_CPP": {
+    "programs": 19,
+    "ABI_objects": 7,
+    "engine_optional_features": [],
+    "provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/C-CPP-provenance-v6.json"
+  },
+  "physical_Intel_execution": false,
+  "ignored_native_CPU_profile_module_rerun": false,
+  "known_independent_native_failure": "Prior complete native ARM module retains streaming FPSR reentry failure; this device-only group does not repair it.",
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "All four full audit findings remain incomplete; no blanket backend/IRQ/clock/replay qualification."
+    },
+    {
+      "impact": "high",
+      "item": "Uncontrolled raw memory aliases and host mapping changes still require external coordination."
+    },
+    {
+      "impact": "medium",
+      "item": "RTC continues the existing host-wall-time read policy."
+    },
+    {
+      "impact": "medium",
+      "item": "Historical Machine setup_devices/load_kernel global IDE binding remains outside the VMM owned path."
+    },
+    {
+      "impact": "medium",
+      "item": "Odd-byte/interrupted ATAPI behavior is transported as modeled; complete hardware behavior is not qualified."
+    }
+  ],
+  "host_provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/host-v6.json"
+}

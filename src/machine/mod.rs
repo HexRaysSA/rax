@@ -120,6 +120,26 @@ pub trait Machine: Send + Sync {
     /// Set up machine-specific I/O devices.
     fn setup_devices(&self, io_bus: &mut IoBus, mmio_bus: &mut MmioBus) -> Result<()>;
 
+    /// Additive ownership hook. Non-PC boards keep their existing setup path.
+    fn setup_owned_devices(
+        &self,
+        io_bus: &mut IoBus,
+        mmio_bus: &mut MmioBus,
+    ) -> Result<Option<pc::PcDevices>> {
+        self.setup_devices(io_bus, mmio_bus)?;
+        Ok(None)
+    }
+
+    /// Load with the same machine-local devices returned by setup_owned_devices.
+    fn load_kernel_with_devices(
+        &self,
+        mem: &GuestMemoryMmap,
+        config: &VmConfig,
+        _devices: Option<&pc::PcDevices>,
+    ) -> Result<BootInfo> {
+        self.load_kernel(mem, config)
+    }
+
     /// Optional MMIO base for the serial device.
     fn serial_mmio_base(&self) -> Option<u64> {
         None

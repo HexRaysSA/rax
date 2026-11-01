@@ -397,7 +397,7 @@ fn read_sections<R: Read + Seek>(
     let mut vm_context = None;
     let mut resources: Option<super::ResourcesSnapshot> = None;
     let mut clock = None;
-    let mut execution = None;
+    let mut execution: Option<super::ExecutionSnapshot> = None;
     let mut seen = BTreeSet::new();
     for _ in 0..count {
         let kind = word(reader)?;
@@ -457,9 +457,12 @@ fn read_sections<R: Read + Seek>(
                     "resources must precede PCI/physical/media/RAM payloads",
                 ));
             }
-            if cpus.is_none() || backend_contexts.is_none() {
+            if cpus.is_none()
+                || (backend_contexts.is_none()
+                    && !execution.as_ref().is_some_and(|state| state.pc.is_some()))
+            {
                 return Err(invalid(
-                    "resources require preceding CPU and backend context sets",
+                    "resources require preceding CPU and backend or PC owner records",
                 ));
             }
             if length > remaining(reader, file_size)? {

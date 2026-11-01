@@ -2734,7 +2734,8 @@
         "docs/development/arm-native-store-frontier/qualification.json",
         "docs/development/arm-native-store-frontier/README.md",
         "docs/development/lapic-selected-clock/qualification.json",
-        "docs/development/lapic-selected-clock/README.md"
+        "docs/development/lapic-selected-clock/README.md",
+        "docs/development/pc-machine-checkpoint/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2768,7 +2769,8 @@
         "ARM native host cancellation now uses finite host turns and preserves genuine guest exits, locally qualified with complete signed Apple Silicon debug/no-debug state binaries. Manual 2/4-CPU turns do not close VMM AP startup, IRQ, clocks/replay, complete backend/private checkpoint or Intel requirements. Independent early-PC MMIO defect remains open; see arm-native-host-scheduling/qualification.json.",
         "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open.",
         "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open.",
-        "Selected-clock LAPIC behavior is qualified separately; retired VMM construction, deterministic default/native retirement, RTC and external-event replay remain open. See lapic-selected-clock/qualification.json."
+        "Selected-clock LAPIC behavior is qualified separately; retired VMM construction, deterministic default/native retirement, RTC and external-event replay remain open. See lapic-selected-clock/qualification.json.",
+        "Nine PC-owned modeled devices, media/resources and partial protocol continuations are locally qualified in pc-machine-checkpoint/qualification.json. This does not close native backend/private state, full IRQ routing, RTC/deterministic-clock/replay, external-writer exclusion or physical Intel requirements."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2820,7 +2822,8 @@
         "intel-native-host-scheduling-2026-11-01",
         "intel-interrupt-window-ack-2026-11-01",
         "arm-native-host-scheduling-2026-11-01",
-        "arm-native-mmio-read-frontier-2026-11-01"
+        "arm-native-mmio-read-frontier-2026-11-01",
+        "pc-machine-owned-checkpoint-2026-11-01"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -197879,6 +197882,20 @@
       "parent": "a0d29e9f4ec0b619180b7da43cdcbd45aeb0560e",
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/commit-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/cleanup-final.json",
+      "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+      "full_goal_complete": false
+    },
+    {
+      "id": "pc-machine-owned-checkpoint-2026-11-01",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE"
+      ],
+      "qualification": "docs/development/pc-machine-checkpoint/qualification.json",
+      "scope": "Nine modeled PC devices, retained target alias owners, media and in-flight protocol state, atomic device publication and per-VM VMM ISO binding.",
+      "parent": "e5b9e5a4a81672a3ccae1597f34ba437ecf19eac",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/cleanup-final.json",
       "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
       "full_goal_complete": false
     }

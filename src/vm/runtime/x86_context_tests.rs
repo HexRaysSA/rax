@@ -113,7 +113,15 @@ fn files_continue_pending_inputs_xcr0_counts_and_shared_media_for_one_two_four_c
             .save(&fixture.checkpoint)
             .unwrap();
         let loaded = SnapshotBundle::load(&fixture.checkpoint).unwrap();
-        assert_eq!(loaded.resources().unwrap().keys().count(), 1);
+        assert_eq!(
+            loaded
+                .resources()
+                .unwrap()
+                .keys()
+                .filter(|key| key.kind() == crate::vm::snapshot::BOOT_CDROM_RESOURCE)
+                .count(),
+            1
+        );
         assert_eq!(loaded.backend_contexts().unwrap().entries(), before);
         let config = fixture.config(count);
         std::fs::remove_file(&fixture.kernel).unwrap();

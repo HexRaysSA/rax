@@ -103,7 +103,7 @@ const TOTAL_SECTORS: usize = CYLINDERS as usize * HEADS as usize * SECTORS_PER_T
 const IMAGE_SIZE: usize = TOTAL_SECTORS * SECTOR_SIZE; // 1,474,560 bytes
 
 /// Which phase of the command protocol the controller is currently in.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum Phase {
     /// Idle: waiting for a command byte (RQM=1, DIO=0).
     Command,
@@ -118,12 +118,13 @@ enum Phase {
 }
 
 /// Per-drive seek state.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 struct DriveState {
     cylinder: u8,
 }
 
 /// 82077AA floppy disk controller.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Fdc {
     // --- registers ---
     dor: u8,
@@ -132,13 +133,16 @@ pub struct Fdc {
 
     // --- FIFO / protocol state ---
     phase: Phase,
-    command: u8,     // command byte currently being processed
+    command: u8, // command byte currently being processed
+    #[serde(deserialize_with = "checkpoint::params")]
     params: Vec<u8>, // accumulated parameter bytes
     params_needed: usize,
+    #[serde(deserialize_with = "checkpoint::result")]
     result: Vec<u8>, // result bytes pending read-back (front = next)
     result_pos: usize,
 
     // --- data transfer buffer (execution phase) ---
+    #[serde(deserialize_with = "checkpoint::xfer")]
     xfer: Vec<u8>,
     xfer_pos: usize,
     xfer_lba: usize, // image byte offset the transfer started at (write commit)
@@ -169,6 +173,7 @@ pub struct Fdc {
     last_st0: u8,
 
     // --- media ---
+    #[serde(skip)]
     image: Vec<u8>,
     write_protect: bool,
     disk_changed: bool,
@@ -1208,3 +1213,6 @@ mod tests {
         assert_eq!(r, vec![0x80]);
     }
 }
+
+// Private PC checkpoint wire layout; changing fields requires a new PC image tag.
+mod checkpoint;

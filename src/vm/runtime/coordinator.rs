@@ -62,6 +62,11 @@ impl Vmm {
             retired: self.coordinator.retired,
             online: self.coordinator.online.clone(),
             local_apics,
+            pc: self
+                .pc_devices
+                .as_ref()
+                .map(|devices| devices.checkpoint_with(|pc, _| Ok(pc)))
+                .transpose()?,
             pl011: self
                 .pl011
                 .as_ref()

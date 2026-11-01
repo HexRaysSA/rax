@@ -26,3 +26,5 @@ pub mod sysctl;
 pub mod uhci;
 pub mod vga;
 pub mod virtio;
+
+pub(crate) mod checkpoint_serde;

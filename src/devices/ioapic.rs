@@ -474,3 +474,7 @@ mod tests {
         assert!(!io.has_pending());
     }
 }
+
+#[path = "ioapic/checkpoint.rs"]
+mod checkpoint;
+pub(crate) use checkpoint::{IoApicCheckpoint, PreparedIoApicCheckpoint};

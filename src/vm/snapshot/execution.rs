@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 
 const TAG: &[u8; 8] = b"RAXEXE01";
 const ARM_TAG: &[u8; 8] = b"RAXEXE02";
+const PC_TAG: &[u8; 8] = b"RAXEXE04";
 const UART_TAG: &[u8; 8] = b"RAXEXE03";
 pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
 const MAX_CONTROL: usize = 4096;
@@ -25,6 +26,7 @@ mod tests {
             retired: 53,
             online: vec![true],
             arm_cluster: None,
+            pc: None,
             pl011: None,
             local_apics: vec![LapicCheckpoint {
                 registers: LocalApic::new(0),
@@ -156,6 +158,7 @@ pub struct ExecutionSnapshot {
     pub(crate) retired: u64,
     pub(crate) online: Vec<bool>,
     pub(crate) local_apics: Vec<LapicCheckpoint>,
+    pub(crate) pc: Option<crate::machine::pc::PcCheckpoint>,
     pub(crate) pl011: Option<crate::devices::pl011::Pl011Checkpoint>,
     pub(crate) arm_cluster:
         Option<crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint>,
@@ -182,6 +185,15 @@ impl ExecutionSnapshot {
             || self.cursor >= count
         {
             return Err(invalid("CPU count or cursor disagrees with configuration"));
+        }
+        if let Some(pc) = &self.pc {
+            if base.config.arch != crate::config::ArchKind::X86_64
+                || self.arm_cluster.is_some()
+                || self.pl011.is_some()
+            {
+                return Err(invalid("PC state on another platform"));
+            }
+            pc.validate()?;
         }
         if let Some(uart) = &self.pl011 {
             if base.config.arch != crate::config::ArchKind::Aarch64 {
@@ -214,7 +226,9 @@ impl ExecutionSnapshot {
 
     pub(super) fn encoded(&self) -> Result<Vec<u8>> {
         let mut raw = Vec::new();
-        raw.extend_from_slice(if self.pl011.is_some() {
+        raw.extend_from_slice(if self.pc.is_some() {
+            PC_TAG
+        } else if self.pl011.is_some() {
             UART_TAG
         } else if self.arm_cluster.is_some() {
             ARM_TAG
@@ -275,6 +289,14 @@ impl ExecutionSnapshot {
             raw.extend_from_slice(&(control.len() as u32).to_le_bytes());
             raw.extend_from_slice(&control);
         }
+        if let Some(pc) = &self.pc {
+            let control = pc.encoded()?;
+            if raw.len() as u64 + 4 + control.len() as u64 > MAX_SECTION {
+                return Err(invalid("PC control state exceeds section limit"));
+            }
+            raw.extend_from_slice(&(control.len() as u32).to_le_bytes());
+            raw.extend_from_slice(&control);
+        }
         Ok(raw)
     }
 
@@ -307,7 +329,7 @@ impl ExecutionSnapshot {
         }
         let mut reader = Reader(raw);
         let tag = reader.take(8)?;
-        if tag != TAG && tag != ARM_TAG && tag != UART_TAG {
+        if tag != TAG && tag != ARM_TAG && tag != UART_TAG && tag != PC_TAG {
             return Err(invalid("bad execution section tag"));
         }
         let count = reader.u32()? as usize;
@@ -390,6 +412,17 @@ impl ExecutionSnapshot {
         } else {
             None
         };
+        let pc = if tag == PC_TAG {
+            let length = reader.u32()? as usize;
+            if length == 0 || length as u64 > MAX_SECTION {
+                return Err(invalid("invalid PC control length"));
+            }
+            Some(crate::machine::pc::PcCheckpoint::decode(
+                reader.take(length)?,
+            )?)
+        } else {
+            None
+        };
         if !reader.0.is_empty() {
             return Err(invalid("trailing execution data"));
         }
@@ -400,6 +433,7 @@ impl ExecutionSnapshot {
             local_apics,
             arm_cluster,
             pl011,
+            pc,
         })
     }
 }

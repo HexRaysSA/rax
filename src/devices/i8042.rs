@@ -147,7 +147,7 @@ const MOUSE_PKT_X_OVERFLOW: u8 = 1 << 6;
 const MOUSE_PKT_Y_OVERFLOW: u8 = 1 << 7;
 
 /// Whether the auxiliary device awaits a parameter byte for a mouse command.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum MousePending {
     /// No parameter outstanding.
     None,
@@ -158,6 +158,7 @@ enum MousePending {
 }
 
 /// State of the emulated PS/2 mouse hanging off the auxiliary port.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct MouseState {
     /// True when the device streams movement packets (0xF4 / off via 0xF5).
     reporting: bool,
@@ -224,7 +225,7 @@ const OUTPUT_PORT_RESET_LINE: u8 = 1 << 0;
 const OUTPUT_PORT_A20: u8 = 1 << 1;
 
 /// Pending command that expects a following data byte on the next 0x60 write.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum PendingWrite {
     None,
     /// Next 0x60 write sets the controller command byte (after 0x60 command).
@@ -236,6 +237,7 @@ enum PendingWrite {
 }
 
 /// Intel 8042 PS/2 controller.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct I8042 {
     /// Controller configuration ("command") byte.
     command_byte: u8,
@@ -247,8 +249,10 @@ pub struct I8042 {
     output_port: u8,
 
     /// Keyboard scancode queue feeding the output buffer.
+    #[serde(deserialize_with = "checkpoint::queue")]
     kbd_queue: VecDeque<u8>,
     /// Auxiliary (mouse) byte queue feeding the output buffer.
+    #[serde(deserialize_with = "checkpoint::queue")]
     aux_queue: VecDeque<u8>,
 
     /// Latched byte currently presented on the output buffer (port 0x60 read).
@@ -1258,3 +1262,6 @@ mod tests {
         assert_eq!(kbc.read(STATUS_PORT) & STATUS_OBF, 0);
     }
 }
+
+// Private PC checkpoint wire layout; changing fields requires a new PC image tag.
+mod checkpoint;

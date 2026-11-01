@@ -106,7 +106,7 @@ fn duplicate_unordered_unknown_and_oversized_table_rows_are_rejected() {
     unordered[64..116].copy_from_slice(&first);
     assert!(decode(&unordered).is_err());
     for (offset, bytes) in [
-        (12, 2u32.to_le_bytes().to_vec()),
+        (12, u32::MAX.to_le_bytes().to_vec()),
         (16, u64::MAX.to_le_bytes().to_vec()),
         (56, u64::MAX.to_le_bytes().to_vec()),
     ] {
@@ -178,4 +178,20 @@ fn complete_media_larger_than_cpu_context_limit_roundtrips() {
         .resolve(key)
         .unwrap();
     assert_eq!(*restored, bytes);
+}
+
+#[test]
+fn pc_buffer_resources_round_trip_and_keep_interpretation_distinct_from_boot_media() {
+    let boot = medium(b"same bytes");
+    let bytes = CheckpointResource::pc_device_bytes(b"same bytes".to_vec()).unwrap();
+    assert_ne!(boot.key(), bytes.key());
+    assert_eq!(boot.key().sha256(), bytes.key().sha256());
+    let key = bytes.key();
+    let raw = wire(vec![boot, bytes.clone(), bytes]);
+    let snapshot = decode(&raw).unwrap();
+    assert_eq!(snapshot.keys().count(), 2);
+    assert_eq!(
+        &**snapshot.prepare().unwrap().resolve(key).unwrap(),
+        b"same bytes"
+    );
 }
