@@ -1,10 +1,15 @@
 //! Controller admission and RAM/reservation publication at one checkpoint boundary.
 
+#[cfg(test)]
+#[path = "checkpoint_s3c_tests.rs"]
+mod s3c_tests;
+
 use super::reservations::{FrozenDomain, MemoryDomain, Monitor, Reservation};
+use crate::devices::s3c64xx::S3cUart;
 use crate::error::{Error, Result};
 use crate::isa::arm::aarch64::gic::Gic;
 use crate::isa::arm::aarch64::gic::checkpoint::GicCheckpoint;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use vm_memory::{GuestMemoryError, GuestMemoryMmap};
@@ -12,6 +17,7 @@ use vm_memory::{GuestMemoryError, GuestMemoryMmap};
 pub(crate) struct CheckpointBindings {
     domain: Arc<MemoryDomain>,
     gics: Vec<Arc<Mutex<Gic>>>,
+    s3c_uarts: Vec<Arc<Mutex<S3cUart>>>,
 }
 
 impl CheckpointBindings {
@@ -21,12 +27,26 @@ impl CheckpointBindings {
         Self {
             domain: MemoryDomain::for_memory(memory),
             gics,
+            s3c_uarts: Vec::new(),
         }
     }
 
+    pub(crate) fn with_s3c_uarts(mut self, mut uarts: Vec<Arc<Mutex<S3cUart>>>) -> Self {
+        uarts.sort_by_key(|handle| Arc::as_ptr(handle) as usize);
+        uarts.dedup_by(|a, b| Arc::ptr_eq(a, b));
+        self.s3c_uarts = uarts;
+        self
+    }
+
     /// The caller holds PCI, shared-platform and legacy-device locks already.
-    /// Independent owned GICs are ordered before the RAM domain.
+    /// Owned S3C UARTs precede owned GICs, then the RAM domain.
     pub(crate) fn enter(&self) -> Result<CheckpointPublication<'_>> {
+        let mut s3c_uarts = Vec::with_capacity(self.s3c_uarts.len());
+        for handle in &self.s3c_uarts {
+            s3c_uarts.push(RefCell::new(handle.lock().map_err(|_| {
+                Error::Emulator("checkpoint owned S3C UART lock poisoned".into())
+            })?));
+        }
         let mut gics = Vec::with_capacity(self.gics.len());
         for handle in &self.gics {
             gics.push(RefCell::new(handle.lock().map_err(|_| {
@@ -37,6 +57,13 @@ impl CheckpointBindings {
             bindings: self,
             memory: RefCell::new(self.domain.freeze()),
             gics,
+            s3c_uarts,
+            s3c_uart_images: (0..self.s3c_uarts.len())
+                .map(|_| RefCell::new(None))
+                .collect(),
+            s3c_uart_published: (0..self.s3c_uarts.len())
+                .map(|_| Cell::new(false))
+                .collect(),
         })
     }
 }
@@ -47,10 +74,17 @@ pub struct CheckpointPublication<'bindings> {
     bindings: &'bindings CheckpointBindings,
     memory: RefCell<FrozenDomain<'bindings>>,
     gics: Vec<RefCell<MutexGuard<'bindings, Gic>>>,
+    s3c_uarts: Vec<RefCell<MutexGuard<'bindings, S3cUart>>>,
+    s3c_uart_images: Vec<RefCell<Option<Vec<u8>>>>,
+    s3c_uart_published: Vec<Cell<bool>>,
 }
 
 enum Activation {
     None,
+    S3c {
+        uart: Option<(usize, S3cUart)>,
+        completed: Arc<AtomicBool>,
+    },
     Aarch64 {
         monitor: Monitor,
         reservation: Option<Reservation>,
@@ -85,6 +119,49 @@ impl<'bindings> CheckpointPublication<'bindings> {
 
     pub(crate) fn capture_gic(&self, handle: &Arc<Mutex<Gic>>) -> Result<GicCheckpoint> {
         Ok(self.gics[self.gic_index(handle)?].borrow().checkpoint())
+    }
+
+    fn s3c_uart_index(&self, handle: &Arc<Mutex<S3cUart>>) -> Result<usize> {
+        self.bindings
+            .s3c_uarts
+            .iter()
+            .position(|other| Arc::ptr_eq(handle, other))
+            .ok_or_else(|| Error::InvalidConfig("checkpoint S3C UART binding differs".into()))
+    }
+
+    pub(crate) fn capture_s3c_uart(&self, handle: &Arc<Mutex<S3cUart>>) -> Result<S3cUart> {
+        self.s3c_uarts[self.s3c_uart_index(handle)?]
+            .borrow()
+            .checkpoint_clone()
+    }
+
+    pub(crate) fn prepare_s3c(
+        &self,
+        uart: Option<(Arc<Mutex<S3cUart>>, S3cUart)>,
+        completed: Arc<AtomicBool>,
+    ) -> Result<CpuPublication<'_, 'bindings>> {
+        let uart = uart
+            .map(|(handle, state)| {
+                let index = self.s3c_uart_index(&handle)?;
+                let image = crate::codec::serialize_limited(&state, 16 * 1024 * 1024)
+                    .map_err(|e| Error::InvalidConfig(format!("checkpoint S3C UART image: {e}")))?;
+                let mut expected = self.s3c_uart_images[index].borrow_mut();
+                match &*expected {
+                    Some(other) if *other != image => {
+                        return Err(Error::InvalidConfig(
+                            "checkpoint S3C UART images conflict for shared owner".into(),
+                        ));
+                    }
+                    None => *expected = Some(image),
+                    _ => {}
+                }
+                Ok((index, state))
+            })
+            .transpose()?;
+        Ok(CpuPublication {
+            scope: self,
+            activation: Activation::S3c { uart, completed },
+        })
     }
 
     pub(crate) fn prepare_aarch64(
@@ -135,6 +212,19 @@ impl CpuPublication<'_, '_> {
     pub fn commit(self) {
         match self.activation {
             Activation::None => {}
+            Activation::S3c { uart, completed } => {
+                if completed.load(Ordering::Acquire) {
+                    return;
+                }
+                if let Some((index, state)) = uart {
+                    // Each shared owner publishes once, even when multiple
+                    // CPUs carry the same compatible historical wire image.
+                    if !self.scope.s3c_uart_published[index].replace(true) {
+                        **self.scope.s3c_uarts[index].borrow_mut() = state;
+                    }
+                }
+                completed.store(true, Ordering::Release);
+            }
             Activation::Aarch64 {
                 monitor,
                 reservation,

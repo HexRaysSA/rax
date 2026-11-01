@@ -11,7 +11,7 @@ impl Vmm {
         self.debugger.ready()?;
         let _timing = self.timing_context.enter();
         // Match dispatch: UART/PCI endpoints, PC inventory, shared platform, legacy devices,
-        // independently owned GICs, then physical RAM. No guest callback runs
+        // owned S3C UARTs and GICs, then physical RAM. No guest callback runs
         // while the physical domain is held.
         let uart = self
             .pl011
@@ -31,6 +31,12 @@ impl Vmm {
             self.vcpus
                 .iter()
                 .flat_map(|cpu| cpu.checkpoint_owned_gics())
+                .collect(),
+        )
+        .with_s3c_uarts(
+            self.vcpus
+                .iter()
+                .flat_map(|cpu| cpu.checkpoint_owned_s3c_uarts())
                 .collect(),
         );
         let capture = |pci| {

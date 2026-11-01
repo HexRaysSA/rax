@@ -562,6 +562,13 @@ pub trait VCpu: Send {
         Vec::new()
     }
 
+    /// S3C UART owners excluded across all CPU records and RAM publication.
+    fn checkpoint_owned_s3c_uarts(
+        &self,
+    ) -> Vec<std::sync::Arc<std::sync::Mutex<crate::devices::s3c64xx::S3cUart>>> {
+        Vec::new()
+    }
+
     /// Software ARM power state, checked against the shared PSCI graph.
     fn checkpoint_powered_off(&self) -> Option<bool> {
         None

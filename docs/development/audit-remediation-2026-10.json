@@ -2735,7 +2735,8 @@
         "docs/development/arm-native-store-frontier/README.md",
         "docs/development/lapic-selected-clock/qualification.json",
         "docs/development/lapic-selected-clock/README.md",
-        "docs/development/pc-machine-checkpoint/qualification.json"
+        "docs/development/pc-machine-checkpoint/qualification.json",
+        "docs/development/s3c-uart-publication/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2770,7 +2771,8 @@
         "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open.",
         "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open.",
         "Selected-clock LAPIC behavior is qualified separately; retired VMM construction, deterministic default/native retirement, RTC and external-event replay remain open. See lapic-selected-clock/qualification.json.",
-        "Nine PC-owned modeled devices, media/resources and partial protocol continuations are locally qualified in pc-machine-checkpoint/qualification.json. This does not close native backend/private state, full IRQ routing, RTC/deterministic-clock/replay, external-writer exclusion or physical Intel requirements."
+        "Nine PC-owned modeled devices, media/resources and partial protocol continuations are locally qualified in pc-machine-checkpoint/qualification.json. This does not close native backend/private state, full IRQ routing, RTC/deterministic-clock/replay, external-writer exclusion or physical Intel requirements.",
+        "Complete-private S3C CPU/bridge replacement and shared UART capture/admission/publication are locally qualified in s3c-uart-publication/qualification.json. Historical/missing-private and arbitrary native/setter paths retain narrower nontransactional contracts; complete original backend/in-flight/IRQ/clock/replay and physical Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2823,7 +2825,8 @@
         "intel-interrupt-window-ack-2026-11-01",
         "arm-native-host-scheduling-2026-11-01",
         "arm-native-mmio-read-frontier-2026-11-01",
-        "pc-machine-owned-checkpoint-2026-11-01"
+        "pc-machine-owned-checkpoint-2026-11-01",
+        "s3c-shared-uart-publication-2026-11-01"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -197896,6 +197899,20 @@
       "parent": "e5b9e5a4a81672a3ccae1597f34ba437ecf19eac",
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/commit-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/pc-machine-checkpoint-v1/cleanup-final.json",
+      "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+      "full_goal_complete": false
+    },
+    {
+      "id": "s3c-shared-uart-publication-2026-11-01",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE"
+      ],
+      "qualification": "docs/development/s3c-uart-publication/qualification.json",
+      "scope": "Offside complete-private S3C CPU/bridge replacements, retained shared UART owner, coherent frozen capture, conflict admission and single post-RAM publication.",
+      "parent": "1f919dc2542648afeab2df690530b15fd425ac83",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/cleanup-final.json",
       "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
       "full_goal_complete": false
     }

@@ -316,6 +316,7 @@ pub struct Armv6Vcpu {
     fault_log_budget: u32,
     last_heartbeat: crate::host::time::Instant,
     shutdown: bool,
+    checkpoint_publication: Option<context::PreparedPublication>,
 }
 
 impl Armv6Vcpu {
@@ -370,6 +371,7 @@ impl Armv6Vcpu {
             fault_log_budget: 32,
             last_heartbeat: crate::host::time::Instant::now(),
             shutdown: false,
+            checkpoint_publication: None,
         }
     }
 
@@ -785,6 +787,7 @@ impl VCpu for Armv6Vcpu {
     }
 
     fn step_insn(&mut self) -> Result<Option<VcpuExit>> {
+        self.finish_publication()?;
         if self.shutdown || self.bridge.inner.borrow().poweroff {
             self.shutdown = true;
             return Ok(Some(VcpuExit::Shutdown));
@@ -810,6 +813,40 @@ impl VCpu for Armv6Vcpu {
 
     fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
         Ok(Some(self.capture_context_record()?))
+    }
+
+    fn checkpoint_owned_s3c_uarts(&self) -> Vec<Arc<Mutex<S3cUart>>> {
+        self.uart.get().cloned().into_iter().collect()
+    }
+
+    fn capture_backend_context_in_scope(
+        &self,
+        scope: &crate::vm::memory::checkpoint::CheckpointPublication<'_>,
+    ) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        Ok(Some(self.capture_context_in_scope(Some(scope))?))
+    }
+
+    fn prepare_checkpoint_replacement(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+        _resources: &crate::vm::snapshot::PreparedResources,
+    ) -> Result<Option<Box<dyn VCpu>>> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        context
+            .map(|raw| {
+                self.prepare_context_replacement(state, raw)
+                    .map(|cpu| Box::new(cpu) as Box<dyn VCpu>)
+            })
+            .transpose()
+    }
+
+    fn prepare_checkpoint_publication<'scope, 'bindings>(
+        &mut self,
+        scope: &'scope crate::vm::memory::checkpoint::CheckpointPublication<'bindings>,
+    ) -> Result<crate::vm::memory::checkpoint::CpuPublication<'scope, 'bindings>> {
+        self.publication(scope)
     }
 
     fn validate_checkpoint_context(
@@ -846,6 +883,7 @@ impl VCpu for Armv6Vcpu {
     }
 
     fn run(&mut self) -> Result<VcpuExit> {
+        self.finish_publication()?;
         if self.shutdown {
             return Ok(VcpuExit::Shutdown);
         }

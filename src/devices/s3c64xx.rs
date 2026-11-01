@@ -53,6 +53,16 @@ pub struct S3cUart {
 }
 
 impl S3cUart {
+    /// Bound the variable-length queue before cloning a checkpoint image.
+    pub(crate) fn checkpoint_clone(&self) -> crate::error::Result<Self> {
+        if self.rx.len() > 16 * 1024 * 1024 {
+            return Err(crate::error::Error::InvalidConfig(
+                "S3C UART receive queue exceeds checkpoint budget".into(),
+            ));
+        }
+        Ok(self.clone())
+    }
+
     pub fn new() -> Self {
         S3cUart {
             rx: VecDeque::new(),

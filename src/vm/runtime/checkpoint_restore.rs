@@ -303,7 +303,7 @@ impl Vmm {
         let devices = snapshot.devices.clone();
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
-        // UART/PCI -> PC inventory -> shared platform -> legacy -> owned GIC -> RAM.
+        // UART/PCI -> PC inventory -> shared platform -> legacy -> owned S3C UART/GIC -> RAM.
         let mut uart = self
             .pl011
             .as_ref()
@@ -315,6 +315,13 @@ impl Vmm {
                 .iter()
                 .flatten()
                 .flat_map(|cpu| cpu.checkpoint_owned_gics())
+                .collect(),
+        )
+        .with_s3c_uarts(
+            replacements
+                .iter()
+                .flatten()
+                .flat_map(|cpu| cpu.checkpoint_owned_s3c_uarts())
                 .collect(),
         );
         // This guard outlives both controller wrappers, which publish their

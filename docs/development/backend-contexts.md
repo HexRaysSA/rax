@@ -14,6 +14,15 @@ phase, SYSCON registers, and attached UART registers/input FIFO. MMU/privilege
 views are derived before the next access. Decoder and host tracing caches are
 not guest state. UART attachment topology must match the target.
 
+Complete S3C private restores prepare CPU and bridge replacements offside.
+The target UART owner is retained, locked across all CPU records and RAM
+publication, and assigned once after every shared image has been admitted.
+Conflicting images for the same owner reject before publication; cancelling
+a prepared CPU or publication permit leaves the live UART unchanged. Historical
+projection-only imports and standalone per-CPU setters retain their narrower
+contracts. See [S3C publication](s3c-uart-publication/README.md) for current
+qualification and the remaining full-audit boundaries.
+
 Both ARM platform adapters also retire WFI past its ARM/Thumb instruction and
 advance active IT state before becoming halted. Explicit wake resumes at the
 following instruction. The S3C64xx file continuation test uses this boundary
@@ -66,8 +75,8 @@ CPU fields, UART FIFO, and device registers. These are algorithmic bounds.
 | ID | Assumption and dependent result | Stress or falsification probe | Status |
 | --- | --- | --- | --- |
 | B1 | The saved record comes from the actual configured backend | Trace the VMM constructor and producer kind; resume through fresh actual S3C64xx adapters | Verified by constructor trace and 1/2/4-context file continuation |
-| B2 | CPU state is captured at an instruction boundary | Safe Rust ownership excludes concurrent execution of the same CPU during capture; save after guest CP15/device writes | Local ownership established; independent shared writers remain a separate requirement |
-| B3 | All CPU records are admitted before publication | Corrupt the last of four records and compare all target CPU contexts, RAM, and UART | Four corrupted-final-record cases passed with context/RAM nonmutation |
+| B2 | CPU state is captured at an instruction boundary | Safe Rust ownership excludes concurrent execution of the same CPU during capture; save after guest CP15/device writes | Local CPU ownership and controlled S3C UART writer exclusion verified; raw external writers remain separate |
+| B3 | All CPU records are admitted before publication | Corrupt the last of four records and compare all target CPU contexts, RAM, and UART | Corrupted-final records, final compatible-setter failure and conflicting shared UART images reject without earlier S3C context/RAM mutation |
 | B4 | Device state preserves subsequent behavior | Save/load a real file, construct a new VMM, resume CPACR/PWM/VIC reads and queued UART input, compare against uninterrupted execution | 1/2/4-context file continuations passed with exact private-context comparison |
 | B5 | Public and backend representations agree | Change a public register without updating the opaque record | Standalone and C API conflicting-projection rejection passed |
 

@@ -1,0 +1,327 @@
+{
+  "scope": "Coordinated complete-private S3C CPU/bridge replacements and shared UART capture/publication; existing wire retained.",
+  "full_goal_complete": false,
+  "original_full_findings": [
+    "A32-FP",
+    "C-STATE",
+    "C-SMP",
+    "C-HVF"
+  ],
+  "parent": "1f919dc2542648afeab2df690530b15fd425ac83",
+  "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1",
+  "source_sha256": {
+    "src/machine/s3c64xx/context_publication_tests.rs": "3f69e49ed399b9cedf667479978afd9e7f88164fbe5a671dc2c33b1cbf6103b1",
+    "src/vm/memory/checkpoint_s3c_tests.rs": "13db2b316a7c10122306b359ddfbc346fb3625353292a47214eae6b2d2555ecf",
+    "src/devices/s3c64xx.rs": "2e7343335da86d85a47a7c6b060dbe6a5e04189623b487cb95206cd761fa5cc3",
+    "src/machine/s3c64xx/context.rs": "95367ce39524cef6dde2495b509a49a834b7eb6141d8441178df5aae19014198",
+    "src/machine/s3c64xx/runtime.rs": "9901fa5ef426c0d4fe96a32c704ecc86aa92fe6a6e490aef9dc4ab60869dcef9",
+    "src/vm/memory/checkpoint.rs": "418f812d2e322b80c7ee13610d465669baf3c6c4be27677bc9b6011bd5bdcde8",
+    "src/vm/runtime/backend_context_tests.rs": "27b0f3f312817c30da50ccc589ca0408d3905a92fe3e4bda308b50135a8b9969",
+    "src/vm/runtime/checkpoint_capture.rs": "75724e7e8cbd0bb7c15e437d4fb882e1bd64e58a1b69d72243197b9d6b0b9be3",
+    "src/vm/runtime/checkpoint_restore.rs": "8c9abc5386a8e59721232145663ca720b5ba683eccac44300427cf32b89c812b",
+    "src/vm/vcpu/mod.rs": "3ba200a56947f87e5eeb0416ac1964d09d10ce42c7f6c78255a788d13f86e5b4"
+  },
+  "baseline": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/baseline-behavior-v1.json",
+  "acceptance": [
+    {
+      "requirement": "No earlier real S3C CPU/UART publication after final compatible-setter error",
+      "test": "final_s3c_setter_failure_keeps_earlier_cpu_and_shared_uart_unchanged"
+    },
+    {
+      "requirement": "Reject conflicting shared-owner images before CPU/RAM/device publication",
+      "test": "conflicting_s3c_shared_uart_images_reject_before_target_mutation"
+    },
+    {
+      "requirement": "Exclude a controlled shared UART writer across all complete CPU captures",
+      "test": "complete_s3c_capture_excludes_the_shared_uart_writer"
+    },
+    {
+      "requirement": "Cancelled permits and unpublished CPU entry preserve live state; target owners/diagnostics retained",
+      "test": "cancelled_publication_preserves_uart_and_repeated_commit_does_not_rewind_input"
+    },
+    {
+      "requirement": "No-UART candidates still require publication; unrelated owner admission rejects",
+      "test": "unattached_cpu_requires_publication_and_foreign_uart_binding_rejects"
+    },
+    {
+      "requirement": "Distinct CPU permits publish each owner once and preserve subsequent input",
+      "test": "shared_uart_publishes_once_for_distinct_cpu_permits_and_conflicts_do_not_write_ram"
+    },
+    {
+      "requirement": "Legacy/private wire compatibility and actual file continuation for one/two/four adapters",
+      "test": [
+        "actual_legacy_platform_context_and_new_profile_roundtrip",
+        "backend_context_files_resume_one_two_four_actual_s3c_adapters"
+      ]
+    }
+  ],
+  "assumption_register": [
+    {
+      "id": "S3C-A",
+      "assumption": "The current group covers all-private actual S3C captures, not arbitrary historical/native setters.",
+      "basis": "Actual S3C producers always capture kind2; candidates prepare offside only for a present private record.",
+      "dependent_result": "Failure before publication leaves earlier real S3C CPUs and UART unchanged.",
+      "stress_test": "Final injected compatibility callback failure, shared-image conflict, dropped permit and unpublished entry.",
+      "falsification_probe": "Any compared original target private context/RAM changes, or an uncommitted CPU executes.",
+      "status": "confirmed_with_recorded_complete_private_model_and_host_scope"
+    },
+    {
+      "id": "S3C-B",
+      "assumption": "VMM S3C CPUs share the target UART owner and every represented record must agree about it.",
+      "basis": "Constructor clones one UART Arc; prepared candidates retain that Arc.",
+      "dependent_result": "Frozen capture, byte-exact shared admission and single publication.",
+      "stress_test": "Writer barrier; conflicting records; duplicate owner handles; independent CPU permits; consumption and new input between commits.",
+      "falsification_probe": "Writer acquires the UART in the capture boundary, conflicting image accepted, or consumed/queued bytes rewind.",
+      "status": "confirmed_with_recorded_complete_private_model_and_host_scope"
+    },
+    {
+      "id": "S3C-C",
+      "assumption": "The legacy S3C wire still represents the same CPU/device fields.",
+      "basis": "Serialized Context field declaration and tags unchanged; static review receipt.",
+      "dependent_result": "Existing RAXS3C01/RAXS3C02 data remains readable.",
+      "stress_test": "Actual old-platform fixture plus current one/two/four-CPU file round trips.",
+      "falsification_probe": "Legacy fixture rejects, public/private fields differ after load, or continuation diverges.",
+      "status": "confirmed_with_recorded_complete_private_model_and_host_scope"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Full backend/private/in-flight, startup/native retirement, IRQ/clock/replay and physical Intel requirements remain open.",
+      "blocks_current_group": false,
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "Historical/missing-private and arbitrary native/setter compatibility paths do not promise whole-VM transactional recovery.",
+      "blocks_current_group": false,
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "item": "Modeled UART/VIC/PWM continuation does not establish physical Samsung hardware fidelity.",
+      "blocks_current_group": false
+    },
+    {
+      "impact": "low",
+      "item": "The compatible wire duplicates UART state per CPU; aggregate work remains proportional to encoded private bytes.",
+      "blocks_current_group": false
+    }
+  ],
+  "provenance": [
+    "src/machine/s3c64xx/context.rs",
+    "src/machine/s3c64xx/runtime.rs",
+    "src/vm/memory/checkpoint.rs",
+    "src/vm/runtime/checkpoint_capture.rs",
+    "src/vm/runtime/checkpoint_restore.rs",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/static-review-v2.json"
+  ],
+  "unrun": [
+    {
+      "gate": "Full ignored native CPU-profile module",
+      "reason": "Not rerun for this S3C group; known streaming FPSR control failure remains unresolved and is not reported green."
+    },
+    {
+      "gate": "Physical Intel/native HVF-x86 execution",
+      "reason": "This host is Apple M4 Max; no physical Intel host was used."
+    },
+    {
+      "gate": "Intel cross-target compilation for this candidate",
+      "reason": "The selected existing toolchain has only aarch64-apple-darwin installed; no toolchain installation/default change was made."
+    },
+    {
+      "gate": "PC real-mode execution rerun",
+      "reason": "This group changes S3C publication; PC source is unchanged. Owning actual S3C VMM file cases and native shared-scope continuation are selected."
+    }
+  ],
+  "utc": "2026-11-01T22:00:44.286656+00:00",
+  "status": "locally_validated_with_explicit_scope",
+  "tests": {
+    "owning-root-library-v2": {
+      "results": [
+        {
+          "passed": 11609,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/owning-root-library-v2.json",
+      "elapsed_seconds": 1601.6093872080091
+    },
+    "owning-C-API-library-v2": {
+      "results": [
+        {
+          "passed": 225,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/owning-C-API-library-v2.json",
+      "elapsed_seconds": 6.547949958010577
+    },
+    "native-file-continuation-v2": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/native-file-continuation-v2.json",
+      "elapsed_seconds": 331.5484012909583
+    },
+    "doctests-workspace-v2": {
+      "results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/doctests-workspace-v2.json",
+      "elapsed_seconds": 6.490285040985327
+    },
+    "publication-cancelled_publication_preserves_uart_and_repeated_commit_does_not_rewind_input-v2": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/publication-cancelled_publication_preserves_uart_and_repeated_commit_does_not_rewind_input-v2.json",
+      "elapsed_seconds": 0.040390499983914196
+    },
+    "publication-shared_uart_publishes_once_for_distinct_cpu_permits_and_conflicts_do_not_write_ram-v2": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/publication-shared_uart_publishes_once_for_distinct_cpu_permits_and_conflicts_do_not_write_ram-v2.json",
+      "elapsed_seconds": 0.027314832957927138
+    },
+    "publication-unattached_cpu_requires_publication_and_foreign_uart_binding_rejects-v2": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/publication-unattached_cpu_requires_publication_and_foreign_uart_binding_rejects-v2.json",
+      "elapsed_seconds": 0.02174837503116578
+    },
+    "green-complete_s3c_capture_excludes_the_shared_uart_writer": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/green-complete_s3c_capture_excludes_the_shared_uart_writer.json",
+      "elapsed_seconds": 17.938152624992654
+    },
+    "green-conflicting_s3c_shared_uart_images_reject_before_target_mutation": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/green-conflicting_s3c_shared_uart_images_reject_before_target_mutation.json",
+      "elapsed_seconds": 0.08555941702798009
+    },
+    "green-final_s3c_setter_failure_keeps_earlier_cpu_and_shared_uart_unchanged": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/green-final_s3c_setter_failure_keeps_earlier_cpu_and_shared_uart_unchanged.json",
+      "elapsed_seconds": 26.660474459000397
+    }
+  },
+  "checks": {
+    "fmt-workspace-v2": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/fmt-workspace-v2.json",
+      "elapsed_seconds": 15.04765458300244
+    },
+    "owning-targets-build-v2": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/owning-targets-build-v2.json",
+      "elapsed_seconds": 278.74686537502566
+    },
+    "check-workspace-all-targets-v2": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/check-workspace-all-targets-v2.json",
+      "elapsed_seconds": 171.1970423749881
+    },
+    "build-workspace-all-targets-v2": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/build-workspace-all-targets-v2.json",
+      "elapsed_seconds": 118.25028037495213
+    },
+    "clippy-workspace-all-targets-v2": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/clippy-workspace-all-targets-v2.json",
+      "elapsed_seconds": 136.85690254200017
+    }
+  },
+  "host": {
+    "utc": "2026-11-01T21:30:02.463605+00:00",
+    "sw_vers": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+    "cpu": "Apple M4 Max",
+    "sdk": "27.2",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+    "physical_Intel": false
+  },
+  "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/environment.json",
+  "C_CPP": {
+    "programs": 19,
+    "ABI_objects": 7,
+    "engine_optional_features": [],
+    "provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/C-CPP-provenance-v2.json"
+  },
+  "wire": {
+    "current": "RAXS3C02",
+    "legacy_reader": "RAXS3C01",
+    "context_limit_bytes": 16777216,
+    "serialized_Context_declaration_unchanged": true
+  },
+  "quality_gates": {
+    "normative_judgment_required": false,
+    "assumptions_reconciled": true,
+    "full_current_group_requirement_coverage": true,
+    "full_goal_complete": false,
+    "byte_limits_and_counts_reproducible": true,
+    "edges_tested_with_explicit_legacy_native_limits": true,
+    "primary_provenance": "Repository source, observed predecessor failures, current executable results and source hashes.",
+    "bounded_scope_explicit": true,
+    "source_frozen_through_all_execution_gates": true
+  },
+  "required_full_root_rows": [
+    "final_s3c_setter_failure_keeps_earlier_cpu_and_shared_uart_unchanged",
+    "conflicting_s3c_shared_uart_images_reject_before_target_mutation",
+    "complete_s3c_capture_excludes_the_shared_uart_writer",
+    "cancelled_publication_preserves_uart_and_repeated_commit_does_not_rewind_input",
+    "unattached_cpu_requires_publication_and_foreign_uart_binding_rejects",
+    "shared_uart_publishes_once_for_distinct_cpu_permits_and_conflicts_do_not_write_ram",
+    "actual_legacy_platform_context_and_new_profile_roundtrip",
+    "backend_context_files_resume_one_two_four_actual_s3c_adapters",
+    "file_restore_preserves_the_current_session_and_rebinds_imported_cpu_controls"
+  ],
+  "known_independent_native_failure": "Streaming FPSR reentry failure retained in earlier complete native CPU-profile qualification; not repaired or rerun by this group."
+}

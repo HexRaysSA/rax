@@ -374,3 +374,193 @@ fn miscellaneous_and_fused_profiles_survive_multicpu_rxc_file_continuation() {
         }
     }
 }
+
+// Coordinated S3C shared-owner admission and failure publication regressions.
+struct S3cFinalRestoreFailure(Box<dyn VCpu>);
+impl VCpu for S3cFinalRestoreFailure {
+    fn id(&self) -> u32 {
+        self.0.id()
+    }
+    fn run(&mut self) -> Result<VcpuExit> {
+        self.0.run()
+    }
+    fn get_state(&self) -> Result<CpuState> {
+        self.0.get_state()
+    }
+    fn set_state(&mut self, state: &CpuState) -> Result<()> {
+        self.0.set_state(state)
+    }
+    fn complete_io_in(&mut self, data: &[u8]) {
+        self.0.complete_io_in(data)
+    }
+    fn capture_backend_context(&self) -> Result<Option<BackendContext>> {
+        self.0.capture_backend_context()
+    }
+    fn validate_checkpoint_context(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&BackendContext>,
+    ) -> Result<()> {
+        self.0.validate_checkpoint_context(state, emulator, context)
+    }
+    fn restore_checkpoint_context(
+        &mut self,
+        _: &CpuState,
+        _: &crate::vm::snapshot::EmulatorState,
+        _: Option<&BackendContext>,
+    ) -> Result<()> {
+        Err(Error::Emulator("injected final S3C restore failure".into()))
+    }
+}
+#[test]
+fn final_s3c_setter_failure_keeps_earlier_cpu_and_shared_uart_unchanged() {
+    let fixture = Fixture::new();
+    let source = fixture.source(2);
+    let bundle = source.take_snapshot_bundle(14).unwrap();
+    let mut target = Vmm::new_resume(fixture.config(2)).unwrap();
+    target
+        .s3c_uart
+        .as_ref()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .queue_input(&[0x77]);
+    let before = contexts(&target);
+    let memory = target.guest_mem.try_read_all().unwrap();
+    let old = target.vcpus.remove(1);
+    target.vcpus.push(Box::new(S3cFinalRestoreFailure(old)));
+    let error = target
+        .restore_snapshot_bundle(&bundle)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("injected final S3C restore failure"),
+        "{error}"
+    );
+    assert_eq!(
+        contexts(&target),
+        before,
+        "rejected restore published a CPU/UART prefix"
+    );
+    assert_eq!(target.guest_mem.try_read_all().unwrap(), memory);
+}
+#[test]
+fn conflicting_s3c_shared_uart_images_reject_before_target_mutation() {
+    let fixture = Fixture::new();
+    let source = fixture.source(2);
+    let first = source.vcpus[0].capture_backend_context().unwrap();
+    {
+        let mut uart = source.s3c_uart.as_ref().unwrap().lock().unwrap();
+        while uart.read(0x10) & 1 != 0 {
+            uart.read(0x24);
+        }
+        uart.queue_input(&[0x5b]);
+    }
+    let second = source.vcpus[1].capture_backend_context().unwrap();
+    let bundle = SnapshotBundle::new(source.take_snapshot(14).unwrap())
+        .with_cpus(source.capture_cpu_states().unwrap())
+        .unwrap()
+        .with_backend_contexts(vec![first, second])
+        .unwrap();
+    let mut target = Vmm::new_resume(fixture.config(2)).unwrap();
+    target
+        .s3c_uart
+        .as_ref()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .queue_input(&[0x77]);
+    for (index, entry) in bundle.cpus().unwrap().entries().iter().enumerate() {
+        target.vcpus[index]
+            .validate_checkpoint_context(
+                &entry.state,
+                &entry.emulator,
+                bundle.backend_contexts().unwrap().entries()[index].as_ref(),
+            )
+            .unwrap();
+    }
+    let before = contexts(&target);
+    let memory = target.guest_mem.try_read_all().unwrap();
+    let error = target
+        .restore_snapshot_bundle(&bundle)
+        .unwrap_err()
+        .to_string()
+        .to_ascii_lowercase();
+    assert!(
+        error.contains("uart") && error.contains("conflict"),
+        "{error}"
+    );
+    assert_eq!(contexts(&target), before);
+    assert_eq!(target.guest_mem.try_read_all().unwrap(), memory);
+}
+struct S3cCaptureBarrier {
+    inner: Box<dyn VCpu>,
+    entered: std::sync::mpsc::Sender<()>,
+    resume: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
+}
+impl VCpu for S3cCaptureBarrier {
+    fn id(&self) -> u32 {
+        self.inner.id()
+    }
+    fn run(&mut self) -> Result<VcpuExit> {
+        self.inner.run()
+    }
+    fn get_state(&self) -> Result<CpuState> {
+        self.inner.get_state()
+    }
+    fn set_state(&mut self, state: &CpuState) -> Result<()> {
+        self.inner.set_state(state)
+    }
+    fn complete_io_in(&mut self, data: &[u8]) {
+        self.inner.complete_io_in(data)
+    }
+    fn capture_checkpoint_record(
+        &self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+        scope: Option<&crate::vm::memory::checkpoint::CheckpointPublication<'_>>,
+    ) -> Result<(crate::vm::snapshot::CpuSnapshot, Option<BackendContext>)> {
+        self.entered
+            .send(())
+            .map_err(|e| Error::Emulator(e.to_string()))?;
+        self.resume
+            .lock()
+            .map_err(|_| Error::Emulator("test barrier lock poisoned".into()))?
+            .recv()
+            .map_err(|e| Error::Emulator(e.to_string()))?;
+        self.inner.capture_checkpoint_record(boundary, scope)
+    }
+}
+#[test]
+fn complete_s3c_capture_excludes_the_shared_uart_writer() {
+    let fixture = Fixture::new();
+    let mut source = fixture.source(2);
+    let uart = source.s3c_uart.as_ref().unwrap().clone();
+    let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+    let (resume_tx, resume_rx) = std::sync::mpsc::channel();
+    let first = source.vcpus.remove(0);
+    source.vcpus.insert(
+        0,
+        Box::new(S3cCaptureBarrier {
+            inner: first,
+            entered: entered_tx,
+            resume: std::sync::Mutex::new(resume_rx),
+        }),
+    );
+    let worker = std::thread::spawn(move || source.take_snapshot_bundle(14));
+    let entered = entered_rx.recv_timeout(std::time::Duration::from_secs(15));
+    let excluded = matches!(uart.try_lock(), Err(std::sync::TryLockError::WouldBlock));
+    // Release and join before assertions, including failure paths.
+    let released = resume_tx.send(());
+    let result = worker.join();
+    assert!(
+        entered.is_ok(),
+        "capture did not reach the CPU boundary: {entered:?}"
+    );
+    assert!(released.is_ok());
+    assert!(result.unwrap().is_ok());
+    assert!(
+        excluded,
+        "complete capture admitted a shared UART writer inside its boundary"
+    );
+}
