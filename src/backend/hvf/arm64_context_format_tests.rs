@@ -265,6 +265,7 @@ fn fixture(streaming: bool, za_enabled: bool) -> Context {
             size: 8,
             sign_extend: false,
             sixty_four: true,
+            retire_pc: None,
         }),
         completion_error: Some("Failed to write register 0: native test failure".into()),
         pending_reply: Some(vec![0xa5; 8]),
@@ -394,4 +395,58 @@ fn missing_private_register_cannot_pass_target_profile_admission() {
             )
             .is_err()
     );
+}
+
+#[test]
+fn v4_reads_preserve_the_saved_frontier_and_migrate_to_v5_without_a_second_retirement() {
+    for bytes in [
+        include_bytes!("../../../tests/fixtures/backend/hvf_arm64_mmio/v4/read.rxcpu").as_slice(),
+        include_bytes!("../../../tests/fixtures/backend/hvf_arm64_mmio/v4/reply.rxcpu").as_slice(),
+        include_bytes!("../../../tests/fixtures/backend/hvf_arm64_mmio/v4/error.rxcpu").as_slice(),
+        include_bytes!("../../../tests/fixtures/backend/hvf_arm64_mmio/v4/terminal.rxcpu")
+            .as_slice(),
+    ] {
+        assert_eq!(&bytes[..8], b"RAXHVA04");
+        let context = Context::decode(bytes).unwrap();
+        assert_eq!(context.pending_read.as_ref().unwrap().retire_pc, None);
+        let encoded = context.encode().unwrap();
+        assert_eq!(&encoded[..8], b"RAXHVA05");
+        assert_eq!(Context::decode(&encoded).unwrap(), context);
+        for end in [0, 7, 8, bytes.len() - 1] {
+            assert!(Context::decode(&bytes[..end]).is_err());
+        }
+        let mut trailing = bytes.to_vec();
+        trailing.push(0);
+        assert!(Context::decode(&trailing).is_err());
+    }
+}
+
+#[test]
+fn deferred_read_frontiers_cover_pre_reply_and_partial_pc_writeback_including_wrap() {
+    for pc in [0, 0x1234, u64::MAX - 3] {
+        let mut context = fixture(false, false);
+        context.public.regs.pc = pc;
+        context.pending_read.as_mut().unwrap().retire_pc = Some(pc.wrapping_add(4));
+        context.completion_error = None;
+        context.pending_reply = None;
+        assert_eq!(
+            Context::decode(&context.encode().unwrap()).unwrap(),
+            context
+        );
+        let mut after = context.clone();
+        after.public.regs.pc = pc.wrapping_add(4);
+        assert!(
+            after.encode().is_err(),
+            "advanced PC without obtained input"
+        );
+        after.pending_reply = Some(vec![0xa5; 8]);
+        after.completion_error = Some("PC setter returned after mutation".into());
+        assert_eq!(Context::decode(&after.encode().unwrap()).unwrap(), after);
+        let mut wrong = context.clone();
+        wrong.public.regs.pc = pc.wrapping_add(8);
+        assert!(wrong.encode().is_err());
+        let mut unaligned = context.clone();
+        unaligned.pending_read.as_mut().unwrap().retire_pc = Some(pc.wrapping_add(2));
+        assert!(unaligned.encode().is_err());
+    }
 }

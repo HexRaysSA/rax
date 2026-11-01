@@ -21,6 +21,7 @@ fn native_guest_cpu_on_starts_secondaries_and_continues_after_real_file_restore(
             .memory()
             .write_slice(code, GuestAddress(CODE))
             .unwrap();
+        publish_native_code(&vm.guest_mem, CODE, code.len());
         for id in 1..count {
             vm.guest_mem
                 .memory()
@@ -141,6 +142,7 @@ pub(super) fn boot_native_secondaries(vm: &mut Vmm) {
         .memory()
         .write_slice(code, GuestAddress(CODE))
         .unwrap();
+    publish_native_code(&vm.guest_mem, CODE, code.len());
     let CpuState::Aarch64(mut state) = vm.vcpus[0].get_state().unwrap() else {
         panic!()
     };
@@ -175,6 +177,7 @@ fn call(vm: &mut Vmm, function: u32, arguments: [u64; 3], smc: bool, big_endian:
             .write_obj(word.to_le(), GuestAddress(pc + i as u64 * 4))
             .unwrap();
     }
+    publish_native_code(&vm.guest_mem, pc, 8);
     let CpuState::Aarch64(mut state) = vm.vcpus[0].get_state().unwrap() else {
         panic!()
     };
@@ -214,6 +217,7 @@ fn load_boot(vm: &Vmm, count: u8) {
         .memory()
         .write_slice(code, GuestAddress(CODE))
         .unwrap();
+    publish_native_code(&vm.guest_mem, CODE, code.len());
 }
 fn save_restore(vm: Vmm, fixture: &Fixture, evidence_name: &str) -> Vmm {
     let saved = vm.take_snapshot_bundle(0).unwrap();

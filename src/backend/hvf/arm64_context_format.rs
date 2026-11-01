@@ -3,10 +3,12 @@
 use crate::error::{Error, Result};
 use crate::vm::vcpu::{Aarch64CpuState, CpuState};
 use serde::{Deserialize, Serialize};
+#[path = "arm64_context_legacy.rs"]
+mod legacy;
 #[cfg(test)]
 #[path = "arm64_context_format_tests.rs"]
 mod tests;
-const TAG: &[u8; 8] = b"RAXHVA04";
+const TAG: &[u8; 8] = b"RAXHVA05";
 const LIMIT: usize = 128 * 1024;
 pub(crate) const MAX_CPU_CONTEXT: u64 = (LIMIT + TAG.len()) as u64;
 const VM_TAG: &[u8; 8] = b"RAXHVM02";
@@ -75,6 +77,8 @@ pub(crate) struct PendingRead {
     pub size: u8,
     pub sign_extend: bool,
     pub sixty_four: bool,
+    /// Absolute post-load PC; None preserves a V4 already-retired read.
+    pub retire_pc: Option<u64>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PendingWrite {
@@ -323,6 +327,16 @@ impl Context {
             if pending.register > 31 || !matches!(pending.size, 1 | 2 | 4 | 8) {
                 return Err(invalid("invalid pending scalar MMIO request"));
             }
+            if let Some(next) = pending.retire_pc {
+                let pc = self.public.regs.pc;
+                let before_writeback = pc == next.wrapping_sub(4);
+                let after_pc_write = pc == next && self.pending_reply.is_some();
+                if next & 3 != 0 || !(before_writeback || after_pc_write) {
+                    return Err(invalid(
+                        "pending scalar load disagrees with its PC frontier",
+                    ));
+                }
+            }
         }
         if let Some(pending) = &self.pending_write {
             if self.pending_read.is_some()
@@ -398,10 +412,13 @@ impl Context {
         if bytes.len() > TAG.len() + LIMIT {
             return Err(invalid("payload exceeds byte limit"));
         }
-        let raw = bytes
-            .strip_prefix(TAG)
-            .ok_or_else(|| invalid("unknown producer/version tag"))?;
-        let context: Self = crate::codec::deserialize_limited::<_, LIMIT>(raw).map_err(invalid)?;
+        let context = if let Some(raw) = bytes.strip_prefix(TAG) {
+            crate::codec::deserialize_limited::<_, LIMIT>(raw).map_err(invalid)?
+        } else if let Some(raw) = bytes.strip_prefix(b"RAXHVA04") {
+            legacy::decode(raw)?
+        } else {
+            return Err(invalid("unknown producer/version tag"));
+        };
         context.validate()?;
         Ok(context)
     }

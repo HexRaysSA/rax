@@ -4,7 +4,7 @@ use crate::backend::arm64_hvf_context::{Context, GlobalContext};
 use crate::config::{CliConfig, MemorySize};
 use crate::vm::snapshot::{HVF_AARCH64_CONTEXT, SnapshotBundle};
 use std::sync::atomic::{AtomicU64, Ordering};
-use vm_memory::{Bytes, GuestAddress};
+use vm_memory::{Bytes, GuestAddress, GuestMemory};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 const CODE: u64 = 0x4000_1000;
@@ -105,6 +105,13 @@ fn restore_native_file_fixture(count: u8, reversed_creation: bool) {
             .memory()
             .write_slice(&0xd503_207fu32.to_le_bytes(), GuestAddress(pc + 8))
             .unwrap(); // WFI
+        // WFI may complete without an interrupt. Keep continued native entry
+        // inside the fixture instead of falling into unmapped exception code.
+        vm.guest_mem
+            .memory()
+            .write_slice(&0x1400_0000u32.to_le_bytes(), GuestAddress(pc + 12))
+            .unwrap(); // B .
+        publish_native_code(&vm.guest_mem, pc, 16);
         let CpuState::Aarch64(mut public) = cpu.get_state().unwrap() else {
             panic!()
         };
@@ -135,7 +142,7 @@ fn restore_native_file_fixture(count: u8, reversed_creation: bool) {
                     pending = true;
                     break;
                 }
-                VcpuExit::Hlt => (), // A previously queued SDK kick may yield first.
+                VcpuExit::Hlt => (), // A genuine guest waiting hint.
                 exit => panic!("unexpected native exit: {exit:?}"),
             }
         }
@@ -164,9 +171,16 @@ fn restore_native_file_fixture(count: u8, reversed_creation: bool) {
         let pending = context.pending_read.unwrap();
         assert_eq!(
             (pending.address, pending.register, pending.size),
-            (UART, 0, 8)
+            (UART, 0, 8),
+            "CPU{id}: captured PC={:#x}; installed instruction={:#x}",
+            context.public.regs.pc,
+            vm.guest_mem
+                .memory()
+                .read_obj::<u32>(GuestAddress(CODE + id as u64 * 0x20))
+                .unwrap()
         );
-        assert_eq!(context.public.regs.pc, CODE + id as u64 * 0x20 + 4);
+        assert_eq!(context.public.regs.pc, CODE + id as u64 * 0x20);
+        assert_eq!(pending.retire_pc, Some(CODE + id as u64 * 0x20 + 4));
         assert_eq!(context.public.regs.x[0], 0x1234_0000 + id as u64);
         for (index, q) in context.public.regs.v.iter().enumerate() {
             assert_eq!(
@@ -221,7 +235,10 @@ fn restore_native_file_fixture(count: u8, reversed_creation: bool) {
         cpu.io_completion_result().unwrap();
         let mut continued = false;
         for _ in 0..16 {
-            assert!(matches!(cpu.run().unwrap(), VcpuExit::Hlt));
+            assert!(matches!(
+                native_wait_turn(cpu.as_mut()),
+                None | Some(VcpuExit::Hlt)
+            ));
             let CpuState::Aarch64(public) = cpu.get_state().unwrap() else {
                 panic!()
             };
@@ -247,6 +264,37 @@ fn private_states(vm: &Vmm) -> Vec<Context> {
         .iter()
         .map(|cpu| Context::decode(&cpu.capture_backend_context().unwrap().unwrap().data).unwrap())
         .collect()
+}
+
+// Fixture writers replace startup instructions through raw RAM aliases while
+// every native CPU is stopped. Apple OSCacheControl.h requires host data/code
+// synchronization after writing instructions and before executing them.
+fn publish_native_code(memory: &GuestMemoryWrapper, address: u64, length: usize) {
+    assert!(length != 0);
+    assert!(
+        address
+            .checked_add(length as u64)
+            .is_some_and(|end| end <= memory.actual_size())
+    );
+    let pointer = memory
+        .memory()
+        .get_host_address(GuestAddress(address))
+        .unwrap();
+    unsafe extern "C" {
+        fn sys_icache_invalidate(start: *mut std::ffi::c_void, length: usize);
+    }
+    // SAFETY: GuestMemoryWrapper owns one contiguous backing from address0 to
+    // actual_size; the checked nonempty range is live for this call. All guest
+    // CPUs are stopped during fixture publication. The host API synchronizes
+    // cache visibility and does not replace or release the backing allocation.
+    unsafe { sys_icache_invalidate(pointer.cast(), length) };
+}
+
+// The SDK may handle WFI without a guest exit. A bounded host turn preserves
+// that distinction while the test checks the resulting architectural frontier.
+fn native_wait_turn(cpu: &mut dyn VCpu) -> Option<VcpuExit> {
+    cpu.run_host_slice(crate::vm::vcpu::DEFAULT_HOST_SLICE)
+        .unwrap()
 }
 
 #[test]
@@ -636,7 +684,11 @@ fn active_uart_spi_file_restore_preserves_priority_reassertion_and_deassertion()
     let active = private_states(&source).remove(0);
     assert_eq!(active.public.regs.x[3], 33);
     assert_eq!(active.running_priority, 0x80);
-    assert_eq!(active.public.regs.pc, CODE + 80);
+    assert_eq!(active.public.regs.pc, CODE + 76);
+    assert_eq!(
+        active.pending_read.as_ref().unwrap().retire_pc,
+        Some(CODE + 80)
+    );
     assert_eq!(active.public.regs.x[8], 0xfeed_cafe_1234_5678);
     assert_eq!(active.pending_read.as_ref().unwrap().register, 8);
     let saved = source.take_snapshot_bundle(0).unwrap();
@@ -926,6 +978,7 @@ fn failed_native_reply_file_retries_saved_data_without_a_second_device_read() {
         (0, 0x3940_0020u32),
         (4, 0xd280_0002 | (0xbeef << 5)),
         (8, 0xd503_207f),
+        (12, 0x1400_0000), // B . after the optional WFI wait.
     ] {
         source
             .guest_mem
@@ -1000,7 +1053,10 @@ fn failed_native_reply_file_retries_saved_data_without_a_second_device_read() {
     );
     let mut finished = false;
     for _ in 0..16 {
-        assert!(matches!(target.vcpus[0].run().unwrap(), VcpuExit::Hlt));
+        assert!(matches!(
+            native_wait_turn(target.vcpus[0].as_mut()),
+            None | Some(VcpuExit::Hlt)
+        ));
         let CpuState::Aarch64(state) = target.vcpus[0].get_state().unwrap() else {
             panic!()
         };
@@ -1056,6 +1112,11 @@ fn native_short_mmio_reply_reports_pending_before_more_execution() {
     );
     let partial = Context::decode(&cpu.capture_backend_context().unwrap().unwrap().data).unwrap();
     assert!(partial.pending_read.is_some());
+    assert_eq!(partial.public.regs.pc, CODE);
+    assert_eq!(
+        partial.pending_read.as_ref().unwrap().retire_pc,
+        Some(CODE + 4)
+    );
     assert_eq!(partial.public.regs.x[0], 0x1234_5678_9abc_def0);
     let reply = 0xfedc_ba98_7654_3210u64;
     cpu.complete_io_in(&reply.to_le_bytes());
@@ -1187,6 +1248,7 @@ fn native_coordinator_runs_online_cpus_and_resumes_the_next_cpu_from_a_real_file
                     .write_slice(&word.to_le_bytes(), GuestAddress(pc + 4 * i as u64))
                     .unwrap();
             }
+            publish_native_code(&vm.guest_mem, pc, 16);
             let CpuState::Aarch64(mut state) = cpu.get_state().unwrap() else {
                 panic!()
             };
@@ -1268,24 +1330,25 @@ fn run_native_coordinator_rounds(
 
 fn run_native_coordinator_turn(vm: &mut Vmm, markers: &mut [u64], exits: &mut [u32]) {
     let selected = vm.coordinator.cursor;
-    let turn = vm
-        .execute_turn()
-        .unwrap()
-        .expect("online native CPU must yield");
-    assert_eq!(turn.cpu_index, selected);
+    let turn = vm.execute_turn().unwrap();
     assert_eq!(vm.coordinator.cursor, (selected + 1) % markers.len());
-    match turn.exit {
-        VcpuExit::MmioRead {
-            addr: UART,
-            size: 8,
-        } => {
-            exits[selected] += 1;
-            vm.vcpus[selected].complete_io_in(&(0xface0000u64 + selected as u64).to_le_bytes());
-            vm.vcpus[selected].io_completion_result().unwrap();
+    if let Some(turn) = turn {
+        assert_eq!(turn.cpu_index, selected);
+        match turn.exit {
+            VcpuExit::MmioRead {
+                addr: UART,
+                size: 8,
+            } => {
+                exits[selected] += 1;
+                vm.vcpus[selected].complete_io_in(&(0xface0000u64 + selected as u64).to_le_bytes());
+                vm.vcpus[selected].io_completion_result().unwrap();
+            }
+            VcpuExit::Hlt => (), // A genuine guest waiting hint.
+            exit => panic!("unexpected native coordinator exit: {exit:?}"),
         }
-        VcpuExit::Hlt => (), // An SDK cancellation may precede the next load.
-        exit => panic!("unexpected native coordinator exit: {exit:?}"),
     }
+    // A None host turn still advances selection; every peer marker must remain
+    // unchanged and the selected CPU may complete at most its pending load.
     for (id, previous) in markers.iter_mut().enumerate() {
         let value: u64 = vm
             .guest_mem
@@ -1315,6 +1378,7 @@ fn native_coordinator_yields_from_gic_handled_wfi_without_claiming_retirement() 
                 .write_slice(&word.to_le_bytes(), GuestAddress(pc + i as u64 * 4))
                 .unwrap();
         }
+        publish_native_code(&vm.guest_mem, pc, 12);
         let CpuState::Aarch64(mut state) = cpu.get_state().unwrap() else {
             panic!()
         };
@@ -1329,7 +1393,9 @@ fn native_coordinator_yields_from_gic_handled_wfi_without_claiming_retirement() 
     let start = std::time::Instant::now();
     let mut completed = [false; 2];
     for _ in 0..100 {
-        let turn = vm.execute_turn().unwrap().unwrap();
+        let Some(turn) = vm.execute_turn().unwrap() else {
+            continue;
+        };
         match turn.exit {
             VcpuExit::Hlt => (),
             VcpuExit::MmioRead {

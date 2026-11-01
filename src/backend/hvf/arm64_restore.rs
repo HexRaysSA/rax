@@ -142,6 +142,7 @@ impl HvfArm64Core {
                 size: pending.size,
                 sign_extend: pending.sign_extend,
                 sixty_four: pending.sixty_four,
+                retire_pc: pending.retire_pc,
             });
         self.pending_io_reply = context.pending_reply.clone();
         self.pending_mmio_write = context.pending_write.clone();

@@ -50,6 +50,7 @@ fn exercise(phase: Phase) {
         if write { 0x39000020u32 } else { 0x39400020 }, // STRB/LDRB W0,[X1].
         0xd2800002 | (0xbeef << 5),                     // MOV X2,#0xbeef.
         0xd503207f,                                     // WFI.
+        0x14000000,                                     // B . after the optional wait.
     ]
     .into_iter()
     .enumerate()
@@ -60,6 +61,7 @@ fn exercise(phase: Phase) {
             .write_obj(word.to_le(), GuestAddress(pc + index as u64 * 4))
             .unwrap();
     }
+    publish_native_code(&source.guest_mem, pc, 16);
     source
         .pl011
         .as_ref()
@@ -225,7 +227,10 @@ fn exercise(phase: Phase) {
     }
     let mut finished = false;
     for _ in 0..32 {
-        assert!(matches!(target.vcpus[1].run().unwrap(), VcpuExit::Hlt));
+        assert!(matches!(
+            native_wait_turn(target.vcpus[1].as_mut()),
+            None | Some(VcpuExit::Hlt)
+        ));
         let state = public(target.vcpus[1].as_ref());
         if state.regs.pc == pc + 12 {
             assert_eq!(state.regs.x[0], 0xab);

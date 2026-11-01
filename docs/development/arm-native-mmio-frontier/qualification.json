@@ -1,0 +1,330 @@
+{
+  "utc": "2026-11-01T10:26:21.584806+00:00",
+  "status": "locally_validated_with_explicit_native_streaming_FPSR_limit",
+  "primary": {
+    "path": "docs/specifications/arm/pauth/shared_pseudocode-2025-12.xml",
+    "sha256": "84c3572ef27cb9a7b12cba314d62d1b8afd71c770ee92d818cbdb4dc6ac37d6b",
+    "symbol": "aarch64/exceptions/aborts/AArch64_DataAbort",
+    "contract": "Data abort returns to the faulting instruction address; host emulation must obtain load data before committing its PC."
+  },
+  "proposed_changes": [
+    "Stage an absolute next PC for newly trapped native scalar MMIO reads without advancing current PC.",
+    "On complete input, write the GPR then the absolute next PC; repeated SDK partial-failure retries write the same PC rather than incrementing again.",
+    "Persist absolute next PC in a new private format version. Explicitly decode current V4 records with no deferred PC, preserving their historically advanced frontier; no silent V4 reinterpretation.",
+    "Keep incomplete and failed replies staged; never perform a second device read after obtaining a full value.",
+    "Validate PC/alignment/reply-state relationships; retain wire byte limits and reject unknown versions."
+  ],
+  "assumption_register": [
+    {
+      "id": "MR-1",
+      "assumption": "The admitted native AArch64 scalar load instruction occupies four bytes.",
+      "basis": "AArch64 native profile; SDK exception IL and independent LLVM encoding.",
+      "dependent_result": "Stage wrapping PC+4 once at trap.",
+      "stress_test": "Invalid IL; zero register; all widths/sign variants; 64-bit wrapping boundary.",
+      "falsification_probe": "Non-four-byte native trap is admitted or PC advances with incomplete input.",
+      "status": "confirmed",
+      "qualification": "Four-byte native instruction contract and wrapping frontier checked in complete current root/policy binaries; real hardware read keeps PC until full input. Invalid SDK-supplied IL is guarded in source, not physically fault-injected."
+    },
+    {
+      "id": "MR-2",
+      "assumption": "A failed SDK register/PC setter can have changed its destination before returning an error.",
+      "basis": "Defensive SDK-failure boundary; no no-mutation guarantee assumed.",
+      "dependent_result": "Use absolute idempotent writeback addresses, retain complete input across retry and private file continuation.",
+      "stress_test": "GPR and PC errors before/after mutation; repeated identical completion; staged reply checkpoint.",
+      "falsification_probe": "Retry increments PC twice, re-reads a device, or clears pending data after an error.",
+      "status": "retained",
+      "qualification": "Complete policy cases cover GPR/PC failures before/after mutation and absolute retry. Actual saved-reply native file continuation passed. Physical after-mutation SDK failure injection remains unknown."
+    },
+    {
+      "id": "MR-3",
+      "assumption": "V4 native private records encode an already-advanced pending-read PC.",
+      "basis": "Actual pre-fix native capture and arm64_context_format.rs V4 schema.",
+      "dependent_result": "Explicit compatibility migration, preserving old PC and avoiding a second advancement.",
+      "stress_test": "V4 pending read/reply/error/terminal variants, unknown tag and trailing/truncated bytes.",
+      "falsification_probe": "A V4 pending reply advances its imported PC again or changes an unrelated private field.",
+      "status": "confirmed",
+      "qualification": "Four exact old-producer synthetic wire fixtures decode in current complete root tests. Two direct hardware CPU-record imports preserve ordinary and explicit legacy PC continuation; no whole legacy V4 VM/file claim."
+    },
+    {
+      "id": "MR-4",
+      "assumption": "Host fixture code writes are published after modification and before native entry.",
+      "basis": "Apple OSCacheControl.h and the direct SDK cache-control experiment.",
+      "dependent_result": "Actual installed instruction and pending register/PC assertions in native startup/file continuations.",
+      "stress_test": "1/2/4-CPU startup rewrites, reversed creation, HVC/SMC convention changes and post-I/O continuations.",
+      "falsification_probe": "A native case reports a different instruction frontier or destination after explicitly publishing the expected installed bytes.",
+      "status": "confirmed",
+      "qualification": "Ordering and complete current native-module assertions checked on the recorded Apple host; no general production code-cache qualification."
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Native MMIO stores also advance PC before output acknowledgement; do not mislabel read-only correction as all MMIO retirement.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Complete native checkpoint/SME/FPSR/GIC and physical Intel remain open.",
+      "blocks_full_goal": true
+    }
+  ],
+  "production_integrated": true,
+  "full_goal_complete": false,
+  "prototypes": {
+    "policy": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/policy-probe-results-v1.json",
+    "context": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/context-candidate-v1.json",
+    "V4_wire_producer": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/v4-wire-probe-v1.json"
+  },
+  "remaining_call_sites": {
+    "status": "completed",
+    "scope": "Snapshot literals, native load PC assertions, bounded coordinator turns and post-I/O continuation consumers are included in the final frozen source and complete owning tests."
+  },
+  "group": "arm-native-mmio-read-frontier-2026-11-01",
+  "parent": "b81ff2d7f433dfead95915c546b740751a1b7597",
+  "scope": "Retain native ARM scalar-read PC until full input, use absolute retry-safe retirement and explicitly import existing V4 records.",
+  "initial_validation": {
+    "hvf_arm64_mmio-initial-complete-v4": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/hvf_arm64_mmio-initial-complete-v4.json",
+    "hvf_arm64_state-initial-complete-v4": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/hvf_arm64_state-initial-complete-v4.json"
+  },
+  "wire_fixtures": {
+    "producer": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/v4-wire-probe-v1.json",
+    "total_bytes": 11398,
+    "paths_sha256": {
+      "tests/fixtures/backend/hvf_arm64_mmio/v4/error.rxcpu": "82be1dc807ecc27518d339e1f8519263a24c41df0100e38f6314e793eaaf8c1a",
+      "tests/fixtures/backend/hvf_arm64_mmio/v4/reply.rxcpu": "214aa77f5af518d01ceb1a36869b6c6b313a14a945e0d252e196737625eb34f4",
+      "tests/fixtures/backend/hvf_arm64_mmio/v4/terminal.rxcpu": "ca451920144f2b567cbbdb48477c14b178ffbb92984c695381d132f3d8878752",
+      "tests/fixtures/backend/hvf_arm64_mmio/v4/read.rxcpu": "479abce7e516a736507fbfff522433f342b512b57780faf5dd0af30b58b9b6f3"
+    }
+  },
+  "C_SDK_PC_identity": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/pc-register-abi-v2.json",
+  "change_surface": {
+    "affected": [
+      "Native ARM read capture/completion/restore",
+      "Private V5/V4 codec and complete bundle admission",
+      "Native physical input and file/coordinator test consumers"
+    ],
+    "unaffected_with_reason": {
+      "direct_ISA_SMIR_JIT": "No decoder, instruction execution or lowering changes",
+      "Intel_KVM": "No native Intel/KVM code changes",
+      "public_C_ABI": "No layout, enum, function or ownership change",
+      "store_acknowledgement": "Pre-existing store retirement convention remains separate"
+    }
+  },
+  "native_WFI_consumer_adaptation": {
+    "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/native-call-site-review-v1.json",
+    "scope": "Three post-I/O WFI continuation loops now use explicit bounded host turns; existing CPU_OFF/terminal pre-entry Hlt assertions remain strict because those are genuine prepared power exits.",
+    "owning_suite": "Complete signed 27-case native checkpoint module ran: 26 passed and one existing streaming FPSR failure retained explicitly."
+  },
+  "required_PC_overlay_guard": {
+    "physical_red": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/pc-overlay-probe-baseline-v1.json",
+    "policy": "Reject changed PC before any native write for a deferred read; allow equal PC, explicit replacement and legacy already-retired records.",
+    "status": "Physical pre-fix red and current green observed for set_current_pc and bulk overlay, preserving state/capture. Equal PC and legacy already-retired continuation remain supported."
+  },
+  "WFI_fixture_correction": {
+    "diagnostic": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/failed-reply-diagnostic-v7.json",
+    "primary": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/primary-wfi-contract-v1.json",
+    "physical_control": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/wfi-park-probe-v2.json",
+    "change": "Append a real B-self at the existing expected PC+12, retaining all continuation assertions."
+  },
+  "physical_V4_CPU_record_import": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/v4-physical-compat-v1.json",
+    "cases": 2,
+    "scope": "Direct CPU record only, deriving historical advanced PC with the exact retained old producer. No whole legacy VM/file claim."
+  },
+  "full_native_iteration": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/native-checkpoint-complete-physical-v7.json",
+    "results": [
+      {
+        "passed": 19,
+        "failed": 8,
+        "ignored": 0
+      }
+    ],
+    "scope": "Pre-guard/park iteration; preserve all failures and diagnose before final gates."
+  },
+  "validation": {
+    "receipts": {
+      "fmt-workspace-v10": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/fmt-workspace-v10.json",
+      "native-debug-final-v10-hvf_arm64_state": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/native-debug-final-v10-hvf_arm64_state.json",
+      "native-debug-final-v10-hvf_arm64_mmio": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/native-debug-final-v10-hvf_arm64_mmio.json",
+      "check-workspace-all-targets-v10": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/check-workspace-all-targets-v10.json",
+      "build-workspace-all-targets-v10": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/build-workspace-all-targets-v10.json",
+      "clippy-workspace-all-targets-v10": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/clippy-workspace-all-targets-v10.json",
+      "owning-root-library-final-v10": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/owning-root-library-final-v10.json",
+      "owning-C_API-library-final-v10": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/owning-C_API-library-final-v10.json",
+      "native-no-debug-final-v10-hvf_arm64_state": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/native-no-debug-final-v10-hvf_arm64_state.json",
+      "native-no-debug-final-v10-hvf_arm64_mmio": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/native-no-debug-final-v10-hvf_arm64_mmio.json",
+      "pc-overlay-physical-green-v9": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/pc-overlay-physical-green-v9.json",
+      "V4-compat-physical-green-v9": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/V4-compat-physical-green-v9.json"
+    },
+    "commands": {
+      "fmt-workspace-v10": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "native-debug-final-v10-hvf_arm64_state": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_arm64_state-9887b6995545eede",
+        "--include-ignored",
+        "--test-threads=1"
+      ],
+      "native-debug-final-v10-hvf_arm64_mmio": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_arm64_mmio-d9fa184a7c61bb17",
+        "--include-ignored",
+        "--test-threads=1"
+      ],
+      "check-workspace-all-targets-v10": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "build-workspace-all-targets-v10": [
+        "cargo",
+        "build",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "clippy-workspace-all-targets-v10": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "owning-root-library-final-v10": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-dbb91d3021ad8f64",
+        "--test-threads=2"
+      ],
+      "owning-C_API-library-final-v10": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-d19b0d14af108017",
+        "--test-threads=8"
+      ],
+      "native-no-debug-final-v10-hvf_arm64_state": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_arm64_state-4517bb65d58aed11",
+        "--include-ignored",
+        "--test-threads=1"
+      ],
+      "native-no-debug-final-v10-hvf_arm64_mmio": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_arm64_mmio-23cdf49af39bc7a3",
+        "--include-ignored",
+        "--test-threads=1"
+      ],
+      "pc-overlay-physical-green-v9": [
+        "/Users/int/dev/rax-audit-work/build-tmp/final-guard-probes-v9/pc-overlay"
+      ],
+      "V4-compat-physical-green-v9": [
+        "/Users/int/dev/rax-audit-work/build-tmp/final-guard-probes-v9/V4-compat"
+      ]
+    },
+    "test_results": {
+      "fmt-workspace-v10": [],
+      "native-debug-final-v10-hvf_arm64_state": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "native-debug-final-v10-hvf_arm64_mmio": [
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "check-workspace-all-targets-v10": [],
+      "build-workspace-all-targets-v10": [],
+      "clippy-workspace-all-targets-v10": [],
+      "owning-root-library-final-v10": [
+        {
+          "passed": 11548,
+          "failed": 0,
+          "ignored": 34
+        }
+      ],
+      "owning-C_API-library-final-v10": [
+        {
+          "passed": 225,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "native-no-debug-final-v10-hvf_arm64_state": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "native-no-debug-final-v10-hvf_arm64_mmio": [
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "pc-overlay-physical-green-v9": [],
+      "V4-compat-physical-green-v9": []
+    },
+    "native_checkpoint": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/native-checkpoint-final-physical-v10.json",
+      "results": [
+        {
+          "passed": 26,
+          "failed": 1,
+          "ignored": 0
+        }
+      ],
+      "scope": "Complete27-case native checkpoint module, including all PSCI, standalone and terminal-I/O children. Existing streaming FPSR failure remains explicit; not a passing full-native gate."
+    },
+    "known_native_failure": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/native-known-failure-final-v10.json",
+    "CPP_runtime": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/c-cpp-runtime-provenance-final-v8.json",
+    "CPP_production_plane_retention": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/CPP-plane-retention-v10.json",
+    "CPP_scope": "Retained historical19 consumer executions and7 ABI compilations with no optional engine features.1823 input hashes match and the remaining production prefix is identical; only its cfg(test) module changed. Native fixture files are excluded. No fresh C/C++ execution, native HVF C API or JIT consumer claim.",
+    "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/environment.json",
+    "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/frozen-source-v10.json",
+    "final_file_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/final-files.json",
+    "physical_Apple_Silicon_guest_execution": true,
+    "physical_Intel_execution": false,
+    "doctest_scope": "No runnable documentation example changed. Historical doctest command executed zero examples and ignored five; not rerun.",
+    "counts_note": "Feature planes, probes and library/module targets overlap; not unique scenario totals."
+  },
+  "quality_gates": {
+    "QG1": "No normative judgement required.",
+    "QG2": "Assumptions include stress cases, falsification probes and final qualifications.",
+    "QG3": "All acceptance criteria of this MMIO-read semantic group covered; original four-finding goal remains incomplete.",
+    "QG4": "Four-byte modular retirement, byte limits and test/feature scopes checked.",
+    "QG5": "Legacy frontier, partial setter writes, changed-PC overlays, short input and WFI continuation edges checked. Streaming FPSR remains an independent counterexample.",
+    "QG6": "Retained Arm/Apple contracts and exact executable/source receipts identify claim provenance.",
+    "QG7": "Stores, complete native state, IRQ/clock/replay and physical Intel limits remain explicit."
+  },
+  "baseline_parent": "368187b17f82c249bb343b99094951a066a8b115",
+  "fixture_code_publication": {
+    "primary": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-code-coherence-v1/SDK-code-publication-contract-v1.json",
+    "direct_SDK_control": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-code-coherence-v1/conclusions-v1.json",
+    "RAX_controls": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-code-coherence-v1/conclusions-v2.json",
+    "scope": "Raw native fixture code rewrites explicitly publish host cache visibility before entry, retaining all PC/register/input/file assertions. The v9 four-CPU X8 counterexample remains in its receipt. Small RAX controls did not reproduce it; no general production code-cache closure is claimed."
+  },
+  "tracing_test_correction": {
+    "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/darwin-tracing-lifetime-gates-v1/commit-receipt.json",
+    "scope": "Separate test-only semantic commit corrects socket sender lifetime and bounded asynchronous reap polling. Complete root validation covers the combined frozen source."
+  },
+  "workflow": {
+    "command": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+    "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/commit-receipt.json",
+    "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/cleanup-final.json"
+  }
+}

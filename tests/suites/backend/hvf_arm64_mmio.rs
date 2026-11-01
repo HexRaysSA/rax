@@ -23,6 +23,7 @@ fn request(size: u8, sign_extend: bool, sixty_four: bool, rt: u32) -> PendingMmi
         size,
         sign_extend,
         sixty_four,
+        retire_pc: None,
     }
 }
 pub fn observations() -> Vec<u64> {
@@ -157,4 +158,122 @@ fn zero_register_load_requires_full_data_and_does_not_write_a_register() {
         pending.complete(&[0x80; 7], |_, _| Ok::<(), ()>(())),
         Ok(false)
     );
+}
+
+fn retiring_request(rt: u32, retire_pc: Option<u64>) -> PendingMmioRead {
+    PendingMmioRead {
+        retire_pc,
+        ..request(8, false, true, rt)
+    }
+}
+
+#[test]
+fn full_reply_writes_the_destination_then_the_absolute_pc() {
+    let mut writes = Vec::new();
+    let p = retiring_request(0, Some(4));
+    assert_eq!(
+        p.complete(&7u64.to_le_bytes(), |r, v| {
+            writes.push((r, v));
+            Ok::<_, ()>(())
+        }),
+        Ok(true)
+    );
+    assert_eq!(writes, [(0, 7), (31, 4)]);
+}
+#[test]
+fn incomplete_reply_never_writes_destination_or_pc() {
+    for n in 0..8 {
+        assert_eq!(
+            retiring_request(0, Some(4)).complete(&[0xff; 8][..n], |_, _| -> Result<(), ()> {
+                panic!("early writer")
+            }),
+            Ok(false)
+        );
+    }
+}
+#[test]
+fn zero_register_still_retires_after_complete_input() {
+    let mut writes = Vec::new();
+    assert_eq!(
+        retiring_request(31, Some(4)).complete(&[0xff; 8], |r, v| {
+            writes.push((r, v));
+            Ok::<_, ()>(())
+        }),
+        Ok(true)
+    );
+    assert_eq!(writes, [(31, 4)]);
+}
+#[test]
+fn legacy_already_retired_request_does_not_advance_imported_pc() {
+    let mut pc = 4;
+    assert_eq!(
+        retiring_request(0, None).complete(&[0xff; 8], |r, v| {
+            if r == 31 {
+                pc = v;
+            }
+            Ok::<_, ()>(())
+        }),
+        Ok(true)
+    );
+    assert_eq!(pc, 4);
+}
+fn partial_writeback_failure(register: u32, after_mutation: bool) {
+    let pending = retiring_request(0, Some(4));
+    let (mut destination, mut pc) = (0, 0);
+    let mut rejected = false;
+    let first = pending.complete(&7u64.to_le_bytes(), |target, value| {
+        if target == register && !rejected {
+            rejected = true;
+            if after_mutation {
+                if target == 31 {
+                    pc = value;
+                } else {
+                    destination = value;
+                }
+            }
+            return Err("SDK");
+        }
+        if target == 31 {
+            pc = value;
+        } else {
+            destination = value;
+        }
+        Ok(())
+    });
+    assert_eq!(first, Err("SDK"));
+    let before_retry = match (register, after_mutation) {
+        (0, false) => (0, 0),
+        (0, true) | (31, false) => (7, 0),
+        (31, true) => (7, 4),
+        _ => panic!("invalid failure partition"),
+    };
+    assert_eq!((destination, pc), before_retry);
+    assert_eq!(
+        pending.complete(&7u64.to_le_bytes(), |target, value| {
+            if target == 31 {
+                pc = value;
+            } else {
+                destination = value;
+            }
+            Ok::<_, ()>(())
+        }),
+        Ok(true)
+    );
+    assert_eq!((destination, pc), (7, 4));
+}
+#[test]
+fn gpr_error_before_mutation_preserves_absolute_retirement() {
+    partial_writeback_failure(0, false)
+}
+#[test]
+fn gpr_error_after_mutation_preserves_absolute_retirement() {
+    partial_writeback_failure(0, true)
+}
+#[test]
+fn pc_error_before_mutation_retries_without_double_advance() {
+    partial_writeback_failure(31, false)
+}
+#[test]
+fn pc_error_after_mutation_retries_without_double_advance() {
+    partial_writeback_failure(31, true)
 }

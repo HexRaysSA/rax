@@ -45,3 +45,6 @@ The primary cancellation contract is the retained Apple SDK 27.2
 [hv_vcpu.h](../../specifications/apple/hypervisor-sdk-27.2/hv_vcpu.h), the
 hv_vcpu_run and hv_vcpus_exit declarations and discussion. A cancellation
 requested while stopped makes the next run return without guest entry.
+
+Subsequent native read-frontier, legacy-record and finite test-consumer
+qualification is in [Native ARM64 MMIO load retirement](../arm-native-mmio-frontier/README.md).

@@ -2728,7 +2728,9 @@
         "docs/development/hvf-interrupt-window/qualification.json",
         "docs/development/hvf-interrupt-window/README.md",
         "docs/development/arm-native-host-scheduling/qualification.json",
-        "docs/development/arm-native-host-scheduling/README.md"
+        "docs/development/arm-native-host-scheduling/README.md",
+        "docs/development/arm-native-mmio-frontier/qualification.json",
+        "docs/development/arm-native-mmio-frontier/README.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2759,7 +2761,8 @@
         "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open.",
         "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure.",
         "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure.",
-        "ARM native host cancellation now uses finite host turns and preserves genuine guest exits, locally qualified with complete signed Apple Silicon debug/no-debug state binaries. Manual 2/4-CPU turns do not close VMM AP startup, IRQ, clocks/replay, complete backend/private checkpoint or Intel requirements. Independent early-PC MMIO defect remains open; see arm-native-host-scheduling/qualification.json."
+        "ARM native host cancellation now uses finite host turns and preserves genuine guest exits, locally qualified with complete signed Apple Silicon debug/no-debug state binaries. Manual 2/4-CPU turns do not close VMM AP startup, IRQ, clocks/replay, complete backend/private checkpoint or Intel requirements. Independent early-PC MMIO defect remains open; see arm-native-host-scheduling/qualification.json.",
+        "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2810,7 +2813,8 @@
         "a32-restricted-scalar-fp-modes-2026-11-01",
         "intel-native-host-scheduling-2026-11-01",
         "intel-interrupt-window-ack-2026-11-01",
-        "arm-native-host-scheduling-2026-11-01"
+        "arm-native-host-scheduling-2026-11-01",
+        "arm-native-mmio-read-frontier-2026-11-01"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3456,7 +3460,9 @@
         "docs/development/hvf-interrupt-window/qualification.json",
         "docs/development/hvf-interrupt-window/README.md",
         "docs/development/arm-native-host-scheduling/qualification.json",
-        "docs/development/arm-native-host-scheduling/README.md"
+        "docs/development/arm-native-host-scheduling/README.md",
+        "docs/development/arm-native-mmio-frontier/qualification.json",
+        "docs/development/arm-native-mmio-frontier/README.md"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3482,7 +3488,8 @@
         "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open.",
         "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure.",
         "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure.",
-        "ARM native host cancellation now uses finite host turns and preserves genuine guest exits, locally qualified with complete signed Apple Silicon debug/no-debug state binaries. Manual 2/4-CPU turns do not close VMM AP startup, IRQ, clocks/replay, complete backend/private checkpoint or Intel requirements. Independent early-PC MMIO defect remains open; see arm-native-host-scheduling/qualification.json."
+        "ARM native host cancellation now uses finite host turns and preserves genuine guest exits, locally qualified with complete signed Apple Silicon debug/no-debug state binaries. Manual 2/4-CPU turns do not close VMM AP startup, IRQ, clocks/replay, complete backend/private checkpoint or Intel requirements. Independent early-PC MMIO defect remains open; see arm-native-host-scheduling/qualification.json.",
+        "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3521,7 +3528,8 @@
         "a32-restricted-scalar-fp-modes-2026-11-01",
         "intel-native-host-scheduling-2026-11-01",
         "intel-interrupt-window-ack-2026-11-01",
-        "arm-native-host-scheduling-2026-11-01"
+        "arm-native-host-scheduling-2026-11-01",
+        "arm-native-mmio-read-frontier-2026-11-01"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -4119,7 +4127,9 @@
         "docs/development/hvf-native-scheduling/qualification.json",
         "docs/development/hvf-native-scheduling/README.md",
         "docs/development/hvf-interrupt-window/qualification.json",
-        "docs/development/hvf-interrupt-window/README.md"
+        "docs/development/hvf-interrupt-window/README.md",
+        "docs/development/arm-native-mmio-frontier/qualification.json",
+        "docs/development/arm-native-mmio-frontier/README.md"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4143,7 +4153,8 @@
         "Native syscall/SWAPGS/TSC_AUX MSRs now use SDK-managed execution backing, and public syscall fields restore through that backing. See hvf-native-msr-qualification.json. Full native private/XSAVE/in-flight records, including KERNEL_GS_BASE/TSC_AUX, coordinated rollback, remaining intercept/IRQ/scheduling profiles and physical Intel remain open; no original finding closure.",
         "Readable Intel SDK CPU/full-XSAVE/in-flight records, strict native file admission, coordinated rollback, current-debugger controls and common host-clock rebasing now have portable/SDK-model evidence. Physical Intel state restoration and guest execution, remaining native intercept/exception/MMIO/IRQ profiles and bounded native scheduling/SMP/replay remain open; no original finding closure. See hvf-native-context-qualification.json.",
         "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure.",
-        "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure."
+        "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure.",
+        "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4160,7 +4171,8 @@
         "intel-native-syscall-msr-state-2026-10-31",
         "intel-native-checkpoint-records-2026-10-31",
         "intel-native-host-scheduling-2026-11-01",
-        "intel-interrupt-window-ack-2026-11-01"
+        "intel-interrupt-window-ack-2026-11-01",
+        "arm-native-mmio-read-frontier-2026-11-01"
       ]
     },
     {
@@ -197811,6 +197823,17 @@
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/cleanup-final.json",
       "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
       "pending_gates": "Original four-finding scope remains open; no full finding closure."
+    },
+    {
+      "id": "arm-native-mmio-read-frontier-2026-11-01",
+      "status": "locally_validated_with_explicit_native_streaming_FPSR_limit",
+      "parent": "b81ff2d7f433dfead95915c546b740751a1b7597",
+      "scope": "Retain native ARM scalar-read PC until full input, use absolute retry-safe retirement and explicitly import existing V4 records.",
+      "qualification": "docs/development/arm-native-mmio-frontier/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/cleanup-final.json",
+      "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+      "pending_gates": "Original A32-FP/C-STATE/C-SMP/C-HVF scope remains open; streaming FPSR, remaining profiles/IRQ/clocks/replay and physical Intel remain incomplete."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

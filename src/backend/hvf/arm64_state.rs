@@ -55,6 +55,20 @@ impl HvfArm64Core {
         Ok(CpuState::Aarch64(Aarch64CpuState { regs, sregs }))
     }
 
+    /// Register overlays retain an incomplete load's instruction frontier.
+    /// Explicit replacement uses set_state and cancels the transaction instead.
+    pub(super) fn validate_pending_pc_overlay(&self, pc: u64) -> Result<()> {
+        let deferred = self
+            .pending_mmio_read
+            .is_some_and(|pending| pending.retire_pc.is_some());
+        if deferred && pc != self.read_gpr(HV_REG_PC)? {
+            return Err(Error::InvalidConfig(
+                "cannot change PC during a pending native read; complete the input or use set_state for explicit replacement".into(),
+            ));
+        }
+        Ok(())
+    }
+
     pub(super) fn restore_native_state(&mut self, state: &CpuState) -> Result<()> {
         let state = match state {
             CpuState::Aarch64(state) => state,

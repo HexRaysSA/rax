@@ -290,11 +290,19 @@ impl VCpu for HvfArm64Vcpu {
         let state = state.clone();
         // A register overlay retains in-flight I/O. Explicit state replacement
         // uses set_state, whose successful completion cancels the transaction.
-        self.request(move |core| core.restore_native_state(&state))
+        self.request(move |core| {
+            if let CpuState::Aarch64(overlay) = &state {
+                core.validate_pending_pc_overlay(overlay.regs.pc)?;
+            }
+            core.restore_native_state(&state)
+        })
     }
 
     fn set_current_pc(&mut self, pc: u64) -> Result<()> {
-        self.request(move |core| core.write_gpr(HV_REG_PC, pc))
+        self.request(move |core| {
+            core.validate_pending_pc_overlay(pc)?;
+            core.write_gpr(HV_REG_PC, pc)
+        })
     }
 
     fn wake(&mut self) {

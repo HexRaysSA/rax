@@ -200,7 +200,7 @@ mod physical {
 
     #[test]
     #[ignore = "requires physical Apple Silicon and signed Hypervisor executable"]
-    fn actual_mmio_input_reemits_and_delivers_the_value_before_guest_reentry() {
+    fn actual_mmio_input_retains_fault_pc_until_full_reply_then_retires_once() {
         let _serial = SERIAL
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -210,6 +210,7 @@ mod physical {
         let CpuState::Aarch64(state) = &mut public else {
             panic!("wrong architecture");
         };
+        state.regs.x[0] = 0xdead_beef;
         state.regs.x[1] = 0x5000;
         state.regs.x[2] = 0x1000;
         cpu.set_state(&public).unwrap();
@@ -228,6 +229,31 @@ mod physical {
             }
         }
         assert!(observed, "native CPU did not reach the real input trap");
+        let CpuState::Aarch64(state) = cpu.get_state().unwrap() else {
+            panic!("wrong architecture");
+        };
+        assert_eq!((state.regs.pc, state.regs.x[0]), (0, 0xdead_beef));
+        let before = rax::codec::serialize(&CpuState::Aarch64(state.clone())).unwrap();
+        assert!(cpu.set_current_pc(0x100).is_err());
+        assert_eq!(
+            rax::codec::serialize(&cpu.get_state().unwrap()).unwrap(),
+            before
+        );
+        let mut redirected = state;
+        redirected.regs.pc = 0x100;
+        assert!(cpu.update_state(&CpuState::Aarch64(redirected)).is_err());
+        assert_eq!(
+            rax::codec::serialize(&cpu.get_state().unwrap()).unwrap(),
+            before
+        );
+        assert!(cpu.capture_backend_context().unwrap().is_some());
+        cpu.set_current_pc(0).unwrap();
+        cpu.complete_io_in(&[0xaa; 7]);
+        assert!(cpu.io_completion_result().is_err());
+        let CpuState::Aarch64(state) = cpu.get_state().unwrap() else {
+            panic!("wrong architecture");
+        };
+        assert_eq!((state.regs.pc, state.regs.x[0]), (0, 0xdead_beef));
         assert!(matches!(
             cpu.run_host_slice(Duration::from_millis(5)).unwrap(),
             Some(VcpuExit::MmioRead {
@@ -236,6 +262,12 @@ mod physical {
             })
         ));
         let value = 0x1122_3344_5566_7788u64;
+        cpu.complete_io_in(&value.to_le_bytes());
+        assert!(cpu.io_completion_result().is_ok());
+        let CpuState::Aarch64(state) = cpu.get_state().unwrap() else {
+            panic!("wrong architecture");
+        };
+        assert_eq!((state.regs.pc, state.regs.x[0]), (4, value));
         cpu.complete_io_in(&value.to_le_bytes());
         assert!(cpu.io_completion_result().is_ok());
         for _ in 0..8 {

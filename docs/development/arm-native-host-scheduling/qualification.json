@@ -61,7 +61,9 @@
     {
       "impact": "high",
       "finding": "MMIO read PC advances before reply; independent physical failure retained.",
-      "blocks_full_goal": true
+      "blocks_full_goal": false,
+      "resolved_by": "docs/development/arm-native-mmio-frontier/qualification.json",
+      "resolved_in_followup": true
     },
     {
       "impact": "high",
@@ -82,7 +84,9 @@
       "impact": "medium",
       "finding": "Existing ignored native coordinator helper expects every execute_turn to return Some; it must be adapted to valid None host turns before end-to-end coordinator qualification.",
       "evidence": "src/vm/runtime/native_checkpoint_tests.rs:run_native_coordinator_turn",
-      "blocks_full_goal": true
+      "blocks_full_goal": false,
+      "resolved_by": "docs/development/arm-native-mmio-frontier/qualification.json",
+      "resolved_in_followup": true
     }
   ],
   "full_goal_complete": false,
@@ -232,5 +236,9 @@
     "command": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
     "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/commit-receipt.json",
     "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/cleanup-final.json"
+  },
+  "followup_resolution": {
+    "qualification": "docs/development/arm-native-mmio-frontier/qualification.json",
+    "scope": "MMIO read frontier, changed-PC overlay guard and finite native test consumers are subsequently locally qualified. Original scheduling evidence remains historical; complete native streaming FPSR and original full goals remain open."
   }
 }

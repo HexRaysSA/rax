@@ -792,8 +792,9 @@ impl HvfArm64Core {
     }
 
     /// Handle a data abort exception: emulate the trapped load/store as an
-    /// MMIO transaction. The faulting instruction is retired here (PC is
-    /// advanced); a read is completed later via `complete_io_in`.
+    /// MMIO transaction. A scalar read retains its faulting PC until complete
+    /// input is published by `complete_io_in`. Stores retain the existing
+    /// advance-before-dispatch convention pending a separate acknowledgement fix.
     fn handle_data_abort(&mut self, exit_info: &hv_vcpu_exit) -> Result<VcpuExit> {
         let exc = exit_info.exception;
         let iss = exc.iss();
@@ -832,13 +833,19 @@ impl HvfArm64Core {
                 data: data_bytes,
             })
         } else {
-            self.advance_pc(exc.instruction_length() as u64)?;
+            if exc.instruction_length() != 4 {
+                return Err(Error::Emulator(
+                    "native scalar MMIO read requires a four-byte AArch64 instruction".into(),
+                ));
+            }
+            let retire_pc = self.read_gpr(HV_REG_PC)?.wrapping_add(4);
             self.pending_mmio_read = Some(PendingMmioRead {
                 addr,
                 rt,
                 sign_extend: exc.sign_extend(),
                 sixty_four: (iss >> 15) & 1 != 0,
                 size,
+                retire_pc: Some(retire_pc),
             });
             Ok(VcpuExit::MmioRead { addr, size })
         }

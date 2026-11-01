@@ -1,4 +1,8 @@
-//! Staged native AArch64 MMIO load completion.
+//! Staged native AArch64 MMIO load completion and instruction retirement.
+
+// Apple hv_vcpu_types.h assigns SDK register 31 to PC. Architectural Rt=31
+// discards the load destination; it must still retire through the PC writer.
+const PC_REGISTER: u32 = 31;
 
 /// A data abort's complete scalar load request. A short reply leaves the
 /// request pending; no register value is fabricated from absent bytes.
@@ -9,21 +13,28 @@ pub(crate) struct PendingMmioRead {
     pub(crate) size: u8,
     pub(crate) sign_extend: bool,
     pub(crate) sixty_four: bool,
+    /// Absolute post-load PC; None represents a legacy already-retired read.
+    pub(crate) retire_pc: Option<u64>,
 }
 
 impl PendingMmioRead {
-    /// Publish a complete load through the backend writer. An incomplete reply
-    /// does not invoke the writer; a failed write does not accept the reply.
+    /// Publish a complete load, then its absolute PC through the SDK writer.
+    /// An incomplete reply performs no write. On either setter failure the
+    /// caller retains this request and the obtained input; writing the same
+    /// absolute PC on retry is safe even if a failed setter already mutated it.
     pub(crate) fn complete<E>(
         self,
         data: &[u8],
-        write: impl FnOnce(u32, u64) -> Result<(), E>,
+        mut write: impl FnMut(u32, u64) -> Result<(), E>,
     ) -> Result<bool, E> {
         let Some(value) = self.value(data) else {
             return Ok(false);
         };
         if self.rt < 31 {
             write(self.rt, value)?;
+        }
+        if let Some(pc) = self.retire_pc {
+            write(PC_REGISTER, pc)?;
         }
         Ok(true)
     }

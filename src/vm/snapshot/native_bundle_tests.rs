@@ -495,6 +495,7 @@ fn native_terminal_pending_transactions_survive_complete_file_admission() {
                         size: 1,
                         sign_extend: false,
                         sixty_four: false,
+                        retire_pc: Some(context.public.regs.pc.wrapping_add(4)),
                     });
                     if phase > 0 {
                         context.pending_reply = Some(vec![0xab]);
