@@ -21,6 +21,8 @@ pub const AARCH64_CONTEXT: u32 = 5;
 pub const HVF_AARCH64_CONTEXT: u32 = 6;
 /// Native Intel HVF CPU and shared VM producer, with distinct inner tags.
 pub const HVF_INTEL_CONTEXT: u32 = 7;
+/// Software Cortex-M core, internal controllers and adapter execution state.
+pub const CORTEX_M_CONTEXT: u32 = 8;
 
 /// An opaque, bounded backend-owned record. Its kind identifies its producer;
 /// an architectural register projection cannot substitute for this payload.

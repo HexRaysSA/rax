@@ -918,6 +918,10 @@ mod checkpoint_tests;
 mod backend_context_tests;
 
 #[cfg(test)]
+#[path = "runtime/cortex_m_context_tests.rs"]
+mod cortex_m_context_tests;
+
+#[cfg(test)]
 #[path = "runtime/riscv_context_tests.rs"]
 mod riscv_context_tests;
 

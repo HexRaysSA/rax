@@ -152,3 +152,11 @@ It retains controller interfaces, queued power requests and target-owned IRQ
 handle identities across restoration. This complements the CPU projection;
 full core/bridge private context and exclusive reservation closure remain open.
 See [AArch64 cluster ownership](aarch64-cluster.md).
+
+
+Cortex-M producer kind 8 (`RAXCM001`) carries represented core, internal
+NVIC/SCB/SysTick, sleep/event/counter and local adapter state. Its VMM candidates
+use a matching-memory publication permit; exported C contexts use format 9.
+Absent-section and C versions 1/2 retain projection-only compatibility.
+See [Cortex-M checkpoints](cortex-m-checkpoints/README.md) for exact scope,
+controller side-effect tests, current-session debug ownership and qualification.

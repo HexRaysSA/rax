@@ -215,7 +215,7 @@ pub mod dfsr {
 }
 
 /// Cortex-M variant for CPUID.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CortexMVariant {
     CortexM0,
     CortexM0Plus,
@@ -315,7 +315,7 @@ impl CortexMVariant {
 }
 
 /// System Control Block state.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Scb {
     /// CPU variant.
     variant: CortexMVariant,
@@ -354,6 +354,15 @@ pub struct Scb {
 }
 
 impl Scb {
+    pub(crate) fn validate_checkpoint(&self, variant: CortexMVariant) -> crate::error::Result<()> {
+        if self.variant != variant || self.cpuid != variant.cpuid() {
+            return Err(crate::error::Error::InvalidConfig(
+                "Cortex-M checkpoint SCB model differs".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Create a new SCB for the specified variant.
     pub fn new(variant: CortexMVariant) -> Self {
         let cpuid = variant.cpuid();

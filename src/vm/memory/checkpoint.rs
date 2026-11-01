@@ -81,6 +81,7 @@ pub struct CheckpointPublication<'bindings> {
 
 enum Activation {
     None,
+    Detached(Arc<AtomicBool>),
     S3c {
         uart: Option<(usize, S3cUart)>,
         completed: Arc<AtomicBool>,
@@ -102,6 +103,24 @@ pub struct CpuPublication<'scope, 'bindings> {
 }
 
 impl<'bindings> CheckpointPublication<'bindings> {
+    /// CPU-owned state needs no shared controller setter, but entry must wait
+    /// until the caller has published restored RAM at this stopped boundary.
+    pub(crate) fn prepare_detached(
+        &self,
+        memory: &GuestMemoryMmap,
+        completed: Arc<AtomicBool>,
+    ) -> Result<CpuPublication<'_, 'bindings>> {
+        if !Arc::ptr_eq(&self.bindings.domain, &MemoryDomain::for_memory(memory)) {
+            return Err(Error::InvalidConfig(
+                "checkpoint detached CPU memory binding differs".into(),
+            ));
+        }
+        Ok(CpuPublication {
+            scope: self,
+            activation: Activation::Detached(completed),
+        })
+    }
+
     pub(crate) fn empty(&self) -> CpuPublication<'_, 'bindings> {
         CpuPublication {
             scope: self,
@@ -212,6 +231,7 @@ impl CpuPublication<'_, '_> {
     pub fn commit(self) {
         match self.activation {
             Activation::None => {}
+            Activation::Detached(completed) => completed.store(true, Ordering::Release),
             Activation::S3c { uart, completed } => {
                 if completed.load(Ordering::Acquire) {
                     return;

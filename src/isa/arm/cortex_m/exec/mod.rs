@@ -53,7 +53,7 @@ pub enum Fault {
 }
 
 /// The registers an instruction can change, restored when it faults.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct Snapshot {
     regs: [u32; 13],
     sp_main: u32,
@@ -72,6 +72,28 @@ pub struct Snapshot {
     event_register: bool,
     insn_count: u64,
     cycle_count: u64,
+}
+
+impl Snapshot {
+    pub(crate) fn validate_checkpoint(&self) -> crate::error::Result<()> {
+        // ArmCpu::set_sp accepts raw stack values; retain those values so the
+        // subsequent modeled access, rather than checkpoint admission, faults.
+        if self.pc & 1 != 0
+            || self.control & !3 != 0
+            || self.current_exception >= 512
+            || self.current_exception != (self.xpsr & 0x1ff) as u16
+            || self.thread_mode != (self.current_exception == 0)
+            || (self.current_exception != 0
+                && self.active[self.current_exception as usize / 64]
+                    & (1u64 << (self.current_exception % 64))
+                    == 0)
+        {
+            return Err(crate::error::Error::InvalidConfig(
+                "Cortex-M checkpoint register invariants differ".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl CortexMCpu {
@@ -164,8 +186,8 @@ impl CortexMCpu {
         if !self.it_rewritten {
             self.it_advance();
         }
-        self.insn_count += 1;
-        self.cycle_count += 1;
+        self.insn_count = self.insn_count.wrapping_add(1);
+        self.cycle_count = self.cycle_count.wrapping_add(1);
         Ok(exit)
     }
 

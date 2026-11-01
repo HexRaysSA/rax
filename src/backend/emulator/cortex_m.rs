@@ -28,13 +28,16 @@ use crate::isa::arm::cpu_trait::{AccessType, ArmCpu, CpuExit};
 use crate::isa::arm::memory::{ArmMemory, MemResult, MemoryError, MmioHandler};
 use crate::vm::vcpu::{CortexMCpuState, CpuState, VCpu, VcpuExit};
 
+#[path = "cortex_m/context.rs"]
+mod context;
+
 /// Guest memory with a local exclusive monitor. A failed access records the
 /// first inaccessible byte.
 #[derive(Debug)]
 struct Bridge {
     mem: Arc<GuestMemoryMmap>,
     fault: Arc<Mutex<Option<GuestMemoryFault>>>,
-    exclusive: Option<(u64, u8)>,
+    exclusive: Arc<Mutex<Option<(u64, u8)>>>,
 }
 
 impl Bridge {
@@ -100,15 +103,15 @@ impl ArmMemory for Bridge {
     }
 
     fn mark_exclusive(&mut self, addr: u64, size: u8) {
-        self.exclusive = Some((addr, size));
+        *self.exclusive.lock().unwrap() = Some((addr, size));
     }
 
     fn check_exclusive(&mut self, addr: u64, size: u8) -> bool {
-        self.exclusive.take() == Some((addr, size))
+        self.exclusive.lock().unwrap().take() == Some((addr, size))
     }
 
     fn clear_exclusive(&mut self) {
-        self.exclusive = None;
+        *self.exclusive.lock().unwrap() = None;
     }
 
     fn requires_alignment(&self) -> bool {
@@ -128,10 +131,13 @@ pub struct CortexMVcpu {
     id: u32,
     cpu: CortexMCpu,
     fault: Arc<Mutex<Option<GuestMemoryFault>>>,
+    memory: Arc<GuestMemoryMmap>,
+    exclusive: Arc<Mutex<Option<(u64, u8)>>>,
+    checkpoint_publication: Option<Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl CortexMVcpu {
-    /// Creates a Cortex-M4 (ARMv7E-M with FPU and DSP) vCPU over `mem` in
+    /// Creates a Cortex-M4 (ARMv7E-M integer/DSP, without implemented FP) vCPU over `mem` in
     /// Thread mode, privileged, on the main stack.
     pub fn new(id: u32, mem: Arc<GuestMemoryMmap>) -> Self {
         Self::with_variant(id, mem, CortexMVariant::CortexM4)
@@ -140,15 +146,19 @@ impl CortexMVcpu {
     /// Creates a vCPU for `variant`.
     pub fn with_variant(id: u32, mem: Arc<GuestMemoryMmap>, variant: CortexMVariant) -> Self {
         let fault = Arc::new(Mutex::new(None));
+        let exclusive = Arc::new(Mutex::new(None));
         let bridge = Bridge {
-            mem,
+            mem: mem.clone(),
             fault: fault.clone(),
-            exclusive: None,
+            exclusive: exclusive.clone(),
         };
         CortexMVcpu {
             id,
             cpu: CortexMCpu::new(variant, Box::new(bridge)),
             fault,
+            memory: mem,
+            exclusive,
+            checkpoint_publication: None,
         }
     }
 
@@ -251,7 +261,68 @@ impl CortexMVcpu {
 }
 
 impl VCpu for CortexMVcpu {
+    fn required_private_checkpoint_kind(&self) -> Option<u32> {
+        Some(crate::vm::snapshot::CORTEX_M_CONTEXT)
+    }
+    fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        self.capture_private().map(Some)
+    }
+    fn capture_backend_context_for_remap(
+        &self,
+    ) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        self.capture_for_remap().map(Some)
+    }
+    fn validate_checkpoint_context(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_state(state, emulator)?;
+        if let Some(raw) = context {
+            self.validate_private(state, emulator, raw)?;
+        }
+        Ok(())
+    }
+    fn prepare_checkpoint_replacement(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+        _resources: &crate::vm::snapshot::PreparedResources,
+    ) -> Result<Option<Box<dyn VCpu>>> {
+        self.validate_checkpoint_state(state, emulator)?;
+        context
+            .map(|raw| {
+                self.validate_private(state, emulator, raw)?;
+                self.prepare_private(state, raw)
+                    .map(|cpu| Box::new(cpu) as Box<dyn VCpu>)
+            })
+            .transpose()
+    }
+    fn prepare_checkpoint_publication<'scope, 'bindings>(
+        &mut self,
+        scope: &'scope crate::vm::memory::checkpoint::CheckpointPublication<'bindings>,
+    ) -> Result<crate::vm::memory::checkpoint::CpuPublication<'scope, 'bindings>> {
+        self.publication(scope)
+    }
+    fn restore_checkpoint_context(
+        &mut self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        match context {
+            Some(raw) => self.restore_private(state, raw),
+            None => {
+                self.set_state(state)?;
+                self.set_emulator_state(emulator)
+            }
+        }
+    }
     fn run(&mut self) -> Result<VcpuExit> {
+        self.finish_publication()?;
         loop {
             if let Some(exit) = self.step_one()? {
                 return Ok(exit);
@@ -260,6 +331,7 @@ impl VCpu for CortexMVcpu {
     }
 
     fn step_insn(&mut self) -> Result<Option<VcpuExit>> {
+        self.finish_publication()?;
         self.step_one()
     }
 

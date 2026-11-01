@@ -768,3 +768,6 @@ mod context_x86;
 
 #[path = "tests/aarch64_reservations.rs"]
 mod aarch64_reservations;
+
+#[path = "tests/context_cortex_m.rs"]
+mod context_cortex_m;

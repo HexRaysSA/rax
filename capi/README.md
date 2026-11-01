@@ -586,6 +586,18 @@ RISC-V engines use format 6 and software x86 engines use format 7, as described
 below. Existing format 1/2 inputs remain supported with their original retained
 state. An older library cannot restore the newer context formats.
 
+Cortex-M engines write context format 9 with producer kind 8 (`RAXCM001`).
+This retains represented core state, NVIC/SCB/SysTick registers and pending
+state, sleep/events, counters, pending core exceptions and the local exclusive
+monitor. Context restore retains the raw backend counter while the public
+`rax_emu_icount` observation starts at zero. Address-map reconstruction retains
+core/controller phase and invalidates local exclusive rights; the removed
+reservation range can therefore be unmapped. Legacy Cortex-M formats 1/2
+remain readable with their original public-register projection semantics.
+Private/public conflicts and malformed records reject before engine replacement.
+This does not add a Floating-point Extension or shared-writer monitor coherence.
+
+
 ABI 1.16 adds `rax_arm64_fp_configure` and `rax_arm64_fp_get_config` for the
 software AArch64 optional FP/Advanced SIMD profile. The C++ methods are
 `configureFp` and `fpConfig`. The 32-byte `rax_arm64_fp_config` has a caller-set

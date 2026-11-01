@@ -1,12 +1,7 @@
-//! Cortex-M CPU implementation.
-//!
-//! This module provides a complete Cortex-M processor implementation including:
-//! - All Cortex-M variants (M0, M0+, M3, M4, M7, M23, M33, M55, M85)
-//! - Thumb/Thumb-2 instruction execution
-//! - Exception handling and NVIC integration
-//! - Memory protection (MPU)
-//! - FPU support (M4, M7, M33+)
-//! - DSP extension support
+//! Cortex-M processor model with Thumb/Thumb-2 execution, exception handling,
+//! internal NVIC/SCB/SysTick state and represented DSP operations. Variant
+//! metadata does not imply implementation of every optional extension: the
+//! Floating-point Extension and MPU enforcement are not implemented here.
 
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -25,6 +20,10 @@ use super::exec::Fault;
 use super::nvic::Nvic;
 use super::scb::{CortexMVariant, Scb, cfsr, hfsr};
 use super::systick::SysTick;
+
+#[path = "checkpoint.rs"]
+mod checkpoint;
+pub(crate) use checkpoint::CoreCheckpoint;
 
 /// EXC_RETURN values.
 pub mod exc_return {

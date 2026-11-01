@@ -1,0 +1,415 @@
+{
+  "scope": "Cortex-M represented private state through actual VMM files, coordinated detached CPU publication, and exported C API contexts",
+  "parent": "dac84cd3bca7a8e54e2a37c7b8de9267906df882",
+  "full_goal_complete": false,
+  "assumption_register": [
+    {
+      "id": "CM1",
+      "assumption": "Public Cortex-M registers omit state that changes continuation.",
+      "dependent_results": "Private producer and context format required.",
+      "stress_test": "Actual VMM files: count, WFI sleep, SEV/WFE.",
+      "falsification_probe": "Restored execution equals uninterrupted execution without private bytes.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "CM2",
+      "assumption": "Raw modeled controller fields are state; register replay can consume them.",
+      "dependent_results": "Install admitted typed controller images directly.",
+      "stress_test": "All eleven variants; reset request, pending interrupts, sticky COUNTFLAG, SysTick phase and local reservation consumed exactly once.",
+      "falsification_probe": "Byte divergence or missing/doubled side effect.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "CM3",
+      "assumption": "A detached CPU cannot execute before target RAM publication.",
+      "dependent_results": "Entry/capture guard and binding-checked permit.",
+      "stress_test": "Canceled permit, entry/capture rejection, zero budget, foreign-memory scope, later CPU corruption/missing row.",
+      "falsification_probe": "Candidate enters early or rejected restore mutates target CPU/RAM.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "CM4",
+      "assumption": "GDB controls belong to the current session.",
+      "dependent_results": "Candidate inherits target CPU break/watch controls.",
+      "stress_test": "Different source/target controls; actual GDB file-restore lifecycle in full root binary.",
+      "falsification_probe": "Source controls replace current target controls or rebind regression fails.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "CM5",
+      "assumption": "Legacy projection contexts retain their existing limited contract.",
+      "dependent_results": "Absent section / C format 1 or 2 accepted without fabricating execution phase.",
+      "stress_test": "Actual 1/2/4-CPU legacy files and C API old framing.",
+      "falsification_probe": "Legacy rejected or missing counters reconstructed.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "CM6",
+      "assumption": "CPU-owned pending exception queues need a storage bound beyond a byte limit.",
+      "dependent_results": "At most 262144 decoded entries; fixed-size NVIC priority tuple.",
+      "stress_test": "Oversized queue encoding rejected; raw counter maximum wraps safely with overflow checks enabled.",
+      "falsification_probe": "Unbounded allocation, panic, or changed continuation.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "All four original full findings remain open; physical Intel, native in-flight/IRQ/clock/replay and SMP qualification are independent."
+    },
+    {
+      "impact": "high",
+      "item": "This preserves represented Cortex-M software state; it does not implement the absent Floating-point Extension, MPU, external SCS MMIO wiring or additional interrupt execution semantics."
+    },
+    {
+      "impact": "high",
+      "item": "Cortex-M retains its existing local-only exclusive monitor; shared writer invalidation/coherence is not established by this group."
+    },
+    {
+      "impact": "medium",
+      "item": "Legacy contexts without private bytes cannot recover omitted counters/sleep/events."
+    },
+    {
+      "impact": "medium",
+      "item": "Independent raw RAM writers remain the caller's quiescence responsibility."
+    }
+  ],
+  "complexity": "For C CPUs, B encoded bytes and Q pending entries per CPU, framing and private preparation are O(C+B+Q) time and O(B+Q) auxiliary space within fixed caps; direct controller installation is constant size plus queue ownership transfer. RAM copy is separately O(R).",
+  "provenance": [
+    "src/backend/emulator/cortex_m.rs",
+    "src/isa/arm/cortex_m/cpu.rs",
+    "src/isa/arm/cortex_m/exec/mod.rs",
+    "src/isa/arm/cortex_m/nvic.rs",
+    "src/isa/arm/cortex_m/scb.rs",
+    "src/isa/arm/cortex_m/systick.rs",
+    "capi/src/context.rs",
+    "capi/src/run.rs"
+  ],
+  "evidence_boundary": "Software model preservation and current Apple Silicon host behavior; no new architectural-hardware-fidelity claim.",
+  "utc": "2026-11-01T23:55:18.949568+00:00",
+  "status": "locally_validated_with_explicit_scope",
+  "tests": {
+    "green-C-API-v4": {
+      "results": [
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 0.02943666698411107,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "94858fe695ca909ede176475ea943ca1067dd376df53b09b9f15a575d33ab8e5",
+        "inode": 399950148
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/green-C-API-v4.json"
+    },
+    "green-core-v4": {
+      "results": [
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 0.041932291991543025,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "36914dd632e955c35e76d397f54933dae8c91d5a611ebaf285fb0f5ac97d0b51",
+        "inode": 399950147
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/green-core-v4.json"
+    },
+    "green-backend-v4": {
+      "results": [
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 0.017682499950751662,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "36914dd632e955c35e76d397f54933dae8c91d5a611ebaf285fb0f5ac97d0b51",
+        "inode": 399950147
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/green-backend-v4.json"
+    },
+    "green-VMM-v4": {
+      "results": [
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 162.22444145800546,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "36914dd632e955c35e76d397f54933dae8c91d5a611ebaf285fb0f5ac97d0b51",
+        "inode": 399950147
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/green-VMM-v4.json"
+    },
+    "owning-root-library-v4": {
+      "results": [
+        {
+          "passed": 11626,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "elapsed_seconds": 885.3588940839982,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "36914dd632e955c35e76d397f54933dae8c91d5a611ebaf285fb0f5ac97d0b51",
+        "inode": 399950147
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/owning-root-library-v4.json"
+    },
+    "owning-C-API-library-v4": {
+      "results": [
+        {
+          "passed": 231,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 3.9238596669747494,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "94858fe695ca909ede176475ea943ca1067dd376df53b09b9f15a575d33ab8e5",
+        "inode": 399950148
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/owning-C-API-library-v4.json"
+    },
+    "native-file-continuation-v4": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 184.23177970800316,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "36914dd632e955c35e76d397f54933dae8c91d5a611ebaf285fb0f5ac97d0b51",
+        "inode": 399950147
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/native-file-continuation-v4.json"
+    },
+    "doctests-workspace-v4": {
+      "results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 6.3533217500080355,
+      "executable": null,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/doctests-workspace-v4.json"
+    }
+  },
+  "checks": {
+    "fmt-workspace-v4": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/fmt-workspace-v4.json",
+      "elapsed_seconds": 13.869265665998682
+    },
+    "repair-build-v4": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/repair-build-v4.json",
+      "elapsed_seconds": 177.02825854200637
+    },
+    "check-workspace-all-targets-v4": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/check-workspace-all-targets-v4.json",
+      "elapsed_seconds": 80.29280941700563
+    },
+    "build-workspace-all-targets-v4": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/build-workspace-all-targets-v4.json",
+      "elapsed_seconds": 90.71009858400794
+    },
+    "clippy-workspace-all-targets-v4": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/clippy-workspace-all-targets-v4.json",
+      "elapsed_seconds": 93.37462516600499
+    }
+  },
+  "host": {
+    "utc": "2026-11-01T23:40:12.623193+00:00",
+    "sw_vers": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+    "cpu": "Apple M4 Max",
+    "cpu_threads": 16,
+    "memory_bytes": 137438953472,
+    "sdk": "27.2",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+    "RAX_MACHINE": null,
+    "physical_Intel": false
+  },
+  "source_sha256": {
+    "capi/src/tests/context_cortex_m.rs": "527d42d021d6632ec74a7cb1b3f1bb62d6af3a8132c17fe249301d5fbbc9882f",
+    "src/backend/emulator/cortex_m/checkpoint_tests.rs": "6416ba9050f77d000b80d53a20283f44d1df42cf9156c2373e48e882b53c765a",
+    "src/backend/emulator/cortex_m/context.rs": "9f42c3aee5f9cc343d6fd5ce7aaed40240f75e50b198b8164f608b100cb8d09d",
+    "src/isa/arm/cortex_m/checkpoint.rs": "0f92f2d1beece6527793ecb0b1fa6b39efc71e55358c5c330417bff0efa7d0c1",
+    "src/isa/arm/cortex_m/nvic_checkpoint.rs": "cf78f436491c6ac3c5045b58cee8dfadd00b8123900decc2f4a0cc083ba1a635",
+    "src/vm/runtime/cortex_m_context_tests.rs": "f723956b50cb1f2cb4bd04359b692026dccfb54a7d5e2c4af48df2914aa1aaac",
+    "capi/README.md": "0b6aca4d252daf16162b5d5f24f0c52a4f29e4a55b812900e31226a58eb6153c",
+    "capi/include/rax.h": "bd1fcfeb624e05275a9ed96f3e78c56955c0f8c4b9b058f950175fa1a1ec6508",
+    "capi/src/context.rs": "89a8cc88f2f641fd1438e2d83de34e84093830f0932bbece7e0eb15dd9ed6f05",
+    "capi/src/tests.rs": "eca8176111b41bc3e510d8d191d5896b05b97e578042b1871c4542f8cb27f6d3",
+    "capi/src/vcpu.rs": "7d42108cea6c7f94abc4139a7c9275524bf00b8a6ecabbb777f01f6064e1ce9c",
+    "src/backend/emulator/cortex_m.rs": "db3f99ff1ed3ffff892ec20ed46735cc46b3f76f4955c61a075c30ffd6b93a4d",
+    "src/isa/arm/cortex_m/cpu.rs": "8381ef3dc857337dc1579e0d5dc5bf0584c845a39185a8f7b67aaa60932b1966",
+    "src/isa/arm/cortex_m/exec/mod.rs": "ea8ddf32a6bdfdbbec83afa5937f59ba44d7cc5198ebae8b4846682ded072d4b",
+    "src/isa/arm/cortex_m/nvic.rs": "e32fb46b655768dca14f751b595b790c9b88febcaef0e33b0512c50b214c9955",
+    "src/isa/arm/cortex_m/scb.rs": "e3a935cefcbe8c46157d2c34340c8a905ae775f589e3f1b3a06c090970c8f92c",
+    "src/isa/arm/cortex_m/systick.rs": "f53d197daba811b87dcaad9ab4f8a9cdf08fc963ff07d798b1e6ecfdc7a96300",
+    "src/vm/memory/checkpoint.rs": "b6eb5854f5bdde562cfa913aa4f0742156bae849a065ce77604a4915a11dfb63",
+    "src/vm/runtime.rs": "564e63a5cbf889e53984c8f5ceaf0d811c471d251b08815d0268d675ff932ee7",
+    "src/vm/snapshot.rs": "7c1413d15d2732f1cc4dee3b15ce7daf7eed50ee1fc232f3ba8bb578ce1df7ce",
+    "src/vm/snapshot/backend_context.rs": "84586c57ba25c515ba7483b688d1e7927930636f32aab120d1b23637783b144f"
+  },
+  "static_review": {
+    "reviewed_fields": {
+      "CortexMCpu_guest": [
+        "variant",
+        "regs",
+        "sp_main",
+        "sp_process",
+        "lr",
+        "pc",
+        "xpsr",
+        "primask",
+        "faultmask",
+        "basepri",
+        "control",
+        "thread_mode",
+        "current_exception",
+        "nvic",
+        "scb",
+        "systick",
+        "vfp",
+        "insn_count",
+        "cycle_count",
+        "halted",
+        "sleeping",
+        "pending_exceptions",
+        "active",
+        "event_register",
+        "insn_addr",
+        "it_rewritten",
+        "features",
+        "version"
+      ],
+      "CortexMCpu_target_owned": [
+        "memory",
+        "breakpoints",
+        "watchpoints"
+      ],
+      "CortexMVcpu_guest": [
+        "id",
+        "cpu",
+        "fault",
+        "exclusive"
+      ],
+      "CortexMVcpu_target_owned": [
+        "memory",
+        "checkpoint_publication"
+      ],
+      "NVIC": "All declared controller fields serialized; priority[496] is a fixed tuple, not a vector.",
+      "SCB": "All declared controller fields serialized; immutable variant/CPUID checked.",
+      "SysTick": "All declared fields serialized; readonly clocks/calibration and bounded raw counters checked."
+    },
+    "constraints": [
+      "Snapshot retains raw set_sp values from the existing ArmCpu API; checkpoint admission does not silently align them.",
+      "NVIC cached mask/current-exception fields need not equal core fields because existing paths update them lazily.",
+      "Unused NVIC words are retained; do not invent zero constraints absent from existing model mutators.",
+      "SysTick tick drains the accumulator at modeled boundaries; profile clocks fixed by target constructor.",
+      "Current Cortex-M targets have no implemented FPE; vfp=Some is rejected.",
+      "No host debugger controls imported from source.",
+      "C API standalone import publishes only after new memory has been copied; VMM uses detached permit after shared RAM publication.",
+      "Map reconstruction invalidates local reservation rights without resetting represented CPU/controller phase."
+    ],
+    "owning_planes": [
+      "root library Cortex-M core/backend/VMM and shared publication tests",
+      "C API full owning binary, exported Cortex-M context and remap functions",
+      "Fresh C/C++ runtime and ABI checks for changed header/context library"
+    ],
+    "unaffected_planes": [
+      "arm integration target contains AArch64/AArch32 generated programs, with no Cortex-M references; no A/R-profile instruction semantics changed.",
+      "SMIR lifters/lowerers unchanged; no M-profile SMIR execution plane added."
+    ],
+    "baseline_failures": {
+      "actual_VMM": 3,
+      "exported_C_ABI": 3
+    },
+    "full_goal_complete": false
+  },
+  "baselines": {
+    "VMM": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/baseline-behavior-v1.json",
+    "exported_C_ABI": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/C-API-baseline-behavior-v3.json",
+    "behavioral_failures": 6
+  },
+  "required_full_root_rows": [
+    "actual_cortex_m_file_retains_each_cpus_retirement_count",
+    "actual_cortex_m_file_retains_wfi_sleep_until_explicit_wake",
+    "actual_cortex_m_file_retains_a_sev_event_for_the_next_wfe",
+    "last_cortex_m_private_record_failure_rejects_before_any_cpu_or_ram_mutation",
+    "absent_cortex_m_private_section_retains_legacy_projection_contract",
+    "file_restore_preserves_the_current_session_and_rebinds_imported_cpu_controls"
+  ],
+  "C_CPP": {
+    "programs": 19,
+    "ABI_objects": 7,
+    "engine_optional_features": [],
+    "provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/C-CPP-provenance-v4.json"
+  },
+  "wire": {
+    "private_kind": 8,
+    "private_tag": "RAXCM001",
+    "C_API_format": 9,
+    "outer_VM_framing_unchanged": true,
+    "maximum_private_record_bytes": 16777216,
+    "maximum_pending_entries": 262144,
+    "legacy_projection_compatibility": true
+  },
+  "root_execution_policy": {
+    "filter": null,
+    "test_threads": 4,
+    "reason": "Complete unfiltered owning binary; four test threads on the current 16-core, 128-GiB host. No test exclusions or global setting changes.",
+    "ignored_tests": "Default Cargo/Rust ignored policy; selected actual native file case runs separately with explicit include-ignored."
+  },
+  "quality_gates": {
+    "normative_judgment_required": false,
+    "assumptions_reconciled": true,
+    "current_group_coverage_complete": true,
+    "full_goal_complete": false,
+    "byte_and_counter_bounds_reproducible": true,
+    "legacy_and_native_limits_explicit": true,
+    "provenance_recorded": true,
+    "bounded_scope_explicit": true,
+    "source_frozen_through_execution": true
+  },
+  "map_reconstruction": "Preserves core/controller phase and invalidates local exclusive rights; removal/readdition of the reserved range is tested through exported C functions.",
+  "unrun": [
+    {
+      "gate": "Full ignored native CPU-profile module",
+      "reason": "Not rerun for this Cortex-M group; known streaming FPSR reentry failure remains unresolved."
+    },
+    {
+      "gate": "Physical Intel/native HVF-x86 and Intel cross compilation",
+      "reason": "Current Apple M4 Max host and selected installed AArch64-only standard libraries; no installations or global defaults changed."
+    }
+  ]
+}

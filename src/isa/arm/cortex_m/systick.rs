@@ -25,7 +25,7 @@ pub mod csr {
 }
 
 /// SysTick timer state.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SysTick {
     /// Control and Status Register.
     csr: u32,
@@ -48,6 +48,22 @@ pub struct SysTick {
 }
 
 impl SysTick {
+    pub(crate) fn validate_checkpoint(&self, target: &Self) -> crate::error::Result<()> {
+        if self.csr & !7 != 0
+            || self.rvr > 0x00ff_ffff
+            || self.cvr > 0x00ff_ffff
+            || self.cycles_accumulated != 0
+            || self.processor_clock != target.processor_clock
+            || self.external_clock != target.external_clock
+            || self.calib != target.calib
+        {
+            return Err(crate::error::Error::InvalidConfig(
+                "Cortex-M checkpoint SysTick profile or fields differ".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Create a new SysTick timer.
     ///
     /// # Arguments

@@ -537,7 +537,11 @@ RAX_API rax_status rax_context_save(const rax_engine *engine, void *buf, size_t 
  * writes context format 2 (exact 80-bit x87 registers) and still restores
  * format 1 from API 1.4 and earlier; older libraries cannot read format 2.
  * API 1.7 writes format 3 only for AArch32 user-mode contexts, adding TLS
- * and the local exclusive monitor. Other modes still write format 2.
+ * and the local exclusive monitor. Current producers write format 5 for system
+ * AArch32, 6 for RISC-V, 7 for x86, 8 for AArch64, and 9 for Cortex-M.
+ * Format 9 retains represented core/controller state, counters, sleep/events
+ * and local reservation rights. Legacy Cortex-M formats 1/2 are projection-only.
+ * Address-map reconstruction preserves core phase and invalidates local rights.
  * Malformed data returns RAX_ERR_FORMAT and leaves the engine unchanged. */
 RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, size_t len);
 

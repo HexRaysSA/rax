@@ -20,6 +20,9 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
+#[path = "nvic_checkpoint.rs"]
+mod checkpoint;
+
 /// Maximum number of external interrupts supported.
 pub const MAX_INTERRUPTS: usize = 496;
 
@@ -53,7 +56,7 @@ impl PartialOrd for PendingInterrupt {
 }
 
 /// NVIC state.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Nvic {
     /// Number of implemented interrupts.
     num_interrupts: usize,
@@ -68,6 +71,7 @@ pub struct Nvic {
     /// Interrupt target non-secure (ARMv8-M).
     target_ns: [u32; 16],
     /// Interrupt priorities (8-bit per interrupt).
+    #[serde(with = "checkpoint::priorities")]
     priority: [u8; MAX_INTERRUPTS],
     /// System handler priorities (for exceptions 4-15).
     /// Index 0 = MemManage (exception 4), index 11 = SysTick (exception 15)
