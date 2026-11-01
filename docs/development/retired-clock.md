@@ -67,3 +67,5 @@ import. Low impact: future clock rates require explicit arithmetic/format identi
 and equivalent phase evidence.
 
 Snapshot bundles now transport complete timing-helper state in a required clock component. Current VMM construction admits wall-mode files; a retired-mode file is explicitly rejected before construction until deterministic coordinator support is selected. See `checkpoint-clock.md`.
+
+The [LAPIC selected-clock group](lapic-selected-clock/README.md) qualifies retained device clock identity and relative-age preparation against the incoming epoch. VMM retired-mode construction and deterministic default scheduling remain incomplete.

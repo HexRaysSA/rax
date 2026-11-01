@@ -196,7 +196,15 @@ impl Vmm {
                 let apics = state
                     .local_apics
                     .iter()
-                    .map(|apic| apic.prepare(now))
+                    .map(|apic| {
+                        apic.prepare_for_clock(
+                            now,
+                            timing_context,
+                            bundle
+                                .clock()
+                                .map_or(snapshot.elapsed_nanos, |clock| clock.elapsed_nanos),
+                        )
+                    })
                     .collect::<Vec<_>>();
                 Ok::<_, Error>((
                     coordinator::ExecutionCoordinator {

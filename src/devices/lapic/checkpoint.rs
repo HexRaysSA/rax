@@ -9,6 +9,13 @@ pub(crate) struct LapicCheckpoint {
 }
 
 impl LocalApic {
+    /// Detach runtime clock identity from captured register images.
+    pub(crate) fn checkpoint_registers(&self) -> Self {
+        let mut registers = self.clone();
+        registers.timer_clock = TimerClock::default();
+        registers
+    }
+
     pub(crate) fn resume_timer_at(&mut self, now: Instant) {
         if self.timer_start.is_some() {
             self.timer_start = Some(now);
@@ -18,9 +25,9 @@ impl LocalApic {
     pub(crate) fn checkpoint_at(&self, now: Instant) -> LapicCheckpoint {
         let timer_age_nanos = self.timer_start.map(|start| {
             self.timer_elapsed_base_nanos
-                .saturating_add(now.saturating_duration_since(start).as_nanos())
+                .saturating_add(self.timer_clock.sample(start, now).elapsed_nanos)
         });
-        let mut registers = self.clone();
+        let mut registers = self.checkpoint_registers();
         registers.pending_ipis.clear();
         LapicCheckpoint {
             registers,
@@ -31,6 +38,17 @@ impl LocalApic {
 }
 
 impl LapicCheckpoint {
+    pub(crate) fn prepare_for_clock(
+        &self,
+        now: Instant,
+        clock: &std::sync::Arc<crate::vm::timing::TimingContext>,
+        incoming_nanos: u64,
+    ) -> LocalApic {
+        let mut apic = self.prepare(now);
+        apic.timer_clock = TimerClock::prepared(clock.clone(), incoming_nanos);
+        apic
+    }
+
     pub(crate) fn prepare(&self, now: Instant) -> LocalApic {
         let mut apic = self.registers.clone();
         apic.pending_ipis = self.queued.clone();

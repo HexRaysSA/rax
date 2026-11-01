@@ -761,7 +761,11 @@ impl Vmm {
         let pic = self.pic.lock().map_err(|_| lock_err("pic"))?.clone();
         let pit = self.pit.lock().map_err(|_| lock_err("pit"))?.clone();
         let serial = self.serial.lock().map_err(|_| lock_err("serial"))?.clone();
-        let lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?.clone();
+        let lapic = self
+            .lapic
+            .lock()
+            .map_err(|_| lock_err("lapic"))?
+            .checkpoint_registers();
         Ok(DeviceState {
             pic,
             pit,
@@ -990,3 +994,6 @@ impl Drop for Vmm {
         drop(self.gdb_thread.take());
     }
 }
+
+#[cfg(test)]
+mod lapic_clock_tests;

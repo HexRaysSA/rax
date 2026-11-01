@@ -2732,7 +2732,9 @@
         "docs/development/arm-native-mmio-frontier/qualification.json",
         "docs/development/arm-native-mmio-frontier/README.md",
         "docs/development/arm-native-store-frontier/qualification.json",
-        "docs/development/arm-native-store-frontier/README.md"
+        "docs/development/arm-native-store-frontier/README.md",
+        "docs/development/lapic-selected-clock/qualification.json",
+        "docs/development/lapic-selected-clock/README.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2765,7 +2767,8 @@
         "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure.",
         "ARM native host cancellation now uses finite host turns and preserves genuine guest exits, locally qualified with complete signed Apple Silicon debug/no-debug state binaries. Manual 2/4-CPU turns do not close VMM AP startup, IRQ, clocks/replay, complete backend/private checkpoint or Intel requirements. Independent early-PC MMIO defect remains open; see arm-native-host-scheduling/qualification.json.",
         "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open.",
-        "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open."
+        "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open.",
+        "Selected-clock LAPIC behavior is qualified separately; retired VMM construction, deterministic default/native retirement, RTC and external-event replay remain open. See lapic-selected-clock/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3467,7 +3470,9 @@
         "docs/development/arm-native-mmio-frontier/qualification.json",
         "docs/development/arm-native-mmio-frontier/README.md",
         "docs/development/arm-native-store-frontier/qualification.json",
-        "docs/development/arm-native-store-frontier/README.md"
+        "docs/development/arm-native-store-frontier/README.md",
+        "docs/development/lapic-selected-clock/qualification.json",
+        "docs/development/lapic-selected-clock/README.md"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3495,7 +3500,8 @@
         "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure.",
         "ARM native host cancellation now uses finite host turns and preserves genuine guest exits, locally qualified with complete signed Apple Silicon debug/no-debug state binaries. Manual 2/4-CPU turns do not close VMM AP startup, IRQ, clocks/replay, complete backend/private checkpoint or Intel requirements. Independent early-PC MMIO defect remains open; see arm-native-host-scheduling/qualification.json.",
         "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open.",
-        "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open."
+        "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open.",
+        "Selected-clock LAPIC behavior is qualified separately; retired VMM construction, deterministic default/native retirement, RTC and external-event replay remain open. See lapic-selected-clock/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -197859,6 +197865,21 @@
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/cleanup-final.json",
       "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
       "pending_gates": "Original four-finding scope remains open; native FPSR, broader profiles/IRQ/clocks/replay and physical Intel remain incomplete.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "lapic-selected-clock-2026-11-01",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "qualification": "docs/development/lapic-selected-clock/qualification.json",
+      "scope": "LAPIC selected retired-clock binding, periodic phase and incoming checkpoint epoch; preserve wall mode and legacy wire.",
+      "parent": "a0d29e9f4ec0b619180b7da43cdcbd45aeb0560e",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/cleanup-final.json",
+      "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
       "full_goal_complete": false
     }
   ],

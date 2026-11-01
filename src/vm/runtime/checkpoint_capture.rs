@@ -83,7 +83,7 @@ impl Vmm {
                     lapic: (**lapics
                         .first()
                         .ok_or_else(|| Error::InvalidConfig("no local controller".into()))?)
-                    .clone(),
+                    .checkpoint_registers(),
                 };
                 let (physical, memory_data) = PhysicalMemorySnapshot::capture_with_projection(
                     self.guest_mem.memory(),

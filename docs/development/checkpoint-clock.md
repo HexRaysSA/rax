@@ -68,3 +68,5 @@ counter/timer routing, private/platform/scheduler state, native transactions and
 replay remain open. Medium impact: unsupported timing modes fail explicitly
 before construction. Low impact: future rates or clock layouts require an
 explicit compatible format identity.
+
+The [LAPIC selected-clock group](lapic-selected-clock/README.md) qualifies retained device clock identity and relative-age preparation against the incoming epoch. VMM retired-mode construction and deterministic default scheduling remain incomplete.

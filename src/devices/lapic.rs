@@ -10,7 +10,11 @@
 
 use super::bus::{MmioDevice, MmioRmwOp};
 use crate::host::time::Instant;
+
+#[path = "lapic/timer_clock.rs"]
+mod timer_clock;
 use serde::{Deserialize, Serialize};
+use timer_clock::TimerClock;
 
 /// LAPIC base address (fixed for x86-64)
 pub const LAPIC_BASE: u64 = 0xFEE00000;
@@ -83,8 +87,8 @@ const DEST_SHORTHAND_SELF: u64 = 1;
 const DEST_SHORTHAND_ALL_INCLUDING_SELF: u64 = 2;
 const DEST_SHORTHAND_ALL_EXCLUDING_SELF: u64 = 3;
 
-/// LAPIC timer frequency (approximate - 1 GHz bus clock / 16 = ~62.5 MHz base)
-/// We'll use a simulated frequency based on real time
+/// Modeled LAPIC timer source frequency before DCR division (1 GHz).
+/// Elapsed time comes from the selected VM clock, independently of host frequency.
 const LAPIC_TIMER_FREQ_HZ: u64 = 1_000_000_000; // 1 GHz base frequency
 
 /// Represents an IPI request that needs to be delivered
@@ -165,6 +169,9 @@ pub struct LocalApic {
     /// part of the persisted device state; re-armed lazily after restore.
     #[serde(skip)]
     timer_start: Option<Instant>,
+    /// Runtime clock binding; complete checkpoints carry relative timer age.
+    #[serde(skip)]
+    timer_clock: TimerClock,
     #[serde(skip)]
     timer_elapsed_base_nanos: u128,
     /// Pending timer interrupt
@@ -214,6 +221,7 @@ impl LocalApic {
             timer_current_count: 0,
             timer_divide_config: 0,
             timer_start: None,
+            timer_clock: TimerClock::selected(crate::vm::timing::TimingContext::current()),
             timer_elapsed_base_nanos: 0,
             timer_pending: false,
             pending_ipi: None,
@@ -234,6 +242,9 @@ impl LocalApic {
 
     /// Keep CPU bindings live when replacing captured controller state.
     pub(crate) fn replace_state(&mut self, mut restored: Self) {
+        restored
+            .timer_clock
+            .retain_target_binding(&self.timer_clock);
         std::mem::swap(&mut restored.tpr, &mut self.tpr);
         restored.tpr.restore_from(&self.tpr);
         *self = restored;
@@ -297,9 +308,10 @@ impl LocalApic {
             return None;
         };
 
+        let sample = self.timer_clock.sample(start, now);
         let elapsed_nanos = self
             .timer_elapsed_base_nanos
-            .saturating_add(now.saturating_duration_since(start).as_nanos());
+            .saturating_add(sample.elapsed_nanos);
         let divisor = self.timer_divisor() as u64;
 
         // Calculate how many timer ticks have elapsed
@@ -335,6 +347,7 @@ impl LocalApic {
                     let period_nanos = initial * u128::from(divisor);
                     self.timer_elapsed_base_nanos = elapsed_nanos % period_nanos;
                     self.timer_start = Some(now);
+                    self.timer_clock.rebase_to(sample);
                     if !self.timer_pending {
                         self.timer_pending = true;
                         return Some(self.timer_vector());
@@ -701,7 +714,7 @@ impl LocalApic {
                     let now = Instant::now();
                     let elapsed_nanos = self
                         .timer_elapsed_base_nanos
-                        .saturating_add(now.saturating_duration_since(start).as_nanos());
+                        .saturating_add(self.timer_clock.sample(start, now).elapsed_nanos);
                     let divisor = self.timer_divisor() as u64;
 
                     // Calculate how many timer ticks have elapsed
@@ -801,6 +814,7 @@ impl LocalApic {
                 self.timer_current_count = value;
                 if value > 0 {
                     self.timer_start = Some(Instant::now());
+                    self.timer_clock.restart();
                     self.timer_elapsed_base_nanos = 0;
                     self.timer_pending = false;
                     tracing::debug!(
@@ -892,3 +906,7 @@ mod tests;
 mod checkpoint;
 pub(crate) mod priority;
 pub(crate) use checkpoint::LapicCheckpoint;
+
+#[cfg(test)]
+#[path = "lapic/retired_clock_tests.rs"]
+mod retired_clock_tests;

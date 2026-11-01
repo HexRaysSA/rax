@@ -1,0 +1,253 @@
+{
+  "group": "lapic-selected-clock-2026-11-01",
+  "utc": "2026-11-01T19:53:33.746794+00:00",
+  "parent": "a0d29e9f4ec0b619180b7da43cdcbd45aeb0560e",
+  "status": "locally_validated_with_explicit_scope",
+  "production_integrated": true,
+  "full_goal_complete": false,
+  "scope": "LAPIC selected retired-clock binding, periodic phase and incoming checkpoint epoch; preserve wall mode and legacy wire.",
+  "assumption_register": [
+    {
+      "id": "LC-1",
+      "assumption": "The LAPIC owns the VM clock selected at construction, independent of later thread-local clock bindings.",
+      "basis": "TimingContext::current is thread-local and the clock mode is immutable; VMM constructs controllers inside its selected context.",
+      "dependent_result": "Retain an Arc to a retired clock, not an ambient lookup for each MMIO operation.",
+      "stress_test": "Reprogram the controller under an unrelated ambient clock and advance both clocks independently.",
+      "falsification_probe": "CCR or expiry follows the unrelated ambient clock.",
+      "status": "confirmed",
+      "qualification": "Instance identity and reprogramming tested under unrelated ambient scope."
+    },
+    {
+      "id": "LC-2",
+      "assumption": "The incoming relative timer age must be anchored to the incoming clock epoch before VM clock publication.",
+      "basis": "Vmm::restore_snapshot_bundle prepares controllers before committing TimingContext state.",
+      "dependent_result": "prepare_for_clock receives incoming elapsed_nanos and controller replacement retains the target binding.",
+      "stress_test": "Source and target have different epochs; publish controller first and clock second, then advance source and target separately.",
+      "falsification_probe": "Restored CCR changes with source advancement or jumps when the incoming clock is committed.",
+      "status": "confirmed",
+      "qualification": "Actual VMM wall-mode file continuation and source-level retired controller publication order tested separately; retired VMM construction remains rejected."
+    },
+    {
+      "id": "LC-3",
+      "assumption": "A logical timer observation interval is less than one complete u64 nanosecond-clock cycle.",
+      "basis": "TimingContext declares wrapping u64 nanoseconds; finite scheduler service intervals and modeled u32 timer counts/divisors are much shorter than 2^64 ns.",
+      "dependent_result": "Use wrapping subtraction for the selected logical epoch while retaining checkpoint age in u128.",
+      "stress_test": "Start immediately before u64 wrap, capture afterward, restore at a different target epoch.",
+      "falsification_probe": "CCR or saved relative age disagrees across a single wrap; intervals covering an entire clock cycle are outside this representation.",
+      "status": "retained",
+      "qualification": "Single wrapping epoch and fractional-phase continuation tested. Full-cycle observation gaps remain excluded."
+    }
+  ],
+  "primary_sources": {
+    "src/vm/timing/context.rs": "0ee3bb9c45832f9eb60cdb162b9b3cda76634d9b6ea133d9a47632407e86a3cb",
+    "src/vm/timing/retired.rs": "5dd2e8fef54d2304a6c76d0a92c6467f84c4e28f1aa549a0a2dc3620669de005",
+    "src/vm/runtime/checkpoint_capture.rs": "ebf8a42f527b715617bc8f22f3bdfa7f487718141b2838a34c16870fad07f18e",
+    "src/config/runtime.rs": "a679efc6826e0d4590394324d41d7d7500c4043a0fde2de27f989d4f1226ddef"
+  },
+  "source_manifest": {
+    "src/devices/lapic.rs": {
+      "original_sha256": "fd156d11ab6f6979b48f82b94085a9a0d0fa7278fc3056395a381aa2be2476c8",
+      "candidate": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-candidates/lapic.rs",
+      "candidate_sha256": "a16b0ae33cdebc0e96fda444a7996d43f9101754fc7a953fa25008ec755d6f8e"
+    },
+    "src/devices/lapic/timer_clock.rs": {
+      "original_sha256": null,
+      "candidate": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-candidates/lapic/timer_clock.rs",
+      "candidate_sha256": "ed3f2a26e6d675bd769958af6f5840a2c6719c8adf77d52cf87b97cd82bd075b"
+    },
+    "src/devices/lapic/checkpoint.rs": {
+      "original_sha256": "2d8dc35172baa7c5f6e8738101c5a4f70ae9a59454833d042cd9eac1081d382e",
+      "candidate": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-candidates/lapic/checkpoint.rs",
+      "candidate_sha256": "9ea479d247ed79408068b088d404493aac5b297f0c55e90ddccdd80f678925ff"
+    },
+    "src/devices/lapic/retired_clock_tests.rs": {
+      "original_sha256": null,
+      "candidate": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-candidates/lapic/retired_clock_tests.rs",
+      "candidate_sha256": "8335cc2ab4cb2309b094552e9111842816d283c8dd2945c5f02609872b824249"
+    },
+    "src/vm/runtime/checkpoint_restore.rs": {
+      "original_sha256": "c31ab4f3de2f01765481254c7b024a421419134daea780c450fdf1f54544cc9b",
+      "candidate": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-candidates/checkpoint_restore.rs",
+      "candidate_sha256": "850bdf634f7c00b7b398c19df90025423036ed9e988c37179bf51cf1aace7a0c"
+    },
+    "tests/fixtures/devices/lapic/wall-v1.bin": {
+      "original_sha256": null,
+      "candidate": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/legacy-wall-lapic-v1.bin",
+      "candidate_sha256": "d907022cf9ed37a00ab179e06b31976d6cad879a3182affc6fa2627e28982323"
+    },
+    ".gitignore": {
+      "original_sha256": "db595ebc33bd86c3b55ce1af25ed26fc02b49e2e64cf191a94a3dc70c2a9d930",
+      "candidate": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-candidates/gitignore",
+      "candidate_sha256": "a7227258e87396c943c493528868b392c797579213139b1649e3326f020e013c"
+    },
+    "src/vm/runtime.rs": {
+      "original_sha256": "3da5c3799cffe27e2a79060c261983f75ff09b78cd789436acbfa322dfb3ebfc",
+      "candidate": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-candidates/runtime.rs",
+      "candidate_sha256": "e87ca4bead0fc76acda42af687f7a4ee48fe3c7fbf3ec021dc1bcc062263de23"
+    },
+    "src/vm/runtime/checkpoint_capture.rs": {
+      "original_sha256": "a48631b6f8a7aede5267767cad66eb5b1f28bbb9f9e98465c0fe7688521e6592",
+      "candidate": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-candidates/checkpoint_capture.rs",
+      "candidate_sha256": "ebf8a42f527b715617bc8f22f3bdfa7f487718141b2838a34c16870fad07f18e"
+    },
+    "src/vm/runtime/lapic_clock_tests.rs": {
+      "original_sha256": null,
+      "candidate": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-candidates/lapic_clock_tests.rs",
+      "candidate_sha256": "f1d80124aeed6c6411f463264416ca33302f36069bb95fd28db4c603de4204b6"
+    }
+  },
+  "units": {
+    "clock_frequency_Hz": 3000000000,
+    "modeled_LAPIC_frequency_Hz": 1000000000,
+    "age_unit": "ns",
+    "tick_formula": "floor(age_nanos / divisor)",
+    "period_formula": "initial_count * divisor ns",
+    "clock_representation": "wrapping u64 nanoseconds plus exact phase 0/1/2 thirds of a nanosecond",
+    "checkpoint_age_representation": "u128 nanoseconds",
+    "observation_bound": "less than2^64 ns",
+    "complexity": "O(1) arithmetic/phase space per controller; lock contention not bounded by this claim"
+  },
+  "acceptance": [
+    "Two unchanged public-MMIO regressions fail against the actual old RAX library and pass against integrated production code.",
+    "All eight divisors retain periodic phase and coalesced pending-latch behavior.",
+    "Source clock identity is absent from checkpoint images; target clock identity survives replacement.",
+    "The exact 181-byte pre-change producer fixture decodes and re-encodes byte-identically.",
+    "Complete owning root and C API binaries, workspace fmt/check/build/clippy and fresh C/C++ consumers pass at stated feature profiles.",
+    "Commit exact owned paths through git add then red -m --staged --run; remove idle canonical build/scratch roots afterward.",
+    "Both actual VMM base and complete capture paths detach a device clock selected independently of the admitted wall-mode VM. No retired VMM construction claim."
+  ],
+  "change_surface": {
+    "affected": [
+      "LAPIC construction, timer sampling/programming/periodic phase",
+      "Complete relative-age checkpoint preparation and publication",
+      "Portable C API engine dependency",
+      "Legacy and complete VMM device-image capture detach runtime clock references."
+    ],
+    "unchanged": [
+      "ISA decoders/execution/SMIR/JIT",
+      "Native ARM/x86 CPU adapter state codecs and SDK calls",
+      "Public C ABI layouts/functions",
+      "Default VMM clock mode and scheduling-policy admission"
+    ]
+  },
+  "validation": {
+    "receipts": {
+      "fmt-workspace-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/fmt-workspace-v2.json",
+      "check-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/check-workspace-all-targets-v2.json",
+      "build-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/build-workspace-all-targets-v2.json",
+      "clippy-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/clippy-workspace-all-targets-v2.json",
+      "lapic-focused-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/lapic-focused-v2.json",
+      "lapic-capture-focused-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/lapic-capture-focused-v2.json",
+      "owning-root-library-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/owning-root-library-v2.json",
+      "owning-C_API-library-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/owning-C_API-library-v2.json",
+      "native-file-continuation-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/native-file-continuation-v2.json",
+      "C-CPP-consumers-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/C-CPP-consumers-v2.json",
+      "production-MMIO-green-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-MMIO-green-v2.json"
+    },
+    "test_results": {
+      "fmt-workspace-v2": [],
+      "check-workspace-all-targets-v2": [],
+      "build-workspace-all-targets-v2": [],
+      "clippy-workspace-all-targets-v2": [],
+      "lapic-focused-v2": [
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "lapic-capture-focused-v2": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "owning-root-library-v2": [
+        {
+          "passed": 11566,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "owning-C_API-library-v2": [
+        {
+          "passed": 225,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "native-file-continuation-v2": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "C-CPP-consumers-v2": [],
+      "production-MMIO-green-v2": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    "artifacts": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/owning-artifacts-v2.json",
+    "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/environment.json",
+    "CPP_provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/C-CPP-provenance-v2.json",
+    "CPP_optional_features": [],
+    "native_file_continuation": "One owning test exercises actual Apple-Silicon one/two/four-CPU files through the changed caller.",
+    "full_ignored_native_CPU_profile_module_rerun": false,
+    "physical_Intel_execution": false,
+    "realmode_boot": "Host-gated to x86_64; all-target compilation only on this AArch64 host. No runtime boot claim.",
+    "fixture_correction": {
+      "qualification": "/Users/int/dev/rax-audit-work/four-findings-coordinator/uring-TCP-completion-gate-v1/qualification-final-v1.json",
+      "stress": "/Users/int/dev/rax-audit-work/four-findings-coordinator/uring-TCP-completion-gate-v1/stress-corrected-v1.json",
+      "commit": "/Users/int/dev/rax-audit-work/four-findings-coordinator/uring-TCP-completion-gate-v1/commit-receipt.json",
+      "scope": "Full suite ran on the combined ten-path LAPIC source and the separate test-only TCP correction. Both are byte-identical after that fixture-only parent commit.",
+      "original_failed_run": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/owning-root-library-v1.json",
+      "compile_parent": "c2769db58b4909d6026193197e297b8757c3c649"
+    }
+  },
+  "red_green": {
+    "actual_old_library": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/baseline-v2.json",
+    "unchanged_public_MMIO_green": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-MMIO-green-v2.json",
+    "production_provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/production-MMIO-provenance-v2.json",
+    "standalone": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/source-module-v6.json",
+    "standalone_scope": "112 existing tests +11 new clock cases +2 unchanged public-MMIO reproductions; not an independently compiled VMM."
+  },
+  "legacy_wire": {
+    "path": "tests/fixtures/devices/lapic/wall-v1.bin",
+    "bytes": 181,
+    "sha256": "d907022cf9ed37a00ab179e06b31976d6cad879a3182affc6fa2627e28982323",
+    "producer": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/legacy-producer-v1.json",
+    "scope": "Actual pre-change library producer; exact serialization equality and strict decode/re-encode."
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Accepted deterministic VMM default, native exact retirement, RTC/external events and replay remain incomplete.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Public-SDK streaming FPSR loss and physical Intel runtime qualification remain unresolved.",
+      "blocks_full_goal": true
+    }
+  ],
+  "quality_gates": {
+    "assumptions": "Confirmed or bounded as stated.",
+    "coverage": "Selected device requirements covered; original goal remains open.",
+    "units": "Hz/ns and integer phase calculations explicit.",
+    "edge_cases": "Divisors, wrap, phase, coalescing, unrelated clock and old wire checked.",
+    "provenance": "Actual old producer and current source/artifact hashes retained.",
+    "bounded_expansion": "No default-policy, native CPU debug/profile or RTC changes.",
+    "integrity": "Exact owned paths; protected checkouts preserved."
+  },
+  "workflow": {
+    "command": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+    "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/commit-receipt.json",
+    "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/lapic-selected-clock-v1/cleanup-final.json"
+  }
+}
