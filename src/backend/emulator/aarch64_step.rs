@@ -5,6 +5,9 @@ use super::*;
 #[path = "aarch64_step/bounded_jit_tests.rs"]
 mod bounded_jit_tests;
 #[cfg(test)]
+#[path = "aarch64_step/el0_id_tests.rs"]
+mod el0_id_tests;
+#[cfg(test)]
 #[path = "aarch64_step/fp_access_tests.rs"]
 mod fp_access_tests;
 #[cfg(all(test, feature = "smir-jit", target_arch = "aarch64"))]
@@ -82,6 +85,10 @@ impl Aarch64Vcpu {
             Err(ArmError::UndefinedInstruction(instruction)) => Err(Error::InvalidInstruction {
                 pc: self.cpu.get_pc(),
                 diagnosis: format!("undefined AArch64 encoding {instruction:#x}"),
+            }),
+            Err(ArmError::InvalidExceptionLevel(el)) => Err(Error::InvalidInstruction {
+                pc: self.cpu.get_pc(),
+                diagnosis: format!("privileged AArch64 instruction at EL{el}"),
             }),
             Err(error) => Err(Error::Emulator(format!(
                 "AArch64 instruction failed at {:#x}: {error}",

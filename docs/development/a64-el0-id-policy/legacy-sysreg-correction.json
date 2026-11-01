@@ -1,0 +1,23 @@
+{
+  "scope": "Focused correction of two historical allocation expectations, not full regeneration; original full input/revision remain unknown.",
+  "word": "0xd5180000",
+  "expected": "Undefined",
+  "primary_source": "docs/specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf",
+  "primary_sha256": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e",
+  "primary_section": "DDI0487B.a D7.2.73 MIDR_EL1; MRS-only encoding and RO accessibility",
+  "primary_excerpt": "docs/development/a64-el0-id-policy/midr-el1-primary-extract.txt",
+  "primary_excerpt_sha256": "012ea1dc52753f7a8ea767692aa727381f27d6d9823ef1a6e4e333eb35b387d5",
+  "oracle": "docs/development/a64-el0-id-policy/qemu-readonly-id-results.json",
+  "oracle_sha256": "179ea182b5b2805df715aa17fc955f3bd6934eee33a750b0a6010bc8a42e27bb",
+  "oracle_scope": "Two whole-CPU QEMU profiles, ten read-only/unallocated ID writes each, positive MIDR reads; no physical hardware claim.",
+  "output": "tests/generated/arm/a64/system/register.rs",
+  "original_sha256": "f461a16a96fc583830fc22ad815598b953bbfb9b95284786bb895fad49d24319",
+  "corrected_sha256": "095f814fab08339f99d8efda9169dc78633f64940b5b0a48a6a7ba77e246b899",
+  "tests": [
+    "test_aarch64_system_register_system_combo_3_0_d5180000",
+    "test_aarch64_system_register_system_field_o0_1_max_0_d5180000"
+  ],
+  "test_helper": "tests/generated/arm/test_helpers.rs",
+  "test_helper_sha256": "184b483314f199b6794a1232d93fea61fdb4a58735046ddf2d2e62ecf08ccaf6",
+  "generator_note": "Current ASL writer characterizes the current RAX core and now returns Undefined for this word. That self-characterization is not used as independent architecture proof; this focused correction relies on the pinned primary and separate QEMU execution."
+}

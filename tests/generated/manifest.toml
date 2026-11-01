@@ -16,6 +16,9 @@ conversion_correction_sha256 = "a2e15b1ee3d2da7cd8f59f23d5fb49b4543a60a9bbe8de4e
 sve_dot_correction = "tools/testgen/a64_sve_dot_expectations.py"
 sve_dot_correction_input = "docs/development/a64-sve-profile/legacy-dot-correction.json"
 sve_dot_correction_sha256 = "dc5d215842c73690b55e5688e95094d6f3178300d7b69cf009d6911fb23abb33"
+sysreg_correction = "tools/testgen/a64_sysreg_expectations.py"
+sysreg_correction_input = "docs/development/a64-el0-id-policy/legacy-sysreg-correction.json"
+sysreg_correction_sha256 = "095f814fab08339f99d8efda9169dc78633f64940b5b0a48a6a7ba77e246b899"
 
 [corpora.arm_aarch32_oracle_cases]
 output = "tests/generated/arm/oracle_cases/aarch32_sweep.rs"

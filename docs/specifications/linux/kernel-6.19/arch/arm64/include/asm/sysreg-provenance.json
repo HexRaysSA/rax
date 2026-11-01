@@ -1,0 +1,11 @@
+{
+  "title": "Linux v6.19 arm64 system-register definitions",
+  "author": "Linux kernel contributors",
+  "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.19/arch/arm64/include/asm/sysreg.h",
+  "revision": "v6.19",
+  "retrieved_utc": "2026-11-01T00:39:55.291446+00:00",
+  "sha256": "961c9a000e5f7ab199ed8d5a49b98cbbc5377a203ec852d9241356c20e2cefb9",
+  "bytes": 50047,
+  "status": "Retained primary source; external text copied without modifications",
+  "reference_path": "docs/specifications/linux/kernel-6.19/arch/arm64/include/asm/sysreg.h"
+}

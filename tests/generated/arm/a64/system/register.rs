@@ -92,9 +92,9 @@ fn test_aarch64_system_register_system_field_o0_1_max_0_d5180000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for read-only ID write for 0x{:08X}: {:?}",
         encoding,
         exit
     );
@@ -576,9 +576,9 @@ fn test_aarch64_system_register_system_combo_3_0_d5180000() {
     write_insn(&mut cpu, 0, encoding);
     let exit = cpu.step();
     assert!(
-        !matches!(exit, Ok(CpuExit::Undefined(_)))
-            && !matches!(exit, Err(ArmError::UndefinedInstruction(_))),
-        "expected allocated encoding for 0x{:08X}: {:?}",
+        matches!(exit, Ok(CpuExit::Undefined(_)))
+            || matches!(exit, Err(ArmError::UndefinedInstruction(_))),
+        "expected Undefined for read-only ID write for 0x{:08X}: {:?}",
         encoding,
         exit
     );

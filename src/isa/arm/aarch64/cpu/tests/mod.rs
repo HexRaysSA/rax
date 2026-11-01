@@ -7,6 +7,7 @@ use super::*;
 mod branch;
 #[cfg(test)]
 mod data;
+mod el0_id;
 #[cfg(all(test, feature = "smir-jit", target_arch = "aarch64"))]
 mod jit_comparisons;
 #[cfg(all(test, feature = "smir-jit", target_arch = "aarch64"))]

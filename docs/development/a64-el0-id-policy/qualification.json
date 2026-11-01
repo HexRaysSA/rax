@@ -1,0 +1,414 @@
+{
+  "group": "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01",
+  "status": "locally_validated_with_profile_limits",
+  "parent": "dfad79b3f32332d625d4b2371d8bf3c2d23c6dde",
+  "scope": "Architectural EL0 ID denial and read-only ID writes, precise guest/diagnostic privilege faults, Linux-only HWCAP_CPUID continuation and public C API frontiers",
+  "assumption_register": [
+    {
+      "id": "EL0-1",
+      "assumption": "The regression profile represents ARMv8.2 without FEAT_IDST; its EL0 op1=000 ID accesses require the architectural Undefined path.",
+      "basis": "Retained DDI 0487B.a D7.2.73 and AArch64.CheckSystemAccess; default ID_AA64MMFR2_EL1 is zero.",
+      "dependent_result": "Direct typed error, full-system guest Undefined and diagnostic InvalidInstruction expectations.",
+      "stress_test": "EL0 and EL1 reads; read-only writes; exact PC/GPR/private-state frontier; restored pre/post-delivery context.",
+      "falsification_probe": "The tested profile advertises nonzero ID_AA64MMFR2_EL1.IDS, or an EL0 access mutates/retire state before reporting its fault.",
+      "status": "retained",
+      "verification": "13-case targeted library suite passed; FEAT_IDST and other optional profile classes remain outside this component."
+    },
+    {
+      "id": "EL0-2",
+      "assumption": "Linux HWCAP_CPUID is personality-owned software continuation, with the retained Linux 6.19 user ID masks and safe defaults.",
+      "basis": "Linux cpufeature.c, traps.c and sysreg.h; independent mask derivation matches all 31 tracked rows and 17 nonzero profiles.",
+      "dependent_result": "Preserved Linux capability service with filtered identity/features and exact slice consumption.",
+      "stress_test": "Zero/one/exact budget, prior retirement and u64 count wrap, reserved slots, XZR, unreadable code, PSTATE.IL, denied writes and unrelated privileged instructions.",
+      "falsification_probe": "ID emulation bypasses a prior fault, leaks hidden identity, consumes no budget slot, or allows direct OS-neutral/full-system EL0 ID reads.",
+      "status": "confirmed",
+      "verification": "Strategic and complete owning suites passed; primary mask derivation remains independently reproducible. Physical Linux kernel ID service was not executed."
+    },
+    {
+      "id": "EL0-3",
+      "assumption": "The existing OS-neutral user adapter clears the local exclusive reservation on synchronous exits, including the ID fault used by Linux software emulation.",
+      "basis": "A64UserCpu.run_observed clears the monitor for non-Yield exits; baseline LDXR/MRS/STXR violated the intended exception path because the core admitted MRS.",
+      "dependent_result": "STXR cannot reuse a reservation established before the CPUID synchronous exit under the existing modeled policy.",
+      "stress_test": "LDXR, emulated ID read and STXR in one exact user budget; existing same-thread budget-yield reservation tests remain owning-suite requirements.",
+      "falsification_probe": "STXR succeeds with the pre-fault reservation after Linux ID emulation.",
+      "status": "confirmed",
+      "verification": "Observed baseline failure in exclusive-red.json; corrected library regression passed. This is the adapter policy, not a claim that every Arm exception must clear every implementation monitor."
+    }
+  ],
+  "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/final-source-v2.json",
+  "source_review": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/source-review-v2.json",
+  "fixture_review": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/fixture-review-v2.json",
+  "baseline": {
+    "parent_parity": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/baseline-parent-parity.json",
+    "observed": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/architectural-el0-red.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/system-el0-fault-red.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/id-read-only-red.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/exclusive-red.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/capi-el0-red.json"
+    ],
+    "fixture_correction": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/fixture-correction-v2.json",
+    "historical_corpus_failure": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/isa-user-integrations-final-v1.json",
+    "historical_corpus_correction": "docs/development/a64-el0-id-policy/legacy-sysreg-correction.json"
+  },
+  "implementation": {
+    "architecture": "Remove the Linux ID whitelist from core EL0 access; reject guest MSR writes in op0=3/op1=0/CRn=0/CRm=0..7 before private storage mutation.",
+    "backend": "Keep direct typed errors; deliver guest Undefined in system mode and InvalidInstruction in diagnostic mode.",
+    "Linux": "After an actual Undefined exit, permission-check and reread the 4-byte word. Expose selected identity and masked feature registers with hidden safe defaults, XZR and BTYPE skip behavior. Consume exactly one user budget slot and preserve the existing synchronous-exit reservation policy.",
+    "state": "No new CPU/OS policy or checkpoint field; public wire layouts and C ABI values/layouts unchanged.",
+    "complexity": "O(S) work and temporary space for S exported system-register entries per emulated MRS; fixed-size decode/masks. Slice consumption is at least one slot and cannot overflow under retired < remaining <= u64::MAX."
+  },
+  "validation": {
+    "checks": {
+      "preflight-isa-arm-aarch64-cpu": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/preflight-isa-arm-aarch64-cpu-final-v1.json",
+      "preflight-backend-emulator": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/preflight-backend-emulator-final-v1.json",
+      "preflight-user": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/preflight-user-final-v1.json",
+      "isa-user-integrations": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/isa-user-integrations-final-v2.json",
+      "c-api-library": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/c-api-library-final-v2.json",
+      "c-cpp-consumers": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/c-cpp-consumers-final-v2.json",
+      "c-api-public-probe": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/c-api-public-probe-final-v2.json",
+      "root-library": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/root-library-final-v2.json",
+      "fmt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/fmt-final-v2.json",
+      "check-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/check-all-targets-final-v2.json",
+      "build-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/build-all-targets-final-v2.json",
+      "clippy-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/clippy-all-targets-final-v2.json",
+      "intel-common-check": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/intel-common-check-final-v2.json",
+      "doctests": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/doctests-final-v2.json"
+    },
+    "reused_AArch64_programs": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/aarch64-programs-reuse-v2.json",
+    "fixture_input_separation": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/fixture-input-separation-v2.json",
+    "actual_test_results": {
+      "preflight-isa-arm-aarch64-cpu": [
+        {
+          "passed": 456,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "preflight-backend-emulator": [
+        {
+          "passed": 136,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "preflight-user": [
+        {
+          "passed": 2878,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "isa-user-integrations": [
+        {
+          "passed": 46850,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 43,
+          "failed": 0,
+          "ignored": 1
+        }
+      ],
+      "c-api-library": [
+        {
+          "passed": 225,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "c-cpp-consumers": [],
+      "c-api-public-probe": [],
+      "root-library": [
+        {
+          "passed": 11525,
+          "failed": 0,
+          "ignored": 5
+        }
+      ],
+      "fmt": [],
+      "check-all-targets": [],
+      "build-all-targets": [],
+      "clippy-all-targets": [],
+      "intel-common-check": [],
+      "doctests": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    "executed_commands": {
+      "preflight-isa-arm-aarch64-cpu": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "smir-jit,debug",
+        "--lib",
+        "isa::arm::aarch64::cpu",
+        "--",
+        "--test-threads=1"
+      ],
+      "preflight-backend-emulator": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "smir-jit,debug",
+        "--lib",
+        "backend::emulator::",
+        "--",
+        "--test-threads=1"
+      ],
+      "preflight-user": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "smir-jit,debug",
+        "--lib",
+        "user::",
+        "--",
+        "--test-threads=1"
+      ],
+      "isa-user-integrations": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "arm",
+        "--test",
+        "user_linux",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "c-api-library": [
+        "cargo",
+        "test",
+        "-p",
+        "rax-capi",
+        "--locked",
+        "--features",
+        "jit",
+        "--",
+        "--test-threads=1"
+      ],
+      "c-cpp-consumers": [
+        "make",
+        "-C",
+        "capi",
+        "test",
+        "PROFILE=debug",
+        "TARGET_DIR=/Users/int/dev/rax-audit-work/main-integration-target",
+        "EXAMPLE_DIR=/Users/int/dev/rax-audit-work/build-tmp/el0-capi-consumers/examples",
+        "TEST_DIR=/Users/int/dev/rax-audit-work/build-tmp/el0-capi-consumers/tests",
+        "CC=clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "CXX=clang++ -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+      ],
+      "c-api-public-probe": [
+        "/opt/homebrew/opt/python@3.15/bin/python3.15",
+        "-B",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/capi-el0-probe.py",
+        "green"
+      ],
+      "root-library": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "smir-jit,debug",
+        "--lib",
+        "--",
+        "--test-threads=1"
+      ],
+      "fmt": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "check-all-targets": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--all-targets"
+      ],
+      "build-all-targets": [
+        "cargo",
+        "build",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--all-targets"
+      ],
+      "clippy-all-targets": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--all-targets"
+      ],
+      "intel-common-check": [
+        "cargo",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "smir-jit,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib"
+      ],
+      "doctests": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--features",
+        "rax-capi/jit",
+        "--doc"
+      ]
+    },
+    "elapsed_seconds": {
+      "preflight-isa-arm-aarch64-cpu": 18.911013500008266,
+      "preflight-backend-emulator": 2.21467274997849,
+      "preflight-user": 321.1937819169834,
+      "isa-user-integrations": 683.4846475840313,
+      "c-api-library": 6.449926541012246,
+      "c-cpp-consumers": 49.88572712498717,
+      "c-api-public-probe": 0.07161995803471655,
+      "root-library": 2080.9080878329696,
+      "fmt": 13.76788283395581,
+      "check-all-targets": 74.50218241696712,
+      "build-all-targets": 109.21291308302898,
+      "clippy-all-targets": 73.93052141700173,
+      "intel-common-check": 27.46397004200844,
+      "doctests": 7.304419457970653
+    },
+    "environment": {
+      "RUSTC_WRAPPER": "",
+      "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+      "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+      "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+      "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+      "CARGO_BUILD_JOBS": "8",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_NET_OFFLINE": "true",
+      "RUSTC_WORKSPACE_WRAPPER": "",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+      "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+      "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_TEST_LTO": "off",
+      "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs"
+    },
+    "targeted_library_cases": 13,
+    "targeted_C_API_cases": 1,
+    "targeted_C_API_table_rows": 5,
+    "C_CPP_consumers_executed": 19,
+    "public_C_API_probe": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/capi-el0-green.json",
+    "native_Darwin_EL0_probe": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/darwin-native-el0-id.json",
+    "native_probe_limits": "SIGILL disposition only for four physical Apple Silicon MRS reads; exact EC, AArch32 and Intel execution are unqualified.",
+    "independent_EL1_read_only_oracle": "docs/development/a64-el0-id-policy/qemu-readonly-id-results.json",
+    "mask_derivation": "docs/development/a64-el0-id-policy/mask-derivation.json",
+    "mask_parity": "/Users/int/dev/rax-audit-work/four-findings-coordinator/el0-id-policy-v1/mask-source-parity.json",
+    "mask_tracked_registers": 31,
+    "mask_nonzero_profiles": 17,
+    "full_root_threads": 1,
+    "root_harness_ignored_cases": [
+      "test smir::lower::validation::tests::test_lift_lower_full_microkernel ... ignored",
+      "test smir::lower::validation::tests::test_roundtrip_exact_bytes_microkernel ... ignored",
+      "test vm::runtime::gdb_lifecycle_tests::transport::disconnected_owner_child ... ignored, Executed by the bounded production-owner parent test",
+      "test vm::runtime::gdb_smp_tests::client::installed_gdb_enumerates_selects_steps_and_writes_an_ap ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane",
+      "test vm::runtime::gdb_smp_tests::memory::installed_gdb_uses_selected_cpu_virtual_memory_and_read_only_writes ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane"
+    ],
+    "counts_note": "Preflight and targeted cases also occur in complete owning suites. Counts are not unique-scenario totals. Ignored/self-skipped external oracle paths are not native validation.",
+    "physical_Intel_execution": false,
+    "physical_Linux_kernel_CPUID_service": false
+  },
+  "primary_reference_sha256": {
+    "docs/architecture/arm/asl/arm_defs.asl": "1ade68e5dacfff1b63a42ad3ee1c426aae5d36ed5dfcbf39de4baab478a190f8",
+    "docs/specifications/linux/kernel-6.19/arch/arm64/kernel/cpufeature.c": "8661e2c3285e892da8514ba295cd42dc317c2c5cf0329ab36ef76434da842f16",
+    "docs/specifications/linux/kernel-6.19/arch/arm64/kernel/traps.c": "42a761c76c28a507e5f30c3e2d4045463dbc2655f4705a023b1379c75450ce95",
+    "docs/specifications/arm/audit-reference-inputs/linux-arm64-cpu-feature-registers-2026-10-24.html": "7e91ada570ee011bf48d67e4774290a28cc153866650fdacac63f5a0785762c5",
+    "docs/specifications/arm/native-context-feature-registers/linux-sysreg.txt": "f0032f59ab6ca288d1b029a93137ad43930d05b26d5650f2a627a0fa2d287312",
+    "docs/specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e",
+    "docs/specifications/linux/kernel-6.19/arch/arm64/include/asm/sysreg.h": "961c9a000e5f7ab199ed8d5a49b98cbbc5377a203ec852d9241356c20e2cefb9"
+  },
+  "coverage": {
+    "direct": "EL0/EL1 read and read-only-write frontiers; full captured private state equality",
+    "Linux": "Exact/zero/wrapping budgets, identity filtering, hidden defaults, reserved slots, XZR, unreadable code, IL/fetch priority, unrelated signals, exclusive reservations",
+    "backend": "System/diagnostic zero retirement and clock; guest vector/ELR/ESR; pre/post-exception private context round trips",
+    "native": "Existing strict ID rejection and hot fallback frontier; no ID instruction is natively lowered",
+    "C_API": "Precise typed fault or user exception, PC/GPR/count preservation; complete package and C/C++ consumers"
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "FEAT_IDST and other optional profile/security/virtualization/debug exception classes are not qualified by the ARMv8.2 regression profile.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Restricted A32 rounding/NaN/subnormal controls and complete native backend/private/IRQ/scheduling/replay and physical Intel requirements remain open.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "Existing EL0 HVC/HLT adapter retirement behavior remains a separate source-derived issue; the wrapper preserves its existing signal behavior.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "Earlier unrelated Darwin ptrace/descriptor parallel failures remain unresolved; this group uses serial owning harnesses.",
+      "blocks_full_goal": false
+    }
+  ],
+  "quality_gates": {
+    "scope": "Defined component acceptance only; no original full finding closure",
+    "assumptions": "EL0-1..3 with stress/falsification probes",
+    "provenance": "Pinned primary hashes and independent derivation; direct observed baseline/green separation",
+    "integrity": "Exact owned-path commit workflow and guarded cleanup; primary checkout and protected guests preserved"
+  },
+  "full_goal_complete": false
+}

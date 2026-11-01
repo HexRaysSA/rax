@@ -116,3 +116,61 @@ fn arm64_undefined_budgets_and_public_contexts_preserve_the_retired_prefix() {
         }
     }
 }
+#[test]
+fn arm64_id_privilege_and_read_only_faults_preserve_public_c_api_frontiers() {
+    use crate::fault::{RAX_FAULT_INVALID_INSTRUCTION, RaxFaultInfo, rax_emu_last_fault};
+    for (user, pstate, word) in [
+        (false, 0, 0xd538_0000u32), // EL0 MRS MIDR_EL1.
+        (false, 0, 0xd538_1000),    // EL0 MRS SCTLR_EL1, already denied architecturally.
+        (false, 5, 0xd518_0000),    // EL1 MSR MIDR_EL1 is not allocated.
+        (true, 0, 0xd538_0000),     // OS-neutral user engine must report the trap.
+        (true, 0, 0xd518_0000),
+    ] {
+        let config = RaxEngineConfig {
+            size: std::mem::size_of::<RaxEngineConfig>() as u32,
+            arch: RaxArch::Arm64 as i32,
+            mode: RAX_MODE_64 | if user { crate::arch::RAX_MODE_USER } else { 0 },
+            backend: crate::arch::RAX_BACKEND_DEFAULT,
+            mem_base: 0,
+            mem_size: 0x4000,
+            mem_perms: RAX_PROT_ALL,
+            flags: 0,
+            riscv_ext: 0,
+        };
+        let mut engine = ptr::null_mut();
+        assert_eq!(rax_engine_open_config(&config, &mut engine), RaxStatus::Ok);
+        let _owner = OwnedEngine(engine);
+        write_word(engine, 0x100, word);
+        assert_eq!(rax_reg_write_u64(engine, 0x0011, 0x100), RaxStatus::Ok);
+        assert_eq!(rax_reg_write_u64(engine, 0x0012, pstate), RaxStatus::Ok);
+        assert_eq!(rax_reg_write_u64(engine, 0x0100, 123), RaxStatus::Ok);
+        let mut retired = u64::MAX;
+        let status = rax_emu_step(engine, 1, &mut retired);
+        if user {
+            assert_eq!(status, RaxStatus::Ok);
+            let mut exit = ExitInfo::none();
+            assert_eq!(rax_emu_last_exit(engine, &mut exit), RaxStatus::Ok);
+            assert_eq!(
+                (exit.reason, exit.intno),
+                (crate::run::RAX_STOP_EXCEPTION, 0)
+            );
+        } else {
+            assert_eq!(status, RaxStatus::Fault);
+            let mut fault = RaxFaultInfo::default();
+            assert_eq!(rax_emu_last_fault(engine, &mut fault), RaxStatus::Ok);
+            assert_eq!(
+                (fault.kind, fault.pc, fault.retired_instructions),
+                (RAX_FAULT_INVALID_INSTRUCTION, 0x100, 0)
+            );
+        }
+        assert_eq!(
+            (
+                retired,
+                rax_emu_icount(engine),
+                register(engine, 0x0011),
+                register(engine, 0x0100)
+            ),
+            (0, 0, 0x100, 123)
+        );
+    }
+}

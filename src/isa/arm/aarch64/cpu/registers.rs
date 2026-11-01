@@ -541,15 +541,9 @@ impl AArch64Cpu {
                 encoding.crm,
                 encoding.op2,
             ),
-            // Linux exposes these ID registers at EL0 when HWCAP_CPUID is set.
-            (3, 0, 0, 0, 0)  // MIDR_EL1
-                | (3, 0, 0, 0, 5)  // MPIDR_EL1
-                | (3, 0, 0, 0, 6)  // REVIDR_EL1
-                // ID_ISAR*, MVFR*, and ID_AA64* groups. Linux exposes future
-                // slots in this sub-block as ID values or RAZ.
-                | (3, 0, 0, 2..=7, 0..=7)
-            // EL0-visible status/control registers.
-                | (3, 3, 4, 2, 0)  // NZCV
+            // Architectural EL0 status/control registers. Linux's CPUID ABI
+            // is emulated by its personality after the architectural fault.
+            (3, 3, 4, 2, 0) // NZCV
                 | (3, 3, 4, 2, 5)  // DIT
                 | (3, 3, 4, 2, 6)  // SSBS
                 | (3, 3, 4, 2, 7)  // TCO
@@ -697,6 +691,11 @@ impl AArch64Cpu {
         let rt = (insn & 0x1F) as u8;
 
         let encoding = Aarch64SysRegEncoding::new(o0, op1, crn, crm, op2);
+        // This architectural ID sub-block has no MSR encodings. Reject before
+        // a guest write can enter implementation-defined register storage.
+        if l == 0 && o0 == 3 && op1 == 0 && crn == 0 && crm <= 7 {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
         self.check_aarch32_fp_id_instruction(insn, encoding, l != 0, rt)?;
         if crate::isa::arm::common::fp_access::is_fp_system_instruction(insn) {
             self.check_fp_access(crate::isa::arm::common::fp_access::FpAccessClass::System)?;

@@ -179,22 +179,12 @@ fn a64_memory_faults_are_precise_and_classified() {
 }
 
 #[test]
-fn a64_el0_thread_pointer_and_id_registers_are_accessible() {
-    let mut cpu = a64(&[
-        A64_MSR_TPIDR_X0,
-        A64_MRS_X1_TPIDR,
-        A64_MRS_X0_MIDR,
-        A64_SVC_0,
-    ]);
+fn a64_el0_thread_pointer_registers_are_accessible() {
+    let mut cpu = a64(&[A64_MSR_TPIDR_X0, A64_MRS_X1_TPIDR, A64_SVC_0]);
     cpu.core_mut().set_x(0, 0x1234_5678_9abc);
     assert!(matches!(cpu.run(10), A64Exit::Svc { .. }));
     assert_eq!(cpu.core().get_x(1), 0x1234_5678_9abc);
     assert_eq!(cpu.core().tpidr_el0(), 0x1234_5678_9abc);
-    assert_ne!(
-        cpu.core().get_x(0),
-        0,
-        "MIDR_EL1 is readable at EL0 (HWCAP_CPUID)"
-    );
 }
 
 #[test]
@@ -1088,3 +1078,20 @@ fn a64_pauth_thread_clone_inherits_keys_controls_and_precise_faults() {
 
 #[path = "tests/aarch64_reservations.rs"]
 mod aarch64_reservations;
+
+#[test]
+fn a64_el0_id_registers_require_operating_system_emulation() {
+    for word in [A64_MRS_X0_MIDR, 0xd538_00a0, 0xd538_0300, 0xd538_0400] {
+        let mut cpu = a64(&[word]);
+        cpu.core_mut().set_x(0, 123);
+        assert!(matches!(cpu.run(1), A64Exit::Undefined { pc: CODE, .. }));
+        assert_eq!(
+            (
+                cpu.pc(),
+                cpu.core().get_x(0),
+                cpu.core().instruction_count()
+            ),
+            (CODE, 123, 0)
+        );
+    }
+}

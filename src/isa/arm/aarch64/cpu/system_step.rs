@@ -291,7 +291,7 @@ impl AArch64Cpu {
                 self.take_exception(target, ExceptionType::Synchronous, syndrome)?;
                 Ok(CpuExit::Continue)
             }
-            ArmError::UndefinedInstruction(_) => {
+            ArmError::UndefinedInstruction(_) | ArmError::InvalidExceptionLevel(_) => {
                 let mut syndrome = SyndromeRegister::unknown();
                 if self.aarch32.is_some() && self.last_instruction_size == 2 {
                     syndrome.value &= !(1 << 25);

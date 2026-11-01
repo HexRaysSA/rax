@@ -1,0 +1,2036 @@
+{
+  "status": "Primary-table derivation; production mapping parity verified in qualification.json",
+  "policy": "All FTR_VISIBLE_IF_IS_ENABLED fields hidden: current Linux user personality advertises no SVE/SME/BTI/MTE/PAC/GCS/POE ABI",
+  "metadata_sha256": "f0032f59ab6ca288d1b029a93137ad43930d05b26d5650f2a627a0fa2d287312",
+  "source_sha256": "8661e2c3285e892da8514ba295cd42dc317c2c5cf0329ab36ef76434da842f16",
+  "rows": [
+    {
+      "register": "ID_ISAR0_EL1",
+      "crm": 2,
+      "op2": 0,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_ISAR1_EL1",
+      "crm": 2,
+      "op2": 1,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_ISAR2_EL1",
+      "crm": 2,
+      "op2": 2,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_ISAR3_EL1",
+      "crm": 2,
+      "op2": 3,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_ISAR4_EL1",
+      "crm": 2,
+      "op2": 4,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_ISAR5_EL1",
+      "crm": 2,
+      "op2": 5,
+      "mask": "0x00000000000ffff0",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_MMFR4_EL1",
+      "crm": 2,
+      "op2": 6,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_ISAR6_EL1",
+      "crm": 2,
+      "op2": 7,
+      "mask": "0x000000000ff0fff0",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "MVFR0_EL1",
+      "crm": 3,
+      "op2": 0,
+      "mask": "0x0000000000000f00",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "MVFR1_EL1",
+      "crm": 3,
+      "op2": 1,
+      "mask": "0x00000000ffffff00",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "MVFR2_EL1",
+      "crm": 3,
+      "op2": 2,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_PFR2_EL1",
+      "crm": 3,
+      "op2": 4,
+      "mask": "0x00000000000000f0",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_DFR1_EL1",
+      "crm": 3,
+      "op2": 5,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_MMFR5_EL1",
+      "crm": 3,
+      "op2": 6,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64PFR0_EL1",
+      "crm": 4,
+      "op2": 0,
+      "mask": "0x000f000000ff0000",
+      "safe": "0x0000000000000011",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 60,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 56,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 48,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 44,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 40,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 36,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 32,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 20,
+          "width": 4,
+          "safe": 15
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 16,
+          "width": 4,
+          "safe": 15
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 1
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 1
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64PFR1_EL1",
+      "crm": 4,
+      "op2": 1,
+      "mask": "0x00000000000000f0",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 56,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_GCS)",
+          "shift": 44,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 40,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_MTE)",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_BTI)",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64PFR2_EL1",
+      "crm": 4,
+      "op2": 2,
+      "mask": "0x0000000f00000ff0",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 32,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64ZFR0_EL1",
+      "crm": 4,
+      "op2": 4,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 56,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 52,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 48,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 44,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 40,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 32,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SVE)",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64SMFR0_EL1",
+      "crm": 4,
+      "op2": 5,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 63,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 60,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 56,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 52,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 48,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 44,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 43,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 42,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 41,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 40,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 36,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 35,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 34,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 33,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 32,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 30,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 29,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 28,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 25,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 24,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 23,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 16,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_SME)",
+          "shift": 0,
+          "width": 1,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64FPFR0_EL1",
+      "crm": 4,
+      "op2": 7,
+      "mask": "0x00000000fc000003",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 31,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 30,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 29,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 28,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 27,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 26,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 1,
+          "width": 1,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 0,
+          "width": 1,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64DFR0_EL1",
+      "crm": 5,
+      "op2": 0,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000006",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 36,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 32,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 6
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64DFR1_EL1",
+      "crm": 5,
+      "op2": 1,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": []
+    },
+    {
+      "register": "ID_AA64ISAR0_EL1",
+      "crm": 6,
+      "op2": 0,
+      "mask": "0xf0fffffff0fffff0",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 60,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 56,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 52,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 48,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 44,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 40,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 36,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 32,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64ISAR1_EL1",
+      "crm": 6,
+      "op2": 1,
+      "mask": "0x00fff0ff00fff00f",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 56,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 52,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 48,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 44,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 40,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 36,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 32,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_PTR_AUTH)",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_PTR_AUTH)",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_PTR_AUTH)",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_PTR_AUTH)",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64ISAR2_EL1",
+      "crm": 6,
+      "op2": 2,
+      "mask": "0x0fff000000ff00ff",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 56,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 52,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 48,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_PTR_AUTH)",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_PTR_AUTH)",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64ISAR3_EL1",
+      "crm": 6,
+      "op2": 3,
+      "mask": "0x00000000f00f00f0",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64MMFR0_EL1",
+      "crm": 7,
+      "op2": 0,
+      "mask": "0xf000000000000000",
+      "safe": "0x00000111ff000000",
+      "fields": [
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 60,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 56,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 44,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 40,
+          "width": 4,
+          "safe": 1
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 36,
+          "width": 4,
+          "safe": 1
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 32,
+          "width": 4,
+          "safe": 1
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 15
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 15
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64MMFR1_EL1",
+      "crm": 7,
+      "op2": 1,
+      "mask": "0x0000f00000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 60,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 52,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 44,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 40,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 36,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 32,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64MMFR2_EL1",
+      "crm": 7,
+      "op2": 2,
+      "mask": "0x0000000f00000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 60,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 56,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 52,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 48,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 40,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 36,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": true,
+          "configuration": "FTR_VISIBLE",
+          "shift": 32,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 28,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 12,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64MMFR3_EL1",
+      "crm": 7,
+      "op2": 3,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_VISIBLE_IF_IS_ENABLED(CONFIG_ARM64_POE)",
+          "shift": 16,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 8,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 4,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 0,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    },
+    {
+      "register": "ID_AA64MMFR4_EL1",
+      "crm": 7,
+      "op2": 4,
+      "mask": "0x0000000000000000",
+      "safe": "0x0000000000000000",
+      "fields": [
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 24,
+          "width": 4,
+          "safe": 0
+        },
+        {
+          "visible": false,
+          "configuration": "FTR_HIDDEN",
+          "shift": 20,
+          "width": 4,
+          "safe": 0
+        }
+      ]
+    }
+  ]
+}

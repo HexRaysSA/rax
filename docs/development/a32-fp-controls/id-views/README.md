@@ -52,8 +52,9 @@ physical CPU implementing every tested combination. In particular D16/VFPv2
 combinations are not valid ARMv8-A hardware profiles. QEMU evidence is software
 oracle evidence; physical A32 behavior remains unverified.
 
-The existing global EL0 ID-read policy emulates Linux's CPUID service. Separating
-that process-level service from architectural system execution remains open.
+Architectural EL0 ID denial and Linux CPUID personality emulation are now
+separated and locally qualified in
+[the EL0 ID policy component](../../a64-el0-id-policy/README.md).
 Restricted rounding/default-NaN/subnormal profiles need an explicit selected
 subarchitecture; this change does not infer unsupported control-bit semantics.
 The remaining profile/security/debug, backend/private/in-flight, coordinated

@@ -5,6 +5,8 @@
 //! - Exceptions become signals as in `arch/arm64/kernel/traps.c` and
 //!   `arch/arm64/mm/fault.c`.
 
+mod cpuid;
+
 use super::{ArchCaps, CpuEvent, fault_signal};
 use crate::error::MemoryAccessKind;
 use crate::isa::arm::common::cpu::ArmCpu;
@@ -15,7 +17,7 @@ use crate::user::linux::signal::{SIGILL, SIGTRAP, SigInfo, code};
 
 /// `arch/arm64/include/uapi/asm/hwcap.h` bits advertised for the emulated
 /// core: FP, ASIMD, AES, SHA1, SHA2, CRC32, ATOMICS (LSE), and CPUID (EL0
-/// access to the ID registers, which the core permits).
+/// access to the ID registers, emulated here after an architectural fault).
 pub mod hwcap {
     /// `HWCAP_FP`.
     pub const FP: u64 = 1 << 0;
@@ -108,7 +110,30 @@ pub fn abort_esr(f: &AccessFault) -> u64 {
 
 /// Runs up to `budget` instructions.
 pub fn run(cpu: &mut A64UserCpu, budget: u64) -> CpuEvent {
-    match cpu.run(budget) {
+    let mut remaining = budget;
+    loop {
+        let before = cpu.core().instruction_count();
+        let exit = cpu.run(remaining);
+        if let A64Exit::Undefined { pc, .. } = &exit
+            && caps().hwcap & hwcap::CPUID != 0
+        {
+            let retired = cpu.core().instruction_count().wrapping_sub(before);
+            // Count the software-emulated MRS as one user budget slot. It
+            // does not retire in the architectural core, as in the kernel.
+            if retired < remaining && cpuid::emulate(cpu, *pc) {
+                remaining -= retired + 1;
+                if remaining == 0 {
+                    return CpuEvent::Yield;
+                }
+                continue;
+            }
+        }
+        return event(cpu, exit);
+    }
+}
+
+fn event(cpu: &A64UserCpu, exit: A64Exit) -> CpuEvent {
+    match exit {
         A64Exit::Svc { .. } => {
             let c = cpu.core();
             CpuEvent::Syscall {

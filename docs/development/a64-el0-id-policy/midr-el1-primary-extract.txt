@@ -1,0 +1,134 @@
+D7.2.73      MIDR_EL1, Main ID Register
+                    The MIDR_EL1 characteristics are:
+
+                    Purpose
+                                   Provides identification information for the PE, including an implementer code for the device and a
+                                   device ID number.
+
+                    Configurations
+                                   AArch64 System register MIDR_EL1 is architecturally mapped to AArch32 System register
+                                   MIDR.
+                                   AArch64 System register MIDR_EL1 is architecturally mapped to External register MIDR_EL1.
+
+                    Attributes
+                                   MIDR_EL1 is a 32-bit register.
+
+
+                    Field descriptions
+                    The MIDR_EL1 bit assignments are:
+
+
+
+                    31                    24 23             20 19       16 15                             4 3           0
+
+                         Implementer              Variant                            PartNum                   Revision
+
+
+     Architecture
+
+                    Implementer, bits [31:24]
+                                   The Implementer code. This field must hold an implementer code that has been assigned by ARM.
+                                   Assigned codes include the following:
+
+
+                                   Hex representation               ASCII representation   Implementer
+
+                                   0x41                             A                      ARM Limited
+
+                                   0x42                             B                      Broadcom Corporation
+
+                                   0x43                             C                      Cavium Inc.
+
+                                   0x44                             D                      Digital Equipment Corporation
+
+                                   0x49                             I                      Infineon Technologies AG
+
+                                   0x4D                             M                      Motorola or Freescale Semiconductor Inc.
+
+                                   0x4E                             N                      NVIDIA Corporation
+
+                                   0x50                             P                      Applied Micro Circuits Corporation
+
+                                   0x51                             Q                      Qualcomm Inc.
+
+                                   0x56                             V                      Marvell International Ltd.
+
+                                   0x69                             i                      Intel Corporation
+
+
+                                   ARM can assign codes that are not published in this manual. All values not assigned by ARM are
+                                   reserved and must not be used.
+
+
+
+
+ARM DDI 0487B.a               Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.                       D7-2421
+ID033117                                              Non-Confidential
+D7 AArch64 System Register Descriptions
+D7.2 General system control registers
+
+
+
+                    Variant, bits [23:20]
+                                    An IMPLEMENTATION DEFINED variant number. Typically, this field is used to distinguish between
+                                    different product variants, or major revisions of a product.
+
+                    Architecture, bits [19:16]
+                                    The permitted values of this field are:
+                                    0001         ARMv4
+                                    0010         ARMv4T
+                                    0011         ARMv5 (obsolete)
+                                    0100         ARMv5T
+                                    0101         ARMv5TE
+                                    0110         ARMv5TEJ
+                                    0111         ARMv6
+                                    1111         Architectural features are individually identified in the ID_* registers, see Identification
+                                                 registers, functional group on page G4-4727.
+                                    All other values are reserved.
+
+                    PartNum, bits [15:4]
+                                    An IMPLEMENTATION DEFINED primary part number for the device.
+                                    On processors implemented by ARM, if the top four bits of the primary part number are 0x0 or 0x7,
+                                    the variant and architecture are encoded differently.
+
+                    Revision, bits [3:0]
+                                    An IMPLEMENTATION DEFINED revision number for the device.
+
+
+                    Accessing the MIDR_EL1
+                    This register can be read using MRS with the following syntax:
+
+                    MRS <Xt>, <systemreg>
+
+                    This syntax is encoded with the following settings in the instruction encoding:
+
+
+                                                                               <systemreg>         op0     op1     CRn       CRm      op2
+
+                                                                               MIDR_EL1            11      000     0000      0000     000
+
+
+
+                    Accessibility
+                    The register is accessible in software as follows:
+
+
+                                                                                   Control                  Accessibility
+
+                                                                                   E2H      TGE      NS     EL0      EL1      EL2     EL3
+
+                                                                                   x        x        0      -        RO       n/a     RO
+
+                                                                                   x        0        1      -        RO       RO      RO
+
+                                                                                   x        1        1      -        n/a      RO      RO
+
+
+
+
+D7-2422                        Copyright © 2013-2017 ARM Limited or its affiliates. All rights reserved.                   ARM DDI 0487B.a
+                                                       Non-Confidential                                                          ID033117
+                                                                                                 D7 AArch64 System Register Descriptions
+                                                                                                     D7.2 General system control registers
+
+
