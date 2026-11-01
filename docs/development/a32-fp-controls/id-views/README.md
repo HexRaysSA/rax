@@ -55,8 +55,11 @@ oracle evidence; physical A32 behavior remains unverified.
 Architectural EL0 ID denial and Linux CPUID personality emulation are now
 separated and locally qualified in
 [the EL0 ID policy component](../../a64-el0-id-policy/README.md).
-Restricted rounding/default-NaN/subnormal profiles need an explicit selected
-subarchitecture; this change does not infer unsupported control-bit semantics.
+Restricted rounding/default-NaN/subnormal modes now have an explicit selected
+synchronous support-code subarchitecture, qualified in
+[the restricted scalar FP component](../../a32-restricted-fp/README.md).
+Guest FPSCR control read/write semantics and raw base FPSID storage are retained;
+restricted profiles expose the private FPSID support-code identity.
 The remaining profile/security/debug, backend/private/in-flight, coordinated
 restore, SMP startup/scheduling/debug/clock/replay and physical Intel HVF
 requirements remain open under the original four-finding objective.

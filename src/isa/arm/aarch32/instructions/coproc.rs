@@ -106,7 +106,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 return ExecResult::Undefined;
             }
             let value = match reg {
-                0 => self.cpu.vfp.fpsid,
+                0 => self.cpu.vfp.read_fpsid(),
                 1 => {
                     if !self.fp_data_enabled() {
                         return ExecResult::Exception(ExceptionType::UndefinedInstruction);

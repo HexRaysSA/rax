@@ -683,3 +683,6 @@ mod simd_single;
 
 #[path = "a32_fp_controls/id_views.rs"]
 mod id_views;
+
+#[path = "a32_fp_controls/restricted_modes.rs"]
+mod restricted_modes;

@@ -33,6 +33,10 @@ use crate::vm::vcpu::{
 
 pub(crate) mod context;
 
+#[cfg(test)]
+#[path = "aarch32/fp_modes_tests.rs"]
+mod fp_modes_tests;
+
 /// Short-descriptor fault status codes that report a permission or domain
 /// violation (ARMv7-A ARM, "Short-descriptor translation table format fault
 /// status"): section/page domain faults 0b01001/0b01011 and permission faults

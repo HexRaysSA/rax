@@ -1,0 +1,31 @@
+{
+  "status": "LLVM encoding oracle only; reviewed semantic metadata is input",
+  "cases_sha256": "c64b0870017e24bc0adcff30df7a7a7d424753e0409747a9ec2aa918eac8d9eb",
+  "assembly_sha256": "0ec64348424e78d6a6734322524bc198853d7630a8226f38219817d9f77cbd36",
+  "tool_sha256": "1f354528c436fd1296667cf41b0d09d78c5a634bd8a169abfce904da08bc6e97",
+  "LLVM_version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore\n",
+  "oracle_binary": {
+    "path": "/Users/int/local/bin/llvm-mc",
+    "sha256": "0311e88d2281780e2784cd7657bcdc71b70044fa4c530c89a5431a45acc1b971",
+    "unchanged_across_verification": true,
+    "version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore\n",
+    "verification_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/encoding-tool-check-v3.json"
+  },
+  "historical_initial_148_assembly_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/assembly-final.json",
+  "added_FPSID_assembly_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/fpsid-assembly-v1.json",
+  "source_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/encoding-tool-check-v3.json",
+  "guard_probes": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/encoding-tool-guard-probes-v2.json",
+  "primary_reference_sha256": {
+    "docs/specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf": "294668ae6480133b32d85e9567cc77c5eb0e1232decdf42cac7ab480e884f6e0",
+    "docs/specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e",
+    "docs/architecture/arm/asl/arm_defs.asl": "1ade68e5dacfff1b63a42ad3ee1c426aae5d36ed5dfcbf39de4baab478a190f8",
+    "docs/architecture/arm/asl/arm_instrs.asl": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611"
+  },
+  "sections": [
+    "DDI0406C.d A2.7, B1.11.4\u20135, B4.1.59 FPSID, B4.1.108 MVFR0, B4.1.109 MVFR1, A3.5.6 and Table B3-10",
+    "DDI0487B.a G6.2.107\u2013108",
+    "Arm ASL FPConvert/FPUnpackCV/FPRoundCV/FPToFixed/FixedToFP/StandardFPSCRValue and scalar FP instructions"
+  ],
+  "source_lineage": "cases.json assembly/dependency/category columns are reviewed input; --write replaces only derived arm/thumb words and companion assembly.",
+  "restricted_physical_profile_execution": false
+}

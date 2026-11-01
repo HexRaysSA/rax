@@ -1,0 +1,472 @@
+{
+  "group": "a32-restricted-scalar-fp-modes-2026-11-01",
+  "status": "locally_validated_with_selected_subarchitecture_limits",
+  "parent": "76467e1b3e266ec12810d8f3e556b6cb16a7b845",
+  "scope": "Restricted scalar VFP rounding, NaN-propagation and denormal capability controls; precise synchronous support-code boundary, permission priority and private/file continuation; coherent guest FPSID subarchitecture identification",
+  "selected_subarchitecture": "Unsupported scalar operating modes synchronously take Undefined before effects after architectural access checks. FPSCR guest read/write values are not forced from MVFR. Reserved capability values retain decode rejection. Advanced SIMD scalar-capability independence and bit/storage-only operations are preserved.",
+  "assumption_register": [
+    {
+      "id": "RFP-1",
+      "assumption": "Restricted scalar operations use a selected synchronous Undefined support-code bounce after access checks; guest FPSCR controls retain their specified read/write view.",
+      "basis": "Arm DDI0406C.d A2.7 and B1.11.4; this is an explicit subarchitecture selection, not a universal hardware disposition.",
+      "dependent_result": "Runtime admission and precise zero-retirement exception continuation.",
+      "stress_test": "ARM/Thumb, all selected control/support combinations, competing access traps and restored contexts.",
+      "falsification_probe": "A denied operation changes register/memory/status state or retires before the Undefined boundary, or an FP access trap loses priority.",
+      "status": "retained",
+      "qualification": "Stress cases passed in complete owning targets; synthetic profile and physical-hardware boundary retained."
+    },
+    {
+      "id": "RFP-2",
+      "assumption": "MVFR0 VFP rounding and MVFR1 VFP NaN/denormal capability fields do not disable independent Advanced SIMD or raw/storage operations.",
+      "basis": "Retained MVFR definitions and StandardFPSCRValue; existing scalar/SIMD capability separation.",
+      "dependent_result": "Unchanged SIMD and bit/storage behavior under restricted scalar capabilities.",
+      "stress_test": "Independent LLVM-encoded SIMD FP32/FP16/directed conversions and VMOV/VABS/VNEG/system/memory transfers.",
+      "falsification_probe": "Any independent operation traps solely because these scalar control-capability nibbles are restricted.",
+      "status": "retained",
+      "qualification": "Stress cases passed in complete owning targets; synthetic profile and physical-hardware boundary retained."
+    },
+    {
+      "id": "RFP-3",
+      "assumption": "The dependency table qualifies selected synthetic feature combinations rather than claiming a physical named Armv7/Armv8 processor profile.",
+      "basis": "Retained Armv7 support-code semantics and Arm instruction pseudocode; actual restricted physical hardware is unavailable.",
+      "dependent_result": "Scope of generated matrices and reference evidence.",
+      "stress_test": "Binary16/32/64, explicit versus FPSCR rounding, conversion-to-zero exemption, AHP and FZ16 independence.",
+      "falsification_probe": "A table dependency contradicts the retained instruction pseudocode or an advertised profile is claimed without independent validation.",
+      "status": "retained",
+      "qualification": "Stress cases passed in complete owning targets; synthetic profile and physical-hardware boundary retained."
+    },
+    {
+      "id": "RFP-4",
+      "assumption": "The selected synchronous support-code interface uses private virtual-PE FPSID.Subarchitecture 0x40 when any defined restricted scalar rounding/NaN/flush capability requires it; raw base identity remains serialized unchanged.",
+      "basis": "Arm DDI0406C.d B4.1.59 reserves value 3 for no support-code subarchitecture and requires bit22=1 for a non-Arm subarchitecture designer. 0x40 is a private RAX selection, not a physical vendor assignment.",
+      "dependent_result": "Coherent standalone/mixed guest identity and retained raw checkpoint storage.",
+      "stress_test": "All eight capability combinations, all 64 FPSCR controls, arbitrary base identity bits, both ISAs, mixed-width fault/EL2-access priority and restored profiles.",
+      "falsification_probe": "A restricted profile advertises Subarchitecture=3, guest read mutates stored identity, unrelated identity fields change, or the identifier is described as an independently allocated physical CPU identity.",
+      "status": "retained",
+      "qualification": "Stress cases passed in complete owning targets; synthetic profile and physical-hardware boundary retained."
+    }
+  ],
+  "change_surface": {
+    "direct_decode": "Existing decoder retained; reserved scalar capability values rejected for dependent instructions at admission.",
+    "direct_execute": "Selected synchronous unsupported-mode bounce after ordinary access checks, before effects.",
+    "CPU_state": "Derived guest FPSID.Subarchitecture=0x40 for defined restricted scalar capabilities; existing raw identity, FPSCR mask/storage and all serialized layouts retained.",
+    "memory_MMU": "No production change; actual file fixture maps its low guest vector into S3C RAM.",
+    "SMIR_lift": "All 135 scalar fixture words and the FPSID query retain Unsupported frontier; no new FP lifting.",
+    "SMIR_IR_interpret_optimizer": "No change: FP arithmetic helpers keep explicit raw controls, and rejected A32 FP instructions do not enter IR.",
+    "native_lowering_JIT": "No new native admission. Mixed-width A32 execution remains interpreter-owned.",
+    "backend": "Existing precise Undefined entry and public/private restore reused and tested before/after bounce.",
+    "machine_device": "No production change; S3C open-bus behavior retained.",
+    "oracle_analysis": "No decode/disassembly metadata or public analysis layout changes.",
+    "C_ABI": "No public layout/API change; complete C API library and C/C++ consumers executed.",
+    "Cortex_M": "Separate executor does not call this A-profile admission path."
+  },
+  "validation": {
+    "receipts": {
+      "owning-integration-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/owning-integration-v2.json",
+      "owning-libraries-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/owning-libraries-v2.json",
+      "fmt-workspace-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/fmt-workspace-v2.json",
+      "check-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/check-workspace-all-targets-v2.json",
+      "build-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/build-workspace-all-targets-v2.json",
+      "clippy-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/clippy-workspace-all-targets-v2.json",
+      "intel-common-library-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/intel-common-library-v2.json",
+      "doctests-workspace-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/doctests-workspace-v2.json",
+      "c-cpp-consumers-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/c-cpp-consumers-v2.json",
+      "restricted-modes-full-v3": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/restricted-modes-full-v3.json"
+    },
+    "commands": {
+      "owning-integration-v2": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "smir-jit,debug",
+        "--test",
+        "a32_fp_controls",
+        "--test",
+        "arm_vfp_a32",
+        "--test",
+        "arm",
+        "--test",
+        "user_linux",
+        "--",
+        "--test-threads=1"
+      ],
+      "owning-libraries-v2": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "smir-jit,debug,rax-capi/jit",
+        "--lib",
+        "--",
+        "--test-threads=1"
+      ],
+      "fmt-workspace-v2": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "check-workspace-all-targets-v2": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "build-workspace-all-targets-v2": [
+        "cargo",
+        "build",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "clippy-workspace-all-targets-v2": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "intel-common-library-v2": [
+        "cargo",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "smir-jit,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib"
+      ],
+      "doctests-workspace-v2": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "c-cpp-consumers-v2": [
+        "make",
+        "-C",
+        "capi",
+        "test",
+        "PROFILE=debug",
+        "TARGET_DIR=/Users/int/dev/rax-audit-work/main-integration-target",
+        "EXAMPLE_DIR=/Users/int/dev/rax-audit-work/build-tmp/a32-restricted-fp-capi-consumers-v2/examples",
+        "TEST_DIR=/Users/int/dev/rax-audit-work/build-tmp/a32-restricted-fp-capi-consumers-v2/tests",
+        "CC=clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "CXX=clang++ -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+      ],
+      "restricted-modes-full-v3": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "smir-jit,debug",
+        "--test",
+        "a32_fp_controls",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ]
+    },
+    "test_results": {
+      "owning-integration-v2": [
+        {
+          "passed": 79,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 46850,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 497,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 43,
+          "failed": 0,
+          "ignored": 1
+        }
+      ],
+      "owning-libraries-v2": [
+        {
+          "passed": 11528,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 225,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "fmt-workspace-v2": [],
+      "check-workspace-all-targets-v2": [],
+      "build-workspace-all-targets-v2": [],
+      "clippy-workspace-all-targets-v2": [],
+      "intel-common-library-v2": [],
+      "doctests-workspace-v2": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "c-cpp-consumers-v2": [],
+      "restricted-modes-full-v3": [
+        {
+          "passed": 79,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    "elapsed_seconds": {
+      "owning-integration-v2": 886.262380582979,
+      "owning-libraries-v2": 9986.39710916602,
+      "fmt-workspace-v2": 64.47967758303275,
+      "check-workspace-all-targets-v2": 2083.2777905000257,
+      "build-workspace-all-targets-v2": 1868.3520769170136,
+      "clippy-workspace-all-targets-v2": 317.33852895803284,
+      "intel-common-library-v2": 92.02329899999313,
+      "doctests-workspace-v2": 31.056345917051658,
+      "c-cpp-consumers-v2": 1752.994522958994,
+      "restricted-modes-full-v3": 9.235328332986683
+    },
+    "environment": {
+      "RUSTC_WRAPPER": "",
+      "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+      "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+      "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+      "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+      "CARGO_BUILD_JOBS": "8",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_NET_OFFLINE": "true",
+      "RUSTC_WORKSPACE_WRAPPER": "",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+      "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+      "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_TEST_LTO": "off",
+      "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+      "CARGO_PROFILE_DEV_LTO": "off",
+      "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+      "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true"
+    },
+    "host_toolchain": [
+      {
+        "argv": [
+          "rustc",
+          "-Vv"
+        ],
+        "stdout": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+        "stderr": "",
+        "exit_code": 0
+      },
+      {
+        "argv": [
+          "cargo",
+          "-V"
+        ],
+        "stdout": "cargo 1.99.1 (5f94df478 2026-08-27)\n",
+        "stderr": "",
+        "exit_code": 0
+      },
+      {
+        "argv": [
+          "sw_vers"
+        ],
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+        "stderr": "",
+        "exit_code": 0
+      },
+      {
+        "argv": [
+          "sysctl",
+          "-n",
+          "machdep.cpu.brand_string"
+        ],
+        "stdout": "Apple M4 Max\n",
+        "stderr": "",
+        "exit_code": 0
+      },
+      {
+        "argv": [
+          "sysctl",
+          "-n",
+          "hw.memsize"
+        ],
+        "stdout": "137438953472\n",
+        "stderr": "",
+        "exit_code": 0
+      },
+      {
+        "argv": [
+          "xcrun",
+          "--show-sdk-version"
+        ],
+        "stdout": "27.2\n",
+        "stderr": "",
+        "exit_code": 0
+      }
+    ],
+    "RAX_NO_JIT_present": false,
+    "scalar_matrix": {
+      "instructions": 135,
+      "ISAs": 2,
+      "capabilities": 8,
+      "controls": 64,
+      "executions": 138240,
+      "completed": 64312,
+      "precise_bounces": 73928
+    },
+    "baseline_failure": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/restricted-modes-red-v1.json",
+    "baseline_limits": "Direct observed old admission failures; complete checkpoint tests establish new behavior but are not separately claimed red-green regressions.",
+    "current_targeted_evidence": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/restricted-modes-full-v3.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/normal-memory-file-preflight-v3.json"
+    ],
+    "final_file_preflight_binary": {
+      "binary": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-8aa621b3ac41baa8",
+      "sha256": "d0e7586569d3c5c280e2def69b94454bd469e11c65222443df09ace8ba723a3a",
+      "unchanged": true,
+      "case": "vm::runtime::backend_context_tests::restricted_fp::two_and_four_cpu_files_resume_before_and_after_restricted_mode_guest_entry",
+      "complete_case_executed": true,
+      "scope": "Additional final-source fixture preflight; full unfiltered library still required."
+    },
+    "final_source_review": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/final-source-review-v3.json",
+    "historical_targeted_note": "Phase1 targeted results predate the FPSID identity correction and Normal-memory fixture. Final complete phase2 owning targets rerun their cases.",
+    "historical_targeted_evidence": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/restricted-modes-green-v2.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/backend-restricted-modes-green-v1.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/multicpu-file-green-v2.json"
+    ],
+    "C_CPP_consumers_executed": 19,
+    "historical_driver_failure": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/c-consumer-driver-reconciliation.json",
+    "file_fixture_correction": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/file-fixture-correction-v3.json",
+    "full_library_threads": 1,
+    "existing_GDB_policy_regression": {
+      "case": "test vm::runtime::gdb_lifecycle_tests::restore::file_restore_preserves_the_current_session_and_rebinds_imported_cpu_controls ... ok",
+      "passed": true,
+      "changed_in_this_group": false,
+      "scope": "Software x86 current-session file restore; no new physical native debugger qualification."
+    },
+    "mixed_width_cases": 32,
+    "FPSID_standalone_reads": 3072,
+    "FPSID_baseline_failure": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/fpsid-identity-red-v1.json",
+    "preflight_compile_failure": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/restricted-modes-full-v2.json",
+    "preflight_compile_correction": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/preflight-format-correction.json",
+    "original_open_bus_fixture_correction": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/file-fixture-correction-v2.json",
+    "phase1_superseded_library": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/owning-libraries-v1.json",
+    "ignored_library_cases": [
+      "test smir::lower::validation::tests::test_lift_lower_full_microkernel ... ignored",
+      "test smir::lower::validation::tests::test_roundtrip_exact_bytes_microkernel ... ignored",
+      "test vm::runtime::gdb_lifecycle_tests::transport::disconnected_owner_child ... ignored, Executed by the bounded production-owner parent test",
+      "test vm::runtime::gdb_smp_tests::client::installed_gdb_enumerates_selects_steps_and_writes_an_ap ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane",
+      "test vm::runtime::gdb_smp_tests::memory::installed_gdb_uses_selected_cpu_virtual_memory_and_read_only_writes ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane"
+    ],
+    "counts_note": "Counts overlap targeted/full owning suites and are not unique-scenario totals. Native A64 helper arithmetic is not physical A32 subarchitecture validation. Intel check is compilation only.",
+    "physical_restricted_AArch32_execution": false,
+    "physical_Intel_execution": false
+  },
+  "primary_reference_sha256": {
+    "docs/specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf": "294668ae6480133b32d85e9567cc77c5eb0e1232decdf42cac7ab480e884f6e0",
+    "docs/specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e",
+    "docs/architecture/arm/asl/arm_defs.asl": "1ade68e5dacfff1b63a42ad3ee1c426aae5d36ed5dfcbf39de4baab478a190f8",
+    "docs/architecture/arm/asl/arm_instrs.asl": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611"
+  },
+  "implementation_and_fixture_sha256": {
+    "docs/development/a32-restricted-fp/cases.json": "c64b0870017e24bc0adcff30df7a7a7d424753e0409747a9ec2aa918eac8d9eb",
+    "docs/development/a32-restricted-fp/cases.s": "0ec64348424e78d6a6734322524bc198853d7630a8226f38219817d9f77cbd36",
+    "docs/specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf": "294668ae6480133b32d85e9567cc77c5eb0e1232decdf42cac7ab480e884f6e0",
+    "docs/specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.provenance.json": "b30d618b4f0e2a72f289cddf57748cf26b55c27dc7afd50ea761d5188eb5b88f",
+    "src/backend/emulator/aarch32.rs": "c19be90c3a2414adb7c6a3185eda0a60721fe05a69755ca3e7eb6d539dee67fc",
+    "src/backend/emulator/aarch32/fp_modes_tests.rs": "0a6ce3c7809de70dd6d5c4ce6f1e2ec2a7778ff74e7de73063bcd23fd04c24e6",
+    "src/isa/arm/aarch32/fp_admission.rs": "c5e6f75c0e6d989d3e424882d96a9a4f8f9165551202ccf7c3c0d75cf2ebf820",
+    "src/isa/arm/aarch32/fp_modes.rs": "bbd49e63ca53e847c84c01e58a53fa1cc2c19d91951e88cbc03d664bb2c39d86",
+    "src/isa/arm/aarch32/instructions/coproc.rs": "29616fc3a04af710defe6337bfc16c8d9a7d9d4c7600f1f4d6b05b78533f06d5",
+    "src/isa/arm/aarch32/instructions/fp_access.rs": "b59672ae1f7678562f97f677b53c847fa86d125ece1e1929ff6a258e928931d0",
+    "src/isa/arm/aarch32/vfp.rs": "3194bc64645d82c9ef513cbb7bea662f928fdd2051a9c20f4b99d18b32b50c15",
+    "src/vm/runtime/a32_restricted_fp_tests.rs": "8b5319607591e87dc186df281a0cc964115150636b2ad94679e104aefa924597",
+    "src/vm/runtime/backend_context_tests.rs": "25f54de186ec51b427896e6c9d9ffc91bb6d8a95b8a6a1f782aa1829a30f4fbd",
+    "tests/suites/backend/a32_fp_controls.rs": "503b83827d215f7787817d59e28390791cbf0a71373151746384a100dd99d65e",
+    "tests/suites/backend/a32_fp_controls/restricted_modes.rs": "ae1f4be472b34db670cc36d809c2e526627b8b01b89ca657341ed67cc114dab0",
+    "tools/execution/a32_restricted_fp_cases.py": "1f354528c436fd1296667cf41b0d09d78c5a634bd8a169abfce904da08bc6e97"
+  },
+  "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/frozen-source-v3.json",
+  "encoding_provenance": "encoding-provenance.json",
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Physical restricted AArch32 support-code behavior and named-processor profile consistency are unverified; the profile combinations are synthetic.",
+      "blocks_component": false,
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Optional short-vector/trapped-FP profiles and broader security/virtualization/debug admission remain outside this component.",
+      "blocks_component": false,
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Complete backend/private/in-flight and native clock/timer/IRQ/checkpoint restoration, native scheduling/replay, and physical Intel HVF remain open.",
+      "blocks_component": false,
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "The initial real-file fixture fetched its handler from S3C low physical open bus. Corrected test uses real MMU translation; production board behavior is unchanged and the failure is retained.",
+      "blocks_component": false,
+      "blocks_full_goal": false
+    },
+    {
+      "impact": "medium",
+      "finding": "Earlier independent Darwin parallel ptrace/descriptor failures remain unresolved; full owning harnesses here run serially.",
+      "blocks_component": false,
+      "blocks_full_goal": false
+    },
+    {
+      "impact": "medium",
+      "finding": "Cargo reports an existing workspace librax.rlib output-name collision between the engine and C API. Hashed owning test binaries and the separately rebuilt C API dylib executed successfully; no library target rename is part of this group.",
+      "blocks_component": false,
+      "blocks_full_goal": false
+    }
+  ],
+  "quality_gates": {
+    "scope": "Defined component acceptance only; original four findings remain open.",
+    "assumptions": "RFP-1..4 retained with stress/falsification probes and complete owning evidence.",
+    "reproducibility": "Pinned words/primary hashes, exact environment/commands and baseline-versus-green receipts.",
+    "integrity": "Exact owned-path workflow; primary checkouts, worktrees and protected guests preserved; guarded cleanup after commit."
+  },
+  "full_goal_complete": false
+}

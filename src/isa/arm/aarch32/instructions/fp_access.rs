@@ -22,7 +22,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if insn.state.is_thumb() && self.cpu.cpsr.in_it_block() {
             kind.condition = self.cpu.cpsr.it_condition();
         }
-        self.cpu
+        let access = self
+            .cpu
             .fp_control_context()
             .check(kind)
             .map(|fault| match fault {
@@ -39,6 +40,19 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     syndrome,
                     undefined,
                 },
-            })
+            });
+        if access.is_some() {
+            return access;
+        }
+        if !crate::isa::arm::aarch32::fp_admission::execution_supported(
+            insn,
+            kind.advsimd,
+            &self.cpu.vfp,
+        ) {
+            // This PE synchronously bounces an unsupported scalar operating
+            // mode to guest support code, after access checks, before effects.
+            return Some(ExecResult::Exception(ExceptionType::UndefinedInstruction));
+        }
+        None
     }
 }

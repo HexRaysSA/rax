@@ -1013,7 +1013,11 @@
         "docs/development/a32-fp-controls/id-views/README.md",
         "docs/development/a32-fp-controls/id-views/qualification.json",
         "docs/development/a64-el0-id-policy/README.md",
-        "docs/development/a64-el0-id-policy/qualification.json"
+        "docs/development/a64-el0-id-policy/qualification.json",
+        "src/isa/arm/aarch32/fp_modes.rs",
+        "docs/development/a32-restricted-fp/README.md",
+        "docs/development/a32-restricted-fp/qualification.json",
+        "src/vm/runtime/a32_restricted_fp_tests.rs"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
@@ -1022,8 +1026,9 @@
         "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open.",
         "Selected primary-derived SVE allocation/capability/access admission, fixed-128-bit scalar SME execution, native access-path feature guards and actual two/four-CPU file continuation are locally qualified. Full feature/ID/streaming/debug, backend/private/in-flight and other ISA/hardware/startup/clock/replay requirements remain open.",
         "The selected classic miscellaneous/fused capability, exact S3C quantum/non-retirement and prepared-context file continuation are locally qualified by final source-v5 feature checks and the equivalent active-JIT v4 full-library run. Remaining profile/security/debug, native/private/IRQ/clock/rollback, other ISA/startup/hardware and Intel requirements retain full scope.",
-        "A64/A32/Thumb MVFR identity, selected half upper bounds and A64 TID3/RO semantics remain locally qualified. EL0 architectural ID denial and Linux personality emulation are qualified by docs/development/a64-el0-id-policy/qualification.json. Restricted rounding/NaN/subnormal profiles and remaining security/debug controls remain open.",
-        "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure."
+        "A64/A32/Thumb MVFR identity, selected half upper bounds and A64 TID3/RO semantics remain locally qualified. EL0 architectural ID denial and Linux personality emulation are qualified by docs/development/a64-el0-id-policy/qualification.json. Defined restricted scalar rounding/NaN/subnormal modes are locally qualified by docs/development/a32-restricted-fp/qualification.json. Synthetic profile and remaining optional-profile/security/debug limits remain open.",
+        "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
+        "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1048,7 +1053,8 @@
           "scope": "MVFR1.SIMDFMAC and MVFR2 FPMisc/SIMDMisc admission in the shared A32/T32 executor; exact bounded S3C entry/non-retirement and heartbeat preservation; backend profile state and real prepared-context two/four-CPU .rxc continuation. Full four findings remain incomplete.",
           "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
         },
-        "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01"
+        "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01",
+        "a32-restricted-scalar-fp-modes-2026-11-01"
       ]
     },
     {
@@ -2712,7 +2718,11 @@
         "docs/development/hvf-native-context-qualification.json",
         "docs/development/hvf-native-context.md",
         "docs/development/a64-el0-id-policy/README.md",
-        "docs/development/a64-el0-id-policy/qualification.json"
+        "docs/development/a64-el0-id-policy/qualification.json",
+        "src/isa/arm/aarch32/fp_modes.rs",
+        "docs/development/a32-restricted-fp/README.md",
+        "docs/development/a32-restricted-fp/qualification.json",
+        "src/vm/runtime/a32_restricted_fp_tests.rs"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2739,7 +2749,8 @@
         "Permanent Intel SDK owner threads, retained VM/RAM lifetime, per-request caller clocks, matching checkpoint exclusion and fatal teardown fencing are locally qualified in hvf-intel-owner-qualification.json. Complete native private/XSAVE/in-flight state, bounded scheduling/IRQ conservation, remaining intercept profiles and physical Intel execution remain open; no full finding closure.",
         "Native syscall/SWAPGS/TSC_AUX MSRs now use SDK-managed execution backing, and public syscall fields restore through that backing. See hvf-native-msr-qualification.json. Full native private/XSAVE/in-flight records, including KERNEL_GS_BASE/TSC_AUX, coordinated rollback, remaining intercept/IRQ/scheduling profiles and physical Intel remain open; no original finding closure.",
         "Readable Intel SDK CPU/full-XSAVE/in-flight records, strict native file admission, coordinated rollback, current-debugger controls and common host-clock rebasing now have portable/SDK-model evidence. Physical Intel state restoration and guest execution, remaining native intercept/exception/MMIO/IRQ profiles and bounded native scheduling/SMP/replay remain open; no original finding closure. See hvf-native-context-qualification.json.",
-        "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure."
+        "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
+        "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2786,7 +2797,8 @@
         "intel-native-owner-lifetime-2026-10-30",
         "intel-native-syscall-msr-state-2026-10-31",
         "intel-native-checkpoint-records-2026-10-31",
-        "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01"
+        "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01",
+        "a32-restricted-scalar-fp-modes-2026-11-01"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3422,7 +3434,11 @@
         "docs/development/hvf-native-context-qualification.json",
         "docs/development/hvf-native-context.md",
         "docs/development/a64-el0-id-policy/README.md",
-        "docs/development/a64-el0-id-policy/qualification.json"
+        "docs/development/a64-el0-id-policy/qualification.json",
+        "src/isa/arm/aarch32/fp_modes.rs",
+        "docs/development/a32-restricted-fp/README.md",
+        "docs/development/a32-restricted-fp/qualification.json",
+        "src/vm/runtime/a32_restricted_fp_tests.rs"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3444,7 +3460,8 @@
         "Permanent Intel SDK owner threads, retained VM/RAM lifetime, per-request caller clocks, matching checkpoint exclusion and fatal teardown fencing are locally qualified in hvf-intel-owner-qualification.json. Complete native private/XSAVE/in-flight state, bounded scheduling/IRQ conservation, remaining intercept profiles and physical Intel execution remain open; no full finding closure.",
         "Native syscall/SWAPGS/TSC_AUX MSRs now use SDK-managed execution backing, and public syscall fields restore through that backing. See hvf-native-msr-qualification.json. Full native private/XSAVE/in-flight records, including KERNEL_GS_BASE/TSC_AUX, coordinated rollback, remaining intercept/IRQ/scheduling profiles and physical Intel remain open; no original finding closure.",
         "Readable Intel SDK CPU/full-XSAVE/in-flight records, strict native file admission, coordinated rollback, current-debugger controls and common host-clock rebasing now have portable/SDK-model evidence. Physical Intel state restoration and guest execution, remaining native intercept/exception/MMIO/IRQ profiles and bounded native scheduling/SMP/replay remain open; no original finding closure. See hvf-native-context-qualification.json.",
-        "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure."
+        "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
+        "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3479,7 +3496,8 @@
         "intel-native-owner-lifetime-2026-10-30",
         "intel-native-syscall-msr-state-2026-10-31",
         "intel-native-checkpoint-records-2026-10-31",
-        "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01"
+        "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01",
+        "a32-restricted-scalar-fp-modes-2026-11-01"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -197714,6 +197732,19 @@
       "workflow": "git add -- <exact owned paths>; red -m --staged --run <same exact paths>",
       "validation_scope": "Full serial library, complete ISA/Linux/C API owning binaries, C/C++ consumers, workspace all-target gates and Intel common-code compilation; exact pass/ignore counts in qualification.json; physical Intel unexecuted.",
       "pending_gates": "Original four-finding objective remains incomplete."
+    },
+    {
+      "id": "a32-restricted-scalar-fp-modes-2026-11-01",
+      "status": "locally_validated_with_selected_subarchitecture_limits",
+      "parent": "76467e1b3e266ec12810d8f3e556b6cb16a7b845",
+      "scope": "Restricted scalar VFP rounding, NaN-propagation and denormal capability controls; precise synchronous support-code boundary, permission priority and private/file continuation; coherent guest FPSID subarchitecture identification",
+      "qualification": "docs/development/a32-restricted-fp/qualification.json",
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/frozen-source-v3.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-restricted-fp-v1/cleanup-final.json",
+      "workflow": "git add -- <exact owned paths>; red -m --staged --run <same exact paths>",
+      "validation_scope": "Complete serial owning integration/root/C API binaries, C/C++ consumers, workspace all-target check/build/lint, Intel common library compile; exact pass/ignore counts in qualification.json.",
+      "pending_gates": "A32-FP/C-STATE/C-SMP/C-HVF remain incomplete; no original finding status promotion."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

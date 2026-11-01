@@ -6,6 +6,9 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use vm_memory::{Bytes, GuestAddress};
 
+#[path = "a32_restricted_fp_tests.rs"]
+mod restricted_fp;
+
 static NEXT: AtomicU64 = AtomicU64::new(0);
 const CODE: u64 = 0x5000_0100;
 const CONTROLS: [u32; 4] = [0x0050_0000, 0x00f0_0000, 0x8050_0000, 0x80f0_0000];

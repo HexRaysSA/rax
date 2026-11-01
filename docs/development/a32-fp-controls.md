@@ -145,3 +145,13 @@ from the expected architectural domain. QEMU is not physical Arm validation.
 The component adds FP control handling; it does not establish A32 MMU/LPAE,
 full virtualization, secondary startup, complete checkpoint restoration, or
 physical native execution.
+
+## Restricted scalar operating modes
+
+MVFR0.FPRound and MVFR1.FPDNaN/FPFtZ now participate in scalar instruction
+admission under the explicitly selected synchronous support-code subarchitecture.
+Access permission traps retain priority over an unsupported runtime mode; reserved
+capability values reject dependent encodings first. Defined restricted profiles
+identify the private FPSID support-code interface. FPSCR read/write semantics
+and raw identity storage remain unchanged. See [restricted scalar VFP modes](a32-restricted-fp/README.md)
+for primary sources, complete owning validation, checkpoint continuation and limits.

@@ -41,7 +41,8 @@ pub struct VfpState {
     /// Floating-Point Exception Register (VFPv3+).
     pub fpexc: u32,
 
-    /// Floating-Point System ID Register.
+    /// Base Floating-Point System ID Register storage.
+    /// Guest reads apply the selected support-code subarchitecture view.
     pub fpsid: u32,
 
     /// Media and VFP Feature Registers.
@@ -69,6 +70,21 @@ impl VfpState {
     /// Implemented full-precision, non-trapping, D32 profile. The enclosing
     /// A64 PE derives both MVFR aliases from these same base capabilities.
     pub(crate) const PROFILE_IDS: [u32; 3] = [0x10110222, 0x13211111, 0x43];
+
+    /// Guest identity for the selected scalar support-code subarchitecture.
+    /// DDI0406C.d B4.1.59 reserves FPSID[22:16]=3 for a complete
+    /// hardware implementation. Restricted scalar modes instead use RAX's
+    /// private non-Arm subarchitecture 0x40, with bit22 set as specified.
+    /// Keep the raw base identity and its serialized representation unchanged.
+    pub(crate) fn read_fpsid(&self) -> u32 {
+        let restricted =
+            self.mvfr0 >> 28 == 0 || (self.mvfr1 >> 4) & 15 == 0 || self.mvfr1 & 15 == 0;
+        if restricted {
+            (self.fpsid & !0x007f_0000) | 0x0040_0000
+        } else {
+            self.fpsid
+        }
+    }
 
     /// Architectural FPSCR view for the non-trapping, non-short-vector profile.
     /// Retains NZCV/QC/AHP/DN/FZ/RMode and cumulative exception status.
@@ -205,7 +221,7 @@ impl fmt::Debug for VfpState {
         writeln!(f, "VfpState {{")?;
         writeln!(f, "  FPSCR: {:08x}", self.fpscr.bits())?;
         writeln!(f, "  FPEXC: {:08x}", self.fpexc)?;
-        writeln!(f, "  FPSID: {:08x}", self.fpsid)?;
+        writeln!(f, "  FPSID: {:08x}", self.read_fpsid())?;
         for i in 0..32 {
             if self.dregs[i] != 0 {
                 writeln!(f, "  D{}: {:016x}", i, self.dregs[i])?;
