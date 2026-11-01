@@ -108,7 +108,7 @@ impl HvfCore {
             .map(|&id| {
                 Ok(Register {
                     id,
-                    value: native.vmcs(id)?,
+                    value: self.checkpoint_vmcs_value(id, native.vmcs(id)?)?,
                 })
             })
             .collect::<Result<Vec<_>>>()?;
@@ -371,8 +371,15 @@ impl HvfCore {
             if field == hv_vmx_vmcs_field_t::VMCS_CTRL_EXC_BITMAP {
                 value = (value & !wire::DEBUG_EXCEPTIONS) | exceptions;
             }
-            vmcs_write(self.vcpu_id, field, value)?;
-            if vmcs_read(self.vcpu_id, field)? != value {
+            // Pin controls are fixed by the admitted producer policy. The
+            // SDK owns their timer bit; validate the copied client view without
+            // writing the field or depending on SDK masking of that write.
+            if field != hv_vmx_vmcs_field_t::VMCS_CTRL_PIN_BASED {
+                vmcs_write(self.vcpu_id, field, value)?;
+            }
+            let observed =
+                self.checkpoint_vmcs_value(register.id, vmcs_read(self.vcpu_id, field)?)?;
+            if observed != value {
                 return Err(Error::Emulator(format!(
                     "native checkpoint VMCS field {field:?} readback differs"
                 )));

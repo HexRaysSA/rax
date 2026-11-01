@@ -249,3 +249,73 @@ fn a_million_internal_exits_use_a_small_fixed_host_stack() {
         .unwrap();
     thread.join().unwrap();
 }
+
+#[test]
+fn host_yield_before_entry_never_looks_like_halt_or_consumes_an_exit() {
+    let mut host = Host::new([12]);
+    assert_eq!(run_loop::run_with_entry(&mut host, |_| Ok(None)), Ok(None));
+    assert_eq!(host.trace, ["prepare"]);
+    assert_eq!(host.entries, 0);
+    assert_eq!(host.reasons.len(), 1);
+}
+#[test]
+fn prepared_completion_precedes_an_expired_entry_policy() {
+    let mut host = Host::new([12]);
+    host.prepared_exit = true;
+    assert_eq!(
+        run_loop::run_with_entry(&mut host, |_| panic!("entry must not run")),
+        Ok(Some(100))
+    );
+    assert_eq!(host.trace, ["prepare"]);
+    assert_eq!(host.entries, 0);
+}
+#[test]
+fn internal_exits_consume_one_stable_entry_policy_and_resume_on_the_next_slice() {
+    let mut host = Host::new([10, 7, 55, 12]);
+    let mut left = 3;
+    let result = run_loop::run_with_entry(&mut host, |host| {
+        if left == 0 {
+            return Ok(None);
+        }
+        left -= 1;
+        host.next_reason().map(Some)
+    });
+    assert_eq!(result, Ok(None));
+    assert_eq!(host.entries, 3);
+    assert_eq!(host.reasons, VecDeque::from([12]));
+    assert_eq!(
+        host.trace,
+        [
+            "prepare", "enter", "cpuid", "prepare", "enter", "window", "prepare", "enter",
+            "xsetbv", "prepare"
+        ]
+    );
+    assert_eq!(run(&mut host), Ok(12));
+    assert_eq!(host.entries, 4);
+}
+#[test]
+fn entry_policy_failure_is_not_converted_into_a_yield() {
+    let mut host = Host::new([12]);
+    assert_eq!(
+        run_loop::run_with_entry(&mut host, |_| Err("entry-policy")),
+        Err("entry-policy")
+    );
+    assert_eq!(host.trace, ["prepare"]);
+    assert_eq!(host.entries, 0);
+    assert_eq!(host.reasons.len(), 1);
+}
+#[test]
+fn returned_io_debug_and_failed_entry_reasons_are_not_discarded() {
+    for (reason, call) in [
+        (30, "io"),
+        (37, "monitor-trap"),
+        (0x8000_0034, "fail-entry"),
+    ] {
+        let mut host = Host::new([reason]);
+        assert_eq!(
+            run_loop::run_with_entry(&mut host, |host| host.next_reason().map(Some)),
+            Ok(Some(reason))
+        );
+        assert_eq!(host.trace, ["prepare", "enter", call]);
+    }
+}

@@ -28,6 +28,9 @@ pub use state::{
 
 use crate::error::{Error, Result};
 
+/// Native host scheduling interval; this does not describe guest retirement.
+pub const DEFAULT_HOST_SLICE: std::time::Duration = std::time::Duration::from_millis(10);
+
 /// Intent of a guest memory access, used by [`VCpu::translate_addr`] to select
 /// the correct permission check when walking translation structures, and to tag
 /// recorded accesses ([`MemRecord`]).
@@ -73,6 +76,24 @@ pub trait VCpu: Send {
     }
     /// Run the vCPU until an exit condition.
     fn run(&mut self) -> Result<VcpuExit>;
+
+    /// Whether this backend implements [`VCpu::run_host_slice`]. Individual
+    /// host capabilities or intervals can still be rejected before entry.
+    fn supports_host_slices(&self) -> bool {
+        false
+    }
+
+    /// Use a finite native-entry deadline for a positive host scheduling interval.
+    /// `None` yields to the scheduler without fabricating a guest exit or an
+    /// instruction-retirement count. Actual guest exits are returned as `Some`.
+    /// Prepared exits retain priority over an expired entry deadline. The
+    /// deadline belongs to this call and must not enter guest checkpoint state.
+    /// The default rejects before entry and never falls back to unbounded run.
+    fn run_host_slice(&mut self, _limit: std::time::Duration) -> Result<Option<VcpuExit>> {
+        Err(Error::InvalidConfig(
+            "time-bounded host entry is not supported by this backend".into(),
+        ))
+    }
 
     /// Execute at most `budget` retired units, preserving the reason for yield.
     /// One Hexagon packet is one unit. A zero budget performs no execution.

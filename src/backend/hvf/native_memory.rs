@@ -160,7 +160,10 @@ pub(super) fn register(
     result
 }
 
-pub(super) fn enter(shared: &Shared, id: hv_vcpuid_t) -> Result<hv_return_t> {
+/// Invoke one synchronous entry operation under the admitted layout guard.
+/// The caller retains its SDK CPU ownership; all PCI locks are released before
+/// the operation runs. No entry occurs after mapping/admission failure.
+pub(super) fn enter<T>(shared: &Shared, entry: impl FnOnce() -> T) -> Result<T> {
     loop {
         let guard = shared
             .read()
@@ -170,10 +173,7 @@ pub(super) fn enter(shared: &Shared, id: hv_vcpuid_t) -> Result<hv_return_t> {
             .ok_or_else(|| Error::InvalidConfig("HVF guest RAM is not registered".into()))?;
         memory.mapping.ready().map_err(Error::Emulator)?;
         if memory.target()? == memory.mapping.layout {
-            // SAFETY: the caller owns this live SDK vCPU. The shared layout
-            // guard retains backing and excludes map/unmap until entry exits.
-            // No device/PCI lock is retained while guest code executes.
-            return Ok(unsafe { hv_vcpu_run(id) });
+            return Ok(entry());
         }
         drop(guard);
         let mut guard = shared

@@ -40,39 +40,58 @@ pub(crate) trait ExitHandler {
     fn unknown(&mut self, basic_reason: u32) -> Result<Self::Exit, Self::Error>;
 }
 
-/// O(n) work for n internal exits; O(1) host stack and auxiliary storage.
+/// O(n) work for n internal exits; O(1) host stack/storage.
 pub(crate) fn run<T: ExitHandler>(handler: &mut T) -> Result<T::Exit, T::Error> {
     loop {
         if let Some(exit) = handler.prepare()? {
             return Ok(exit);
         }
-        let raw_reason = handler.next_reason()?;
-        if raw_reason & (1 << 31) != 0 {
-            return handler.fail_entry(raw_reason);
-        }
-        match raw_reason & 0xffff {
-            VMX_EXIT_REASON_HLT => return handler.halt(),
-            VMX_EXIT_REASON_IO => return handler.port_io(),
-            VMX_EXIT_REASON_EPT_VIOLATION => return handler.mmio(),
-            VMX_EXIT_REASON_CPUID => handler.cpuid()?,
-            VMX_EXIT_REASON_RDMSR => {
-                if let Some(exit) = handler.rdmsr()? {
-                    return Ok(exit);
-                }
-            }
-            VMX_EXIT_REASON_WRMSR => {
-                if let Some(exit) = handler.wrmsr()? {
-                    return Ok(exit);
-                }
-            }
-            VMX_EXIT_REASON_TRIPLE_FAULT => return handler.shutdown(),
-            VMX_EXIT_REASON_EXCEPTION_NMI => return handler.exception(),
-            VMX_EXIT_REASON_MONITOR_TRAP => return handler.monitor_trap(),
-            VMX_EXIT_REASON_EXT_INTERRUPT => {}
-            VMX_EXIT_REASON_IRQ_WINDOW => handler.interrupt_window()?,
-            VMX_EXIT_REASON_CR_ACCESS => handler.control_register()?,
-            VMX_EXIT_REASON_XSETBV => handler.xsetbv()?,
-            basic => return handler.unknown(basic),
+        let reason = handler.next_reason()?;
+        if let Some(exit) = dispatch(handler, reason)? {
+            return Ok(exit);
         }
     }
+}
+
+/// A caller-owned entry policy returns None for host yield. Prepared guest
+/// and debugger completions retain priority, and actual exits are dispatched
+/// before the next policy check. No host deadline becomes CPU state.
+pub(crate) fn run_with_entry<T: ExitHandler>(
+    handler: &mut T,
+    mut entry: impl FnMut(&mut T) -> Result<Option<u32>, T::Error>,
+) -> Result<Option<T::Exit>, T::Error> {
+    loop {
+        if let Some(exit) = handler.prepare()? {
+            return Ok(Some(exit));
+        }
+        let Some(reason) = entry(handler)? else {
+            return Ok(None);
+        };
+        if let Some(exit) = dispatch(handler, reason)? {
+            return Ok(Some(exit));
+        }
+    }
+}
+
+fn dispatch<T: ExitHandler>(handler: &mut T, raw_reason: u32) -> Result<Option<T::Exit>, T::Error> {
+    if raw_reason & (1 << 31) != 0 {
+        return handler.fail_entry(raw_reason).map(Some);
+    }
+    match raw_reason & 0xffff {
+        VMX_EXIT_REASON_HLT => return handler.halt().map(Some),
+        VMX_EXIT_REASON_IO => return handler.port_io().map(Some),
+        VMX_EXIT_REASON_EPT_VIOLATION => return handler.mmio().map(Some),
+        VMX_EXIT_REASON_CPUID => handler.cpuid()?,
+        VMX_EXIT_REASON_RDMSR => return handler.rdmsr(),
+        VMX_EXIT_REASON_WRMSR => return handler.wrmsr(),
+        VMX_EXIT_REASON_TRIPLE_FAULT => return handler.shutdown().map(Some),
+        VMX_EXIT_REASON_EXCEPTION_NMI => return handler.exception().map(Some),
+        VMX_EXIT_REASON_MONITOR_TRAP => return handler.monitor_trap().map(Some),
+        VMX_EXIT_REASON_EXT_INTERRUPT => {}
+        VMX_EXIT_REASON_IRQ_WINDOW => handler.interrupt_window()?,
+        VMX_EXIT_REASON_CR_ACCESS => handler.control_register()?,
+        VMX_EXIT_REASON_XSETBV => handler.xsetbv()?,
+        basic => return handler.unknown(basic).map(Some),
+    }
+    Ok(None)
 }

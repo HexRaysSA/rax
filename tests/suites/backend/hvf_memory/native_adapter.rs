@@ -74,7 +74,7 @@ mod bindings {
         }
         0
     }
-    pub unsafe fn hv_vcpu_run(id: u32) -> i32 {
+    pub fn hv_vcpu_run(id: u32) -> i32 {
         let pause = {
             let mut sdk = SDK.lock().unwrap();
             let pages = sdk.pages.clone();
@@ -161,7 +161,7 @@ fn real_adapter_registers_reported_ram_and_rejects_changed_registration() {
             .matches_backing(other.memory())
     );
     assert!(native_memory::register(&shared, &other, &[], None).is_err());
-    native_memory::enter(&shared, 7).unwrap();
+    native_memory::enter(&shared, || bindings::hv_vcpu_run(7)).unwrap();
     assert_eq!(SDK.lock().unwrap().entries[0].0, 7);
 }
 
@@ -173,11 +173,11 @@ fn real_entry_adapter_reconciles_bar_relocation_disable_and_checkpoint_restore()
     let pci = bridge();
     let checkpoint = pci.lock().unwrap().checkpoint().unwrap();
     native_memory::register(&shared, &memory, &[], Some(pci.clone())).unwrap();
-    native_memory::enter(&shared, 0).unwrap();
+    native_memory::enter(&shared, || bindings::hv_vcpu_run(0)).unwrap();
     assert!(!SDK.lock().unwrap().pages.contains(&0x2000));
     let calls = SDK.lock().unwrap().calls;
     config_write(&pci, 0x10, 0x2040);
-    native_memory::enter(&shared, 0).unwrap();
+    native_memory::enter(&shared, || bindings::hv_vcpu_run(0)).unwrap();
     assert_eq!(
         SDK.lock().unwrap().calls,
         calls,
@@ -204,14 +204,14 @@ fn real_entry_adapter_reconciles_bar_relocation_disable_and_checkpoint_restore()
             .contains_logical(0x2040, 1)
     );
     config_write(&pci, 0x10, 0x7020);
-    native_memory::enter(&shared, 1).unwrap();
+    native_memory::enter(&shared, || bindings::hv_vcpu_run(1)).unwrap();
     assert!(SDK.lock().unwrap().pages.contains(&0x2000));
     assert!(!SDK.lock().unwrap().pages.contains(&0x7000));
     config_write(&pci, 4, 0);
-    native_memory::enter(&shared, 0).unwrap();
+    native_memory::enter(&shared, || bindings::hv_vcpu_run(0)).unwrap();
     assert_eq!(SDK.lock().unwrap().pages.len(), 16);
     pci.lock().unwrap().restore_checkpoint(checkpoint).unwrap();
-    native_memory::enter(&shared, 1).unwrap();
+    native_memory::enter(&shared, || bindings::hv_vcpu_run(1)).unwrap();
     assert!(!SDK.lock().unwrap().pages.contains(&0x2000));
     assert!(SDK.lock().unwrap().pages.contains(&0x7000));
     assert_eq!(SDK.lock().unwrap().entries.len(), 5);
@@ -224,17 +224,17 @@ fn live_bar_map_failure_rolls_back_and_blocks_all_subsequent_entries() {
     let shared = native_memory::Shared::default();
     let pci = bridge();
     native_memory::register(&shared, &memory, &[], Some(pci.clone())).unwrap();
-    native_memory::enter(&shared, 0).unwrap();
+    native_memory::enter(&shared, || bindings::hv_vcpu_run(0)).unwrap();
     let old = SDK.lock().unwrap().pages.clone();
     config_write(&pci, 0x10, 0x7020);
     {
         let mut sdk = SDK.lock().unwrap();
         sdk.fail = Some(sdk.calls + 2);
     }
-    assert!(native_memory::enter(&shared, 1).is_err());
+    assert!(native_memory::enter(&shared, || bindings::hv_vcpu_run(1)).is_err());
     assert_eq!(SDK.lock().unwrap().pages, old);
     let calls = SDK.lock().unwrap().calls;
-    assert!(native_memory::enter(&shared, 0).is_err());
+    assert!(native_memory::enter(&shared, || bindings::hv_vcpu_run(0)).is_err());
     let retained = shared.read().unwrap().as_ref().unwrap().backing.clone();
     assert!(native_memory::validate_cpu_backing(&shared, &retained).is_err());
     assert_eq!(SDK.lock().unwrap().calls, calls);
@@ -271,7 +271,7 @@ fn real_adapter_retains_backing_and_blocks_entry_after_native_map_error() {
             .next()
             .is_some()
     );
-    assert!(native_memory::enter(&shared, 0).is_err());
+    assert!(native_memory::enter(&shared, || bindings::hv_vcpu_run(0)).is_err());
     assert!(SDK.lock().unwrap().entries.is_empty());
 }
 
@@ -308,7 +308,8 @@ fn real_adapter_holds_shared_mapping_guard_for_the_entire_native_entry() {
     let (release_tx, release_rx) = mpsc::channel();
     SDK.lock().unwrap().pause = Some((entered_tx, release_rx));
     let other = shared.clone();
-    let entry = std::thread::spawn(move || native_memory::enter(&other, 3));
+    let entry =
+        std::thread::spawn(move || native_memory::enter(&other, || bindings::hv_vcpu_run(3)));
     entered_rx
         .recv_timeout(std::time::Duration::from_secs(5))
         .unwrap();

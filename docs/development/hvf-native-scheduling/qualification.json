@@ -1,0 +1,349 @@
+{
+  "group": "intel-native-host-scheduling-2026-11-01",
+  "parent": "cd594189da2d8f6278f2b60dbd105b17a0c37972",
+  "status": "locally_validated_with_physical_Intel_and_native_profile_limits",
+  "scope": "Optional finite host slices, Intel permanent-owner entry, SDK timer exclusion from native records and coordinator host yields",
+  "change_surface": {
+    "backend": "Intel HvfCore entry and owner forwarding, shared mapping guard callback, SDK timer copy projection",
+    "runtime": "Non-stepping coordinator selects opted-in finite entry and drains platform requests after host yields",
+    "public_Rust": "Default rejecting VCpu host-slice methods and 10 ms host interval; existing implementations remain source-compatible",
+    "CPU_checkpoint": "Fixed client pin-policy normalization; no field, version or wire-layout change",
+    "unaffected_with_reason": {
+      "decode_execute": "Guest instruction semantics are unchanged",
+      "SMIR_IR_interpret_optimize_lower_JIT": "No admission or instruction semantics change",
+      "devices": "Existing IPI routing is invoked at the new host-yield boundary; no new controller model",
+      "C_ABI": "No exported C function, struct or exit enum change",
+      "KVM_native_Arm": "Neither backend opts into this new contract in this component"
+    }
+  },
+  "baseline": {
+    "coordinator": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/coordinator-red-v1.json",
+    "observed_passed": 0,
+    "observed_failed": 2,
+    "scope": "Old coordinator dispatch with optional API scaffold; failures reached unbounded native-style entry, not compilation",
+    "timer_restore": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/timer-fixed-pin-write-red-v1.json",
+    "coordinator_scaffold": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/coordinator-red-scaffold-v1.json",
+    "iteration_errors": [
+      "The initial Mach ABI candidate finished both compiler checks but failed its Python report due to variable shadowing; corrected candidate and production target pass.",
+      "The added Legacy coordinator test fixture initially omitted the required complete_io_in trait method; this was a failed build, not runtime regression evidence. Corrected final coordinator cases and full owning libraries pass."
+    ]
+  },
+  "assumption_register": [
+    {
+      "id": "NS-1",
+      "assumption": "A positive nanosecond host interval converts to mach ticks with upward rounding and less than one tick of rounding excess.",
+      "basis": "Retained Apple mach_time header and 125/3 native host ABI probe; u128 intermediate bounds.",
+      "dependent_result": "Finite owner entry deadlines, independent of guest clocks.",
+      "stress_test": "Integral/fractional timebases, one ns, u64 boundary, zero timebase and FOREVER exclusion.",
+      "falsification_probe": "A positive interval truncates to zero, rounds down, overflows, or becomes u64::MAX.",
+      "status": "confirmed for checked arithmetic and compiler-backed Mach ABI; SDK/hardware latency excluded"
+    },
+    {
+      "id": "NS-2",
+      "assumption": "Successful finite SDK entry exposes the exit reason that the documented run-until operation returned. Physical already-expired/racing-deadline reason freshness is unknown.",
+      "basis": "Retained Apple SDK hv_vcpu_run_until contract; no physical Intel host is available.",
+      "dependent_result": "Real guest exits are dispatched before a later host deadline check.",
+      "stress_test": "Prepared exits, internal exit storms, already-expired policy and IO/debug/fail-entry at expiry in the SDK model.",
+      "falsification_probe": "A stale reason is dispatched twice, or real IO/debug/fail-entry is discarded only because time elapsed.",
+      "status": "retained; complete SDK models pass, physical already-expired/racing SDK return freshness remains unknown"
+    },
+    {
+      "id": "NS-3",
+      "assumption": "The qualified SDK timer ownership is limited to pin-control bit6; hidden SDK deadlines are reset by the documented FOREVER entry. Physical post-return control behavior is unknown.",
+      "basis": "Retained SDK uses VMX preemption timer for finite deadlines; current context policy forbids dynamic pin controls.",
+      "dependent_result": "Host timer state stays outside guest checkpoint bytes and finite/unbounded transitions do not retain an expired deadline.",
+      "stress_test": "Model timer-bit mutation, unexpected policy changes, partial setters, raw capture/restore and finite/FOREVER/finite calls; count pin-field writes during restore independently of modeled SDK masking",
+      "falsification_probe": "Capture publishes an SDK timer bit/deadline, or unbounded entry inherits finite expiration. A restore writes fixed pin controls, even if a masking SDK fixture happens to preserve the timer bit.",
+      "status": "revised after observed extra pin write; corrected complete debug/no-debug SDK models pass; physical SDK timer ownership remains unknown"
+    },
+    {
+      "id": "NS-4",
+      "assumption": "Interrupted delivery is admitted only with a supported reinjection contract; otherwise bounded entry fails closed before re-entry. Physical SDK reinjection behavior is unknown.",
+      "basis": "Current run loop has no general IDT-vectoring reinjection handler; read-only vectoring fields are not checkpoint candidates.",
+      "dependent_result": "A host scheduling yield does not silently lose or duplicate an interrupted guest event.",
+      "stress_test": "Valid vectoring information/error code, an occupied entry event, timer expiry and fail-entry flag priority.",
+      "falsification_probe": "The CPU resumes after unsupported interrupted delivery, silently claims successful general reinjection, or turns an entry failure into a host yield. The model's retained entry-valid bit alone cannot prove preservation of an interrupted hardware event.",
+      "status": "retained; unsupported vectoring fails closed in complete models; general and physical reinjection remain unimplemented/unqualified"
+    }
+  ],
+  "validation": {
+    "receipts": {
+      "fmt-workspace-v3": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/fmt-workspace-v3.json",
+      "coordinator-green-v3": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/coordinator-green-v3.json",
+      "timer-and-sdk-scheduling-green-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/timer-and-sdk-scheduling-green-v2.json",
+      "backend-integrations-final-v3": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/backend-integrations-final-v3.json",
+      "intel-sdk-owning-debug-final-v3": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/intel-sdk-owning-debug-final-v3.json",
+      "intel-sdk-owning-no-debug-final-v3": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/intel-sdk-owning-no-debug-final-v3.json",
+      "check-workspace-all-targets-v3": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/check-workspace-all-targets-v3.json",
+      "build-workspace-all-targets-v3": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/build-workspace-all-targets-v3.json",
+      "clippy-workspace-all-targets-v3": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/clippy-workspace-all-targets-v3.json",
+      "doctests-workspace-v3": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/doctests-workspace-v3.json",
+      "owning-libraries-v3": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/owning-libraries-v3.json",
+      "c-cpp-consumers-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/c-cpp-consumers-v2.json"
+    },
+    "complete_target_counts": {
+      "fmt-workspace-v3": [],
+      "coordinator-green-v3": [
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "timer-and-sdk-scheduling-green-v2": [
+        {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "backend-integrations-final-v3": [
+        {
+          "passed": 31,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 37,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "intel-sdk-owning-debug-final-v3": [
+        {
+          "passed": 45,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "intel-sdk-owning-no-debug-final-v3": [
+        {
+          "passed": 43,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "check-workspace-all-targets-v3": [],
+      "build-workspace-all-targets-v3": [],
+      "clippy-workspace-all-targets-v3": [],
+      "doctests-workspace-v3": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "owning-libraries-v3": [
+        {
+          "passed": 11541,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 225,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "c-cpp-consumers-v2": []
+    },
+    "C_CPP_consumers": {
+      "count": 19,
+      "names": [
+        "arm64_fp",
+        "cpp_engine",
+        "cpp_fault_recovery",
+        "cpp_instruction_info",
+        "cpp_process",
+        "cpp_registers",
+        "cpp_user_arm",
+        "cpp_user_arm64",
+        "decode_flow",
+        "mem_and_context",
+        "pauth",
+        "x86_64_basic",
+        "x86_64_hooks",
+        "x86_64_io",
+        "x86_64_memhook",
+        "x86_64_smir",
+        "x86_64_step",
+        "x86_64_user",
+        "x86_64_vector_smir"
+      ]
+    },
+    "C_CPP_ABI_objects": {
+      "count": 7,
+      "names": [
+        "analyze_abi",
+        "fault_abi",
+        "user_abi",
+        "instruction_info_abi",
+        "process_abi",
+        "pauth_abi",
+        "arm64_fp_abi"
+      ],
+      "artifact_provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/c-cpp-runtime-provenance-final.json"
+    },
+    "SDK_ABI": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/sdk-abi-production-retention.json",
+    "ABI_negative": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/mach-sdk-abi-swapped-fields-negative-v1.json",
+    "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/frozen-integration-v3.json",
+    "source_manifest_scope": "Frozen validation-phase source; the three owned documentation files are reconciled only after all runtime gates.",
+    "final_file_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/final-files.json",
+    "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/environment.json",
+    "source_review": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/source-review-v3.json",
+    "physical_Intel_execution": false,
+    "current_GDB_session_policy": {
+      "case": "test vm::runtime::gdb_lifecycle_tests::restore::file_restore_preserves_the_current_session_and_rebinds_imported_cpu_controls ... ok",
+      "passed": true,
+      "changed_in_this_component": false,
+      "scope": "Complete owning software file/CPU control regression; no new physical native debugger qualification."
+    },
+    "ignored_library_cases": [
+      "test smir::lower::validation::tests::test_lift_lower_full_microkernel ... ignored",
+      "test smir::lower::validation::tests::test_roundtrip_exact_bytes_microkernel ... ignored",
+      "test vm::runtime::gdb_lifecycle_tests::transport::disconnected_owner_child ... ignored, Executed by the bounded production-owner parent test",
+      "test vm::runtime::gdb_smp_tests::client::installed_gdb_enumerates_selects_steps_and_writes_an_ap ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane",
+      "test vm::runtime::gdb_smp_tests::memory::installed_gdb_uses_selected_cpu_virtual_memory_and_read_only_writes ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane"
+    ],
+    "scope": "Actual coordinator with native-style model and actual Intel permanent-owner/SDK bridge are separate tested edges. Complete SDK file/rollback cases execute with modeled SDK storage; no Intel guest instruction executes. Counts repeat helper cases and are not unique scenario totals.",
+    "post_gate_changes": "Only final documentation/evidence/ledger reconciliation; compiled Rust, Python ABI tool and retained SDK source bytes remain frozen."
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Physical Intel SDK deadline expiry, timer visibility and guest execution are unavailable on this M4 host.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "General IDT-vectoring event reinjection remains unimplemented; unexpected valid vectoring fails closed and fences later entry.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "KVM/native Arm bounded host scheduling, complete backend startup/IRQ/clocks and deterministic concurrent replay remain separate requirements.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "The 10 ms interval bounds the SDK entry deadline, with conversion rounding under one Mach tick; SDK granularity and host/owner/bookkeeping latency are outside that bound.",
+      "blocks_full_goal": false
+    },
+    {
+      "impact": "medium",
+      "finding": "Intel hardware without the SDK preemption timer rejects coordinator bounded entry; no unbounded fallback is used. Physical feature availability remains unqualified.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "The current interrupt-window handler does not acknowledge restored primary-control bit2. The actual compiled backend repeats windows in the independent SDK model; a separate production fix and five observed failing regression cases are prepared.",
+      "blocks_full_goal": true,
+      "followup": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/work-state-current.json"
+    }
+  ],
+  "full_goal_complete": false,
+  "followup_candidate": {
+    "study": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/next-component-interrupt-window-study-v1.json",
+    "status": "Actual compiled backend continuation failure reproduced under an SDM-derived SDK model; see window-candidate-runtime-red-v1.json. No physical Intel reproduction or production fix is claimed in this component."
+  },
+  "workflow": {
+    "command": "git add -- <exact owned paths>; red -m --staged --run <same exact paths>",
+    "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/commit-receipt.json",
+    "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/cleanup-final.json",
+    "scope": "Commit/cleanup receipts are created by the subsequent guarded workflow; no push or primary merge."
+  },
+  "provenance": {
+    "Apple_deadline_contract": "docs/specifications/apple/hypervisor-sdk-27.2/hv.h: hv_vcpu_run_until and HV_DEADLINE_FOREVER",
+    "Mach_header": "docs/specifications/apple/hypervisor-sdk-27.2/mach_time.h and mach_time.provenance.json",
+    "Intel_SDM": {
+      "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+      "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+      "sections": {
+        "timer_pin": "Vol.3C Section26.6.1, Table26-5 bit6",
+        "timer_operation": "Vol.3C Section27.5.1",
+        "exit_reason": "Vol.3C AppendixC basic exit reason52"
+      }
+    },
+    "compiler_backed_ABI": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/sdk-abi-production-retention.json",
+    "host_toolchain": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/host-toolchain-current.json"
+  },
+  "SDK_model_limits": {
+    "entry_event_slot": "This component's SDK model retains VM-entry event valid across normal modeled exits. Intel SDM Vol.3C29.2 clears valid on normal VM exit;28.8 preserves it on failed entry. The retained-slot assertion is model storage evidence, not architectural event-delivery evidence. A corrected model and explicit normal/failed-entry regression are prepared in the separate interrupt-window group; no backend valid-bit clear is required.",
+    "followup_evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/work-state-current.json"
+  }
+}

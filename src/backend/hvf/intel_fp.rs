@@ -4,6 +4,7 @@ mod fingerprint;
 
 use super::bindings::{
     HV_SUCCESS, hv_error_string, hv_vcpu_read_fpstate, hv_vcpu_write_fpstate, hv_vcpuid_t,
+    hv_vmx_vmcs_field_t,
 };
 use crate::backend::intel_hvf_context::{
     Capabilities, Cpuid, Identity, Profile, Register, optional_field, policy_fields,
@@ -225,9 +226,14 @@ pub(super) fn profile(
     }
     let mut controls = Vec::new();
     for field in policy_fields() {
+        let raw = super::convert::vmcs_read_raw(id, field)?;
         controls.push(Register {
             id: field,
-            value: super::convert::vmcs_read_raw(id, field)?,
+            value: if field == hv_vmx_vmcs_field_t::VMCS_CTRL_PIN_BASED as u32 {
+                raw & !crate::backend::intel_hvf_deadline::SDK_TIMER_PIN
+            } else {
+                raw
+            },
         });
     }
     let mut frequency = 0u64;

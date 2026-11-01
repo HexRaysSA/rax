@@ -1,6 +1,6 @@
 //! Single-owner CPU selection and architectural x86 secondary startup.
 use super::*;
-use crate::vm::vcpu::{DEFAULT_RETIREMENT_QUANTUM, RetirementStop};
+use crate::vm::vcpu::{DEFAULT_HOST_SLICE, DEFAULT_RETIREMENT_QUANTUM, RetirementStop};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct ExecutionCoordinator {
@@ -108,14 +108,19 @@ impl Vmm {
             self.debugger.last_cpu = index;
         }
         if !self.vcpus[index].supports_stepping() {
-            // Native scheduling is being connected to each backend's bounded
-            // entry contract separately; do not claim instruction retirement.
-            let exit = self.vcpus[index].run()?;
+            // Native host yields carry no architectural exit or retirement.
+            // Backends opt in separately; legacy entry remains unchanged for
+            // those which do not implement this contract.
+            let exit = if self.vcpus[index].supports_host_slices() {
+                self.vcpus[index].run_host_slice(DEFAULT_HOST_SLICE)?
+            } else {
+                Some(self.vcpus[index].run()?)
+            };
             self.route_interprocessor_requests()?;
             if !self.coordinator.online[index] {
                 return Ok(None);
             }
-            return Ok(Some(ExecutionTurn {
+            return Ok(exit.map(|exit| ExecutionTurn {
                 cpu_index: index,
                 exit,
                 #[cfg(feature = "debug")]

@@ -932,6 +932,9 @@ mod lapic;
 #[cfg(test)]
 mod execution_tests;
 
+#[cfg(test)]
+mod native_scheduling_tests;
+
 mod checkpoint_capture;
 mod coordinator;
 mod execution;

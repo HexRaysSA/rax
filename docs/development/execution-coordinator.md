@@ -191,3 +191,9 @@ from SEVL and consumes latches at CPU instruction boundaries. Cohort restoration
 publishes saved latch values only after admission and retains peer bindings.
 This does not extend the coordinator's existing spurious-wakeup policy into a
 complete WFE trap or timer event-stream model.
+
+Intel HVF now exposes an optional finite host-slice contract. The coordinator
+selects it for opted-in non-stepping CPUs, preserving guest exit and
+retirement boundaries. See [Intel native host scheduling](hvf-native-scheduling/README.md)
+for separate coordinator/SDK-model evidence and physical/native-profile limits.
+KVM and native Arm retain their existing entry contract in this component.

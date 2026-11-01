@@ -129,12 +129,14 @@ Intel foreign function declaration from the actual bindings source. A standalone
 Rust program reports values, widths and alignments; Clang checks those results
 and function pointer types against the installed Intel SDK headers. A second
 Clang invocation checks the shared error and mapping constants against the Arm64
-SDK headers. The work directory retains commands, compiler versions, header and
+SDK headers. The Mach timebase layout and field offsets, and both Mach clock function
+signatures, are extracted from `src/backend/hvf/native_deadline.rs` and checked for both SDK
+targets. The work directory retains commands, compiler versions, header and
 source hashes, generated probes and diagnostics. A missing tool or compiler
 failure fails the check. The Cargo target is compiled only on macOS.
 
 The probe performs source and compiler ABI checks. Native Intel VM creation,
-VM-exit behavior, guest execution and Arm64 function signatures require separate
+VM-exit behavior, guest execution and Arm64 hypervisor function signatures require separate
 validation. The probe also checks every declared VMCS field with explicit SDK
 name aliases, plus the actual shared exit-information field used at runtime. Rosetta can run the x86_64 test process
 on Apple Silicon; it does not establish native Intel hypervisor execution.

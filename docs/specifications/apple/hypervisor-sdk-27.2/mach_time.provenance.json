@@ -1,0 +1,12 @@
+{
+  "title": "Apple mach absolute-time API header",
+  "issuing_organization": "Apple",
+  "SDK": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+  "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/mach/mach_time.h",
+  "retrieved_utc": "2026-11-01T01:07:03.182286+00:00",
+  "sha256": "d690e304ea595ca216ed51e20aa9747e0b3bcb07446d996abe0080a231c7065f",
+  "bytes": 2590,
+  "status": "Unmodified local SDK primary source retained for native host scheduling integration",
+  "related_retained_SDK": "docs/specifications/apple/hypervisor-sdk-27.2/hv.h",
+  "implementation_status": "See docs/development/hvf-native-scheduling qualification after component validation"
+}

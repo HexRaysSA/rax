@@ -13,6 +13,8 @@ pub(crate) mod arm64_hvf_power;
 
 #[path = "hvf/intel_context_format.rs"]
 pub(crate) mod intel_hvf_context;
+#[path = "hvf/native_deadline.rs"]
+pub(crate) mod intel_hvf_deadline;
 #[path = "hvf/intel_io.rs"]
 pub(crate) mod intel_hvf_io;
 #[path = "hvf/intel_projection.rs"]

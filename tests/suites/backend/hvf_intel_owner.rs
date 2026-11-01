@@ -26,6 +26,9 @@ mod native_file;
 #[path = "hvf_intel_owner/native_clock.rs"]
 mod native_clock;
 
+#[path = "hvf_intel_owner/native_scheduling.rs"]
+mod native_scheduling;
+
 struct Cpu {
     owner: ThreadId,
     registers: BTreeMap<u32, u64>,
@@ -35,6 +38,13 @@ struct Cpu {
     exits: VecDeque<u32>,
     fpstate: Vec<u8>,
     tsc_offset: i64,
+    deadlines: Vec<u64>,
+    raw_entries: usize,
+    pin_writes: usize,
+    timer_visible: bool,
+    delay_tpr_read: bool,
+    finite_unsupported: bool,
+    delay_return: bool,
 }
 
 struct Fault {
@@ -61,6 +71,9 @@ struct Sdk {
     fault: Option<Fault>,
     next_fault: Option<Fault>,
     failure_clock_advance: u64,
+    timer_visible: bool,
+    initial_timer: bool,
+    client_timer_control: bool,
 }
 
 impl Sdk {
@@ -83,6 +96,9 @@ impl Sdk {
             fault: None,
             next_fault: None,
             failure_clock_advance: 0,
+            timer_visible: true,
+            initial_timer: false,
+            client_timer_control: true,
         }
     }
     fn fail_after(&mut self, operation: &str) -> bool {
@@ -165,12 +181,18 @@ pub unsafe extern "C" fn hv_vcpu_create(output: *mut u32, _: u64) -> i32 {
     }
     let id = sdk.next_id;
     sdk.next_id += 1;
+    let timer_visible = sdk.timer_visible;
+    let initial_timer = sdk.initial_timer;
     sdk.cpus.insert(
         id,
         Cpu {
             owner: thread::current().id(),
             registers: BTreeMap::new(),
-            vmcs: BTreeMap::new(),
+            vmcs: if initial_timer && timer_visible {
+                BTreeMap::from([(0x4000, 1 << 6)])
+            } else {
+                BTreeMap::new()
+            },
             msrs: native_msr::NATIVE
                 .into_iter()
                 .map(|msr| (msr, 0xa5a5_5a5a_1234_5678))
@@ -179,6 +201,13 @@ pub unsafe extern "C" fn hv_vcpu_create(output: *mut u32, _: u64) -> i32 {
             exits: VecDeque::new(),
             fpstate: initial_fpstate(),
             tsc_offset: 0,
+            deadlines: Vec::new(),
+            raw_entries: 0,
+            pin_writes: 0,
+            timer_visible,
+            delay_tpr_read: false,
+            finite_unsupported: false,
+            delay_return: false,
         },
     );
     sdk.trace.push(format!("cpu-create:{id}"));
@@ -234,13 +263,18 @@ pub unsafe extern "C" fn hv_vmx_read_capability(field: u32, output: *mut u64) ->
     if output.is_null() {
         return -1;
     }
-    if SDK.lock().map_or(true, |sdk| sdk.fail_capability) {
+    let Ok(sdk) = SDK.lock() else { return -1 };
+    if sdk.fail_capability {
         return -1;
     }
     let value = if field == 10 {
         1 << 6
     } else {
-        u64::from(u32::MAX) << 32
+        u64::from(if field == 0 && !sdk.client_timer_control {
+            u32::MAX & !(1 << 6)
+        } else {
+            u32::MAX
+        }) << 32
     };
     // SAFETY: checked live SDK output pointer, synchronous exclusive write.
     unsafe { output.write(value) };
@@ -253,6 +287,9 @@ pub unsafe extern "C" fn hv_vcpu_read_register(id: u32, register: u32, output: *
         return -1;
     }
     access(id, "read-register", |cpu| {
+        if register == 49 && std::mem::take(&mut cpu.delay_tpr_read) {
+            std::thread::sleep(std::time::Duration::from_millis(30));
+        }
         let value = cpu
             .registers
             .get(&register)
@@ -290,6 +327,14 @@ pub unsafe extern "C" fn hv_vmx_vcpu_read_vmcs(id: u32, field: u32, output: *mut
 #[unsafe(no_mangle)]
 pub extern "C" fn hv_vmx_vcpu_write_vmcs(id: u32, field: u32, value: u64) -> i32 {
     access(id, "write-vmcs", |cpu| {
+        let value = if field == 0x4000 {
+            cpu.pin_writes += 1;
+            // The model lets the SDK retain its host timer independently of
+            // client policy writes. Both visible and hidden modes are tested.
+            (value & !(1 << 6)) | (cpu.vmcs.get(&field).copied().unwrap_or(0) & (1 << 6))
+        } else {
+            value
+        };
         cpu.vmcs.insert(field, value);
     })
 }
@@ -297,13 +342,43 @@ pub extern "C" fn hv_vmx_vcpu_write_vmcs(id: u32, field: u32, value: u64) -> i32
 #[unsafe(no_mangle)]
 pub extern "C" fn hv_vcpu_run(id: u32) -> i32 {
     access(id, "run", |cpu| {
+        cpu.raw_entries += 1;
         cpu.vmcs
             .insert(0x4402, u64::from(cpu.exits.pop_front().unwrap_or(12)));
     })
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn hv_vcpu_run_until(id: u32, _: u64) -> i32 {
-    hv_vcpu_run(id)
+pub extern "C" fn hv_vcpu_run_until(id: u32, deadline: u64) -> i32 {
+    let mut unsupported = false;
+    let result = access(id, "run", |cpu| {
+        cpu.deadlines.push(deadline);
+        if deadline != u64::MAX && cpu.finite_unsupported {
+            unsupported = true;
+            return;
+        }
+        let control = cpu.vmcs.entry(0x4000).or_default();
+        if deadline != u64::MAX && cpu.timer_visible {
+            *control |= 1 << 6;
+        } else {
+            *control &= !(1 << 6);
+        }
+        cpu.vmcs.insert(
+            0x4402,
+            u64::from(
+                cpu.exits
+                    .pop_front()
+                    .unwrap_or(if deadline == u64::MAX { 12 } else { 52 }),
+            ),
+        );
+        if std::mem::take(&mut cpu.delay_return) {
+            std::thread::sleep(std::time::Duration::from_millis(30));
+        }
+    });
+    if result == 0 && unsupported {
+        0xfae9_400fu32 as i32
+    } else {
+        result
+    }
 }
 fn initial_fpstate() -> Vec<u8> {
     // The model follows the executing host's CPUID layout used by production.

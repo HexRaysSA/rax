@@ -16,7 +16,7 @@ TYPES = ("hv_return_t", "hv_vcpuid_t", "hv_gpaddr_t", "hv_uvaddr_t",
          "hv_memory_flags_t", "hv_vmx_capability_t")
 PRIMITIVES = {"u8": "uint8_t", "u16": "uint16_t", "u32": "uint32_t",
               "u64": "uint64_t", "i32": "int32_t", "i64": "int64_t", "usize": "size_t",
-              "bool": "bool", "c_void": "void"}
+              "bool": "bool", "c_void": "void", "Timebase": "mach_timebase_info_data_t"}
 
 
 def digest(path: Path) -> str:
@@ -71,7 +71,18 @@ def main() -> int:
                                       ["hv_arch_x86.h", "hv.h", "hv_vmx.h", "hv_types.h", "hv_error.h"]},
                 "vmcs_sdk_header_sha256": digest(headers / "hv_arch_vmx.h"),
                 "arm64_error_header_sha256": digest(sdk / "usr/include/arm64/hv/hv_kern_types.h"),
-                "scope": "Intel register IDs, selected ABI type sizes/alignments, HV constants, and every declared x86 foreign function signature. All declared VMCS field encodings use explicit SDK-name aliases. Native hypervisor/guest execution and Arm64 function signatures remain separate."}
+                "scope": "Intel register IDs, selected ABI type sizes/alignments, HV constants, and every declared x86 foreign function signature. All declared VMCS field encodings use explicit SDK-name aliases. Mach clock layout/field offsets and both signatures are also checked for Intel/Arm64. Native hypervisor/guest execution and Arm64 hypervisor function signatures remain separate."}
+    clock_source = args.repo / "src/backend/hvf/native_deadline.rs"
+    clock_text = clock_source.read_text()
+    clock_struct = re.search(r"#\[repr\(C\)\]\s+struct Timebase\s*\{[^}]+\}", clock_text)
+    clock_foreign = re.search(r'unsafe extern "C"\s*\{([^}]+)\}', clock_text)
+    if not clock_struct or not clock_foreign:
+        raise ValueError("Missing actual Mach clock layout or foreign declarations")
+    clock_functions = re.findall(r"fn (mach_\w+)\((.*?)\)\s*->\s*(\w+)\s*;", clock_foreign.group(1), re.S)
+    if len(clock_functions) != 2:
+        raise ValueError("Unexpected Mach clock foreign declaration list")
+    manifest["clock_source_sha256"] = digest(clock_source)
+    manifest["mach_time_header_sha256"] = digest(sdk / "usr/include/mach/mach_time.h")
     text = source.read_text()
     if 'mod registers;' in text:
         registers_source = source.parent / "intel_registers.rs"
@@ -120,7 +131,7 @@ def main() -> int:
         raise ValueError("Unparsed or empty foreign function declaration list")
     rust = '#![allow(non_camel_case_types,dead_code)]\nuse std::ffi::c_void;\n'
     rust += "\n".join(f"type {name} = {value};" for name, value in aliases.items()) + "\n"
-    rust += enum_source + "\n" + vmcs_source + "\n"
+    rust += enum_source + "\n" + vmcs_source + "\n" + clock_struct.group(0) + "\n"
     rust += "const VM_EXIT_INTERRUPTION_INFO_FIELD: u32 = " + event_constant.group(1) + ";\n"
     rust += "\n".join(f"const {name}: {kind.strip()} = {value};" for name, kind, value in constants) + "\n"
     rust += 'fn main() { println!("{{\\\"values\\\":{{");\n'
@@ -128,11 +139,17 @@ def main() -> int:
     expressions += [(name, "hv_vmx_vmcs_field_t::" + name) for name in vmcs_fields]
     expressions += [("VM_EXIT_INTERRUPTION_INFO_FIELD", "VM_EXIT_INTERRUPTION_INFO_FIELD")]
     expressions += [(name, name) for name, _, _ in constants]
+    clock_offsets = {
+        "MACH_TIMEBASE_NUMER_OFFSET": "offsetof(mach_timebase_info_data_t,numer)",
+        "MACH_TIMEBASE_DENOM_OFFSET": "offsetof(mach_timebase_info_data_t,denom)",
+    }
+    expressions += [(name, f"std::mem::offset_of!(Timebase,{field})") for name, field in
+                    [("MACH_TIMEBASE_NUMER_OFFSET", "numer"), ("MACH_TIMEBASE_DENOM_OFFSET", "denom")]]
     for i, (name, expression) in enumerate(expressions):
         comma = "," if i else ""
         rust += f'println!("{comma}\\\"{name}\\\":{{}}", {expression} as u64);\n'
     rust += 'println!("}},\\\"types\\\":{{");\n'
-    for i, name in enumerate([*TYPES, "hv_x86_reg_t", "hv_vmx_vmcs_field_t"]):
+    for i, name in enumerate([*TYPES, "hv_x86_reg_t", "hv_vmx_vmcs_field_t", "Timebase"]):
         comma = "," if i else ""
         rust += f'println!("{comma}\\\"{name}\\\":[{{}},{{}}]",std::mem::size_of::<{name}>(),std::mem::align_of::<{name}>());\n'
     rust += 'println!("}}}}"); }\n'
@@ -148,17 +165,18 @@ def main() -> int:
         raise RuntimeError("Rust metadata probe failed")
     values = json.loads(result.stdout)
     c = '#include <stdbool.h>\n#include <stdint.h>\n#include <stddef.h>\n#include <Hypervisor/hv.h>\n#include <Hypervisor/hv_vmx.h>\n'
+    c += "#include <mach/mach_time.h>\n"
     for name, value in aliases.items():
         c += f"typedef {c_type(value)} rax_{name};\n"
         c += f'_Static_assert(__builtin_types_compatible_p(rax_{name},{name}),"type {name}");\n'
     for name, (size, alignment) in values["types"].items():
-        sdk_type = "uint32_t" if name == "hv_vmx_vmcs_field_t" else name
+        sdk_type = {"hv_vmx_vmcs_field_t": "uint32_t", "Timebase": "mach_timebase_info_data_t"}.get(name, name)
         c += f'_Static_assert(sizeof({sdk_type})=={size},"size {name}");\n'
         c += f'_Static_assert(_Alignof({sdk_type})=={alignment},"alignment {name}");\n'
     for name, value in values["values"].items():
-        sdk_name = "VMCS_RO_VMEXIT_IRQ_INFO" if name == "VM_EXIT_INTERRUPTION_INFO_FIELD" else vmcs_aliases.get(name, name)
+        sdk_name = "VMCS_RO_VMEXIT_IRQ_INFO" if name == "VM_EXIT_INTERRUPTION_INFO_FIELD" else clock_offsets.get(name, vmcs_aliases.get(name, name))
         c += f'_Static_assert((uint64_t)({sdk_name})==0x{value:016x}ULL,"value {name}={sdk_name}");\n'
-    for name, parameters, result in functions:
+    for name, parameters, result in [*functions, *clock_functions]:
         parameters = re.sub(r"//[^\n]*", "", parameters)
         types = [c_type(part.split(":", 1)[1]) for part in parameters.split(",") if part.strip()]
         c += f'typedef {c_type(result)} (*rax_signature_{name})({",".join(types) or "void"});\n'
@@ -170,13 +188,28 @@ def main() -> int:
     common = [name for name, kind, _ in constants if kind.strip() in ("hv_return_t", "hv_memory_flags_t")]
     for name in common:
         arm += f'_Static_assert((uint64_t)({name})==0x{values["values"][name]:016x}ULL,"shared value {name}");\n'
+    arm += "#include <stddef.h>\n#include <mach/mach_time.h>\n"
+    clock_size, clock_alignment = values["types"]["Timebase"]
+    arm += f'_Static_assert(sizeof(mach_timebase_info_data_t)=={clock_size},"Mach clock size");\n'
+    arm += f'_Static_assert(_Alignof(mach_timebase_info_data_t)=={clock_alignment},"Mach clock alignment");\n'
+    for name, sdk_expression in clock_offsets.items():
+        arm += f'_Static_assert({sdk_expression}=={values["values"][name]},"Mach clock {name}");\n'
+    for name, parameters, clock_result in clock_functions:
+        types = [c_type(part.split(":", 1)[1]) for part in parameters.split(",") if part.strip()]
+        arm += f'typedef {c_type(clock_result)} (*rax_signature_{name})({",".join(types) or "void"});\n'
+        arm += f'_Static_assert(__builtin_types_compatible_p(__typeof__(&{name}),rax_signature_{name}),"signature {name}");\n'
     (out / "probe-arm64.c").write_text(arm)
     arm_result = run(["xcrun", "clang", "-target", "arm64-apple-macosx13.0", "-isysroot", str(sdk),
                       "-std=c11", "-Werror", "-fsyntax-only", str(out / "probe-arm64.c")], out, "sdk-arm64-constants", manifest)
     manifest["arm64_shared_constants"] = len(common)
+    manifest["mach_clock"] = {"function_signatures": len(clock_functions), "layout_fields": 2,
+                              "size": clock_size, "alignment": clock_alignment,
+                              "compiled_targets": ["x86_64", "arm64"]}
     manifest["counts"] = {"register_ids": len(registers), "vmcs_fields": len(vmcs_fields), "shared_runtime_vmcs_fields": 1, "constants": len(constants), "types": len(TYPES),
                           "type_size_alignment_pairs": len(values["types"]), "function_signatures": len(functions)}
     manifest["artifact_sha256"] = {name: digest(out / name) for name in ["probe.rs", "probe.c", "probe-arm64.c", "rust-values.stdout"]}
+    if digest(clock_source) != manifest["clock_source_sha256"]:
+        raise RuntimeError("Mach clock source changed during parity check")
     if digest(event_source) != manifest["synchronous_exit_source_sha256"]:
         raise RuntimeError("Synchronous-exit field source changed during parity check")
     if digest(alias_file) != manifest["vmcs_aliases_sha256"]:

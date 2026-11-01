@@ -40,6 +40,8 @@ mod intel_clock;
 #[cfg(target_arch = "x86_64")]
 mod intel_fp;
 #[cfg(target_arch = "x86_64")]
+mod intel_run;
+#[cfg(target_arch = "x86_64")]
 mod intel_vm_checkpoint;
 #[cfg(target_arch = "x86_64")]
 mod interrupt_shadow;
@@ -1014,23 +1016,7 @@ impl run_loop::ExitHandler for HvfCore {
         Ok(None)
     }
     fn next_reason(&mut self) -> Result<u32> {
-        self.execution_ready()?;
-        self.prepare_native_clock()?;
-        self.priority
-            .prepare_entry(&mut priority_native::Host(self.vcpu_id))
-            .map_err(Error::Emulator)?;
-        // Run the vCPU
-        let ret = native_memory::enter(&self.memory_layout, self.vcpu_id)?;
-        if ret != HV_SUCCESS {
-            return Err(Error::Emulator(format!(
-                "hv_vcpu_run failed: {}",
-                hv_error_string(ret)
-            )));
-        }
-
-        // Get exit reason
-        let exit_reason = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_EXIT_REASON)? as u32;
-        Ok(exit_reason)
+        self.next_unbounded_reason()
     }
     fn halt(&mut self) -> Result<VcpuExit> {
         sync_exit::halt(self)?;
@@ -1210,19 +1196,6 @@ impl HvfCore {
         self.priority.ready().map_err(Error::Emulator)?;
         Ok(self.apic_base.load(Ordering::SeqCst) & apic_profile::APIC_BASE_BSP != 0)
     }
-    fn run(&mut self) -> Result<VcpuExit> {
-        self.execution_ready()?;
-        match run_loop::run(self) {
-            Ok(exit) => Ok(exit),
-            Err(error) => {
-                let failure =
-                    format!("HVF native execution failed; guest entry prohibited: {error}");
-                self.execution_failure = Some(failure.clone());
-                Err(Error::Emulator(failure))
-            }
-        }
-    }
-
     fn wake(&mut self) {
         if self.native_step.ready().is_err() {
             return;
