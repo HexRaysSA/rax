@@ -596,8 +596,37 @@ fn tcp_connects_in_the_background_and_reports_its_queue() {
     }
     got.sort();
     assert_eq!(got, [(1, 0, 0), (2, 0, 0)]);
-    // Two queued: the first accept says more are.
-    let got = run(&mut h, &r, &[op(ACCEPT, lfd, 3), op(ACCEPT, lfd, 4)]);
+    // A completed client connect need not mean the listener has processed the
+    // final handshake ACK. Wait for acknowledged data on both connections before
+    // asserting that the first accept observes another queued connection.
+    put(&h, s + DATA, b"x");
+    for fd in [c1, c2] {
+        assert_eq!(h.ok(Sysno::Sendto, &[fd, s + DATA, 1, 0, 0, 0]), 1);
+        let deadline = crate::host::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            h.ok(Sysno::Ioctl, &[fd, 0x5411, s + ALEN]); // SIOCOUTQ
+            if u32_at(&h, s + ALEN) == 0 {
+                break;
+            }
+            assert!(
+                crate::host::time::Instant::now() < deadline,
+                "TCP data was not acknowledged"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+    // Submission without GETEVENTS can return before either accept completes.
+    let mut got = run(&mut h, &r, &[op(ACCEPT, lfd, 3), op(ACCEPT, lfd, 4)]);
+    let deadline = crate::host::time::Instant::now() + std::time::Duration::from_secs(5);
+    while got.len() < 2 {
+        assert!(
+            crate::host::time::Instant::now() < deadline,
+            "accept completions did not arrive: {got:?}"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        assert_eq!(r.enter(&mut h, 0, 0, 0), 0);
+        got.extend(r.reap(&h));
+    }
     assert_eq!(got.len(), 2);
     assert_eq!((got[0].0, got[0].2), (3, SOCK_NONEMPTY));
     assert_eq!((got[1].0, got[1].2), (4, 0));
