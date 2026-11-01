@@ -3,6 +3,7 @@ use super::guest_translation::{Paging, PhysicalMemory};
 use crate::isa::x86_64::instruction_metadata::{
     self as metadata, Flow, Instruction, Operand, OperandKind,
 };
+use serde::{Deserialize, Serialize};
 
 #[path = "mmio/rmw.rs"]
 mod rmw;
@@ -11,13 +12,18 @@ pub(crate) use rmw::RmwInput;
 mod alu_read;
 pub(crate) use alu_read::AluReadInput;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RegisterPart {
     pub(crate) index: usize,
     pub(crate) bits: u32,
     pub(crate) shift: u32,
 }
 impl RegisterPart {
+    pub(crate) fn valid(self) -> bool {
+        self.index < 16
+            && matches!(self.bits, 8 | 16 | 32 | 64)
+            && (self.shift == 0 || (self.shift == 8 && self.bits == 8 && self.index < 4))
+    }
     pub(crate) fn parse(name: &str) -> Option<Self> {
         const NAMES: [[&str; 8]; 4] = [
             ["al", "cl", "dl", "bl", "spl", "bpl", "sil", "dil"],
@@ -94,13 +100,13 @@ pub(crate) struct ExitRecord {
     pub(crate) physical: u64,
     pub(crate) vectoring_information: u64,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum Extension {
     Plain,
     Zero,
     Signed,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Input {
     pub(crate) destination: RegisterPart,
     pub(crate) original: u64,
@@ -109,7 +115,28 @@ pub(crate) struct Input {
     pub(crate) length: u64,
 }
 impl Input {
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        if !matches!(self.size, 1 | 2 | 4 | 8)
+            || !(1..=15).contains(&self.length)
+            || !self.destination.valid()
+        {
+            return Err("invalid HVF MMIO input descriptor".into());
+        }
+        let source_bits = u32::from(self.size) * 8;
+        let valid_extension = match self.extension {
+            Extension::Plain => self.destination.bits == source_bits,
+            Extension::Zero | Extension::Signed => {
+                self.destination.shift == 0 && self.destination.bits > source_bits
+            }
+        };
+        if !valid_extension {
+            return Err("HVF MMIO input extension differs from its register width".into());
+        }
+        Ok(())
+    }
+
     pub(crate) fn value(&self, data: &[u8]) -> Result<u64, String> {
+        self.validate()?;
         if !matches!(self.size, 1 | 2 | 4 | 8) || data.len() != usize::from(self.size) {
             return Err(format!(
                 "HVF MMIO input expected {} bytes, received {}",
@@ -376,17 +403,63 @@ pub(crate) trait CompletionAccess {
     fn write_rflags(&mut self, flags: u64) -> Result<(), Self::Error>;
     fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error>;
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
 enum Pending {
     Read(Input),
     Rmw(RmwInput),
     AluRead(AluReadInput),
 }
-#[derive(Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct InputState {
     pending: Option<Pending>,
     failure: Option<String>,
+    reply: Option<Vec<u8>>,
 }
 impl InputState {
+    pub(crate) fn hold_failure(&mut self, data: &[u8], failure: String) {
+        if self.failure.is_some() {
+            return;
+        }
+        if self
+            .descriptor()
+            .is_some_and(|(size, _)| data.len() == usize::from(size))
+        {
+            self.reply = Some(data.to_vec());
+        }
+        self.failure = Some(failure);
+    }
+    pub(crate) fn failure(&self) -> Option<&str> {
+        self.failure.as_deref()
+    }
+    pub(crate) fn descriptor(&self) -> Option<(u8, Option<crate::devices::bus::MmioRmwOp>)> {
+        self.pending.as_ref().map(|pending| match pending {
+            Pending::Read(input) => (input.size, None),
+            Pending::AluRead(input) => (input.size, None),
+            Pending::Rmw(input) => (input.size, Some(input.operation)),
+        })
+    }
+    pub(crate) fn validate_checkpoint(&self) -> Result<(), String> {
+        if self
+            .failure
+            .as_ref()
+            .is_some_and(|error| error.len() > 16 * 1024)
+        {
+            return Err("HVF MMIO error exceeds record limit".into());
+        }
+        match self.pending.as_ref() {
+            Some(Pending::Read(input)) => Self::default().begin(input.clone())?,
+            Some(Pending::Rmw(input)) => input.validate()?,
+            Some(Pending::AluRead(input)) => input.validate()?,
+            None => (),
+        }
+        if let Some(reply) = &self.reply {
+            let (size, _) = self.descriptor().ok_or("MMIO reply has no request")?;
+            if reply.len() != usize::from(size) || self.failure.is_none() {
+                return Err("invalid retained MMIO reply".into());
+            }
+        }
+        Ok(())
+    }
     pub(crate) fn pending(&self) -> bool {
         self.pending.is_some()
     }
@@ -401,15 +474,7 @@ impl InputState {
     }
     pub(crate) fn begin(&mut self, input: Input) -> Result<(), String> {
         self.ready().map_err(str::to_owned)?;
-        if !matches!(input.size, 1 | 2 | 4 | 8)
-            || !(1..=15).contains(&input.length)
-            || input.destination.index >= 16
-            || !matches!(input.destination.bits, 8 | 16 | 32 | 64)
-            || !matches!(input.destination.shift, 0 | 8)
-            || (input.destination.shift != 0 && input.destination.bits != 8)
-        {
-            return Err("invalid HVF MMIO input descriptor".into());
-        }
+        input.validate()?;
         self.pending = Some(Pending::Read(input));
         Ok(())
     }
@@ -447,6 +512,7 @@ impl InputState {
                 return;
             }
         };
+        self.reply = Some(data.to_vec());
         let mut apply = || -> Result<(), T::Error> {
             if let Some((index, value)) = register {
                 host.write_gpr(index, value)?;
@@ -461,6 +527,7 @@ impl InputState {
             return;
         }
         self.pending = None;
+        self.reply = None;
     }
 }
 

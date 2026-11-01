@@ -16,6 +16,24 @@ impl<T> Default for State<T> {
 }
 
 impl<T: Clone> State<T> {
+    pub(crate) fn checkpoint(&self) -> (Option<(T, u64)>, Option<String>) {
+        (self.pending.clone(), self.failure.clone())
+    }
+    pub(crate) fn from_checkpoint(
+        pending: Option<(T, u64)>,
+        failure: Option<String>,
+    ) -> Result<Self, String> {
+        if pending
+            .as_ref()
+            .is_some_and(|(_, length)| !(1..=15).contains(length))
+            || failure
+                .as_ref()
+                .is_some_and(|error| error.len() > 16 * 1024)
+        {
+            return Err("invalid native output checkpoint".into());
+        }
+        Ok(Self { pending, failure })
+    }
     pub(crate) fn ready(&self) -> Result<(), String> {
         self.healthy()?;
         if self.pending.is_some() {

@@ -314,8 +314,11 @@ The device drivers compile current production sources, including their existing
 unit tests. `nvme_sgl`, `nvme_queues`, `nvme_admission` and `nvme_commands` also include the PRP
 owner as a shared driver/control corpus.
 
-The HVF targets exercise host boundary fixtures; they do not create a VM or
-establish hardware guest execution. `hvf_sdk_abi` runs one SDK parity test on
+The HVF targets exercise host boundary fixtures. `hvf_intel_owner` also constructs
+the production Intel backend and VMM with SDK storage supplied by the test executable,
+including native-record `.rxc` round trips and partial-publication rollback. These
+fixtures create no Hypervisor VM and establish no hardware guest execution. See
+[Intel checkpoint qualification](../docs/development/hvf-native-context.md). `hvf_sdk_abi` runs one SDK parity test on
 macOS and is explicitly cfg-empty elsewhere. Actual Intel VMX, Apple Silicon
 HVF guest execution and Linux KVM remain separate platform requirements.
 Independent QEMU/LLVM tools under `tools/hvf/` and `tools/nvme-diff/` are separate

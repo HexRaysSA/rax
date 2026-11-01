@@ -27,6 +27,7 @@ pub(crate) const REQUESTS: [(hv_vmx_capability_t, hv_vmx_vmcs_field_t, u64); 4] 
         HV_VMX_CAP_PROCBASED,
         hv_vmx_vmcs_field_t::VMCS_CTRL_CPU_BASED,
         CPU_BASED_HLT_EXIT
+            | CPU_BASED_TSC_OFFSET
             | CPU_BASED_CR8_LOAD_EXIT
             | CPU_BASED_CR8_STORE_EXIT
             | CPU_BASED_UNCOND_IO_EXIT

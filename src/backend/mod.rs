@@ -11,6 +11,17 @@ pub(crate) mod arm64_hvf_context;
 #[path = "hvf/arm64_power.rs"]
 pub(crate) mod arm64_hvf_power;
 
+#[path = "hvf/intel_context_format.rs"]
+pub(crate) mod intel_hvf_context;
+#[path = "hvf/intel_io.rs"]
+pub(crate) mod intel_hvf_io;
+#[path = "hvf/intel_projection.rs"]
+pub(crate) mod intel_hvf_projection;
+#[path = "hvf/intel_registers.rs"]
+pub(crate) mod intel_hvf_registers;
+#[path = "hvf/intel_xsave.rs"]
+pub(crate) mod intel_hvf_xsave;
+
 #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
 pub mod kvm;
 
@@ -79,6 +90,17 @@ pub trait Vm: Send + Sync {
         } else {
             Ok(())
         }
+    }
+
+    /// Restore the original destination's shared state after a failed import.
+    /// Backends with host clock bindings can distinguish this from rebasing a
+    /// checkpoint onto a new destination epoch.
+    fn rollback_checkpoint_vm_context(
+        &self,
+        boundary: &CheckpointBoundary<'_>,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.restore_checkpoint_vm_context(boundary, context)
     }
 
     /// Irrecoverable hardware rollback must prohibit further guest entry.

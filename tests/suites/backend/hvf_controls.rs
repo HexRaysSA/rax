@@ -141,7 +141,7 @@ fn complete_initialization_reads_four_banks_before_ten_exact_writes() {
             (VMCS_CTRL_PIN_BASED, (1 << 0) | (1 << 1) | (1 << 3)),
             (
                 VMCS_CTRL_CPU_BASED,
-                (1 << 7) | (1 << 19) | (1 << 20) | (1 << 24) | (1 << 31)
+                (1 << 3) | (1 << 7) | (1 << 19) | (1 << 20) | (1 << 24) | (1 << 31)
             ),
             (VMCS_CTRL_CPU_BASED2, (1 << 1) | (1 << 3) | (1 << 7)),
             (VMCS_CTRL_VMENTRY_CONTROLS, (1 << 9) | (1 << 15)),
@@ -217,4 +217,43 @@ fn every_write_failure_preserves_prior_commits_and_stops_the_sequence() {
         assert_eq!(h.trace, baseline.trace[..=fail]);
         assert_eq!(h.committed, baseline.committed[..fail - 4]);
     }
+}
+
+#[path = "../../../src/backend/hvf/intel_cpuid_profile.rs"]
+mod intel_cpuid_profile;
+
+#[test]
+fn native_profile_ignores_enabled_xsave_lengths_but_retains_capabilities() {
+    for (subleaf, first, second) in [
+        (0, [0xe7, 832, 2688, 0], [0xe7, 2688, 2688, 0]),
+        (1, [15, 832, 0x100, 0], [15, 2432, 0x100, 0]),
+    ] {
+        let normalized = intel_cpuid_profile::normalize(0x0d, subleaf, first);
+        assert_eq!(
+            normalized,
+            intel_cpuid_profile::normalize(0x0d, subleaf, second)
+        );
+        assert_eq!(
+            (normalized[0], normalized[2], normalized[3]),
+            (first[0], first[2], first[3])
+        );
+    }
+    assert_ne!(
+        intel_cpuid_profile::normalize(0x0d, 0, [7, 832, 832, 0]),
+        intel_cpuid_profile::normalize(0x0d, 0, [0xe7, 832, 2688, 0])
+    );
+}
+
+#[test]
+fn native_profile_preserves_xsave_component_offsets_and_other_feature_bits() {
+    for (leaf, subleaf, words) in [
+        (0x0d, 2, [256, 576, 0, 0]),
+        (7, 0, [0, 0xdead_beef, 0x1234, 0]),
+    ] {
+        assert_eq!(intel_cpuid_profile::normalize(leaf, subleaf, words), words);
+    }
+    assert_eq!(
+        intel_cpuid_profile::normalize(1, 0, [1, 0x1234_5678, 3, 4]),
+        [1, 0x0034_5678, 3, 4]
+    );
 }

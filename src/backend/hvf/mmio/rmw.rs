@@ -1,5 +1,6 @@
 //! Scalar modifying MMIO plans and architectural completion after the device
 //! transaction. No device callback or SDK register mutation occurs in planning.
+use serde::{Deserialize, Serialize};
 
 use super::PhysicalMemory;
 use super::{
@@ -8,7 +9,7 @@ use super::{
 use crate::devices::bus::MmioRmwOp;
 use crate::isa::x86_64::flags::{self, bits};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum FlagEffect {
     Preserve,
     Add,
@@ -23,7 +24,7 @@ enum FlagEffect {
     Bit(u8),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct RmwInput {
     pub(crate) size: u8,
     pub(crate) operation: MmioRmwOp,
@@ -43,12 +44,63 @@ impl RmwInput {
         if !(1..=15).contains(&self.length) {
             return Err("invalid RMW instruction length".into());
         }
+        if let FlagEffect::Bit(bit) = self.flags {
+            if u32::from(bit) >= u32::from(self.size) * 8 {
+                return Err("invalid RMW flag bit".into());
+            }
+        }
+        let carry = self.flags_before & bits::CF != 0;
+        let compatible = match (self.flags, self.operation) {
+            (FlagEffect::Preserve, MmioRmwOp::Exchange(_)) => self.register.is_some(),
+            (FlagEffect::Preserve, MmioRmwOp::Not) => self.register.is_none(),
+            (FlagEffect::Add, MmioRmwOp::Add { carry: false, .. }) => true,
+            (FlagEffect::Adc, MmioRmwOp::Add { carry: actual, .. }) => {
+                actual == carry && self.register.is_none()
+            }
+            (FlagEffect::Subtract, MmioRmwOp::Subtract { borrow: false, .. }) => {
+                self.register.is_none()
+            }
+            (FlagEffect::Sbb, MmioRmwOp::Subtract { borrow, .. }) => {
+                borrow == carry && self.register.is_none()
+            }
+            (FlagEffect::Logic, MmioRmwOp::And(_) | MmioRmwOp::Or(_) | MmioRmwOp::Xor(_)) => {
+                self.register.is_none()
+            }
+            (
+                FlagEffect::Increment,
+                MmioRmwOp::Add {
+                    value: 1,
+                    carry: false,
+                },
+            ) => self.register.is_none(),
+            (
+                FlagEffect::Decrement,
+                MmioRmwOp::Subtract {
+                    value: 1,
+                    borrow: false,
+                },
+            ) => self.register.is_none(),
+            (FlagEffect::Negate, MmioRmwOp::Negate) => self.register.is_none(),
+            (FlagEffect::Compare, MmioRmwOp::CompareExchange { expected, .. }) => {
+                self.register.is_some_and(|(part, original)| {
+                    part.index == 0
+                        && part.shift == 0
+                        && expected == original & (u64::MAX >> (64 - u32::from(self.size) * 8))
+                })
+            }
+            (
+                FlagEffect::Bit(expected),
+                MmioRmwOp::BitSet(actual)
+                | MmioRmwOp::BitReset(actual)
+                | MmioRmwOp::BitComplement(actual),
+            ) => expected == actual && self.register.is_none(),
+            _ => false,
+        };
+        if !compatible {
+            return Err("RMW flag effect differs from the device operation".into());
+        }
         if let Some((part, _)) = self.register {
-            if part.index >= 16
-                || part.bits != u32::from(self.size) * 8
-                || !matches!(part.shift, 0 | 8)
-                || (part.shift != 0 && part.bits != 8)
-            {
+            if !part.valid() || part.bits != u32::from(self.size) * 8 {
                 return Err("invalid RMW register writeback".into());
             }
         }

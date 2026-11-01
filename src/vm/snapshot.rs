@@ -35,7 +35,7 @@ mod producer;
 mod vm_context;
 pub use backend_context::{
     AARCH32_CONTEXT, AARCH64_CONTEXT, BackendContext, BackendContexts, HVF_AARCH64_CONTEXT,
-    RISCV_CONTEXT, S3C64XX_CONTEXT, X86_64_CONTEXT,
+    HVF_INTEL_CONTEXT, RISCV_CONTEXT, S3C64XX_CONTEXT, X86_64_CONTEXT,
 };
 mod execution;
 pub use cpus::{CpuSnapshot, CpuSnapshots};
@@ -553,3 +553,6 @@ mod pauth_tests;
 #[cfg(test)]
 #[path = "snapshot/codec_tests.rs"]
 mod codec_tests;
+
+#[cfg(test)]
+mod intel_bundle_tests;

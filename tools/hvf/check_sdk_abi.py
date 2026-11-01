@@ -15,7 +15,7 @@ import time
 TYPES = ("hv_return_t", "hv_vcpuid_t", "hv_gpaddr_t", "hv_uvaddr_t",
          "hv_memory_flags_t", "hv_vmx_capability_t")
 PRIMITIVES = {"u8": "uint8_t", "u16": "uint16_t", "u32": "uint32_t",
-              "u64": "uint64_t", "i32": "int32_t", "usize": "size_t",
+              "u64": "uint64_t", "i32": "int32_t", "i64": "int64_t", "usize": "size_t",
               "bool": "bool", "c_void": "void"}
 
 
@@ -73,6 +73,11 @@ def main() -> int:
                 "arm64_error_header_sha256": digest(sdk / "usr/include/arm64/hv/hv_kern_types.h"),
                 "scope": "Intel register IDs, selected ABI type sizes/alignments, HV constants, and every declared x86 foreign function signature. All declared VMCS field encodings use explicit SDK-name aliases. Native hypervisor/guest execution and Arm64 function signatures remain separate."}
     text = source.read_text()
+    if 'mod registers;' in text:
+        registers_source = source.parent / "intel_registers.rs"
+        manifest["registers_source"] = str(registers_source)
+        manifest["registers_sha256"] = digest(registers_source)
+        text += "\n" + registers_source.read_text()
     aliases = {}
     for name in TYPES:
         found = re.search(r"^pub type " + name + r"\s*=\s*([^;]+);", text, re.M)

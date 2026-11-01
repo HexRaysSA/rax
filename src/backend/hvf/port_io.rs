@@ -1,12 +1,13 @@
 //! Scalar port-I/O qualification, data transfer and deferred completion errors.
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum Direction {
     In,
     Out,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct ScalarIo {
     pub(crate) port: u16,
     pub(crate) size: u8,
@@ -61,7 +62,7 @@ pub(crate) fn input_value(rax: u64, size: u8, data: &[u8]) -> Option<u64> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub(crate) struct PendingInput {
     pub(crate) io: ScalarIo,
     pub(crate) original_rax: u64,
@@ -76,12 +77,50 @@ pub(crate) trait CompletionAccess {
 
 /// `VCpu::complete_io_in` has no error return. Retain a terminal error so every
 /// subsequent run reports it before executing another guest instruction.
-#[derive(Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct InputState {
     pending: Option<PendingInput>,
     failure: Option<String>,
+    reply: Option<Vec<u8>>,
 }
 impl InputState {
+    pub(crate) fn hold_failure(&mut self, data: &[u8], failure: String) {
+        if self.failure.is_some() {
+            return;
+        }
+        if self
+            .pending
+            .is_some_and(|pending| data.len() == usize::from(pending.io.size))
+        {
+            self.reply = Some(data.to_vec());
+        }
+        self.failure = Some(failure);
+    }
+    pub(crate) fn descriptor(&self) -> Option<PendingInput> {
+        self.pending
+    }
+    pub(crate) fn failure(&self) -> Option<&str> {
+        self.failure.as_deref()
+    }
+    pub(crate) fn validate_checkpoint(&self) -> Result<(), String> {
+        if self
+            .failure
+            .as_ref()
+            .is_some_and(|error| error.len() > 16 * 1024)
+        {
+            return Err("HVF input error exceeds record limit".into());
+        }
+        if let Some(pending) = self.pending {
+            Self::default().begin(pending).map_err(str::to_owned)?;
+        }
+        if let Some(reply) = &self.reply {
+            let pending = self.pending.ok_or("input reply has no pending request")?;
+            if reply.len() != usize::from(pending.io.size) || self.failure.is_none() {
+                return Err("invalid retained input reply".into());
+            }
+        }
+        Ok(())
+    }
     pub(crate) fn begin(&mut self, pending: PendingInput) -> Result<(), &'static str> {
         if self.pending.is_some() || self.failure.is_some() {
             return Err("HVF input completion is already pending or failed");
@@ -121,6 +160,7 @@ impl InputState {
             ));
             return;
         };
+        self.reply = Some(data.to_vec());
         let result = host
             .write_rax(value)
             .and_then(|()| host.advance_instruction(pending.length));
@@ -132,5 +172,6 @@ impl InputState {
             return;
         }
         self.pending = None;
+        self.reply = None;
     }
 }

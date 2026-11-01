@@ -502,6 +502,20 @@ pub trait VCpu: Send {
         self.restore_checkpoint_context(state, emulator, context)
     }
 
+    /// Restore a destination backup after a failed hardware transaction.
+    /// Unlike forward publication, rollback must retain the original host
+    /// notification state as well as guest state. Existing producers retain
+    /// their previous restore behavior through this default.
+    fn rollback_checkpoint_record(
+        &mut self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.restore_checkpoint_record(boundary, state, emulator, context)
+    }
+
     /// Complete derived controller and translation state after shared RAM and
     /// backend state have been published, with entry still excluded.
     fn finish_checkpoint_restore(

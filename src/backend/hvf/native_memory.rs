@@ -203,3 +203,32 @@ pub(super) fn validate_cpu_backing(shared: &Shared, memory: &GuestMemoryMmap) ->
     }
     Ok(())
 }
+
+pub(super) fn checkpoint_shape(shared: &Shared) -> Result<(u64, Vec<(u64, u64)>, Vec<(u64, u64)>)> {
+    let guard = shared
+        .read()
+        .map_err(|_| Error::Emulator("HVF memory layout lock poisoned".into()))?;
+    let registered = guard
+        .as_ref()
+        .ok_or_else(|| Error::InvalidConfig("HVF guest RAM is not registered".into()))?;
+    registered.mapping.ready().map_err(Error::Emulator)?;
+    let regions = registered
+        .backing
+        .iter()
+        .map(|region| (region.start_addr().0, region.len()))
+        .collect();
+    let mut holes = registered.fixed.clone();
+    holes.sort_by_key(|span| span.start);
+    let mut normalized: Vec<(u64, u64)> = Vec::new();
+    for span in holes {
+        if let Some((start, length)) = normalized.last_mut() {
+            let end = *start + *length;
+            if span.start <= end {
+                *length = end.max(span.end) - *start;
+                continue;
+            }
+        }
+        normalized.push((span.start, span.len()));
+    }
+    Ok((registered.reported, regions, normalized))
+}

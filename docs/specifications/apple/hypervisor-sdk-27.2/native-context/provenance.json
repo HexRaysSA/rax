@@ -1,0 +1,7 @@
+{
+  "issuer": "QEMU project",
+  "url": "https://raw.githubusercontent.com/qemu/qemu/master/target/i386/hvf/x86hvf.c",
+  "retrieved_utc": "2026-10-31T22:02:25.475359+00:00",
+  "sha256": "1852009d7a3e0b82a983f3a5b5b651685d9614664b7793830183fd5fc5d9de76",
+  "scope": "Independent SDK XSAVE/register client. Source license notices retained; not a physical Intel validation result."
+}

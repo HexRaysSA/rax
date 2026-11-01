@@ -21,6 +21,36 @@ pub(crate) struct State {
 }
 
 impl State {
+    pub(crate) fn checkpoint(&self) -> Result<(bool, bool, Option<String>), String> {
+        let failure = self
+            .failure
+            .lock()
+            .map_err(|_| "HVF debug failure latch poisoned".to_string())?
+            .clone();
+        Ok((
+            self.enabled(),
+            self.completed.load(Ordering::Acquire),
+            failure,
+        ))
+    }
+    pub(crate) fn from_checkpoint(
+        enabled: bool,
+        completed: bool,
+        failure: Option<String>,
+    ) -> Result<Self, String> {
+        if (completed && !enabled)
+            || failure
+                .as_ref()
+                .is_some_and(|error| error.len() > 16 * 1024)
+        {
+            return Err("invalid native debug checkpoint".into());
+        }
+        Ok(Self {
+            enabled: AtomicBool::new(enabled),
+            completed: AtomicBool::new(completed),
+            failure: Mutex::new(failure),
+        })
+    }
     pub(crate) fn ready(&self) -> Result<(), String> {
         self.failure
             .lock()

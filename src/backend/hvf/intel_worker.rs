@@ -21,6 +21,15 @@ impl HvfVcpu {
             .read()
             .map_err(|_| Error::Emulator("Intel HVF exclusion lock poisoned".into()))?;
         lifetime.ready()?;
+        let configured = *lifetime
+            .configured
+            .lock()
+            .map_err(|_| Error::Emulator("Intel HVF configuration lock poisoned".into()))?;
+        if configured.is_some_and(|(count, _)| id >= u32::from(count)) {
+            return Err(Error::InvalidConfig(
+                "Intel HVF CPU identity exceeds configured topology".into(),
+            ));
+        }
         if !lifetime
             .cpus
             .lock()
@@ -201,6 +210,37 @@ impl VCpu for HvfVcpu {
         });
     }
 
+    fn get_emulator_state(&self) -> Option<crate::vm::snapshot::EmulatorState> {
+        self.request(|core| core.native_emulator_state()).ok()
+    }
+    fn set_emulator_state(&mut self, state: &crate::vm::snapshot::EmulatorState) -> Result<()> {
+        let state = state.clone();
+        self.request(move |core| core.set_native_emulator_state(&state))
+    }
+    fn validate_checkpoint_state(
+        &self,
+        _state: &CpuState,
+        _emulator: &crate::vm::snapshot::EmulatorState,
+    ) -> Result<()> {
+        Err(Error::InvalidConfig(
+            "native Intel checkpoint restore requires its complete backend record".into(),
+        ))
+    }
+    fn validate_checkpoint_context(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        let (state, emulator, context) = (state.clone(), emulator.clone(), context.cloned());
+        self.request(move |core| {
+            core.admit_native(&state, &emulator, context.as_ref())
+                .map(|_| ())
+        })
+    }
+    fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        self.request(|core| core.capture_native_record(None).map(|(_, private)| private))
+    }
     fn capture_checkpoint_record(
         &self,
         boundary: &crate::backend::CheckpointBoundary<'_>,
@@ -210,40 +250,73 @@ impl VCpu for HvfVcpu {
         Option<crate::vm::snapshot::BackendContext>,
     )> {
         boundary.require_owner(self.lifetime.identity())?;
-        // Preserve the existing architectural projection without recursively
-        // acquiring the VM lease. Complete native private capture is separate.
-        self.request_stopped(|core| {
-            Ok((
-                crate::vm::snapshot::CpuSnapshot {
-                    state: core.get_state()?,
-                    emulator: crate::vm::snapshot::EmulatorState::default(),
-                },
-                None,
-            ))
+        let anchor = self.lifetime.capture_clock.load(Ordering::Acquire);
+        self.request_stopped(move |core| core.capture_native_record(Some(anchor)))
+    }
+    fn restore_checkpoint_context(
+        &mut self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        let (state, emulator, context) = (state.clone(), emulator.clone(), context.cloned());
+        self.request(move |core| {
+            let context = core.admit_native(&state, &emulator, context.as_ref())?;
+            core.restore_native_raw(&context)
         })
     }
     fn restore_checkpoint_record(
         &mut self,
         boundary: &crate::backend::CheckpointBoundary<'_>,
         state: &CpuState,
-        _emulator: &crate::vm::snapshot::EmulatorState,
+        emulator: &crate::vm::snapshot::EmulatorState,
         context: Option<&crate::vm::snapshot::BackendContext>,
     ) -> Result<()> {
         boundary.require_owner(self.lifetime.identity())?;
-        let state = state.clone();
+        let (state, emulator, context) = (state.clone(), emulator.clone(), context.cloned());
+        self.request_stopped(move |core| {
+            let context = core.admit_native(&state, &emulator, context.as_ref())?;
+            core.apply_native(
+                &context,
+                true,
+                super::intel_checkpoint::ClockPublication::RebaseVm,
+            )
+        })
+    }
+    fn rollback_checkpoint_record(
+        &mut self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        boundary.require_owner(self.lifetime.identity())?;
+        let (state, emulator, context) = (state.clone(), emulator.clone(), context.cloned());
+        self.request_stopped(move |core| {
+            let context = core.admit_native(&state, &emulator, context.as_ref())?;
+            core.apply_native(
+                &context,
+                false,
+                super::intel_checkpoint::ClockPublication::Rollback,
+            )
+        })
+    }
+    fn finish_checkpoint_restore(
+        &mut self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        boundary.require_owner(self.lifetime.identity())?;
         let context = context.cloned();
         self.request_stopped(move |core| {
-            if std::mem::discriminant(&state) != std::mem::discriminant(&core.get_state()?) {
-                return Err(Error::InvalidConfig(
-                    "checkpoint CPU kind does not match target vCPU".into(),
-                ));
-            }
-            if context.is_some() {
-                return Err(Error::InvalidConfig(
-                    "checkpoint context producer differs from target backend".into(),
-                ));
-            }
-            core.set_state(&state)
+            let record = context
+                .as_ref()
+                .filter(|record| record.kind == crate::vm::snapshot::HVF_INTEL_CONTEXT)
+                .ok_or_else(|| {
+                    Error::InvalidConfig("native Intel finalization record absent".into())
+                })?;
+            let context = crate::backend::intel_hvf_context::Context::decode(&record.data)?;
+            core.finish_native(&context)
         })
     }
 }

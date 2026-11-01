@@ -17,6 +17,15 @@ static SDK: Mutex<Sdk> = Mutex::new(Sdk::new());
 #[path = "hvf_intel_owner/native_msr.rs"]
 mod native_msr;
 
+#[path = "hvf_intel_owner/native_context.rs"]
+mod native_context;
+
+#[path = "hvf_intel_owner/native_file.rs"]
+mod native_file;
+
+#[path = "hvf_intel_owner/native_clock.rs"]
+mod native_clock;
+
 struct Cpu {
     owner: ThreadId,
     registers: BTreeMap<u32, u64>,
@@ -24,6 +33,14 @@ struct Cpu {
     msrs: BTreeMap<u32, u64>,
     native_msrs: BTreeSet<u32>,
     exits: VecDeque<u32>,
+    fpstate: Vec<u8>,
+    tsc_offset: i64,
+}
+
+struct Fault {
+    operation: &'static str,
+    remaining: usize,
+    persistent: bool,
 }
 
 struct Sdk {
@@ -40,6 +57,10 @@ struct Sdk {
     fail_msr_read: Option<u32>,
     fail_msr_write: Option<u32>,
     msr_read_xor: u64,
+    tsc: u64,
+    fault: Option<Fault>,
+    next_fault: Option<Fault>,
+    failure_clock_advance: u64,
 }
 
 impl Sdk {
@@ -58,7 +79,28 @@ impl Sdk {
             fail_msr_read: None,
             fail_msr_write: None,
             msr_read_xor: 0,
+            tsc: 1_000_000,
+            fault: None,
+            next_fault: None,
+            failure_clock_advance: 0,
         }
+    }
+    fn fail_after(&mut self, operation: &str) -> bool {
+        let Some(fault) = &mut self.fault else {
+            return false;
+        };
+        if fault.operation != operation {
+            return false;
+        }
+        if fault.remaining > 1 {
+            fault.remaining -= 1;
+            return false;
+        }
+        if !fault.persistent {
+            self.fault = self.next_fault.take();
+        }
+        self.tsc = self.tsc.wrapping_add(self.failure_clock_advance);
+        true
     }
     fn cpu(&mut self, id: u32, operation: &str) -> Result<&mut Cpu, i32> {
         let current = thread::current().id();
@@ -82,7 +124,7 @@ fn access(id: u32, operation: &str, action: impl FnOnce(&mut Cpu)) -> i32 {
     match sdk.cpu(id, operation) {
         Ok(cpu) => {
             action(cpu);
-            0
+            if sdk.fail_after(operation) { -1 } else { 0 }
         }
         Err(error) => error,
     }
@@ -135,6 +177,8 @@ pub unsafe extern "C" fn hv_vcpu_create(output: *mut u32, _: u64) -> i32 {
                 .collect(),
             native_msrs: BTreeSet::new(),
             exits: VecDeque::new(),
+            fpstate: initial_fpstate(),
+            tsc_offset: 0,
         },
     );
     sdk.trace.push(format!("cpu-create:{id}"));
@@ -261,16 +305,62 @@ pub extern "C" fn hv_vcpu_run(id: u32) -> i32 {
 pub extern "C" fn hv_vcpu_run_until(id: u32, _: u64) -> i32 {
     hv_vcpu_run(id)
 }
+fn initial_fpstate() -> Vec<u8> {
+    // The model follows the executing host's CPUID layout used by production.
+    // SAFETY: CPUID has no memory preconditions on this Intel test target.
+    let size = unsafe { std::arch::x86_64::__cpuid_count(0x0d, 0).ecx } as usize;
+    let mut image = vec![0; size.max(576)];
+    image[0..2].copy_from_slice(&0x037fu16.to_le_bytes());
+    image[24..28].copy_from_slice(&0x1f80u32.to_le_bytes());
+    image[28..32].copy_from_slice(&0xffffu32.to_le_bytes());
+    image[512..520].copy_from_slice(&3u64.to_le_bytes());
+    image
+}
+
 #[unsafe(no_mangle)]
-pub extern "C" fn hv_vcpu_read_fpstate(id: u32, _: *mut c_void, _: usize) -> i32 {
-    access(id, "fp-read", |_| {})
+pub unsafe extern "C" fn hv_vcpu_read_fpstate(id: u32, buffer: *mut c_void, size: usize) -> i32 {
+    if buffer.is_null() || buffer as usize % 64 != 0 {
+        return -1;
+    }
+    let Ok(mut sdk) = SDK.lock() else { return -1 };
+    let Ok(cpu) = sdk.cpu(id, "fp-read") else {
+        return -1;
+    };
+    if size != cpu.fpstate.len() {
+        return -1;
+    }
+    // SAFETY: the production caller supplies an aligned writable image of size.
+    unsafe { std::ptr::copy_nonoverlapping(cpu.fpstate.as_ptr(), buffer.cast::<u8>(), size) };
+    0
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn hv_vcpu_write_fpstate(id: u32, _: *mut c_void, _: usize) -> i32 {
-    access(id, "fp-write", |_| {})
+pub unsafe extern "C" fn hv_vcpu_write_fpstate(id: u32, buffer: *mut c_void, size: usize) -> i32 {
+    if buffer.is_null() || buffer as usize % 64 != 0 {
+        return -1;
+    }
+    let Ok(mut sdk) = SDK.lock() else { return -1 };
+    let Ok(cpu) = sdk.cpu(id, "fp-write") else {
+        return -1;
+    };
+    if size != cpu.fpstate.len() {
+        return -1;
+    }
+    // SAFETY: the production caller supplies an aligned readable image of size.
+    unsafe { std::ptr::copy_nonoverlapping(buffer.cast::<u8>(), cpu.fpstate.as_mut_ptr(), size) };
+    if sdk.fail_after("fp-write") { -1 } else { 0 }
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn hv_tsc_clock() -> u64 {
+    SDK.lock().map_or(0, |sdk| sdk.tsc)
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn hv_vcpu_set_tsc_relative(id: u32, offset: i64) -> i32 {
+    access(id, "set-tsc-relative", |cpu| cpu.tsc_offset = offset)
 }
 
 fn fixture() -> (Box<dyn rax::backend::Vm>, GuestMemoryWrapper) {
+    std::hint::black_box(hv_tsc_clock as extern "C" fn() -> u64);
+    std::hint::black_box(hv_vcpu_set_tsc_relative as extern "C" fn(u32, i64) -> i32);
     *SDK.lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = Sdk::new();
     SDK.clear_poison();

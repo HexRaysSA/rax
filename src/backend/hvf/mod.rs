@@ -26,19 +26,25 @@ mod debug_memory;
 #[cfg(target_arch = "x86_64")]
 mod event_injection;
 #[cfg(target_arch = "x86_64")]
-mod guest_translation;
-#[cfg(target_arch = "x86_64")]
 mod intel_owner;
 #[cfg(target_arch = "x86_64")]
 mod intel_vm;
 #[cfg(target_arch = "x86_64")]
 mod intel_worker;
 #[cfg(target_arch = "x86_64")]
+use crate::backend::intel_hvf_io::{guest_translation, mmio, port_io};
+#[cfg(target_arch = "x86_64")]
+mod intel_checkpoint;
+#[cfg(target_arch = "x86_64")]
+mod intel_clock;
+#[cfg(target_arch = "x86_64")]
+mod intel_fp;
+#[cfg(target_arch = "x86_64")]
+mod intel_vm_checkpoint;
+#[cfg(target_arch = "x86_64")]
 mod interrupt_shadow;
 #[cfg(target_arch = "x86_64")]
 mod memory_layout;
-#[cfg(target_arch = "x86_64")]
-mod mmio;
 #[cfg(target_arch = "x86_64")]
 mod native_memory;
 #[cfg(target_arch = "x86_64")]
@@ -53,8 +59,6 @@ mod native_step;
 mod native_step_host;
 #[cfg(target_arch = "x86_64")]
 mod output;
-#[cfg(target_arch = "x86_64")]
-mod port_io;
 #[cfg(target_arch = "x86_64")]
 mod priority;
 #[cfg(target_arch = "x86_64")]
@@ -193,6 +197,60 @@ impl HvfVm {
 
 #[cfg(target_arch = "x86_64")]
 impl Vm for HvfVm {
+    fn configure_cpu_topology(&self, count: u8, ram_end: u64) -> Result<()> {
+        let _boundary = self.lifetime.stopped()?;
+        if count == 0 || ram_end == 0 {
+            return Err(Error::InvalidConfig("invalid native Intel topology".into()));
+        }
+        let cpus = self
+            .lifetime
+            .cpus
+            .lock()
+            .map_err(|_| Error::Emulator("Intel HVF topology lock poisoned".into()))?;
+        let mut configured = self
+            .lifetime
+            .configured
+            .lock()
+            .map_err(|_| Error::Emulator("Intel HVF configuration lock poisoned".into()))?;
+        match *configured {
+            Some(current) if current == (count, ram_end) => Ok(()),
+            None if cpus.is_empty() => {
+                *configured = Some((count, ram_end));
+                Ok(())
+            }
+            _ => Err(Error::InvalidConfig(
+                "native Intel topology is already established".into(),
+            )),
+        }
+    }
+    fn capture_checkpoint_vm_context(
+        &self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+    ) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        self.lifetime.capture_shared(boundary).map(Some)
+    }
+    fn validate_checkpoint_vm_context(
+        &self,
+        config: &crate::config::CheckpointConfig,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+        cpus: Option<&crate::vm::snapshot::BackendContexts>,
+    ) -> Result<()> {
+        self.lifetime.validate_shared(config, context, cpus)
+    }
+    fn restore_checkpoint_vm_context(
+        &self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.lifetime.restore_shared(boundary, context, false)
+    }
+    fn rollback_checkpoint_vm_context(
+        &self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.lifetime.restore_shared(boundary, context, true)
+    }
     fn checkpoint_boundary(&self) -> Result<crate::backend::CheckpointBoundary<'_>> {
         self.lifetime.stopped()
     }
@@ -255,6 +313,13 @@ struct HvfCore {
     native_step: native_step::State,
     /// Whether the vCPU is halted
     halted: bool,
+    shutdown: bool,
+    checkpoint_profile: Option<crate::backend::intel_hvf_context::Profile>,
+    pending_request: Option<crate::backend::intel_hvf_context::Packet>,
+    execution_failure: Option<String>,
+    restore_failure: Option<String>,
+    tsc_offset: i64,
+    pending_clock: Option<(u64, bool)>,
     _vm: Arc<Lifetime>,
     _owner_thread: std::marker::PhantomData<std::rc::Rc<()>>,
 }
@@ -287,7 +352,7 @@ impl HvfCore {
         cpuid_config: CpuidConfig,
         lifetime: Arc<Lifetime>,
     ) -> Result<Self> {
-        let vcpu = HvfCore {
+        let mut vcpu = HvfCore {
             vcpu_id,
             id,
             mem,
@@ -300,6 +365,13 @@ impl HvfCore {
             output: output::State::default(),
             native_step: native_step::State::default(),
             halted: false,
+            shutdown: false,
+            checkpoint_profile: None,
+            pending_request: None,
+            execution_failure: None,
+            restore_failure: None,
+            tsc_offset: 0,
+            pending_clock: None,
             _vm: lifetime,
             _owner_thread: std::marker::PhantomData,
         };
@@ -311,6 +383,11 @@ impl HvfCore {
             .configure(&mut native_step_host::Host(vcpu_id), false)
             .map_err(Error::Emulator)?;
         native_msr::initialize(vcpu_id)?;
+        intel_clock::Api::load()?.set(vcpu_id, 0)?;
+        write_register(vcpu_id, hv_x86_reg_t::HV_X86_XCR0, 1)?;
+        let layout = intel_fp::discover(vcpu_id)?;
+        intel_fp::reset(vcpu_id, &layout)?;
+        vcpu.checkpoint_profile = Some(intel_fp::profile(vcpu_id, &vcpu.cpuid_config, layout)?);
 
         Ok(vcpu)
     }
@@ -528,7 +605,7 @@ impl HvfCore {
             }
             0x1A0 => rosetta::MsrDefaults::default().misc_enable, // IA32_MISC_ENABLE
             0x277 => rosetta::MsrDefaults::default().pat,         // IA32_PAT
-            0x10 => 0, // IA32_TIME_STAMP_COUNTER - return 0, will be handled by TSC offsetting
+            0x10 => self.read_guest_tsc()?,
             0x6E0 => 0, // IA32_TSC_DEADLINE
             _ => {
                 debug!(msr = format!("{:#x}", ecx), "Unhandled RDMSR");
@@ -547,7 +624,7 @@ impl HvfCore {
     }
 
     /// Handle WRMSR exit.
-    fn handle_wrmsr(&self) -> Result<Option<VcpuExit>> {
+    fn handle_wrmsr(&mut self) -> Result<Option<VcpuExit>> {
         let ecx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RCX)? as u32;
         let eax = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX)? as u32;
         let edx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RDX)? as u32;
@@ -558,6 +635,7 @@ impl HvfCore {
         }
 
         match ecx {
+            0x10 => self.write_guest_tsc(value)?,
             0xC0000080 => {
                 // IA32_EFER
                 vmcs_write(
@@ -701,8 +779,7 @@ impl HvfCore {
     }
 
     fn io_ready(&self) -> Result<()> {
-        self._vm.ready()?;
-        self.native_step.ready().map_err(Error::Emulator)?;
+        self.execution_ready()?;
         self.priority.ready().map_err(Error::Emulator)?;
         self.output.ready().map_err(Error::Emulator)?;
         self.port_input
@@ -891,8 +968,18 @@ impl run_loop::ExitHandler for HvfCore {
     type Exit = VcpuExit;
     type Error = Error;
     fn prepare(&mut self) -> Result<Option<VcpuExit>> {
-        self.native_step.ready().map_err(Error::Emulator)?;
-        self.priority.ready().map_err(Error::Emulator)?;
+        self.execution_ready()?;
+        for failure in [self.port_input.failure(), self.mmio_input.failure()] {
+            if let Some(failure) = failure {
+                return Err(Error::Emulator(failure.to_string()));
+            }
+        }
+        if self.shutdown {
+            return Ok(Some(VcpuExit::Shutdown));
+        }
+        if let Some(request) = &self.pending_request {
+            return Ok(Some(request.exit()));
+        }
         if let Some(exit) = self.output.pending().map_err(Error::Emulator)? {
             return Ok(Some(exit));
         }
@@ -927,7 +1014,8 @@ impl run_loop::ExitHandler for HvfCore {
         Ok(None)
     }
     fn next_reason(&mut self) -> Result<u32> {
-        self._vm.ready()?;
+        self.execution_ready()?;
+        self.prepare_native_clock()?;
         self.priority
             .prepare_entry(&mut priority_native::Host(self.vcpu_id))
             .map_err(Error::Emulator)?;
@@ -966,7 +1054,7 @@ impl run_loop::ExitHandler for HvfCore {
             )));
         }
         let rax = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX)?;
-        match io.direction {
+        let exit = match io.direction {
             port_io::Direction::In => {
                 self.port_input
                     .begin(port_io::PendingInput {
@@ -993,12 +1081,17 @@ impl run_loop::ExitHandler for HvfCore {
                     )
                     .map_err(Error::Emulator)
             }
+        }?;
+        if matches!(&exit, VcpuExit::IoIn { .. }) {
+            self.pending_request =
+                Some(crate::backend::intel_hvf_context::Packet::from_exit(&exit)?);
         }
+        Ok(exit)
     }
     fn mmio(&mut self) -> Result<VcpuExit> {
         self.io_ready()?;
         let plan = self.prepare_mmio()?;
-        match plan.action {
+        let exit = match plan.action {
             mmio::Action::Read(input) => {
                 let size = input.size;
                 self.mmio_input.begin(input).map_err(Error::Emulator)?;
@@ -1037,7 +1130,12 @@ impl run_loop::ExitHandler for HvfCore {
                     operation,
                 })
             }
+        }?;
+        if matches!(&exit, VcpuExit::MmioRead { .. } | VcpuExit::MmioRmw { .. }) {
+            self.pending_request =
+                Some(crate::backend::intel_hvf_context::Packet::from_exit(&exit)?);
         }
+        Ok(exit)
     }
     fn exception(&mut self) -> Result<VcpuExit> {
         struct Access {
@@ -1065,6 +1163,7 @@ impl run_loop::ExitHandler for HvfCore {
         self.handle_wrmsr()
     }
     fn shutdown(&mut self) -> Result<VcpuExit> {
+        self.shutdown = true;
         Ok(VcpuExit::Shutdown)
     }
     fn interrupt_window(&mut self) -> Result<()> {
@@ -1112,8 +1211,16 @@ impl HvfCore {
         Ok(self.apic_base.load(Ordering::SeqCst) & apic_profile::APIC_BASE_BSP != 0)
     }
     fn run(&mut self) -> Result<VcpuExit> {
-        run_loop::run(self)
-            .map_err(|error| Error::Emulator(self.native_step.poison(error.to_string())))
+        self.execution_ready()?;
+        match run_loop::run(self) {
+            Ok(exit) => Ok(exit),
+            Err(error) => {
+                let failure =
+                    format!("HVF native execution failed; guest entry prohibited: {error}");
+                self.execution_failure = Some(failure.clone());
+                Err(Error::Emulator(failure))
+            }
+        }
     }
 
     fn wake(&mut self) {
@@ -1127,7 +1234,9 @@ impl HvfCore {
 
     fn get_state(&self) -> Result<CpuState> {
         self.io_ready()?;
-        let regs = regs_from_hvf(self.vcpu_id)?;
+        let mut regs = regs_from_hvf(self.vcpu_id)?;
+        let fp = intel_fp::read(self.vcpu_id, &self.native_profile()?.xsave)?;
+        self.native_profile()?.xsave.project(&fp, &mut regs)?;
         let mut sregs = sregs_from_hvf(self.vcpu_id)?;
         sregs.cr8 = self.priority.read().map_err(Error::Emulator)? >> 4;
         Ok(CpuState::X86_64(X86_64CpuState { regs, sregs }))
@@ -1156,8 +1265,11 @@ impl HvfCore {
             state.sregs.cr8,
         )
         .ok_or_else(|| Error::InvalidConfig("invalid CR8/TPR priority projection".into()))?;
+        let fp = intel_fp::read(self.vcpu_id, &self.native_profile()?.xsave)?;
+        let fp = self.native_profile()?.xsave.overlay(&fp, &state.regs)?;
         regs_to_hvf(self.vcpu_id, &state.regs)
             .and_then(|()| sregs_to_hvf(self.vcpu_id, &state.sregs))
+            .and_then(|()| intel_fp::write(self.vcpu_id, &self.native_profile()?.xsave, &fp))
             .map_err(|e| Error::Emulator(self.priority.poison(e.to_string())))?;
         if tpr & 15 != 0 {
             self.priority
@@ -1172,12 +1284,12 @@ impl HvfCore {
     }
 
     fn complete_io_out(&mut self) -> Result<()> {
-        self.native_step.ready().map_err(Error::Emulator)?;
+        self.execution_ready()?;
         let mut output = std::mem::take(&mut self.output);
         let result = output
             .acknowledge(|length| self.advance_rip(length).map_err(|error| error.to_string()));
         self.output = output;
-        result.map_err(|error| Error::Emulator(self.native_step.poison(error)))
+        result.map_err(Error::Emulator)
     }
 
     fn io_completion_result(&self) -> Result<()> {
@@ -1185,7 +1297,12 @@ impl HvfCore {
     }
 
     fn complete_io_in(&mut self, data: &[u8]) {
-        if self.native_step.ready().is_err() {
+        if let Err(error) = self.execution_ready() {
+            if self.mmio_input.pending() {
+                self.mmio_input.hold_failure(data, error.to_string());
+            } else {
+                self.port_input.hold_failure(data, error.to_string());
+            }
             return;
         }
         if self.mmio_input.pending() {
@@ -1209,6 +1326,9 @@ impl HvfCore {
             let mut state = std::mem::take(&mut self.mmio_input);
             state.complete(&mut Access { vcpu: self }, data);
             self.mmio_input = state;
+            if self.mmio_input.ready().is_ok() {
+                self.pending_request = None;
+            }
             return;
         }
         struct Access<'a> {
@@ -1228,6 +1348,9 @@ impl HvfCore {
         let mut state = std::mem::take(&mut self.port_input);
         state.complete(&mut Access { vcpu: self }, data);
         self.port_input = state;
+        if self.port_input.ready().is_ok() {
+            self.pending_request = None;
+        }
     }
 
     fn inject_interrupt(&mut self, vector: u8) -> Result<bool> {

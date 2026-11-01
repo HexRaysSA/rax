@@ -10,6 +10,17 @@ use std::time::Duration;
 
 static SERIAL: Mutex<()> = Mutex::new(());
 static SDK: Mutex<(usize, bool)> = Mutex::new((0, false));
+mod intel_clock {
+    pub(super) struct Api;
+    impl Api {
+        pub(super) fn load() -> crate::error::Result<&'static Self> {
+            Ok(&Self)
+        }
+        pub(super) fn now(&self) -> u64 {
+            0
+        }
+    }
+}
 mod bindings {
     pub const HV_SUCCESS: i32 = 0;
     pub fn hv_error_string(_: i32) -> &'static str {

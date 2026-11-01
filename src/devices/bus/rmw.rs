@@ -1,10 +1,11 @@
 //! Pure fixed-width transformations used by indivisible MMIO transactions.
+use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
 
 /// A scalar MMIO read/modify/write transformation. Even an unsuccessful
 /// comparison writes the old value back, matching x86 CMPXCHG bus semantics.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MmioRmwOp {
     Exchange(u64),
     CompareExchange { expected: u64, replacement: u64 },

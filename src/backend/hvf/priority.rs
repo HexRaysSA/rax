@@ -14,6 +14,38 @@ pub(crate) struct State<R> {
     failure: Mutex<Option<String>>,
 }
 impl<R: Register> State<R> {
+    pub(crate) fn checkpoint(&self) -> Result<(u32, Option<String>), String> {
+        let value = self.register.load();
+        if value > 255 {
+            return Err("HVF canonical TPR has reserved bits".into());
+        }
+        let failure = self
+            .failure
+            .lock()
+            .map_err(|_| "HVF priority failure latch poisoned".to_string())?
+            .clone();
+        Ok((value, failure))
+    }
+    pub(crate) fn restore_checkpoint(
+        &self,
+        value: u32,
+        failure: Option<String>,
+    ) -> Result<(), String> {
+        if value > 255
+            || failure
+                .as_ref()
+                .is_some_and(|error| error.len() > 16 * 1024)
+        {
+            return Err("invalid native priority checkpoint".into());
+        }
+        let mut current = self
+            .failure
+            .lock()
+            .map_err(|_| "HVF priority failure latch poisoned".to_string())?;
+        self.register.store(value);
+        *current = failure;
+        Ok(())
+    }
     pub(crate) fn new(register: R) -> Self {
         Self {
             register,

@@ -268,16 +268,29 @@ impl SnapshotBundle {
                     "native checkpoint requires its complete physical RAM image".into(),
                 )
             })?;
-            let base = crate::machine::arm_virt::AARCH64_RAM_BASE;
-            let end = base.checked_add(self.base.memory_size).ok_or_else(|| {
-                Error::InvalidConfig("native checkpoint RAM window overflows".into())
-            })?;
-            if !physical.layout().any(|(start, size)| {
-                start <= base && start.checked_add(size).is_some_and(|limit| limit >= end)
-            }) {
-                return Err(Error::InvalidConfig(
-                    "native physical image does not cover mapped RAM".into(),
-                ));
+            let spans = if self.base.config.arch == crate::config::ArchKind::Aarch64 {
+                vec![(
+                    crate::machine::arm_virt::AARCH64_RAM_BASE,
+                    self.base.memory_size,
+                )]
+            } else {
+                let shared = self
+                    .vm_context
+                    .as_ref()
+                    .ok_or_else(|| Error::InvalidConfig("missing native Intel VM graph".into()))?;
+                crate::backend::intel_hvf_context::GlobalContext::decode(&shared.data)?.regions
+            };
+            for (base, size) in spans {
+                let end = base.checked_add(size).ok_or_else(|| {
+                    Error::InvalidConfig("native checkpoint RAM span overflows".into())
+                })?;
+                if !physical.layout().any(|(start, size)| {
+                    start <= base && start.checked_add(size).is_some_and(|limit| limit >= end)
+                }) {
+                    return Err(Error::InvalidConfig(
+                        "native physical image does not cover mapped RAM".into(),
+                    ));
+                }
             }
         }
         Ok(())
@@ -329,7 +342,27 @@ impl SnapshotBundle {
                     }
                 }
             }
-            if super::producer::is_native(&self.base.config) {
+            if self.base.config.backend == crate::config::BackendKind::Hvf
+                && self.base.config.arch == crate::config::ArchKind::X86_64
+            {
+                let contexts = self.backend_contexts.as_ref().ok_or_else(|| {
+                    Error::InvalidConfig("missing native Intel CPU contexts".into())
+                })?;
+                for (context, apic) in contexts.entries().iter().zip(&execution.local_apics) {
+                    let record = context.as_ref().ok_or_else(|| {
+                        Error::InvalidConfig("missing native Intel CPU producer".into())
+                    })?;
+                    let context = crate::backend::intel_hvf_context::Context::decode(&record.data)?;
+                    if context.tpr != apic.registers.priority_handle().load() {
+                        return Err(Error::InvalidConfig(
+                            "native Intel TPR and local APIC priority differ".into(),
+                        ));
+                    }
+                }
+            }
+            if super::producer::is_native(&self.base.config)
+                && self.base.config.arch == crate::config::ArchKind::Aarch64
+            {
                 let shared = self
                     .vm_context
                     .as_ref()

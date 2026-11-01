@@ -6,7 +6,8 @@ use crate::config::{ArchKind, BackendKind, CheckpointConfig};
 use crate::error::{Error, Result};
 
 pub(super) fn is_native(config: &CheckpointConfig) -> bool {
-    config.backend == BackendKind::Hvf && config.arch == ArchKind::Aarch64
+    config.backend == BackendKind::Hvf
+        && matches!(config.arch, ArchKind::Aarch64 | ArchKind::X86_64)
 }
 
 fn invalid(message: &str) -> Error {
@@ -22,10 +23,12 @@ pub(super) fn validate(
     if !is_native(&base.config) {
         if shared.is_some()
             || contexts.is_some_and(|set| {
-                set.entries()
-                    .iter()
-                    .flatten()
-                    .any(|record| record.kind == super::HVF_AARCH64_CONTEXT)
+                set.entries().iter().flatten().any(|record| {
+                    matches!(
+                        record.kind,
+                        super::HVF_AARCH64_CONTEXT | super::HVF_INTEL_CONTEXT
+                    )
+                })
             })
         {
             return Err(invalid("native records require their native configuration"));
@@ -38,6 +41,9 @@ pub(super) fn validate(
     }
 
     base.validate_envelope()?;
+    if base.config.arch == ArchKind::X86_64 {
+        return validate_intel(base, cpus, contexts, shared);
+    }
     let cpus = cpus.ok_or_else(|| invalid("native producer requires the complete CPU set"))?;
     cpus.validate_structure(base)?;
     let contexts = contexts.ok_or_else(|| invalid("missing native CPU contexts"))?;
@@ -105,5 +111,50 @@ pub(super) fn validate(
     }
     // SDK compatibility and the opaque GIC image are admitted independently by
     // the actual destination backend before it performs any restore writes.
+    Ok(())
+}
+
+/// Decode and admit the complete Intel producer before any destination writes.
+/// SDK/host compatibility is checked again against the destination owner.
+fn validate_intel(
+    base: &Snapshot,
+    cpus: Option<&CpuSnapshots>,
+    contexts: Option<&BackendContexts>,
+    shared: Option<&BackendContext>,
+) -> Result<()> {
+    use crate::backend::intel_hvf_context::{Context, GlobalContext};
+    let cpus =
+        cpus.ok_or_else(|| invalid("native Intel producer requires the complete CPU set"))?;
+    cpus.validate_structure(base)?;
+    let contexts = contexts.ok_or_else(|| invalid("missing native Intel CPU contexts"))?;
+    contexts.validate(base.config.vcpus)?;
+    let shared = shared
+        .filter(|record| record.kind == super::HVF_INTEL_CONTEXT)
+        .ok_or_else(|| invalid("missing or mismatched native Intel VM producer"))?;
+    super::vm_context::validate(shared)?;
+    let shared = GlobalContext::decode(&shared.data)?;
+    if shared.cpus != base.config.vcpus || shared.ram_size != base.memory_size {
+        return Err(invalid("shared Intel topology differs from the machine"));
+    }
+    let mut profile = None;
+    for (id, (cpu, record)) in cpus.entries().iter().zip(contexts.entries()).enumerate() {
+        let record = record
+            .as_ref()
+            .filter(|record| record.kind == super::HVF_INTEL_CONTEXT)
+            .ok_or_else(|| invalid("missing or mismatched native Intel CPU producer"))?;
+        let context = Context::decode(&record.data)?;
+        context.admit(id as u32, &context.profile, &cpu.state, &cpu.emulator)?;
+        if context.anchor != shared.anchor
+            || context.clock.epoch != shared.resume_clock
+            || profile
+                .as_ref()
+                .is_some_and(|profile| profile != &context.profile)
+        {
+            return Err(invalid(
+                "native Intel CPU profiles or clock graph differ within one VM",
+            ));
+        }
+        profile = Some(context.profile);
+    }
     Ok(())
 }

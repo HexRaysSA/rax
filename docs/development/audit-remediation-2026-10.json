@@ -2704,7 +2704,9 @@
         "src/backend/hvf/output.rs",
         "tests/suites/backend/hvf_native_debug.rs",
         "docs/development/hvf-intel-owner-qualification.json",
-        "docs/development/hvf-native-msr-qualification.json"
+        "docs/development/hvf-native-msr-qualification.json",
+        "docs/development/hvf-native-context-qualification.json",
+        "docs/development/hvf-native-context.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2729,7 +2731,8 @@
         "Physical Apple Silicon streaming FPSR is reset on SDK entry: reproduced with RAX guest MRS and direct SDK-only first/repeated-entry controls; checkpoint write ordering alone cannot preserve the requested flags. A corrective implementation remains unqualified.",
         "Current-session binding for software-x86 prepared CPUs and production GDB listener/socket shutdown are locally qualified by session-qualification.json. Native in-place host overlays/guest-TF ownership, other ISA/debugger profiles and the full original finding remain open; no physical Intel qualification.",
         "Permanent Intel SDK owner threads, retained VM/RAM lifetime, per-request caller clocks, matching checkpoint exclusion and fatal teardown fencing are locally qualified in hvf-intel-owner-qualification.json. Complete native private/XSAVE/in-flight state, bounded scheduling/IRQ conservation, remaining intercept profiles and physical Intel execution remain open; no full finding closure.",
-        "Native syscall/SWAPGS/TSC_AUX MSRs now use SDK-managed execution backing, and public syscall fields restore through that backing. See hvf-native-msr-qualification.json. Full native private/XSAVE/in-flight records, including KERNEL_GS_BASE/TSC_AUX, coordinated rollback, remaining intercept/IRQ/scheduling profiles and physical Intel remain open; no original finding closure."
+        "Native syscall/SWAPGS/TSC_AUX MSRs now use SDK-managed execution backing, and public syscall fields restore through that backing. See hvf-native-msr-qualification.json. Full native private/XSAVE/in-flight records, including KERNEL_GS_BASE/TSC_AUX, coordinated rollback, remaining intercept/IRQ/scheduling profiles and physical Intel remain open; no original finding closure.",
+        "Readable Intel SDK CPU/full-XSAVE/in-flight records, strict native file admission, coordinated rollback, current-debugger controls and common host-clock rebasing now have portable/SDK-model evidence. Physical Intel state restoration and guest execution, remaining native intercept/exception/MMIO/IRQ profiles and bounded native scheduling/SMP/replay remain open; no original finding closure. See hvf-native-context-qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2774,7 +2777,8 @@
         "software-debugger-session-ownership-2026-10-30",
         "intel-native-host-debug-completion-2026-10-30",
         "intel-native-owner-lifetime-2026-10-30",
-        "intel-native-syscall-msr-state-2026-10-31"
+        "intel-native-syscall-msr-state-2026-10-31",
+        "intel-native-checkpoint-records-2026-10-31"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3406,7 +3410,9 @@
         "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-red.json",
         "/Users/int/dev/rax-audit-work/four-findings-coordinator/debugger-session-ownership-v1/pending-debug-exit-green.json",
         "docs/development/hvf-intel-owner-qualification.json",
-        "docs/development/hvf-native-msr-qualification.json"
+        "docs/development/hvf-native-msr-qualification.json",
+        "docs/development/hvf-native-context-qualification.json",
+        "docs/development/hvf-native-context.md"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3426,7 +3432,8 @@
         "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial.",
         "Current-session binding for software-x86 prepared CPUs and production GDB listener/socket shutdown are locally qualified by session-qualification.json. Native in-place host overlays/guest-TF ownership, other ISA/debugger profiles and the full original finding remain open; no physical Intel qualification.",
         "Permanent Intel SDK owner threads, retained VM/RAM lifetime, per-request caller clocks, matching checkpoint exclusion and fatal teardown fencing are locally qualified in hvf-intel-owner-qualification.json. Complete native private/XSAVE/in-flight state, bounded scheduling/IRQ conservation, remaining intercept profiles and physical Intel execution remain open; no full finding closure.",
-        "Native syscall/SWAPGS/TSC_AUX MSRs now use SDK-managed execution backing, and public syscall fields restore through that backing. See hvf-native-msr-qualification.json. Full native private/XSAVE/in-flight records, including KERNEL_GS_BASE/TSC_AUX, coordinated rollback, remaining intercept/IRQ/scheduling profiles and physical Intel remain open; no original finding closure."
+        "Native syscall/SWAPGS/TSC_AUX MSRs now use SDK-managed execution backing, and public syscall fields restore through that backing. See hvf-native-msr-qualification.json. Full native private/XSAVE/in-flight records, including KERNEL_GS_BASE/TSC_AUX, coordinated rollback, remaining intercept/IRQ/scheduling profiles and physical Intel remain open; no original finding closure.",
+        "Readable Intel SDK CPU/full-XSAVE/in-flight records, strict native file admission, coordinated rollback, current-debugger controls and common host-clock rebasing now have portable/SDK-model evidence. Physical Intel state restoration and guest execution, remaining native intercept/exception/MMIO/IRQ profiles and bounded native scheduling/SMP/replay remain open; no original finding closure. See hvf-native-context-qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3459,7 +3466,8 @@
         "software-smp-debugger-memory-2026-10-30",
         "software-debugger-session-ownership-2026-10-30",
         "intel-native-owner-lifetime-2026-10-30",
-        "intel-native-syscall-msr-state-2026-10-31"
+        "intel-native-syscall-msr-state-2026-10-31",
+        "intel-native-checkpoint-records-2026-10-31"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -4051,7 +4059,9 @@
         "src/backend/hvf/output.rs",
         "tests/suites/backend/hvf_native_debug.rs",
         "docs/development/hvf-intel-owner-qualification.json",
-        "docs/development/hvf-native-msr-qualification.json"
+        "docs/development/hvf-native-msr-qualification.json",
+        "docs/development/hvf-native-context-qualification.json",
+        "docs/development/hvf-native-context.md"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4072,7 +4082,8 @@
         "Selected software x86 ordinary-RAM virtual debugger memory now has direct TCP/GDB and independent explicit-CPU QEMU coverage; full live-session restoration, other ISA and ROM/device address spaces, SDK/runtime failure qualification and physical Intel remain open. The memory subgroup is locally validated within memory-qualification.json; the original finding remains partial.",
         "Current-session binding for software-x86 prepared CPUs and production GDB listener/socket shutdown are locally qualified by session-qualification.json. Native in-place host overlays/guest-TF ownership, other ISA/debugger profiles and the full original finding remain open; no physical Intel qualification.",
         "Permanent Intel SDK owner threads, retained VM/RAM lifetime, per-request caller clocks, matching checkpoint exclusion and fatal teardown fencing are locally qualified in hvf-intel-owner-qualification.json. Complete native private/XSAVE/in-flight state, bounded scheduling/IRQ conservation, remaining intercept profiles and physical Intel execution remain open; no full finding closure.",
-        "Native syscall/SWAPGS/TSC_AUX MSRs now use SDK-managed execution backing, and public syscall fields restore through that backing. See hvf-native-msr-qualification.json. Full native private/XSAVE/in-flight records, including KERNEL_GS_BASE/TSC_AUX, coordinated rollback, remaining intercept/IRQ/scheduling profiles and physical Intel remain open; no original finding closure."
+        "Native syscall/SWAPGS/TSC_AUX MSRs now use SDK-managed execution backing, and public syscall fields restore through that backing. See hvf-native-msr-qualification.json. Full native private/XSAVE/in-flight records, including KERNEL_GS_BASE/TSC_AUX, coordinated rollback, remaining intercept/IRQ/scheduling profiles and physical Intel remain open; no original finding closure.",
+        "Readable Intel SDK CPU/full-XSAVE/in-flight records, strict native file admission, coordinated rollback, current-debugger controls and common host-clock rebasing now have portable/SDK-model evidence. Physical Intel state restoration and guest execution, remaining native intercept/exception/MMIO/IRQ profiles and bounded native scheduling/SMP/replay remain open; no original finding closure. See hvf-native-context-qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4086,7 +4097,8 @@
         "software-debugger-session-ownership-2026-10-30",
         "intel-native-host-debug-completion-2026-10-30",
         "intel-native-owner-lifetime-2026-10-30",
-        "intel-native-syscall-msr-state-2026-10-31"
+        "intel-native-syscall-msr-state-2026-10-31",
+        "intel-native-checkpoint-records-2026-10-31"
       ]
     },
     {
@@ -197662,6 +197674,20 @@
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-msr-v1/cleanup-final.json",
       "workflow": "git add -- <exact owned paths>; red -m --staged --run <same exact paths>",
       "validation_scope": "176 host backend/CI tests and 17 actual Intel-backend SDK-substitution cases; workspace all-target check/build/lint; Intel debug/no-debug compilation; no physical Intel guest instruction execution.",
+      "pending_gates": "A32-FP/C-STATE/C-SMP/C-HVF remain incomplete; no full finding status promotion"
+    },
+    {
+      "id": "intel-native-checkpoint-records-2026-10-31",
+      "status": "locally_validated_with_physical_Intel_gate_open",
+      "parent": "2f3a5449a97c06f65a6c9f50d5d10f5a0c0235c0",
+      "scope": "Versioned native Intel CPU/VM records, full host XSAVE, in-flight completions, current-session-preserving coordinated rollback and common SDK-clock anchor",
+      "qualification": "docs/development/hvf-native-context-qualification.json",
+      "assumption_register": "docs/development/hvf-native-context-qualification.json#assumption_register",
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/final-source-v4.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/cleanup-final.json",
+      "workflow": "git add -- <exact owned paths>; red -m --staged --run <same exact paths>",
+      "validation_scope": "9252 serial portable root cases, 178 host backend/CI cases and 36 debug and 35 no-debug actual Intel-backend SDK-model cases; workspace all-target check/build/lint; Intel debug/no-debug compile; physical Intel unknown.",
       "pending_gates": "A32-FP/C-STATE/C-SMP/C-HVF remain incomplete; no full finding status promotion"
     }
   ],

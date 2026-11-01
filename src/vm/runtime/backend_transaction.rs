@@ -78,7 +78,7 @@ impl BackendRestore<'_, '_, '_> {
         if let Err(error) = result {
             let rollback = (|| {
                 for (cpu, (state, context)) in self.cpus.iter_mut().zip(&backup) {
-                    cpu.restore_checkpoint_record(
+                    cpu.rollback_checkpoint_record(
                         self.boundary,
                         &state.state,
                         &state.emulator,
@@ -87,7 +87,7 @@ impl BackendRestore<'_, '_, '_> {
                 }
                 rollback_ram.commit_in_scope(self.publication)?;
                 self.vm
-                    .restore_checkpoint_vm_context(self.boundary, shared_backup.as_ref())?;
+                    .rollback_checkpoint_vm_context(self.boundary, shared_backup.as_ref())?;
                 for (cpu, (_, context)) in self.cpus.iter_mut().zip(&backup) {
                     cpu.finish_checkpoint_restore(self.boundary, context.as_ref())?;
                 }

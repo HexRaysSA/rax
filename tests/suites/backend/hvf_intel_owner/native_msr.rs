@@ -62,7 +62,11 @@ pub extern "C" fn hv_vcpu_write_msr(id: u32, msr: u32, value: u64) -> i32 {
     // A failing SDK operation may already have changed state. The product
     // must fence execution rather than assume that an error means no write.
     cpu.msrs.insert(msr, value);
-    if fail { -1 } else { 0 }
+    if fail || sdk.fail_after("write-msr") {
+        -1
+    } else {
+        0
+    }
 }
 
 #[test]

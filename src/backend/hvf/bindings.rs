@@ -48,174 +48,15 @@ pub const HV_MEMORY_READ: hv_memory_flags_t = 1 << 0;
 pub const HV_MEMORY_WRITE: hv_memory_flags_t = 1 << 1;
 pub const HV_MEMORY_EXEC: hv_memory_flags_t = 1 << 2;
 
+#[path = "intel_registers.rs"]
+mod registers;
+pub use registers::{hv_vmx_vmcs_field_t, hv_x86_reg_t};
+pub(crate) use registers::{register_from_raw, vmcs_from_raw};
+
 // Intel register IDs from Apple's hv_arch_x86.h. These are API identifiers,
 // not contiguous architectural register encodings (IDT/GDT/LDT/TSS have fields).
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum hv_x86_reg_t {
-    HV_X86_RIP = 0,
-    HV_X86_RFLAGS = 1,
-    HV_X86_RAX = 2,
-    HV_X86_RCX = 3,
-    HV_X86_RDX = 4,
-    HV_X86_RBX = 5,
-    HV_X86_RSI = 6,
-    HV_X86_RDI = 7,
-    HV_X86_RSP = 8,
-    HV_X86_RBP = 9,
-    HV_X86_R8 = 10,
-    HV_X86_R9 = 11,
-    HV_X86_R10 = 12,
-    HV_X86_R11 = 13,
-    HV_X86_R12 = 14,
-    HV_X86_R13 = 15,
-    HV_X86_R14 = 16,
-    HV_X86_R15 = 17,
-    HV_X86_CS = 18,
-    HV_X86_SS = 19,
-    HV_X86_DS = 20,
-    HV_X86_ES = 21,
-    HV_X86_FS = 22,
-    HV_X86_GS = 23,
-    HV_X86_IDT_BASE = 24,
-    HV_X86_IDT_LIMIT = 25,
-    HV_X86_GDT_BASE = 26,
-    HV_X86_GDT_LIMIT = 27,
-    HV_X86_LDTR = 28,
-    HV_X86_LDT_BASE = 29,
-    HV_X86_LDT_LIMIT = 30,
-    HV_X86_LDT_AR = 31,
-    HV_X86_TR = 32,
-    HV_X86_TSS_BASE = 33,
-    HV_X86_TSS_LIMIT = 34,
-    HV_X86_TSS_AR = 35,
-    HV_X86_CR0 = 36,
-    HV_X86_CR1 = 37,
-    HV_X86_CR2 = 38,
-    HV_X86_CR3 = 39,
-    HV_X86_CR4 = 40,
-    HV_X86_DR0 = 41,
-    HV_X86_DR1 = 42,
-    HV_X86_DR2 = 43,
-    HV_X86_DR3 = 44,
-    HV_X86_DR4 = 45,
-    HV_X86_DR5 = 46,
-    HV_X86_DR6 = 47,
-    HV_X86_DR7 = 48,
-    HV_X86_TPR = 49,
-    HV_X86_XCR0 = 50,
-    HV_X86_REGISTERS_MAX = 51,
-}
 
 // VMCS field encodings for VMX (Intel-style, used by Rosetta)
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum hv_vmx_vmcs_field_t {
-    // 16-bit guest state fields
-    VMCS_GUEST_ES_SELECTOR = 0x00000800,
-    VMCS_GUEST_CS_SELECTOR = 0x00000802,
-    VMCS_GUEST_SS_SELECTOR = 0x00000804,
-    VMCS_GUEST_DS_SELECTOR = 0x00000806,
-    VMCS_GUEST_FS_SELECTOR = 0x00000808,
-    VMCS_GUEST_GS_SELECTOR = 0x0000080a,
-    VMCS_GUEST_LDTR_SELECTOR = 0x0000080c,
-    VMCS_GUEST_TR_SELECTOR = 0x0000080e,
-
-    // 64-bit guest state fields
-    VMCS_GUEST_LINK_POINTER = 0x00002800,
-    VMCS_GUEST_IA32_DEBUGCTL = 0x00002802,
-    VMCS_GUEST_IA32_PAT = 0x00002804,
-    VMCS_GUEST_IA32_EFER = 0x00002806,
-    VMCS_GUEST_IA32_PERF_GLOBAL_CTRL = 0x00002808,
-    VMCS_GUEST_PDPTE0 = 0x0000280a,
-    VMCS_GUEST_PDPTE1 = 0x0000280c,
-    VMCS_GUEST_PDPTE2 = 0x0000280e,
-    VMCS_GUEST_PDPTE3 = 0x00002810,
-
-    // 32-bit guest state fields
-    VMCS_GUEST_ES_LIMIT = 0x00004800,
-    VMCS_GUEST_CS_LIMIT = 0x00004802,
-    VMCS_GUEST_SS_LIMIT = 0x00004804,
-    VMCS_GUEST_DS_LIMIT = 0x00004806,
-    VMCS_GUEST_FS_LIMIT = 0x00004808,
-    VMCS_GUEST_GS_LIMIT = 0x0000480a,
-    VMCS_GUEST_LDTR_LIMIT = 0x0000480c,
-    VMCS_GUEST_TR_LIMIT = 0x0000480e,
-    VMCS_GUEST_GDTR_LIMIT = 0x00004810,
-    VMCS_GUEST_IDTR_LIMIT = 0x00004812,
-    VMCS_GUEST_ES_ACCESS_RIGHTS = 0x00004814,
-    VMCS_GUEST_CS_ACCESS_RIGHTS = 0x00004816,
-    VMCS_GUEST_SS_ACCESS_RIGHTS = 0x00004818,
-    VMCS_GUEST_DS_ACCESS_RIGHTS = 0x0000481a,
-    VMCS_GUEST_FS_ACCESS_RIGHTS = 0x0000481c,
-    VMCS_GUEST_GS_ACCESS_RIGHTS = 0x0000481e,
-    VMCS_GUEST_LDTR_ACCESS_RIGHTS = 0x00004820,
-    VMCS_GUEST_TR_ACCESS_RIGHTS = 0x00004822,
-    VMCS_GUEST_INTERRUPTIBILITY_STATE = 0x00004824,
-    VMCS_GUEST_ACTIVITY_STATE = 0x00004826,
-    VMCS_GUEST_SMBASE = 0x00004828,
-    VMCS_GUEST_IA32_SYSENTER_CS = 0x0000482a,
-
-    // Natural-width guest state fields
-    VMCS_GUEST_CR0 = 0x00006800,
-    VMCS_GUEST_CR3 = 0x00006802,
-    VMCS_GUEST_CR4 = 0x00006804,
-    VMCS_GUEST_ES_BASE = 0x00006806,
-    VMCS_GUEST_CS_BASE = 0x00006808,
-    VMCS_GUEST_SS_BASE = 0x0000680a,
-    VMCS_GUEST_DS_BASE = 0x0000680c,
-    VMCS_GUEST_FS_BASE = 0x0000680e,
-    VMCS_GUEST_GS_BASE = 0x00006810,
-    VMCS_GUEST_LDTR_BASE = 0x00006812,
-    VMCS_GUEST_TR_BASE = 0x00006814,
-    VMCS_GUEST_GDTR_BASE = 0x00006816,
-    VMCS_GUEST_IDTR_BASE = 0x00006818,
-    VMCS_GUEST_DR7 = 0x0000681a,
-    VMCS_GUEST_RSP = 0x0000681c,
-    VMCS_GUEST_RIP = 0x0000681e,
-    VMCS_GUEST_RFLAGS = 0x00006820,
-    VMCS_GUEST_PENDING_DBG_EXCEPTIONS = 0x00006822,
-    VMCS_GUEST_IA32_SYSENTER_ESP = 0x00006824,
-    VMCS_GUEST_IA32_SYSENTER_EIP = 0x00006826,
-
-    // VM-exit information fields
-    VMCS_EXIT_REASON = 0x00004402,
-    VMCS_RO_VMEXIT_IRQ_INFO = 0x00004404,
-    VMCS_RO_VMEXIT_IRQ_ERROR = 0x00004406,
-    VMCS_EXIT_QUALIFICATION = 0x00006400,
-    VMCS_GUEST_LINEAR_ADDRESS = 0x0000640a,
-    VMCS_GUEST_PHYSICAL_ADDRESS = 0x00002400,
-    VMCS_EXIT_INSTRUCTION_LENGTH = 0x0000440c,
-    VMCS_EXIT_INSTRUCTION_INFO = 0x0000440e,
-    VMCS_IDT_VECTORING_INFO = 0x00004408,
-    VMCS_IDT_VECTORING_ERROR_CODE = 0x0000440a,
-
-    // VM-entry control fields
-    VMCS_CTRL_VMENTRY_CONTROLS = 0x00004012,
-    VMCS_CTRL_VMENTRY_IRQ_INFO = 0x00004016,
-    VMCS_CTRL_VMENTRY_EXCEPTION_ERROR = 0x00004018,
-    VMCS_CTRL_VMENTRY_INSTRUCTION_LENGTH = 0x0000401a,
-
-    // Primary/secondary processor-based controls
-    VMCS_CTRL_PIN_BASED = 0x00004000,
-    VMCS_CTRL_CPU_BASED = 0x00004002,
-    VMCS_CTRL_CPU_BASED2 = 0x0000401e,
-    VMCS_CTRL_EXC_BITMAP = 0x00004004,
-    VMCS_CTRL_CR0_MASK = 0x00006000,
-    VMCS_CTRL_CR4_MASK = 0x00006002,
-    VMCS_CTRL_CR0_SHADOW = 0x00006004,
-    VMCS_CTRL_CR4_SHADOW = 0x00006006,
-
-    // I/O bitmap addresses
-    VMCS_CTRL_IO_BITMAP_A = 0x00002000,
-    VMCS_CTRL_IO_BITMAP_B = 0x00002002,
-
-    // MSR bitmaps
-    VMCS_CTRL_MSR_BITMAPS = 0x00002004,
-
-    // EPT pointer
-    VMCS_CTRL_EPTP = 0x0000201a,
-}
 
 // VMX exit reasons; handled reasons are owned by the shared exit driver.
 pub use super::run_loop::reason::{
@@ -515,6 +356,12 @@ unsafe extern "C" {
 
     /// Sync TSC across vCPUs.
     pub fn hv_vm_sync_tsc(tsc: u64) -> hv_return_t;
+
+    /// Abstract host-rate TSC clock; the runtime loads this SDK 11 API lazily.
+    pub fn hv_tsc_clock() -> u64;
+
+    /// Set the guest TSC relative to the abstract clock, on the vCPU owner.
+    pub fn hv_vcpu_set_tsc_relative(vcpu: hv_vcpuid_t, offset: i64) -> hv_return_t;
 }
 
 /// Convert HV return code to human-readable string.

@@ -19,6 +19,8 @@ pub const X86_64_CONTEXT: u32 = 4;
 pub const AARCH64_CONTEXT: u32 = 5;
 /// Native ARM64 HVF CPU and shared VM producer, with distinct inner tags.
 pub const HVF_AARCH64_CONTEXT: u32 = 6;
+/// Native Intel HVF CPU and shared VM producer, with distinct inner tags.
+pub const HVF_INTEL_CONTEXT: u32 = 7;
 
 /// An opaque, bounded backend-owned record. Its kind identifies its producer;
 /// an architectural register projection cannot substitute for this payload.
@@ -37,7 +39,9 @@ fn invalid(message: impl std::fmt::Display) -> Error {
     Error::Emulator(format!("backend checkpoint contexts: {message}"))
 }
 fn record_limit(kind: u32) -> u64 {
-    if kind == HVF_AARCH64_CONTEXT {
+    if kind == HVF_INTEL_CONTEXT {
+        crate::backend::intel_hvf_context::MAX_CPU_CONTEXT
+    } else if kind == HVF_AARCH64_CONTEXT {
         crate::backend::arm64_hvf_context::MAX_CPU_CONTEXT
     } else {
         MAX_RECORD

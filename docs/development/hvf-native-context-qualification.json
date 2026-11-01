@@ -1,0 +1,254 @@
+{
+  "group": "intel-native-checkpoint-records-2026-10-31",
+  "status": "locally_validated_with_physical_Intel_gate_open",
+  "parent": "2f3a5449a97c06f65a6c9f50d5d10f5a0c0235c0",
+  "scope": "Versioned native Intel CPU/VM records, full host XSAVE, in-flight completions, current-session-preserving coordinated rollback and common SDK-clock anchor",
+  "assumption_register": [
+    {
+      "id": "NC1",
+      "assumption": "The SDK FP buffer follows the host XSAVE layout, including opaque components.",
+      "basis": "Retained Apple SDK hv.h read/write_fpstate contract; host CPUID leaf 0x0d; Intel SDM Vol.1 Chapter 13.",
+      "dependent_result": "Complete aligned image capture and architectural projections.",
+      "stress_test": "832-byte Rosetta SDK model; standard and compacted states, initial bits, MXCSR independent of SSE in-use, first/last lanes, x87 TOP and opaque components.",
+      "falsification_probe": "The SDK accepts an image whose CPUID layout disagrees with actual guest state, or physical restore loses an opaque component.",
+      "status": "retained; structural tests available, physical Intel unknown"
+    },
+    {
+      "id": "NC2",
+      "assumption": "The VM boundary excludes owner requests, backend IRQ writers and topology/mapping changes; independent external writers are quiescent.",
+      "basis": "Existing lifetime RwLock and VMM checkpoint bindings.",
+      "dependent_result": "One stopped CPU/RAM/device capture and coordinated restore.",
+      "stress_test": "Foreign boundary, incomplete topology, concurrent owner-thread contract and real file transactions.",
+      "falsification_probe": "A supported writer mutates the graph while a held boundary is active.",
+      "status": "retained; external raw aliases remain caller responsibility"
+    },
+    {
+      "id": "NC3",
+      "assumption": "One SDK clock sample and a common lazy resume epoch preserve per-CPU TSC offsets under the supported host-clock profile.",
+      "basis": "SDK hv_tsc_clock/hv_vcpu_set_tsc_relative signatures and Intel modulo-2^64 TSC arithmetic.",
+      "dependent_result": "Coordinated clock restoration across independently owned CPUs.",
+      "stress_test": "Zero, wraparound, distinct offsets, delayed second CPU entry and raw imports.; running and not-yet-resumed raw/VM clock rollback; SDK clock setter failure during rollback",
+      "falsification_probe": "A second CPU resets its epoch independently or guest RDMSR disagrees with the SDK execution offset. A failed restore rebases the original running/pending clock binding or changes a peer resume epoch.",
+      "status": "revised after observed loss of 1000 SDK ticks during failed raw restore; corrected original binding/epoch now pass three SDK-model cases"
+    },
+    {
+      "id": "NC4",
+      "assumption": "An SDK setter may mutate before reporting failure; rollback must restore all destination state before ordinary entry resumes.",
+      "basis": "Existing MSR SDK model and fallible native API.",
+      "dependent_result": "Per-CPU fences, complete coordinated rollback and VM poison after failed rollback.",
+      "stress_test": "After-mutation register/FP/VMCS/MSR failures and late TLB failure; persistent rollback failure.",
+      "falsification_probe": "Failed publication resumes a prefix, loses RAM/private state or leaves a peer able to enter after irrecoverable rollback.",
+      "status": "confirmed in portable and SDK-model tests; physical Intel remains unknown"
+    },
+    {
+      "id": "NC5",
+      "assumption": "The current debugger session owns forward VM restore controls; raw CPU imports own their captured controls; rollback restores original destination notifications.",
+      "basis": "Explicit user selection and GDB client-owned breakpoint/selection state.",
+      "dependent_result": "Separate forward/raw/rollback paths.",
+      "stress_test": "Current MTF and #BP interception, stale completion discard, original pending stop restoration.",
+      "falsification_probe": "A forward restore switches the active debugger mode, or failed restore discards its original notification.",
+      "status": "confirmed in portable and SDK-model tests; physical Intel remains unknown"
+    },
+    {
+      "id": "NC6",
+      "assumption": "Producer/schema/profile/public projections and the complete topology/RAM association are admitted before live writes.",
+      "basis": "Existing checkpoint extension framing and native producer admission.",
+      "dependent_result": "Portable native files and target admission without serialized host pointers.",
+      "stress_test": "Truncation, trailing data, missing/duplicate/reordered fields, incompatible CPU profile, foreign producer and incomplete CPU graph.",
+      "falsification_probe": "A forged or mismatched graph reaches an SDK write or silently falls back to public-only restore.",
+      "status": "confirmed in portable and SDK-model tests; physical Intel remains unknown"
+    },
+    {
+      "id": "NC7",
+      "assumption": "SDK-model and portable test evidence does not establish physical Intel VMX execution.",
+      "basis": "M4 Max host; Intel binary executes through Rosetta with exported SDK substitutes.",
+      "dependent_result": "Qualification boundaries and retained pending hardware gates.",
+      "stress_test": "Linkage inspection and explicit test counts; separate physical Intel runner if available.",
+      "falsification_probe": "A claimed hardware result has no physical Intel guest-instruction execution receipt.",
+      "status": "confirmed evidence boundary; physical Intel execution unknown"
+    },
+    {
+      "id": "NC8",
+      "assumption": "Selected 64-bit MMIO SDK-model cases supply coherent long-mode paging and SDK/VMCS control-register aliases",
+      "basis": "Intel IA-32e paging and VM-entry state requirements; production nonmutating inspection walker",
+      "dependent_result": "Load/store/ALU/RMW continuation restoration evidence",
+      "stress_test": "CR0.PG/PE/NE, CR4.PAE, EFER.LME/LMA, IA-32e entry; real four-level tables with selected 2 MiB code/operand leaves",
+      "falsification_probe": "An MMIO checkpoint case enters inspection with LMA set and PG clear, or its decoded operand does not translate to the exit physical address",
+      "status": "revised after rejected inconsistent fixture; coherent paging now qualified by complete debug and no-debug SDK owning suites; physical Intel unknown"
+    },
+    {
+      "id": "NC9",
+      "assumption": "Current enabled XSAVE byte counts in CPUID leaf 0x0d subleaves 0 and 1 are host execution-state inputs, not immutable compatibility capabilities",
+      "basis": "Intel SDM CPUID.0DH.00H/01H EBX definitions; source maximum layout/offset fields remain strict",
+      "dependent_result": "Compatible host threads/destinations are not rejected merely because current XCR0/XSS selections differ",
+      "stress_test": "Both size fields vary; capability and maximum-size fields remain distinguishable; component-2 offset and other leaves remain intact",
+      "falsification_probe": "Changing only an enabled-size field changes a profile, or normalization erases component geometry/capability bits",
+      "status": "revised and qualified by both size-field tests, preserved immutable-field tests and full final host/SDK-model owning suites; physical Intel unknown"
+    }
+  ],
+  "change_surface": {
+    "backend": "Intel owner, SDK bridge and full state publication",
+    "CPU_state": "Full XSAVE/native fields and explicit native emulator projection; existing public wire layouts unchanged",
+    "snapshot": "Producer kind 7; strict portable CPU/VM graph admission and full physical spans",
+    "runtime": "A distinct rollback hook retains original destination debugger notifications",
+    "device": "MmioRmwOp gains Serde traits; device behavior unchanged",
+    "unaffected": [
+      "ISA decode/software execute",
+      "SMIR and native lowering/JIT semantics",
+      "C ABI layouts",
+      "Arm64 backend restore implementation",
+      "native retirement/scheduler/IRQ-routing semantics"
+    ]
+  },
+  "implementation": {
+    "CPU_tag": "RAXHVI01",
+    "VM_tag": "RAXHVG01",
+    "producer_kind": 7,
+    "SDK_register_values": 25,
+    "maximum_VMCS_guest_control_fields": 68,
+    "native_MSRS": [
+      "STAR",
+      "LSTAR",
+      "CSTAR",
+      "FMASK",
+      "KERNEL_GS_BASE",
+      "TSC_AUX"
+    ],
+    "maximum_XSAVE_bytes": 1048576,
+    "CPU_metadata_budget_bytes": 131072,
+    "shared_payload_budget_bytes": 67108864,
+    "FP": "64-byte aligned host-sized images; standard/compacted layouts; init-state materialization, exact 80-bit x87 and reconstructed tags, MXCSR, supported vector/PKRU projections and opaque host-component retention",
+    "pending_IO": "Port/MMIO load, store, ALU and RMW continuations; valid received replies survive post-reply failures; acknowledged outputs retain terminal failure and cannot redispatch",
+    "clock": "One stopped SDK anchor and common lazy resume epoch; modulo-2^64 offsets; raw CPU imports use an independent epoch. Failed publication restores the original offset, pending binding and shared epoch, including elapsed host ticks; public overlays retain the existing local binding.",
+    "debugger": "Forward VM restore retains current MTF and #DB/#BP controls and discards stale completion; raw import restores payload; rollback restores original destination notification. No-debug raw imports reject host debug controls before SDK writes; scoped VM restore preserves the disabled destination controls.",
+    "failure": "Partial setters fence ordinary entry; coordinated CPU/RAM/shared rollback; failed rollback fences all peers",
+    "profile": "All guest CPUID configuration fields and stable host capability/layout fields are admitted; both enabled XSAVE size fields and host APIC ID are normalized. Exact target profile and RAM/MMIO association; no host pointers serialized; optional physical frequency remains unknown where unavailable",
+    "fixed_controls": "PAT and IA32_MISC_ENABLE retain their existing fixed intercepted profile; foreign public PAT values are rejected",
+    "complexity": "CPU work/storage linear in bounded XSAVE/payload bytes plus fixed register/schema banks. Shared validation uses bounded region walks and O(Q log Q) IRQ uniqueness admission for Q queued sources."
+  },
+  "baseline": {
+    "parent": "2f3a5449a97c06f65a6c9f50d5d10f5a0c0235c0",
+    "build": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/baseline-build.json",
+    "failures": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/native_cpu_capture_returns_its_complete_backend_record-red.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/native_checkpoint_captures_a_pending_input_without_discarding_it-red.json"
+    ],
+    "observed": "Separate fresh processes observed absent native private records and rejection of capture while scalar input was pending",
+    "additional_observed_edges": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/mxcsr-red.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/mmio-admission-red.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/clock-rollback-red.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/mmio-continuation-final-v2-isolation.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/host-fingerprint-normalization-red.json"
+    ],
+    "SDK_fixture_correction": {
+      "observed_failure": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/mmio-continuation-final-v2-isolation.json",
+      "candidate_green": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/mmio-fixture-candidate-green.json",
+      "explanation": "The new MMIO case inherited an SDK fixture with EFER.LMA set and CR0.PG clear. Production correctly rejected it. The corrected case supplies coherent four-level paging and matching SDK/VMCS CR aliases; no production access check was weakened."
+    },
+    "iteration_errors": "Initial whole-implementation checks exposed one output Result inference error and a missing producer-function delimiter. These failed builds are retained and are not runtime evidence."
+  },
+  "validation": {
+    "checks": {
+      "fmt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/fmt-final-v4.json",
+      "backend-integrations": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/backend-integrations-final-v4.json",
+      "check-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/check-all-targets-final-v4.json",
+      "build-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/build-all-targets-final-v4.json",
+      "clippy-all-targets": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/clippy-all-targets-final-v4.json",
+      "intel-public": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/intel-public-final-v4.json",
+      "intel-no-debug-public": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/intel-no-debug-public-final-v4.json",
+      "intel-debug-check": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/intel-debug-check-final-v4.json",
+      "intel-no-debug-check": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/intel-no-debug-check-final-v4.json",
+      "doctests": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/doctests-final-v4.json",
+      "root-library": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/root-library-final-v2.json"
+    },
+    "root_library_reuse": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/root-library-reuse-v4.json",
+    "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/final-source-v4.json",
+    "field_inventory": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/field-surface-review.json",
+    "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/final-environment.json",
+    "driver": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/validate-final-v4.py",
+    "root_driver": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/root-final-v2.py",
+    "portable_root_cases": 9252,
+    "portable_root_ignored": 5,
+    "host_backend_CI_cases": 178,
+    "Intel_SDK_substitution_cases": 36,
+    "Intel_no_debug_SDK_substitution_cases": 35,
+    "portable_root_harness_threads": 1,
+    "portable_owner_cases_repeated_in_Intel_invocation": 10,
+    "clock_rollback_green": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/clock-correction-green.json",
+    "no_debug_guard_green": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/no-debug-control-green.json",
+    "standalone_XSAVE_cases": 13,
+    "standalone_XSAVE_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/xsave-standalone-v4-results.json",
+    "counts_note": "Standalone XSAVE cases also occur in the full root library run; owner cases repeat across host and Intel invocations. Counts are not unique-scenario totals.",
+    "SDK_ABI": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/sdk-abi-retained/manifest.json",
+    "SDK_ABI_retention": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/sdk-abi-retention.json",
+    "linkage": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/final-linkage.json",
+    "fixture_review": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/final-fixture-review-v4.json",
+    "physical_Intel_execution": false,
+    "C_API_runtime_executed": false,
+    "doctest_cases_executed": 0,
+    "doctest_cases_ignored": 5,
+    "scope": "Actual Intel Backend/Vm/VCpu/Vmm executes through Rosetta with SDK storage supplied by the test executable. Complete owning binaries execute unfiltered. Real .rxc files cover 1/2/4 CPU records; this is not native SMP execution. Raw tests inject each SDK setter class; coordinated tests cover last-CPU failure before and after RAM publication and persistent rollback failure.",
+    "parallel_Darwin_limitation": {
+      "status": "unknown root cause; not repaired by this group",
+      "full_parallel_run": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/root-library-final.json",
+      "exact_case_reruns": [
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/darwin-failure-isolation-0.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/darwin-failure-isolation-1.json"
+      ],
+      "parallel_ptrace_subgroup": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-context-v1/darwin-ptrace-isolation.json",
+      "observed": "An earlier eight-thread full root run failed ordinary_exit_flushes_queued_trace_reply and consecutive_descriptor_frames_keep_each_endpoint. Both passed exact serial reruns; four-thread ptrace subgroup reproduced the first failure. Final root run executes all cases serially."
+    },
+    "root_input_reuse": "Final changes after the serial ARM root run are limited to the Intel-only profile normalizer, its portable integration tests, the corrected MMIO integration fixture and documentation. The actual ARM root dependency file excludes all five paths. Every portable production/unit-test and Cargo/dependency input retains its v2 bytes. Complete host and Intel SDK suites were rerun afterward.",
+    "broader": "Workspace all-target check/build/clippy with C API JIT feature; Intel debug/no-debug library compilation; full portable root library runtime"
+  },
+  "provenance": {
+    "Apple_SDK": "docs/specifications/apple/hypervisor-sdk-27.2/hv.h; hv_arch_x86.h; hv_arch_vmx.h; hv_vmx.h",
+    "independent_QEMU_client": "docs/specifications/apple/hypervisor-sdk-27.2/native-context/provenance.json",
+    "Intel_architecture": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf; December 2024, Vol.1 Chapter 13 and Vol.2 FXSAVE/XSAVE/XRSTOR",
+    "CPUID_enabled_size_cross_check": "https://cdrdv2-public.intel.com/858441/252046-080-sdm-change-document.pdf; CPUID Table 3-17, subleaf 0DH.01H EBX and XCR0/IA32_XSS",
+    "MXCSR_cross_check": "https://cdrdv2-public.intel.com/874240/325462-090-sdm-vol-1-2abcd-3abcd-4.pdf; standard/compacted XRSTOR distinction corroborates the retained manual"
+  },
+  "bounded_scope": [
+    {
+      "impact": "medium",
+      "finding": "Unchanged Darwin ptrace/descriptor tests fail under parallel harness execution; exact serial cases pass. Root cause unknown. Final full-root evidence is explicitly serial; parallel reliability remains unresolved.",
+      "blocks_full_goal": false
+    },
+    {
+      "impact": "high",
+      "finding": "Physical Intel full FP/XSAVE/VMCS/TSC and SDK failure recovery have not executed. SDK-model success is not hardware qualification.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Remaining native MSR/intercept and exception/MMIO profiles, IRQ/device coherence, bounded native scheduling/SMP/replay, and A32 FP profile controls remain open.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "Public register-only set_state remains fallible and fenced after partial writes. Transactional restore requires the complete native records; raw CPU import requires caller-coordinated device consistency.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "Native relative-clock admission requires available macOS 11-or-later SDK APIs and the supported host XSAVE profile. Old-host loader lookup is late-bound; old physical hosts were not qualified.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "low",
+      "finding": "Full VMM tests include all physical backing, including the existing 4 GiB padding. They perform substantial streaming validation. Existing build roots are removed by guarded post-commit cleanup.",
+      "blocks_full_goal": false
+    }
+  ],
+  "quality_gates": {
+    "scope": "Component qualification only; full four-finding requirement coverage remains incomplete",
+    "assumptions": "NC1-NC9 retain explicit dependencies, stress tests and falsification probes",
+    "coverage": "Native records, FP projections, strict file admission, pending scalar transactions, current-session controls, destination notification rollback, clock epochs, original-binding rollback with elapsed ticks, cross-feature debug admission and partial SDK publication failures",
+    "reproducibility": "Exact source/environment hashes, commands, observed failures, full-target counts and no-skip qualification boundaries retained",
+    "edges": "Fixed PAT public profile retained; private VMCS fields preserved; unsupported native profiles and physical execution remain open",
+    "provenance": "SDK enum/type/signature contract compiled against local SDK; independent client and Intel manual retained",
+    "integrity": "Exact owned-path add/red workflow; primary checkout and protected guests preserved; guarded generated-folder cleanup"
+  },
+  "full_goal": "A32-FP/C-STATE/C-SMP/C-HVF remain incomplete; no full finding status promotion"
+}

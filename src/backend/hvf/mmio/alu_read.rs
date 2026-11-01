@@ -3,8 +3,9 @@ use super::{
     Context, ExitRecord, Flow, Instruction, OperandKind, PhysicalMemory, Plan, RegisterPart,
 };
 use crate::isa::x86_64::flags::{self, bits};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Operation {
     Add,
     Adc,
@@ -17,7 +18,7 @@ enum Operation {
     Test,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct AluReadInput {
     pub(crate) size: u8,
     length: u64,
@@ -38,11 +39,7 @@ impl AluReadInput {
             return Err("invalid MMIO ALU result destination".into());
         }
         if let Some((part, _)) = self.destination {
-            if part.index >= 16
-                || part.bits != u32::from(self.size) * 8
-                || !matches!(part.shift, 0 | 8)
-                || (part.shift != 0 && part.bits != 8)
-            {
+            if !part.valid() || part.bits != u32::from(self.size) * 8 {
                 return Err("invalid MMIO ALU register part".into());
             }
         }

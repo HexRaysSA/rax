@@ -3,6 +3,7 @@ use super::{bindings::*, native_memory};
 use crate::backend::CheckpointBoundary;
 use crate::error::{Error, Result};
 use std::collections::BTreeSet;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, RwLock};
 
 #[derive(Default)]
@@ -11,6 +12,9 @@ pub(super) struct Lifetime {
     pub(super) memory_layout: native_memory::Shared,
     pub(super) pending_irqs: Mutex<Vec<u32>>,
     pub(super) cpus: Mutex<BTreeSet<u32>>,
+    pub(super) configured: Mutex<Option<(u8, u64)>>,
+    pub(super) capture_clock: AtomicU64,
+    pub(super) resume_clock: Mutex<Option<u64>>,
     failure: Mutex<Option<String>>,
 }
 
@@ -41,6 +45,8 @@ impl Lifetime {
             .write()
             .map_err(|_| Error::Emulator("Intel HVF exclusion lock poisoned".into()))?;
         self.ready()?;
+        self.capture_clock
+            .store(super::intel_clock::Api::load()?.now(), Ordering::Release);
         Ok(CheckpointBoundary::held(self.identity(), guard))
     }
 }
