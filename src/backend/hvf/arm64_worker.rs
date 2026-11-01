@@ -264,7 +264,17 @@ impl VCpu for HvfArm64Vcpu {
     }
 
     fn run(&mut self) -> Result<VcpuExit> {
-        self.request(HvfArm64Core::run)
+        loop {
+            if let Some(exit) = self.run_host_slice(crate::vm::vcpu::DEFAULT_HOST_SLICE)? {
+                return Ok(exit);
+            }
+        }
+    }
+    fn supports_host_slices(&self) -> bool {
+        true
+    }
+    fn run_host_slice(&mut self, limit: std::time::Duration) -> Result<Option<VcpuExit>> {
+        self.request(move |core| core.run_host_slice(limit))
     }
 
     fn get_state(&self) -> Result<CpuState> {

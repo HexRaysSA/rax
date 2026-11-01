@@ -7,6 +7,12 @@ use crate::vm::snapshot::{BackendContext, HVF_AARCH64_CONTEXT};
 
 impl NativeVmLifetime {
     pub(super) fn ensure_live(&self) -> Result<()> {
+        self.cancellation.ready().map_err(|error| {
+            Error::Emulator(format!(
+                "native VM cancellation failed; entry and capture prohibited: {}",
+                hv_error_string(error)
+            ))
+        })?;
         if self.restore_failed.load(Ordering::Acquire) {
             Err(Error::Emulator(
                 "native VM is unavailable after failed checkpoint rollback".into(),

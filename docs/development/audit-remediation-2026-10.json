@@ -2726,7 +2726,9 @@
         "docs/development/hvf-native-scheduling/qualification.json",
         "docs/development/hvf-native-scheduling/README.md",
         "docs/development/hvf-interrupt-window/qualification.json",
-        "docs/development/hvf-interrupt-window/README.md"
+        "docs/development/hvf-interrupt-window/README.md",
+        "docs/development/arm-native-host-scheduling/qualification.json",
+        "docs/development/arm-native-host-scheduling/README.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2756,7 +2758,8 @@
         "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
         "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open.",
         "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure.",
-        "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure."
+        "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure.",
+        "ARM native host cancellation now uses finite host turns and preserves genuine guest exits, locally qualified with complete signed Apple Silicon debug/no-debug state binaries. Manual 2/4-CPU turns do not close VMM AP startup, IRQ, clocks/replay, complete backend/private checkpoint or Intel requirements. Independent early-PC MMIO defect remains open; see arm-native-host-scheduling/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2806,7 +2809,8 @@
         "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01",
         "a32-restricted-scalar-fp-modes-2026-11-01",
         "intel-native-host-scheduling-2026-11-01",
-        "intel-interrupt-window-ack-2026-11-01"
+        "intel-interrupt-window-ack-2026-11-01",
+        "arm-native-host-scheduling-2026-11-01"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3450,7 +3454,9 @@
         "docs/development/hvf-native-scheduling/qualification.json",
         "docs/development/hvf-native-scheduling/README.md",
         "docs/development/hvf-interrupt-window/qualification.json",
-        "docs/development/hvf-interrupt-window/README.md"
+        "docs/development/hvf-interrupt-window/README.md",
+        "docs/development/arm-native-host-scheduling/qualification.json",
+        "docs/development/arm-native-host-scheduling/README.md"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3475,7 +3481,8 @@
         "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
         "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open.",
         "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure.",
-        "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure."
+        "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure.",
+        "ARM native host cancellation now uses finite host turns and preserves genuine guest exits, locally qualified with complete signed Apple Silicon debug/no-debug state binaries. Manual 2/4-CPU turns do not close VMM AP startup, IRQ, clocks/replay, complete backend/private checkpoint or Intel requirements. Independent early-PC MMIO defect remains open; see arm-native-host-scheduling/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3513,7 +3520,8 @@
         "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01",
         "a32-restricted-scalar-fp-modes-2026-11-01",
         "intel-native-host-scheduling-2026-11-01",
-        "intel-interrupt-window-ack-2026-11-01"
+        "intel-interrupt-window-ack-2026-11-01",
+        "arm-native-host-scheduling-2026-11-01"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -197792,6 +197800,17 @@
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/cleanup-final.json",
       "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
       "pending_gates": "Original A32-FP/C-STATE/C-SMP/C-HVF finding statuses remain unchanged; physical/native remaining requirements stay open."
+    },
+    {
+      "id": "arm-native-host-scheduling-2026-11-01",
+      "status": "locally_validated_on_physical_Apple_Silicon_with_remaining_native_limits",
+      "parent": "b6e3302df07f2e6c06b841c9b45ebe01fc207acc",
+      "scope": "Separate ARM host cancellation from guest exits and provide finite coordinator turns with retained cancellation errors.",
+      "qualification": "docs/development/arm-native-host-scheduling/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/cleanup-final.json",
+      "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+      "pending_gates": "Original four-finding scope remains open; no full finding closure."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

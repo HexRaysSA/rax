@@ -1,0 +1,236 @@
+{
+  "group": "arm-native-host-scheduling-2026-11-01",
+  "parent": "b6e3302df07f2e6c06b841c9b45ebe01fc207acc",
+  "status": "locally_validated_on_physical_Apple_Silicon_with_remaining_native_limits",
+  "scope": "Separate ARM host cancellation from guest exits and provide finite coordinator turns with retained cancellation errors.",
+  "assumption_register": [
+    {
+      "id": "AS-1",
+      "assumption": "Cancellation can remain pending while a CPU is idle.",
+      "basis": "Retained Apple SDK hv_vcpus_exit discussion.",
+      "dependent_result": "Consume cancellation under the same deadline, without synthetic guest Hlt.",
+      "stress_test": "Idle cancellation followed by genuine shutdown; two/four CPUs over eight rounds.",
+      "falsification_probe": "A selected CPU never writes its marker or cancellation appears as Hlt.",
+      "status": "confirmed physical pre-fix witness; immediate-yield candidate falsified; deadline-preserving correction passed complete physical target"
+    },
+    {
+      "id": "AS-2",
+      "assumption": "The existing 5 ms cancellation worker and operational SDK can service a finite host turn, excluding host/kernel latency.",
+      "basis": "Existing worker period and retained SDK blocking/cancellation API.",
+      "dependent_result": "Admit intervals at least 5 ms; reject impossible conversions before entry.",
+      "stress_test": "Zero, 1 ns, period-minus-1 ns, 5 ms, 10 ms, u64::MAX ns and Duration::MAX.",
+      "falsification_probe": "Invalid limit enters the guest, resets a deadline, or claims a hard real-time guarantee.",
+      "status": "retained operational assumption; interval partitions and physical invalid-state preservation tested"
+    },
+    {
+      "id": "AS-3",
+      "assumption": "A nonzero SDK cancellation result must prohibit subsequent entry and capture.",
+      "basis": "Cancellation is required to regain control; a failure cannot be represented as a healthy export.",
+      "dependent_result": "Retain first nonzero result atomically; check in ensure_live.",
+      "stress_test": "Later successes, differing errors, extreme i32 statuses and eight concurrent writers.",
+      "falsification_probe": "A success clears a failure, a later failure replaces it, or entry/capture bypasses ensure_live.",
+      "status": "pure boundary/concurrency cases passed; no physical SDK fault injection claimed"
+    }
+  ],
+  "primary": {
+    "path": "docs/specifications/apple/hypervisor-sdk-27.2/hv_vcpu.h",
+    "sha256": "b2994fcff480214887eb1880e82dd69fb37855da32f28786cb2d9b402275f772",
+    "contract": "hv_vcpu_run blocks until an exit or hv_vcpus_exit cancellation. Cancellation while stopped makes the next run return without entering the guest."
+  },
+  "physical_baseline": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/physical-baseline-result-v1.json",
+  "iteration_failures": [
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/native-state-complete-physical-v2.json",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/native-state-complete-physical-v3.json"
+  ],
+  "physical_correction": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/native-state-complete-physical-v4.json",
+  "independent_MMIO_defect": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/independent-mmio-regression-v1.json",
+  "change_surface": {
+    "affected": [
+      "ARM native entry/owner frontend",
+      "VM cancellation readiness",
+      "owning state tests"
+    ],
+    "unaffected_with_reason": {
+      "direct_ISA_SMIR_JIT": "No guest semantics or lowering change",
+      "serialized_and_C_ABI_layout": "No field/version change",
+      "Intel_KVM": "ARM-specific native entry change",
+      "coordinator": "Uses existing opt-in interface without coordinator changes"
+    }
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "MMIO read PC advances before reply; independent physical failure retained.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Native full checkpoint, AP startup, IRQ, clock/replay and physical Intel requirements remain open.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Cancellation SDK failure cannot guarantee return of an already blocked foreign call.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "Nominal 5 ms worker resolution excludes SDK/kernel/host scheduling latency.",
+      "blocks_full_goal": false
+    },
+    {
+      "impact": "medium",
+      "finding": "Existing ignored native coordinator helper expects every execute_turn to return Some; it must be adapted to valid None host turns before end-to-end coordinator qualification.",
+      "evidence": "src/vm/runtime/native_checkpoint_tests.rs:run_native_coordinator_turn",
+      "blocks_full_goal": true
+    }
+  ],
+  "full_goal_complete": false,
+  "validation": {
+    "receipts": {
+      "fmt-workspace-v5": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/fmt-workspace-v5.json",
+      "native-debug-complete-physical-v5": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/native-debug-complete-physical-v5.json",
+      "portable-owning-registered-v5": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/portable-owning-registered-v5.json",
+      "check-workspace-all-targets-v5": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/check-workspace-all-targets-v5.json",
+      "build-workspace-all-targets-v5": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/build-workspace-all-targets-v5.json",
+      "clippy-workspace-all-targets-v5": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/clippy-workspace-all-targets-v5.json",
+      "native-no-debug-complete-physical-v5": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/native-no-debug-complete-physical-v5.json"
+    },
+    "commands": {
+      "fmt-workspace-v5": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "native-debug-complete-physical-v5": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_arm64_state-9887b6995545eede",
+        "--include-ignored",
+        "--test-threads=1"
+      ],
+      "portable-owning-registered-v5": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,smir-jit,debug",
+        "--test",
+        "hvf_arm64_mmio",
+        "--test",
+        "hvf_owner",
+        "--test",
+        "hvf_run_loop",
+        "--",
+        "--test-threads=1"
+      ],
+      "check-workspace-all-targets-v5": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "build-workspace-all-targets-v5": [
+        "cargo",
+        "build",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "clippy-workspace-all-targets-v5": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "native-no-debug-complete-physical-v5": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_arm64_state-4517bb65d58aed11",
+        "--include-ignored",
+        "--test-threads=1"
+      ]
+    },
+    "test_results": {
+      "fmt-workspace-v5": [],
+      "native-debug-complete-physical-v5": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "portable-owning-registered-v5": [
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "check-workspace-all-targets-v5": [],
+      "build-workspace-all-targets-v5": [],
+      "clippy-workspace-all-targets-v5": [],
+      "native-no-debug-complete-physical-v5": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    "build_receipts": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/native-debug-build-v5.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/native-no-debug-build-v5.json"
+    ],
+    "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/frozen-source-v5.json",
+    "final_file_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/final-files.json",
+    "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/environment.json",
+    "unchanged_parent_library_inputs": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/unchanged-parent-library-inputs-final.json",
+    "parent_proof_scope": "Parent complete portable root11541/5ignored, C API225 and19 C/C++ consumers retained only for unchanged 4316/63 input graphs; no current-group full-library or C API runtime execution claimed.",
+    "physical_Apple_Silicon_guest_execution": true,
+    "physical_Intel_execution": false,
+    "physical_scope": "Actual signed Apple M4 Hypervisor guests in complete debug/no-debug state binaries. Four hardware cases per binary, eight existing stack cases and four pure slice/error policy cases. Two/four CPUs are manually selected, not end-to-end VMM AP startup or deterministic replay.",
+    "SDK_failure_scope": "Pure first-error retention/concurrency tests and source entry/capture call-site review; no physical cancellation-failure injection.",
+    "doctest_scope": "No executable example or doctest changed. Historical parent executed zero doctests and ignored five; no current-group rerun.",
+    "counts_note": "Debug/no-debug/focused results overlap, not unique scenario totals.",
+    "physical_artifact_identity": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/physical-artifacts-final.json"
+  },
+  "iteration_failure_details": [
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/native-state-complete-physical-v2.json",
+      "cause": "Independent early-PC MMIO failure; remaining three failures were mutex poison cascade. Preserved separately for next semantic group. No MMIO-frontier fix claimed here."
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/native-state-complete-physical-v3.json",
+      "cause": "Immediate host yield on latched idle cancellation starved a selected native CPU. Production corrected by consuming cancellation under the original deadline."
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/portable-owning-v5.json",
+      "cause": "Validation command named nonexistent Cargo targets; no tests executed. Corrected registered targets passed in portable-owning-registered-v5."
+    }
+  ],
+  "workflow": {
+    "command": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+    "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/commit-receipt.json",
+    "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/cleanup-final.json"
+  }
+}

@@ -1,4 +1,6 @@
 //! Native ARM stack projection policy, independently executable on all hosts.
+#[path = "hvf_arm64_state/host_slice.rs"]
+mod host_slice;
 #[path = "../../../src/backend/hvf/arm64_stack.rs"]
 mod stack;
 #[test]

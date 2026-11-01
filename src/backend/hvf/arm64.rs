@@ -34,6 +34,10 @@ mod checkpoint_api;
 mod psci;
 #[path = "arm64_restore.rs"]
 mod restore;
+#[path = "arm64_run.rs"]
+mod run;
+#[path = "arm64_slice.rs"]
+mod slice;
 #[path = "arm64_stack.rs"]
 mod stack;
 #[path = "arm64_state.rs"]
@@ -146,6 +150,7 @@ impl Backend for HvfArm64Backend {
                 owner_teardown_failed: AtomicBool::new(false),
                 entered: AtomicBool::new(false),
                 restore_failed: AtomicBool::new(false),
+                cancellation: Arc::new(slice::Cancellation::default()),
                 #[cfg(test)]
                 test_gpr_failures: Mutex::new(BTreeMap::new()),
                 #[cfg(test)]
@@ -172,6 +177,7 @@ struct NativeVmLifetime {
     owner_teardown_failed: AtomicBool,
     entered: AtomicBool,
     restore_failed: AtomicBool,
+    cancellation: Arc<slice::Cancellation>,
     #[cfg(test)]
     test_gpr_failures: Mutex<BTreeMap<u32, (u32, u32)>>,
     #[cfg(test)]
@@ -670,19 +676,19 @@ impl HvfArm64Core {
         }
         // SDK WFI/timer handling can otherwise park the VMM loop indefinitely.
         let stop = self.kick_stop.clone();
+        let cancellation = self._vm.cancellation.clone();
         let vcpu = self.vcpu;
         std::thread::Builder::new()
             .name(format!("rax-hvf-arm64-kick-{}", self.id))
             .spawn(move || {
                 let mut handle = vcpu;
                 while !stop.load(Ordering::Relaxed) {
-                    std::thread::sleep(std::time::Duration::from_millis(5));
+                    std::thread::sleep(slice::KICK_PERIOD);
                     // SAFETY: the SDK accepts exit requests from another thread.
                     // The one-element handle list is local and initialized. Core
                     // joins this thread before destroying the handle or VM/backing.
-                    unsafe {
-                        hv_vcpus_exit(&mut handle, 1);
-                    }
+                    let result = unsafe { hv_vcpus_exit(&mut handle, 1) };
+                    cancellation.record(result);
                 }
             })
     }
@@ -916,143 +922,6 @@ impl HvfArm64Core {
 }
 
 impl HvfArm64Core {
-    fn run(&mut self) -> Result<VcpuExit> {
-        if let Some(exit) = self.power_entry_exit()? {
-            return Ok(exit);
-        }
-        if self.native_shutdown()? {
-            return Ok(VcpuExit::Shutdown);
-        }
-        if let Some(error) = self.io_completion_error.take() {
-            return Err(error);
-        }
-        if self.pending_io_reply.is_some() {
-            self.finish_pending_read()?;
-        }
-        if let Some(pending) = &self.pending_mmio_write {
-            return Ok(VcpuExit::MmioWrite {
-                addr: pending.address,
-                data: pending.data.clone(),
-            });
-        }
-        if let Some(pending) = self.pending_mmio_read {
-            return Ok(VcpuExit::MmioRead {
-                addr: pending.addr,
-                size: pending.size,
-            });
-        }
-        loop {
-            self._vm.ensure_live()?;
-            if let Some(exit) = self.power_entry_exit()? {
-                return Ok(exit);
-            }
-            self._vm.entered.store(true, Ordering::Release);
-            self.ever_entered = true;
-            let ret = unsafe { hv_vcpu_run(self.vcpu) };
-            if ret != HV_SUCCESS {
-                return Err(Error::Emulator(format!(
-                    "hv_vcpu_run failed: {}",
-                    hv_error_string(ret)
-                )));
-            }
-
-            let exit_info = unsafe { &*self.exit }.clone();
-
-            match exit_info.reason {
-                hv_exit_reason_t::HV_EXIT_REASON_CANCELED => {
-                    // Periodic kick from the exit thread: hand control back to
-                    // the VMM loop so it can poll the console and devices.
-                    return Ok(VcpuExit::Hlt);
-                }
-
-                hv_exit_reason_t::HV_EXIT_REASON_EXCEPTION => {
-                    let exc = exit_info.exception;
-                    let ec = exc.exception_class();
-
-                    match ec {
-                        EC_WFI_WFE => {
-                            // WFI/WFE is a hint; retire it and yield to the
-                            // VMM loop so console/devices get serviced. The
-                            // next hv_vcpu_run delivers any due vtimer exit.
-                            self.advance_pc(exc.instruction_length() as u64)?;
-                            std::thread::sleep(std::time::Duration::from_micros(100));
-                            return Ok(VcpuExit::Hlt);
-                        }
-
-                        EC_DATA_ABORT_LOWER | EC_DATA_ABORT_CURR => {
-                            // Data abort on unmapped memory: MMIO access
-                            return self.handle_data_abort(&exit_info);
-                        }
-
-                        EC_INST_ABORT_LOWER | EC_INST_ABORT_CURR => {
-                            let addr = exc.physical_address;
-                            return Ok(VcpuExit::Unknown(format!(
-                                "Instruction abort at {:#x}",
-                                addr
-                            )));
-                        }
-
-                        // SMCCC: PSCI calls arrive as HVC (preferred return
-                        // address already points past the HVC) or SMC (must
-                        // skip the instruction ourselves).
-                        EC_HVC64 => {
-                            if let Some(exit) = self.handle_psci()? {
-                                return Ok(exit);
-                            }
-                        }
-                        EC_SMC64 => {
-                            self.advance_pc(4)?;
-                            if let Some(exit) = self.handle_psci()? {
-                                return Ok(exit);
-                            }
-                        }
-
-                        EC_MSR_MRS => {
-                            self.handle_sysreg_trap(&exc)?;
-                        }
-
-                        EC_SVC64 => {
-                            // Supervisor call - let the guest handle it
-                            return Ok(VcpuExit::Exception(ec as u8));
-                        }
-
-                        _ => {
-                            let pc = self.read_gpr(HV_REG_PC).unwrap_or(0);
-                            return Ok(VcpuExit::Unknown(format!(
-                                "Exception class {:#x} at PC {:#x}, syndrome {:#x}",
-                                ec, pc, exc.syndrome
-                            )));
-                        }
-                    }
-                }
-
-                hv_exit_reason_t::HV_EXIT_REASON_VTIMER_ACTIVATED => {
-                    // Virtual timer fired: make PPI 27 pending in the guest's
-                    // redistributor. HVF masks the vtimer until the guest
-                    // deactivates the interrupt, then unmasks it.
-                    let ret = unsafe {
-                        hv_gic_set_redistributor_reg(
-                            self.vcpu,
-                            HV_GIC_REDISTRIBUTOR_REG_GICR_ISPENDR0,
-                            1u64 << HV_GIC_INT_EL1_VIRTUAL_TIMER,
-                        )
-                    };
-                    if ret != HV_SUCCESS {
-                        return Err(Error::Emulator(format!(
-                            "failed to pend vtimer PPI: {}",
-                            hv_error_string(ret)
-                        )));
-                    }
-                }
-
-                hv_exit_reason_t::HV_EXIT_REASON_UNKNOWN => {
-                    let pc = self.read_gpr(HV_REG_PC).unwrap_or(0);
-                    return Ok(VcpuExit::Unknown(format!("Unknown exit at PC {:#x}", pc)));
-                }
-            }
-        }
-    }
-
     fn get_state(&self) -> Result<CpuState> {
         self.native_state()
     }
