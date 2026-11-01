@@ -1,0 +1,253 @@
+{
+  "group": "intel-interrupt-window-ack-2026-11-01",
+  "parent": "d027a31ca1d7db671a4a3b3a4f93e18a37f69da1",
+  "status": "locally_validated_with_physical_Intel_limits",
+  "scope": "Acknowledge Intel primary interrupt-window control without altering other controls, guest frontiers, debugger completion or caller-owned IRQs.",
+  "assumption_register": [
+    {
+      "id": "IW-1",
+      "assumption": "A currently admitted Intel primary control word may retain interrupt-window bit2 across a checkpoint and generate exit7 when IF=1 without STI/MOV-SS blocking.",
+      "basis": "Retained Intel SDM Vol.3C26.6.2/Table26-6, AppendixC; actual checkpoint policy admits dynamic primary bit2.",
+      "dependent_result": "Acknowledge the window control before another native entry, preserving every other bit.",
+      "stress_test": "Restored finite/FOREVER entry, repeated independent windows, pending input and monitor-trap control.",
+      "falsification_probe": "A successful acknowledgement leaves bit2 set, changes another primary bit, retires a guest instruction or produces a debug completion.",
+      "status": "retained; complete actual-owner SDK models qualify retained and already-acknowledged controls; physical Intel behavior remains unknown"
+    },
+    {
+      "id": "IW-2",
+      "assumption": "An SDK error or unequal full control readback after acknowledgement makes continued native entry unsafe.",
+      "basis": "A setter can fail before or after changing the VMCS; existing native entry_result fences on propagated errors.",
+      "dependent_result": "Do not retry acknowledgement or enter again after read/write/readback failure.",
+      "stress_test": "Read-before, write-before, write-after, read-after, ignored setter, mutation of the monitor-trap bit.",
+      "falsification_probe": "A failed acknowledgement permits a second native entry or is reported as successful.",
+      "status": "confirmed for complete current owner/SDK models: all six read/write/readback partitions fence before another entry; physical SDK failure behavior remains unqualified"
+    },
+    {
+      "id": "IW-3",
+      "assumption": "Normal VM exit clears VM-entry interruption-information valid, whereas the failed-entry path preserves it.",
+      "basis": "Retained Intel SDM Vol.3C29.2 and28.8.",
+      "dependent_result": "SDK fixture fidelity only; no new backend valid-bit clearing operation.",
+      "stress_test": "Actual public interrupt injection, normal timer exit and failed entry carrying the prior event.",
+      "falsification_probe": "The model clears valid after a failed entry, retains valid after a normal exit, or a backend workaround replaces architectural hardware behavior.",
+      "status": "confirmed primary-derived model contract with explicit normal exit and allocated failed-entry reason33; no physical Intel event-delivery claim"
+    }
+  ],
+  "baseline": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/draft-probe-runtime-red-v2.json",
+    "passed": 2,
+    "failed": 5,
+    "filtered_out": 45,
+    "backend_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/draft-probe-source-manifest-v2.json",
+    "scope": "Observed actual pre-fix backend from the now-committed scheduling parent, with an SDM-derived SDK fixture. No physical Intel reproduction.",
+    "fixture_scheduling_compatibility": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/draft-sdk-scheduling-compatibility-v2.json",
+    "pure_candidate": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/window-ack-candidate-green-v1.json",
+    "pure_candidate_scope": "Six standalone policy cases only; not production or hardware qualification."
+  },
+  "change_surface": {
+    "affected": [
+      "Intel native interrupt-window callback",
+      "Portable acknowledgement policy",
+      "Complete actual owner/SDK test fixture",
+      "Qualification and remediation ledger"
+    ],
+    "unaffected_with_reason": {
+      "guest_decode_execute_SMIR_JIT": "No guest instruction or lowering semantics change",
+      "C_ABI_and_checkpoint_layout": "No published layout/enum/wire field change",
+      "KVM_and_native_Arm": "Intel-specific acknowledgement only",
+      "coordinator": "Entry selection and guest exit contract unchanged"
+    },
+    "wire_layout": "No serialized type, field, version or C ABI identifier changes."
+  },
+  "validation": {
+    "receipts": {
+      "fmt-workspace-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/fmt-workspace-v2.json",
+      "portable-owning-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/portable-owning-v2.json",
+      "intel-sdk-window-focused-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/intel-sdk-window-focused-v2.json",
+      "intel-sdk-debug-complete-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/intel-sdk-debug-complete-v2.json",
+      "intel-sdk-no-debug-complete-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/intel-sdk-no-debug-complete-v2.json",
+      "check-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/check-workspace-all-targets-v2.json",
+      "build-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/build-workspace-all-targets-v2.json",
+      "clippy-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/clippy-workspace-all-targets-v2.json",
+      "intel-clippy-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/intel-clippy-v2.json"
+    },
+    "commands": {
+      "fmt-workspace-v2": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "portable-owning-v2": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,smir-jit,debug",
+        "--test",
+        "hvf_event_injection",
+        "--test",
+        "hvf_run_loop",
+        "--",
+        "--test-threads=1"
+      ],
+      "intel-sdk-window-focused-v2": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/hvf_intel_owner-66fec0fc76b3166f",
+        "native_window::",
+        "--test-threads=1"
+      ],
+      "intel-sdk-debug-complete-v2": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/hvf_intel_owner-66fec0fc76b3166f",
+        "--test-threads=1"
+      ],
+      "intel-sdk-no-debug-complete-v2": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/x86_64-apple-darwin/debug/deps/hvf_intel_owner-fb90b457928a66a6",
+        "--test-threads=1"
+      ],
+      "check-workspace-all-targets-v2": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "build-workspace-all-targets-v2": [
+        "cargo",
+        "build",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "clippy-workspace-all-targets-v2": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "intel-clippy-v2": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,smir-jit,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib",
+        "--test",
+        "hvf_intel_owner"
+      ]
+    },
+    "test_results": {
+      "fmt-workspace-v2": [],
+      "portable-owning-v2": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "intel-sdk-window-focused-v2": [
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "intel-sdk-debug-complete-v2": [
+        {
+          "passed": 52,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "intel-sdk-no-debug-complete-v2": [
+        {
+          "passed": 49,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "check-workspace-all-targets-v2": [],
+      "build-workspace-all-targets-v2": [],
+      "clippy-workspace-all-targets-v2": [],
+      "intel-clippy-v2": []
+    },
+    "build_receipts": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/intel-sdk-debug-build-v2.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/intel-sdk-no-debug-build-v2.json"
+    ],
+    "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/frozen-source-v2.json",
+    "final_file_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/final-files.json",
+    "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/environment.json",
+    "unchanged_parent_library_inputs": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/unchanged-parent-library-inputs-v1.json",
+    "parent_proof_scope": "Parent complete root11541/5ignored, C API225 and19 C/C++ consumers are retained for unchanged portable/default-software input graphs. No current-group full-root/C API rerun or native C API hardware execution is claimed.",
+    "SDK_scope": "Actual Intel owner/entry/checkpoint/dispatch with modeled SDK storage; no Intel guest instruction or Hypervisor VM executes. Complete debug/no-debug binaries run separately with one test thread each; process-local model state and PID-scoped temporary files permit concurrent harness execution.",
+    "doctest_scope": "No doctest or executable documentation example changed. Parent doctest command executed zero examples and ignored five; not rerun for this component.",
+    "physical_Intel_execution": false,
+    "counts_note": "Focused and complete targets overlap; counts are not unique scenario totals."
+  },
+  "primary": {
+    "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "sections": [
+      "Vol.3C Section26.8 event-injection fields",
+      "Vol.3C Section29.2",
+      "Vol.3C Section28.8 VM-entry failure behavior"
+    ]
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Physical Intel SDK/hardware behavior is unknown on the current Apple Silicon host.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "General IDT-vectoring reinjection, native AP startup and other IRQ profiles remain separate work.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "The previous scheduling SDK fixture retained valid across normal exits. Corrected in this component, including an explicit normal/failed-entry distinction; no backend valid-bit clear added.",
+      "blocks_full_goal": false,
+      "resolved_in_component": true
+    },
+    {
+      "impact": "high",
+      "finding": "Physical Apple Silicon separately reproduced the existing ARM host-cancellation/Hlt mapping; no ARM production change is part of this group.",
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-host-scheduling-v1/physical-baseline-result-v1.json",
+      "blocks_full_goal": true
+    }
+  ],
+  "complexity": "O(1) acknowledgement work/storage; at most two reads and one write. Existing dispatch O(n) for n internal exits, O(1) host stack.",
+  "full_goal_complete": false,
+  "iteration_failure": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/intel-sdk-window-focused-v1.json",
+    "passed": 6,
+    "failed": 1,
+    "cause": "The pending-input test used get_state, which deliberately rejects an incomplete input. The test now inspects the supported complete checkpoint record. Production acknowledgement bytes are unchanged; corrected focused and full targets passed.",
+    "baseline_scope": "Pre-fix window failures occurred before this pending-state inspection; no API-error failure is claimed as an original audit defect."
+  },
+  "workflow": {
+    "command": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+    "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/commit-receipt.json",
+    "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/cleanup-final.json",
+    "scope": "Receipts are produced by subsequent guarded commit/cleanup; no push or primary merge."
+  }
+}

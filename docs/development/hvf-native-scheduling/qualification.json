@@ -311,15 +311,17 @@
     },
     {
       "impact": "high",
-      "finding": "The current interrupt-window handler does not acknowledge restored primary-control bit2. The actual compiled backend repeats windows in the independent SDK model; a separate production fix and five observed failing regression cases are prepared.",
-      "blocks_full_goal": true,
-      "followup": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/work-state-current.json"
+      "finding": "The scheduling-component baseline did not acknowledge restored primary-control bit2. Subsequently corrected and locally qualified in hvf-interrupt-window/qualification.json; physical Intel qualification remains separate.",
+      "blocks_full_goal": false,
+      "followup": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/work-state-current.json",
+      "resolved_by": "docs/development/hvf-interrupt-window/qualification.json"
     }
   ],
   "full_goal_complete": false,
   "followup_candidate": {
     "study": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/next-component-interrupt-window-study-v1.json",
-    "status": "Actual compiled backend continuation failure reproduced under an SDM-derived SDK model; see window-candidate-runtime-red-v1.json. No physical Intel reproduction or production fix is claimed in this component."
+    "status": "Actual compiled backend continuation failure reproduced under an SDM-derived SDK model; see window-candidate-runtime-red-v1.json. No physical Intel reproduction or production fix is claimed in this component.",
+    "resolved_by": "docs/development/hvf-interrupt-window/qualification.json"
   },
   "workflow": {
     "command": "git add -- <exact owned paths>; red -m --staged --run <same exact paths>",
@@ -344,6 +346,10 @@
   },
   "SDK_model_limits": {
     "entry_event_slot": "This component's SDK model retains VM-entry event valid across normal modeled exits. Intel SDM Vol.3C29.2 clears valid on normal VM exit;28.8 preserves it on failed entry. The retained-slot assertion is model storage evidence, not architectural event-delivery evidence. A corrected model and explicit normal/failed-entry regression are prepared in the separate interrupt-window group; no backend valid-bit clear is required.",
-    "followup_evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/work-state-current.json"
+    "followup_evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/work-state-current.json",
+    "resolved_by": {
+      "qualification": "docs/development/hvf-interrupt-window/qualification.json",
+      "scope": "Current fixture now clears event-valid on normal exits and preserves it for failed entry; original scheduling evidence remains historical model-storage evidence."
+    }
   }
 }

@@ -2724,7 +2724,9 @@
         "docs/development/a32-restricted-fp/qualification.json",
         "src/vm/runtime/a32_restricted_fp_tests.rs",
         "docs/development/hvf-native-scheduling/qualification.json",
-        "docs/development/hvf-native-scheduling/README.md"
+        "docs/development/hvf-native-scheduling/README.md",
+        "docs/development/hvf-interrupt-window/qualification.json",
+        "docs/development/hvf-interrupt-window/README.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2753,7 +2755,8 @@
         "Readable Intel SDK CPU/full-XSAVE/in-flight records, strict native file admission, coordinated rollback, current-debugger controls and common host-clock rebasing now have portable/SDK-model evidence. Physical Intel state restoration and guest execution, remaining native intercept/exception/MMIO/IRQ profiles and bounded native scheduling/SMP/replay remain open; no original finding closure. See hvf-native-context-qualification.json.",
         "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
         "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open.",
-        "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure."
+        "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure.",
+        "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2802,7 +2805,8 @@
         "intel-native-checkpoint-records-2026-10-31",
         "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01",
         "a32-restricted-scalar-fp-modes-2026-11-01",
-        "intel-native-host-scheduling-2026-11-01"
+        "intel-native-host-scheduling-2026-11-01",
+        "intel-interrupt-window-ack-2026-11-01"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3444,7 +3448,9 @@
         "docs/development/a32-restricted-fp/qualification.json",
         "src/vm/runtime/a32_restricted_fp_tests.rs",
         "docs/development/hvf-native-scheduling/qualification.json",
-        "docs/development/hvf-native-scheduling/README.md"
+        "docs/development/hvf-native-scheduling/README.md",
+        "docs/development/hvf-interrupt-window/qualification.json",
+        "docs/development/hvf-interrupt-window/README.md"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3468,7 +3474,8 @@
         "Readable Intel SDK CPU/full-XSAVE/in-flight records, strict native file admission, coordinated rollback, current-debugger controls and common host-clock rebasing now have portable/SDK-model evidence. Physical Intel state restoration and guest execution, remaining native intercept/exception/MMIO/IRQ profiles and bounded native scheduling/SMP/replay remain open; no original finding closure. See hvf-native-context-qualification.json.",
         "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
         "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open.",
-        "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure."
+        "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure.",
+        "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3505,7 +3512,8 @@
         "intel-native-checkpoint-records-2026-10-31",
         "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01",
         "a32-restricted-scalar-fp-modes-2026-11-01",
-        "intel-native-host-scheduling-2026-11-01"
+        "intel-native-host-scheduling-2026-11-01",
+        "intel-interrupt-window-ack-2026-11-01"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -4101,7 +4109,9 @@
         "docs/development/hvf-native-context-qualification.json",
         "docs/development/hvf-native-context.md",
         "docs/development/hvf-native-scheduling/qualification.json",
-        "docs/development/hvf-native-scheduling/README.md"
+        "docs/development/hvf-native-scheduling/README.md",
+        "docs/development/hvf-interrupt-window/qualification.json",
+        "docs/development/hvf-interrupt-window/README.md"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4124,7 +4134,8 @@
         "Permanent Intel SDK owner threads, retained VM/RAM lifetime, per-request caller clocks, matching checkpoint exclusion and fatal teardown fencing are locally qualified in hvf-intel-owner-qualification.json. Complete native private/XSAVE/in-flight state, bounded scheduling/IRQ conservation, remaining intercept profiles and physical Intel execution remain open; no full finding closure.",
         "Native syscall/SWAPGS/TSC_AUX MSRs now use SDK-managed execution backing, and public syscall fields restore through that backing. See hvf-native-msr-qualification.json. Full native private/XSAVE/in-flight records, including KERNEL_GS_BASE/TSC_AUX, coordinated rollback, remaining intercept/IRQ/scheduling profiles and physical Intel remain open; no original finding closure.",
         "Readable Intel SDK CPU/full-XSAVE/in-flight records, strict native file admission, coordinated rollback, current-debugger controls and common host-clock rebasing now have portable/SDK-model evidence. Physical Intel state restoration and guest execution, remaining native intercept/exception/MMIO/IRQ profiles and bounded native scheduling/SMP/replay remain open; no original finding closure. See hvf-native-context-qualification.json.",
-        "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure."
+        "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure.",
+        "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4140,7 +4151,8 @@
         "intel-native-owner-lifetime-2026-10-30",
         "intel-native-syscall-msr-state-2026-10-31",
         "intel-native-checkpoint-records-2026-10-31",
-        "intel-native-host-scheduling-2026-11-01"
+        "intel-native-host-scheduling-2026-11-01",
+        "intel-interrupt-window-ack-2026-11-01"
       ]
     },
     {
@@ -197769,6 +197781,17 @@
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-native-scheduling-v1/cleanup-final.json",
       "workflow": "git add -- <exact owned paths>; red -m --staged --run <same exact paths>",
       "pending_gates": "Original A32-FP/C-STATE/C-SMP/C-HVF findings remain incomplete; no original finding status promotion."
+    },
+    {
+      "id": "intel-interrupt-window-ack-2026-11-01",
+      "status": "locally_validated_with_physical_Intel_limits",
+      "parent": "d027a31ca1d7db671a4a3b3a4f93e18a37f69da1",
+      "scope": "Acknowledge Intel primary interrupt-window control without altering other controls, guest frontiers, debugger completion or caller-owned IRQs.",
+      "qualification": "docs/development/hvf-interrupt-window/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/intel-interrupt-window-v1/cleanup-final.json",
+      "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+      "pending_gates": "Original A32-FP/C-STATE/C-SMP/C-HVF finding statuses remain unchanged; physical/native remaining requirements stay open."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

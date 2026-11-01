@@ -1,6 +1,8 @@
 //! Primary-contract VM-entry event arbitration and host-failure partitions.
 #[path = "../../../src/backend/hvf/event_injection.rs"]
 mod event_injection;
+#[path = "../../../src/backend/hvf/interrupt_window.rs"]
+mod interrupt_window;
 use event_injection::{Access, Event, available, inject};
 
 #[derive(Default)]

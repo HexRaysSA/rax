@@ -29,6 +29,9 @@ mod native_clock;
 #[path = "hvf_intel_owner/native_scheduling.rs"]
 mod native_scheduling;
 
+#[path = "hvf_intel_owner/native_window.rs"]
+mod native_window;
+
 struct Cpu {
     owner: ThreadId,
     registers: BTreeMap<u32, u64>,
@@ -41,10 +44,26 @@ struct Cpu {
     deadlines: Vec<u64>,
     raw_entries: usize,
     pin_writes: usize,
+    window_exits: usize,
+    consecutive_windows: usize,
+    auto_ack_window: bool,
+    window_control_reads: usize,
+    window_control_writes: Vec<u64>,
+    window_fault: Option<WindowFault>,
     timer_visible: bool,
     delay_tpr_read: bool,
     finite_unsupported: bool,
     delay_return: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WindowFault {
+    ReadBefore,
+    WriteBefore,
+    WriteAfter,
+    ReadAfter,
+    IgnoreWrite,
+    ChangeOtherBit,
 }
 
 struct Fault {
@@ -204,6 +223,12 @@ pub unsafe extern "C" fn hv_vcpu_create(output: *mut u32, _: u64) -> i32 {
             deadlines: Vec::new(),
             raw_entries: 0,
             pin_writes: 0,
+            window_exits: 0,
+            consecutive_windows: 0,
+            auto_ack_window: false,
+            window_control_reads: 0,
+            window_control_writes: Vec::new(),
+            window_fault: None,
             timer_visible,
             delay_tpr_read: false,
             finite_unsupported: false,
@@ -312,7 +337,18 @@ pub unsafe extern "C" fn hv_vmx_vcpu_read_vmcs(id: u32, field: u32, output: *mut
     if output.is_null() {
         return -1;
     }
-    access(id, "read-vmcs", |cpu| {
+    let mut rejected = false;
+    let result = access(id, "read-vmcs", |cpu| {
+        if field == 0x4002 && cpu.window_exits != 0 {
+            cpu.window_control_reads += 1;
+            rejected = matches!(
+                (cpu.window_fault, cpu.window_control_reads),
+                (Some(WindowFault::ReadBefore), 1) | (Some(WindowFault::ReadAfter), 2)
+            );
+            if rejected {
+                return;
+            }
+        }
         let value = cpu.vmcs.get(&field).copied().unwrap_or(match field {
             0x2806 => 1 << 10,
             0x4816 => 0x209b,
@@ -321,12 +357,24 @@ pub unsafe extern "C" fn hv_vmx_vcpu_read_vmcs(id: u32, field: u32, output: *mut
         });
         // SAFETY: checked SDK output word; the substitute retains no pointer.
         unsafe { output.write(value) };
-    })
+    });
+    if rejected { -1 } else { result }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn hv_vmx_vcpu_write_vmcs(id: u32, field: u32, value: u64) -> i32 {
-    access(id, "write-vmcs", |cpu| {
+    let mut rejected = false;
+    let result = access(id, "write-vmcs", |cpu| {
+        if field == 0x4002 && cpu.window_exits != 0 {
+            cpu.window_control_writes.push(value);
+            if cpu.window_fault == Some(WindowFault::WriteBefore) {
+                rejected = true;
+                return;
+            }
+            if cpu.window_fault == Some(WindowFault::IgnoreWrite) {
+                return;
+            }
+        }
         let value = if field == 0x4000 {
             cpu.pin_writes += 1;
             // The model lets the SDK retain its host timer independently of
@@ -336,20 +384,29 @@ pub extern "C" fn hv_vmx_vcpu_write_vmcs(id: u32, field: u32, value: u64) -> i32
             value
         };
         cpu.vmcs.insert(field, value);
-    })
+        if field == 0x4002 && cpu.window_exits != 0 {
+            if cpu.window_fault == Some(WindowFault::ChangeOtherBit) {
+                *cpu.vmcs.get_mut(&field).unwrap() ^= 1 << 27;
+            }
+            rejected = cpu.window_fault == Some(WindowFault::WriteAfter);
+        }
+    });
+    if rejected { -1 } else { result }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn hv_vcpu_run(id: u32) -> i32 {
     access(id, "run", |cpu| {
         cpu.raw_entries += 1;
-        cpu.vmcs
-            .insert(0x4402, u64::from(cpu.exits.pop_front().unwrap_or(12)));
+        let reason = cpu.exits.pop_front().unwrap_or(12);
+        cpu.vmcs.insert(0x4402, u64::from(reason));
+        model_event_slot_after_exit(cpu, reason);
     })
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn hv_vcpu_run_until(id: u32, deadline: u64) -> i32 {
     let mut unsupported = false;
+    let mut window_budget_exhausted = false;
     let result = access(id, "run", |cpu| {
         cpu.deadlines.push(deadline);
         if deadline != u64::MAX && cpu.finite_unsupported {
@@ -362,24 +419,53 @@ pub extern "C" fn hv_vcpu_run_until(id: u32, deadline: u64) -> i32 {
         } else {
             *control &= !(1 << 6);
         }
-        cpu.vmcs.insert(
-            0x4402,
-            u64::from(
-                cpu.exits
-                    .pop_front()
-                    .unwrap_or(if deadline == u64::MAX { 12 } else { 52 }),
-            ),
-        );
+        // Intel SDM Vol.3C Table26-6: window exits occur before an instruction
+        // when primary bit2, RFLAGS.IF and the STI/MOV-SS blocking state admit.
+        let window = cpu.vmcs.get(&0x4002).copied().unwrap_or(0) & 4 != 0
+            && cpu.registers.get(&1).copied().unwrap_or(0) & 0x200 != 0
+            && cpu.vmcs.get(&0x4824).copied().unwrap_or(0) & 3 == 0;
+        let reason = if window {
+            // Bound a defective backend's consecutive reentries. Legitimate
+            // independent window notifications have no cumulative limit.
+            if cpu.consecutive_windows == 4 {
+                window_budget_exhausted = true;
+                return;
+            }
+            cpu.window_exits += 1;
+            cpu.consecutive_windows += 1;
+            if cpu.auto_ack_window {
+                *cpu.vmcs.get_mut(&0x4002).unwrap() &= !4;
+            }
+            7
+        } else {
+            cpu.consecutive_windows = 0;
+            cpu.exits
+                .pop_front()
+                .unwrap_or(if deadline == u64::MAX { 12 } else { 52 })
+        };
+        cpu.vmcs.insert(0x4402, u64::from(reason));
+        model_event_slot_after_exit(cpu, reason);
         if std::mem::take(&mut cpu.delay_return) {
             std::thread::sleep(std::time::Duration::from_millis(30));
         }
     });
-    if result == 0 && unsupported {
+    if result == 0 && window_budget_exhausted {
+        -1
+    } else if result == 0 && unsupported {
         0xfae9_400fu32 as i32
     } else {
         result
     }
 }
+// SDM Vol.3C29.2 normal VM exits clear the entry-event valid bit.
+// Section28.8 failed entries preserve it. The model does not execute a guest
+// instruction or implement general delivery/vectoring semantics.
+fn model_event_slot_after_exit(cpu: &mut Cpu, reason: u32) {
+    if reason & (1 << 31) == 0 {
+        *cpu.vmcs.entry(0x4016).or_default() &= !(1 << 31);
+    }
+}
+
 fn initial_fpstate() -> Vec<u8> {
     // The model follows the executing host's CPUID layout used by production.
     // SAFETY: CPUID has no memory preconditions on this Intel test target.

@@ -83,3 +83,6 @@ Vol. 3C Section 26.6.1/Table 26-5, Section 27.5.1 and Appendix C define
 pin-control bit 6, timer operation and exit reason 52.
 
 Component evidence and explicit assumptions are recorded in [qualification.json](qualification.json).
+
+Subsequent interrupt-window acknowledgement and the SDK event-slot model correction
+are qualified in [Intel interrupt-window acknowledgement](../hvf-interrupt-window/README.md).

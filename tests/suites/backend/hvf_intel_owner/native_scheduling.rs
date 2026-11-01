@@ -211,7 +211,9 @@ fn unsupported_timer_and_interrupted_delivery_fence_later_entry() {
         assert!(cpu.run().is_err());
         assert_eq!(entry_count(0), entered);
         if !unsupported {
-            assert_eq!(SDK.lock().unwrap().cpus[&0].vmcs[&0x4016], 0x8000_0b0d);
+            // Normal VM exit cleared valid before the backend rejected the
+            // unsupported interrupted delivery. No entry is permitted again.
+            assert_eq!(SDK.lock().unwrap().cpus[&0].vmcs[&0x4016], 0x0000_0b0d);
         }
         drop(cpu);
         drop(vm);

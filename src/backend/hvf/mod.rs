@@ -46,6 +46,8 @@ mod intel_vm_checkpoint;
 #[cfg(target_arch = "x86_64")]
 mod interrupt_shadow;
 #[cfg(target_arch = "x86_64")]
+mod interrupt_window;
+#[cfg(target_arch = "x86_64")]
 mod memory_layout;
 #[cfg(target_arch = "x86_64")]
 mod native_memory;
@@ -1153,7 +1155,27 @@ impl run_loop::ExitHandler for HvfCore {
         Ok(VcpuExit::Shutdown)
     }
     fn interrupt_window(&mut self) -> Result<()> {
-        Ok(())
+        struct Controls {
+            id: hv_vcpuid_t,
+        }
+        impl interrupt_window::Access for Controls {
+            type Error = Error;
+            fn read_controls(&mut self) -> Result<u64> {
+                vmcs_read(self.id, hv_vmx_vmcs_field_t::VMCS_CTRL_CPU_BASED)
+            }
+            fn write_controls(&mut self, value: u64) -> Result<()> {
+                vmcs_write(self.id, hv_vmx_vmcs_field_t::VMCS_CTRL_CPU_BASED, value)
+            }
+        }
+        interrupt_window::acknowledge(&mut Controls { id: self.vcpu_id })
+            .map_err(|error| match error {
+                interrupt_window::ControlError::Host(error) => error,
+                interrupt_window::ControlError::Readback { expected, observed } => {
+                    Error::Emulator(format!(
+                        "HVF interrupt-window control readback differs: expected {expected:#x}, observed {observed:#x}"
+                    ))
+                }
+            })
     }
     fn control_register(&mut self) -> Result<()> {
         let qualification = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_EXIT_QUALIFICATION)?;
