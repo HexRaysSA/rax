@@ -3,6 +3,10 @@
 use super::*;
 
 impl VCpu for X86_64Vcpu {
+    fn required_private_checkpoint_kind(&self) -> Option<u32> {
+        Some(crate::vm::snapshot::X86_64_CONTEXT)
+    }
+
     fn is_bootstrap_processor(&self) -> Result<bool> {
         Ok(self.apic_base & crate::isa::x86_64::identity::APIC_BASE_BSP != 0)
     }

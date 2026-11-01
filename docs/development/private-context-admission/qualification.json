@@ -1,0 +1,297 @@
+{
+  "scope": "Required per-CPU private records in present producer context sets; retain absent-section and standalone compatibility, sparse nonopaque framing, and stricter native shared graph policy.",
+  "parent": "71b310b6d7bf1525f8781678d4dfed4987cbe741",
+  "full_goal_complete": false,
+  "original_full_findings": [
+    "A32-FP",
+    "C-STATE",
+    "C-SMP",
+    "C-HVF"
+  ],
+  "source_sha256": {
+    "src/vm/vcpu/mod.rs": "643c6253585aa7b6461c081a0b8213f06f328aef6bc93a7276fe7689fa0df86d",
+    "src/vm/runtime/checkpoint_restore.rs": "6b4e24b91ae4652437d09c32274cb28bfe89bc8799340a8f5acc2f8958d9b805",
+    "src/backend/emulator/aarch32.rs": "72c4b67bddd34ae0ae1efbde8023262b9870a011c0e9eeff3a039d9277586a79",
+    "src/backend/emulator/aarch64/vcpu.rs": "27d544be377c8ac116cbc0c621757b3f132142928f3e6f9222e72b21a4381f08",
+    "src/backend/emulator/riscv/cpu.rs": "9fff66e34e3fbb1a698fddc7c8a2e7ef6f7a6b5e97a9385f32cdf2e7a698d8b5",
+    "src/isa/x86_64/cpu_vcpu.rs": "25592fac34b4cc9ba2543bd28fd2e9980dfeebb1e54aa3e81abaad6fa44dfd87",
+    "src/machine/s3c64xx/runtime.rs": "a430bf0750b3aec0bb53ba1ebd20b8a98c08e3c0146bd4bad55396aa0e1f5eeb",
+    "src/vm/runtime/backend_context_tests.rs": "81380d75c64739f444f7a136d8010397612d109e4ec5d70845acd8381cb514f1"
+  },
+  "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/environment.json",
+  "baseline": {
+    "S3C": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/baseline-behavior-v1.json",
+    "other_producers": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/other-baseline-observations-v2.json",
+    "behavioral_acceptance_failures": 4,
+    "legacy_projection_control_passed": true
+  },
+  "fixture_correction": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/v3-fixture-review.json",
+  "assumption_register": [
+    {
+      "id": "PG1",
+      "assumption": "A present producer set cannot substitute public-only state for a known mandatory private producer.",
+      "basis": "Five software exporters always return their typed private records; actual CPACR loss and four observed acceptance regressions.",
+      "dependent_result": "Target admission rejects a required missing row before publication.",
+      "stress_test": "Actual S3C full files for two/four CPUs, plus actual AArch64/RISC-V/x86 VMMs with CPU0 row removed.",
+      "falsification_probe": "Missing rows still accepted, wrong error stage, or original target guest/private/RAM/UART state changes.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "PG2",
+      "assumption": "Absent-section files retain explicitly limited projection compatibility.",
+      "basis": "Existing format and standalone API contracts; positive predecessor control.",
+      "dependent_result": "Do not reject a legacy projection-only file merely because target can export private state.",
+      "stress_test": "Two/four-CPU legacy files restore public state while private CPACR and UART remain target-local.",
+      "falsification_probe": "Legacy restore rejects or private state is fabricated/replaced.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "PG3",
+      "assumption": "AArch64 heartbeat age advances during pure capture and needs an epoch comparison.",
+      "basis": "Only bytes4256..4259 differed in each rejected-target record; Context.heartbeat_age uses elapsed host time.",
+      "dependent_result": "Compare every other private byte without masking an actual heartbeat epoch change.",
+      "stress_test": "Typed prefix roundtrip and overlap of inferred before/after capture epoch intervals.",
+      "falsification_probe": "Prefix/field mapping fails, other private bytes change, or epoch intervals do not overlap.",
+      "status": "revised_and_confirmed_by_typed_field_and_bounded_epoch_comparison"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "The original four full findings remain open, including native private/in-flight/IRQ/clock/replay and physical Intel requirements.",
+      "blocks_current_group": false,
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "A completely absent private section retains historical projection semantics; no state is reconstructed from absent bytes.",
+      "blocks_current_group": false
+    },
+    {
+      "impact": "medium",
+      "item": "External decorators need to forward the mandatory producer declaration; defaultNone preserves nonopaque/unknown implementations.",
+      "blocks_current_group": false
+    }
+  ],
+  "provenance": [
+    "src/vm/vcpu/mod.rs",
+    "src/vm/runtime/checkpoint_restore.rs",
+    "src/vm/snapshot/backend_context.rs",
+    "src/backend/emulator/aarch64/checkpoint.rs",
+    "src/host/time.rs",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/baseline-behavior-v1.json",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/other-baseline-observations-v2.json"
+  ],
+  "unrun": [
+    {
+      "gate": "Full ignored native CPU-profile module",
+      "reason": "Not rerun for this software admission group; known streaming FPSR failure remains unresolved."
+    },
+    {
+      "gate": "Physical Intel/native HVF-x86 execution and Intel cross-target compilation",
+      "reason": "Apple M4 Max host; selected existing toolchain contains only AArch64 macOS standard libraries; no installation/default changes."
+    }
+  ],
+  "utc": "2026-11-01T23:02:36.468187+00:00",
+  "status": "locally_validated_with_explicit_scope",
+  "tests": {
+    "owning-root-library-v4": {
+      "results": [
+        {
+          "passed": 11614,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "elapsed_seconds": 2245.825709207973,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/owning-root-library-v4.json"
+    },
+    "owning-C-API-library-v4": {
+      "results": [
+        {
+          "passed": 225,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 3.7136667080339976,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/owning-C-API-library-v4.json"
+    },
+    "native-file-continuation-v4": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 216.70691758400062,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/native-file-continuation-v4.json"
+    },
+    "doctests-workspace-v4": {
+      "results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 7.133736375020817,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/doctests-workspace-v4.json"
+    },
+    "green-absent_private_context_section_retains_explicit_s3c_projection_compatibility-v4": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 0.24684466602047905,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/green-absent_private_context_section_retains_explicit_s3c_projection_compatibility-v4.json"
+    },
+    "green-present_private_context_set_rejects_a_missing_s3c_cpu_before_target_mutation-v4": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 39.09990816703066,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/green-present_private_context_set_rejects_a_missing_s3c_cpu_before_target_mutation-v4.json"
+    },
+    "green-present_private_context_set_rejects_a_missing_software_aarch64_cpu-v4": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 17.768945707997773,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/green-present_private_context_set_rejects_a_missing_software_aarch64_cpu-v4.json"
+    },
+    "green-present_private_context_set_rejects_a_missing_software_riscv_cpu-v4": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 22.0293043749989,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/green-present_private_context_set_rejects_a_missing_software_riscv_cpu-v4.json"
+    },
+    "green-present_private_context_set_rejects_a_missing_software_x86_cpu-v4": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 20.469574124959763,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/green-present_private_context_set_rejects_a_missing_software_x86_cpu-v4.json"
+    }
+  },
+  "checks": {
+    "fmt-workspace-v4": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/fmt-workspace-v4.json",
+      "elapsed_seconds": 14.585829790972639
+    },
+    "repair-build-v4": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/repair-build-v4.json",
+      "elapsed_seconds": 198.80632562498795
+    },
+    "check-workspace-all-targets-v4": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/check-workspace-all-targets-v4.json",
+      "elapsed_seconds": 108.73966212500818
+    },
+    "build-workspace-all-targets-v4": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/build-workspace-all-targets-v4.json",
+      "elapsed_seconds": 85.77858045801986
+    },
+    "clippy-workspace-all-targets-v4": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/clippy-workspace-all-targets-v4.json",
+      "elapsed_seconds": 101.6365076249931
+    }
+  },
+  "host": {
+    "utc": "2026-11-01T22:24:25.087539+00:00",
+    "sw_vers": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+    "cpu": "Apple M4 Max",
+    "sdk": "27.2",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+    "RAX_MACHINE": null,
+    "physical_Intel": false
+  },
+  "required_full_root_rows": [
+    "present_private_context_set_rejects_a_missing_s3c_cpu_before_target_mutation",
+    "present_private_context_set_rejects_a_missing_software_aarch64_cpu",
+    "present_private_context_set_rejects_a_missing_software_riscv_cpu",
+    "present_private_context_set_rejects_a_missing_software_x86_cpu",
+    "absent_private_context_section_retains_explicit_s3c_projection_compatibility",
+    "file_restore_preserves_the_current_session_and_rebinds_imported_cpu_controls",
+    "backend_context_files_resume_one_two_four_actual_s3c_adapters"
+  ],
+  "C_CPP": {
+    "programs": 19,
+    "ABI_objects": 7,
+    "engine_optional_features": [],
+    "provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/C-CPP-provenance-v4.json"
+  },
+  "wire": {
+    "private_set_tag": "RAXBCK01",
+    "schema": 1,
+    "framing_unchanged": true,
+    "generic_sparse_rows_still_supported": true,
+    "absent_section_projection_compatibility_retained": true
+  },
+  "static_review": {
+    "utc": "2026-11-01T22:26:20.811987+00:00",
+    "source_hashes_match": true,
+    "no_new_unsafe": true,
+    "wire_framing_unchanged": true,
+    "backend_context_source_sha256": "b7d0bdc02ddb90ba404130188cf7fe22095b4504c8171789878146cca6eeaf17",
+    "admission_before_all_setters": true,
+    "previous_public_state_validation_priority_retained": true,
+    "absent_section_path_unchanged": true,
+    "native_shared_graph_policy_unchanged": true,
+    "producer_classes": 5,
+    "observed_acceptance_regressions": 4,
+    "heartbeat_field_mapping_and_epoch_test_passed": true,
+    "line_counts": {
+      "src/vm/vcpu/mod.rs": 707,
+      "src/vm/runtime/checkpoint_restore.rs": 505,
+      "src/backend/emulator/aarch32.rs": 623,
+      "src/backend/emulator/aarch64/vcpu.rs": 436,
+      "src/backend/emulator/riscv/cpu.rs": 783,
+      "src/isa/x86_64/cpu_vcpu.rs": 481,
+      "src/machine/s3c64xx/runtime.rs": 1331,
+      "src/vm/runtime/backend_context_tests.rs": 758
+    }
+  },
+  "quality_gates": {
+    "normative_judgment_required": false,
+    "assumptions_reconciled": true,
+    "current_group_coverage_complete": true,
+    "full_goal_complete": false,
+    "byte_counts_and_epoch_interval_check_reproducible": true,
+    "known_legacy_native_limits_explicit": true,
+    "repository_and_executable_provenance_recorded": true,
+    "bounded_scope_explicit": true,
+    "source_frozen_through_execution": true
+  },
+  "known_independent_native_failure": "Earlier complete native CPU-profile qualification retains streaming FPSR reentry failure; not repaired or rerun by this group."
+}

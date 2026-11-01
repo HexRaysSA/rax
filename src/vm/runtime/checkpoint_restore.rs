@@ -146,6 +146,15 @@ impl Vmm {
         }
         for (vcpu, (state, emulator, context)) in self.vcpus.iter().zip(&states) {
             vcpu.validate_checkpoint_for_machine(&snapshot.config, state, emulator, *context)?;
+            if bundle.backend_contexts().is_some()
+                && context.is_none()
+                && let Some(kind) = vcpu.required_private_checkpoint_kind()
+            {
+                return Err(Error::InvalidConfig(format!(
+                    "checkpoint missing private context for vCPU {} (producer {kind})",
+                    vcpu.id()
+                )));
+            }
         }
         let resources = match bundle.resources() {
             Some(resources) => resources.prepare()?,

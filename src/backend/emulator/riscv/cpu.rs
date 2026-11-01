@@ -526,6 +526,10 @@ impl RiscVVcpu {
 }
 
 impl VCpu for RiscVVcpu {
+    fn required_private_checkpoint_kind(&self) -> Option<u32> {
+        Some(crate::vm::snapshot::RISCV_CONTEXT)
+    }
+
     fn validate_checkpoint_for_machine(
         &self,
         config: &crate::config::CheckpointConfig,

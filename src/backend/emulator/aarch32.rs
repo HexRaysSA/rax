@@ -438,6 +438,10 @@ impl Aarch32Vcpu {
 }
 
 impl VCpu for Aarch32Vcpu {
+    fn required_private_checkpoint_kind(&self) -> Option<u32> {
+        Some(crate::vm::snapshot::AARCH32_CONTEXT)
+    }
+
     fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
         Ok(Some(crate::vm::snapshot::BackendContext {
             kind: crate::vm::snapshot::AARCH32_CONTEXT,

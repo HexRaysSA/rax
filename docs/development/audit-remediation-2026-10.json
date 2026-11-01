@@ -2736,7 +2736,8 @@
         "docs/development/lapic-selected-clock/qualification.json",
         "docs/development/lapic-selected-clock/README.md",
         "docs/development/pc-machine-checkpoint/qualification.json",
-        "docs/development/s3c-uart-publication/qualification.json"
+        "docs/development/s3c-uart-publication/qualification.json",
+        "docs/development/private-context-admission/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2772,7 +2773,8 @@
         "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open.",
         "Selected-clock LAPIC behavior is qualified separately; retired VMM construction, deterministic default/native retirement, RTC and external-event replay remain open. See lapic-selected-clock/qualification.json.",
         "Nine PC-owned modeled devices, media/resources and partial protocol continuations are locally qualified in pc-machine-checkpoint/qualification.json. This does not close native backend/private state, full IRQ routing, RTC/deterministic-clock/replay, external-writer exclusion or physical Intel requirements.",
-        "Complete-private S3C CPU/bridge replacement and shared UART capture/admission/publication are locally qualified in s3c-uart-publication/qualification.json. Historical/missing-private and arbitrary native/setter paths retain narrower nontransactional contracts; complete original backend/in-flight/IRQ/clock/replay and physical Intel requirements remain open."
+        "Complete-private S3C CPU/bridge replacement and shared UART capture/admission/publication are locally qualified in s3c-uart-publication/qualification.json. Historical/missing-private and arbitrary native/setter paths retain narrower nontransactional contracts; complete original backend/in-flight/IRQ/clock/replay and physical Intel requirements remain open.",
+        "Present private-set completeness for declared software producers is qualified in private-context-admission/qualification.json after four observed omission-acceptance regressions, including actual S3C CPACR loss. Absent-section projection/standalone compatibility remains explicitly limited; complete original native/in-flight/IRQ/clock/replay and physical Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2826,7 +2828,8 @@
         "arm-native-host-scheduling-2026-11-01",
         "arm-native-mmio-read-frontier-2026-11-01",
         "pc-machine-owned-checkpoint-2026-11-01",
-        "s3c-shared-uart-publication-2026-11-01"
+        "s3c-shared-uart-publication-2026-11-01",
+        "required-software-private-contexts-2026-11-01"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -197913,6 +197916,20 @@
       "parent": "1f919dc2542648afeab2df690530b15fd425ac83",
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/commit-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s3c-uart-publication-v1/cleanup-final.json",
+      "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+      "full_goal_complete": false
+    },
+    {
+      "id": "required-software-private-contexts-2026-11-01",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE"
+      ],
+      "qualification": "docs/development/private-context-admission/qualification.json",
+      "scope": "Mandatory private rows for declared software producers in present context sets; reject before mutation while retaining absent-section, nonopaque sparse and standalone compatibility.",
+      "parent": "71b310b6d7bf1525f8781678d4dfed4987cbe741",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/software-private-graph-v1/cleanup-final.json",
       "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
       "full_goal_complete": false
     }

@@ -66,6 +66,12 @@ Backend kinds that the target does not implement are rejected before mutation.
 Files without this extension retain their previous projection import behavior;
 their omitted private state cannot be recovered.
 
+A present producer set must include the private record required by each known
+software target. An absent row no longer silently selects public-only restore
+for such a CPU. Generic sparse framing and absent-section compatibility remain
+separate contracts. See [required private records](private-context-admission/README.md)
+for the producer declaration, rejection boundary and qualification.
+
 For C CPUs and B encoded context bytes, framing takes O(C + B) time and space,
 within the limits above. Model capture/import costs also include the producer's
 CPU fields, UART FIFO, and device registers. These are algorithmic bounds.

@@ -488,6 +488,13 @@ pub trait VCpu: Send {
         Ok(None)
     }
 
+    /// Required per-CPU producer when a bundle carries a private context set.
+    /// An absent section retains legacy projection compatibility. Shared
+    /// backend graphs may impose stricter requirements independently.
+    fn required_private_checkpoint_kind(&self) -> Option<u32> {
+        None
+    }
+
     /// Capture a public/private pair at the caller's backend boundary. Native
     /// producers override this to derive both projections from one capture.
     /// A RAM scope is supplied during complete capture; rollback preparation

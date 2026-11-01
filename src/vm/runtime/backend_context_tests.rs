@@ -564,3 +564,195 @@ fn complete_s3c_capture_excludes_the_shared_uart_writer() {
         "complete capture admitted a shared UART writer inside its boundary"
     );
 }
+
+#[test]
+fn present_private_context_set_rejects_a_missing_s3c_cpu_before_target_mutation() {
+    let fixture = Fixture::new();
+    for count in [2, 4] {
+        let source = fixture.source(count);
+        let mut bundle = source.take_snapshot_bundle(7 * u64::from(count)).unwrap();
+        let mut entries = bundle.take_backend_contexts().unwrap().entries().to_vec();
+        let source_cpacr = profile_cpu(entries[0].as_ref().unwrap())
+            .1
+            .cp15
+            .cpacr
+            .bits();
+        assert_ne!(source_cpacr, 0x00f0_0000);
+        entries[0] = None;
+        let bundle = bundle.with_backend_contexts(entries).unwrap();
+        assert!(bundle.execution().is_some());
+        bundle.save(&fixture.checkpoint).unwrap();
+        let loaded = SnapshotBundle::load(&fixture.checkpoint).unwrap();
+        let mut target = Vmm::new_resume(fixture.config(count)).unwrap();
+        target
+            .s3c_uart
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .queue_input(&[0x77]);
+        let before = contexts(&target);
+        let memory = target.guest_mem.try_read_all().unwrap();
+        let result = target.restore_snapshot_bundle(&loaded);
+        if result.is_ok() {
+            let actual = contexts(&target);
+            let observed = profile_cpu(actual[0].as_ref().unwrap()).1.cp15.cpacr.bits();
+            panic!(
+                "accepted incomplete private set: CPU0 CPACR={observed:#010x}, source={source_cpacr:#010x}"
+            );
+        }
+        let error = result.unwrap_err().to_string().to_ascii_lowercase();
+        assert!(
+            error.contains("private") && error.contains("missing"),
+            "{error}"
+        );
+        assert_eq!(contexts(&target), before);
+        assert_eq!(target.guest_mem.try_read_all().unwrap(), memory);
+        assert!(Vmm::new_resume_bundle(fixture.config(count), &loaded).is_err());
+        std::fs::remove_file(&fixture.checkpoint).unwrap();
+    }
+}
+
+#[test]
+fn absent_private_context_section_retains_explicit_s3c_projection_compatibility() {
+    let fixture = Fixture::new();
+    for count in [2, 4] {
+        let source = fixture.source(count);
+        let bundle = SnapshotBundle::new(source.take_snapshot(7 * u64::from(count)).unwrap())
+            .with_cpus(source.capture_cpu_states().unwrap())
+            .unwrap();
+        assert!(bundle.backend_contexts().is_none());
+        bundle.save(&fixture.checkpoint).unwrap();
+        let loaded = SnapshotBundle::load(&fixture.checkpoint).unwrap();
+        let mut target = Vmm::new_resume(fixture.config(count)).unwrap();
+        target
+            .s3c_uart
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .queue_input(&[0x77]);
+        target.restore_snapshot_bundle(&loaded).unwrap();
+        for (id, cpu) in target.vcpus.iter().enumerate() {
+            assert_eq!(
+                crate::codec::serialize(&cpu.get_state().unwrap()).unwrap(),
+                crate::codec::serialize(&loaded.cpus().unwrap().entries()[id].state).unwrap()
+            );
+            let private = cpu.capture_backend_context().unwrap().unwrap();
+            assert_eq!(profile_cpu(&private).1.cp15.cpacr.bits(), 0x00f0_0000);
+        }
+        assert_eq!(
+            target.s3c_uart.as_ref().unwrap().lock().unwrap().read(0x24),
+            0x77
+        );
+        std::fs::remove_file(&fixture.checkpoint).unwrap();
+    }
+}
+
+struct PrivateComparison {
+    records: Vec<Option<BackendContext>>,
+    heartbeat_epochs: Vec<Option<(crate::host::time::Instant, crate::host::time::Instant)>>,
+}
+
+fn private_comparison(vm: &Vmm) -> PrivateComparison {
+    let begin = crate::host::time::Instant::now();
+    let mut records = contexts(vm);
+    let end = crate::host::time::Instant::now();
+    let mut heartbeat_epochs = Vec::new();
+    for record in &mut records {
+        let Some(record) = record
+            .as_mut()
+            .filter(|r| r.kind == crate::vm::snapshot::AARCH64_CONTEXT)
+        else {
+            heartbeat_epochs.push(None);
+            continue;
+        };
+        assert!(record.data.starts_with(b"RAXA6403"));
+        let mut cursor = std::io::Cursor::new(&record.data[8..]);
+        let prefix: (u32, crate::isa::arm::aarch64::cpu::CoreCheckpoint, u64, u64) =
+            crate::codec::deserialize_from(&mut cursor).unwrap();
+        let start = 8 + cursor.position() as usize;
+        assert_eq!(
+            crate::codec::serialize(&prefix).unwrap(),
+            record.data[8..start]
+        );
+        let age: std::time::Duration = crate::codec::deserialize_from(&mut cursor).unwrap();
+        let finish = 8 + cursor.position() as usize;
+        assert_eq!(
+            crate::codec::serialize(&age).unwrap(),
+            record.data[start..finish]
+        );
+        // Age advances during pure capture. Preserve every other byte and
+        // separately require that both observations imply the same epoch.
+        record.data[start..finish]
+            .copy_from_slice(&crate::codec::serialize(&std::time::Duration::ZERO).unwrap());
+        heartbeat_epochs.push(Some((
+            begin.checked_sub(age).unwrap(),
+            end.checked_sub(age).unwrap(),
+        )));
+    }
+    PrivateComparison {
+        records,
+        heartbeat_epochs,
+    }
+}
+
+fn assert_present_private_set_admits_no_missing_required_cpu(arch: ArchKind) {
+    let fixture = Fixture::new();
+    let mut config = fixture.config(2);
+    config.arch = arch;
+    let source = Vmm::new_resume(config.clone()).unwrap();
+    let mut bundle = source.take_snapshot_bundle(0).unwrap();
+    let mut entries = bundle.take_backend_contexts().unwrap().entries().to_vec();
+    assert_eq!(entries.len(), 2);
+    assert!(
+        entries.iter().all(Option::is_some),
+        "{arch:?} fixture lacks its producer records"
+    );
+    entries[0] = None;
+    let incomplete = bundle.with_backend_contexts(entries).unwrap();
+    let mut target = Vmm::new_resume(config).unwrap();
+    let before = private_comparison(&target);
+    let memory = target.guest_mem.try_read_all().unwrap();
+    let error = target
+        .restore_snapshot_bundle(&incomplete)
+        .expect_err("accepted a missing CPU record in the present private producer set")
+        .to_string()
+        .to_ascii_lowercase();
+    assert!(
+        error.contains("private") && error.contains("missing"),
+        "{arch:?}: {error}"
+    );
+    let after = private_comparison(&target);
+    assert_eq!(after.records, before.records);
+    for (id, (before, after)) in before
+        .heartbeat_epochs
+        .iter()
+        .zip(&after.heartbeat_epochs)
+        .enumerate()
+    {
+        match (before, after) {
+            (Some((b0, b1)), Some((a0, a1))) => {
+                assert!(b0 <= a1 && a0 <= b1, "heartbeat epoch changed for CPU{id}");
+            }
+            (None, None) => {}
+            _ => panic!("heartbeat producer changed for CPU{id}"),
+        }
+    }
+    assert_eq!(target.guest_mem.try_read_all().unwrap(), memory);
+}
+
+#[test]
+fn present_private_context_set_rejects_a_missing_software_aarch64_cpu() {
+    assert_present_private_set_admits_no_missing_required_cpu(ArchKind::Aarch64);
+}
+
+#[test]
+fn present_private_context_set_rejects_a_missing_software_riscv_cpu() {
+    assert_present_private_set_admits_no_missing_required_cpu(ArchKind::Riscv64);
+}
+
+#[test]
+fn present_private_context_set_rejects_a_missing_software_x86_cpu() {
+    assert_present_private_set_admits_no_missing_required_cpu(ArchKind::X86_64);
+}

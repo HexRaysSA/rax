@@ -782,6 +782,10 @@ enum StepOutcome {
 }
 
 impl VCpu for Armv6Vcpu {
+    fn required_private_checkpoint_kind(&self) -> Option<u32> {
+        Some(crate::vm::snapshot::S3C64XX_CONTEXT)
+    }
+
     fn supports_stepping(&self) -> bool {
         true
     }
