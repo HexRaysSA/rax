@@ -28,6 +28,15 @@ impl HvfArm64Core {
         if self.pending_io_reply.is_some() {
             self.finish_pending_read()?;
         }
+        if self
+            .pending_mmio_write
+            .as_ref()
+            .is_some_and(|pending| !pending.awaits_dispatch())
+        {
+            // The device write already succeeded. Retry only its absolute PC;
+            // returning output here would dispatch the device a second time.
+            self.complete_io_out()?;
+        }
         if let Some(pending) = &self.pending_mmio_write {
             return Ok(Some(VcpuExit::MmioWrite {
                 addr: pending.address,

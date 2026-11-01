@@ -8,7 +8,7 @@ mod legacy;
 #[cfg(test)]
 #[path = "arm64_context_format_tests.rs"]
 mod tests;
-const TAG: &[u8; 8] = b"RAXHVA05";
+const TAG: &[u8; 8] = b"RAXHVA06";
 const LIMIT: usize = 128 * 1024;
 pub(crate) const MAX_CPU_CONTEXT: u64 = (LIMIT + TAG.len()) as u64;
 const VM_TAG: &[u8; 8] = b"RAXHVM02";
@@ -80,11 +80,9 @@ pub(crate) struct PendingRead {
     /// Absolute post-load PC; None preserves a V4 already-retired read.
     pub retire_pc: Option<u64>,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct PendingWrite {
-    pub address: u64,
-    pub data: Vec<u8>,
-}
+#[path = "arm64_output.rs"]
+mod output;
+pub(crate) use output::{PendingWrite, Retirement};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Context {
     pub id: u32,
@@ -339,6 +337,15 @@ impl Context {
             }
         }
         if let Some(pending) = &self.pending_write {
+            if let Some(phase) = &pending.retirement {
+                let before = self.public.regs.pc == phase.next_pc.wrapping_sub(4);
+                let after = phase.acknowledged && self.public.regs.pc == phase.next_pc;
+                if phase.next_pc & 3 != 0 || !(before || after) {
+                    return Err(invalid(
+                        "pending scalar store disagrees with its PC frontier",
+                    ));
+                }
+            }
             if self.pending_read.is_some()
                 || !matches!(pending.data.len(), 1 | 2 | 4 | 8)
                 || pending
@@ -414,8 +421,10 @@ impl Context {
         }
         let context = if let Some(raw) = bytes.strip_prefix(TAG) {
             crate::codec::deserialize_limited::<_, LIMIT>(raw).map_err(invalid)?
+        } else if let Some(raw) = bytes.strip_prefix(b"RAXHVA05") {
+            legacy::decode_v5(raw)?
         } else if let Some(raw) = bytes.strip_prefix(b"RAXHVA04") {
-            legacy::decode(raw)?
+            legacy::decode_v4(raw)?
         } else {
             return Err(invalid("unknown producer/version tag"));
         };

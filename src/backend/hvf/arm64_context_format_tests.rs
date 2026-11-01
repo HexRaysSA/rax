@@ -21,6 +21,7 @@ fn terminal_state_roundtrips_with_each_dormant_io_phase() {
     read.shutdown = true;
     let mut write = stopped.clone();
     write.pending_write = Some(PendingWrite {
+        retirement: None,
         address: 0x0900_0030,
         data: vec![0xa5],
     });
@@ -53,6 +54,7 @@ fn terminal_io_still_rejects_malformed_and_conflicting_transactions() {
     orphan_error.pending_reply = None;
     let mut conflict = base;
     conflict.pending_write = Some(PendingWrite {
+        retirement: None,
         address: 0x09000030,
         data: vec![0xa5],
     });
@@ -79,6 +81,7 @@ fn undispatched_scalar_outputs_roundtrip_without_an_input_transaction() {
         context.pending_reply = None;
         context.completion_error = None;
         context.pending_write = Some(PendingWrite {
+            retirement: None,
             address: 0x0900_0030,
             data: (0..width).map(|index| 0xa5 ^ index).collect(),
         });
@@ -398,7 +401,8 @@ fn missing_private_register_cannot_pass_target_profile_admission() {
 }
 
 #[test]
-fn v4_reads_preserve_the_saved_frontier_and_migrate_to_v5_without_a_second_retirement() {
+fn v4_reads_preserve_the_saved_frontier_and_migrate_to_current_version_without_a_second_retirement()
+{
     for bytes in [
         include_bytes!("../../../tests/fixtures/backend/hvf_arm64_mmio/v4/read.rxcpu").as_slice(),
         include_bytes!("../../../tests/fixtures/backend/hvf_arm64_mmio/v4/reply.rxcpu").as_slice(),
@@ -410,7 +414,7 @@ fn v4_reads_preserve_the_saved_frontier_and_migrate_to_v5_without_a_second_retir
         let context = Context::decode(bytes).unwrap();
         assert_eq!(context.pending_read.as_ref().unwrap().retire_pc, None);
         let encoded = context.encode().unwrap();
-        assert_eq!(&encoded[..8], b"RAXHVA05");
+        assert_eq!(&encoded[..8], b"RAXHVA06");
         assert_eq!(Context::decode(&encoded).unwrap(), context);
         for end in [0, 7, 8, bytes.len() - 1] {
             assert!(Context::decode(&bytes[..end]).is_err());
@@ -449,4 +453,111 @@ fn deferred_read_frontiers_cover_pre_reply_and_partial_pc_writeback_including_wr
         unaligned.pending_read.as_mut().unwrap().retire_pc = Some(pc.wrapping_add(2));
         assert!(unaligned.encode().is_err());
     }
+}
+
+#[test]
+fn v5_wire_records_preserve_deferred_reads_and_historical_store_frontiers() {
+    for (bytes, write, deferred) in [
+        (
+            include_bytes!("../../../tests/fixtures/backend/hvf_arm64_mmio/v5/output.rxcpu")
+                .as_slice(),
+            true,
+            false,
+        ),
+        (
+            include_bytes!(
+                "../../../tests/fixtures/backend/hvf_arm64_mmio/v5/terminal-output.rxcpu"
+            )
+            .as_slice(),
+            true,
+            false,
+        ),
+        (
+            include_bytes!("../../../tests/fixtures/backend/hvf_arm64_mmio/v5/deferred-read.rxcpu")
+                .as_slice(),
+            false,
+            true,
+        ),
+        (
+            include_bytes!("../../../tests/fixtures/backend/hvf_arm64_mmio/v5/legacy-read.rxcpu")
+                .as_slice(),
+            false,
+            false,
+        ),
+    ] {
+        let context = Context::decode(bytes).unwrap();
+        let pc = context.public.regs.pc;
+        if write {
+            assert!(context.pending_read.is_none());
+            assert!(context.pending_write.as_ref().unwrap().retirement.is_none());
+        } else {
+            assert_eq!(
+                context.pending_read.as_ref().unwrap().retire_pc,
+                if deferred {
+                    Some(pc.wrapping_add(4))
+                } else {
+                    None
+                }
+            );
+        }
+        let encoded = context.encode().unwrap();
+        assert!(encoded.starts_with(b"RAXHVA06"));
+        assert_eq!(Context::decode(&encoded).unwrap(), context);
+    }
+}
+
+#[test]
+fn deferred_output_records_check_acknowledgement_and_partial_pc_frontiers() {
+    for before in [0x40001234, u64::MAX - 3] {
+        for acknowledged in [false, true] {
+            for after in [false, true] {
+                let mut context = fixture(false, false);
+                context.pending_read = None;
+                context.pending_reply = None;
+                context.completion_error = None;
+                context.public.regs.pc = if after {
+                    before.wrapping_add(4)
+                } else {
+                    before
+                };
+                context.pending_write = Some(PendingWrite {
+                    address: 0x09000030,
+                    data: vec![0xa5; 8],
+                    retirement: Some(Retirement {
+                        next_pc: before.wrapping_add(4),
+                        acknowledged,
+                    }),
+                });
+                if !after || acknowledged {
+                    let encoded = context.encode().unwrap();
+                    assert_eq!(Context::decode(&encoded).unwrap(), context);
+                } else {
+                    assert!(context.encode().is_err());
+                }
+                context
+                    .pending_write
+                    .as_mut()
+                    .unwrap()
+                    .retirement
+                    .as_mut()
+                    .unwrap()
+                    .next_pc |= 1;
+                assert!(context.encode().is_err());
+            }
+        }
+    }
+}
+
+#[test]
+fn v4_output_record_keeps_the_already_retired_pc() {
+    let bytes = include_bytes!("../../../tests/fixtures/backend/hvf_arm64_mmio/v4/output.rxcpu");
+    let context = Context::decode(bytes).unwrap();
+    assert_eq!(context.public.regs.pc, 0x40001234);
+    let output = context.pending_write.as_ref().unwrap();
+    assert_eq!(output.address, 0x09000030);
+    assert_eq!(output.data, vec![0xa5; 8]);
+    assert!(output.retirement.is_none());
+    let encoded = context.encode().unwrap();
+    assert!(encoded.starts_with(b"RAXHVA06"));
+    assert_eq!(Context::decode(&encoded).unwrap(), context);
 }

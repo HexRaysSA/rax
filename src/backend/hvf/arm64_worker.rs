@@ -336,10 +336,12 @@ impl VCpu for HvfArm64Vcpu {
                 Err(Error::Emulator(
                     "native MMIO read awaits a complete reply".into(),
                 ))
-            } else if core.pending_mmio_write.is_some() {
-                Err(Error::Emulator(
-                    "native MMIO store awaits successful caller dispatch".into(),
-                ))
+            } else if let Some(pending) = &core.pending_mmio_write {
+                Err(Error::Emulator(if pending.awaits_dispatch() {
+                    "native MMIO store awaits successful caller dispatch".into()
+                } else {
+                    "native MMIO store awaits PC retirement".into()
+                }))
             } else {
                 Ok(())
             }

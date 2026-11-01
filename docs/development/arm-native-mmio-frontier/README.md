@@ -62,3 +62,5 @@ checkpoint module:26 passed, one existing streaming-FPSR failure retained.
 The corrected park fixtures preserve every input/register/PC assertion.
 No full four-finding completion is claimed. Exact receipts and feature scopes
 are in qualification.json.
+
+The subsequent [scalar store acknowledgement group](../arm-native-store-frontier/README.md) qualifies V6 deferred output and explicit V4/V5 output compatibility; the read-group evidence retains its recorded version and scope.

@@ -66,6 +66,14 @@ impl HvfArm64Core {
                 "cannot change PC during a pending native read; complete the input or use set_state for explicit replacement".into(),
             ));
         }
+        if self
+            .pending_mmio_write
+            .as_ref()
+            .is_some_and(|pending| pending.retirement.is_some())
+            && pc != self.read_gpr(HV_REG_PC)?
+        {
+            return Err(Error::InvalidConfig("cannot change PC during a pending native store; acknowledge the output or use set_state for explicit replacement".into()));
+        }
         Ok(())
     }
 

@@ -888,7 +888,17 @@ fn native_pending_mmio_store_survives_real_file_before_device_dispatch() {
             "the undispatched native store must survive file restoration"
         );
         assert!(target.vcpus[0].io_completion_result().is_err());
-        assert_eq!(private_states(&target)[0].public.regs.pc, CODE + 4);
+        let pending = private_states(&target).remove(0);
+        assert_eq!(pending.public.regs.pc, CODE);
+        let phase = pending
+            .pending_write
+            .as_ref()
+            .unwrap()
+            .retirement
+            .as_ref()
+            .unwrap();
+        assert_eq!(phase.next_pc, CODE + 4);
+        assert!(!phase.acknowledged);
     }
     // Exercise the actual coordinator and device-dispatch acknowledgement.
     target.run().unwrap();
@@ -1427,3 +1437,6 @@ mod standalone;
 
 #[path = "native_terminal_io_tests.rs"]
 mod terminal_io;
+
+#[path = "native_store_retirement_tests.rs"]
+mod store_retirement;

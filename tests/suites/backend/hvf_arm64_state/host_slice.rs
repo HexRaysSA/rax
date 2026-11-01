@@ -287,4 +287,115 @@ mod physical {
         };
         assert_eq!((state.regs.pc, state.regs.x[0]), (8, value));
     }
+    #[test]
+    #[ignore = "requires physical Apple Silicon and signed Hypervisor executable"]
+    fn scalar_store_widths_and_zero_registers_wait_for_acknowledgement() {
+        let _serial = SERIAL
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        for (width, word) in [
+            (1, 0x39000020),
+            (2, 0x79000020),
+            (4, 0xb9000020),
+            (8, 0xf9000020),
+        ] {
+            for zero in [false, true] {
+                check_store_width(width, word, zero);
+            }
+        }
+    }
+    fn check_store_width(width: usize, word: u32, zero: bool) {
+        let vm = HvfArm64Backend::new().unwrap().create_vm().unwrap();
+        let memory = GuestMemoryWrapper::new(0x4000).unwrap();
+        let mut image = vec![0u8; 0x4000];
+        for (chunk, word) in image
+            .chunks_exact_mut(4)
+            .zip([word | if zero { 31 } else { 0 }, 0x14000000])
+        {
+            chunk.copy_from_slice(&word.to_le_bytes());
+        }
+        memory.write_all(&image).unwrap();
+        vm.as_any()
+            .downcast_ref::<HvfArm64Vm>()
+            .unwrap()
+            .register_memory(&memory, 0, 0x4000)
+            .unwrap();
+        let mut cpu = vm
+            .create_vcpu(0, Arc::new(memory.memory().clone()))
+            .unwrap();
+        let mut state = cpu.get_state().unwrap();
+        let CpuState::Aarch64(s) = &mut state else {
+            panic!()
+        };
+        s.regs.pc = 0;
+        s.regs.pstate = 0x3c5;
+        s.regs.sp = 0x4000;
+        s.regs.x[0] = 0x8877665544332211;
+        s.regs.x[1] = 0x5000;
+        s.sregs.sctlr_el1 &= !((1 << 25) | (1 << 12) | (1 << 2) | 1);
+        s.sregs.cntp_ctl_el0 = 0;
+        s.sregs.cntv_ctl_el0 = 0;
+        cpu.set_state(&state).unwrap();
+        let expected = if zero {
+            vec![0; width]
+        } else {
+            0x8877665544332211u64.to_le_bytes()[..width].to_vec()
+        };
+        let mut trapped = false;
+        for _ in 0..16 {
+            if let Some(exit) = cpu.run_host_slice(Duration::from_millis(10)).unwrap() {
+                match exit {
+                    VcpuExit::MmioWrite { addr: 0x5000, data } => {
+                        assert_eq!(data, expected);
+                        trapped = true;
+                        break;
+                    }
+                    other => panic!("unexpected {other:?}"),
+                }
+            }
+        }
+        assert!(trapped);
+        let CpuState::Aarch64(before) = cpu.get_state().unwrap() else {
+            panic!()
+        };
+        assert_eq!(
+            before.regs.pc, 0,
+            "store width={width} zero={zero} retired before acknowledgement"
+        );
+        let snapshot = rax::codec::serialize(&cpu.get_state().unwrap()).unwrap();
+        assert!(cpu.set_current_pc(0x100).is_err());
+        assert_eq!(
+            rax::codec::serialize(&cpu.get_state().unwrap()).unwrap(),
+            snapshot
+        );
+        let mut overlay = cpu.get_state().unwrap();
+        let CpuState::Aarch64(s) = &mut overlay else {
+            panic!()
+        };
+        s.regs.x[0] = 0xdeadbeef;
+        cpu.update_state(&overlay).unwrap();
+        for _ in 0..2 {
+            assert!(
+                matches!(cpu.run_host_slice(Duration::from_millis(10)).unwrap(),Some(VcpuExit::MmioWrite{addr:0x5000,data}) if data==expected)
+            );
+            let CpuState::Aarch64(s) = cpu.get_state().unwrap() else {
+                panic!()
+            };
+            assert_eq!(s.regs.pc, 0);
+        }
+        cpu.complete_io_out().unwrap();
+        assert!(cpu.io_completion_result().is_ok());
+        assert!(cpu.complete_io_out().is_err());
+        let CpuState::Aarch64(done) = cpu.get_state().unwrap() else {
+            panic!()
+        };
+        assert_eq!((done.regs.pc, done.regs.x[0]), (4, 0xdeadbeef));
+        assert!(
+            cpu.run_host_slice(Duration::from_millis(10))
+                .unwrap()
+                .is_none()
+        );
+        drop(cpu);
+        drop(vm);
+    }
 }

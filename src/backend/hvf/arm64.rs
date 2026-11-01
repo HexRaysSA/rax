@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use tracing::{debug, info, warn};
 use vm_memory::{Address, GuestAddress, GuestMemory, GuestMemoryMmap, GuestMemoryRegion};
 
-use crate::backend::arm64_hvf_context::PendingWrite;
+use crate::backend::arm64_hvf_context::{PendingWrite, Retirement};
 use crate::error::{Error, Result};
 use crate::vm::memory::GuestMemoryWrapper;
 use crate::vm::vcpu::{
@@ -154,6 +154,8 @@ impl Backend for HvfArm64Backend {
                 #[cfg(test)]
                 test_gpr_failures: Mutex::new(BTreeMap::new()),
                 #[cfg(test)]
+                test_gpr_after_failures: Mutex::new(BTreeMap::new()),
+                #[cfg(test)]
                 test_kick_spawn_failure: AtomicBool::new(false),
             }),
         }))
@@ -180,6 +182,8 @@ struct NativeVmLifetime {
     cancellation: Arc<slice::Cancellation>,
     #[cfg(test)]
     test_gpr_failures: Mutex<BTreeMap<u32, (u32, u32)>>,
+    #[cfg(test)]
+    test_gpr_after_failures: Mutex<BTreeMap<u32, (u32, u32)>>,
     #[cfg(test)]
     test_kick_spawn_failure: AtomicBool,
 }
@@ -296,6 +300,15 @@ impl HvfArm64Vm {
             .unwrap()
             .insert(id, (reg, count));
     }
+    #[cfg(test)]
+    pub(crate) fn fail_next_gpr_writes_after_mutation(&self, id: u32, reg: u32, count: u32) {
+        self.lifetime
+            .test_gpr_after_failures
+            .lock()
+            .unwrap()
+            .insert(id, (reg, count));
+    }
+
     /// Register guest RAM with the VM.
     ///
     /// Only the window `[ram_base, ram_base + ram_size)` of the flat backing
@@ -586,7 +599,7 @@ struct HvfArm64Core {
     mem: Arc<GuestMemoryMmap>,
     /// MMIO read awaiting completion by the VMM.
     pending_mmio_read: Option<PendingMmioRead>,
-    /// Retired scalar store awaiting successful caller dispatch.
+    /// Scalar output retaining its caller acknowledgement and PC retirement.
     pending_mmio_write: Option<PendingWrite>,
     pending_io_reply: Option<Vec<u8>>,
     /// Report a failed completion write before another hardware entry.
@@ -707,25 +720,54 @@ impl HvfArm64Core {
         Ok(value)
     }
 
-    /// Write a general-purpose register
+    /// Write a general-purpose register.
     fn write_gpr(&self, reg: hv_reg_t, value: u64) -> Result<()> {
+        Self::write_gpr_for(&self._vm, self.id, self.vcpu, reg, value)
+    }
+
+    // Separate scalar SDK identity from the retained transaction's field borrow.
+    fn write_gpr_for(
+        _lifetime: &NativeVmLifetime,
+        _id: u32,
+        vcpu: hv_vcpu_t,
+        reg: hv_reg_t,
+        value: u64,
+    ) -> Result<()> {
         #[cfg(test)]
         {
-            let mut failures = self._vm.test_gpr_failures.lock().unwrap();
-            if let Some((selected, remaining)) = failures.get_mut(&self.id) {
+            let mut failures = _lifetime.test_gpr_failures.lock().unwrap();
+            if let Some((selected, remaining)) = failures.get_mut(&_id) {
                 if *selected == reg && *remaining != 0 {
                     *remaining -= 1;
                     return Err(Error::Emulator("injected native GPR write failure".into()));
                 }
             }
         }
-        let ret = unsafe { hv_vcpu_set_reg(self.vcpu, reg, value) };
+        // SAFETY: the permanent owner supplies its retained live SDK handle;
+        // the enclosing request excludes entry/publication and these scalar
+        // arguments contain no borrowed FFI storage.
+        let ret = unsafe { hv_vcpu_set_reg(vcpu, reg, value) };
         if ret != HV_SUCCESS {
             return Err(Error::Emulator(format!(
                 "Failed to write register {}: {}",
                 reg,
                 hv_error_string(ret)
             )));
+        }
+        #[cfg(test)]
+        {
+            // Exercise a writer that publishes its architectural value before
+            // reporting failure. The real SDK setter above already succeeded;
+            // this is a test-wrapper fault, not an actual SDK error status.
+            let mut failures = _lifetime.test_gpr_after_failures.lock().unwrap();
+            if let Some((selected, remaining)) = failures.get_mut(&_id) {
+                if *selected == reg && *remaining != 0 {
+                    *remaining -= 1;
+                    return Err(Error::Emulator(
+                        "injected native GPR write failure after mutation".into(),
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -793,8 +835,8 @@ impl HvfArm64Core {
 
     /// Handle a data abort exception: emulate the trapped load/store as an
     /// MMIO transaction. A scalar read retains its faulting PC until complete
-    /// input is published by `complete_io_in`. Stores retain the existing
-    /// advance-before-dispatch convention pending a separate acknowledgement fix.
+    /// input is published by `complete_io_in`. A store retains its faulting PC
+    /// until the caller acknowledges successful output dispatch.
     fn handle_data_abort(&mut self, exit_info: &hv_vcpu_exit) -> Result<VcpuExit> {
         let exc = exit_info.exception;
         let iss = exc.iss();
@@ -821,12 +863,19 @@ impl HvfArm64Core {
                 4 => (data as u32).to_le_bytes().to_vec(),
                 _ => data.to_le_bytes().to_vec(),
             };
-            // Obtain the complete operand before advancing PC. The caller
-            // acknowledges only after dispatch; entry and capture retain it.
-            self.advance_pc(exc.instruction_length() as u64)?;
+            if exc.instruction_length() != 4 {
+                return Err(Error::Emulator(
+                    "native scalar MMIO store requires a four-byte AArch64 instruction".into(),
+                ));
+            }
+            let next_pc = self.read_gpr(HV_REG_PC)?.wrapping_add(4);
             self.pending_mmio_write = Some(PendingWrite {
                 address: addr,
                 data: data_bytes.clone(),
+                retirement: Some(Retirement {
+                    next_pc,
+                    acknowledged: false,
+                }),
             });
             Ok(VcpuExit::MmioWrite {
                 addr,
@@ -971,9 +1020,14 @@ impl HvfArm64Core {
     }
 
     fn complete_io_out(&mut self) -> Result<()> {
+        let lifetime = &self._vm;
+        let id = self.id;
+        let vcpu = self.vcpu;
         self.pending_mmio_write
-            .take()
-            .ok_or_else(|| Error::Emulator("native output has no pending store".into()))?;
+            .as_mut()
+            .ok_or_else(|| Error::Emulator("native output has no pending store".into()))?
+            .acknowledge(|pc| Self::write_gpr_for(lifetime, id, vcpu, HV_REG_PC, pc))?;
+        self.pending_mmio_write = None;
         Ok(())
     }
 

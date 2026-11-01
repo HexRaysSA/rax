@@ -277,3 +277,6 @@ fn pc_error_before_mutation_retries_without_double_advance() {
 fn pc_error_after_mutation_retries_without_double_advance() {
     partial_writeback_failure(31, true)
 }
+
+#[path = "../../../src/backend/hvf/arm64_output.rs"]
+mod output;

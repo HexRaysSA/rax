@@ -326,5 +326,9 @@
     "command": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
     "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/commit-receipt.json",
     "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-mmio-frontier-v1/cleanup-final.json"
+  },
+  "store_acknowledgement_followup": {
+    "qualification": "docs/development/arm-native-store-frontier/qualification.json",
+    "scope": "Selected scalar output is qualified separately in V6; full-goal limits remain open."
   }
 }

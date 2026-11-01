@@ -485,6 +485,10 @@ fn native_terminal_pending_transactions_survive_complete_file_admission() {
             if id == 1 {
                 if phase == 3 {
                     context.pending_write = Some(PendingWrite {
+                        retirement: Some(crate::backend::arm64_hvf_context::Retirement {
+                            next_pc: context.public.regs.pc.wrapping_add(4),
+                            acknowledged: false,
+                        }),
                         address: 0x09000030,
                         data: vec![0xab],
                     });

@@ -1,0 +1,244 @@
+{
+  "group": "arm-native-store-acknowledgement-2026-11-01",
+  "utc": "2026-11-01T18:45:34.741359+00:00",
+  "parent": "0978db1eda589a4f01faf28f1963cee0b97fb125",
+  "status": "locally_validated_with_independent_native_FPSR_failure",
+  "scope": "Native scalar store fault-PC retention, acknowledged retirement without output redispatch, and explicit V4/V5 compatibility.",
+  "production_integrated": true,
+  "full_goal_complete": false,
+  "primary": {
+    "path": "docs/specifications/arm/pauth/shared_pseudocode-2025-12.xml",
+    "sha256": "84c3572ef27cb9a7b12cba314d62d1b8afd71c770ee92d818cbdb4dc6ac37d6b",
+    "symbol": "aarch64/exceptions/aborts/AArch64_DataAbort",
+    "contract": "Data abort returns to the faulting instruction. RAX execution.rs defines dispatch before acknowledgement."
+  },
+  "assumption_register": [
+    {
+      "id": "ST-1",
+      "assumption": "A caller acknowledgement means output has already been dispatched successfully.",
+      "basis": "src/vm/runtime/execution.rs dispatches before complete_io_out.",
+      "dependent_result": "Persist acknowledged status before fallible PC publication.",
+      "stress_test": "PC setter fails before or after mutation, then checkpoint/reentry/retry.",
+      "falsification_probe": "A completed device output is dispatched again after a failed PC write.",
+      "status": "confirmed",
+      "qualification": "Actual VMM dispatch precedes acknowledgement. Portable setter errors before/after mutation and actual owner-thread failures before and after a successful SDK PC mutation, with file continuation conserve one dispatch. Failed or partial device dispatch is outside this acknowledgement contract."
+    },
+    {
+      "id": "ST-2",
+      "assumption": "V4/V5 native store records already advanced PC at trap and require no further retirement write.",
+      "basis": "Frozen exact producers, emitted output fixtures and actual V5 hardware record atPC4 before acknowledgement.",
+      "dependent_result": "Explicit V4/V5 migration to retirement=None.",
+      "stress_test": "All legacy input/output phases and explicit legacy PC redirects.",
+      "falsification_probe": "Import or acknowledgement changes the retained legacy PC or another field.",
+      "status": "confirmed",
+      "qualification": "Exact V4/V5 producer fixtures decode in the owning library. Actual V5 CPU-record imports preserve ordinary and redirected PC; no whole legacy VM-file claim."
+    },
+    {
+      "id": "ST-3",
+      "assumption": "An externally observed output effect survives VM replacement; the fixture reattaches the same host sink.",
+      "basis": "Existing PL011 snapshot contract excludes replaying host output; the new probe models that external observation.",
+      "dependent_result": "Count one device dispatch across native PC failure and file continuation.",
+      "stress_test": "One/two/four CPUs and a prepared post-write PC frontier.",
+      "falsification_probe": "The target dispatches the already acknowledged output again.",
+      "status": "confirmed",
+      "qualification": "One/two/four-CPU files reattach the same external sink. A real SDK PC write followed by a test-wrapper error exercises the post-write frontier; no arbitrary callback serialization or claim that the SDK itself returned an error after mutation."
+    }
+  ],
+  "acceptance": {
+    "frontier": "Require IL4. Stage next=(PC+4) mod2^64 without changing PC.",
+    "retry": "Persist acknowledgement before fallible absolute PC write; retain phase on failure and retry PC without output.",
+    "overlay": "Reject changed-PC overlays before mutation while output is deferred; retain equal-PC and explicit replacement contracts.",
+    "legacy": "Read V4/V5 writes with retirement=None; acknowledge without another PC setter.",
+    "complexity": "O(1) retirement time/phase space; scalar payload is1/2/4/8bytes."
+  },
+  "change_surface": {
+    "affected": [
+      "Native ARM scalar output",
+      "Private V6 codec and explicit V4/V5 readers",
+      "Snapshot admission and native file continuation",
+      "Portable C API engine codec"
+    ],
+    "unaffected_with_reason": {
+      "direct_ISA_SMIR_JIT": "No decoder, execution or lowering edits.",
+      "Intel_KVM": "No source changes.",
+      "public_C_ABI": "No public layout, enum, function or ownership changes."
+    }
+  },
+  "validation": {
+    "receipts": {
+      "fmt-workspace-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/fmt-workspace-v2.json",
+      "check-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/check-workspace-all-targets-v2.json",
+      "debug-complete-hvf_arm64_state-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/debug-complete-hvf_arm64_state-v2.json",
+      "debug-complete-hvf_arm64_mmio-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/debug-complete-hvf_arm64_mmio-v2.json",
+      "width-physical-green-v1": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/width-physical-green-v1.json",
+      "V5-physical-import-v1": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/V5-physical-import-v1.json",
+      "native-owner-complete-physical-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/native-owner-complete-physical-v2.json",
+      "native-store-file-focused-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/native-store-file-focused-v2.json",
+      "build-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/build-workspace-all-targets-v2.json",
+      "clippy-workspace-all-targets-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/clippy-workspace-all-targets-v2.json",
+      "owning-root-library-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/owning-root-library-v2.json",
+      "owning-C_API-library-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/owning-C_API-library-v2.json",
+      "no-debug-complete-hvf_arm64_state-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/no-debug-complete-hvf_arm64_state-v2.json",
+      "no-debug-complete-hvf_arm64_mmio-v2": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/no-debug-complete-hvf_arm64_mmio-v2.json",
+      "C-CPP-consumers-v1": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/C-CPP-consumers-v1.json"
+    },
+    "test_results": {
+      "fmt-workspace-v2": [],
+      "check-workspace-all-targets-v2": [],
+      "debug-complete-hvf_arm64_state-v2": [
+        {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "debug-complete-hvf_arm64_mmio-v2": [
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "width-physical-green-v1": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "V5-physical-import-v1": [
+        {
+          "passed": 25,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "native-owner-complete-physical-v2": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "native-store-file-focused-v2": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "build-workspace-all-targets-v2": [],
+      "clippy-workspace-all-targets-v2": [],
+      "owning-root-library-v2": [
+        {
+          "passed": 11554,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "owning-C_API-library-v2": [
+        {
+          "passed": 225,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "no-debug-complete-hvf_arm64_state-v2": [
+        {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "no-debug-complete-hvf_arm64_mmio-v2": [
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "C-CPP-consumers-v1": []
+    },
+    "native_checkpoint": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/native-checkpoint-complete-physical-v2.json",
+      "test_results": [
+        {
+          "passed": 27,
+          "failed": 1,
+          "ignored": 0
+        }
+      ],
+      "scope": "Complete28-case module; existing streaming FPSR failure remains explicit."
+    },
+    "CPP_provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/C-CPP-provenance-v1.json",
+    "CPP_scope": "Fresh current C/C++ runtime consumers and ABI compilations; root optional features empty. No native HVF or JIT C/C++ execution claim. All1830 compiler input paths (1825 distinct files) remain byte-identical after the two excluded test-only correction paths.",
+    "CPP_retention": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/CPP-plane-retention-v2.json",
+    "CPP_canonical_inputs": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/CPP-canonical-inputs-v2.json",
+    "dependency_optimization": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/dependency-optimization-v2.json",
+    "earlier_fixture_failure": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/native-checkpoint-complete-physical-v1.json",
+    "correction": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/source-correction-v2.json",
+    "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/environment.json",
+    "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/frozen-source-v2.json",
+    "physical_Apple_Silicon_guest_execution": true,
+    "physical_Intel_execution": false,
+    "counts_note": "Targets overlap; these are not unique scenario totals."
+  },
+  "red_green": {
+    "physical_width_red": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/width-physical-red-v1.json",
+    "physical_width_green": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/width-physical-green-v1.json",
+    "widths_bytes": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "operands": [
+      "register",
+      "zero register"
+    ],
+    "V5_import": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/V5-physical-import-v1.json",
+    "V5_probe_scope": "2actual native imports plus23 included portable tests",
+    "probe_provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/physical-probes-provenance-v1.json",
+    "prototype_codec": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/v6-complete-v2.json"
+  },
+  "wire_fixtures": {
+    "paths_sha256": {
+      "tests/fixtures/backend/hvf_arm64_mmio/v5/terminal-output.rxcpu": "90784ee5615c27c3a17757f0a61ad15a0d5cbe71f9330ce2c33be58c5a062c45",
+      "tests/fixtures/backend/hvf_arm64_mmio/v5/legacy-read.rxcpu": "db3bc1758ec0a3ec3957799cd2eff6ce02412d0ffa5ed7d762e23809e6e26967",
+      "tests/fixtures/backend/hvf_arm64_mmio/v5/deferred-read.rxcpu": "019d2cb8c77190363139a7c0c39403454744c1d8866e071a620f551da37130d0",
+      "tests/fixtures/backend/hvf_arm64_mmio/v5/output.rxcpu": "98b951d3876503c81657a71c9c828571614f3100fc8ad88c2bc7783319e7ec21",
+      "tests/fixtures/backend/hvf_arm64_mmio/v4/output.rxcpu": "7f5963150c03e97aa0566ea0316d797875c4114fc5d58c60c43e01d1f7f76994"
+    },
+    "total_bytes": 14087,
+    "V4_producer": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/v4-output-producer-provenance-v1.json",
+    "V5_producer": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/v5-frozen-producer-v1.json",
+    "scope": "Small synthetic exact-producer fixtures. Actual V5 capture is a separate probe artifact."
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Public-SDK streaming FPSR loss recurs on ordinary reentry without RAX code; no transparent repair established.",
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-streaming-fpsr-controls-v1/conclusions-v2.json",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Remaining native profiles, IRQ/clock/replay, A32 controls and physical Intel validation remain open.",
+      "blocks_full_goal": true
+    }
+  ],
+  "workflow": {
+    "command": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+    "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/commit-receipt.json",
+    "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/arm-native-store-frontier-v1/cleanup-final.json"
+  },
+  "quality_gates": {
+    "QG1": "No normative judgment required.",
+    "QG2": "Assumptions have stress tests, falsification probes and qualified results.",
+    "QG3": "Selected acknowledgement requirements covered; full audit remains incomplete.",
+    "QG4": "Modulo2^64 retirement, scalar byte widths and wire limits checked.",
+    "QG5": "Pre/post-write errors, repeated replies, legacy PC and width/zero operands covered at stated evidence layers.",
+    "QG6": "Primary architecture source and exact source/executable receipts retained.",
+    "QG7": "Independent SDK, broader profile and hardware limits explicit."
+  }
+}
