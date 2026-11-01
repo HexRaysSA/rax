@@ -538,7 +538,7 @@ impl Link {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read;
+    use std::io::{Read, Seek};
     use std::net::Shutdown;
 
     #[test]
@@ -562,7 +562,13 @@ mod tests {
     #[test]
     fn descriptors_stay_with_their_frames_and_are_close_on_exec() {
         let (mut a, mut b) = Link::pair().unwrap();
-        let (offered, mut peer) = UnixStream::pair().unwrap();
+        // Production transfers ordinary files. XNU socket transfers require
+        // the last sender reference to remain live through receipt; this case
+        // deliberately drops it before receipt to test file ownership.
+        let mut offered = std::fs::File::open(std::env::current_exe().unwrap()).unwrap();
+        let mut expected = [0];
+        offered.read_exact(&mut expected).unwrap();
+        offered.rewind().unwrap();
         let offered: OwnedFd = offered.into();
         a.queue(b"before").unwrap();
         a.queue_with_fd(b"with fd", &offered).unwrap();
@@ -581,20 +587,23 @@ mod tests {
         // SAFETY: `fd` is owned and live; F_GETFD has no pointer argument.
         let flags = unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_GETFD) };
         assert_ne!(flags & libc::FD_CLOEXEC, 0);
-        let mut received = UnixStream::from(fd);
-        peer.write_all(b"x").unwrap();
+        let mut received = std::fs::File::from(fd);
         let mut byte = [0];
         received.read_exact(&mut byte).unwrap();
-        assert_eq!(byte, *b"x");
+        assert_eq!(byte, expected);
     }
 
     #[test]
     fn consecutive_descriptor_frames_keep_each_endpoint() {
         let (mut a, mut b) = Link::pair().unwrap();
         let mut peers = Vec::new();
+        // Match the native socket-transfer lifetime requirement documented by
+        // queue_with_fd: sender references survive until receipt.
+        let mut senders = Vec::new();
         for index in 0..16u8 {
             let (fd, peer) = UnixStream::pair().unwrap();
             a.queue_with_fd(&[index], &fd).unwrap();
+            senders.push(fd);
             peers.push(peer);
         }
         let mut frames = Vec::new();
@@ -606,6 +615,7 @@ mod tests {
             }
         }
         assert_eq!(frames.len(), peers.len());
+        drop(senders);
         for (index, (frame, peer)) in frames.into_iter().zip(peers.iter_mut()).enumerate() {
             assert_eq!(frame.payload, [index as u8]);
             let mut endpoint = UnixStream::from(frame.fd.unwrap());
@@ -623,9 +633,11 @@ mod tests {
         intermediate.queue_with_fd(b"descendant", &offered).unwrap();
         intermediate.flush().unwrap();
         assert!(!intermediate.wants_write());
-        drop(offered);
         drop(intermediate);
         let (mut frames, closed) = ancestor.receive_frames().unwrap();
+        // Socket sender ownership survives through native receipt; the
+        // intermediate carrier itself has already closed.
+        drop(offered);
         assert!(closed);
         assert_eq!(frames.len(), 1);
         assert_eq!(frames[0].payload, b"descendant");

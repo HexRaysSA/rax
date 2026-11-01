@@ -338,12 +338,25 @@ fn exercise_trace_reply_backpressure(
         // A traced exit remains a guest zombie after its control reply has
         // drained. Dropping the tracer completes the dead-parent reap.
         tracer.proc.tracing.family.children.remove(&1002);
-        assert_eq!(
-            tracee.run_slice(1, &std::sync::atomic::AtomicBool::new(false)),
-            crate::user::darwin::process::RunStatus::Complete(
-                crate::user::darwin::process::ExitStatus::Exited(42)
-            )
-        );
+        // Host EOF notification can follow close asynchronously. The bounded
+        // driver may report Blocked until that readiness event is observable.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        loop {
+            match tracee.run_slice(1, &std::sync::atomic::AtomicBool::new(false)) {
+                crate::user::darwin::process::RunStatus::Complete(status) => {
+                    assert_eq!(status, crate::user::darwin::process::ExitStatus::Exited(42));
+                    break;
+                }
+                crate::user::darwin::process::RunStatus::Blocked => {
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "closed tracer was not reaped"
+                    );
+                    std::thread::yield_now();
+                }
+                other => panic!("unexpected exit continuation: {other:?}"),
+            }
+        }
     } else {
         assert!(tracee.proc.exit.is_none());
     }
