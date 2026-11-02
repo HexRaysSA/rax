@@ -59,7 +59,7 @@ impl S5L8900Vcpu {
     }
 
     pub(super) fn heartbeat(&mut self) {
-        if self.last_heartbeat.elapsed() >= std::time::Duration::from_secs(2) {
+        if self.heartbeat_clock.elapsed() >= std::time::Duration::from_secs(2) {
             let heartbeat_info = std::env::var_os("RAX_S5L_HEARTBEAT_INFO").is_some();
             let mmu = self.bridge.inner.borrow().mmu.enabled;
             if heartbeat_info {
@@ -168,7 +168,7 @@ impl S5L8900Vcpu {
                     let _ = std::fs::write(&path, &buf);
                 }
             }
-            self.last_heartbeat = crate::host::time::Instant::now();
+            self.heartbeat_clock = time::ElapsedClock::new();
         }
     }
 

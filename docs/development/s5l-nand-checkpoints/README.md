@@ -1,9 +1,9 @@
 # S5L8900 NAND checkpoint component
 
 The NAND controller can now capture a versioned, self-contained component image
-and admit it into a detached owner. The full S5L CPU/device producer, shared UART
-publication and matching RAM transaction remain required; these methods alone do
-not make S5L VM checkpoints complete.
+and admit it into a detached owner. The subsequent
+[S5L private producer](../s5l-checkpoints/README.md) integrates this component with CPU/device state, shared UART and matching RAM publication.
+The methods below alone retain their component-only contract.
 
 The image preserves all controller fields, cached data and spare bytes, FIFO
 position, pending page writes, all 512 DMA bank/page entries, multi-page position,
@@ -74,7 +74,7 @@ created and no push is performed.
 
 | Impact | Remaining requirement or evidence boundary |
 | --- | --- |
-| High | Full S5L core/device/in-flight/UART producer, family selection and coordinated RAM publication remain required. |
+| High | The subsequent S5L producer now integrates represented core/device/in-flight/UART state, saved-family selection and coordinated RAM publication; full C-STATE remains open. |
 | High | External NAND media must remain stable while captured; two observations do not establish a filesystem transaction. |
 | High | A32-FP, full C-STATE/C-SMP/C-HVF, native streaming-FPSR and physical Intel validation remain open. |
 | Medium | Capture uses two media observations plus output storage; its logical byte limit is not a resident-memory ceiling. |
@@ -83,8 +83,8 @@ created and no push is performed.
 A separate public-API witness for the following clock/private-state group found
 an existing host panic with deterministic divisor 1 and multiplier 2^64 - 1:
 the control retires three mapped instructions, while the large multiplier
-retires one and overflows before the second. That runtime timer defect remains
-open; the current NAND component does not modify timer arithmetic.
+retires one and overflows before the second. The subsequent S5L producer fixes
+that overflow; this historical NAND component itself does not modify timer arithmetic.
 
 Final review reproduced a budget boundary defect in the initial candidate:
 128 VFL context pages in one block produced a 278,205-byte image, but live

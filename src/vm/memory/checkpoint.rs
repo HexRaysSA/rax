@@ -11,7 +11,7 @@ use crate::isa::arm::aarch64::gic::Gic;
 use crate::isa::arm::aarch64::gic::checkpoint::GicCheckpoint;
 use std::cell::{Cell, RefCell};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use vm_memory::{GuestMemoryError, GuestMemoryMmap};
 
 pub(crate) struct CheckpointBindings {
@@ -53,9 +53,13 @@ impl CheckpointBindings {
                 Error::Emulator("checkpoint owned GIC lock poisoned".into())
             })?));
         }
+        let memory = self.domain.freeze();
+        let capture_epoch = crate::host::time::Instant::now();
         Ok(CheckpointPublication {
             bindings: self,
-            memory: RefCell::new(self.domain.freeze()),
+            capture_epoch,
+            activation_epoch: OnceLock::new(),
+            memory: RefCell::new(memory),
             gics,
             s3c_uarts,
             s3c_uart_images: (0..self.s3c_uarts.len())
@@ -72,6 +76,8 @@ impl CheckpointBindings {
 /// is crate-owned; backend hooks receive it without gaining a second RAM lock.
 pub struct CheckpointPublication<'bindings> {
     bindings: &'bindings CheckpointBindings,
+    capture_epoch: crate::host::time::Instant,
+    activation_epoch: OnceLock<crate::host::time::Instant>,
     memory: RefCell<FrozenDomain<'bindings>>,
     gics: Vec<RefCell<MutexGuard<'bindings, Gic>>>,
     s3c_uarts: Vec<RefCell<MutexGuard<'bindings, S3cUart>>>,
@@ -84,6 +90,7 @@ enum Activation {
     Detached(Arc<AtomicBool>),
     S3c {
         uart: Option<(usize, S3cUart)>,
+        resume_epoch: Option<Arc<OnceLock<crate::host::time::Instant>>>,
         completed: Arc<AtomicBool>,
     },
     Aarch64 {
@@ -179,8 +186,40 @@ impl<'bindings> CheckpointPublication<'bindings> {
             .transpose()?;
         Ok(CpuPublication {
             scope: self,
-            activation: Activation::S3c { uart, completed },
+            activation: Activation::S3c {
+                uart,
+                resume_epoch: None,
+                completed,
+            },
         })
+    }
+
+    /// One source sample shared by every CPU captured in this writer scope.
+    pub(crate) fn capture_time(&self) -> crate::host::time::Instant {
+        self.capture_epoch
+    }
+
+    /// Bind a software platform's elapsed clocks to the same admitted RAM/UART
+    /// publication. The epoch has one writer in this thread-confined scope;
+    /// reading a staged clock never initializes it or starts guest time.
+    pub(crate) fn prepare_s3c_clock(
+        &self,
+        memory: &GuestMemoryMmap,
+        uart: Option<(Arc<Mutex<S3cUart>>, S3cUart)>,
+        completed: Arc<AtomicBool>,
+        epoch: Arc<OnceLock<crate::host::time::Instant>>,
+    ) -> Result<CpuPublication<'_, 'bindings>> {
+        let _binding = self.prepare_detached(memory, completed.clone())?;
+        if epoch.get().is_some() {
+            return Err(Error::InvalidConfig(
+                "checkpoint clock was activated before publication".into(),
+            ));
+        }
+        let mut permit = self.prepare_s3c(uart, completed)?;
+        if let Activation::S3c { resume_epoch, .. } = &mut permit.activation {
+            *resume_epoch = Some(epoch);
+        }
+        Ok(permit)
     }
 
     pub(crate) fn prepare_aarch64(
@@ -232,7 +271,11 @@ impl CpuPublication<'_, '_> {
         match self.activation {
             Activation::None => {}
             Activation::Detached(completed) => completed.store(true, Ordering::Release),
-            Activation::S3c { uart, completed } => {
+            Activation::S3c {
+                uart,
+                resume_epoch,
+                completed,
+            } => {
                 if completed.load(Ordering::Acquire) {
                     return;
                 }
@@ -242,6 +285,13 @@ impl CpuPublication<'_, '_> {
                     if !self.scope.s3c_uart_published[index].replace(true) {
                         **self.scope.s3c_uarts[index].borrow_mut() = state;
                     }
+                }
+                if let Some(epoch) = resume_epoch {
+                    let now = *self
+                        .scope
+                        .activation_epoch
+                        .get_or_init(crate::host::time::Instant::now);
+                    let _ = epoch.set(now);
                 }
                 completed.store(true, Ordering::Release);
             }

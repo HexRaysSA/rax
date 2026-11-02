@@ -28,15 +28,8 @@ impl S5L8900Vcpu {
             // host wall time lets XNU timeout callouts overtake interrupt and
             // configuration work. The explicit zero diagnostic mode below
             // retains the coarsely updated host-clock implementation.
-            if self.det_timer != 0 {
-                inner
-                    .timer
-                    .set_micros(self.timer_irq_clock / self.det_timer * self.timer_mul);
-            } else if self.insn_count & 0xFF == 0 {
-                let us = self.boot_instant.elapsed().as_micros() as u64;
-                inner
-                    .timer
-                    .set_micros(us.wrapping_mul(self.timer_speedup) * self.timer_mul);
+            if self.det_timer != 0 || self.insn_count & 0xFF == 0 {
+                inner.timer.set_micros(self.timer_ticks());
             }
             if self.timer_irq {
                 inner.timer.tick_irq(
@@ -116,12 +109,7 @@ impl S5L8900Vcpu {
             self.timer_irq_clock = self
                 .timer_irq_clock
                 .saturating_add(self.timer_irq_interval.max(1));
-            let micros = if self.det_timer != 0 {
-                self.timer_irq_clock / self.det_timer * self.timer_mul
-            } else {
-                let us = self.boot_instant.elapsed().as_micros() as u64;
-                us.wrapping_mul(self.timer_speedup) * self.timer_mul
-            };
+            let micros = self.timer_ticks();
             {
                 let mut inner = self.bridge.inner.borrow_mut();
                 inner.timer.set_micros(micros);

@@ -109,16 +109,7 @@ impl S5L8900Vcpu {
                 // to AES-256 (the engine's widest) using all 32 bytes.
                 Some(custkey.to_vec())
             }
-            AesKeyType::Gid => std::env::var("RAX_S5L_GID_KEY").ok().and_then(|h| {
-                let h = h.trim().trim_start_matches("0x");
-                if h.len() % 2 != 0 {
-                    return None;
-                }
-                (0..h.len())
-                    .step_by(2)
-                    .map(|i| u8::from_str_radix(&h[i..i + 2], 16).ok())
-                    .collect::<Option<Vec<u8>>>()
-            }),
+            AesKeyType::Gid => self.effective_guest_profile().gid_key.clone(),
         };
 
         let len = insize as usize;

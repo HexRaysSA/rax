@@ -2744,7 +2744,10 @@
         "docs/development/hexagon-checkpoints/qualification.json",
         "docs/development/gsc-checkpoints/qualification.json",
         "docs/development/arm-fhm/fixture-tracking-recovery-2026-11-02.json",
-        "docs/development/s5l-nand-checkpoints/qualification.json"
+        "docs/development/s5l-nand-checkpoints/qualification.json",
+        "docs/development/s5l-checkpoints/qualification.json",
+        "src/machine/s5l8900/runtime/context.rs",
+        "src/vm/runtime/s5l_context_tests.rs"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2785,7 +2788,8 @@
         "Cortex-M represented core/controllers/adapter phase and C format-9 continuation are locally qualified in cortex-m-checkpoints/qualification.json after six observed VMM/C ABI regressions. This does not implement absent FPE/MPU/SCS wiring, shared-writer Cortex-M monitor coherence, complete other native/private/in-flight/IRQ/clock/replay or physical Intel requirements; all four original full findings remain open.",
         "Represented Hexagon core/in-flight packet and C format10 continuation are locally qualified after parent VMM and controlled C writer failures. See hexagon-checkpoints/qualification.json. All-writer monitor coherence, unsupported mixed-MMIO packets and complete other backend/native/IRQ/clock/replay/startup and physical Intel requirements remain open; no original finding closure.",
         "GSC complete represented core/platform resource-backed contexts and matching-RAM publication locally qualified with seven pre-fix actual-file failures and ten repaired file tests. New-file construction is independent of GSC process selectors/profile and deleted AP flash. S5L8900, remaining backend/shared state and full original findings remain open; no full finding closure.",
-        "NAND component now captures all represented controller/in-flight fields, unread page backing and saved media policy; component and independent fresh-process witnesses are qualified. Full S5L CPU/device/UART/family and coordinated RAM publication remain required; this is not full VM checkpoint closure."
+        "NAND component now captures all represented controller/in-flight fields, unread page backing and saved media policy; component and independent fresh-process witnesses are qualified. Full S5L CPU/device/UART/family and coordinated RAM publication remain required; this is not full VM checkpoint closure.",
+        "Complete represented S5L private producer, source-closed NAND, saved effective profile, common elapsed-clock epoch, UART/RAM publication and source-free 1/2/4 prepared-context continuations are locally qualified in s5l-checkpoints/qualification.json. PMU live RTC/timezone replay, architectural S5L secondary startup, other full private/backend/profile/native requirements and physical Intel remain open; no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2845,7 +2849,8 @@
         "hexagon-private-checkpoints-2026-11-02",
         "gsc-private-platform-checkpoint-2026-11-02",
         "legacy-s3c-fixture-tracking-2026-11-02",
-        "s5l-nand-resource-closed-component-2026-11-02"
+        "s5l-nand-resource-closed-component-2026-11-02",
+        "s5l-complete-represented-private-producer-2026-11-02"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3499,7 +3504,10 @@
         "docs/development/lapic-selected-clock/qualification.json",
         "docs/development/lapic-selected-clock/README.md",
         "docs/development/gsc-platform-steps/qualification.json",
-        "docs/development/s5l-bounded-steps/qualification.json"
+        "docs/development/s5l-bounded-steps/qualification.json",
+        "docs/development/s5l-checkpoints/qualification.json",
+        "src/machine/s5l8900/runtime/context.rs",
+        "src/vm/runtime/s5l_context_tests.rs"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3530,7 +3538,8 @@
         "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open.",
         "Selected-clock LAPIC behavior is qualified separately; retired VMM construction, deterministic default/native retirement, RTC and external-event replay remain open. See lapic-selected-clock/qualification.json.",
         "GSC platform-aware stepping is locally qualified after five guest-effect and two actual factory/coordinator failures. The original core counter survives warm reset; no duplicate counter was added. Complete GSC/S5L8900 private/platform contexts, full backend startup/IRQ/clock/replay and physical Intel requirements remain open. No full finding closure.",
-        "S5L platform stepping and completed-retirement accounting qualified after9 baseline failures. Prepared online1/2/4 contexts prove exact quanta/selection; a separate test preserves cold BSP-only policy. No S5L architectural startup or complete private checkpoint producer is claimed; full original findings remain open."
+        "S5L platform stepping and completed-retirement accounting qualified after9 baseline failures. Prepared online1/2/4 contexts prove exact quanta/selection; a separate test preserves cold BSP-only policy. No S5L architectural startup or complete private checkpoint producer is claimed; full original findings remain open.",
+        "Complete represented S5L private producer, source-closed NAND, saved effective profile, common elapsed-clock epoch, UART/RAM publication and source-free 1/2/4 prepared-context continuations are locally qualified in s5l-checkpoints/qualification.json. PMU live RTC/timezone replay, architectural S5L secondary startup, other full private/backend/profile/native requirements and physical Intel remain open; no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3572,7 +3581,8 @@
         "arm-native-host-scheduling-2026-11-01",
         "arm-native-mmio-read-frontier-2026-11-01",
         "gsc-platform-aware-bounded-steps-2026-11-02",
-        "s5l-platform-bounded-retirement-2026-11-02"
+        "s5l-platform-bounded-retirement-2026-11-02",
+        "s5l-complete-represented-private-producer-2026-11-02"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198052,6 +198062,21 @@
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-nand-checkpoints-v1/commit-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-nand-checkpoints-v1/cleanup-final.json",
       "workflow": "Work directly in master; git add -- exact owned paths; red -m --staged --run same paths; remove idle owned C/T after the tested commit; no push, branches or new worktrees.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "s5l-complete-represented-private-producer-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "qualification": "docs/development/s5l-checkpoints/qualification.json",
+      "scope": "Complete represented S5L private producer: core/devices/in-flight state, resource-closed NAND prepared before shared locks, effective guest-affecting profile, logical time and coordinated UART/RAM restoration, environment-independent family selection and actual VM files.",
+      "parent": "d46fee9b4900bbcc7e3aa3a9ef047515077fe922",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/cleanup-final.json",
+      "workflow": "Work directly in master; git add -- exact owned paths; red -m --staged --run same paths; remove idle owned C/T after tested commit; no push, branches or new worktrees.",
       "full_goal_complete": false
     }
   ],

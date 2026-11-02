@@ -405,11 +405,10 @@ impl S5L8900Vcpu {
         }
         self.partition_trace_remaining -= 1;
 
-        if pc == 0xc044_ffda && std::env::var_os("RAX_S5L_GUID_PROBE_SCORE").is_some() {
-            let score = std::env::var("RAX_S5L_GUID_PROBE_SCORE")
-                .ok()
-                .and_then(|value| value.parse::<u32>().ok())
-                .unwrap_or(50_000);
+        if let Some(score) = (pc == 0xc044_ffda)
+            .then(|| self.effective_guest_profile().guid_probe_score)
+            .flatten()
+        {
             if let Err(err) = self.bridge.write_word(self.cpu.regs[5], score) {
                 debug!(
                     addr = format!("{:#x}", self.cpu.regs[5]),

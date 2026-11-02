@@ -1040,3 +1040,6 @@ mod pc_owned_capture_tests;
 #[cfg(test)]
 #[path = "runtime/s5l_bounded_tests.rs"]
 mod s5l_bounded_tests;
+
+#[cfg(test)]
+mod s5l_context_tests;

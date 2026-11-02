@@ -147,12 +147,12 @@ impl S5lNand {
     /// media transformation option, unread page and VFL-discovery observation.
     /// `limit` includes the entire component image; the bundle owner must also
     /// enforce its aggregate RAM/media budget. No live controller state changes.
-    pub(crate) fn capture_checkpoint(&self, limit: usize) -> Result<Vec<u8>> {
+    fn controller_writer(&self, limit: usize) -> Result<Writer> {
         if limit as u64 > MAX_BYTES {
             return Err(invalid("limit exceeds bundle budget"));
         }
         let Self {
-            backing,
+            backing: _,
             policy,
             fmctrl0,
             fmctrl1,
@@ -214,7 +214,21 @@ impl S5lNand {
         writer.boolean(policy.rewrite_pmbr)?;
         writer.optional(policy.fdisk_relsect)?;
         writer.optional(policy.fdisk_numsect)?;
-        let media = backing.capture(limit.saturating_sub(writer.bytes.len()))?;
+        Ok(writer)
+    }
+
+    /// Source-only controller/profile witness; does not read host media.
+    pub(crate) fn checkpoint_controller_state(&self) -> Result<Vec<u8>> {
+        Ok(self
+            .controller_writer(MAX_BYTES.min(usize::MAX as u64) as usize)?
+            .bytes)
+    }
+
+    pub(crate) fn capture_checkpoint(&self, limit: usize) -> Result<Vec<u8>> {
+        let mut writer = self.controller_writer(limit)?;
+        let media = self
+            .backing
+            .capture(limit.saturating_sub(writer.bytes.len()))?;
         writer.put(&(media.pages.len() as u64).to_le_bytes())?;
         for (&(bank, page), data) in &media.pages {
             writer.word(bank)?;

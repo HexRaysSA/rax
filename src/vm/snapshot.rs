@@ -36,7 +36,7 @@ mod vm_context;
 pub use backend_context::{
     AARCH32_CONTEXT, AARCH64_CONTEXT, BackendContext, BackendContexts, CORTEX_M_CONTEXT,
     GSC_CONTEXT, HEXAGON_CONTEXT, HVF_AARCH64_CONTEXT, HVF_INTEL_CONTEXT, RISCV_CONTEXT,
-    S3C64XX_CONTEXT, X86_64_CONTEXT,
+    S3C64XX_CONTEXT, S5L8900_CONTEXT, X86_64_CONTEXT,
 };
 mod execution;
 pub use cpus::{CpuSnapshot, CpuSnapshots};
@@ -49,7 +49,10 @@ pub use physical_memory::PhysicalMemorySnapshot;
 pub use resources::{
     BOOT_CDROM_RESOURCE, CheckpointResource, PreparedResources, ResourceKey, ResourcesSnapshot,
 };
-pub(crate) use resources::{GSC_AP_FLASH_RESOURCE, GSC_STATE_RESOURCE, MAX_GSC_STATE_BYTES};
+pub(crate) use resources::{
+    GSC_AP_FLASH_RESOURCE, GSC_STATE_RESOURCE, MAX_GSC_STATE_BYTES, MAX_S5L_STATE_BYTES,
+    S5L_NAND_RESOURCE, S5L_STATE_RESOURCE,
+};
 mod pci;
 use crate::vm::memory::validate_guest_memory_size;
 use crate::vm::vcpu::state::CpuState;

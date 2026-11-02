@@ -44,9 +44,16 @@ missing-kernel RISC-V UART/shutdown execution, with the added CPU section checke
 
 High impact: full backend-private/platform/interrupt-controller/scheduler state,
 per-VM timing, quiescence, native failure transactions, replay and actual SMP
-execution remain open. The current run loop still schedules CPU 0 only; creating
-and restoring several contexts does not establish SMP execution. Medium impact:
-legacy multi-vCPU files cannot reconstruct omitted contexts and are rejected by
+execution remain open. The original CPU-table component did not implement
+scheduling. The current [execution coordinator](execution-coordinator.md) selects online software CPUs;
+creating/restoring several contexts alone does not establish SMP execution.
+Medium impact: legacy multi-vCPU files cannot reconstruct omitted contexts and are rejected by
 the expanded workflow. Low impact: future required components must extend typed
 admission and explicit handling. Source receipts and validation counts live in
 the audit ledger; no broader completion claim follows from this component.
+
+The [S5L private producer](s5l-checkpoints/README.md) adds required versioned
+backend records and resource-closed NAND, detached CPU preparation, shared UART
+and physical RAM publication, and common elapsed-clock rebasing. Its 1/2/4
+prepared-context continuation tests preserve the cold CPU0-only startup policy;
+architectural S5L secondary startup and deterministic PMU RTC replay remain open.

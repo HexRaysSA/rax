@@ -117,9 +117,7 @@ impl S5L8900Vcpu {
                 let mut page = bswap(self.phys_r32(data2 + 0x1104 + 0x244));
                 let kernel_started = self.bridge.inner.borrow().kernel_started;
                 if kernel_started && !self.wmr_init_active && bank == 0 && page == 0 {
-                    let remapped_page = std::env::var("RAX_S5L_LOGICAL0_PAGE")
-                        .ok()
-                        .and_then(|value| value.parse::<u32>().ok());
+                    let remapped_page = self.effective_guest_profile().logical0_page;
                     if let Some(remapped_page) = remapped_page {
                         debug!(
                             from_bank = bank,
@@ -425,7 +423,7 @@ impl S5L8900Vcpu {
     }
 
     pub(super) fn seed_sparse_vfl_mask(&mut self) {
-        if std::env::var("RAX_S5L_NO_SPARSE_VFL_MASK").is_ok() {
+        if self.effective_guest_profile().no_sparse_vfl_mask {
             return;
         }
 
@@ -471,7 +469,7 @@ impl S5L8900Vcpu {
     pub(super) fn seed_img2_security_state(&mut self) {
         if self.security_state_seeded
             || self.cpu.regs[0] != 1
-            || std::env::var("RAX_S5L_NO_SECURITY_SEED").is_ok()
+            || self.effective_guest_profile().no_security_seed
         {
             return;
         }

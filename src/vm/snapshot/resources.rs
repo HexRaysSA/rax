@@ -11,6 +11,9 @@ pub const BOOT_CDROM_RESOURCE: u32 = 1;
 pub(crate) const PC_DEVICE_BYTES_RESOURCE: u32 = 2;
 pub(crate) const GSC_STATE_RESOURCE: u32 = 3;
 pub(crate) const GSC_AP_FLASH_RESOURCE: u32 = 4;
+pub(crate) const S5L_STATE_RESOURCE: u32 = 5;
+pub(crate) const S5L_NAND_RESOURCE: u32 = 6;
+pub(crate) const MAX_S5L_STATE_BYTES: usize = 64 * 1024 * 1024;
 pub(crate) const MAX_GSC_STATE_BYTES: usize = 64 * 1024 * 1024;
 const TAG: &[u8; 8] = b"RAXRES01";
 const MAX_RESOURCES: usize = 1024;
@@ -60,9 +63,14 @@ impl ResourceKey {
             PC_DEVICE_BYTES_RESOURCE,
             GSC_STATE_RESOURCE,
             GSC_AP_FLASH_RESOURCE,
+            S5L_STATE_RESOURCE,
+            S5L_NAND_RESOURCE,
         ]
         .contains(&self.kind)
             || self.size > MAX_TOTAL
+            || (self.kind == S5L_STATE_RESOURCE
+                && !(9..=MAX_S5L_STATE_BYTES as u64).contains(&self.size))
+            || (self.kind == S5L_NAND_RESOURCE && self.size < 6329)
             || (self.kind == GSC_STATE_RESOURCE
                 && !(9..=MAX_GSC_STATE_BYTES as u64).contains(&self.size))
         {
@@ -91,6 +99,12 @@ impl CheckpointResource {
     }
     pub(crate) fn gsc_ap_flash(bytes: Arc<Vec<u8>>) -> Result<Self> {
         Self::from_bytes(GSC_AP_FLASH_RESOURCE, bytes)
+    }
+    pub(crate) fn s5l_state(bytes: Vec<u8>) -> Result<Self> {
+        Self::from_bytes(S5L_STATE_RESOURCE, Arc::new(bytes))
+    }
+    pub(crate) fn s5l_nand(bytes: Vec<u8>) -> Result<Self> {
+        Self::from_bytes(S5L_NAND_RESOURCE, Arc::new(bytes))
     }
     fn from_bytes(kind: u32, bytes: Arc<Vec<u8>>) -> Result<Self> {
         if bytes.len() as u64 > MAX_TOTAL {

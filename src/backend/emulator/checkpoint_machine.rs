@@ -1,6 +1,8 @@
 //! A saved private producer selects a machine family before CPU construction.
 use super::*;
-use crate::vm::snapshot::{BackendContexts, GSC_CONTEXT, RISCV_CONTEXT};
+use crate::vm::snapshot::{
+    BackendContexts, GSC_CONTEXT, RISCV_CONTEXT, S3C64XX_CONTEXT, S5L8900_CONTEXT,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum MachineFamily {
@@ -32,6 +34,30 @@ fn classify(
     arch: ArchKind,
     entries: &[Option<crate::vm::snapshot::BackendContext>],
 ) -> Result<Option<MachineFamily>> {
+    if entries.iter().flatten().any(|c| c.kind == S5L8900_CONTEXT) {
+        if arch != ArchKind::Armv7a {
+            return Err(Error::InvalidConfig(
+                "S5L checkpoint requires ARMv7a machine architecture".into(),
+            ));
+        }
+        if entries
+            .iter()
+            .any(|c| c.as_ref().is_none_or(|c| c.kind != S5L8900_CONTEXT))
+        {
+            return Err(Error::InvalidConfig(
+                "checkpoint S5L machine has missing or conflicting CPU producers".into(),
+            ));
+        }
+        return Ok(Some(MachineFamily::S5l8900));
+    }
+    if arch == ArchKind::Armv7a {
+        if entries.iter().flatten().any(|c| c.kind != S3C64XX_CONTEXT) {
+            return Err(Error::InvalidConfig(
+                "checkpoint ARMv7a machine has a foreign CPU producer".into(),
+            ));
+        }
+        return Ok(Some(MachineFamily::Generic));
+    }
     let gsc = entries.iter().flatten().any(|c| c.kind == GSC_CONTEXT);
     if gsc {
         if arch != ArchKind::Riscv64 {
@@ -119,6 +145,32 @@ mod tests {
             )
             .unwrap(),
             None
+        );
+    }
+    #[test]
+    fn s5l_family_requires_every_private_arm_cpu_and_rejects_mixed_producers() {
+        for count in [1, 2, 4] {
+            let mut rows = vec![row(S5L8900_CONTEXT); count];
+            assert_eq!(
+                classify(ArchKind::Armv7a, &rows).unwrap(),
+                Some(MachineFamily::S5l8900)
+            );
+            assert!(classify(ArchKind::Riscv64, &rows).is_err());
+            *rows.last_mut().unwrap() = None;
+            if count > 1 {
+                assert!(classify(ArchKind::Armv7a, &rows).is_err());
+            }
+        }
+        assert!(
+            classify(
+                ArchKind::Armv7a,
+                &[row(S5L8900_CONTEXT), row(S3C64XX_CONTEXT)]
+            )
+            .is_err()
+        );
+        assert_eq!(
+            classify(ArchKind::Armv7a, &[row(S3C64XX_CONTEXT)]).unwrap(),
+            Some(MachineFamily::Generic)
         );
     }
 }

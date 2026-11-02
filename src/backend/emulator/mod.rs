@@ -91,7 +91,7 @@ impl Backend for EmulatorBackend {
         );
         if let Some(machine) = self.checkpoint_machine {
             vm.machine = machine;
-            vm.checkpoint_targets = machine == MachineFamily::Gsc;
+            vm.checkpoint_targets = matches!(machine, MachineFamily::Gsc | MachineFamily::S5l8900);
         }
         Ok(Box::new(vm))
     }
@@ -215,7 +215,11 @@ impl Vm for EmulatorVm {
             ArchKind::CortexM => Ok(Box::new(cortex_m::CortexMVcpu::new(id, mem))),
             ArchKind::Armv7a => {
                 if self.machine == MachineFamily::S5l8900 {
-                    Ok(Box::new(S5L8900Vcpu::new(id, mem)))
+                    if self.checkpoint_targets {
+                        Ok(Box::new(S5L8900Vcpu::new_checkpoint_target(id, mem)?))
+                    } else {
+                        Ok(Box::new(S5L8900Vcpu::new(id, mem)))
+                    }
                 } else {
                     Ok(Box::new(Armv6Vcpu::new(id, mem)))
                 }

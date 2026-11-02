@@ -4,6 +4,9 @@
 
 pub(crate) mod budget;
 pub use budget::{DEFAULT_RETIREMENT_QUANTUM, RetirementRun, RetirementStop};
+mod checkpoint_capture;
+pub use checkpoint_capture::PreparedCheckpointCapture;
+
 #[cfg(feature = "debug")]
 mod debug_memory;
 #[cfg(feature = "debug")]
@@ -596,6 +599,35 @@ pub trait VCpu: Send {
         scope: &'scope crate::vm::memory::checkpoint::CheckpointPublication<'bindings>,
     ) -> Result<crate::vm::memory::checkpoint::CpuPublication<'scope, 'bindings>> {
         Ok(scope.empty())
+    }
+
+    /// Prepare host-backed immutable input before taking shared device locks.
+    /// The caller must have stopped this CPU; source-owned software state must
+    /// remain unchanged until the matching scoped record is captured. Hardware
+    /// producers retain their existing boundary path through the default None.
+    fn prepare_checkpoint_capture(&self) -> Result<Option<PreparedCheckpointCapture>> {
+        Ok(None)
+    }
+
+    /// Capture one coherent CPU record and its prepared immutable bindings.
+    /// The default retains the existing record/resource hooks and ordering.
+    fn capture_prepared_checkpoint_record(
+        &self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+        scope: Option<&crate::vm::memory::checkpoint::CheckpointPublication<'_>>,
+        prepared: Option<&PreparedCheckpointCapture>,
+    ) -> Result<(
+        crate::vm::snapshot::CpuSnapshot,
+        Option<crate::vm::snapshot::BackendContext>,
+        Vec<crate::vm::snapshot::CheckpointResource>,
+    )> {
+        if prepared.is_some() {
+            return Err(crate::error::Error::InvalidConfig(
+                "unexpected prepared CPU resources".into(),
+            ));
+        }
+        let (public, private) = self.capture_checkpoint_record(boundary, scope)?;
+        Ok((public, private, self.capture_checkpoint_resources()?))
     }
 
     /// Immutable contents referenced by this CPU's backend context. The bundle

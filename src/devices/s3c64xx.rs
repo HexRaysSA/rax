@@ -40,6 +40,9 @@ const UINTM: u32 = 0x38;
 /// per-UART UINTP/UINTM (pending/mask) registers feeding one VIC line.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct S3cUart {
+    #[serde(
+        deserialize_with = "crate::devices::checkpoint_serde::byte_queue::<_, {16*1024*1024}>"
+    )]
     rx: VecDeque<u8>,
     ulcon: u32,
     ucon: u32,

@@ -535,40 +535,7 @@ impl VCpu for Aarch32Vcpu {
                 "expected aarch32 state for aarch32 vCPU".to_string(),
             ));
         };
-        // Apply the mode first so the banked SP/LR/SPSR land in it.
-        let cpsr = Psr::from_u32(state.regs.cpsr);
-        if let Some(mode) = ProcessorMode::from_bits(cpsr.mode) {
-            self.cpu.change_mode(mode);
-        }
-        self.cpu.cpsr = cpsr;
-        self.cpu.regs[..13].copy_from_slice(&state.regs.r);
-        self.cpu.regs[13] = state.regs.sp;
-        self.cpu.regs[14] = state.regs.lr;
-        self.cpu.regs[15] = state.regs.pc;
-        if let Some(spsr) = self.cpu.get_current_spsr_mut() {
-            *spsr = Psr::from_u32(state.regs.spsr);
-        }
-        self.cpu.vfp.fpscr = Fpscr::from_bits(state.regs.fpscr);
-        for i in 0..32 {
-            self.cpu.vfp.write_s_bits(i as u8, state.regs.s[i]);
-        }
-        for i in 0..16 {
-            self.cpu
-                .vfp
-                .write_d_bits((16 + i) as u8, state.regs.d_high[i]);
-        }
-        let s = &state.sregs;
-        let cp = &mut self.cpu.cp15;
-        cp.sctlr = crate::isa::arm::cp15::Sctlr::from_bits(s.sctlr);
-        cp.ttbr0 = u64::from(s.ttbr0);
-        cp.ttbr1 = u64::from(s.ttbr1);
-        cp.ttbcr = s.ttbcr;
-        cp.dacr = s.dacr;
-        cp.dfsr = s.dfsr;
-        cp.ifsr = s.ifsr;
-        cp.dfar = s.dfar;
-        cp.ifar = s.ifar;
-        cp.contextidr = s.contextidr;
+        apply_public_state(&mut self.cpu, state);
         Ok(())
     }
 
@@ -587,7 +554,42 @@ impl VCpu for Aarch32Vcpu {
 #[path = "aarch32_tests.rs"]
 mod tests;
 
-fn public_state(cpu: &Armv7Cpu) -> CpuState {
+pub(crate) fn apply_public_state(cpu: &mut Armv7Cpu, state: &Aarch32CpuState) {
+    // Apply the mode first so the banked SP/LR/SPSR land in it.
+    let cpsr = Psr::from_u32(state.regs.cpsr);
+    if let Some(mode) = ProcessorMode::from_bits(cpsr.mode) {
+        cpu.change_mode(mode);
+    }
+    cpu.cpsr = cpsr;
+    cpu.regs[..13].copy_from_slice(&state.regs.r);
+    cpu.regs[13] = state.regs.sp;
+    cpu.regs[14] = state.regs.lr;
+    cpu.regs[15] = state.regs.pc;
+    if let Some(spsr) = cpu.get_current_spsr_mut() {
+        *spsr = Psr::from_u32(state.regs.spsr);
+    }
+    cpu.vfp.fpscr = Fpscr::from_bits(state.regs.fpscr);
+    for i in 0..32 {
+        cpu.vfp.write_s_bits(i as u8, state.regs.s[i]);
+    }
+    for i in 0..16 {
+        cpu.vfp.write_d_bits((16 + i) as u8, state.regs.d_high[i]);
+    }
+    let s = &state.sregs;
+    let cp = &mut cpu.cp15;
+    cp.sctlr = crate::isa::arm::cp15::Sctlr::from_bits(s.sctlr);
+    cp.ttbr0 = u64::from(s.ttbr0);
+    cp.ttbr1 = u64::from(s.ttbr1);
+    cp.ttbcr = s.ttbcr;
+    cp.dacr = s.dacr;
+    cp.dfsr = s.dfsr;
+    cp.ifsr = s.ifsr;
+    cp.dfar = s.dfar;
+    cp.ifar = s.ifar;
+    cp.contextidr = s.contextidr;
+}
+
+pub(crate) fn public_state(cpu: &Armv7Cpu) -> CpuState {
     let mut regs = Aarch32Registers::default();
     regs.r.copy_from_slice(&cpu.regs[..13]);
     regs.sp = cpu.regs[13];

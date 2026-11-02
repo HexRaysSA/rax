@@ -10,6 +10,18 @@ impl Vmm {
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
         let _timing = self.timing_context.enter();
+        // Software producers may need a stable copy of read-only host media.
+        // This stopped-VMM API owns its vCPU vector exclusively with respect to
+        // execution. Prepare such input before any UART/device/RAM locks; the
+        // producer verifies its source witness again at scoped capture. Native
+        // producers return None and retain the existing SDK boundary ordering.
+        let mut prepared = Vec::new();
+        prepared
+            .try_reserve_exact(self.vcpus.len())
+            .map_err(|e| Error::Emulator(format!("checkpoint preparation allocation: {e}")))?;
+        for cpu in &self.vcpus {
+            prepared.push(cpu.prepare_checkpoint_capture()?);
+        }
         // Match dispatch: UART/PCI endpoints, PC inventory, shared platform, legacy devices,
         // owned S3C UARTs and GICs, then physical RAM. No guest callback runs
         // while the physical domain is held.
@@ -74,12 +86,16 @@ impl Vmm {
                     let mut cpus = Vec::with_capacity(self.vcpus.len());
                     let mut backend_contexts = Vec::with_capacity(self.vcpus.len());
                     let mut resources = pc_resources;
-                    for cpu in &self.vcpus {
-                        let (public, private) =
-                            cpu.capture_checkpoint_record(&boundary, Some(&scope))?;
+                    for (cpu, prepared) in self.vcpus.iter().zip(&prepared) {
+                        let (public, private, cpu_resources) = cpu
+                            .capture_prepared_checkpoint_record(
+                                &boundary,
+                                Some(&scope),
+                                prepared.as_ref(),
+                            )?;
                         cpus.push(public);
                         backend_contexts.push(private);
-                        resources.extend(cpu.capture_checkpoint_resources()?);
+                        resources.extend(cpu_resources);
                     }
                     let shared = self.vm.capture_checkpoint_vm_context(&boundary)?;
                     let first = cpus

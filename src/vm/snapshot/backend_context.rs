@@ -27,6 +27,8 @@ pub const CORTEX_M_CONTEXT: u32 = 8;
 pub const HEXAGON_CONTEXT: u32 = 9;
 /// GSC RV32 hart and its represented platform/runtime state, with resource bindings.
 pub const GSC_CONTEXT: u32 = 10;
+/// S5L8900 ARM1176 core and complete represented platform, with resource bindings.
+pub const S5L8900_CONTEXT: u32 = 11;
 
 /// An opaque, bounded backend-owned record. Its kind identifies its producer;
 /// an architectural register projection cannot substitute for this payload.

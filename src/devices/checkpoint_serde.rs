@@ -33,6 +33,32 @@ pub(crate) fn vector<'de, T: Deserialize<'de>, D: Deserializer<'de>, const MAX: 
     d.deserialize_seq(Bounded::<T, MAX>(PhantomData))
 }
 
+/// Fixed-size private arrays use an admitted sequence length before allocation.
+pub(crate) fn array<'de, T: Deserialize<'de>, D: Deserializer<'de>, const N: usize>(
+    d: D,
+) -> Result<[T; N], D::Error> {
+    let values = vector::<T, D, N>(d)?;
+    values.try_into().map_err(|v: Vec<T>| {
+        D::Error::custom(format!(
+            "checkpoint array requires {N} elements, got {}",
+            v.len()
+        ))
+    })
+}
+pub(crate) fn serialize_array<T: serde::Serialize, S: serde::Serializer, const N: usize>(
+    values: &[T; N],
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    serde::Serialize::serialize(values.as_slice(), s)
+}
+
+/// Byte queues share the producer's cap before reserving decoded elements.
+pub(crate) fn byte_queue<'de, D: Deserializer<'de>, const MAX: usize>(
+    d: D,
+) -> Result<std::collections::VecDeque<u8>, D::Error> {
+    vector::<u8, D, MAX>(d).map(std::collections::VecDeque::from)
+}
+
 #[cfg(test)]
 mod tests {
     #[derive(serde::Deserialize)]
@@ -49,6 +75,29 @@ mod tests {
         assert_eq!(
             crate::codec::deserialize_strict::<Small>(&raw).unwrap().0,
             [1, 2, 3]
+        );
+    }
+    #[test]
+    fn queue_and_fixed_array_counts_are_admitted_before_allocation() {
+        #[derive(serde::Deserialize)]
+        struct Queue(
+            #[serde(deserialize_with = "super::byte_queue::<_,3>")] std::collections::VecDeque<u8>,
+        );
+        #[derive(serde::Deserialize)]
+        struct Array(#[serde(deserialize_with = "super::array::<u32,_,3>")] [u32; 3]);
+        for count in [4u64, u64::MAX] {
+            assert!(crate::codec::deserialize_strict::<Queue>(&count.to_le_bytes()).is_err());
+            assert!(crate::codec::deserialize_strict::<Array>(&count.to_le_bytes()).is_err());
+        }
+        let bytes = crate::codec::serialize(&vec![1u8, 2, 3]).unwrap();
+        assert_eq!(
+            crate::codec::deserialize_strict::<Queue>(&bytes).unwrap().0,
+            vec![1u8, 2, 3]
+        );
+        let words = crate::codec::serialize(&vec![1u32, 2, 3]).unwrap();
+        assert_eq!(
+            crate::codec::deserialize_strict::<Array>(&words).unwrap().0,
+            [1u32, 2, 3]
         );
     }
 }

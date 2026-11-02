@@ -1,0 +1,1465 @@
+{
+  "schema": 1,
+  "utc": "2026-11-02T05:40:48.022420+00:00",
+  "parent": "d46fee9b4900bbcc7e3aa3a9ef047515077fe922",
+  "status": "locally_validated_with_explicit_scope",
+  "scope": "Complete represented S5L private producer: core/devices/in-flight state, resource-closed NAND prepared before shared locks, effective guest-affecting profile, logical time and coordinated UART/RAM restoration, environment-independent family selection and actual VM files.",
+  "full_goal_complete": false,
+  "source_sha256": {
+    "src/machine/s5l8900/runtime.rs": "8594a822e11e13df8379f4e5f71317801e4a224d6d06fa6d0f9f7eb0c47c238f",
+    "src/machine/s5l8900/runtime/vcpu.rs": "8ed7c04fe9ed65fe7b74a3e18b7de93ce3782e194b229db17d7464d18532711d",
+    "src/machine/s5l8900/runtime/step.rs": "e972cede7bcbaba67a217ca266bf12eba77faf5fb7291a2c9c8c1f94dbfec8e3",
+    "src/machine/s5l8900/runtime/diagnostics.rs": "c9229295a094c4e9fdc5495bfc977631e880e998124537390827bee1ae120fb8",
+    "src/machine/s5l8900/runtime/crypto.rs": "449a1c60ff2504c26faff0b33fd3d497a003fbd77e9a83424acca2f82d3249b4",
+    "src/machine/s5l8900/runtime/execution_support.rs": "e633df06f6113e74c404bd2b833c1ee3c816a851dd8af82bbcceb859b5d54fe9",
+    "src/machine/s5l8900/runtime/storage_trace.rs": "2e8cadf7ab611f8e9d2f22bb862f659104f39d844fdbb48acb222cfdcce9c2ae",
+    "src/machine/s5l8900/runtime/context.rs": "579ab86508a6f1cc29af16b740f479eaba187f53638d723b41fb3cda66f2d702",
+    "src/machine/s5l8900/runtime/context/image.rs": "a16eaa3aef297a7cf44ffd554298e11663f2708b71ea65067b3ff6d2740b2638",
+    "src/machine/s5l8900/runtime/context/tests.rs": "ae9edd0aeff062ef2fefe5cb897b38befa9b44fb468d832d94d847af5ebe1241",
+    "src/machine/s5l8900/runtime/time.rs": "d92c2d0141f02a6cff2da83e82a627e83b854e5659984a424201ef98e23fb00b",
+    "src/machine/s5l8900/runtime/profile.rs": "ca5e047fb9b4d4af2d0110e1ee3d975992acec335d9b85d2074e48a351050fd1",
+    "src/machine/s5l8900/runtime/private_tests.rs": "76e6581bd662e5595682d88677d08858478d6150716f0a9bd1dfe6cc534bd561",
+    "src/devices/s5l8900.rs": "069dc1a782c7c59944f14cb35ca275fe87fde77b755233817b7a73249d69b168",
+    "src/devices/s5l8900/context.rs": "47369e8945c80f4d688af79394443b106b0a40e42c62fb27c5a9405bcb8a6ed4",
+    "src/devices/s5l8900/core.rs": "9af522d079bec79276f512a63d2fe07c10405c3646243bf04575ccc5b1941305",
+    "src/devices/s5l8900/interrupts.rs": "9e85a5950b6621c08ca51dd385b9e5973adf53c917607b80694d25cc0dfc8cd7",
+    "src/devices/s5l8900/usb.rs": "572c1f0f3011b8d664aef7e6dd80d775f67ca3fda4b37b523dc080779a1da6c8",
+    "src/devices/s5l8900/crypto.rs": "eb1da82181ce12303017d74f40fa41727f3d1a22f65048e3433ef5f3dcd2c0e5",
+    "src/devices/s5l8900/i2c.rs": "c36c506f1c3e3af02cff6f2e1380728cc4b1421f614f182ef6dae4fa50005fd8",
+    "src/devices/s5l8900/spi.rs": "49ee1280ccf33b96c2f4dd745a2166029be114280c3bc3e65c725330f2907b79",
+    "src/devices/s5l8900/display.rs": "171c1354b468022099b2369249e0d868b9d205758890c4acd2b2c7bd33eae663",
+    "src/vm/vcpu/mod.rs": "4117e4bd013eb94b7b3e172ce20adda600b8a9d5b4c4ed3e3b09751dd4c540e0",
+    "src/vm/snapshot/backend_context.rs": "e3107de65fa644d1f68b159075ecb1964a83ef0bfe5655e596d1407db0b20713",
+    "src/vm/snapshot/resources.rs": "085e47abeccee38e9980fb26bd0ad30a4910019f9149d310664718ca2781dd37",
+    "src/vm/snapshot.rs": "9319b61704e438c2b0057c63a0fb9335fed23400ba9ad8385eb95fb4dc79a726",
+    "src/vm/runtime/checkpoint_capture.rs": "9371728fb517abace7b7abb8dfbb8fdf263aa8bca98ee570f0363d46843bd3c9",
+    "src/vm/runtime.rs": "1f06818a47c40c9b5e8e6a861bc03082461c16559195debb0cb893e8139bc6f8",
+    "src/vm/runtime/s5l_context_tests.rs": "0291eb97e371cb56da59414312da4ec84b6b7fab539cb43d08bb57b414120b98",
+    "src/backend/emulator/mod.rs": "c3347fe39b3a01afe0d21d5da172a2416adbe0cacb006471f840c5df12655d96",
+    "src/backend/emulator/checkpoint_machine.rs": "29c52d4dd1de10513c428f5b074285564386ccc018e5df89a7c5234bbd9711c4",
+    "src/devices/s5l8900/sdio.rs": "da50a22e7b3a9be66c9900ae6d0e7b9732a0960392d64ab9b9ebb856bc2be91d",
+    "src/devices/checkpoint_serde.rs": "0fbbf32300ce84b4c228bfa2373fcedb49964564feeeb96c56029445666e2516",
+    "src/vm/vcpu/checkpoint_capture.rs": "96fc0a86827a08fadc6f0aad910fe5c04e47be442a01664dd76d2578f17ee9a1",
+    "src/devices/s5l8900/nand/checkpoint.rs": "18ab18a333eb3a489b9b94cf750a10e2d2868ad9b98c93742a576b9b5b249404",
+    "src/backend/emulator/aarch32.rs": "14a4efae52bddf61c40d1a3e33337e70a63df96d95e44ebb12894d5d9c766397",
+    "src/vm/memory/checkpoint.rs": "cc89bcef803e98eb7f6bcbc63f703a4def93250f4660bc74fe874ea0a85f682f",
+    "src/devices/s3c64xx.rs": "5d8ee65fdea204db2ed2b2da16d74a722f0068221428a14a71b9b33807a56406"
+  },
+  "source_lines": {
+    "src/machine/s5l8900/runtime.rs": 1186,
+    "src/machine/s5l8900/runtime/vcpu.rs": 197,
+    "src/machine/s5l8900/runtime/step.rs": 484,
+    "src/machine/s5l8900/runtime/diagnostics.rs": 681,
+    "src/machine/s5l8900/runtime/crypto.rs": 181,
+    "src/machine/s5l8900/runtime/execution_support.rs": 489,
+    "src/machine/s5l8900/runtime/storage_trace.rs": 661,
+    "src/machine/s5l8900/runtime/context.rs": 231,
+    "src/machine/s5l8900/runtime/context/image.rs": 1063,
+    "src/machine/s5l8900/runtime/context/tests.rs": 364,
+    "src/machine/s5l8900/runtime/time.rs": 222,
+    "src/machine/s5l8900/runtime/profile.rs": 104,
+    "src/machine/s5l8900/runtime/private_tests.rs": 82,
+    "src/devices/s5l8900.rs": 434,
+    "src/devices/s5l8900/context.rs": 217,
+    "src/devices/s5l8900/core.rs": 484,
+    "src/devices/s5l8900/interrupts.rs": 295,
+    "src/devices/s5l8900/usb.rs": 286,
+    "src/devices/s5l8900/crypto.rs": 177,
+    "src/devices/s5l8900/i2c.rs": 387,
+    "src/devices/s5l8900/spi.rs": 439,
+    "src/devices/s5l8900/display.rs": 72,
+    "src/vm/vcpu/mod.rs": 739,
+    "src/vm/snapshot/backend_context.rs": 244,
+    "src/vm/snapshot/resources.rs": 448,
+    "src/vm/snapshot.rs": 566,
+    "src/vm/runtime/checkpoint_capture.rs": 154,
+    "src/vm/runtime.rs": 1045,
+    "src/vm/runtime/s5l_context_tests.rs": 400,
+    "src/backend/emulator/mod.rs": 254,
+    "src/backend/emulator/checkpoint_machine.rs": 176,
+    "src/devices/s5l8900/sdio.rs": 57,
+    "src/devices/checkpoint_serde.rs": 103,
+    "src/vm/vcpu/checkpoint_capture.rs": 12,
+    "src/devices/s5l8900/nand/checkpoint.rs": 362,
+    "src/backend/emulator/aarch32.rs": 625,
+    "src/vm/memory/checkpoint.rs": 504,
+    "src/devices/s3c64xx.rs": 513
+  },
+  "baseline": {
+    "private_and_timer": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "machine::s5l8900::runtime::private_tests::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 101,
+      "expected_exit_code": 101,
+      "elapsed_seconds": 0.028557415993418545,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 2,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "697e3f44cdefc783ecaa764d596e8a4008ffee839784c0060c9dea372011cf88",
+        "inode": 400793812
+      },
+      "executable_after_sha256": "697e3f44cdefc783ecaa764d596e8a4008ffee839784c0060c9dea372011cf88",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/machine/s5l8900/runtime.rs": "e231fe9e15886c0f65ccf3b60589a6f71de8769d77798577c0f55673efa9dda5",
+        "src/machine/s5l8900/runtime/vcpu.rs": "3076340eb7eca505e3f386e3b2b41c13368c34bf1a96d0e451457730bf0e880d",
+        "src/machine/s5l8900/runtime/step.rs": "8d1f7d8be894d1fbd3617a576112366759506ae3ee0924e7dc1be785769b1230",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "c1c05fcca98c79791bead0da6d49fe18cfcbf9f8d1bb64d0513b8a5d2faab493",
+        "src/machine/s5l8900/runtime/crypto.rs": "bfab93a54343cef0aa2b81d78bd84b108e4610cb91a3348d3d8e6358d54faa3b",
+        "src/machine/s5l8900/runtime/execution_support.rs": "dd0ad9a9f826c49320142346dfdd372fa4e5505361eabdba03266a3c2ba613a8",
+        "src/machine/s5l8900/runtime/storage_trace.rs": "31ba04606a6dc63aea9064169d35190c28af183e3b8bcb748134e6fc8657d788",
+        "src/machine/s5l8900/runtime/private_tests.rs": "769639b1734fc0e3b0f5feb1329a348f9adf594adc8ae398c4cb3aa815277abd",
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/vm/vcpu/mod.rs": "643c6253585aa7b6461c081a0b8213f06f328aef6bc93a7276fe7689fa0df86d",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/runtime/checkpoint_capture.rs": "75724e7e8cbd0bb7c15e437d4fb882e1bd64e58a1b69d72243197b9d6b0b9be3",
+        "src/vm/runtime.rs": "d0b2858f61996200137216369d05115b6d06683d32d3609f752e197d29198bf3",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "docs/development/audit-remediation-2026-10.json": "87cb6fa5f1ba85eede74977dd7af88f5e9c472ea8514694dfb5a14eb148e9893",
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/devices/checkpoint_serde.rs": "b398d6528df1626677866214fb0d1a4495ace56727190375d040109d3d05ae2e",
+        "__HEAD__": "d46fee9b4900bbcc7e3aa3a9ef047515077fe922",
+        "__tracked_changes__": "f98497da2510f7872a1272ce32aeba863a6f0f9c19c65193cd8fc2e43cede524"
+      }
+    },
+    "public_projection": {
+      "parent": "d46fee9b4900bbcc7e3aa3a9ef047515077fe922",
+      "engine_rlib": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+        "sha256": "583be736918e56aeb00ad62a57a4c31a346d481e4f294f10c6c4f5654d06d568"
+      },
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+        "--edition=2024",
+        "--crate-name",
+        "s5l_public_projection_probe",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/public-projection-probe.rs",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+        "--extern",
+        "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "-o",
+        "/Users/int/dev/rax-audit-work/build-tmp/s5l-public-projection-parent",
+        "-L",
+        "native=/Users/int/dev/rax-audit-work/main-integration-target/debug/build/zstd-sys-c460d1c7e51c2d4b/out"
+      ],
+      "probe_sha256": "6b73fbc1f3603e99e57e04c3a531bf21cec8733987d8e28d8121ec787d852bca",
+      "cases": [
+        {
+          "case": "gpr",
+          "exit_code": 0,
+          "expected_exit_code": 0
+        },
+        {
+          "case": "fpscr",
+          "exit_code": 101,
+          "expected_exit_code": 101
+        },
+        {
+          "case": "s0",
+          "exit_code": 101,
+          "expected_exit_code": 101
+        },
+        {
+          "case": "d16",
+          "exit_code": 101,
+          "expected_exit_code": 101
+        },
+        {
+          "case": "ttbr0",
+          "exit_code": 101,
+          "expected_exit_code": 101
+        }
+      ],
+      "fixture": "Public setter/getter only; no guest execution or private test access.",
+      "product_source_unchanged_by_probe": true
+    },
+    "GID_parser": {
+      "scope": "Isolated exact parent GID parser expression; environment acquisition replaced with argv. Not an executed guest/AES engine oracle.",
+      "parent": "d46fee9b4900bbcc7e3aa3a9ef047515077fe922",
+      "expression": "std::env::var(\"RAX_S5L_GID_KEY\").ok().and_then(|h| {\n                let h = h.trim().trim_start_matches(\"0x\");\n                if h.len() % 2 != 0 {\n                    return None;\n                }\n                (0..h.len())\n                    .step_by(2)\n                    .map(|i| u8::from_str_radix(&h[i..i + 2], 16).ok())\n                    .collect::<Option<Vec<u8>>>()\n            })",
+      "source_sha256": "de9625e9db2544b922c24006c9a68c1ffedd864abfcb28982bb6c7918c572909",
+      "cases": [
+        {
+          "case": "valid-128-bit-control",
+          "input": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "exit_code": 0
+        },
+        {
+          "case": "utf8-byte-boundary",
+          "input": "0\u00e90",
+          "exit_code": 101
+        }
+      ]
+    },
+    "excluded_fixture_build_errors": [
+      "baseline-build-v1",
+      "implementation-build-v1",
+      "implementation-build-v2"
+    ],
+    "fixture_correction": "baseline-fixture-correction-v2.json",
+    "note": "Only completed parent executable failures count as behavioral red; the extracted GID parser is explicitly not an executed guest/AES oracle."
+  },
+  "tests": {
+    "focused-s5l-v4": {
+      "results": [
+        {
+          "passed": 69,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "s5l",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/focused-s5l-v4.json"
+    },
+    "focused-serde-boundaries-v4": {
+      "results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "devices::checkpoint_serde",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/focused-serde-boundaries-v4.json"
+    },
+    "focused-shared-uart-v4": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "vm::memory::checkpoint::s3c_tests",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/focused-shared-uart-v4.json"
+    },
+    "full-root-library-v4": {
+      "results": [
+        {
+          "passed": 11898,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/full-root-library-v4.json"
+    },
+    "full-C-API-library-v4": {
+      "results": [
+        {
+          "passed": 240,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/full-C-API-library-v4.json"
+    },
+    "owning-CI-workflow-v4": {
+      "results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-684b758ed82515b1",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/owning-CI-workflow-v4.json"
+    }
+  },
+  "checks": {
+    "implementation-build-v4": {
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--lib",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "test_results": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/implementation-build-v4.json"
+    },
+    "fmt-workspace-v4": {
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "test_results": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/fmt-workspace-v4.json"
+    },
+    "build-workspace-all-targets-v4": {
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "build",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets",
+        "--message-format=json"
+      ],
+      "test_results": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/build-workspace-all-targets-v4.json"
+    },
+    "check-workspace-all-targets-v4": {
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "test_results": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/check-workspace-all-targets-v4.json"
+    },
+    "clippy-workspace-all-targets-v4": {
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "clippy",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "test_results": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/clippy-workspace-all-targets-v4.json"
+    },
+    "doctests-workspace-v4": {
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/doctests-workspace-v4.json"
+    },
+    "check-workspace-without-debug-v4": {
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,rax-capi/jit",
+        "--lib"
+      ],
+      "test_results": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/check-workspace-without-debug-v4.json"
+    }
+  },
+  "independent_NAND_wire": {
+    "source": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--exact",
+        "devices::s5l8900::nand::checkpoint_tests::restored_policy_ignores_conflicting_environment_in_fresh_process",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "source": true
+    },
+    "target": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--exact",
+        "devices::s5l8900::nand::checkpoint_tests::restored_policy_ignores_conflicting_environment_in_fresh_process",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "source": false
+    },
+    "image_path": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/wire-fixture-v4/checkpoint.bin",
+    "image_bytes": 12601,
+    "image_sha256": "0066421970978d324aa5be03b271c57a332d3487f5a8f505dd8c8b18ed57ade2",
+    "parser": "Independent Python struct-based fixed-width reader; exact synthetic expectations for every field, canonical page prefix and VFL-only name.",
+    "captured_policy": [
+      false,
+      7,
+      true,
+      123,
+      456
+    ],
+    "canonical_page_count": 4,
+    "VFL_scan": [
+      [],
+      [
+        1
+      ],
+      [],
+      [],
+      [],
+      [],
+      [],
+      []
+    ],
+    "source_media_removed_before_target": true,
+    "target_environment_conflicts": true,
+    "all_bytes_consumed": true,
+    "executable": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "sha256": "538bb50264076e5833691b53176b179b0e27222c7cc65b3ebb4e5e16850dee07"
+    },
+    "full_goal_complete": false
+  },
+  "public_projection_final_link": {
+    "engine_rlib": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+      "sha256": "8b1d1bd79b4d555b09a7c15333fa22b6c6d0e2c5749d6929ac55ba418930ce48"
+    },
+    "executable_sha256": "af54cd674e03eadb90eb53cb0374f7b15a296ae085b2fa829725514c2dd1e008",
+    "all_five_cases_passed": true,
+    "engine_target_src_path": "/Users/int/dev/rax/src/lib.rs"
+  },
+  "device_move": {
+    "parent": "d46fee9b4900bbcc7e3aa3a9ef047515077fe922",
+    "original_function_bodies": 130,
+    "remaining_and_moved_bodies": 130,
+    "missing_or_changed_original_bodies": [],
+    "files": [
+      "src/devices/s5l8900.rs",
+      "src/devices/s5l8900/core.rs",
+      "src/devices/s5l8900/usb.rs",
+      "src/devices/s5l8900/interrupts.rs",
+      "src/devices/s5l8900/crypto.rs",
+      "src/devices/s5l8900/i2c.rs",
+      "src/devices/s5l8900/sdio.rs",
+      "src/devices/s5l8900/spi.rs",
+      "src/devices/s5l8900/display.rs"
+    ]
+  },
+  "shared_setter_extraction": {
+    "parent": "d46fee9b4900bbcc7e3aa3a9ef047515077fe922",
+    "equal_tokens": true,
+    "normalization": "Only self.cpu -> cpu; excluded original caller return Ok(())",
+    "tokens": 334
+  },
+  "compiled_input_audit": {
+    "utc": "2026-11-02T05:30:45.560699+00:00",
+    "dependency_files": 511,
+    "project_compiler_inputs": 5893,
+    "untracked_unowned": [],
+    "missing": [],
+    "planned_exact_owned_inputs": [
+      "src/devices/s5l8900/context.rs",
+      "src/devices/s5l8900/core.rs",
+      "src/devices/s5l8900/crypto.rs",
+      "src/devices/s5l8900/display.rs",
+      "src/devices/s5l8900/i2c.rs",
+      "src/devices/s5l8900/interrupts.rs",
+      "src/devices/s5l8900/sdio.rs",
+      "src/devices/s5l8900/spi.rs",
+      "src/devices/s5l8900/usb.rs",
+      "src/machine/s5l8900/runtime/context.rs",
+      "src/machine/s5l8900/runtime/context/image.rs",
+      "src/machine/s5l8900/runtime/context/tests.rs",
+      "src/machine/s5l8900/runtime/private_tests.rs",
+      "src/machine/s5l8900/runtime/profile.rs",
+      "src/machine/s5l8900/runtime/time.rs",
+      "src/vm/runtime/s5l_context_tests.rs",
+      "src/vm/vcpu/checkpoint_capture.rs"
+    ],
+    "policy": "Every currently compiled project input must exist and be tracked or explicitly owned for the authorized full S5L producer commit; verify all tracked after commit. Registry/toolchain/build-generated inputs outside the project are excluded."
+  },
+  "field_coverage": {
+    "runtime_fields": [
+      [
+        "id",
+        "u32"
+      ],
+      [
+        "cpu",
+        "Armv7Cpu"
+      ],
+      [
+        "bridge",
+        "S5lBridge"
+      ],
+      [
+        "decoder",
+        "Decoder"
+      ],
+      [
+        "uart",
+        "Arc<OnceLock<Arc<Mutex<S3cUart>>>>"
+      ],
+      [
+        "insn_count",
+        "u64"
+      ],
+      [
+        "excl",
+        "crate::isa::arm::instructions::ExclusiveMonitor"
+      ],
+      [
+        "pc_ring",
+        "[u32; 512]"
+      ],
+      [
+        "pc_ring_idx",
+        "usize"
+      ],
+      [
+        "zero_slide",
+        "u32"
+      ],
+      [
+        "trace_pcs",
+        "Vec<u32>"
+      ],
+      [
+        "trace_log_budget",
+        "u32"
+      ],
+      [
+        "trace_start_insn",
+        "u64"
+      ],
+      [
+        "pc_sample_interval",
+        "u64"
+      ],
+      [
+        "pc_sample_next_insn",
+        "u64"
+      ],
+      [
+        "pc_sample_remaining",
+        "u32"
+      ],
+      [
+        "trace_all",
+        "bool"
+      ],
+      [
+        "storage_call_trace_seen",
+        "Vec<(u32, u32)>"
+      ],
+      [
+        "storage_call_trace_remaining",
+        "u32"
+      ],
+      [
+        "storage_call_trace_start_insn",
+        "u64"
+      ],
+      [
+        "fdisk_trace_seen",
+        "Vec<(u32, u32)>"
+      ],
+      [
+        "fdisk_trace_remaining",
+        "u32"
+      ],
+      [
+        "nandftl_trace_seen",
+        "Vec<(u32, u32)>"
+      ],
+      [
+        "nandftl_trace_remaining",
+        "u32"
+      ],
+      [
+        "wmr_trace_seen",
+        "Vec<(u32, u32)>"
+      ],
+      [
+        "wmr_trace_remaining",
+        "u32"
+      ],
+      [
+        "wmr_init_active",
+        "bool"
+      ],
+      [
+        "partition_trace_remaining",
+        "u32"
+      ],
+      [
+        "iokit_match_follow_remaining",
+        "u32"
+      ],
+      [
+        "kernel_trace_remaining",
+        "u32"
+      ],
+      [
+        "root_trace_remaining",
+        "u32"
+      ],
+      [
+        "root_trace_start_insn",
+        "u64"
+      ],
+      [
+        "root_boot_trace_remaining",
+        "u32"
+      ],
+      [
+        "root_boot_trace_start_insn",
+        "u64"
+      ],
+      [
+        "apple_arm_function_trace_remaining",
+        "u32"
+      ],
+      [
+        "iokit_lifetime_trace_remaining",
+        "u32"
+      ],
+      [
+        "iokit_retain_trace",
+        "bool"
+      ],
+      [
+        "ioreg_free_trace_remaining",
+        "u32"
+      ],
+      [
+        "iokit_watch_object",
+        "Option<u32>"
+      ],
+      [
+        "iokit_watch_trace_remaining",
+        "u32"
+      ],
+      [
+        "sdio_power_trace_remaining",
+        "u32"
+      ],
+      [
+        "iokit_message_trace_remaining",
+        "u32"
+      ],
+      [
+        "pmqueue_trace_remaining",
+        "u32"
+      ],
+      [
+        "admfmc_trace_remaining",
+        "u32"
+      ],
+      [
+        "kernel_entry_logged",
+        "bool"
+      ],
+      [
+        "kernel_fault_log_remaining",
+        "u32"
+      ],
+      [
+        "kernel_exception_log_remaining",
+        "u32"
+      ],
+      [
+        "fault_log_budget",
+        "u32"
+      ],
+      [
+        "heartbeat_clock",
+        "time::ElapsedClock"
+      ],
+      [
+        "boot_clock",
+        "time::ElapsedClock"
+      ],
+      [
+        "guest_profile",
+        "Option<profile::GuestProfile>"
+      ],
+      [
+        "capture_owner",
+        "Arc<()>"
+      ],
+      [
+        "checkpoint_publication",
+        "Option<context::PreparedPublication>"
+      ],
+      [
+        "timer_speedup",
+        "u64"
+      ],
+      [
+        "det_timer",
+        "u64"
+      ],
+      [
+        "timer_mul",
+        "u64"
+      ],
+      [
+        "input_seeded",
+        "bool"
+      ],
+      [
+        "security_state_seeded",
+        "bool"
+      ],
+      [
+        "input_payload",
+        "Option<Vec<u8>>"
+      ],
+      [
+        "printf_trace",
+        "bool"
+      ],
+      [
+        "vfl_scan_trace",
+        "bool"
+      ],
+      [
+        "derail_trace",
+        "bool"
+      ],
+      [
+        "no_usb_wrangler_race_fix",
+        "bool"
+      ],
+      [
+        "force_iobsd",
+        "bool"
+      ],
+      [
+        "force_iobsd_all",
+        "bool"
+      ],
+      [
+        "sparse_vfl_mask_seeded",
+        "[bool; 8]"
+      ],
+      [
+        "fsboot_trace",
+        "bool"
+      ],
+      [
+        "lcd_irq",
+        "bool"
+      ],
+      [
+        "lcd_irq_armed",
+        "bool"
+      ],
+      [
+        "lcd_irq_budget",
+        "u32"
+      ],
+      [
+        "lcd_irq_arm_after_rootdev",
+        "bool"
+      ],
+      [
+        "i2c_irq",
+        "bool"
+      ],
+      [
+        "timer_irq",
+        "bool"
+      ],
+      [
+        "timer_irq_ready",
+        "u64"
+      ],
+      [
+        "timer_irq_interval",
+        "u64"
+      ],
+      [
+        "timer_irq_clock",
+        "u64"
+      ],
+      [
+        "irq_trace",
+        "bool"
+      ],
+      [
+        "irq_trace_timer",
+        "bool"
+      ],
+      [
+        "irq_trace_start_insn",
+        "u64"
+      ],
+      [
+        "irq_trace_budget",
+        "u32"
+      ],
+      [
+        "last_irq_trace",
+        "u128"
+      ],
+      [
+        "fiq_trace_budget",
+        "u32"
+      ],
+      [
+        "fiq_trace_start_insn",
+        "u64"
+      ],
+      [
+        "last_fiq_trace",
+        "u128"
+      ],
+      [
+        "idle_trace",
+        "bool"
+      ],
+      [
+        "idle_trace_start_insn",
+        "u64"
+      ],
+      [
+        "last_idle_trace_insn",
+        "u64"
+      ],
+      [
+        "adm_irq_trace_budget",
+        "u32"
+      ],
+      [
+        "adm_irq_trace_start_insn",
+        "u64"
+      ],
+      [
+        "last_adm_irq_trace",
+        "u128"
+      ],
+      [
+        "i2c_irq_trace_budget",
+        "u32"
+      ],
+      [
+        "last_i2c1_irq_trace",
+        "u128"
+      ],
+      [
+        "shutdown",
+        "bool"
+      ]
+    ],
+    "bridge_fields": [
+      [
+        "mmu",
+        "V6MmuConfig"
+      ],
+      [
+        "privileged",
+        "bool"
+      ],
+      [
+        "cur_pc",
+        "u32"
+      ],
+      [
+        "cur_insn",
+        "u64"
+      ],
+      [
+        "kernel_started",
+        "bool"
+      ],
+      [
+        "last_fault",
+        "LastFault"
+      ],
+      [
+        "clock0",
+        "S5lClock"
+      ],
+      [
+        "clock1",
+        "S5lClock"
+      ],
+      [
+        "vic0",
+        "Pl192"
+      ],
+      [
+        "vic1",
+        "Pl192"
+      ],
+      [
+        "vic1_adm_daisy_latched",
+        "bool"
+      ],
+      [
+        "vic1_adm_daisy_in_service",
+        "bool"
+      ],
+      [
+        "sysic",
+        "S5lSysic"
+      ],
+      [
+        "gpio",
+        "S5lGpio"
+      ],
+      [
+        "timer",
+        "S5lTimer"
+      ],
+      [
+        "i2c0",
+        "S5lI2c"
+      ],
+      [
+        "i2c1",
+        "S5lI2c"
+      ],
+      [
+        "spi0",
+        "S5lSpi"
+      ],
+      [
+        "spi1",
+        "S5lSpi"
+      ],
+      [
+        "spi2",
+        "S5lSpi"
+      ],
+      [
+        "lcd",
+        "S5lLcd"
+      ],
+      [
+        "nand",
+        "S5lNand"
+      ],
+      [
+        "nand_ecc",
+        "S5lNandEcc"
+      ],
+      [
+        "sdio",
+        "S5lSdio"
+      ],
+      [
+        "aes",
+        "S5lAes"
+      ],
+      [
+        "dmac0",
+        "S5lDmac"
+      ],
+      [
+        "dmac1",
+        "S5lDmac"
+      ],
+      [
+        "usb",
+        "S5lUsb"
+      ],
+      [
+        "nor",
+        "S5lNor"
+      ],
+      [
+        "adm_data2",
+        "u32"
+      ],
+      [
+        "adm_data3",
+        "u32"
+      ],
+      [
+        "adm_req",
+        "Option<u32>"
+      ],
+      [
+        "adm_irq",
+        "bool"
+      ],
+      [
+        "uart",
+        "Arc<OnceLock<Arc<Mutex<S3cUart>>>>"
+      ],
+      [
+        "engine_8900_req",
+        "Option<u32>"
+      ],
+      [
+        "openbus_log_budget",
+        "u32"
+      ],
+      [
+        "devlog",
+        "bool"
+      ],
+      [
+        "vic_trace_budget",
+        "u32"
+      ],
+      [
+        "vic_trace_start_insn",
+        "u64"
+      ],
+      [
+        "vic_trace_adm",
+        "bool"
+      ]
+    ],
+    "runtime_host_bindings": [
+      "bridge",
+      "capture_owner",
+      "checkpoint_publication",
+      "decoder",
+      "uart"
+    ],
+    "bridge_external_bindings": [
+      "nand",
+      "uart"
+    ]
+  },
+  "assumption_register": [
+    {
+      "id": "SP1",
+      "assumption": "Every guest-visible mutable field and dynamic option must be represented; derived/public projections are insufficient.",
+      "basis": "S5L source90 CPU fields,40 bridge fields, nested devices and prior NAND closure",
+      "dependent_result": "Exhaustive private DTO, effective profile and producer identity",
+      "stress_test": "Pending DMA/crypto, banked/MMU/FP/exclusives, halt/IRQ, profile conflicts and corrupted final records",
+      "falsification_probe": "One source continuation differs after private restore or a field is omitted.",
+      "status": "confirmed within tested model contract",
+      "observed_probe": "Exhaustive 93 runtime/40 bridge fields; all-field image equality, source-free/conflicting-environment files, pending NAND/ADM/AES/ECC/IRQ, public FP/MMU probes and strict malformed admission."
+    },
+    {
+      "id": "SP2",
+      "assumption": "Source S5L CPU/device state is quiescent during resource preparation and scoped capture.",
+      "basis": "VMM capture is a stopped-VM API; software S5L owner is not Sync and executes synchronously",
+      "dependent_result": "Prepare immutable NAND before UART/device locks without caching across calls",
+      "stress_test": "Foreign preparation tokens, changed controller/core state, UART writers, final-resource failure",
+      "falsification_probe": "CPU execution or controlled writer changes the prepared view before capture.",
+      "status": "confirmed for represented state; retained external quiescence",
+      "observed_probe": "Actual VMM wrapper observes unlocked UART during every preparation and locked UART during scoped capture; deleted-source prepared capture, foreign/stale tokens and unchanged failed targets."
+    },
+    {
+      "id": "SP3",
+      "assumption": "Host-clock diagnostic profile must rebase elapsed time at publication and exclude target preparation/downtime.",
+      "basis": "Verified TimingContext wall restore commit contract",
+      "dependent_result": "Suspended elapsed clocks plus publication resume; no raw Instant on wire",
+      "stress_test": "Delay before publication, full u64 multiplier domain, live/idle entry, malformed durations",
+      "falsification_probe": "Preparation delay changes restored timer or large profile values panic.",
+      "status": "confirmed within tested model contract",
+      "observed_probe": "Suspended preparation, publication-before-entry, duplicate permit, common CPU epoch, malformed fraction/Duration::MAX and full-u64 scaling partitions."
+    },
+    {
+      "id": "SP4",
+      "assumption": "External NAND source media and dynamic guest-affecting environment controls remain stable during capture.",
+      "basis": "Two media observations and source controller/profile witnesses do not create a filesystem or process-environment transaction.",
+      "dependent_result": "Resource-closed NAND image",
+      "stress_test": "Uncertain reads/nonregular media and observation changes reject",
+      "falsification_probe": "External writers alter logical input while observations compare equal.",
+      "status": "retained external precondition",
+      "observed_probe": "Retained external media-stability precondition; independent unchanged NAND wire and fresh-process absent-media/policy-conflict witness plus all existing NAND component tests."
+    }
+  ],
+  "change_surface": {
+    "CPU_backend_VM_snapshot": "affected: private producer and publication, family routing",
+    "machine_devices": "affected: exhaustive modeled state transport and clock/profile controls",
+    "direct_ISA_SMIR_native_JIT_C_ABI": "unaffected implementation; CPU core reused with existing validator, no public C layouts or ISA admission changes"
+  },
+  "acceptance": [
+    {
+      "id": "STATE",
+      "claim": "Complete represented S5L core/runtime/bridge/device and in-flight state, bounded strict versioned resource formats",
+      "evidence": [
+        "src/machine/s5l8900/runtime/context/image.rs",
+        "focused-s5l-v4",
+        "full-root-library-v4"
+      ]
+    },
+    {
+      "id": "SOURCE",
+      "claim": "Prepare NAND outside shared locks; source ownership/witness admission; no source reopening during scoped capture or restore",
+      "evidence": [
+        "src/vm/runtime/checkpoint_capture.rs",
+        "actual_vmm_prepares_all_source_media_before_shared_uart_scope",
+        "prepared_media_capture_does_not_reopen_deleted_source_under_uart_lock",
+        "wire-reference-v4"
+      ]
+    },
+    {
+      "id": "PUBLISH",
+      "claim": "Detached preparation precedes any target mutation; shared UART conflict rejects; one common clock epoch; final resource decode failure preserves all targets",
+      "evidence": [
+        "src/vm/memory/checkpoint.rs",
+        "shared_uart_conflict_leaves_clocks_unpublished_and_compatible_cpus_share_epoch",
+        "final_s5l_record_failure_preserves_all_targets_uart_and_ram"
+      ]
+    },
+    {
+      "id": "FACTORY",
+      "claim": "Saved S5L producer selects environment-independent targets; 1/2/4-context file continuations preserve FP, unread NAND, UART, saved policy and scheduler state",
+      "evidence": [
+        "src/backend/emulator/checkpoint_machine.rs",
+        "actual_s5l_files_restore_unread_nand_fp_uart_and_prepared_scheduler_without_source_files"
+      ]
+    },
+    {
+      "id": "CLOCK",
+      "claim": "Timer checked-build overflow fixed; suspended logical anchors resume at publication rather than first entry",
+      "evidence": [
+        "src/machine/s5l8900/runtime/time.rs",
+        "baseline-private-and-timer-v2",
+        "focused-s5l-v4"
+      ]
+    },
+    {
+      "id": "API",
+      "claim": "Public FP/SPSR/MMU projection preserved; existing device method bodies and S3C wire layout retained",
+      "evidence": [
+        "public-projection-parent-red",
+        "public-projection-green-*-v4",
+        "device-move-token-preservation",
+        "aarch32-setter-extraction-proof",
+        "full-C-API-library-v4"
+      ]
+    },
+    {
+      "id": "OWNERSHIP",
+      "claim": "Exact owned-path commit directly in master; one registered worktree; idle canonical roots cleaned after commit",
+      "evidence": [
+        "commit-receipt.json",
+        "cleanup-final.json"
+      ],
+      "post_commit_verification_required": true
+    }
+  ],
+  "environment": {
+    "variables": {
+      "RUSTC_WRAPPER": "",
+      "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+      "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+      "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+      "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+      "CARGO_BUILD_JOBS": "8",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_NET_OFFLINE": "true",
+      "RUSTC_WORKSPACE_WRAPPER": "",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+      "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+      "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_TEST_LTO": "off",
+      "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+      "CARGO_PROFILE_DEV_LTO": "off",
+      "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+      "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true"
+    },
+    "host": {
+      "utc": "2026-11-02T05:22:21.897941+00:00",
+      "commands": [
+        {
+          "argv": [
+            "rustc",
+            "-Vv"
+          ],
+          "stdout": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+          "exit_code": 0
+        },
+        {
+          "argv": [
+            "cargo",
+            "-V"
+          ],
+          "stdout": "cargo 1.99.1 (5f94df478 2026-08-27)\n",
+          "exit_code": 0
+        },
+        {
+          "argv": [
+            "sw_vers"
+          ],
+          "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+          "exit_code": 0
+        },
+        {
+          "argv": [
+            "uname",
+            "-m"
+          ],
+          "stdout": "arm64\n",
+          "exit_code": 0
+        },
+        {
+          "argv": [
+            "sysctl",
+            "-n",
+            "machdep.cpu.brand_string"
+          ],
+          "stdout": "Apple M4 Max\n",
+          "exit_code": 0
+        },
+        {
+          "argv": [
+            "sysctl",
+            "-n",
+            "hw.memsize"
+          ],
+          "stdout": "137438953472\n",
+          "exit_code": 0
+        },
+        {
+          "argv": [
+            "xcrun",
+            "--sdk",
+            "macosx",
+            "--show-sdk-version"
+          ],
+          "stdout": "27.2\n",
+          "exit_code": 0
+        }
+      ],
+      "hardware_evidence": "Local Apple Silicon host; no physical Intel execution in this group.",
+      "physical_Intel_executed_in_this_group": false
+    },
+    "inherited_controls": {
+      "RUSTC": null,
+      "RUSTFLAGS": null,
+      "CARGO_ENCODED_RUSTFLAGS": null,
+      "RAX_MACHINE": null,
+      "RAX_NO_JIT": null,
+      "RAX_JIT_VERIFY": null,
+      "RAX_JIT_TRACE": null
+    }
+  },
+  "format": {
+    "descriptor": {
+      "kind": 11,
+      "tag": "RAXS5L01",
+      "bytes": 100
+    },
+    "state": {
+      "kind": 5,
+      "tag": "RAXSLI01",
+      "maximum_bytes": 67108864
+    },
+    "nand": {
+      "kind": 6,
+      "tag": "RAXNND01",
+      "minimum_bytes": 6329
+    },
+    "wire": "Existing fixed-integer little-endian strict bincode for private S5L state; custom unchanged NAND v1 component; SHA-256 resource identities"
+  },
+  "complexity": {
+    "capture": "For C CPUs, S private bytes per CPU, U USB map entries, P NAND data bytes and D directory entries: O(C*(S + U log U + P + D log D)) capture work plus existing RAM/bundle processing and resource hashing.",
+    "restore": "For N NAND page records, expected O(S + P + N log N + U) candidate decoding per CPU, plus bounded resource-key lookups and existing physical RAM processing. Encoded immutable resources are shared; decoded owners allocate independently.",
+    "bounds": "64 MiB state per CPU, existing 64 GiB aggregate RAM/media policy and bounded nested collections; logical budgets are not resident-memory ceilings."
+  },
+  "not_run": [
+    "Non-owning integration binaries were compiled, not executed in this state-transport group",
+    "Physical Intel HVF execution",
+    "Physical ARM1176/device or proprietary firmware conformance",
+    "Deterministic PMU RTC/timezone replay",
+    "Architectural S5L secondary startup",
+    "Complete native streaming-FPSR qualification; existing independently reproduced SDK reentry limit remains open"
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "All four full findings, physical Intel and native streaming-FPSR remain open."
+    },
+    {
+      "impact": "high",
+      "item": "S5L multi-context transport is not architectural secondary startup; cold policy stays CPU0 only."
+    },
+    {
+      "impact": "medium",
+      "item": "Logical media budget is not a resident-memory cap."
+    },
+    {
+      "impact": "high",
+      "item": "PMU RTC continues reading live host local time; deterministic RTC/timezone replay remains a separate requirement."
+    }
+  ],
+  "quality_gates": {
+    "assumptions": "passed for this explicitly bounded group; full audit goal remains incomplete",
+    "requirement_coverage": "passed for this explicitly bounded group; full audit goal remains incomplete",
+    "reproducibility": "passed for this explicitly bounded group; full audit goal remains incomplete",
+    "edge_cases": "passed for this explicitly bounded group; full audit goal remains incomplete",
+    "provenance": "passed for this explicitly bounded group; full audit goal remains incomplete",
+    "bounded_scope": "passed for this explicitly bounded group; full audit goal remains incomplete",
+    "behavioral_evidence": "passed for this explicitly bounded group; full audit goal remains incomplete",
+    "repository_consistency": "passed for this explicitly bounded group; full audit goal remains incomplete"
+  },
+  "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/commit-receipt.json",
+  "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-private-checkpoints-v1/cleanup-final.json"
+}

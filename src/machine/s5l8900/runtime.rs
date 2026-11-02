@@ -34,13 +34,16 @@ use crate::vm::vcpu::{
 };
 
 mod bridge;
+mod context;
 mod crypto;
 mod diagnostics;
 mod execution_support;
 mod interrupts;
 mod kernel_trace;
+mod profile;
 mod step;
 mod storage_trace;
+mod time;
 mod vcpu;
 
 // Device MMIO base addresses (see the QEMU iPod Touch 1G reference).
@@ -513,7 +516,7 @@ fn dma_ram_bounds_from_mmap_end(mmap_end: u64) -> (u64, u64) {
 }
 
 /// Last memory fault recorded by the bridge (for DFSR/DFAR reporting).
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
 struct LastFault {
     addr: u32,
     fsr: u32,
@@ -521,7 +524,7 @@ struct LastFault {
     access: u32,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum NorMode {
     ReadArray,
     Autoselect,
@@ -534,7 +537,7 @@ impl Default for NorMode {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 struct S5lNor {
     mode: NorMode,
     unlock_step: u8,
@@ -823,8 +826,11 @@ pub struct S5L8900Vcpu {
     kernel_fault_log_remaining: u32,
     kernel_exception_log_remaining: u32,
     fault_log_budget: u32,
-    last_heartbeat: crate::host::time::Instant,
-    boot_instant: crate::host::time::Instant,
+    heartbeat_clock: time::ElapsedClock,
+    boot_clock: time::ElapsedClock,
+    guest_profile: Option<profile::GuestProfile>,
+    capture_owner: Arc<()>,
+    checkpoint_publication: Option<context::PreparedPublication>,
     timer_speedup: u64,
     /// Derive guest µs from the instruction count so timeouts do not outrun
     /// device work while the interpreter executes below the guest CPU's speed.
@@ -1068,8 +1074,11 @@ impl S5L8900Vcpu {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(64),
-            last_heartbeat: crate::host::time::Instant::now(),
-            boot_instant: crate::host::time::Instant::now(),
+            heartbeat_clock: time::ElapsedClock::new(),
+            boot_clock: time::ElapsedClock::new(),
+            guest_profile: None,
+            capture_owner: Arc::new(()),
+            checkpoint_publication: None,
             timer_speedup: timer_speedup(),
             timer_mul: std::env::var("RAX_S5L_TIMER_MUL")
                 .ok()
@@ -1172,3 +1181,6 @@ mod dos_bounds_tests;
 #[cfg(test)]
 #[path = "runtime/bounded_tests.rs"]
 mod bounded_tests;
+
+#[cfg(test)]
+mod private_tests;
