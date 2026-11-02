@@ -922,6 +922,10 @@ mod backend_context_tests;
 mod cortex_m_context_tests;
 
 #[cfg(test)]
+#[path = "runtime/hexagon_context_tests.rs"]
+mod hexagon_context_tests;
+
+#[cfg(test)]
 #[path = "runtime/riscv_context_tests.rs"]
 mod riscv_context_tests;
 

@@ -7,8 +7,8 @@ use std::sync::Arc;
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 use super::decode::{
-    AddrMode, CmpKind, CombineOperand, DecodedInsn, DecodedSub, ExtendKind, MemOpKind, MemOpSrc,
-    MemSign, MemWidth, PredCond, ShiftKind, SpliceAmount, decode, decode_duplex, isa_supports_insn,
+    AddrMode, CmpKind, CombineOperand, DecodedInsn, ExtendKind, MemOpKind, MemOpSrc, MemSign,
+    MemWidth, PredCond, ShiftKind, SpliceAmount, decode, decode_duplex, isa_supports_insn,
 };
 use super::opcode::Opcode;
 use crate::config::{Endianness, HexagonIsa};
@@ -201,6 +201,7 @@ fn resolve_new_value(insn: DecodedInsn, producers: &[u8]) -> DecodedInsn {
     }
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct MmioPending {
     addr: u32,
     dst: u8,
@@ -208,11 +209,13 @@ struct MmioPending {
     signed: bool,
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct BranchTarget {
     target: u32,
     is_call: bool,
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct PacketState {
     packet_pc: u32,
     pc: u32,
@@ -223,7 +226,7 @@ struct PacketState {
     inst_index: usize,
     first_parse: Option<u32>,
     second_parse: Option<u32>,
-    pending_subinsn: Option<DecodedSub>,
+    pending_duplex: Option<u32>,
     pending_end: bool,
 }
 
@@ -239,7 +242,7 @@ impl PacketState {
             inst_index: 0,
             first_parse: None,
             second_parse: None,
-            pending_subinsn: None,
+            pending_duplex: None,
             pending_end: false,
         }
     }
@@ -285,6 +288,7 @@ pub struct HexagonVcpu {
     lock_addr: Option<u32>,
     /// Packets committed, reported as the vCPU instruction count.
     packets: u64,
+    checkpoint_publication: Option<Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl HexagonVcpu {
@@ -307,6 +311,7 @@ impl HexagonVcpu {
             last_v_produced: None,
             lock_addr: None,
             packets: 0,
+            checkpoint_publication: None,
         }
     }
 
@@ -904,7 +909,7 @@ impl HexagonVcpu {
         inst_index: usize,
         first_parse: Option<u32>,
         second_parse: Option<u32>,
-        pending_subinsn: Option<DecodedSub>,
+        pending_duplex: Option<u32>,
         pending_end: bool,
     ) {
         self.pending_packet = Some(PacketState {
@@ -917,7 +922,7 @@ impl HexagonVcpu {
             inst_index,
             first_parse,
             second_parse,
-            pending_subinsn,
+            pending_duplex,
             pending_end,
         });
         self.set_pc(pc);
@@ -1013,11 +1018,17 @@ impl HexagonVcpu {
         let mut inst_index = state.inst_index;
         let mut first_parse = state.first_parse;
         let mut second_parse = state.second_parse;
-        let mut pending_subinsn = state.pending_subinsn;
+        let mut pending_duplex = state.pending_duplex;
         let mut pending_end = state.pending_end;
 
         loop {
-            if let Some(sub) = pending_subinsn.take() {
+            if let Some(word) = pending_duplex.take() {
+                // Retain the original word across a pause: guest code may have
+                // changed since slot 1 ran, and decoded enums are derived state.
+                let (_, sub) = decode_duplex(word, self._isa).ok_or_else(|| {
+                    Error::Emulator("invalid retained Hexagon duplex word".into())
+                })?;
+                self.ensure_isa_supports(word, &sub.insn, sub.opcode)?;
                 if let Some(exit) = self.execute_aligned_insn(
                     sub.insn,
                     packet_pc,
@@ -1119,7 +1130,7 @@ impl HexagonVcpu {
 
                     pc = pc.wrapping_add(4);
                     pending_end = true;
-                    pending_subinsn = Some(slot0);
+                    pending_duplex = Some(word);
                     self.save_packet_state(
                         packet_pc,
                         pc,
@@ -1130,7 +1141,7 @@ impl HexagonVcpu {
                         inst_index,
                         first_parse,
                         second_parse,
-                        pending_subinsn,
+                        pending_duplex,
                         pending_end,
                     );
                     return Ok(Some(exit));

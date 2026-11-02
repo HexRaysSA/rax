@@ -160,3 +160,11 @@ use a matching-memory publication permit; exported C contexts use format 9.
 Absent-section and C versions 1/2 retain projection-only compatibility.
 See [Cortex-M checkpoints](cortex-m-checkpoints/README.md) for exact scope,
 controller side-effect tests, current-session debug ownership and qualification.
+
+
+Hexagon producer kind 9 (`RAXHX001`) retains represented packet/core and adapter
+phase, including working/packet-entry registers, input, undelivered output,
+deferred RAM, forwarding and local rights. C engines emit format 10. Matching
+RAM publication guards detached CPUs; legacy absent sections and formats 1/2
+remain projection-only. See [Hexagon checkpoints](hexagon-checkpoints/README.md)
+for admission, exact output-boundary semantics and qualification.

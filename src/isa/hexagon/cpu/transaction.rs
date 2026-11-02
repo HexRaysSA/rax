@@ -1,5 +1,8 @@
 //! Packet-visible RAM, register, reservation and MMIO commit boundaries.
 
+#[path = "checkpoint.rs"]
+mod checkpoint;
+
 use super::*;
 use std::collections::VecDeque;
 use std::sync::Mutex;

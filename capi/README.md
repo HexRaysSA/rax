@@ -857,3 +857,24 @@ Legacy x86 formats 1/2 retain their original projection-only behavior.
 `rax_emu_icount` starts at zero after restore and remains cumulative across
 mapping changes. See [software x86 checkpoint contexts](../docs/development/x86-backend-context.md)
 for the wire format and verification limits.
+
+
+Hexagon engines write context format 10 with producer kind 9 (`RAXHX001`).
+This retains represented core and in-flight packet state: public packet-entry
+registers and private working/forwarding values, pending input, deferred RAM
+writes, undelivered MMIO outputs, packet counters and local reservation state.
+An output already returned by the CPU is treated as delivered and is not
+replayed. A suspended duplex slot retains its original word even if guest code
+memory changes. The target ISA and byte order must match the saved profile.
+Context restore preserves the raw packet count while `rax_emu_icount` restarts
+at zero. Mapping changes preserve represented packet/core phase and invalidate
+both current and packet-rollback local rights. Incompatible pending RAM bindings
+reject before replacing the engine. Legacy formats 1/2 retain projection-only
+semantics. This does not establish shared-writer reservation coherence or add
+unsupported mixed-MMIO packet semantics or physical Hexagon qualification.
+
+Hexagon host register overlays and PC updates preserve private state at a
+packet boundary. During a pending packet, an identical public-state write or
+same public-PC retry is a no-op; a changed register image or PC rejects before
+mutation. Finish the pending packet before making such edits. Explicit legacy
+`set_state` retains its separate projection/reset semantics.

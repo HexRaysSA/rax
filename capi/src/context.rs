@@ -11,7 +11,7 @@
 //!   cpu_len u64; cpu_bytes[cpu_len]      (legacy fixed-width codec of CpuState)
 //!   emu_len u64; emu_bytes[emu_len]      (legacy fixed-width codec of EmulatorState; if flag)
 //!   [format 3 only: arm_len u64 = 20; TLS + exclusive-monitor bytes[20]]
-//!   [formats 5/6/7/8/9: producer u32; backend_len u64; backend[backend_len]]
+//!   [formats 5/6/7/8/9/10: producer u32; backend_len u64; backend[backend_len]]
 //!   [format 7: resources_len u64; resources[resources_len]]
 //!   nregion u64
 //!   per region: base u64, size u64, perms u32, _pad u32, bytes[size]
@@ -43,6 +43,8 @@
 //! faults, memory observations, counters and physical reservation rights.
 //! Format 9 carries represented Cortex-M core/controllers, sleep/events, counters
 //! and local reservation state; legacy formats 1/2 remain projection-only.
+//! Format 10 carries Hexagon represented packet/core state, pending input,
+//! deferred RAM/output, forwarding values, counters and local reservation state.
 
 use std::sync::Arc;
 
@@ -70,6 +72,7 @@ const CTX_VERSION_X86: u32 = 7;
 /// Complete represented software-AArch64 backend and memory context.
 const CTX_VERSION_AARCH64_PRIVATE: u32 = 8;
 const CTX_VERSION_CORTEX_M: u32 = 9;
+const CTX_VERSION_HEXAGON: u32 = 10;
 const MAX_BACKEND_CONTEXT: usize = 16 * 1024 * 1024;
 
 #[path = "context/aarch64.rs"]
@@ -243,7 +246,11 @@ impl Engine {
         let backend_context = if (self.arch == RaxArch::Arm && arm_user.is_none())
             || matches!(
                 self.arch,
-                RaxArch::Riscv64 | RaxArch::X86 | RaxArch::Arm64 | RaxArch::CortexM
+                RaxArch::Riscv64
+                    | RaxArch::X86
+                    | RaxArch::Arm64
+                    | RaxArch::CortexM
+                    | RaxArch::Hexagon
             ) {
             Some(
                 self.vcpu
@@ -264,6 +271,8 @@ impl Engine {
             CTX_VERSION_AARCH64_PRIVATE
         } else if self.arch == RaxArch::CortexM {
             CTX_VERSION_CORTEX_M
+        } else if self.arch == RaxArch::Hexagon {
+            CTX_VERSION_HEXAGON
         } else if backend_context.is_some() {
             CTX_VERSION_AARCH32
         } else if arm_user.is_some() {
@@ -314,6 +323,8 @@ impl Engine {
                 rax_engine::snapshot::AARCH64_CONTEXT
             } else if self.arch == RaxArch::CortexM {
                 rax_engine::snapshot::CORTEX_M_CONTEXT
+            } else if self.arch == RaxArch::Hexagon {
+                rax_engine::snapshot::HEXAGON_CONTEXT
             } else {
                 rax_engine::snapshot::AARCH32_CONTEXT
             };
@@ -388,6 +399,7 @@ impl Engine {
                 | CTX_VERSION_X86
                 | CTX_VERSION_AARCH64_PRIVATE
                 | CTX_VERSION_CORTEX_M
+                | CTX_VERSION_HEXAGON
         ) {
             return self.fail(RaxStatus::Format, "unsupported context version");
         }
@@ -398,6 +410,7 @@ impl Engine {
                 | CTX_VERSION_X86
                 | CTX_VERSION_AARCH64_PRIVATE
                 | CTX_VERSION_CORTEX_M
+                | CTX_VERSION_HEXAGON
         );
         let backend_arch = if version == CTX_VERSION_RISCV {
             "RISC-V"
@@ -407,6 +420,8 @@ impl Engine {
             "AArch64"
         } else if version == CTX_VERSION_CORTEX_M {
             "Cortex-M"
+        } else if version == CTX_VERSION_HEXAGON {
+            "Hexagon"
         } else {
             "AArch32"
         };
@@ -430,6 +445,9 @@ impl Engine {
         }
         if version == CTX_VERSION_AARCH64_PRIVATE && self.arch != RaxArch::Arm64 {
             return self.fail(RaxStatus::Format, "format 8 requires AArch64");
+        }
+        if version == CTX_VERSION_HEXAGON && self.arch != RaxArch::Hexagon {
+            return self.fail(RaxStatus::Format, "format 10 requires Hexagon");
         }
         if version == CTX_VERSION_CORTEX_M && self.arch != RaxArch::CortexM {
             return self.fail(RaxStatus::Format, "format 9 requires Cortex-M");
@@ -538,6 +556,8 @@ impl Engine {
                 rax_engine::snapshot::AARCH64_CONTEXT
             } else if version == CTX_VERSION_CORTEX_M {
                 rax_engine::snapshot::CORTEX_M_CONTEXT
+            } else if version == CTX_VERSION_HEXAGON {
+                rax_engine::snapshot::HEXAGON_CONTEXT
             } else {
                 rax_engine::snapshot::AARCH32_CONTEXT
             };

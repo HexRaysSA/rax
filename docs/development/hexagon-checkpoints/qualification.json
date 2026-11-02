@@ -1,0 +1,462 @@
+{
+  "scope": "Hexagon represented core and in-flight packet checkpoints through actual VMM files, detached publication and exported C format10 contexts",
+  "parent": "c6e29408c7795167b9d77758bc171456df0847fd",
+  "full_goal_complete": false,
+  "assumption_register": [
+    {
+      "id": "HX1",
+      "assumption": "Public registers omit committed packet counts.",
+      "dependent_result": "Private producer carries raw counters.",
+      "stress_test": "Actual one/two/four CPU files and exported C context restore with a fresh public counter origin.",
+      "falsification_probe": "No observed difference without private bytes, or repaired raw counts diverge.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "HX2",
+      "assumption": "A pending read and its completion are private packet state.",
+      "dependent_result": "Retain descriptor, cursor, GPR/predicate forwarding and initial register view.",
+      "stress_test": "File restore before response delivery; earlier buffered GPR remains invisible until packet commit.",
+      "falsification_probe": "Saved completion is discarded, read is requested again, or GPR appears early.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "HX3",
+      "assumption": "Complete modeled contexts retain local reservation state; mapping changes can invalidate it.",
+      "dependent_result": "Keep current and rollback rights for checkpoints, clear both in remap images.",
+      "stress_test": "LL/save/restore/SC, disjoint per-CPU addresses, removal/readdition of reserved C memory range.; same-PC C start and unrelated host register edits after private restore",
+      "falsification_probe": "Checkpoint SC differs from uninterrupted modeled continuation, or mapping preparation mutates the old live CPU.; non-reset host controls silently discard restored rights",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "HX4",
+      "assumption": "Decoded pending duplex work is derived from an original word and immutable ISA.",
+      "dependent_result": "Retain that word and decode it at resume without refetching mutable guest code.",
+      "stress_test": "Change code memory after a slot1 input exit, then restore and execute the original slot0.; reject all three non-duplex parse encodings before target mutation",
+      "falsification_probe": "Resume executes changed code or loses the saved second slot.; normal parse values admitted as duplex",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "HX5",
+      "assumption": "Deferred RAM and undelivered outputs are separate from already returned outputs.",
+      "dependent_result": "Preserve working/initial registers, store log, output queue, finished state and HVX forwarding.",
+      "stress_test": "Two outputs with the first already returned; RAM buffered until a returned output is acknowledged by the next step; HVX result before a suspended scalar input.",
+      "falsification_probe": "Output is repeated/lost, RAM appears early, or register/packet commit differs.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    },
+    {
+      "id": "HX6",
+      "assumption": "Preparation is bounded and cannot publish in a foreign RAM scope.",
+      "dependent_result": "Bound collections before allocation; reject profile/phase/public conflicts before live changes; guard entry until matching publication.",
+      "stress_test": "Oversized encoded field counts, cancellation, foreign scope, corrupt/missing final CPU, legacy projection controls.; rejected pending host edits preserve the exact context; same-PC retry resumes saved input",
+      "falsification_probe": "Unbounded decode, early entry, partial target/RAM mutation, or loss of documented legacy behavior.",
+      "status": "confirmed_with_recorded_software_model_and_host_scope"
+    }
+  ],
+  "provenance": [
+    "src/isa/hexagon/cpu.rs",
+    "src/isa/hexagon/cpu_vcpu.rs",
+    "src/isa/hexagon/cpu/transaction.rs",
+    "src/isa/hexagon/cpu/alignment.rs",
+    "src/isa/hexagon/decode/duplex.rs",
+    "capi/src/context.rs",
+    "capi/src/vcpu.rs",
+    "capi/src/mem.rs",
+    "capi/src/run.rs"
+  ],
+  "evidence_boundary": "Represented software-state preservation and current Apple Silicon host qualification; instruction words checked with installed LLVM23 hexagonv68 assembler. No physical Hexagon or Intel conformance claim.",
+  "compatibility": "Absent VMM private sections and C formats1/2 remain projection-only. An output returned by the existing CPU API counts as delivered. New writer version10 and producer kind9 are explicit; outer VMM framing is unchanged.",
+  "known_independent_native_failure": "The earlier complete ignored native CPU-profile module retains the streaming FPSR reentry failure. This Hexagon group does not repair or rerun that module.",
+  "unrun": [
+    "Physical Hexagon execution",
+    "Physical Intel HVF/KVM qualification and Intel cross compilation",
+    "Complete ignored native CPU-profile module"
+  ],
+  "additional_adversarial_admission": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/duplex-probe-v4.json",
+  "host_controls": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/host-control-probe-v4.json",
+  "utc": "2026-11-02T00:54:25.340000+00:00",
+  "status": "locally_validated_with_explicit_scope",
+  "tests": {
+    "green-C-API-v6": {
+      "results": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 0.1900338340201415,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "05a79e0a13af93ef0fa166c5c406a7ae915460d3c21cef01c3f795e3b6c21dd5",
+        "inode": 400097042
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/green-C-API-v6.json"
+    },
+    "green-packet-v6": {
+      "results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 0.0300411669886671,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "7291c8fe0059c951bb6c554403ee44217c69710512b176e4afa8c30c25743c13",
+        "inode": 400097038
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/green-packet-v6.json"
+    },
+    "green-VMM-v6": {
+      "results": [
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 358.9616209579981,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "7291c8fe0059c951bb6c554403ee44217c69710512b176e4afa8c30c25743c13",
+        "inode": 400097038
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/green-VMM-v6.json"
+    },
+    "owning-root-library-v6": {
+      "results": [
+        {
+          "passed": 11643,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "elapsed_seconds": 1132.547014791984,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "7291c8fe0059c951bb6c554403ee44217c69710512b176e4afa8c30c25743c13",
+        "inode": 400097038
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/owning-root-library-v6.json"
+    },
+    "owning-C-API-library-v6": {
+      "results": [
+        {
+          "passed": 239,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 2.5726760830148123,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "05a79e0a13af93ef0fa166c5c406a7ae915460d3c21cef01c3f795e3b6c21dd5",
+        "inode": 400097042
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/owning-C-API-library-v6.json"
+    },
+    "native-file-continuation-v6": {
+      "results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 301.49648541695205,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "7291c8fe0059c951bb6c554403ee44217c69710512b176e4afa8c30c25743c13",
+        "inode": 400097038
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/native-file-continuation-v6.json"
+    },
+    "owning-hexagon_bare_metal-v6": {
+      "results": [
+        {
+          "passed": 175,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 0.049971707980148494,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hexagon_bare_metal-5b658b785fe8cf9c",
+        "sha256": "ef8e9c3336b0f3f0a1216b0412ef98ba353df98e35bd08f8671739440346051c",
+        "inode": 400097190
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/owning-hexagon_bare_metal-v6.json"
+    },
+    "owning-hexagon_smir_lift-v6": {
+      "results": [
+        {
+          "passed": 313,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 1.7130329580395482,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hexagon_smir_lift-ce90e97588119f92",
+        "sha256": "1c3738711efe89304aacf3d59a560f6ab2e5deedcb4809b661555ecbb6550736",
+        "inode": 400097189
+      },
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/owning-hexagon_smir_lift-v6.json"
+    },
+    "doctests-workspace-v6": {
+      "results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "elapsed_seconds": 9.046069792006165,
+      "executable": null,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/doctests-workspace-v6.json"
+    }
+  },
+  "checks": {
+    "fmt-workspace-v6": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/fmt-workspace-v6.json",
+      "elapsed_seconds": 14.577934207976796
+    },
+    "repair-build-v6": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/repair-build-v6.json",
+      "elapsed_seconds": 191.8364809170016
+    },
+    "owning-integration-build-v6": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/owning-integration-build-v6.json",
+      "elapsed_seconds": 1.535072707978543
+    },
+    "check-workspace-all-targets-v6": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/check-workspace-all-targets-v6.json",
+      "elapsed_seconds": 94.95748387504136
+    },
+    "build-workspace-all-targets-v6": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/build-workspace-all-targets-v6.json",
+      "elapsed_seconds": 172.35199012496741
+    },
+    "clippy-workspace-all-targets-v6": {
+      "exit_code": 0,
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/clippy-workspace-all-targets-v6.json",
+      "elapsed_seconds": 114.7313466250198
+    }
+  },
+  "host": {
+    "utc": "2026-11-02T00:32:03.863650+00:00",
+    "sw_vers": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+    "cpu": "Apple M4 Max",
+    "cpu_threads": 16,
+    "memory_bytes": 137438953472,
+    "sdk": "27.2",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+    "RAX_MACHINE": null,
+    "physical_Intel": false,
+    "physical_Hexagon": false
+  },
+  "source_sha256": {
+    "src/vm/runtime.rs": "6000fb0366d38da6d0009b75909596f6c8dfb27b87a760ac8fcb8e369cc26016",
+    "src/vm/runtime/hexagon_context_tests.rs": "c651625f3b6e592c28e0cff3f0691992fc579bb181509980aa09404909fe461a",
+    "src/isa/hexagon/cpu.rs": "af513c02d7e9a3af7559db81d635e456b1be73d2496fd44973ab0c104d2e68e1",
+    "src/isa/hexagon/cpu_vcpu.rs": "aea9520e4bfb9f127e724dbe3f9371d550074ad85e11bb30b03126075aa06e2b",
+    "src/isa/hexagon/cpu/transaction.rs": "48030facc5055abe23029775c034e09b0938bca8bcfcecb860918907763dc3c4",
+    "src/isa/hexagon/cpu/checkpoint.rs": "eec2eb2195f3b4d8551bf6e735c55cd1fd6730d69153e02eee021083bf219df1",
+    "src/isa/hexagon/cpu/checkpoint_tests.rs": "08074f571f446509f78ec26096eea89a0ea908a8d66c5584b2e0092608b17274",
+    "src/vm/snapshot/backend_context.rs": "86ac6c953427bb7432ccfc125717391d9a57a79361467272b6ef39edd643eec4",
+    "src/vm/snapshot.rs": "ecdae03f706e744095ad336e01fa0fd9f8196057f97d02bb00f82f2344a0ca63",
+    "capi/src/context.rs": "ce462e471a713c8b9f6580903060b2b28ec88728fd6fd9624161d7cd42e1ea01",
+    "capi/src/vcpu.rs": "6c6f5ab5fdca4d30c652fc24fbcb8ece99e34652e31e5956e9034f68c582eedb",
+    "capi/src/tests.rs": "4756a317aaf44000c99613d0241f117e526ca301fc906a00c8bed947d18a7a1f",
+    "capi/src/tests/context_hexagon.rs": "a5312f3d399e9c3ed243ddd68e24b433ddd8faa28fa3c62a100d862c28592561",
+    "capi/include/rax.h": "f47c3dc3e032791a2552b8487a64009eafe911dcd7bbe18a22a7743120887d1c",
+    "capi/README.md": "7ba25b6196570c8ac9d9978fb8ed5d3d4872bfdf6d4d15b09a7ae73eec79360b"
+  },
+  "static_review": {
+    "represented_fields": {
+      "HexagonVcpu": [
+        "id",
+        "regs",
+        "halted",
+        "pending_mmio",
+        "pending_packet",
+        "effects",
+        "packet_producers",
+        "_isa",
+        "endian",
+        "new_v",
+        "new_q",
+        "new_v_tmp",
+        "gather_tmp",
+        "last_v_produced",
+        "lock_addr",
+        "packets"
+      ],
+      "target_owned": [
+        "mem",
+        "checkpoint_publication"
+      ],
+      "PacketEffects": [
+        "initial",
+        "initial_reservation",
+        "writes",
+        "outputs",
+        "finished"
+      ],
+      "PacketState": [
+        "packet_pc",
+        "pc",
+        "immext",
+        "new_r",
+        "new_p",
+        "branch",
+        "inst_index",
+        "first_parse",
+        "second_parse",
+        "pending_duplex",
+        "pending_end"
+      ]
+    },
+    "derived_representation": "Retain original pending duplex u32, decode slot0 against the admitted immutable ISA; do not refetch mutable guest code or serialize implementation-wide decoded enums.",
+    "storage_bounds": {
+      "wire_record_bytes": 16777216,
+      "writes": 4096,
+      "one_write_bytes": 65536,
+      "queued_outputs": 16,
+      "one_output_bytes": 4,
+      "producers": 8,
+      "maximum_guest_packet_words": 4
+    },
+    "admission": [
+      "producer/tag/CPU identity/ISA/endian",
+      "bounded storage before decoded collections allocate",
+      "public projection equals initial packet registers when private work is pending",
+      "phase graph, packet cursor/parse fields, indices and retained duplex allocation",
+      "deferred RAM ranges and no implicit MMIO spans",
+      "mapped aligned local reservation ranges",
+      "matching target RAM publication scope before entry"
+    ],
+    "compatibility": [
+      "Raw public PC values are retained at idle, including values that will later fetch-fault; private admission does not silently normalize them.",
+      "Legacy no-section and C format1/2 imports remain projection-only.",
+      "Mapping reconstruction invalidates current and rollback local rights without mutating the live source during preparation.",
+      "Returned MMIO outputs count as delivered at the existing CPU interface boundary; only undelivered queue elements are saved."
+    ],
+    "bounded_scope": [
+      {
+        "impact": "high",
+        "item": "Shared-writer/local monitor coherence and physical Hexagon conformance are not established by this preservation group."
+      },
+      {
+        "impact": "high",
+        "item": "Existing unsupported ordered MMIO write/read packet behavior is not enabled by private restoration."
+      },
+      {
+        "impact": "high",
+        "item": "Original A32-FP/C-STATE/C-SMP/C-HVF full scope remains open, including native timing/IRQ/replay and physical Intel requirements."
+      }
+    ],
+    "test_scope": "Initial V68 little-endian packet cases cover GPR/HVX forwarding, mutable-code duplex resume, returned output conservation and deferred RAM. Basic counter/byte-exact preservation covers ten ISA variants times two byte orders. No claim that every optional instruction executes on every profile.",
+    "full_goal_complete": false,
+    "additional_adversarial_admission": {
+      "baseline": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/duplex-probe-v4.json",
+      "observation": "Normal parse value1 accepted as retained duplex before explicit classification guard.",
+      "repair": "Require parse[15:14]=00 before calling decode_duplex; reject normal values1/2/3 before any target mutation.",
+      "new_regression": "non_duplex_parse_bits_reject_before_any_target_mutation"
+    },
+    "host_controls": {
+      "baseline": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/host-control-probe-v4.json",
+      "contract": "VCpu::set_current_pc and update_state preserve implementation-private state.",
+      "repair": "Idle overlays retain rights/counters. Pending identical-state and same-PC requests are no-ops; changed public state/PC rejects before mutation.",
+      "new_tests": [
+        "host_register_and_pc_overlays_preserve_idle_local_rights",
+        "pending_host_edits_reject_and_identical_controls_preserve_saved_work",
+        "hexagon_c_context_same_pc_start_and_register_edits_keep_restored_rights",
+        "hexagon_c_context_rejects_destructive_pending_edits_then_resumes_at_same_pc"
+      ]
+    }
+  },
+  "baselines": {
+    "parent_VMM": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/baseline-behavior-v1.json",
+    "controlled_C_writer_reversal": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/C-API-baseline-behavior-v3.json",
+    "original_exported_C_observation": "/Users/int/dev/rax-audit-work/four-findings-coordinator/cortex-m-private-checkpoint-v1/next-hexagon-baseline-v2-result.json",
+    "behavioral_failures": 6,
+    "additional_adversarial_admission": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/duplex-probe-v4.json",
+    "host_controls": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/host-control-probe-v4.json"
+  },
+  "required_full_root_rows": [
+    "actual_hexagon_file_retains_each_cpus_committed_packet_count",
+    "actual_hexagon_file_retains_a_pending_mmio_read_and_its_completion",
+    "actual_hexagon_file_retains_local_load_locked_state_until_store_conditional",
+    "last_hexagon_private_record_rejects_before_any_cpu_or_ram_mutation",
+    "absent_hexagon_private_section_retains_legacy_projection_semantics",
+    "file_restore_preserves_the_current_session_and_rebinds_imported_cpu_controls"
+  ],
+  "C_CPP": {
+    "programs": 19,
+    "ABI_objects": 7,
+    "engine_optional_features": [],
+    "provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/C-CPP-provenance-v6.json"
+  },
+  "wire": {
+    "private_kind": 9,
+    "private_tag": "RAXHX001",
+    "C_API_format": 10,
+    "outer_VM_framing_unchanged": true,
+    "maximum_private_record_bytes": 16777216,
+    "collection_limits": {
+      "wire_record_bytes": 16777216,
+      "writes": 4096,
+      "one_write_bytes": 65536,
+      "queued_outputs": 16,
+      "one_output_bytes": 4,
+      "producers": 8,
+      "maximum_guest_packet_words": 4
+    },
+    "legacy_projection_compatibility": true
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Shared-writer/local monitor coherence and physical Hexagon conformance are not established by this preservation group."
+    },
+    {
+      "impact": "high",
+      "item": "Existing unsupported ordered MMIO write/read packet behavior is not enabled by private restoration."
+    },
+    {
+      "impact": "high",
+      "item": "Original A32-FP/C-STATE/C-SMP/C-HVF full scope remains open, including native timing/IRQ/replay and physical Intel requirements."
+    }
+  ],
+  "root_execution_policy": {
+    "filter": null,
+    "test_threads": 4,
+    "reason": "Complete unfiltered owning binary on verified 16-core/128-GiB host; no exclusions or global setting changes.",
+    "ignored_policy": "Default Rust harness ignored policy; selected actual native file case separately includes ignored."
+  },
+  "quality_gates": {
+    "normative_judgment_required": false,
+    "assumptions_reconciled": true,
+    "current_group_coverage_complete": true,
+    "full_goal_complete": false,
+    "byte_and_collection_bounds_reproducible": true,
+    "legacy_and_native_limits_explicit": true,
+    "provenance_recorded": true,
+    "bounded_scope_explicit": true,
+    "source_frozen_through_execution": true
+  },
+  "fixture_extension": "The original one-CPU red LL/SC witness is retained. Final two/four-CPU cases use disjoint addresses and do not assert behavior under cross-CPU interference.",
+  "complexity": "For C CPUs, B encoded bytes and N bounded collection entries, framing/decode and state transfer take O(C+B+N) time and O(B+N) auxiliary space, excluding memory-map admission. Range admission additionally incurs the map lookup/region visitation cost for each reservation/store. RAM data transfer is separately O(R) bytes. No measured performance claim."
+}

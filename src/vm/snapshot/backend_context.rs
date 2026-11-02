@@ -23,6 +23,8 @@ pub const HVF_AARCH64_CONTEXT: u32 = 6;
 pub const HVF_INTEL_CONTEXT: u32 = 7;
 /// Software Cortex-M core, internal controllers and adapter execution state.
 pub const CORTEX_M_CONTEXT: u32 = 8;
+/// Hexagon software packet engine and its represented in-flight transaction.
+pub const HEXAGON_CONTEXT: u32 = 9;
 
 /// An opaque, bounded backend-owned record. Its kind identifies its producer;
 /// an architectural register projection cannot substitute for this payload.

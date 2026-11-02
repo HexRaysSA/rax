@@ -14,7 +14,67 @@ impl HexagonVcpu {
 }
 
 impl VCpu for HexagonVcpu {
+    fn required_private_checkpoint_kind(&self) -> Option<u32> {
+        Some(crate::vm::snapshot::HEXAGON_CONTEXT)
+    }
+    fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        self.capture_private(false).map(Some)
+    }
+    fn capture_backend_context_for_remap(
+        &self,
+    ) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        self.capture_private(true).map(Some)
+    }
+    fn validate_checkpoint_context(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_state(state, emulator)?;
+        if let Some(raw) = context {
+            self.prepare_private(state, emulator, raw)?;
+        }
+        Ok(())
+    }
+    fn prepare_checkpoint_replacement(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+        _resources: &crate::vm::snapshot::PreparedResources,
+    ) -> Result<Option<Box<dyn VCpu>>> {
+        self.validate_checkpoint_state(state, emulator)?;
+        context
+            .map(|raw| {
+                self.prepare_private(state, emulator, raw)
+                    .map(|c| Box::new(c) as Box<dyn VCpu>)
+            })
+            .transpose()
+    }
+    fn prepare_checkpoint_publication<'scope, 'bindings>(
+        &mut self,
+        scope: &'scope crate::vm::memory::checkpoint::CheckpointPublication<'bindings>,
+    ) -> Result<crate::vm::memory::checkpoint::CpuPublication<'scope, 'bindings>> {
+        self.publication(scope)
+    }
+    fn restore_checkpoint_context(
+        &mut self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_state(state, emulator)?;
+        match context {
+            Some(raw) => self.restore_private(state, emulator, raw),
+            None => {
+                self.set_state(state)?;
+                self.set_emulator_state(emulator)
+            }
+        }
+    }
     fn run(&mut self) -> Result<VcpuExit> {
+        self.finish_publication()?;
         if self.halted {
             return Ok(VcpuExit::Hlt);
         }
@@ -29,6 +89,7 @@ impl VCpu for HexagonVcpu {
     }
 
     fn step_insn(&mut self) -> Result<Option<VcpuExit>> {
+        self.finish_publication()?;
         if self.halted {
             return Ok(Some(VcpuExit::Hlt));
         }
@@ -42,6 +103,20 @@ impl VCpu for HexagonVcpu {
 
     fn current_pc(&self) -> u64 {
         u64::from(self.old_regs().pc())
+    }
+
+    fn set_current_pc(&mut self, pc: u64) -> Result<()> {
+        let pc = pc as u32;
+        if self.effects.initial.is_some() {
+            if self.old_regs().pc() != pc {
+                return Err(Error::InvalidConfig(
+                    "Hexagon PC changes require a packet boundary".into(),
+                ));
+            }
+            return Ok(());
+        }
+        self.set_pc(pc);
+        Ok(())
     }
 
     fn wake(&mut self) {
@@ -68,6 +143,30 @@ impl VCpu for HexagonVcpu {
         };
         self.discard_packet();
         self.lock_addr = None;
+        self.regs = state.regs.clone();
+        Ok(())
+    }
+
+    fn update_state(&mut self, state: &CpuState) -> Result<()> {
+        let CpuState::Hexagon(state) = state else {
+            return Err(Error::Emulator(
+                "expected hexagon state for hexagon vCPU".into(),
+            ));
+        };
+        if self.effects.initial.is_some() {
+            let encode = |value: &HexagonRegisters| {
+                crate::codec::serialize(value)
+                    .map_err(|e| Error::InvalidConfig(format!("Hexagon register overlay: {e}")))
+            };
+            if encode(self.old_regs())? != encode(&state.regs)? {
+                return Err(Error::InvalidConfig(
+                    "Hexagon register changes require a packet boundary".into(),
+                ));
+            }
+            return Ok(());
+        }
+        // Public register edits retain counters and local reservation rights.
+        // Explicit set_state remains the legacy projection/reset operation.
         self.regs = state.regs.clone();
         Ok(())
     }

@@ -771,3 +771,6 @@ mod aarch64_reservations;
 
 #[path = "tests/context_cortex_m.rs"]
 mod context_cortex_m;
+
+#[path = "tests/context_hexagon.rs"]
+mod context_hexagon;

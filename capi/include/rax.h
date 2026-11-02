@@ -538,7 +538,12 @@ RAX_API rax_status rax_context_save(const rax_engine *engine, void *buf, size_t 
  * format 1 from API 1.4 and earlier; older libraries cannot read format 2.
  * API 1.7 writes format 3 only for AArch32 user-mode contexts, adding TLS
  * and the local exclusive monitor. Current producers write format 5 for system
- * AArch32, 6 for RISC-V, 7 for x86, 8 for AArch64, and 9 for Cortex-M.
+ * AArch32, 6 for RISC-V, 7 for x86, 8 for AArch64, 9 for Cortex-M, and
+ * 10 for Hexagon. Format 10 retains represented packet/core state, pending
+ * input, deferred RAM/output, forwarding values, counters and local rights.
+ * Legacy Hexagon formats 1/2 retain public-register projection semantics.
+ * Hexagon PC/register edits preserve private state at a packet boundary;
+ * destructive edits during a pending packet return an error before mutation.
  * Format 9 retains represented core/controller state, counters, sleep/events
  * and local reservation rights. Legacy Cortex-M formats 1/2 are projection-only.
  * Address-map reconstruction preserves core phase and invalidates local rights.
