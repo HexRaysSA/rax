@@ -1,0 +1,45 @@
+{
+  "source_archive_sha256": "aa0009702a422d83a75b42eef75d9436d0c727283532bc4654d5887c779540fb",
+  "files": {
+    "native-metadata-tags-v4-x86.exe": {
+      "bytes": 128000,
+      "sha256": "32a2eac5e60283ef70fe47c162858b6bbed2528bbc911ee41a0162e886a3fcd4"
+    },
+    "CMakeLists.txt": {
+      "bytes": 596,
+      "sha256": "6f18780feb34423522ac233ce76a71a74ec3be6f7f7e589313ed1ffc92bdae66"
+    },
+    "handle-snapshot-v3.h": {
+      "bytes": 3460,
+      "sha256": "c658bb4689814bc7a508da661c14bdea9cad45013c1e06173cde340526c0fcab"
+    },
+    "capture-v4.py": {
+      "bytes": 9078,
+      "sha256": "fab530e8d45fe0a403cf224fc1bdda49e396b8e1ad15ccaabf20086a18a90fc5"
+    },
+    ".gitattributes": {
+      "bytes": 53,
+      "sha256": "08729c68afe9e97bde8511539d04fee8653894505b229baace88b76a4a453300"
+    },
+    "probe-v1.c": {
+      "bytes": 12465,
+      "sha256": "ed9ec15bb36c6ebc6b90101afab3d00c2cbf33cab8907ddb179cd6140efb2ae0"
+    },
+    "native-metadata-tags-v4-x64.exe": {
+      "bytes": 154624,
+      "sha256": "6140f661ae5e5f432a8946433efc6e737d8becb324219e8f3211befde0989ce8"
+    },
+    "native-metadata-tags-v4-arm64.exe": {
+      "bytes": 156160,
+      "sha256": "d060321583c6298cdb06cc27aa635b07079070069ffdc7e00efaddf155ba5340"
+    },
+    "native-receipt-v4.json": {
+      "bytes": 14692,
+      "sha256": "028910e4a75028b23ded44b10ff574a2f5efdb24a28504eb2a669971048077d9"
+    },
+    "observations-v4.json": {
+      "bytes": 76830,
+      "sha256": "4da92efd69978505e3e1d13aa6825e36dec5e4ba1817d4559079b15f2f64b344"
+    }
+  }
+}

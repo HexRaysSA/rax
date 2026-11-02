@@ -7,6 +7,8 @@ mod appmodel;
 mod command_processor;
 #[path = "installed/key_enumeration.rs"]
 mod key_enumeration;
+#[path = "installed/key_information.rs"]
+mod key_information;
 #[path = "installed/machine_hive.rs"]
 mod machine_hive;
 #[path = "installed/native_key.rs"]
@@ -380,6 +382,8 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let root = super::TreeRoot::LanguageOverlayPackages;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;
+    let selected = key_information::capture(&registry)?;
+    let registry = registry.with_information_tree(super::TreeRoot::NlsCustomLocale, selected)?;
     machine_hive::capture(command_processor::capture_ole(
         command_processor::capture_system(command_processor::capture_machine(appmodel::capture(
             registry,
@@ -458,4 +462,16 @@ pub(super) fn local_settings_subject(sid: &[u8]) -> io::Result<Registry> {
     let registry = Registry::selected(upcase, vec![])?;
     let registry = primary_hive::capture_header(registry, sid)?;
     command_processor::capture_local_settings(registry, sid)
+}
+
+/// Isolated native acquisition subject, without unrelated startup roots.
+#[cfg(test)]
+pub(crate) fn nls_custom_locale_subject() -> io::Result<Registry> {
+    // SAFETY: pure one-WCHAR lookup; the immutable table owns all results.
+    let upcase = (0..=u16::MAX)
+        .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
+        .collect();
+    let registry = Registry::selected(upcase, vec![])?;
+    let selected = key_information::capture(&registry)?;
+    registry.with_information_tree(super::TreeRoot::NlsCustomLocale, selected)
 }

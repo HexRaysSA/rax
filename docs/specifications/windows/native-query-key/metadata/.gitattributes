@@ -1,0 +1,9 @@
+*.zst -text
+*.exe -text
+*.json -text
+*.c -text
+*.h -text
+capture-v3.py -text
+CMakeLists.txt -text
+fixture-CMakeLists.txt -text
+.gitattributes -text

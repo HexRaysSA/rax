@@ -73,6 +73,7 @@ impl Builder {
             &mut self.values,
         )?;
         let mut key = Key {
+            information: None,
             enumeration,
             path: header.canonical,
             redirected_view: Some(self.view),

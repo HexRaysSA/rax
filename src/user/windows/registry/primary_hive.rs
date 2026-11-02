@@ -108,6 +108,7 @@ impl Registry {
                 let values =
                     bounded_values(&self.upcase, header.values, &mut self.value_budget()?)?;
                 Some(Arc::new(Key {
+                    information: None,
                     enumeration: None,
                     path: header.canonical,
                     redirected_view: None,
@@ -190,6 +191,7 @@ impl Registry {
             return Ok(());
         };
         let root = Arc::new(Key {
+            information: None,
             enumeration: root.enumeration.clone(),
             path: root.path.clone(),
             redirected_view: None,

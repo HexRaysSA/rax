@@ -54,6 +54,7 @@ pub(crate) enum TreeRoot {
     MuiSettings,
     MuiSystem,
     LanguageOverlayPackages,
+    NlsCustomLocale,
 }
 impl TreeRoot {
     pub(crate) fn path(self) -> &'static str {
@@ -72,6 +73,7 @@ impl TreeRoot {
             Self::MuiSettings => MUI_SETTINGS_KEY,
             Self::MuiSystem => MUI_SYSTEM_KEY,
             Self::LanguageOverlayPackages => LANGUAGE_OVERLAY_PACKAGES_KEY,
+            Self::NlsCustomLocale => NLS_CUSTOM_LOCALE_KEY,
         }
     }
 }
@@ -107,6 +109,11 @@ impl TreeBudget {
     }
     pub(super) fn charge_tree(&mut self, key: &Key, depth: usize) -> io::Result<()> {
         self.charge(&key.path, depth)?;
+        if key.information.is_some() {
+            if let Some(logical) = &key.logical_path {
+                self.charge_alias(logical)?;
+            }
+        }
         if let Some(children) = &key.subkeys {
             for child in children.values() {
                 self.charge_tree(child, depth + 1)?;
@@ -119,11 +126,21 @@ impl TreeBudget {
             return Err(invalid("runtime registry depth/path exceeds bounds"));
         }
         self.keys += 1;
+        self.charge_alias(path)?;
+        if self.keys > self.limits.keys {
+            return Err(invalid("runtime registry key/path budget exhausted"));
+        }
+        Ok(())
+    }
+    pub(super) fn charge_alias(&mut self, path: &[u16]) -> io::Result<()> {
+        if path.len() > 32_767 {
+            return Err(invalid("runtime registry alias exceeds path bound"));
+        }
         self.path_bytes = self
             .path_bytes
             .checked_add(path.len() * 2)
             .ok_or_else(|| invalid("runtime registry path size overflow"))?;
-        if self.keys > self.limits.keys || self.path_bytes > self.limits.path_bytes {
+        if self.path_bytes > self.limits.path_bytes {
             return Err(invalid("runtime registry key/path budget exhausted"));
         }
         Ok(())
@@ -170,22 +187,49 @@ impl Registry {
     pub(crate) fn with_absent_ifeo(self) -> io::Result<Self> {
         self.with_tree(TreeRoot::Ifeo, None)
     }
-    pub(crate) fn with_tree(mut self, root: TreeRoot, tree: Option<KeyTree>) -> io::Result<Self> {
+    pub(crate) fn with_tree(self, root: TreeRoot, tree: Option<KeyTree>) -> io::Result<Self> {
+        self.with_tree_records(root, tree, None)
+    }
+    pub(crate) fn with_information_tree(
+        self,
+        root: TreeRoot,
+        tree: Option<InformationTree>,
+    ) -> io::Result<Self> {
+        let (tree, information) = match tree {
+            Some(tree) => (Some(tree.tree), Some(tree.information)),
+            None => (None, None),
+        };
+        self.with_tree_records(root, tree, information)
+    }
+    fn with_tree_records(
+        mut self,
+        root: TreeRoot,
+        tree: Option<KeyTree>,
+        information: Option<BTreeMap<Vec<u16>, KeyInformation>>,
+    ) -> io::Result<Self> {
         if self.upcase.len() != 65_536 || self.selected_trees.contains(&root) {
             return Err(invalid("invalid or duplicate runtime subtree selection"));
         }
         if let Some(tree) = tree {
             let path: Vec<_> = root.path().encode_utf16().collect();
             let folded: Vec<_> = path.iter().map(|&u| self.upcase[usize::from(u)]).collect();
-            let key = build(
+            let mut values = self.value_budget()?;
+            let mut paths = TreeBudget::default();
+            let mut key = build(
                 self.upcase.clone(),
                 path,
                 tree,
                 0,
-                &mut self.value_budget()?,
-                &mut TreeBudget::default(),
+                &mut values,
+                &mut paths,
                 None,
             )?;
+            if let Some(mut information) = information {
+                key_information::attach(&mut key, &mut information, &mut values, &mut paths, None)?;
+                if !information.is_empty() {
+                    return Err(invalid("captured key metadata contains unselected records"));
+                }
+            }
             self.keys.insert(folded, key);
         }
         self.selected_trees.insert(root);
@@ -223,6 +267,16 @@ impl Registry {
                 return root.relative(&original[prefix.len()..]);
             }
         }
+        // Fixed logical roots can resolve a native CurrentControlSet alias.
+        // Keep both spellings; a retained key owns the complete subtree.
+        for root in self.keys.values().filter(|key| key.information.is_some()) {
+            let prefix = root.fold(&root.path);
+            if name.starts_with(&prefix)
+                && (name.len() == prefix.len() || original.get(prefix.len()) == Some(&92))
+            {
+                return root.relative(&original[prefix.len()..]);
+            }
+        }
         Lookup::Unselected
     }
 }
@@ -239,6 +293,9 @@ pub(super) fn charge_key(
     }
     for value in key.values.values() {
         budget.charge(value)?;
+    }
+    if let Some(information) = &key.information {
+        budget.charge_information(information)?;
     }
     if let Some((_, Some(child))) = &key.selected_child {
         charge_key(child, budget, seen)?;
@@ -326,6 +383,7 @@ pub(super) fn build(
     }
     let raw_values = bounded_values(&upcase, tree.values, values)?;
     let mut key = Key {
+        information: None,
         enumeration: None,
         path,
         redirected_view,

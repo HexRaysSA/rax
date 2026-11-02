@@ -81,6 +81,17 @@ impl ValueBudget {
         }
         Ok(())
     }
+
+    pub(super) fn charge_information(&mut self, information: &KeyInformation) -> io::Result<()> {
+        self.bytes = self
+            .bytes
+            .checked_add(information.bytes())
+            .ok_or_else(|| invalid("runtime key metadata size overflow"))?;
+        if self.bytes > self.limits.value_bytes {
+            return Err(invalid("runtime key metadata aggregate exceeds bounds"));
+        }
+        Ok(())
+    }
 }
 
 impl Registry {

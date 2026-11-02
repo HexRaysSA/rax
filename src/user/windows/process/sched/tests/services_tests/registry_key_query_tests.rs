@@ -7,6 +7,9 @@ mod replay;
 #[path = "registry_key_query_invalid_tests.rs"]
 mod invalid_classes;
 
+#[path = "registry_key_information_tests.rs"]
+mod information;
+
 #[cfg(windows)]
 #[path = "registry_key_query_installed_tests.rs"]
 mod installed;

@@ -1,0 +1,2452 @@
+{
+  "schema": "rax-native-key-metadata-tag-independence-v4",
+  "archive_sha256": "aa0009702a422d83a75b42eef75d9436d0c727283532bc4654d5887c779540fb",
+  "observations": [
+    {
+      "architecture": "arm64",
+      "provider": {
+        "kind": "identity",
+        "schema": "rax-native-key-metadata-tags-v4",
+        "pointer_bytes": 8,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "provider_bytes": 4609280,
+        "provider_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "provider_pe_machine": 43620,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "setter": {
+        "kind": "setter",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00"
+      },
+      "image_sha256": "d060321583c6298cdb06cc27aa635b07079070069ffdc7e00efaddf155ba5340",
+      "before": [
+        {
+          "kind": "tags_before",
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500"
+        },
+        {
+          "kind": "tags_before",
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500"
+        },
+        {
+          "kind": "tags_before",
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500"
+        },
+        {
+          "kind": "tags_before",
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000"
+        }
+      ],
+      "after": [
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00040000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00060000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "ffff0000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "78560000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "ffff0000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        }
+      ]
+    },
+    {
+      "architecture": "x64",
+      "provider": {
+        "kind": "identity",
+        "schema": "rax-native-key-metadata-tags-v4",
+        "pointer_bytes": 8,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "provider_bytes": 4609280,
+        "provider_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "provider_pe_machine": 43620,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "setter": {
+        "kind": "setter",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00"
+      },
+      "image_sha256": "6140f661ae5e5f432a8946433efc6e737d8becb324219e8f3211befde0989ce8",
+      "before": [
+        {
+          "kind": "tags_before",
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500"
+        },
+        {
+          "kind": "tags_before",
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500"
+        },
+        {
+          "kind": "tags_before",
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500"
+        },
+        {
+          "kind": "tags_before",
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000"
+        }
+      ],
+      "after": [
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00040000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00060000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "ffff0000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "78560000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "ffff0000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        }
+      ]
+    },
+    {
+      "architecture": "x86",
+      "provider": {
+        "kind": "identity",
+        "schema": "rax-native-key-metadata-tags-v4",
+        "pointer_bytes": 4,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "provider_bytes": 2536928,
+        "provider_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+        "provider_pe_machine": 332,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "setter": {
+        "kind": "setter",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00"
+      },
+      "image_sha256": "32a2eac5e60283ef70fe47c162858b6bbed2528bbc911ee41a0162e886a3fcd4",
+      "before": [
+        {
+          "kind": "tags_before",
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500"
+        },
+        {
+          "kind": "tags_before",
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500"
+        },
+        {
+          "kind": "tags_before",
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500"
+        },
+        {
+          "kind": "tags_before",
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00040000"
+        },
+        {
+          "kind": "tags_before",
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000"
+        }
+      ],
+      "after": [
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 0,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 1,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00040000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1024,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00060000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 1536,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "ffff0000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 65535,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 65536,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "78560000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 305419896,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 0,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd01000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 1,
+          "status": 0,
+          "required": 48,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff000000001800000043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 2,
+          "status": 0,
+          "required": 44,
+          "bytes": "e6b36d3e0662dd0100000000ffffffff00000000000000000000000000000000000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 3,
+          "status": 0,
+          "required": 130,
+          "bytes": "7e0000005c00520045004700490053005400520059005c004d0041004300480049004e0045005c00530059005300540045004d005c0043006f006e00740072006f006c005300650074003000300031005c0043006f006e00740072006f006c005c004e006c0073005c0043007500730074006f006d004c006f00630061006c006500",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 4,
+          "status": 0,
+          "required": 40,
+          "bytes": "e6b36d3e0662dd010000000000000000000000000000000000000000000000001800000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 5,
+          "status": 0,
+          "required": 12,
+          "bytes": "000000000000000000000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 6,
+          "status": 0,
+          "required": 4,
+          "bytes": "00000000",
+          "same_as_before": true
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 7,
+          "status": 0,
+          "required": 4,
+          "bytes": "ffff0000",
+          "same_as_before": false
+        },
+        {
+          "kind": "tags_after",
+          "input": 4294967295,
+          "set_status": 0,
+          "class": 8,
+          "status": 0,
+          "required": 4,
+          "bytes": "01000000",
+          "same_as_before": true
+        }
+      ]
+    }
+  ],
+  "native_queries": 243,
+  "native_tag_mutations": 24,
+  "scope": "Own opened key-body tags only; no registry data or security changes. Non-tag records remain byte-identical in these finite observations.",
+  "launch_metadata_correction": "The historical launch JSON carried an unused strict_handle_equality_required field from the guard launcher. Tag mode does not perform a process-wide handle census. Use the independent guarded-v3 capture for handle-lifetime evidence."
+}

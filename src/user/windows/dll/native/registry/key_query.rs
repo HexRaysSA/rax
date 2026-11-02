@@ -1,4 +1,4 @@
-//! NtQueryKey capture/probe order and the key-body handle-tags record.
+//! NtQueryKey capture/probe order, immutable records and key-body tags.
 use super::*;
 
 pub(in super::super) fn query_key(c: &mut Ctx) -> ApiResult {
@@ -74,16 +74,45 @@ fn query_native(
     // For admitted classes, ResultLength is mandatory, byte-aligned and probed
     // before handle validation; it remains unchanged on handle failure.
     probe_write(c, returned, 4)?;
-    let _key = key(c, handle, !matches!(class, 3 | 7))?;
+    let key = key(c, handle, !matches!(class, 3 | 7))?;
     if matches!(class, 3 | 7) && c.p.objects.access(handle).unwrap_or(0) == 0 {
         return status(STATUS_ACCESS_DENIED);
     }
     if class != 7 {
-        return Err(c
-            .unsupported(&format!(
+        let information = key.information().ok_or_else(|| {
+            c.unsupported(&format!(
                 "uncaptured registry key information class {class}"
             ))
-            .into());
+        })?;
+        let record = information
+            .record(class)
+            .ok_or_else(|| c.unsupported("missing captured key information record"))?;
+        c.mem().w32(returned, record.len() as u32)?;
+        let length = length as usize;
+        if length
+            < crate::user::windows::registry::KeyInformation::minimum(class)
+                .expect("admitted class")
+        {
+            return Ok(STATUS_BUFFER_TOO_SMALL);
+        }
+        let copied = record.len().min(length);
+        let zero_tail = information.zero_partial_name_tail(class, length);
+        if let Some(scratch) = scratch {
+            scratch[..copied].copy_from_slice(&record[..copied]);
+            if zero_tail {
+                scratch[copied - 1] = 0;
+            }
+        } else {
+            c.mem().wr(output, &record[..copied])?;
+            if zero_tail {
+                c.mem().wr(output + copied as u64 - 1, &[0])?;
+            }
+        }
+        return Ok(if length < record.len() {
+            STATUS_BUFFER_OVERFLOW
+        } else {
+            STATUS_SUCCESS
+        });
     }
     let tags =
         c.p.objects

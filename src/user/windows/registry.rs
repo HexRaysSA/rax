@@ -67,6 +67,14 @@ pub(crate) use key_enumeration::BasicChild;
 mod access;
 pub(crate) use access::KeyAccess;
 
+#[path = "registry/key_information.rs"]
+mod key_information;
+#[cfg(test)]
+pub(crate) use key_information::tests::nls_tree_fixture;
+pub(crate) use key_information::{
+    InformationTree, KeyInformation, NLS_CUSTOM_LOCALE_KEY, NameTail,
+};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Value {
     pub(crate) name: Vec<u16>,
@@ -84,6 +92,7 @@ pub(crate) struct SelectedKey {
 /// No native handle or host-operation callback is stored in this object.
 #[derive(Debug)]
 pub struct Key {
+    information: Option<Arc<KeyInformation>>,
     enumeration: Option<Arc<[BasicChild]>>,
     pub(crate) path: Vec<u16>,
     pub(crate) redirected_view: Option<RegistryView>,
@@ -152,6 +161,7 @@ impl Registry {
                 return Err(invalid("registry key outside fixed runtime selection"));
             }
             let key = Key {
+                information: None,
                 enumeration: None,
                 path: selected.path.encode_utf16().collect(),
                 redirected_view: None,
@@ -264,6 +274,8 @@ fn invalid(message: &str) -> io::Error {
 #[cfg(windows)]
 #[path = "registry/installed.rs"]
 mod installed;
+#[cfg(all(windows, test))]
+pub(crate) use installed::nls_custom_locale_subject;
 #[cfg(windows)]
 pub(crate) use installed::wnf_values;
 #[cfg(windows)]

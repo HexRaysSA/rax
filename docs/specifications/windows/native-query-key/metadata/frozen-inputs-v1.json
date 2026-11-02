@@ -1,0 +1,80 @@
+{
+  "sources": {
+    "guards_v3_archive": "9f43ae1666ac8acf9350f14fd4cbf09589a383aa74838944dfc8dec6443e54b0",
+    "fixture_v2_archive": "5f01da0971a38b40b1f996c9cb68a7ee8bdd6d8a0b578aa09459938ae99da582"
+  },
+  "files": {
+    "native-metadata-guards-v3-x86.exe": {
+      "bytes": 126464,
+      "sha256": "67b2053a903a6b49faf07c2728de3cb1d7b6f99c1f41d1ef83b41e26a633a50e"
+    },
+    "CMakeLists.txt": {
+      "bytes": 596,
+      "sha256": "6f18780feb34423522ac233ce76a71a74ec3be6f7f7e589313ed1ffc92bdae66"
+    },
+    "x86-fixture-v2.jsonl.zst": {
+      "bytes": 300757,
+      "sha256": "3bff06f5419c09bf79fb2609930b90423a75797997920c25fad4ce381b6cd64a"
+    },
+    "handle-snapshot-v3.h": {
+      "bytes": 3460,
+      "sha256": "c658bb4689814bc7a508da661c14bdea9cad45013c1e06173cde340526c0fcab"
+    },
+    "arm64-fixture-v2.jsonl.zst": {
+      "bytes": 299719,
+      "sha256": "a168676a8c7fa17886dc9b9172721ed45e8101d3788cf844b554859def088af0"
+    },
+    "native-receipt-v3.json": {
+      "bytes": 185578,
+      "sha256": "d52548a0da092d537adc2bae7990d2df34d2ed6b36dc97aaf78373853a95471c"
+    },
+    "native-metadata-guards-v3-arm64.exe": {
+      "bytes": 154624,
+      "sha256": "571a6369e32f41fefdfb1e2e485f52f0387eb737306db7027977285b8edc331a"
+    },
+    "x64-guards-v3.jsonl.zst": {
+      "bytes": 390669,
+      "sha256": "9af813e23c20096fc001192d1b58a66bcad23e8d26bab48f46a97d23838ab3ca"
+    },
+    "x64-fixture-v2.jsonl.zst": {
+      "bytes": 299712,
+      "sha256": "0900b8e6ee6c3d16189de6a1ce4b8075fa16d2dc5b97db8b0f605a572d6bda18"
+    },
+    "capture-v3.py": {
+      "bytes": 12633,
+      "sha256": "fdfcdc2ef4405c07c83d327f72a9d2413c90bdd576407d6fc0b05e774c36c24a"
+    },
+    ".gitattributes": {
+      "bytes": 148,
+      "sha256": "6122f736f7d20ab6065a8cdffdbb0214b240fd98c50608d82aeae10a4e164198"
+    },
+    "probe-v1.c": {
+      "bytes": 9734,
+      "sha256": "3f930c718ae6457757efa0e13f68b895d2abea33975542e8add8b1ab5e320269"
+    },
+    "records-v1.json": {
+      "bytes": 6099,
+      "sha256": "6acfba247679c2bba85e26d11ba5215c2420e721590ba4483207f5fb7e2c53b6"
+    },
+    "native-metadata-guards-v3-x64.exe": {
+      "bytes": 152576,
+      "sha256": "cea2347e8ba476326511a625b5af67f1b762c21d161572108d91952233a4aabb"
+    },
+    "x86-guards-v3.jsonl.zst": {
+      "bytes": 451469,
+      "sha256": "eb72e5f7e55bc8bc3d571d71ec0d028c02f90093180c75cede9d612a6fc03f2e"
+    },
+    "arm64-guards-v3.jsonl.zst": {
+      "bytes": 390204,
+      "sha256": "d7cbe1e3b133fb866eb97de0da58f9f9342b5c8002060608e4ad3d0da464b20b"
+    },
+    "fixture/CMakeLists.txt": {
+      "bytes": 600,
+      "sha256": "a2d3dd02697fff682cd480cb6578bdb9143e70c65de756c3468c544c19e254c5"
+    },
+    "fixture/probe-v1.c": {
+      "bytes": 11493,
+      "sha256": "90ca6468e80f84711b369d200a82307e0c376119e264a7dea70043b0c0c4242b"
+    }
+  }
+}

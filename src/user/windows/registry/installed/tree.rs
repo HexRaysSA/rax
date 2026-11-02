@@ -61,7 +61,7 @@ pub(super) fn capture_path_budgeted(
     )
     .map(Some)
 }
-fn open(root: TreeRoot, path: &[u16]) -> io::Result<OwnedKey> {
+pub(super) fn open(root: TreeRoot, path: &[u16]) -> io::Result<OwnedKey> {
     let fixed: Vec<_> = root.path().encode_utf16().collect();
     if path != fixed && (!path.starts_with(&fixed) || path.get(fixed.len()) != Some(&92)) {
         return Err(invalid(

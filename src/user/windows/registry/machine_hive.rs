@@ -51,6 +51,7 @@ impl Registry {
         )?;
         let machine = self.machine_paths(header.access, header.children)?;
         self.machine_hive = Some(Arc::new(Key {
+            information: None,
             enumeration,
             path: header.canonical,
             redirected_view: None,
@@ -84,9 +85,16 @@ impl Registry {
             if key.machine.is_some() {
                 return Err(invalid("MACHINE route would retain its own root"));
             }
-            let name = &key.path[length + 1..];
-            present.insert(fold(name.split(|u| *u == 92).next().unwrap_or_default()));
-            paths.insert(fold(name), Some(key.clone()));
+            for path in std::iter::once(key.path.as_slice())
+                .chain(key.information.as_ref().and(key.logical_path.as_deref()))
+            {
+                if !prefix(path) || path.get(length) != Some(&92) {
+                    return Err(invalid("MACHINE key alias is outside fixed hive"));
+                }
+                let name = &path[length + 1..];
+                present.insert(fold(name.split(|u| *u == 92).next().unwrap_or_default()));
+                paths.insert(fold(name), Some(key.clone()));
+            }
         }
         for selected in &self.selected_trees {
             let name: Vec<_> = selected.path().encode_utf16().skip(length + 1).collect();
@@ -118,6 +126,7 @@ impl Registry {
         let access = root.machine.as_ref().expect("MACHINE root").access;
         let machine = self.machine_paths(access, root.children)?;
         self.machine_hive = Some(Arc::new(Key {
+            information: None,
             enumeration: root.enumeration.clone(),
             path: root.path.clone(),
             redirected_view: None,

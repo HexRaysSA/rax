@@ -250,3 +250,8 @@ Native probe and local qualification outputs were archived with CRC and per-file
 SHA256 verification before their generated trees were removed. Compatible warm
 Cargo trees remain assigned to immediate `NtOpenKeyEx` and remaining key metadata
 work. The root embedded-owner check tree was removed after its log was preserved.
+
+The current [CustomLocale metadata extension](metadata/README.md) captures key
+records for classes 0 through 6 and 8, canonical aliases and ordered descendants.
+Other selected roots still require their own metadata acquisition. Class 7
+continues to follow the separately tested mutable key-body tag contract.

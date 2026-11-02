@@ -1,0 +1,349 @@
+{
+  "pid": 1848,
+  "state": "finished",
+  "commands": [
+    {
+      "name": "arm64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-arm64",
+        "-A",
+        "ARM64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.5963478749908973
+    },
+    {
+      "name": "arm64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-arm64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false",
+        "/m:1"
+      ],
+      "exit_code": 0,
+      "seconds": 12.240976540997508
+    },
+    {
+      "name": "arm64-identity-before",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-metadata-tags-v4-arm64.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.4327390840044245
+    },
+    {
+      "name": "arm64-tags",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-metadata-tags-v4-arm64.exe",
+        "--tag-records"
+      ],
+      "exit_code": 0,
+      "seconds": 0.2324910000024829
+    },
+    {
+      "name": "arm64-identity-after",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-metadata-tags-v4-arm64.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.17789208400063217
+    },
+    {
+      "name": "x64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x64",
+        "-A",
+        "x64"
+      ],
+      "exit_code": 0,
+      "seconds": 1.7350437919958495
+    },
+    {
+      "name": "x64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false",
+        "/m:1"
+      ],
+      "exit_code": 0,
+      "seconds": 9.549660375007079
+    },
+    {
+      "name": "x64-identity-before",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-metadata-tags-v4-x64.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.4158016669971403
+    },
+    {
+      "name": "x64-tags",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-metadata-tags-v4-x64.exe",
+        "--tag-records"
+      ],
+      "exit_code": 0,
+      "seconds": 0.19319191700196825
+    },
+    {
+      "name": "x64-identity-after",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-metadata-tags-v4-x64.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.15467116700892802
+    },
+    {
+      "name": "x86-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x86",
+        "-A",
+        "Win32"
+      ],
+      "exit_code": 0,
+      "seconds": 1.2392676659947028
+    },
+    {
+      "name": "x86-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x86",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false",
+        "/m:1"
+      ],
+      "exit_code": 0,
+      "seconds": 18.073737541999435
+    },
+    {
+      "name": "x86-identity-before",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-metadata-tags-v4-x86.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.913515083011589
+    },
+    {
+      "name": "x86-tags",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-metadata-tags-v4-x86.exe",
+        "--tag-records"
+      ],
+      "exit_code": 0,
+      "seconds": 0.3781583329982823
+    },
+    {
+      "name": "x86-identity-after",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-metadata-tags-v4-x86.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.2603298750036629
+    }
+  ],
+  "reports": [
+    {
+      "architecture": "arm64",
+      "image_sha256": "d060321583c6298cdb06cc27aa635b07079070069ffdc7e00efaddf155ba5340",
+      "image_bytes": 156160,
+      "provider_before": {
+        "kind": "identity",
+        "schema": "rax-native-key-metadata-tags-v4",
+        "pointer_bytes": 8,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "provider_bytes": 4609280,
+        "provider_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "provider_pe_machine": 43620,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "provider_after": {
+        "kind": "identity",
+        "schema": "rax-native-key-metadata-tags-v4",
+        "pointer_bytes": 8,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "provider_bytes": 4609280,
+        "provider_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "provider_pe_machine": 43620,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "setter_provider_matches_query": true,
+      "queries": 81,
+      "mutations": 8,
+      "other_changed_records": []
+    },
+    {
+      "architecture": "x64",
+      "image_sha256": "6140f661ae5e5f432a8946433efc6e737d8becb324219e8f3211befde0989ce8",
+      "image_bytes": 154624,
+      "provider_before": {
+        "kind": "identity",
+        "schema": "rax-native-key-metadata-tags-v4",
+        "pointer_bytes": 8,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "provider_bytes": 4609280,
+        "provider_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "provider_pe_machine": 43620,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "provider_after": {
+        "kind": "identity",
+        "schema": "rax-native-key-metadata-tags-v4",
+        "pointer_bytes": 8,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "provider_bytes": 4609280,
+        "provider_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "provider_pe_machine": 43620,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "setter_provider_matches_query": true,
+      "queries": 81,
+      "mutations": 8,
+      "other_changed_records": []
+    },
+    {
+      "architecture": "x86",
+      "image_sha256": "32a2eac5e60283ef70fe47c162858b6bbed2528bbc911ee41a0162e886a3fcd4",
+      "image_bytes": 128000,
+      "provider_before": {
+        "kind": "identity",
+        "schema": "rax-native-key-metadata-tags-v4",
+        "pointer_bytes": 4,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "provider_bytes": 2536928,
+        "provider_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+        "provider_pe_machine": 332,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "provider_after": {
+        "kind": "identity",
+        "schema": "rax-native-key-metadata-tags-v4",
+        "pointer_bytes": 4,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "provider_bytes": 2536928,
+        "provider_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+        "provider_pe_machine": 332,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "setter_provider_matches_query": true,
+      "queries": 81,
+      "mutations": 8,
+      "other_changed_records": []
+    }
+  ],
+  "kernel": [
+    10,
+    0,
+    29698
+  ],
+  "child_pid": 1952,
+  "child_creation_filetime": "134381028313959397",
+  "active_identity": {
+    "architecture": "x86",
+    "provider_before": {
+      "kind": "identity",
+      "schema": "rax-native-key-metadata-tags-v4",
+      "pointer_bytes": 4,
+      "process_machine": 332,
+      "native_machine": 43620,
+      "kernel": [
+        10,
+        0,
+        29698
+      ],
+      "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+      "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00",
+      "backing_file": "C:\\Windows\\SyChpe32\\ntdll.dll",
+      "provider_bytes": 2536928,
+      "provider_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+      "provider_pe_machine": 332,
+      "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+    },
+    "image_sha256": "32a2eac5e60283ef70fe47c162858b6bbed2528bbc911ee41a0162e886a3fcd4"
+  },
+  "exit_code": 0,
+  "inputs_unchanged": true
+}

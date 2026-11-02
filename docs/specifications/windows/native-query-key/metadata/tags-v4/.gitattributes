@@ -1,0 +1,3 @@
+*.py -text
+CMakeLists.txt -text
+.gitattributes -text
