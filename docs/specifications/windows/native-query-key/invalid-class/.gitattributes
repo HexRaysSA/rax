@@ -1,0 +1,3 @@
+probe-v1.c -text
+CMakeLists.txt -text
+*.exe -text -diff

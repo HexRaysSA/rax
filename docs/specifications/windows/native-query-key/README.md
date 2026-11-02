@@ -51,10 +51,11 @@ Executed producers and raw observations remain byte-for-byte frozen. Local
 producer hashes. The separately authored portable runner is formatted before
 execution. MSVC builds use in-tree object/PDB/EXE and temporary directories.
 
-Native64 validates output ULONG alignment and the full advertised nonzero
-length, then probes the mandatory byte-aligned ResultLength, then validates
-class and key handle/access. Invalid classes9 and above return
-`STATUS_INVALID_PARAMETER`. Class7 requires a nonzero granted mask, rather than
+Invalid classes9 and above return `STATUS_INVALID_PARAMETER` before destination
+probes or WoW64 conversion. For admitted classes, Native64 validates output
+ULONG alignment and the full advertised nonzero length, then probes the
+mandatory byte-aligned ResultLength, then validates the key handle/access.
+Class7 requires a nonzero granted mask, rather than
 `KEY_QUERY_VALUE`. Short valid buffers return `STATUS_BUFFER_TOO_SMALL` and
 ResultLength4. The four-byte tags record is written after ResultLength; aliasing
 can therefore overwrite the latter. LastError remains unchanged.
@@ -75,6 +76,36 @@ guard consumption. Undefined converted scratch bytes remain in raw evidence but
 are excluded from native equality assertions; the emulator initializes its own
 scratch instead of exposing host allocator contents. The conversion allocation
 limit remains16MiB and reports an explicit frontier above that bound.
+
+## Invalid-selector fault priority
+
+The original invalid-class records exercised only ordinary valid destinations;
+they did not establish the invalid-pointer ordering previously described here.
+The [retained independent controls](invalid-class/observations-v1.json) add ten
+cases for each of ARM64, x64 and x86 on Windows 10.0.29698 ARM64. Null,
+inaccessible, unaligned and aliased destinations all retain the same
+`STATUS_INVALID_PARAMETER` and unchanged 64-byte sentinel arena. The old
+dispatcher differs in 25 of the 30 calls: it returns destination faults or,
+on x86, copies zeroed conversion storage over caller bytes.
+
+The correction moves the existing selector rejection before conversion
+allocation and caller probes. Admitted-class handle, length, guard and copy
+semantics remain covered by the existing 35,232 retained query/copy cases.
+The new thirty-case dispatcher replay checks every native status and arena byte;
+an additional boundary test checks selectors9,10 and `UINT32_MAX` with guarded
+destinations and lengths through `UINT32_MAX`, including the16MiB conversion
+limit. That stress test extends the finite native observations; it is not an
+additional native campaign.
+
+The original C source, CMake project, three executed PE files and native receipt
+are retained under `invalid-class/`. The producer's `identityi` mode calls
+`K32GetMappedFileNameW` at the actual `NtQueryKey` address, plus
+`IsWow64Process2`, before and after each ABI's cases. Provider paths, hashes and
+machine identities agree. ARM64 and x64 use the mapped ARM64 NTDLL; x86 uses
+`SyChpe32/ntdll.dll`. The no-CRT producer opens no registry key and writes only
+its result stream. Run `python docs/specifications/windows/native-query-key/invalid-class/verify-v1.py`
+to verify all retained producer/image identities and observations on any host.
+Native fault-priority observations on other kernel builds remain unmeasured.
 
 ## Reproduce
 

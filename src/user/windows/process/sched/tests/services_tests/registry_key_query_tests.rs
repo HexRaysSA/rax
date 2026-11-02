@@ -4,6 +4,9 @@ use super::*;
 #[path = "registry_key_query_replay_tests.rs"]
 mod replay;
 
+#[path = "registry_key_query_invalid_tests.rs"]
+mod invalid_classes;
+
 #[cfg(windows)]
 #[path = "registry_key_query_installed_tests.rs"]
 mod installed;

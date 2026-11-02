@@ -1,0 +1,511 @@
+{
+  "pid": 2036,
+  "state": "finished",
+  "commands": [
+    {
+      "name": "invalidclass-v4-arm64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-arm64",
+        "-A",
+        "ARM64"
+      ],
+      "exit_code": 0,
+      "seconds": 1.031638832995668
+    },
+    {
+      "name": "invalidclass-v4-arm64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-arm64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false",
+        "/m:1"
+      ],
+      "exit_code": 0,
+      "seconds": 19.194544291996863
+    },
+    {
+      "name": "invalidclass-v4-arm64-identity-before",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-invalid-key-class-v4-arm64.exe",
+        "identityi"
+      ],
+      "exit_code": 0,
+      "seconds": 0.32579874999646563
+    },
+    {
+      "name": "invalidclass-v4-arm64-identity-after",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-invalid-key-class-v4-arm64.exe",
+        "identityi"
+      ],
+      "exit_code": 0,
+      "seconds": 0.17282479100686032
+    },
+    {
+      "name": "invalidclass-v4-x64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x64",
+        "-A",
+        "x64"
+      ],
+      "exit_code": 0,
+      "seconds": 1.0305087080050725
+    },
+    {
+      "name": "invalidclass-v4-x64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false",
+        "/m:1"
+      ],
+      "exit_code": 0,
+      "seconds": 11.747614624997368
+    },
+    {
+      "name": "invalidclass-v4-x64-identity-before",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-invalid-key-class-v4-x64.exe",
+        "identityi"
+      ],
+      "exit_code": 0,
+      "seconds": 0.3429012920096284
+    },
+    {
+      "name": "invalidclass-v4-x64-identity-after",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-invalid-key-class-v4-x64.exe",
+        "identityi"
+      ],
+      "exit_code": 0,
+      "seconds": 0.20996575000754092
+    },
+    {
+      "name": "invalidclass-v4-x86-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x86",
+        "-A",
+        "Win32"
+      ],
+      "exit_code": 0,
+      "seconds": 0.7286955410090741
+    },
+    {
+      "name": "invalidclass-v4-x86-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x86",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false",
+        "/m:1"
+      ],
+      "exit_code": 0,
+      "seconds": 14.032099542004289
+    },
+    {
+      "name": "invalidclass-v4-x86-identity-before",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-invalid-key-class-v4-x86.exe",
+        "identityi"
+      ],
+      "exit_code": 0,
+      "seconds": 0.41748145800374914
+    },
+    {
+      "name": "invalidclass-v4-x86-identity-after",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-invalid-key-class-v4-x86.exe",
+        "identityi"
+      ],
+      "exit_code": 0,
+      "seconds": 0.19460791700112168
+    }
+  ],
+  "reports": [
+    {
+      "architecture": "arm64",
+      "machine": 43620,
+      "image_sha256": "32b1e3050b66d153896acb2096874dad23bf1a0049344224c04ec96a86f69e2b",
+      "image_bytes": 4608,
+      "provider_before": {
+        "identity_source": "IsWow64Process2 and K32GetMappedFileNameW at NtQueryKey address",
+        "process_machine": 0,
+        "native_machine": 43620,
+        "mapped_service_provider": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "bytes": 4609280,
+        "sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "pe_machine": 43620
+      },
+      "provider_after": {
+        "identity_source": "IsWow64Process2 and K32GetMappedFileNameW at NtQueryKey address",
+        "process_machine": 0,
+        "native_machine": 43620,
+        "mapped_service_provider": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "bytes": 4609280,
+        "sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "pe_machine": 43620
+      },
+      "cases": [
+        {
+          "mode": 0,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "f5c29938383ba73c0e7fe6addcbacd6c182cb0b19f5be2e4d4ab229e6df4c983",
+          "seconds": 0.2655269170063548,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 1,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "2adff285d17fc7595ac96448fada7cc6b297c5789708fa3f04e8deda64796a47",
+          "seconds": 0.20382012499612756,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 2,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "2387a0ac4f3c619c6e964996cb02f08e9e56542f131ded350ebdcd610cdbc24c",
+          "seconds": 0.18850191599631216,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 3,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "54e5ceb9e3a9b69bd4023b48a190c91a0ea4d5d62e684301d1a1f9e3f7d6c9b4",
+          "seconds": 0.1531880839902442,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 4,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "c7f1c5b4d37dc581d53f1d01d53409944387b6d8ca17bb3b51a213e894f062fd",
+          "seconds": 0.21245925000403076,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 5,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "1718768b686237f82a6ff7708a7e8776fe3caffd89197bf586c996ee74355a63",
+          "seconds": 0.17428516600921284,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 6,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "2185ce67532f6d4a65d145112f7ddd41bc82dc53487334bc2d531ca6f428f45e",
+          "seconds": 0.21517474998836406,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 7,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "561a0f20f1ffa038cd9f5c2aff0f2c7f268b69e65b8c48b16c3aeb3f5bdf2b11",
+          "seconds": 0.22397845800151117,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 8,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "34983b8fb2b549bdf73c5001191e7cedf75992769a65c2ca9bfa58e63a243a81",
+          "seconds": 0.24758812499931082,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 9,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "a61b9d92aec5e74b5f628d7d6f762723b3727323d964b0f2b3d5cf55573723b6",
+          "seconds": 0.19940862500516232,
+          "status": 3221225485,
+          "arena_unchanged": true
+        }
+      ]
+    },
+    {
+      "architecture": "x64",
+      "machine": 34404,
+      "image_sha256": "7e3e3081809e006b1332a83e7d842b2a39ca4c54654d0cc1081584faebb8a447",
+      "image_bytes": 4096,
+      "provider_before": {
+        "identity_source": "IsWow64Process2 and K32GetMappedFileNameW at NtQueryKey address",
+        "process_machine": 0,
+        "native_machine": 43620,
+        "mapped_service_provider": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "bytes": 4609280,
+        "sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "pe_machine": 43620
+      },
+      "provider_after": {
+        "identity_source": "IsWow64Process2 and K32GetMappedFileNameW at NtQueryKey address",
+        "process_machine": 0,
+        "native_machine": 43620,
+        "mapped_service_provider": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "bytes": 4609280,
+        "sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "pe_machine": 43620
+      },
+      "cases": [
+        {
+          "mode": 0,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "f5c29938383ba73c0e7fe6addcbacd6c182cb0b19f5be2e4d4ab229e6df4c983",
+          "seconds": 0.23056158299732488,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 1,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "2adff285d17fc7595ac96448fada7cc6b297c5789708fa3f04e8deda64796a47",
+          "seconds": 0.2714696670009289,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 2,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "2387a0ac4f3c619c6e964996cb02f08e9e56542f131ded350ebdcd610cdbc24c",
+          "seconds": 0.2777647920011077,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 3,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "54e5ceb9e3a9b69bd4023b48a190c91a0ea4d5d62e684301d1a1f9e3f7d6c9b4",
+          "seconds": 0.25549462498747744,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 4,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "c7f1c5b4d37dc581d53f1d01d53409944387b6d8ca17bb3b51a213e894f062fd",
+          "seconds": 0.2151769579941174,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 5,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "1718768b686237f82a6ff7708a7e8776fe3caffd89197bf586c996ee74355a63",
+          "seconds": 0.264028874997166,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 6,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "2185ce67532f6d4a65d145112f7ddd41bc82dc53487334bc2d531ca6f428f45e",
+          "seconds": 0.3646275419887388,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 7,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "561a0f20f1ffa038cd9f5c2aff0f2c7f268b69e65b8c48b16c3aeb3f5bdf2b11",
+          "seconds": 0.2681149169948185,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 8,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "34983b8fb2b549bdf73c5001191e7cedf75992769a65c2ca9bfa58e63a243a81",
+          "seconds": 0.2907908750057686,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 9,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "a61b9d92aec5e74b5f628d7d6f762723b3727323d964b0f2b3d5cf55573723b6",
+          "seconds": 0.2430529999983264,
+          "status": 3221225485,
+          "arena_unchanged": true
+        }
+      ]
+    },
+    {
+      "architecture": "x86",
+      "machine": 332,
+      "image_sha256": "95f7176e7e085b4c1a3a8fb02e3fa2ea235e27f4d142fa6f69d911a6d342ebd4",
+      "image_bytes": 4096,
+      "provider_before": {
+        "identity_source": "IsWow64Process2 and K32GetMappedFileNameW at NtQueryKey address",
+        "process_machine": 332,
+        "native_machine": 43620,
+        "mapped_service_provider": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+        "backing_file": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "bytes": 2536928,
+        "sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+        "pe_machine": 332
+      },
+      "provider_after": {
+        "identity_source": "IsWow64Process2 and K32GetMappedFileNameW at NtQueryKey address",
+        "process_machine": 332,
+        "native_machine": 43620,
+        "mapped_service_provider": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+        "backing_file": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "bytes": 2536928,
+        "sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+        "pe_machine": 332
+      },
+      "cases": [
+        {
+          "mode": 0,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "f5c29938383ba73c0e7fe6addcbacd6c182cb0b19f5be2e4d4ab229e6df4c983",
+          "seconds": 0.26643554099428,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 1,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "2adff285d17fc7595ac96448fada7cc6b297c5789708fa3f04e8deda64796a47",
+          "seconds": 0.2283352499944158,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 2,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "2387a0ac4f3c619c6e964996cb02f08e9e56542f131ded350ebdcd610cdbc24c",
+          "seconds": 0.26573304100020323,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 3,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "54e5ceb9e3a9b69bd4023b48a190c91a0ea4d5d62e684301d1a1f9e3f7d6c9b4",
+          "seconds": 0.23114883300149813,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 4,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "c7f1c5b4d37dc581d53f1d01d53409944387b6d8ca17bb3b51a213e894f062fd",
+          "seconds": 0.19641254100133665,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 5,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "1718768b686237f82a6ff7708a7e8776fe3caffd89197bf586c996ee74355a63",
+          "seconds": 0.21906895899155643,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 6,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "2185ce67532f6d4a65d145112f7ddd41bc82dc53487334bc2d531ca6f428f45e",
+          "seconds": 0.231587040994782,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 7,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "561a0f20f1ffa038cd9f5c2aff0f2c7f268b69e65b8c48b16c3aeb3f5bdf2b11",
+          "seconds": 0.2943197499989765,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 8,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "34983b8fb2b549bdf73c5001191e7cedf75992769a65c2ca9bfa58e63a243a81",
+          "seconds": 0.2592581670032814,
+          "status": 3221225485,
+          "arena_unchanged": true
+        },
+        {
+          "mode": 9,
+          "exit_code": 0,
+          "bytes": 72,
+          "stdout_sha256": "a61b9d92aec5e74b5f628d7d6f762723b3727323d964b0f2b3d5cf55573723b6",
+          "seconds": 0.19299616699572653,
+          "status": 3221225485,
+          "arena_unchanged": true
+        }
+      ]
+    }
+  ],
+  "kernel": [
+    10,
+    0,
+    29698
+  ],
+  "child_pid": 3796,
+  "exit_code": 0,
+  "inputs_unchanged": true
+}

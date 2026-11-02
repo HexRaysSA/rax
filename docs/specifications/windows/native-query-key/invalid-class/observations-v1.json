@@ -1,0 +1,218 @@
+{
+  "schema": "rax-nt-query-key-invalid-class-v1",
+  "kernel": [
+    10,
+    0,
+    29698
+  ],
+  "native_machine": 43620,
+  "native_archive_sha256": "bc51f8c5fc7c367020d9acf007ed5da8057a38aa20af3dbb1975583a1de4ba6b",
+  "cases": [
+    {
+      "architecture": "arm64",
+      "mode": 0,
+      "stdout_hex": "000000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "f5c29938383ba73c0e7fe6addcbacd6c182cb0b19f5be2e4d4ab229e6df4c983"
+    },
+    {
+      "architecture": "arm64",
+      "mode": 1,
+      "stdout_hex": "010000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "2adff285d17fc7595ac96448fada7cc6b297c5789708fa3f04e8deda64796a47"
+    },
+    {
+      "architecture": "arm64",
+      "mode": 2,
+      "stdout_hex": "020000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "2387a0ac4f3c619c6e964996cb02f08e9e56542f131ded350ebdcd610cdbc24c"
+    },
+    {
+      "architecture": "arm64",
+      "mode": 3,
+      "stdout_hex": "030000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "54e5ceb9e3a9b69bd4023b48a190c91a0ea4d5d62e684301d1a1f9e3f7d6c9b4"
+    },
+    {
+      "architecture": "arm64",
+      "mode": 4,
+      "stdout_hex": "040000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "c7f1c5b4d37dc581d53f1d01d53409944387b6d8ca17bb3b51a213e894f062fd"
+    },
+    {
+      "architecture": "arm64",
+      "mode": 5,
+      "stdout_hex": "050000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "1718768b686237f82a6ff7708a7e8776fe3caffd89197bf586c996ee74355a63"
+    },
+    {
+      "architecture": "arm64",
+      "mode": 6,
+      "stdout_hex": "060000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "2185ce67532f6d4a65d145112f7ddd41bc82dc53487334bc2d531ca6f428f45e"
+    },
+    {
+      "architecture": "arm64",
+      "mode": 7,
+      "stdout_hex": "070000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "561a0f20f1ffa038cd9f5c2aff0f2c7f268b69e65b8c48b16c3aeb3f5bdf2b11"
+    },
+    {
+      "architecture": "arm64",
+      "mode": 8,
+      "stdout_hex": "080000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "34983b8fb2b549bdf73c5001191e7cedf75992769a65c2ca9bfa58e63a243a81"
+    },
+    {
+      "architecture": "arm64",
+      "mode": 9,
+      "stdout_hex": "090000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "a61b9d92aec5e74b5f628d7d6f762723b3727323d964b0f2b3d5cf55573723b6"
+    },
+    {
+      "architecture": "x64",
+      "mode": 0,
+      "stdout_hex": "000000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "f5c29938383ba73c0e7fe6addcbacd6c182cb0b19f5be2e4d4ab229e6df4c983"
+    },
+    {
+      "architecture": "x64",
+      "mode": 1,
+      "stdout_hex": "010000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "2adff285d17fc7595ac96448fada7cc6b297c5789708fa3f04e8deda64796a47"
+    },
+    {
+      "architecture": "x64",
+      "mode": 2,
+      "stdout_hex": "020000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "2387a0ac4f3c619c6e964996cb02f08e9e56542f131ded350ebdcd610cdbc24c"
+    },
+    {
+      "architecture": "x64",
+      "mode": 3,
+      "stdout_hex": "030000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "54e5ceb9e3a9b69bd4023b48a190c91a0ea4d5d62e684301d1a1f9e3f7d6c9b4"
+    },
+    {
+      "architecture": "x64",
+      "mode": 4,
+      "stdout_hex": "040000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "c7f1c5b4d37dc581d53f1d01d53409944387b6d8ca17bb3b51a213e894f062fd"
+    },
+    {
+      "architecture": "x64",
+      "mode": 5,
+      "stdout_hex": "050000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "1718768b686237f82a6ff7708a7e8776fe3caffd89197bf586c996ee74355a63"
+    },
+    {
+      "architecture": "x64",
+      "mode": 6,
+      "stdout_hex": "060000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "2185ce67532f6d4a65d145112f7ddd41bc82dc53487334bc2d531ca6f428f45e"
+    },
+    {
+      "architecture": "x64",
+      "mode": 7,
+      "stdout_hex": "070000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "561a0f20f1ffa038cd9f5c2aff0f2c7f268b69e65b8c48b16c3aeb3f5bdf2b11"
+    },
+    {
+      "architecture": "x64",
+      "mode": 8,
+      "stdout_hex": "080000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "34983b8fb2b549bdf73c5001191e7cedf75992769a65c2ca9bfa58e63a243a81"
+    },
+    {
+      "architecture": "x64",
+      "mode": 9,
+      "stdout_hex": "090000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "a61b9d92aec5e74b5f628d7d6f762723b3727323d964b0f2b3d5cf55573723b6"
+    },
+    {
+      "architecture": "x86",
+      "mode": 0,
+      "stdout_hex": "000000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "f5c29938383ba73c0e7fe6addcbacd6c182cb0b19f5be2e4d4ab229e6df4c983"
+    },
+    {
+      "architecture": "x86",
+      "mode": 1,
+      "stdout_hex": "010000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "2adff285d17fc7595ac96448fada7cc6b297c5789708fa3f04e8deda64796a47"
+    },
+    {
+      "architecture": "x86",
+      "mode": 2,
+      "stdout_hex": "020000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "2387a0ac4f3c619c6e964996cb02f08e9e56542f131ded350ebdcd610cdbc24c"
+    },
+    {
+      "architecture": "x86",
+      "mode": 3,
+      "stdout_hex": "030000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "54e5ceb9e3a9b69bd4023b48a190c91a0ea4d5d62e684301d1a1f9e3f7d6c9b4"
+    },
+    {
+      "architecture": "x86",
+      "mode": 4,
+      "stdout_hex": "040000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "c7f1c5b4d37dc581d53f1d01d53409944387b6d8ca17bb3b51a213e894f062fd"
+    },
+    {
+      "architecture": "x86",
+      "mode": 5,
+      "stdout_hex": "050000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "1718768b686237f82a6ff7708a7e8776fe3caffd89197bf586c996ee74355a63"
+    },
+    {
+      "architecture": "x86",
+      "mode": 6,
+      "stdout_hex": "060000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "2185ce67532f6d4a65d145112f7ddd41bc82dc53487334bc2d531ca6f428f45e"
+    },
+    {
+      "architecture": "x86",
+      "mode": 7,
+      "stdout_hex": "070000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "561a0f20f1ffa038cd9f5c2aff0f2c7f268b69e65b8c48b16c3aeb3f5bdf2b11"
+    },
+    {
+      "architecture": "x86",
+      "mode": 8,
+      "stdout_hex": "080000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "34983b8fb2b549bdf73c5001191e7cedf75992769a65c2ca9bfa58e63a243a81"
+    },
+    {
+      "architecture": "x86",
+      "mode": 9,
+      "stdout_hex": "090000000d0000c0a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "stdout_sha256": "a61b9d92aec5e74b5f628d7d6f762723b3727323d964b0f2b3d5cf55573723b6"
+    }
+  ],
+  "files": {
+    "probe-v1.c": {
+      "bytes": 3560,
+      "sha256": "09464b57921d77a1b0df7d8f9e012ced365c1bff9416fcfaaffa942e17fad18a"
+    },
+    "CMakeLists.txt": {
+      "bytes": 674,
+      "sha256": "d47ecef85fc40cc41d606de096db97c3ec5e19b24bfa782ef35feabdd0fe4094"
+    },
+    "native-receipt-v1.json": {
+      "bytes": 18536,
+      "sha256": "e87214617de4e10b950680907bf5a58d50cadf002858eebc8aaed67001f61de8"
+    },
+    "bin/arm64.exe": {
+      "bytes": 4608,
+      "sha256": "32b1e3050b66d153896acb2096874dad23bf1a0049344224c04ec96a86f69e2b"
+    },
+    "bin/x64.exe": {
+      "bytes": 4096,
+      "sha256": "7e3e3081809e006b1332a83e7d842b2a39ca4c54654d0cc1081584faebb8a447"
+    },
+    "bin/x86.exe": {
+      "bytes": 4096,
+      "sha256": "95f7176e7e085b4c1a3a8fb02e3fa2ea235e27f4d142fa6f69d911a6d342ebd4"
+    }
+  }
+}

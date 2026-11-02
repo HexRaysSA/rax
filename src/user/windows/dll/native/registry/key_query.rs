@@ -9,6 +9,11 @@ pub(in super::super) fn query_key(c: &mut Ctx) -> ApiResult {
 fn query_checked(c: &mut Ctx) -> Checked<u32> {
     let (handle, class, output, length, returned) =
         (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?, c.ptr(4)?);
+    // Invalid selectors are rejected before caller probes or WoW64 scratch
+    // allocation/copy-out, including when the caller supplied invalid pointers.
+    if class > 8 {
+        return status(STATUS_INVALID_PARAMETER);
+    }
     let converted = c.arch() == WinArch::X86 && output % 8 != 0;
     let mut scratch = if converted {
         if length as usize > MAX_CONVERSION_BYTES {
@@ -66,12 +71,9 @@ fn query_native(
         }
         probe_write(c, output, length as usize)?;
     }
-    // ResultLength is mandatory, byte-aligned, and probed before class/handle
-    // validation; it remains unchanged on their failure paths.
+    // For admitted classes, ResultLength is mandatory, byte-aligned and probed
+    // before handle validation; it remains unchanged on handle failure.
     probe_write(c, returned, 4)?;
-    if class > 8 {
-        return status(STATUS_INVALID_PARAMETER);
-    }
     let _key = key(c, handle, !matches!(class, 3 | 7))?;
     if matches!(class, 3 | 7) && c.p.objects.access(handle).unwrap_or(0) == 0 {
         return status(STATUS_ACCESS_DENIED);
