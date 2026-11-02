@@ -674,7 +674,6 @@ mod tests {
         assert_eq!(frames[0].payload, b"descendant");
         let fd = frames[0].fd.take().unwrap();
         let mut adopted = Link::new(UnixStream::from(fd)).unwrap();
-        drop(offered);
         child.queue(b"direct").unwrap();
         child.flush().unwrap();
         assert_eq!(
