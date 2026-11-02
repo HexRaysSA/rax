@@ -2,6 +2,7 @@
 use super::S5L8900Vcpu;
 use crate::error::{Error, Result};
 use crate::host::time::{Duration, Instant};
+use crate::vm::timing::ClockEpoch;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, OnceLock};
 
@@ -29,57 +30,105 @@ impl ElapsedImage {
 
 pub(super) struct ElapsedClock {
     base: Duration,
-    anchor: Option<Instant>,
-    resume_epoch: Option<Arc<OnceLock<Instant>>>,
+    source: ClockEpoch,
+    anchor: Option<ClockEpoch>,
+    resume_epoch: Option<Arc<OnceLock<ClockEpoch>>>,
 }
 impl ElapsedClock {
     pub(super) fn new() -> Self {
+        let now = ClockEpoch::selected_at(Instant::now());
         Self {
             base: Duration::ZERO,
-            anchor: Some(Instant::now()),
+            source: now.clone(),
+            anchor: Some(now),
             resume_epoch: None,
         }
     }
     pub(super) fn suspended(image: ElapsedImage) -> Result<Self> {
         Ok(Self {
             base: image.duration()?,
+            source: ClockEpoch::selected_at(Instant::now()),
             anchor: None,
             resume_epoch: None,
         })
     }
-    pub(super) fn capture_at(&self, now: Instant) -> ElapsedImage {
-        let elapsed = self.base.saturating_add(
-            self.anchor
-                .or_else(|| {
-                    self.resume_epoch
-                        .as_ref()
-                        .and_then(|epoch| epoch.get().copied())
-                })
-                .map_or(Duration::ZERO, |anchor| {
-                    now.saturating_duration_since(anchor)
-                }),
-        );
-        ElapsedImage {
+    pub(super) fn capture_time(&self) -> ClockEpoch {
+        self.source.sample()
+    }
+    pub(super) fn validate_domain(&self, now: &ClockEpoch) -> Result<()> {
+        if !self.source.same_domain(now) {
+            return Err(Error::InvalidConfig(
+                "S5L elapsed clock domain differs".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub(super) fn capture_at(&self, now: impl Into<ClockEpoch>) -> Result<ElapsedImage> {
+        let now = now.into();
+        self.validate_domain(&now)?;
+        let anchor = self
+            .anchor
+            .as_ref()
+            .or_else(|| self.resume_epoch.as_ref().and_then(|epoch| epoch.get()));
+        let elapsed = match anchor {
+            Some(anchor) => self.base.saturating_add(now.duration_since(anchor)?),
+            None => self.base,
+        };
+        Ok(ElapsedImage {
             seconds: elapsed.as_secs(),
             nanos: elapsed.subsec_nanos(),
-        }
+        })
     }
     pub(super) fn elapsed(&self) -> Duration {
-        // The image is constructed only from valid Durations.
-        let image = self.capture_at(Instant::now());
+        // Samples come from this retained owner. Restore rebinds suspended clocks
+        // to the target, and publication validates their domain before activation.
+        // ClockEpoch is runtime-only and cannot be forged by serialized images.
+        let image = self
+            .capture_at(self.capture_time())
+            .expect("elapsed source and activation domain admitted together");
         Duration::new(image.seconds, image.nanos)
     }
-    pub(super) fn bind_publication_epoch(&mut self, epoch: Arc<OnceLock<Instant>>) {
+    pub(super) fn reset(&mut self) {
+        self.base = Duration::ZERO;
+        self.anchor = Some(self.capture_time());
+        self.resume_epoch = None;
+    }
+    pub(super) fn rebind_suspended_to(&mut self, target: &Self) -> Result<()> {
+        if self.anchor.is_some() || self.resume_epoch.is_some() {
+            return Err(Error::InvalidConfig(
+                "S5L elapsed clock must be suspended before rebinding".into(),
+            ));
+        }
+        self.source = target.source.clone();
+        Ok(())
+    }
+    pub(super) fn bind_publication_epoch(
+        &mut self,
+        epoch: Arc<OnceLock<ClockEpoch>>,
+    ) -> Result<()> {
+        if epoch.get().is_some() {
+            return Err(Error::InvalidConfig(
+                "S5L clock activated before publication".into(),
+            ));
+        }
         self.anchor = None;
         self.resume_epoch = Some(epoch);
+        Ok(())
     }
-    pub(super) fn resume_at(&mut self, now: Instant) {
+    pub(super) fn resume_at(&mut self, now: impl Into<ClockEpoch>) -> Result<()> {
+        let now = now.into();
+        self.validate_domain(&now)?;
         if self.anchor.is_none() {
-            self.anchor = match &self.resume_epoch {
-                Some(epoch) => epoch.get().copied(),
+            let anchor = match &self.resume_epoch {
+                Some(epoch) => epoch.get().cloned(),
                 None => Some(now),
             };
+            if let Some(anchor) = &anchor {
+                self.validate_domain(anchor)?;
+            }
+            self.anchor = anchor;
         }
+        Ok(())
     }
 }
 
@@ -109,21 +158,23 @@ mod tests {
         let start = Instant::now();
         let later = start + Duration::from_secs(100);
         assert_eq!(
-            clock.capture_at(later).duration().unwrap(),
+            clock.capture_at(later).unwrap().duration().unwrap(),
             image.duration().unwrap()
         );
-        clock.resume_at(start);
+        clock.resume_at(start).unwrap();
         assert_eq!(
             clock
                 .capture_at(start + Duration::from_nanos(11))
+                .unwrap()
                 .duration()
                 .unwrap(),
             Duration::new(7, 123_456_800)
         );
-        clock.resume_at(later);
+        clock.resume_at(later).unwrap();
         assert_eq!(
             clock
                 .capture_at(start + Duration::from_nanos(11))
+                .unwrap()
                 .duration()
                 .unwrap(),
             Duration::new(7, 123_456_800)
@@ -144,10 +195,11 @@ mod tests {
             nanos: 999_999_999,
         })
         .unwrap();
-        clock.resume_at(start);
+        clock.resume_at(start).unwrap();
         assert_eq!(
             clock
                 .capture_at(start + Duration::from_secs(1))
+                .unwrap()
                 .duration()
                 .unwrap(),
             Duration::MAX
@@ -193,30 +245,37 @@ mod publication_tests {
         })
         .unwrap();
         let epoch = Arc::new(OnceLock::new());
-        clock.bind_publication_epoch(epoch.clone());
+        clock.bind_publication_epoch(epoch.clone()).unwrap();
         let start = Instant::now();
         assert_eq!(
             clock
                 .capture_at(start + Duration::from_secs(100))
+                .unwrap()
                 .duration()
                 .unwrap(),
             Duration::from_secs(7)
         );
-        epoch.set(start).unwrap();
+        epoch.set(start.into()).unwrap();
         assert_eq!(
             clock
                 .capture_at(start + Duration::from_secs(3))
+                .unwrap()
                 .duration()
                 .unwrap(),
             Duration::from_secs(10)
         );
-        clock.resume_at(start + Duration::from_secs(100));
+        clock.resume_at(start + Duration::from_secs(100)).unwrap();
         assert_eq!(
             clock
                 .capture_at(start + Duration::from_secs(3))
+                .unwrap()
                 .duration()
                 .unwrap(),
             Duration::from_secs(10)
         );
     }
 }
+
+#[cfg(test)]
+#[path = "time/selected_tests.rs"]
+mod selected_tests;

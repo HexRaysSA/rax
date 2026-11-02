@@ -21,7 +21,7 @@ fn invalid(message: impl std::fmt::Display) -> Error {
 pub(super) struct PreparedPublication {
     uart: Option<(Arc<Mutex<S3cUart>>, S3cUart)>,
     completed: Arc<AtomicBool>,
-    epoch: Arc<OnceLock<crate::host::time::Instant>>,
+    epoch: Arc<OnceLock<crate::vm::timing::ClockEpoch>>,
 }
 #[derive(Serialize, Deserialize)]
 struct Descriptor {
@@ -75,9 +75,10 @@ impl S5L8900Vcpu {
     pub(super) fn finish_publication(&mut self) -> Result<()> {
         self.check_publication()?;
         if self.checkpoint_publication.take().is_some() {
-            let now = crate::host::time::Instant::now();
-            self.boot_clock.resume_at(now);
-            self.heartbeat_clock.resume_at(now);
+            let boot_now = self.boot_clock.capture_time();
+            self.boot_clock.resume_at(boot_now)?;
+            let heartbeat_now = self.heartbeat_clock.capture_time();
+            self.heartbeat_clock.resume_at(heartbeat_now)?;
         }
         Ok(())
     }
@@ -188,6 +189,10 @@ impl S5L8900Vcpu {
         let nand = S5lNand::from_checkpoint(nand_bytes.as_slice(), nand_bytes.len())?;
         let (mut candidate, saved_uart) =
             image.into_cpu(self.bridge.mem.clone(), nand, self.uart.clone())?;
+        candidate.boot_clock.rebind_suspended_to(&self.boot_clock)?;
+        candidate
+            .heartbeat_clock
+            .rebind_suspended_to(&self.heartbeat_clock)?;
         if crate::codec::serialize(&candidate.get_state()?).map_err(invalid)?
             != crate::codec::serialize(state).map_err(invalid)?
         {
@@ -197,10 +202,10 @@ impl S5L8900Vcpu {
             return Err(invalid("UART attachment differs"));
         }
         let epoch = Arc::new(OnceLock::new());
-        candidate.boot_clock.bind_publication_epoch(epoch.clone());
+        candidate.boot_clock.bind_publication_epoch(epoch.clone())?;
         candidate
             .heartbeat_clock
-            .bind_publication_epoch(epoch.clone());
+            .bind_publication_epoch(epoch.clone())?;
         candidate.checkpoint_publication = Some(PreparedPublication {
             epoch,
             uart: self.uart.get().cloned().zip(saved_uart),
@@ -213,18 +218,23 @@ impl S5L8900Vcpu {
         scope: &'scope CheckpointPublication<'bindings>,
     ) -> Result<CpuPublication<'scope, 'bindings>> {
         match &self.checkpoint_publication {
-            Some(pending) if !pending.completed.load(Ordering::Acquire) => scope.prepare_s3c_clock(
-                &self.bridge.mem,
-                pending
-                    .uart
-                    .as_ref()
-                    .map(|(owner, state)| {
-                        state.checkpoint_clone().map(|state| (owner.clone(), state))
-                    })
-                    .transpose()?,
-                pending.completed.clone(),
-                pending.epoch.clone(),
-            ),
+            Some(pending) if !pending.completed.load(Ordering::Acquire) => {
+                let now = scope.capture_time();
+                self.boot_clock.validate_domain(&now)?;
+                self.heartbeat_clock.validate_domain(&now)?;
+                scope.prepare_s3c_clock(
+                    &self.bridge.mem,
+                    pending
+                        .uart
+                        .as_ref()
+                        .map(|(owner, state)| {
+                            state.checkpoint_clone().map(|state| (owner.clone(), state))
+                        })
+                        .transpose()?,
+                    pending.completed.clone(),
+                    pending.epoch.clone(),
+                )
+            }
             _ => Ok(scope.empty()),
         }
     }

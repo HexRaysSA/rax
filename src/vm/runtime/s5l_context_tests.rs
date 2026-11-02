@@ -59,6 +59,11 @@ fn child(label: &str, path: &Path, phase: &str, s5l: bool) {
         cmd.env("RAX_S5L_NO_SECURITY_SEED", "1")
             .env("RAX_S5L_GID_KEY", "0é0");
     }
+    if label.starts_with("retired_clock::") {
+        cmd.env("RAX_S5L_DET_TIMER", if s5l { "0" } else { "17" })
+            .env("RAX_S5L_TIMER_SPEEDUP", if s5l { "1" } else { "13" })
+            .env("RAX_S5L_TIMER_MUL", if s5l { "1" } else { "11" });
+    }
     let out = cmd.output().unwrap();
     assert!(
         out.status.success(),
@@ -398,3 +403,6 @@ fn actual_vmm_prepares_all_source_media_before_shared_uart_scope() {
     assert_eq!(prepared.load(Ordering::Relaxed), 4);
     assert_eq!(captured.load(Ordering::Relaxed), 4);
 }
+
+#[path = "s5l_retired_clock_tests.rs"]
+mod retired_clock;

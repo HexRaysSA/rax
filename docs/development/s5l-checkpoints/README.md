@@ -45,8 +45,8 @@ execute or recapture before its matching RAM scope publishes. Repeated permits
 do not reactivate it or reset its elapsed clocks.
 
 The deterministic timer retains its attempt/idle progression and existing
-nondecreasing device counter. Explicit host-time diagnostic mode stores elapsed
-`(seconds, nanoseconds)` rather than a host `Instant`; target preparation and
+nondecreasing device counter. The elapsed diagnostic branch stores elapsed
+`(seconds, nanoseconds)` rather than a host `Instant`; its source follows the selected VM clock. Target preparation and
 downtime are excluded, and all restored CPU clocks resume at the common publication
 epoch, including time before first CPU entry. Timer scaling uses multiplication
 modulo `2^64` in checked and release builds. This fixes the large-multiplier
@@ -106,3 +106,8 @@ are removed afterward. No branch/worktree is created and no push is performed.
 | High | External NAND media must remain stable throughout source capture. |
 | Medium | Logical byte budgets are not resident-memory ceilings. |
 | Medium | Synthetic model continuation does not establish physical ARM1176/device or proprietary firmware conformance. |
+
+The follow-up [selected-clock qualification](../s5l-selected-clock/README.md)
+binds elapsed clocks to their VM owner and prepares incoming retired publication
+epochs before clock commit. The validation table above describes the original
+private-producer group; current follow-up counts are recorded separately.

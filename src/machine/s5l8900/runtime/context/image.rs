@@ -223,9 +223,10 @@ impl Image {
         scope: Option<&CheckpointPublication<'_>>,
     ) -> Result<Self> {
         source.check_publication()?;
-        let now = scope.map_or_else(crate::host::time::Instant::now, |scope| {
-            scope.capture_time()
-        });
+        let now = scope.map_or_else(
+            || source.boot_clock.capture_time(),
+            |scope| scope.capture_time(),
+        );
         let S5L8900Vcpu {
             id,
             cpu,
@@ -414,8 +415,8 @@ impl Image {
             kernel_fault_log_remaining: kernel_fault_log_remaining.clone(),
             kernel_exception_log_remaining: kernel_exception_log_remaining.clone(),
             fault_log_budget: fault_log_budget.clone(),
-            heartbeat_clock: heartbeat_clock.capture_at(now),
-            boot_clock: boot_clock.capture_at(now),
+            heartbeat_clock: heartbeat_clock.capture_at(now.clone())?,
+            boot_clock: boot_clock.capture_at(now)?,
             guest_profile: source.effective_guest_profile().into_owned(),
             timer_speedup: timer_speedup.clone(),
             det_timer: det_timer.clone(),

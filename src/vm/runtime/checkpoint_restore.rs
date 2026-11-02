@@ -382,7 +382,7 @@ impl Vmm {
                     }
                 }
             }
-            publication = Some(bindings.enter()?);
+            publication = Some(bindings.enter_for_restore(bundle.clock())?);
             let scope = publication.as_ref().expect("publication installed");
             if bundle.vm_context().is_some() && replacements.iter().any(Option::is_some) {
                 return Err(Error::InvalidConfig(

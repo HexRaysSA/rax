@@ -1,0 +1,1339 @@
+{
+  "schema": 1,
+  "utc": "2026-11-02T08:44:17.699101+00:00",
+  "parent": "d1e98e810438fd6ac3932652091064591e222fa6",
+  "status": "locally_validated_with_explicit_scope",
+  "scope": "Bind S5L boot/heartbeat elapsed clocks to their selected VM clock, retain target clock identity and one common capture/publication epoch including incoming retired-clock restoration; preserve existing wall and explicit synthetic timer profiles. Full four findings/default idle/RTC/native/replay remain open.",
+  "full_goal_complete": false,
+  "assumptions": [
+    {
+      "id": "SC1",
+      "assumption": "An elapsed clock retains the mode/identity selected when its owner is constructed; foreign ambient contexts do not change it.",
+      "basis": "Existing TimingContext and LAPIC clock ownership contract; VMM now selects before CPU/device construction.",
+      "dependent_result": "Host-independent S5L elapsed timing in Retired mode and preserved standalone Wall behavior.",
+      "stress_test": "Host delay, foreign timing scopes, counter wrap and explicit det_timer=0 guest counter path.",
+      "falsification_probe": "A selected elapsed value changes with host delay or reads another VM clock.",
+      "status": "confirmed",
+      "evidence": [
+        "focused-epoch-v3",
+        "focused-s5l-v3",
+        "focused-publication-v3",
+        "owning-root-library-v5"
+      ]
+    },
+    {
+      "id": "SC2",
+      "assumption": "Every restored elapsed clock starts from the incoming logical epoch, not the target old epoch before clock.commit.",
+      "basis": "Checkpoint restore commits CPU permits before the clock token; all source CPUs need one capture and activation point.",
+      "dependent_result": "Exact pre-entry and1/2/4 prepared-context file continuation without epoch double counting.",
+      "stress_test": "Source/target clock epochs differ, delayed preparation, snapshot before first restored entry, all shared elapsed fields.",
+      "falsification_probe": "Restoring twice adds source elapsed time, target old epoch or preparation time.",
+      "status": "confirmed",
+      "evidence": [
+        "focused-epoch-v3",
+        "focused-s5l-v3",
+        "focused-publication-v3",
+        "owning-root-library-v5"
+      ]
+    },
+    {
+      "id": "SC3",
+      "assumption": "Stopped-clock writers remain quiescent through checkpoint publication, as required by the existing VM snapshot contract.",
+      "basis": "VMM exclusive CPU vector and documented independent-writer contract; publication commit cannot acquire new clock locks.",
+      "dependent_result": "Precomputed incoming retired epoch can publish without locks/allocations; wall publication samples its existing host boundary.",
+      "stress_test": "Inspect lock order; explicit publication/capture tests and final admission failures.",
+      "falsification_probe": "A legitimate concurrent clock writer can change the stopped VM timeline during publication without caller coordination.",
+      "status": "retained",
+      "evidence": [
+        "focused-epoch-v3",
+        "focused-s5l-v3",
+        "focused-publication-v3",
+        "owning-root-library-v5"
+      ]
+    },
+    {
+      "id": "SC4",
+      "assumption": "Existing synthetic det_timer and timer scaling are explicit guest-affecting profiles and retain their defined behavior.",
+      "basis": "S5L profile/configuration and prior checkpoint qualification; this group fixes the elapsed-clock branch rather than redefining every device rate.",
+      "dependent_result": "No silent profile migration or new counter/wire layout.",
+      "stress_test": "det_timer positive and zero, full u64 multipliers, existing wall and private-image compatibility tests.",
+      "falsification_probe": "An unchanged profile produces different counter arithmetic beyond the selected elapsed time source.",
+      "status": "confirmed",
+      "evidence": [
+        "focused-epoch-v3",
+        "focused-s5l-v3",
+        "focused-publication-v3",
+        "owning-root-library-v5"
+      ]
+    }
+  ],
+  "source_sha256": {
+    "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+    "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+    "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+    "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+    "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+    "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+    "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+    "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+    "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+    "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+    "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+    "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+    "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+    "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7"
+  },
+  "source_lines": {
+    "src/vm/timing.rs": 176,
+    "src/vm/timing/epoch.rs": 117,
+    "src/vm/timing/epoch_tests.rs": 80,
+    "src/vm/memory/checkpoint.rs": 523,
+    "src/vm/runtime/checkpoint_restore.rs": 514,
+    "src/machine/s5l8900/runtime/time.rs": 281,
+    "src/machine/s5l8900/runtime/time/selected_tests.rs": 118,
+    "src/machine/s5l8900/runtime/context.rs": 241,
+    "src/machine/s5l8900/runtime/context/image.rs": 1064,
+    "src/machine/s5l8900/runtime/context/tests.rs": 447,
+    "src/machine/s5l8900/runtime/diagnostics.rs": 681,
+    "src/vm/runtime/s5l_context_tests.rs": 408,
+    "src/machine/s5l8900/runtime/step.rs": 485,
+    "src/vm/runtime/s5l_retired_clock_tests.rs": 123
+  },
+  "change_surface": {
+    "clock_source": "runtime-only owned clock epochs; no serialized pointer/source identity",
+    "S5L": "elapsed capture,reset,target rebinding and shared publication; unchanged device/profile wire values",
+    "checkpoint": "source epoch sampled once; incoming virtual publication point prepared before CPU activation",
+    "ISA_SMIR_C_ABI": "no instruction/arithmetic/lowering/C ABI changes",
+    "limits": "S5L PMU RTC, other board clocks, default/idle model, native retirement and full replay remain open"
+  },
+  "baseline": {
+    "record": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-selected-clock-v1/baseline-red-v1.json",
+    "actual_parent_behavior": "Two selected retired-clock tests fail because prior S5L elapsed anchors observe host delay.",
+    "compiler_failures_excluded": [
+      "implementation-build-v1",
+      "implementation-build-v2"
+    ],
+    "baseline_fixture_driver_error_excluded": true
+  },
+  "validation": {
+    "focused-epoch-v3": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "vm::timing::epoch::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.02440166601445526,
+      "test_results": [
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "ebd3efd847e3b7289b88e94e508d6a2efe0572f7a9bf3398688f6f51fbf3120b",
+        "inode": 401277504
+      },
+      "executable_after_sha256": "ebd3efd847e3b7289b88e94e508d6a2efe0572f7a9bf3398688f6f51fbf3120b",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "cf25e7ed0d6e0ca847e0cd973de667341a101314536367883a3fad9b42358d81"
+      }
+    },
+    "focused-s5l-v3": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "s5l",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 420.0087931249873,
+      "test_results": [
+        {
+          "passed": 76,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "ebd3efd847e3b7289b88e94e508d6a2efe0572f7a9bf3398688f6f51fbf3120b",
+        "inode": 401277504
+      },
+      "executable_after_sha256": "ebd3efd847e3b7289b88e94e508d6a2efe0572f7a9bf3398688f6f51fbf3120b",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "cf25e7ed0d6e0ca847e0cd973de667341a101314536367883a3fad9b42358d81"
+      }
+    },
+    "focused-publication-v3": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "vm::memory::checkpoint::s3c_tests",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.026003749982919544,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "ebd3efd847e3b7289b88e94e508d6a2efe0572f7a9bf3398688f6f51fbf3120b",
+        "inode": 401277504
+      },
+      "executable_after_sha256": "ebd3efd847e3b7289b88e94e508d6a2efe0572f7a9bf3398688f6f51fbf3120b",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "cf25e7ed0d6e0ca847e0cd973de667341a101314536367883a3fad9b42358d81"
+      }
+    },
+    "owning-root-library-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 1231.6434377079713,
+      "test_results": [
+        {
+          "passed": 11917,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "ee621c04aa9540dd0b58ca147660d598d5c4ca49209bd13f5608a90b4161a585",
+        "inode": 401285524
+      },
+      "executable_after_sha256": "ee621c04aa9540dd0b58ca147660d598d5c4ca49209bd13f5608a90b4161a585",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "owning-capi-library-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 5.2866437080083415,
+      "test_results": [
+        {
+          "passed": 240,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "2162b98befceb8c111a23b064dc5a9f79f0056f58c3a0e42cb3b15d079147bf8",
+        "inode": 401283946
+      },
+      "executable_after_sha256": "2162b98befceb8c111a23b064dc5a9f79f0056f58c3a0e42cb3b15d079147bf8",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "fmt-workspace-v5": {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 16.00050420803018,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "build-workspace-all-targets-v5": {
+      "argv": [
+        "cargo",
+        "build",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 263.0483476250083,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "check-workspace-all-targets-v5": {
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 117.04637891700258,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "clippy-workspace-all-targets-v5": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 125.25682604196481,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "doctests-workspace-v5": {
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 15.033074542006943,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "check-workspace-without-debug-v5": {
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,rax-capi/jit",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 50.65318549994845,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "owning-retirement_budget-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-3477bb2ea3989bed",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.014365833019837737,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 2
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-3477bb2ea3989bed",
+        "sha256": "3d9996d170d4165edbca2efc598a7c25d6417bc3914fe2a6c684876ff5b2f7dc",
+        "inode": 401283658
+      },
+      "executable_after_sha256": "3d9996d170d4165edbca2efc598a7c25d6417bc3914fe2a6c684876ff5b2f7dc",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "owning-vm_timing-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/vm_timing-de64801cbad1fc5e",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.010924249945674092,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/vm_timing-de64801cbad1fc5e",
+        "sha256": "e1c2cef093f719c934cbb8223e5dad4640330751b6d468b5c8b077bcff53c6c8",
+        "inode": 401284132
+      },
+      "executable_after_sha256": "e1c2cef093f719c934cbb8223e5dad4640330751b6d468b5c8b077bcff53c6c8",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "owning-retired_clock-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retired_clock-4fd413f370064705",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.007708874996751547,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retired_clock-4fd413f370064705",
+        "sha256": "590c34aec67caf592efe8b9e3767b146833467b6515bada850cd68654733d67f",
+        "inode": 401284324
+      },
+      "executable_after_sha256": "590c34aec67caf592efe8b9e3767b146833467b6515bada850cd68654733d67f",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "owning-checkpoint_clock-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_clock-b8724286b91fbeeb",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 41.462297458027024,
+      "test_results": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_clock-b8724286b91fbeeb",
+        "sha256": "dffb5e7f2dba240a42dcd550fb6fa3c71eaeda779c46b5318a28a1e97e07323a",
+        "inode": 401282082
+      },
+      "executable_after_sha256": "dffb5e7f2dba240a42dcd550fb6fa3c71eaeda779c46b5318a28a1e97e07323a",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "owning-retirement_clock-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_clock-b411028c145cb526",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.013315208023414016,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_clock-b411028c145cb526",
+        "sha256": "ba3d2443a6e7f1138c6609ed1672d443d36b31adbe5a8051c65056091f533fb0",
+        "inode": 401282985
+      },
+      "executable_after_sha256": "ba3d2443a6e7f1138c6609ed1672d443d36b31adbe5a8051c65056091f533fb0",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "owning-x86_retired_tsc-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/x86_retired_tsc-a7cb01f382fd00e1",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.00833850004710257,
+      "test_results": [
+        {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/x86_retired_tsc-a7cb01f382fd00e1",
+        "sha256": "531c0e0018f53f435d760095af9282b2196634a9c79af4c9aa44f10f4520e0d1",
+        "inode": 401284478
+      },
+      "executable_after_sha256": "531c0e0018f53f435d760095af9282b2196634a9c79af4c9aa44f10f4520e0d1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "owning-checkpoint_cpus-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_cpus-4b86ae490049f9e9",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.060092083003837615,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_cpus-4b86ae490049f9e9",
+        "sha256": "85ecdce175c66dcd5c9981848f9c7051c98c09d057328873df72db99c631aaa0",
+        "inode": 401283345
+      },
+      "executable_after_sha256": "85ecdce175c66dcd5c9981848f9c7051c98c09d057328873df72db99c631aaa0",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "owning-checkpoint_resume-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_resume-1ba9346c51c2c83f",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 38.8856787920231,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_resume-1ba9346c51c2c83f",
+        "sha256": "381c136b7e9da7129af0e429a973cf24fe9fdaf3750f54a4cf974123ba4e3217",
+        "inode": 401283950
+      },
+      "executable_after_sha256": "381c136b7e9da7129af0e429a973cf24fe9fdaf3750f54a4cf974123ba4e3217",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    },
+    "owning-ci_actions_pinned-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-684b758ed82515b1",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.03301499999361113,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-684b758ed82515b1",
+        "sha256": "0188b6bb3f5f2ca6323ccd17c1fc57a115719fc033133a7cbf8c57f92b1e62e2",
+        "inode": 401283312
+      },
+      "executable_after_sha256": "0188b6bb3f5f2ca6323ccd17c1fc57a115719fc033133a7cbf8c57f92b1e62e2",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/timing.rs": "854801f299472fc3b4c05ec80a0b7de95a7229e977bcaae13dedd682a3749d0c",
+        "src/vm/timing/epoch.rs": "0d7639c6ea2050207358f4c961a8486fcb551b266a4cf21eab448dc4ea283bc6",
+        "src/vm/timing/epoch_tests.rs": "a15dfa5124a032b4c773f74a06b5d51dd9f1e4c9659a3cdc20000dbce55052d5",
+        "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+        "src/vm/runtime/checkpoint_restore.rs": "8a85ba63810791360e4cc8aa4d36887ec042f6f6c09575ee0c5f77724b522803",
+        "src/machine/s5l8900/runtime/time.rs": "ce8f9a6fe82b7b85438068f9d138cad76ba8b9658845aee1c236ad9dfe90d967",
+        "src/machine/s5l8900/runtime/time/selected_tests.rs": "766f49e4e5ca8ed49da6593b53ba23645f0908acc5b5505087ba037db00419a4",
+        "src/machine/s5l8900/runtime/context.rs": "cde8fbfb44a100d50cef203f8a54b551a40c803ef2a39b38224362ae4106c935",
+        "src/machine/s5l8900/runtime/context/image.rs": "89620bf32111dfeec0047e709ef37bca7ea351e2599d7d193ec3c0fdb2dfab63",
+        "src/machine/s5l8900/runtime/context/tests.rs": "0c21021fb8b932357fc0631f4586482f25caddf184367bed34ad23a0f13e3c94",
+        "src/machine/s5l8900/runtime/diagnostics.rs": "a6d48ed76cfabff749bf37797e04d7f4dd4e4b4016619a949d793ec06cd13944",
+        "src/vm/runtime/s5l_context_tests.rs": "1d795402dbf15e42789da1ab02e9680310248ed7afa39063726c454846b7c66c",
+        "src/machine/s5l8900/runtime/step.rs": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba",
+        "src/vm/runtime/s5l_retired_clock_tests.rs": "6a5c1b319218f1907e1f4736a77257cd7a6a276d6520ffbd014c23487a03bae7",
+        "docs/development/s5l-checkpoints/README.md": "956553ca9de75a6405313ec043121f620215a61c2f2e26deb0bbf681fe2ee952",
+        "docs/development/vmm-selected-clock/README.md": "b6f4fae380f50bc19e769551e64267f5f6744786bfe8dac3d337d67560ab7d2d",
+        "docs/development/audit-remediation-2026-10.json": "39ad67332c427f6f38418d7b5487e6175e20b25ac80645bbfe9eb05ab4b76280",
+        "__HEAD__": "d1e98e810438fd6ac3932652091064591e222fa6",
+        "__tracked_changes__": "0846320f3dc96da212c8e307dd5f4a78c5676324d86196fc4c64ec0c356d1694"
+      }
+    }
+  },
+  "test_counts": {
+    "focused-epoch-v3": [
+      {
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "focused-s5l-v3": [
+      {
+        "passed": 76,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "focused-publication-v3": [
+      {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "owning-root-library-v5": [
+      {
+        "passed": 11917,
+        "failed": 0,
+        "ignored": 35
+      }
+    ],
+    "owning-capi-library-v5": [
+      {
+        "passed": 240,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "fmt-workspace-v5": [],
+    "build-workspace-all-targets-v5": [],
+    "check-workspace-all-targets-v5": [],
+    "clippy-workspace-all-targets-v5": [],
+    "doctests-workspace-v5": [
+      {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 5
+      },
+      {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "check-workspace-without-debug-v5": [],
+    "owning-retirement_budget-v5": [
+      {
+        "passed": 14,
+        "failed": 0,
+        "ignored": 2
+      }
+    ],
+    "owning-vm_timing-v5": [
+      {
+        "passed": 12,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "owning-retired_clock-v5": [
+      {
+        "passed": 13,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "owning-checkpoint_clock-v5": [
+      {
+        "passed": 16,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "owning-retirement_clock-v5": [
+      {
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "owning-x86_retired_tsc-v5": [
+      {
+        "passed": 9,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "owning-checkpoint_cpus-v5": [
+      {
+        "passed": 12,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "owning-checkpoint_resume-v5": [
+      {
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "owning-ci_actions_pinned-v5": [
+      {
+        "passed": 12,
+        "failed": 0,
+        "ignored": 0
+      }
+    ]
+  },
+  "limits": [
+    {
+      "impact": "high",
+      "item": "Clock writers remain quiescent through stopped-VM publication; external independent writers require caller coordination.",
+      "blocks_this_group": false
+    },
+    {
+      "impact": "high",
+      "item": "Default clock remains Wall; logical idle advance, RTC/timezone/entropy capture, other board clock consumers and full replay remain incomplete.",
+      "blocks_this_group": false
+    },
+    {
+      "impact": "high",
+      "item": "Prepared online 1/2/4 CPU contexts do not establish architectural secondary startup; native deterministic retirement and physical Intel HVF validation remain open.",
+      "blocks_this_group": false
+    },
+    {
+      "impact": "medium",
+      "item": "Wrapping elapsed observations require gaps shorter than 2^64 ns; elapsed Duration addition saturates, existing u64 timer scale multiplication wraps.",
+      "blocks_this_group": false
+    }
+  ],
+  "provenance": [
+    "src/vm/timing/{context,retired,epoch}.rs",
+    "src/vm/memory/checkpoint.rs",
+    "src/vm/runtime/checkpoint_restore.rs",
+    "src/machine/s5l8900/runtime/{time,context,diagnostics}.rs",
+    "src/devices/s5l8900/core.rs"
+  ],
+  "workflow": "Direct master; exact-path git add and red -m --staged --run; no push/new branch/worktree; remove only idle owned canonical C/T after commit",
+  "quality_gates": {
+    "assumptions": "passed within explicit group scope",
+    "coverage": "passed within explicit group scope",
+    "reproducibility": "passed within explicit group scope",
+    "edges": "passed within explicit group scope",
+    "provenance": "passed within explicit group scope",
+    "bounded_scope": "passed within explicit group scope",
+    "worktree_integrity": "passed within explicit group scope",
+    "behavioral_evidence": "passed within explicit group scope",
+    "consistency": "passed within explicit group scope"
+  },
+  "orchestration_corrections": [
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-selected-clock-v1/artifact-discovery-correction.json"
+  ],
+  "time_arithmetic": {
+    "rate_hz": 3000000000,
+    "whole_ns": "floor((phase_initial + retired_units_added)/3)",
+    "phase": "(phase_initial + retired_units_added) mod3",
+    "elapsed_ns": "(current_nanos - anchor_nanos) mod2^64",
+    "observation_gap_upper_bound_exclusive_ns": 18446744073709551616,
+    "elapsed_duration": "saturating_add(saved_duration, elapsed_ns)",
+    "elapsed_timer": "((floor(elapsed_duration_ns/1000) mod2^64) * speedup * multiplier) mod2^64",
+    "precision": "Integer nanoseconds and retained VM thirds; guest elapsed timer truncates to microseconds; no physical frequency claim."
+  },
+  "primary_contracts": [
+    {
+      "path": "src/vm/timing/context.rs",
+      "sha256": "0ee3bb9c45832f9eb60cdb162b9b3cda76634d9b6ea133d9a47632407e86a3cb"
+    },
+    {
+      "path": "src/vm/timing/retired.rs",
+      "sha256": "5dd2e8fef54d2304a6c76d0a92c6467f84c4e28f1aa549a0a2dc3620669de005"
+    },
+    {
+      "path": "src/machine/s5l8900/runtime/step.rs",
+      "sha256": "4ceba9c86cc73b4dee145f3a52513ac86d05a33e9871038f6a62604e788c7cba"
+    },
+    {
+      "path": "src/devices/s5l8900/core.rs",
+      "sha256": "9af522d079bec79276f512a63d2fe07c10405c3646243bf04575ccc5b1941305"
+    },
+    {
+      "path": "src/host/time.rs",
+      "sha256": "d6af49ca34e449e39f994b33c0b1c10d0f1a1a7713aa0369e165e2a572ffb6d6"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "behavior": "Selected elapsed clock excludes host/foreign time and retains owner through reset.",
+      "implementation": [
+        "src/vm/timing/epoch.rs",
+        "src/machine/s5l8900/runtime/time.rs"
+      ],
+      "evidence": [
+        "focused-epoch-v3",
+        "focused-s5l-v3"
+      ]
+    },
+    {
+      "id": "R2",
+      "behavior": "Elapsed private image remains source independent; suspended replacement rebinds to target and foreign publication denies before mutation.",
+      "implementation": [
+        "src/machine/s5l8900/runtime/context.rs",
+        "src/machine/s5l8900/runtime/context/image.rs"
+      ],
+      "evidence": [
+        "focused-s5l-v3"
+      ]
+    },
+    {
+      "id": "R3",
+      "behavior": "Common publication uses incoming retired epoch before clock token commit; pre-entry capture does not double count.",
+      "implementation": [
+        "src/vm/memory/checkpoint.rs",
+        "src/vm/runtime/checkpoint_restore.rs"
+      ],
+      "evidence": [
+        "focused-s5l-v3",
+        "focused-publication-v3"
+      ]
+    },
+    {
+      "id": "R4",
+      "behavior": "Actual source-free1/2/4 CPU files preserve selected guest timer reads and counts under conflicting destination settings.",
+      "implementation": [
+        "src/vm/runtime/s5l_retired_clock_tests.rs"
+      ],
+      "evidence": [
+        "focused-s5l-v3"
+      ]
+    },
+    {
+      "id": "R5",
+      "behavior": "Preserve wall arithmetic, serialized elapsed fields and synthetic/scaling profiles.",
+      "implementation": [
+        "src/machine/s5l8900/runtime/time.rs"
+      ],
+      "evidence": [
+        "focused-s5l-v3",
+        "owning-root-library-v5"
+      ]
+    },
+    {
+      "id": "R6",
+      "behavior": "Exact owned commit on master, preserve unrelated state and remove idle owned roots.",
+      "implementation": [],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-selected-clock-v1/commit-receipt.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-selected-clock-v1/cleanup-final.json"
+      ],
+      "status": "validated by post-qualification commit/cleanup receipts"
+    }
+  ]
+}

@@ -41,6 +41,20 @@ impl CheckpointBindings {
     /// The caller holds PCI, shared-platform and legacy-device locks already.
     /// Owned S3C UARTs precede owned GICs, then the RAM domain.
     pub(crate) fn enter(&self) -> Result<CheckpointPublication<'_>> {
+        self.enter_with_clock(None)
+    }
+
+    pub(crate) fn enter_for_restore(
+        &self,
+        incoming: Option<&crate::vm::timing::ClockState>,
+    ) -> Result<CheckpointPublication<'_>> {
+        self.enter_with_clock(incoming)
+    }
+
+    fn enter_with_clock(
+        &self,
+        incoming: Option<&crate::vm::timing::ClockState>,
+    ) -> Result<CheckpointPublication<'_>> {
         let mut s3c_uarts = Vec::with_capacity(self.s3c_uarts.len());
         for handle in &self.s3c_uarts {
             s3c_uarts.push(RefCell::new(handle.lock().map_err(|_| {
@@ -54,10 +68,13 @@ impl CheckpointBindings {
             })?));
         }
         let memory = self.domain.freeze();
-        let capture_epoch = crate::host::time::Instant::now();
+        let capture_epoch =
+            crate::vm::timing::ClockEpoch::selected_at(crate::host::time::Instant::now());
+        let activation_clock = capture_epoch.for_restore(incoming)?;
         Ok(CheckpointPublication {
             bindings: self,
             capture_epoch,
+            activation_clock,
             activation_epoch: OnceLock::new(),
             memory: RefCell::new(memory),
             gics,
@@ -76,8 +93,9 @@ impl CheckpointBindings {
 /// is crate-owned; backend hooks receive it without gaining a second RAM lock.
 pub struct CheckpointPublication<'bindings> {
     bindings: &'bindings CheckpointBindings,
-    capture_epoch: crate::host::time::Instant,
-    activation_epoch: OnceLock<crate::host::time::Instant>,
+    capture_epoch: crate::vm::timing::ClockEpoch,
+    activation_clock: crate::vm::timing::ClockEpoch,
+    activation_epoch: OnceLock<crate::vm::timing::ClockEpoch>,
     memory: RefCell<FrozenDomain<'bindings>>,
     gics: Vec<RefCell<MutexGuard<'bindings, Gic>>>,
     s3c_uarts: Vec<RefCell<MutexGuard<'bindings, S3cUart>>>,
@@ -90,7 +108,7 @@ enum Activation {
     Detached(Arc<AtomicBool>),
     S3c {
         uart: Option<(usize, S3cUart)>,
-        resume_epoch: Option<Arc<OnceLock<crate::host::time::Instant>>>,
+        resume_epoch: Option<Arc<OnceLock<crate::vm::timing::ClockEpoch>>>,
         completed: Arc<AtomicBool>,
     },
     Aarch64 {
@@ -195,8 +213,8 @@ impl<'bindings> CheckpointPublication<'bindings> {
     }
 
     /// One source sample shared by every CPU captured in this writer scope.
-    pub(crate) fn capture_time(&self) -> crate::host::time::Instant {
-        self.capture_epoch
+    pub(crate) fn capture_time(&self) -> crate::vm::timing::ClockEpoch {
+        self.capture_epoch.clone()
     }
 
     /// Bind a software platform's elapsed clocks to the same admitted RAM/UART
@@ -207,7 +225,7 @@ impl<'bindings> CheckpointPublication<'bindings> {
         memory: &GuestMemoryMmap,
         uart: Option<(Arc<Mutex<S3cUart>>, S3cUart)>,
         completed: Arc<AtomicBool>,
-        epoch: Arc<OnceLock<crate::host::time::Instant>>,
+        epoch: Arc<OnceLock<crate::vm::timing::ClockEpoch>>,
     ) -> Result<CpuPublication<'_, 'bindings>> {
         let _binding = self.prepare_detached(memory, completed.clone())?;
         if epoch.get().is_some() {
@@ -287,10 +305,11 @@ impl CpuPublication<'_, '_> {
                     }
                 }
                 if let Some(epoch) = resume_epoch {
-                    let now = *self
+                    let now = self
                         .scope
                         .activation_epoch
-                        .get_or_init(crate::host::time::Instant::now);
+                        .get_or_init(|| self.scope.activation_clock.at_publication())
+                        .clone();
                     let _ = epoch.set(now);
                 }
                 completed.store(true, Ordering::Release);

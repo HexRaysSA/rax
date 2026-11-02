@@ -171,3 +171,6 @@ pub fn insn_to_nanos(insn_count: u64) -> u64 {
 pub fn nanos_to_insn(nanos: u64) -> u64 {
     nanos.saturating_mul(3)
 }
+
+mod epoch;
+pub(crate) use epoch::ClockEpoch;

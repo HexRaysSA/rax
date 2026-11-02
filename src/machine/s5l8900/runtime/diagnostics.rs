@@ -168,7 +168,7 @@ impl S5L8900Vcpu {
                     let _ = std::fs::write(&path, &buf);
                 }
             }
-            self.heartbeat_clock = time::ElapsedClock::new();
+            self.heartbeat_clock.reset();
         }
     }
 

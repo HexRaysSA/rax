@@ -170,9 +170,9 @@ fn prepared_cpu_requires_matching_ram_and_repeated_publication_does_not_restart_
     let second = candidate.publication(&scope).unwrap();
     assert!(epoch.get().is_none());
     first.commit();
-    let start = *epoch.get().unwrap();
+    let start = epoch.get().unwrap().clone();
     second.commit();
-    assert_eq!(*epoch.get().unwrap(), start);
+    assert_eq!(epoch.get(), Some(&start));
     drop(scope);
     assert!(candidate.step_insn().unwrap().is_none());
     assert_eq!(candidate.insn_count, 1);
@@ -361,4 +361,87 @@ fn shared_uart_conflict_leaves_clocks_unpublished_and_compatible_cpus_share_epoc
     }
     first.finish_publication().unwrap();
     second.finish_publication().unwrap();
+}
+
+#[test]
+fn selected_private_clock_image_is_unchanged_by_host_delay_or_foreign_scope() {
+    use crate::vm::timing::{ClockMode, TimingContext};
+    let owner = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let _owner = owner.enter();
+    let source = fixture();
+    owner.advance_retired(192).unwrap();
+    let first = image::Image::capture(&source, None)
+        .unwrap()
+        .encode()
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(3));
+    let foreign = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    foreign.advance_retired(3_000_000_000).unwrap();
+    let _foreign = foreign.enter();
+    assert_eq!(
+        image::Image::capture(&source, None)
+            .unwrap()
+            .encode()
+            .unwrap(),
+        first
+    );
+}
+
+#[test]
+fn selected_replacement_retains_target_clock_and_denies_foreign_publication_before_mutation() {
+    use crate::vm::timing::{ClockMode, TimingContext};
+    let source_clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let source_guard = source_clock.enter();
+    let source = fixture();
+    source_clock.advance_retired(192).unwrap();
+    let (raw, resources) = parts(&source);
+    drop(source_guard);
+    let target_clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    target_clock.advance_retired(3000).unwrap();
+    let target_guard = target_clock.enter();
+    let target = fixture();
+    drop(target_guard);
+    let foreign = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let foreign_guard = foreign.enter();
+    let mut candidate = target
+        .prepare_private(
+            &source.get_state().unwrap(),
+            &EmulatorState::default(),
+            &raw,
+            &resources,
+        )
+        .unwrap();
+    let owners = candidate.checkpoint_owned_s3c_uarts();
+    let bindings = CheckpointBindings::new(&candidate.bridge.mem, vec![]).with_s3c_uarts(owners);
+    let scope = bindings.enter().unwrap();
+    assert!(candidate.publication(&scope).is_err());
+    assert!(candidate.check_publication().is_err());
+    assert_eq!(
+        candidate
+            .bridge
+            .mem
+            .read_obj::<u32>(GuestAddress(u64::from(IBOOT_BASE)))
+            .unwrap(),
+        0xe1a00000
+    );
+    drop(scope);
+    drop(foreign_guard);
+    let _target = target_clock.enter();
+    let scope = bindings.enter().unwrap();
+    candidate.publication(&scope).unwrap().commit();
+    drop(scope);
+    assert_eq!(
+        candidate.boot_clock.elapsed(),
+        std::time::Duration::from_nanos(64)
+    );
+    target_clock.advance_retired(3).unwrap();
+    assert_eq!(
+        candidate.boot_clock.elapsed(),
+        std::time::Duration::from_nanos(65)
+    );
+    candidate.finish_publication().unwrap();
+    assert_eq!(
+        candidate.boot_clock.elapsed(),
+        std::time::Duration::from_nanos(65)
+    );
 }

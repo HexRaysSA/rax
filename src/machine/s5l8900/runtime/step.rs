@@ -27,7 +27,8 @@ impl S5L8900Vcpu {
             // interpreter runs much slower than the real S5L8900 CPU, so using
             // host wall time lets XNU timeout callouts overtake interrupt and
             // configuration work. The explicit zero diagnostic mode below
-            // retains the coarsely updated host-clock implementation.
+            // retains coarse updates from the selected VM elapsed clock
+            // (host elapsed time in Wall mode).
             if self.det_timer != 0 || self.insn_count & 0xFF == 0 {
                 inner.timer.set_micros(self.timer_ticks());
             }
