@@ -1,0 +1,1079 @@
+{
+  "schema": 1,
+  "utc": "2026-11-02T04:29:36.952953+00:00",
+  "parent": "f0f99196265c34bfbd11e8bb13835794541fb294",
+  "status": "locally_validated_component_with_explicit_platform_limits",
+  "scope": "Complete S5L NAND controller and resource-closed backing checkpoint component; full platform producer remains required",
+  "full_goal_complete": false,
+  "source_sha256": {
+    "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+    "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+    "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+    "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+    "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+    "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869"
+  },
+  "source_lines": {
+    "src/devices/s5l8900.rs": 2565,
+    "src/devices/s5l8900/nand.rs": 416,
+    "src/devices/s5l8900/nand/backing.rs": 195,
+    "src/devices/s5l8900/nand/checkpoint.rs": 348,
+    "src/devices/s5l8900/nand/checkpoint_tests.rs": 457,
+    "src/devices/s5l8900/nand_bounds_tests.rs": 23
+  },
+  "baseline": {
+    "parent": "f0f99196265c34bfbd11e8bb13835794541fb294",
+    "baseline_executable": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-dbb91d3021ad8f64",
+      "sha256": "77e3fae470e9a8fb4a02da9f746a4dfe517463810fbc7d269cb9dce0ada251e8",
+      "inode": 400664759
+    },
+    "actual_regressions": {
+      "passed": 0,
+      "failed": 2,
+      "ignored": 0
+    },
+    "first_observed_inputs": {
+      "fifo_count": 2048,
+      "bank": 31
+    },
+    "failures": [
+      "attempt to subtract with overflow in FIFO offset",
+      "attempt to shift left with overflow in bank select"
+    ],
+    "new_component_api_existed_in_parent": false,
+    "full_new_component_red_claim": false,
+    "notes": [
+      "Matrix tests stop at first failed partition; no claim every input ran red.",
+      "Baseline built parent implementation plus only two tests/new test-module declaration.",
+      "New component codec/media behavior is additional functionality, qualified by semantic fixtures after implementation."
+    ],
+    "additional_bounded_allocation_probe": {
+      "allocation_request_limit_bytes": 1048576,
+      "actual_legacy_requested_bytes": 17179869184,
+      "cases": [
+        {
+          "version": "parent",
+          "upto": 7,
+          "exit_code": 0,
+          "expected_exit_code": 0,
+          "stdout": "bounded bitmap complete for upto=7\n",
+          "stderr": "",
+          "executable_sha256": "772404039a27877745e043d222b7b2579b462e4fda6db329e60e1e6bbbd594e3"
+        },
+        {
+          "version": "parent",
+          "upto": 4294967295,
+          "exit_code": -6,
+          "expected_exit_code": -6,
+          "stdout": "",
+          "stderr": "memory allocation of 17179869184 bytes failed\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+          "executable_sha256": "772404039a27877745e043d222b7b2579b462e4fda6db329e60e1e6bbbd594e3"
+        },
+        {
+          "version": "repaired",
+          "upto": 7,
+          "exit_code": 0,
+          "expected_exit_code": 0,
+          "stdout": "bounded bitmap complete for upto=7\n",
+          "stderr": "",
+          "executable_sha256": "8ff7c5361fcc5e36e8c7275822da7070909d611d19c8f3a47df593def431ccb2"
+        },
+        {
+          "version": "repaired",
+          "upto": 4294967295,
+          "exit_code": 0,
+          "expected_exit_code": 0,
+          "stdout": "bounded bitmap complete for upto=4294967295\n",
+          "stderr": "",
+          "executable_sha256": "8ff7c5361fcc5e36e8c7275822da7070909d611d19c8f3a47df593def431ccb2"
+        }
+      ],
+      "source_changes_to_primary": false,
+      "product_unsafe_blocks_added": false,
+      "root_qualification_continues": true
+    },
+    "allocation_probe_sources": {
+      "bbt-parent-source/nand.rs": "7c06e861ecac41e5944d8c6864db3fae127b9afa8f926672567d1c28d8b50ebb",
+      "bbt-parent-source/probe.rs": "cfcb774fdb6c28c751c12fe6896d736f82e4e96feb741f2358486049c21a34f8",
+      "budget-source-v3/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+      "budget-source-v3/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+      "budget-source-v3/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+      "budget-source-v3/bbt-probe.rs": "cfcb774fdb6c28c751c12fe6896d736f82e4e96feb741f2358486049c21a34f8"
+    }
+  },
+  "tests": {
+    "green-NAND-bounds-v3": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "devices::s5l8900::nand_bounds_tests::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.05461724998895079,
+      "test_results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "4b841bf2f9294d38bb576bb33e2233421f46e494fd79af63d86d4356dc18eaaa",
+        "inode": 400704934
+      },
+      "executable_after_sha256": "4b841bf2f9294d38bb576bb33e2233421f46e494fd79af63d86d4356dc18eaaa",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    },
+    "green-NAND-component-v3": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "devices::s5l8900::nand::checkpoint_tests::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.10482816700823605,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "4b841bf2f9294d38bb576bb33e2233421f46e494fd79af63d86d4356dc18eaaa",
+        "inode": 400704934
+      },
+      "executable_after_sha256": "4b841bf2f9294d38bb576bb33e2233421f46e494fd79af63d86d4356dc18eaaa",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    },
+    "green-existing-device-and-platform-v3": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "s5l8900::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.10869299998739734,
+      "test_results": [
+        {
+          "passed": 42,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "4b841bf2f9294d38bb576bb33e2233421f46e494fd79af63d86d4356dc18eaaa",
+        "inode": 400704934
+      },
+      "executable_after_sha256": "4b841bf2f9294d38bb576bb33e2233421f46e494fd79af63d86d4356dc18eaaa",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    },
+    "owning-C-API-library-v3": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "--nocapture",
+        "--test-threads=2"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 2.4814737500273623,
+      "test_results": [
+        {
+          "passed": 240,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "3179eb404d1fc98742156903ed3b61845b3a610f0cdf7d510a5199b00b00c41e",
+        "inode": 400703380
+      },
+      "executable_after_sha256": "3179eb404d1fc98742156903ed3b61845b3a610f0cdf7d510a5199b00b00c41e",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    },
+    "owning-root-library-v3": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 898.4056998749729,
+      "test_results": [
+        {
+          "passed": 11873,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "4b841bf2f9294d38bb576bb33e2233421f46e494fd79af63d86d4356dc18eaaa",
+        "inode": 400704934
+      },
+      "executable_after_sha256": "4b841bf2f9294d38bb576bb33e2233421f46e494fd79af63d86d4356dc18eaaa",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    },
+    "owning-CI-workflow-v3": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-684b758ed82515b1",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.03026662499178201,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-684b758ed82515b1",
+        "sha256": "0188b6bb3f5f2ca6323ccd17c1fc57a115719fc033133a7cbf8c57f92b1e62e2",
+        "inode": 400720829
+      },
+      "executable_after_sha256": "0188b6bb3f5f2ca6323ccd17c1fc57a115719fc033133a7cbf8c57f92b1e62e2",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    }
+  },
+  "checks": {
+    "repaired-build-v3": {
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--lib",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 190.182486833015,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    },
+    "fmt-workspace-v3": {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 19.624450041970704,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    },
+    "build-workspace-all-targets-v3": {
+      "argv": [
+        "cargo",
+        "build",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 89.59352566703456,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    },
+    "check-workspace-all-targets-v3": {
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 237.45894362498075,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    },
+    "clippy-workspace-all-targets-v3": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 116.31819016597001,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    },
+    "doctests-workspace-v3": {
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 7.983220583992079,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    },
+    "independent-wire-reference-v3": {
+      "argv": [
+        "python3",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-nand-checkpoints-v1/wire-verifier-v3.py"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 157.0007322919555,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/devices/s5l8900.rs": "c5bd6572dcc20feceffa8fe6d9ad45e7a4c32df9d181f7e48e65698f34bb1c57",
+        "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+        "src/devices/s5l8900/nand/backing.rs": "80ef672493a102a5c55e203641ae88393d3deec62a87088b07679f16aa9a267d",
+        "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610",
+        "src/devices/s5l8900/nand/checkpoint_tests.rs": "e5fa28f3418cde8ae4d94ba5bb01ec96f6fd5e6ceadc4561b05e326bf21bcbee",
+        "src/devices/s5l8900/nand_bounds_tests.rs": "db1da5aefbc4cbce12bd22c946c8248fc62ac5e55e49bb3985890752ecd64869",
+        "docs/development/audit-remediation-2026-10.json": "08ceaaf93e56482d4f10ef4439cfce04bc2286a2965b9d5e57a6bc5724375692",
+        "__HEAD__": "f0f99196265c34bfbd11e8bb13835794541fb294",
+        "__tracked_changes__": "518e80000950eb41c5bc68504e10efb88db0e33c0a3d008fa4a7a5d0c5150bc2"
+      }
+    }
+  },
+  "independent_wire": {
+    "source": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--exact",
+        "devices::s5l8900::nand::checkpoint_tests::restored_policy_ignores_conflicting_environment_in_fresh_process",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "source": true
+    },
+    "target": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--exact",
+        "devices::s5l8900::nand::checkpoint_tests::restored_policy_ignores_conflicting_environment_in_fresh_process",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "source": false
+    },
+    "image_path": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-nand-checkpoints-v1/wire-fixture-v3/checkpoint.bin",
+    "image_bytes": 12601,
+    "image_sha256": "0066421970978d324aa5be03b271c57a332d3487f5a8f505dd8c8b18ed57ade2",
+    "parser": "Independent Python struct-based fixed-width reader; exact synthetic expectations for every field, canonical page prefix and VFL-only name.",
+    "captured_policy": [
+      false,
+      7,
+      true,
+      123,
+      456
+    ],
+    "canonical_page_count": 4,
+    "VFL_scan": [
+      [],
+      [
+        1
+      ],
+      [],
+      [],
+      [],
+      [],
+      [],
+      []
+    ],
+    "source_media_removed_before_target": true,
+    "target_environment_conflicts": true,
+    "all_bytes_consumed": true,
+    "executable": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "sha256": "4b841bf2f9294d38bb576bb33e2233421f46e494fd79af63d86d4356dc18eaaa"
+    },
+    "full_goal_complete": false
+  },
+  "budget_correction": {
+    "utc": "2026-11-02T04:11:16.522951+00:00",
+    "actual_reds": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-nand-checkpoints-v1/budget-parent-red-v2.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-nand-checkpoints-v1/budget-unit-parent-red-v3.json"
+    ],
+    "cause": "Transient context-page multiplicity was charged against final deduplicated index bytes.",
+    "change": "Use per-bank ordered unique block set and charge four bytes only at first insertion.",
+    "unchanged_primary_source_during_previous_full_test": true,
+    "prior_root_result": [
+      11872,
+      0,
+      35
+    ],
+    "prior_root_result_not_final_qualification": true,
+    "new_expected_root": [
+      11873,
+      0,
+      35
+    ],
+    "full_goal_complete": false,
+    "independent_byte_calculation": {
+      "units": "bytes; exact integer arithmetic",
+      "controller_header": 6289,
+      "page_records": 271872,
+      "media_count_and_bank_lengths": 40,
+      "unique_block_payload": 4,
+      "total": 278205,
+      "old_preflight_context_charge": 512,
+      "new_context_charge": 4,
+      "old_excess_over_exact_remaining": 468
+    }
+  },
+  "budget_regression_red": {
+    "exit_code": 101,
+    "passed": 0,
+    "failed": 1,
+    "ignored": 0,
+    "argv": [
+      "/Users/int/dev/rax-audit-work/build-tmp/s5l-nand-budget-unit-parent",
+      "--exact",
+      "nand::checkpoint_tests::exact_budget_charges_unique_vfl_blocks_before_admission",
+      "--nocapture"
+    ],
+    "exact_parent_source": {
+      "/Users/int/dev/rax/src/devices/s5l8900/nand.rs": {
+        "copy": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-nand-checkpoints-v1/budget-source-v2/nand.rs",
+        "sha256": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64"
+      },
+      "/Users/int/dev/rax/src/devices/s5l8900/nand/backing.rs": {
+        "copy": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-nand-checkpoints-v1/budget-source-v2/nand/backing.rs",
+        "sha256": "0cc9ab7f901b59fd7aeeca3131a56f5c94847d3e154d9dee9ad2993f26deaa26"
+      },
+      "/Users/int/dev/rax/src/devices/s5l8900/nand/checkpoint.rs": {
+        "copy": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-nand-checkpoints-v1/budget-source-v2/nand/checkpoint.rs",
+        "sha256": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610"
+      }
+    },
+    "test_source_sha256": "60d0ff4f75659062f96888fdef15cd201ace5564b11929a7d98a14547ba1df51",
+    "probe_executable_sha256": "86e4b74474abb805b52dce19695f47e1fdf75c37553568cd54b1ebc6696c545e",
+    "actual_primary_source_unchanged": true
+  },
+  "next_timer_profile_red": {
+    "utc": "2026-11-02T04:06:31.792769+00:00",
+    "public_API": "S5L8900Vcpu::new + public get/set_state mapped PC + VCpu::step_insn",
+    "built_against": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+      "sha256": "1fee50e6270f2144094ba6d6c05a7faf28de8338e91eb968a37c9d416b276e9d"
+    },
+    "probe_executable_sha256": "7a7efbaa0e2d954b7700bd2f4d40bb53ff1615110962f70fd19738c0175ed411",
+    "probe_source_sha256": "e1f03b9f0c76be44281ad50c473c29e43169147a1e947d441732e4d6d97a09be",
+    "cases": [
+      {
+        "case": "control",
+        "det_timer": 1,
+        "timer_mul": 12,
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "stdout": "completed step 0; exit=None; retired=1\ncompleted step 1; exit=None; retired=2\ncompleted step 2; exit=None; retired=3\n",
+        "stderr": "before step 0; retired=0\nbefore step 1; retired=1\nbefore step 2; retired=2\n"
+      },
+      {
+        "case": "large-multiplier",
+        "det_timer": 1,
+        "timer_mul": 18446744073709551615,
+        "exit_code": 101,
+        "expected_exit_code": 101,
+        "stdout": "completed step 0; exit=None; retired=1\n",
+        "stderr": "before step 0; retired=0\nbefore step 1; retired=1\n\nthread 'main' (141468780) panicked at src/machine/s5l8900/runtime/step.rs:34:33:\nattempt to multiply with overflow\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+      }
+    ],
+    "source_unchanged": true,
+    "implementation_status": "Observed existing timer-profile host panic; fix and regression belong to following full S5L clock/private-state work, outside the current NAND component.",
+    "first_link_attempt": "Wrong un-hashed Cargo output alias failed to resolve engine modules; rejected before executing behavioral probe.",
+    "fixture_correction": "v1 omitted public PC initialization and retired zero. v2 initializes mapped PC; control retires3, large multiplier retires1 then panics before second entry.",
+    "full_goal_complete": false
+  },
+  "field_coverage": {
+    "controller_fields": [
+      "backing",
+      "policy",
+      "fmctrl0",
+      "fmctrl1",
+      "fmaddr0",
+      "fmaddr1",
+      "fmanum",
+      "fmdnum",
+      "rsctrl",
+      "cmd",
+      "reading_spare",
+      "page_buffer",
+      "spare_buffer",
+      "buffered_bank",
+      "buffered_page",
+      "is_writing",
+      "reading_multiple_pages",
+      "cur_bank_reading",
+      "banks_to_read",
+      "pages_to_read",
+      "sparse_vfl_context_blocks",
+      "kernel_started"
+    ],
+    "count": 22,
+    "old_field_count": 21,
+    "capture_exhaustive_destructure": true,
+    "old_fields_removed": [
+      "nand_path"
+    ],
+    "replacement": "Path is replaced by Files/Frozen binding and captured effective policy; frozen image has no host path.",
+    "original_fields_missing": [],
+    "source_sha256": {
+      "src/devices/s5l8900/nand.rs": "1ff0e6061b3a423100945f01eb113cc811cd0f2cb7d9561576be9e06d0c0aa64",
+      "src/devices/s5l8900/nand/checkpoint.rs": "129b5959a2de0771bada1933428a4e8a94e89e0c7fbe5749097e19d9a8c5d610"
+    }
+  },
+  "split": {
+    "original_NAND_methods": [
+      "new",
+      "active_bank",
+      "set_bank",
+      "set_buffered_page",
+      "normalize_deviceinfo_bbt",
+      "rewrite_kernel_pmbr_as_fdisk",
+      "set_kernel_started",
+      "buffered_page_prefix",
+      "sparse_vfl_context_blocks",
+      "page_word",
+      "spare_word",
+      "write_page_word",
+      "read",
+      "begin_page_write",
+      "write"
+    ],
+    "preserved_method_names_and_order": true,
+    "parent_before_NAND_unchanged": true,
+    "parent_after_NAND_unchanged_except_new_test_module": true,
+    "public_reexports": [
+      "S5lNand",
+      "NAND_NUM_BANKS",
+      "NAND_BYTES_PER_PAGE",
+      "NAND_BYTES_PER_SPARE"
+    ],
+    "no_source_edits_during_baseline_build": true
+  },
+  "compiled_input_audit": {
+    "utc": "2026-11-02T04:29:36.912788+00:00",
+    "dependency_files": 515,
+    "project_compiler_inputs": 5876,
+    "untracked_unowned": [],
+    "missing": [],
+    "planned_exact_owned_inputs": [
+      "src/devices/s5l8900/nand.rs",
+      "src/devices/s5l8900/nand/backing.rs",
+      "src/devices/s5l8900/nand/checkpoint.rs",
+      "src/devices/s5l8900/nand/checkpoint_tests.rs",
+      "src/devices/s5l8900/nand_bounds_tests.rs"
+    ],
+    "policy": "Every currently compiled project input must exist and be tracked or explicitly owned for the authorized NAND component commit; verify all tracked after commit. Registry/toolchain/build-generated inputs outside the project are excluded."
+  },
+  "assumption_register": [
+    {
+      "id": "N1",
+      "assumption": "Existing modeled future NAND observations depend on at most 2112 bytes per canonical page plus per-bank VFL block discovery.",
+      "basis": "set_buffered_page and sparse_vfl_context_blocks",
+      "dependent_result": "Frozen sparse media representation",
+      "stress_test": "short/empty/oversized files, noncanonical numeric stems, absent banks/pages",
+      "falsification_probe": "A modeled NAND read observes a byte or file property omitted by capture.",
+      "status": "confirmed within current modeled component and synthetic fixtures"
+    },
+    {
+      "id": "N2",
+      "assumption": "Checkpoint capture must not change live NAND buffers, caches, or backing.",
+      "basis": "capture is read-only before coordinated publication",
+      "dependent_result": "Failure atomicity",
+      "stress_test": "bad file, oversize count/bytes and corrupted images",
+      "falsification_probe": "Source state differs after successful or failed capture.",
+      "status": "confirmed within current modeled component and synthetic fixtures"
+    },
+    {
+      "id": "N3",
+      "assumption": "Diagnostic media transformation controls must be saved with the frozen NAND image.",
+      "basis": "current normalize and PMBR methods reread host environment",
+      "dependent_result": "environment-independent restore",
+      "stress_test": "conflicting target environment and kernel_started false/true",
+      "falsification_probe": "Restored image changes output under target environment.",
+      "status": "confirmed within current modeled component and synthetic fixtures"
+    },
+    {
+      "id": "N4",
+      "assumption": "External host media are stable throughout capture.",
+      "basis": "No filesystem transaction or ownership lock exists; capture compares two complete logical observations.",
+      "dependent_result": "One coherent immutable media image",
+      "stress_test": "Name/content/scan-index changes between observations reject; arbitrary concurrent/ABA writers remain outside the guarantee.",
+      "falsification_probe": "A concurrent writer can alter logical observations during capture while two observed passes compare equal.",
+      "status": "retained external precondition; not claimed proven"
+    }
+  ],
+  "change_surface": {
+    "device": "affected: NAND controller, media binding and new private component codec",
+    "CPU_backend_VM": "unaffected in this component: full S5L producer integration follows",
+    "direct_ISA_SMIR_native_JIT_C_ABI": "unaffected: no implementation or layouts changed"
+  },
+  "acceptance": [
+    {
+      "requirement": "Self-contained unread canonical pages, empty/missing semantics and observable file prefixes",
+      "implementation": "src/devices/s5l8900/nand/backing.rs",
+      "tests": [
+        "devices::s5l8900::nand::checkpoint_tests::unread_pages_empty_files_missing_pages_and_tail_truncation_survive_backing_removal",
+        "devices::s5l8900::nand::checkpoint_tests::canonical_image_is_path_and_directory_order_independent_and_ignores_unobserved_tail"
+      ]
+    },
+    {
+      "requirement": "VFL discovery includes noncanonical numeric stems and retains separately cached observations",
+      "implementation": "src/devices/s5l8900/nand/backing.rs",
+      "tests": [
+        "devices::s5l8900::nand::checkpoint_tests::vfl_discovery_keeps_noncanonical_names_and_existing_cached_observations"
+      ]
+    },
+    {
+      "requirement": "Exhaustive capture of all 22 controller/private/in-flight fields",
+      "implementation": "src/devices/s5l8900/nand/checkpoint.rs",
+      "tests": [
+        "devices::s5l8900::nand::checkpoint_tests::partial_fifo_and_write_and_multibank_dma_resume_at_exact_cursor",
+        "devices::s5l8900::nand::checkpoint_tests::registers_spare_phase_all_dma_rows_and_kernel_stage_are_preserved"
+      ],
+      "evidence": [
+        "field-coverage-review-v1"
+      ]
+    },
+    {
+      "requirement": "Strict tag, shape, ordering, truncation/trailing and count admission before allocation",
+      "implementation": "src/devices/s5l8900/nand/checkpoint.rs",
+      "tests": [
+        "devices::s5l8900::nand::checkpoint_tests::strict_image_admission_rejects_truncation_trailing_tags_counts_and_shapes",
+        "devices::s5l8900::nand::checkpoint_tests::cache_block_and_media_order_counts_are_admitted_before_allocation"
+      ]
+    },
+    {
+      "requirement": "Fresh-process restore needs neither source path nor target environment policy",
+      "implementation": "src/devices/s5l8900/nand/checkpoint.rs",
+      "tests": [
+        "devices::s5l8900::nand::checkpoint_tests::restored_policy_ignores_conflicting_environment_in_fresh_process"
+      ],
+      "evidence": [
+        "wire-reference-v3"
+      ]
+    },
+    {
+      "requirement": "Capture success/failure do not populate or mutate live buffers/caches/owner",
+      "implementation": "src/devices/s5l8900/nand/checkpoint.rs",
+      "tests": [
+        "devices::s5l8900::nand::checkpoint_tests::capture_budget_failure_is_read_only_and_nonregular_media_is_rejected",
+        "devices::s5l8900::nand::checkpoint_tests::restored_extreme_cursors_remain_safe_and_image_errors_leave_existing_owner_unchanged"
+      ]
+    },
+    {
+      "requirement": "Host safety for malformed guest FIFO/DMA and extreme cursor states",
+      "implementation": "src/devices/s5l8900/nand.rs",
+      "tests": [
+        "devices::s5l8900::nand::checkpoint_tests::restored_extreme_cursors_remain_safe_and_image_errors_leave_existing_owner_unchanged",
+        "devices::s5l8900::nand_bounds_tests::fifo_count_outside_page_returns_zero_without_host_underflow",
+        "devices::s5l8900::nand_bounds_tests::invalid_dma_bank_deasserts_selection_without_host_shift_panic"
+      ]
+    },
+    {
+      "requirement": "Existing S5L device/runtime behavior and public paths remain reachable",
+      "implementation": "src/devices/s5l8900.rs",
+      "tests": [],
+      "evidence": [
+        "green-existing-device-and-platform-v3",
+        "build-workspace-all-targets-v3",
+        "owning-root-library-v3",
+        "split-structure-review-v1"
+      ]
+    },
+    {
+      "requirement": "Inclusive BBT bitmap respects finite 2032-byte capacity over the full u32 option range",
+      "implementation": "src/devices/s5l8900/nand.rs",
+      "tests": [
+        "devices::s5l8900::nand::checkpoint_tests::bitmap_limit_is_bounded_and_inclusive_at_byte_boundaries"
+      ],
+      "evidence": [
+        "bbt-bounded-allocation-red-green-v3"
+      ]
+    },
+    {
+      "requirement": "Exact encoded budget charges unique VFL entries and rejects one-byte deficiency",
+      "implementation": "src/devices/s5l8900/nand/backing.rs",
+      "tests": [
+        "devices::s5l8900::nand::checkpoint_tests::exact_budget_charges_unique_vfl_blocks_before_admission"
+      ],
+      "evidence": [
+        "budget-unit-parent-red-v3",
+        "green-NAND-component-v3"
+      ]
+    }
+  ],
+  "environment": {
+    "RUSTC_WRAPPER": "",
+    "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+    "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+    "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+    "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+    "CARGO_BUILD_JOBS": "8",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_NET_OFFLINE": "true",
+    "RUSTC_WORKSPACE_WRAPPER": "",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_TEST_LTO": "off",
+    "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+    "CARGO_PROFILE_DEV_LTO": "off",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true"
+  },
+  "format": {
+    "tag": "RAXNND01",
+    "byte_order": "little endian",
+    "page_bytes": 2048,
+    "spare_bytes": 64,
+    "DMA_rows": 512,
+    "banks": 8,
+    "pages_per_block": 128,
+    "component_max_bytes": 68719476736,
+    "byte_budget": "caller-supplied total including encoded state; full producer must also enforce aggregate RAM/media budget",
+    "integrity": "full producer resource identity/checksum remains to be bound; component tag/shape checks alone are not authentication"
+  },
+  "complexity": {
+    "capture": "For F numeric source entries, P canonical pages, K context records and B observed bytes: two passes O(F + P log P + K log K + B); storage O(P+K+B) per pass, plus encoded output; no resident-memory ceiling is claimed.",
+    "restore": "O(P log P + K + B) time and O(P+K+B) detached storage; encoded collection payload is admitted before reserve.",
+    "bitmap": "At most 2032 bitmap bytes, independent of the u32 diagnostic limit."
+  },
+  "not_run": [
+    {
+      "gate": "physical S5L NAND/ECC/FTL and full firmware conformance",
+      "reason": "Synthetic model-state component only; no hardware oracle used."
+    },
+    {
+      "gate": "full S5L VM checkpoint file, CPU/UART/RAM transaction and family restore",
+      "reason": "Full platform producer is the next required implementation; not claimed by this component."
+    },
+    {
+      "gate": "physical Intel and native streaming-FPSR correction",
+      "reason": "Unchanged hardware backends; requirements remain open."
+    },
+    {
+      "gate": "direct ISA/SMIR/native/C consumer integration suites",
+      "reason": "No relevant implementation, public ABI/header or ISA semantics changed; full root/CAPI and all-target gates ran."
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Four full original findings and native streaming-FPSR defect remain open."
+    },
+    {
+      "impact": "high",
+      "finding": "External media must remain stable during capture; two observations do not provide a filesystem transaction."
+    },
+    {
+      "impact": "medium",
+      "finding": "Logical component byte budget is not a resident-memory ceiling; large sparse media have index/allocation overhead."
+    },
+    {
+      "impact": "medium",
+      "finding": "Remaining legacy parent device file is oversized; only the touched NAND group was split."
+    }
+  ],
+  "quality_gates": {
+    "current_component_evidence_complete": true,
+    "assumptions_reconciled": true,
+    "exhaustive_state_capture": true,
+    "independent_wire_and_fresh_process": true,
+    "actual_red_green_two_panics": true,
+    "no_zero_test_false_green": true,
+    "source_frozen_through_checks": true,
+    "compiler_inputs_tracked_or_exact_owned": true,
+    "full_goal_complete": false
+  },
+  "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-nand-checkpoints-v1/commit-receipt.json",
+  "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-nand-checkpoints-v1/cleanup-final.json"
+}
