@@ -695,3 +695,59 @@ fn controllerless_physical_timer_reaches_managed_irq_entry() {
     assert!(matches!(cpu.step_system().unwrap(), CpuExit::Continue));
     assert_eq!((cpu.get_pc(), cpu.instruction_count()), (0x280, 2));
 }
+
+#[test]
+fn guest_discovery_includes_default_last_spi_and_omits_legacy_cpu_targets() {
+    for count in [1, 2, 4] {
+        let mut fixture = Fixture::new(count);
+        let typer = fixture.instruction(0, 0xb940_0020, 0, 0x0800_0004);
+        assert_eq!(typer & 31, 8);
+        assert_eq!((typer >> 5) & 7, 0);
+        assert_eq!(fixture.instruction(0, 0xb940_0020, 0, 0x0800_0820), 0);
+        // Software discovers implemented SPIs by probing enable readback.
+        fixture.instruction(0, 0xb900_0020, u64::from(u32::MAX), 0x0800_0120);
+        assert_eq!(
+            fixture.instruction(0, 0xb940_0020, 0, 0x0800_0120),
+            u64::from(u32::MAX)
+        );
+        fixture.instruction(0, 0xb900_0020, u64::from(u32::MAX), 0x0800_0124);
+        assert_eq!(fixture.instruction(0, 0xb940_0020, 0, 0x0800_0124), 0);
+    }
+}
+
+#[test]
+fn guest_doubleword_and_split_word_routes_preserve_every_affinity_level() {
+    let mut fixture = Fixture::new(4);
+    let route = 0x0800_6000 + 287 * 8;
+    let value = 0x0000_0078_0012_3456;
+    fixture.instruction(0, 0xf900_0020, value, route); // STR X0,[X1].
+    assert_eq!(fixture.instruction(0, 0xf940_0020, 0, route), value);
+    fixture.instruction(0, 0xb900_0020, 0xab, route + 4);
+    assert_eq!(
+        fixture.instruction(0, 0xf940_0020, 0, route),
+        0x0000_00ab_0012_3456
+    );
+    fixture.instruction(0, 0xb900_0020, 3, route);
+    assert_eq!(
+        fixture.instruction(0, 0xf940_0020, 0, route),
+        0x0000_00ab_0000_0003
+    );
+    fixture.instruction(0, 0xb900_0020, 0, route + 4);
+    assert_eq!(fixture.instruction(0, 0xf940_0020, 0, route), 3);
+}
+
+#[test]
+fn guest_byte_priority_access_preserves_other_top_bank_lanes() {
+    let mut fixture = Fixture::new(1);
+    let priority_word = 0x0800_0400 + 284;
+    fixture.instruction(0, 0xb900_0020, 0x1122_3344, priority_word);
+    fixture.instruction(0, 0x3900_0020, 0xaa, priority_word + 3); // STRB W0,[X1].
+    assert_eq!(
+        fixture.instruction(0, 0x3940_0020, 0, priority_word + 3),
+        0xaa
+    );
+    assert_eq!(
+        fixture.instruction(0, 0xb940_0020, 0, priority_word),
+        0xaa22_3344
+    );
+}

@@ -2782,7 +2782,12 @@
         "docs/development/a64-gic-sources/qualification.json",
         "docs/development/a64-gic-forwarding/README.md",
         "docs/development/a64-gic-forwarding/qualification.json",
-        "docs/development/a64-gic-interface/qualification.json"
+        "docs/development/a64-gic-interface/qualification.json",
+        "src/isa/arm/aarch64/gic/routing.rs",
+        "src/isa/arm/aarch64/gic/discovery_tests.rs",
+        "src/vm/runtime/aarch64_gic_discovery_tests.rs",
+        "docs/development/a64-gic-discovery-routing/README.md",
+        "docs/development/a64-gic-discovery-routing/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2835,7 +2840,8 @@
         "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
         "Distinct classic GIC physical/software/edge sources,owned/shared versioned records,complete private timer-source admission and actual source-free1/2/4prepared-PE continuations are locally qualified in a64-gic-sources/qualification.json. Ambiguous legacy sources reject by explicit user choice; already-erased historical input truth remains unrecoverable. Complete backend/private/in-flight/startup/IRQ/clock/replay and physicalIntel requirements remain open;no full finding closure.",
         "Independent distributor/CPU group gating,current-output direct timer polling,versioned exact-mask restoration and actual1/2/4prepared-PE source-free files are locally qualified in a64-gic-forwarding/qualification.json. Prior coalesced controls import their recorded readback;original writes are unknown. Group-specific IRQ/FIQ/ICC/WFI paths and complete profile/backend/private/in-flight/startup/IRQ/clock/replay/physical Intel requirements remain open;no full finding closure.",
-        "Selected classic banked GIC operations, IRQ/FIQ masks/routing, waits, Any participation and active-state programming are locally qualified, including prepared1/2/4-PE source-free files. Full startup/backend/private/in-flight/clock/replay/native work remains open; actual GICD_TYPER SPI-domain under-reporting remains reproduced and unresolved."
+        "Selected classic banked GIC operations, IRQ/FIQ masks/routing, waits, Any participation and active-state programming are locally qualified, including prepared1/2/4-PE source-free files. Full startup/backend/private/in-flight/clock/replay/native work remains open; the separately reproduced GICD_TYPER discovery defect is corrected by the discovery/routing followup.",
+        "Classic SPI discovery and IROUTER word/full-width mapping, fixed-ARE legacy register readback, guest PSCI secondary startup and actual1/2/4-PE top-SPI source-free file continuations are locally qualified in a64-gic-discovery-routing/qualification.json. Complete original backend/private/in-flight, native startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2906,7 +2912,8 @@
         "aarch64-timer-output-frontier-2026-11-02",
         "aarch64-fpexc32-access-2026-11-02",
         "aarch64-gic-pending-sources-2026-11-02",
-        "aarch64-gic-group-forwarding-2026-11-02"
+        "aarch64-gic-group-forwarding-2026-11-02",
+        "aarch64-gic-discovery-routing-2026-11-02"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3584,7 +3591,12 @@
         "docs/development/a64-gic-sources/qualification.json",
         "docs/development/a64-gic-forwarding/README.md",
         "docs/development/a64-gic-forwarding/qualification.json",
-        "docs/development/a64-gic-interface/qualification.json"
+        "docs/development/a64-gic-interface/qualification.json",
+        "src/isa/arm/aarch64/gic/routing.rs",
+        "src/isa/arm/aarch64/gic/discovery_tests.rs",
+        "src/vm/runtime/aarch64_gic_discovery_tests.rs",
+        "docs/development/a64-gic-discovery-routing/README.md",
+        "docs/development/a64-gic-discovery-routing/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3627,7 +3639,8 @@
         "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
         "Distinct classic GIC physical/software/edge sources,owned/shared versioned records,complete private timer-source admission and actual source-free1/2/4prepared-PE continuations are locally qualified in a64-gic-sources/qualification.json. Ambiguous legacy sources reject by explicit user choice; already-erased historical input truth remains unrecoverable. Complete backend/private/in-flight/startup/IRQ/clock/replay and physicalIntel requirements remain open;no full finding closure.",
         "Independent distributor/CPU group gating,current-output direct timer polling,versioned exact-mask restoration and actual1/2/4prepared-PE source-free files are locally qualified in a64-gic-forwarding/qualification.json. Prior coalesced controls import their recorded readback;original writes are unknown. Group-specific IRQ/FIQ/ICC/WFI paths and complete profile/backend/private/in-flight/startup/IRQ/clock/replay/physical Intel requirements remain open;no full finding closure.",
-        "Selected classic banked GIC operations, IRQ/FIQ masks/routing, waits, Any participation and active-state programming are locally qualified, including prepared1/2/4-PE source-free files. Full startup/backend/private/in-flight/clock/replay/native work remains open; actual GICD_TYPER SPI-domain under-reporting remains reproduced and unresolved."
+        "Selected classic banked GIC operations, IRQ/FIQ masks/routing, waits, Any participation and active-state programming are locally qualified, including prepared1/2/4-PE source-free files. Full startup/backend/private/in-flight/clock/replay/native work remains open; the separately reproduced GICD_TYPER discovery defect is corrected by the discovery/routing followup.",
+        "Classic SPI discovery and IROUTER word/full-width mapping, fixed-ARE legacy register readback, guest PSCI secondary startup and actual1/2/4-PE top-SPI source-free file continuations are locally qualified in a64-gic-discovery-routing/qualification.json. Complete original backend/private/in-flight, native startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3680,7 +3693,8 @@
         "aarch64-timer-output-frontier-2026-11-02",
         "aarch64-fpexc32-access-2026-11-02",
         "aarch64-gic-pending-sources-2026-11-02",
-        "aarch64-gic-group-forwarding-2026-11-02"
+        "aarch64-gic-group-forwarding-2026-11-02",
+        "aarch64-gic-discovery-routing-2026-11-02"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198379,6 +198393,27 @@
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/commit-receipt.json",
       "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/push-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/cleanup-final.json",
+      "workflow": [
+        "git add -- exact owned paths",
+        "red -m --staged --run exact owned paths",
+        "normal push origin master:master",
+        "guarded owned build cleanup"
+      ],
+      "full_goal_complete": false
+    },
+    {
+      "id": "aarch64-gic-discovery-routing-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "parent": "23fa3426eb9c1781f0fb0d93510d58c28ff0f536",
+      "scope": "Classic SPI discovery, affinity MMIO and fixed-ARE legacy register views; actual guest PSCI1/2/4-PE startup and top-SPI source-free file continuation. Original full findings remain incomplete.",
+      "qualification": "docs/development/a64-gic-discovery-routing/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-discovery-routing-v1/commit-receipt.json",
+      "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-discovery-routing-v1/push-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-discovery-routing-v1/cleanup-final.json",
       "workflow": [
         "git add -- exact owned paths",
         "red -m --staged --run exact owned paths",

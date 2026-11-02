@@ -1,0 +1,48 @@
+{
+  "build_argv": [
+    "rustc",
+    "--edition=2024",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-discovery-routing-v1/qemu-gic-rax-mirror.rs",
+    "--extern",
+    "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+    "-L",
+    "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+    "-o",
+    "/Users/int/dev/rax-audit-work/main-integration-target/gic-oracle-rax"
+  ],
+  "build_exit_code": 0,
+  "rlib_sha256": "61a0634f44551e249caee1779ad03bd77a6cf02e82e8d0c5d93b77657c7e5b67",
+  "executable_sha256": "3b655e74d1f9966c27a3d4e8cc7ff5d899d7fb4b7d464af58bab019f7b0f2f6c",
+  "source_sha256": "9322fd6a56f11503cc6148bfdd311f6426fffc0e39da66ded37a637227b4c4e0",
+  "run_argv": [
+    "/Users/int/dev/rax-audit-work/main-integration-target/gic-oracle-rax"
+  ],
+  "exit_code": 0,
+  "stdout": "0000000005480008\n0000000000000050\n0000000000000052\n0000000000000000\n0000007800123456\n000000ab00123456\n000000ab00000003\n0000000000000003\n000000000000011f\n",
+  "stderr": "",
+  "qemu_values": "00000000037a0008\n0000000000000050\n0000000000000052\n0000000000000000\n0000007800123456\n000000ab00123456\n000000ab00000003\n0000000000000003\n000000000000011f\n",
+  "comparison_masks": [
+    "0xff",
+    "0xffffffffffffffff",
+    "0xffffffffffffffff",
+    "0xffffffffffffffff",
+    "0xffffffffffffffff",
+    "0xffffffffffffffff",
+    "0xffffffffffffffff",
+    "0xffffffffffffffff",
+    "0xffffffffffffffff"
+  ],
+  "rows": [
+    "GICD_TYPER",
+    "reset GICD_CTLR",
+    "enabled GICD_CTLR",
+    "fixed-ARE GICD_ITARGETSR8",
+    "route64",
+    "route after upper-word write",
+    "route after lower-word write",
+    "route after clearing upper word",
+    "highest discovered allocated SPI"
+  ],
+  "matched_rows": 9,
+  "scope": "RAX controller word accesses versus independently executed QEMU bare-metal guest. For TYPER only ITLinesNumber and CPUNumber are compared; other capability fields differ between profiles and are excluded."
+}

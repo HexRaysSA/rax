@@ -1,0 +1,72 @@
+{
+  "commands": [
+    {
+      "argv": [
+        "clang",
+        "-target",
+        "aarch64-none-elf",
+        "-c",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-discovery-routing-v1/qemu-gic.S",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-discovery-routing-v1/qemu-gic.o"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.13813175004906952,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ld.lld",
+        "-Ttext=0x40080000",
+        "-e",
+        "_start",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-discovery-routing-v1/qemu-gic.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-discovery-routing-v1/qemu-gic.elf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.0822501250077039,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "qemu-system-aarch64",
+        "-machine",
+        "virt,gic-version=3",
+        "-cpu",
+        "cortex-a72",
+        "-smp",
+        "4",
+        "-m",
+        "128M",
+        "-nographic",
+        "-monitor",
+        "none",
+        "-semihosting-config",
+        "enable=on,target=native",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-discovery-routing-v1/qemu-gic.elf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.10448233305942267,
+      "stdout": "00000000037a0008\n0000000000000050\n0000000000000052\n0000000000000000\n0000007800123456\n000000ab00123456\n000000ab00000003\n0000000000000003\n000000000000011f\n",
+      "stderr": ""
+    }
+  ],
+  "qemu_version": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n",
+  "elf_sha256": "06e3aa023cae055bc71b686a9885ce06ba1c0f3a36b98179373438ca8ff20e35",
+  "source_sha256": "8dc77975bb4cd950d56e267f9ee73c7a135223c832256b4046ed4c42e7cc2e86",
+  "rows": [
+    "GICD_TYPER",
+    "reset GICD_CTLR",
+    "enabled GICD_CTLR",
+    "fixed-ARE GICD_ITARGETSR8",
+    "route64",
+    "route after upper-word write",
+    "route after lower-word write",
+    "route after clearing upper word",
+    "highest discovered allocated SPI"
+  ]
+}

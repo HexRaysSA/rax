@@ -11,6 +11,7 @@ pub mod checkpoint;
 mod cpu_interface;
 mod distributor_state;
 mod forwarding;
+mod routing;
 mod sgi;
 mod sources;
 
@@ -147,7 +148,8 @@ pub enum TriggerType {
 /// Interrupt routing mode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RoutingMode {
-    /// Route to specific affinity.
+    /// Route to specific affinity, packed as Aff3:Aff2:Aff1:Aff0 in bits[31:0].
+    /// This matches GICR_TYPER.Affinity_Value rather than MPIDR's bit layout.
     Affinity(u64),
     /// Route to any available PE.
     Any,
@@ -236,7 +238,7 @@ impl Default for GicConfig {
 pub struct CpuInterface {
     /// CPU ID.
     pub cpu_id: u8,
-    /// Affinity (MPIDR-like).
+    /// Affinity levels packed as Aff3:Aff2:Aff1:Aff0 in bits[31:0].
     pub affinity: u64,
     /// Enable Group 0.
     pub enable_grp0: bool,
@@ -689,6 +691,9 @@ impl Gic {
         if let Some(value) = self.read_dist_state(offset) {
             return value;
         }
+        if let Some(value) = self.read_dist_route(offset) {
+            return value;
+        }
         match offset {
             // GICD_CTLR
             0x0000 => {
@@ -703,8 +708,15 @@ impl Gic {
             }
             // GICD_TYPER
             0x0004 => {
-                let it_lines = (self.config.num_spis / 32).saturating_sub(1) as u32;
-                let cpu_number = (self.config.num_cpus - 1) as u32;
+                // IHI0069H 12.9.38: N describes INTIDs through 32*(N+1)-1,
+                // including 32 private IDs. Round a partial SPI bank upwards;
+                // allocation slots for special INTIDs 1020-1023 are not SPIs.
+                let it_lines = u32::from(self.config.num_spis.min(MAX_SPI as u16)).div_ceil(32);
+                let cpu_number = if self.config.version == GicVersion::V2 {
+                    u32::from(self.config.num_cpus.saturating_sub(1))
+                } else {
+                    0 // ARE is fixed on, so no legacy CPU targets exist.
+                };
                 let security = 0; // One Security state; matches GICD_CTLR.DS.
                 let mbis = 0; // No message-based interrupts
                 let lpis = 0; // No LPIs
@@ -770,8 +782,9 @@ impl Gic {
                 }
                 val
             }
-            // GICD_ITARGETSR0-254 (Interrupt Processor Targets) - GICv2 only
-            0x0800..=0x08FC => 0x0101_0101, // All to CPU0
+            // IHI0069H 12.9.30: target bytes are RES0 with affinity routing.
+            // Retain the legacy target view only for the GICv2 profile.
+            0x0800..=0x08FC if self.config.version == GicVersion::V2 => 0x0101_0101,
             // GICD_ICFGR0-63 (Interrupt Configuration)
             0x0C00..=0x0CFC => {
                 let reg = ((offset - 0x0C00) / 4) as usize;
@@ -802,6 +815,9 @@ impl Gic {
     /// Write distributor register.
     pub fn write_dist(&mut self, offset: u64, value: u32) {
         if self.write_dist_active(offset, value) {
+            return;
+        }
+        if self.write_dist_route(offset, value) {
             return;
         }
         match offset {
@@ -932,23 +948,6 @@ impl Gic {
                             };
                     }
                 }
-            }
-            // GICD_IROUTER32-1019 (Interrupt Routing)
-            0x6100..=0x7FD8 => {
-                let intid = ((offset - 0x6100) / 8) as usize + SPI_START as usize;
-                if intid >= SPI_START as usize
-                    && intid <= SPI_END as usize
-                    && (intid - SPI_START as usize) < self.spis.len()
-                {
-                    let irm = (value >> 31) & 1 != 0;
-                    let affinity = (value & 0x00FF_FFFF) as u64;
-                    self.spis[intid - SPI_START as usize].routing = if irm {
-                        RoutingMode::Any
-                    } else {
-                        RoutingMode::Affinity(affinity)
-                    };
-                }
-                self.update_all_cpus();
             }
             _ => {}
         }
@@ -1349,3 +1348,6 @@ mod forwarding_tests;
 
 #[cfg(test)]
 mod cpu_interface_tests;
+
+#[cfg(test)]
+mod discovery_tests;

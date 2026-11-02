@@ -96,9 +96,10 @@ TakePhysicalIRQException/TakePhysicalFIQException functions govern TGE routing.
 The original A32-FP, C-STATE, C-SMP and C-HVF findings remain incomplete. Remaining
 high-impact work includes full backend/private/in-flight and transactional state,
 startup/clock/replay/debug and native controller profiles, native streaming FPSR
-reentry and physical Intel qualification. A separate root-linked five-case probe reproduces GICD_TYPER under-reporting of
-the configured SPI domain, including the default topology; this remains controller
-discovery work. Optional GIC/NMI/LPI and complete
+reentry and physical Intel qualification. The separately reproduced SPI discovery defect is corrected by the
+[discovery/routing followup](../a64-gic-discovery-routing/README.md), which also
+qualifies guest PSCI secondary startup and top-bank SPI file continuations.
+Optional GIC/NMI/LPI and complete
 security/virtualization/debug behavior are not established by this group.
 
 Historical ax.trace preservation failed before this group; its writer/cause and
