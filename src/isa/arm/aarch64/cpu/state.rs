@@ -223,6 +223,7 @@ impl AArch64Cpu {
             self.sysregs.mpidr_el1 = mpidr;
             self.sp_el[2] = state.sp_el2;
             self.sp_el[3] = state.sp_el3;
+            self.migrate_legacy_counter_offset();
         }
         self.sysregs.el1.sctlr = sregs.sctlr_el1;
         self.sysregs.el1.tcr = sregs.tcr_el1;

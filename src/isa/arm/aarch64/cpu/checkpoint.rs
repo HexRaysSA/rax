@@ -151,6 +151,7 @@ impl CoreCheckpoint {
             sysregs,
             nonsecure_reset,
             timer_levels,
+            system_counter: _,
             fault_log_budget,
             insn_count,
             last_instruction_size,

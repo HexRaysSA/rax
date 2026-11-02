@@ -3,7 +3,7 @@ use super::*;
 use crate::vm::vcpu::DEFAULT_RETIREMENT_QUANTUM;
 
 fn source(count: u8) -> Fixture {
-    let mut source = Fixture::new(count);
+    let mut source = Fixture::with_clock(count, ClockMode::Retired);
     for id in 1..count {
         assert_eq!(
             source
@@ -57,7 +57,7 @@ fn native_two_and_four_cpu_file_continuations_preserve_fairness_counters_and_hot
         let path = source.kernel.with_extension("bounded-native.rxc");
         saved.save(&path).unwrap();
         let loaded = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();
-        let mut target = Fixture::new(count);
+        let mut target = Fixture::with_clock(count, ClockMode::Retired);
         target.vm.restore_snapshot_bundle(&loaded).unwrap();
         assert_progress(&target.vm, count, 1, false);
         for cpu in &target.vm.vcpus {

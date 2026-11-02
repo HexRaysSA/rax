@@ -131,6 +131,13 @@ pub trait VCpu: Send {
         false
     }
 
+    /// Refresh VM-clock-driven platform outputs without executing or retiring
+    /// an instruction. Implementations retain their owning clock; the caller's
+    /// ambient clock must not redirect another CPU's timers.
+    fn poll_vm_clock(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     /// Translate a guest virtual/linear address to a guest-physical address
     /// using the backend's current paging/translation state.
     ///

@@ -4,6 +4,13 @@ use super::*;
 use crate::isa::arm::common::features::ArmFeatures;
 
 impl VCpu for Aarch64Vcpu {
+    fn poll_vm_clock(&mut self) -> Result<()> {
+        self.ensure_checkpoint_active()?;
+        self.cpu
+            .poll_system_counter()
+            .map_err(|error| Error::Emulator(error.to_string()))
+    }
+
     fn required_private_checkpoint_kind(&self) -> Option<u32> {
         Some(crate::vm::snapshot::AARCH64_CONTEXT)
     }

@@ -2,6 +2,7 @@
 use super::*;
 use crate::backend::emulator::EmulatorVm;
 use crate::config::{CliConfig, MemorySize};
+use crate::vm::timing::ClockMode;
 use crate::vm::vcpu::Aarch64Registers;
 use std::sync::atomic::{AtomicU64, Ordering};
 use vm_memory::GuestAddress;
@@ -12,6 +13,8 @@ const CODE: u64 = 0x4008_0000;
 #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
 #[path = "aarch64_bounded_native_tests.rs"]
 mod bounded_native;
+#[path = "aarch64_counter_clock_tests.rs"]
+mod counter_clock;
 #[path = "aarch64_event_tests.rs"]
 mod events;
 #[path = "aarch64_undefined_tests.rs"]
@@ -24,6 +27,10 @@ struct Fixture {
 
 impl Fixture {
     fn new(count: u8) -> Self {
+        Self::with_clock(count, ClockMode::Wall)
+    }
+
+    fn with_clock(count: u8, mode: ClockMode) -> Self {
         let kernel = std::env::temp_dir().join(format!(
             "rax-arm-cluster-{}-{}",
             std::process::id(),
@@ -42,7 +49,7 @@ impl Fixture {
         )
         .unwrap();
         config.memory = MemorySize(128 * 1024 * 1024);
-        let mut vm = Vmm::new_resume(config).unwrap();
+        let mut vm = Vmm::new_resume_with_clock(config, mode).unwrap();
         vm.vcpus[0]
             .set_state(&CpuState::aarch64(
                 Aarch64Registers {

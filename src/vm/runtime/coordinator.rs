@@ -44,6 +44,18 @@ impl ExecutionCoordinator {
 }
 
 impl Vmm {
+    fn poll_vm_clocks(&mut self) -> Result<()> {
+        if self.checkpoint_config.arch != ArchKind::Aarch64 {
+            return Ok(());
+        }
+        for (cpu, online) in self.vcpus.iter_mut().zip(&self.coordinator.online) {
+            if *online {
+                cpu.poll_vm_clock()?;
+            }
+        }
+        Ok(())
+    }
+
     pub(super) fn capture_execution_state(&self) -> Result<crate::vm::snapshot::ExecutionSnapshot> {
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
@@ -93,6 +105,7 @@ impl Vmm {
         self.debugger.ready()?;
         let _timing = self.timing_context.enter();
         self.route_interprocessor_requests()?;
+        self.poll_vm_clocks()?;
         let mut selected = None;
         for _ in 0..self.vcpus.len() {
             let Some(index) = self.coordinator.next() else {
@@ -122,6 +135,7 @@ impl Vmm {
                 Some(self.vcpus[index].run()?)
             };
             self.route_interprocessor_requests()?;
+            self.poll_vm_clocks()?;
             if !self.coordinator.online[index] {
                 return Ok(None);
             }
@@ -136,6 +150,7 @@ impl Vmm {
             let result = self.vcpus[index].run_retirement_budget(1)?;
             self.coordinator.retired = self.coordinator.retired.wrapping_add(result.retired);
             self.route_interprocessor_requests()?;
+            self.poll_vm_clocks()?;
             if !self.coordinator.online[index] {
                 return Ok(None);
             }

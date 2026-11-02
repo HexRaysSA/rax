@@ -69,6 +69,7 @@ impl AArch64Cpu {
             nonsecure_reset: false,
             gic_irq_line,
             timer_levels: (false, false),
+            system_counter: None,
             instruction_guarded: std::sync::atomic::AtomicBool::new(false),
             last_fault_level: std::sync::atomic::AtomicU8::new(0),
             tbi_tag: std::sync::atomic::AtomicU64::new(0),

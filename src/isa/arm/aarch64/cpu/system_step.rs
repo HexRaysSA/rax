@@ -49,7 +49,7 @@ impl AArch64Cpu {
         // the region cache (never mid-region — writes during a run defer here).
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
         self.jit_drain_smc();
-        self.tick_system(Self::TIMER_TICKS_PER_INSN);
+        self.tick_system(Self::TIMER_TICKS_PER_INSN)?;
 
         if self.halted {
             return Ok(CpuExit::Halt);
@@ -77,7 +77,7 @@ impl AArch64Cpu {
             } else {
                 // Idle: skip the counter ahead to the next timer deadline so
                 // a sleeping guest doesn't burn host time waiting for ticks.
-                self.fast_forward_timers();
+                self.fast_forward_timers()?;
                 return Ok(CpuExit::Wfi);
             }
         }
@@ -145,8 +145,13 @@ impl AArch64Cpu {
 
     /// Advance the generic timer and mirror its output lines into GIC PPIs
     /// (27 = virtual timer, 30 = non-secure physical timer).
-    pub(crate) fn tick_system(&mut self, cycles: u64) {
-        self.sysregs.tick_timers(cycles);
+    pub(crate) fn tick_system(&mut self, cycles: u64) -> Result<(), ArmError> {
+        if let Some(counter) = &self.system_counter {
+            self.sysregs.cntpct_el0 = counter.ticks();
+            self.sysregs.tick_timers(0); // Recompute this PE's virtual offset.
+        } else {
+            self.sysregs.tick_timers(cycles);
+        }
 
         let levels = (
             self.sysregs.cntv_interrupt_pending(),
@@ -154,18 +159,26 @@ impl AArch64Cpu {
         );
         if levels != self.timer_levels {
             if let Some(ref gic) = self.gic {
-                if let Ok(mut gic) = gic.lock() {
-                    gic.set_ppi_level(self.gic_cpu_id, 27, levels.0);
-                    gic.set_ppi_level(self.gic_cpu_id, 30, levels.1);
-                }
+                let mut gic = gic.lock().map_err(|_| {
+                    ArmError::Configuration("GIC lock poisoned while polling timers".into())
+                })?;
+                gic.set_ppi_level(self.gic_cpu_id, 27, levels.0);
+                gic.set_ppi_level(self.gic_cpu_id, 30, levels.1);
             }
             self.timer_levels = levels;
         }
+        Ok(())
     }
 
     /// During WFI, jump the counter to the nearest armed timer deadline (or
     /// nudge it forward when no timer is armed).
-    pub(crate) fn fast_forward_timers(&mut self) {
+    pub(crate) fn fast_forward_timers(&mut self) -> Result<(), ArmError> {
+        if self.system_counter.is_some() {
+            // A waiting PE cannot advance the common clock ahead of its peers.
+            // Wall time progresses independently; Retired keeps its explicit
+            // zero-retirement freeze until the VM defines an idle policy.
+            return Ok(());
+        }
         let cntpct = self.sysregs.cntpct_el0;
         let cntvoff = self.sysregs.cntvoff_el2;
         let mut target: Option<u64> = None;
@@ -187,7 +200,7 @@ impl AArch64Cpu {
             // No armed timer: advance ~1ms of counter time per idle pass.
             None => self.sysregs.cntfrq_el0 / 1000,
         };
-        self.tick_system(jump);
+        self.tick_system(jump)
     }
 
     /// Take an IRQ exception now.

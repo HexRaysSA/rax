@@ -151,7 +151,7 @@ fn pending_native_authentication_fault() -> AArch64Cpu {
     cpu.set_x(1, 0x4567);
     cpu.sysregs.el1.vbar = 0x8000;
     // Match the system entry's existing 16-tick advance before native entry.
-    cpu.tick_system(16);
+    cpu.tick_system(16).unwrap();
     let region = install(&mut cpu);
     assert!(cpu.jit_run_region(&region));
     assert!(matches!(

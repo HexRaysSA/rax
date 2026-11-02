@@ -623,6 +623,7 @@ pub(crate) fn validate_checkpoint_clock(
     backend: BackendKind,
     bundle: &crate::vm::snapshot::SnapshotBundle,
 ) -> Result<()> {
+    crate::backend::emulator::aarch64::Aarch64Vcpu::validate_counter_clock_set(bundle)?;
     let Some(clock) = bundle.clock() else {
         return Ok(());
     };

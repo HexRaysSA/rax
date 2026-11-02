@@ -669,17 +669,20 @@ fn private_comparison(vm: &Vmm) -> PrivateComparison {
             heartbeat_epochs.push(None);
             continue;
         };
-        assert!(record.data.starts_with(b"RAXA6403"));
-        let mut cursor = std::io::Cursor::new(&record.data[8..]);
+        assert!(record.data.starts_with(b"RAXA6404"));
+        // Schema 04 prefixes the unchanged context body with the clock mode
+        // and fixed counter frequency (one byte plus eight little-endian bytes).
+        let body_start = 17;
+        let mut cursor = std::io::Cursor::new(&record.data[body_start..]);
         let prefix: (u32, crate::isa::arm::aarch64::cpu::CoreCheckpoint, u64, u64) =
             crate::codec::deserialize_from(&mut cursor).unwrap();
-        let start = 8 + cursor.position() as usize;
+        let start = body_start + cursor.position() as usize;
         assert_eq!(
             crate::codec::serialize(&prefix).unwrap(),
-            record.data[8..start]
+            record.data[body_start..start]
         );
         let age: std::time::Duration = crate::codec::deserialize_from(&mut cursor).unwrap();
-        let finish = 8 + cursor.position() as usize;
+        let finish = body_start + cursor.position() as usize;
         assert_eq!(
             crate::codec::serialize(&age).unwrap(),
             record.data[start..finish]

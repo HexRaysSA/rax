@@ -10,6 +10,203 @@ fn context(cpu: &Aarch64Vcpu) -> Context {
     Context::decode(&raw.data, cpu).unwrap()
 }
 
+fn add_legacy_offset_alias(context: &mut Context, public: &mut CpuState, offset: u64) {
+    let encoding =
+        crate::isa::arm::common::sysreg::Aarch64SysRegEncoding::new(3, 4, 14, 0, 3).encode();
+    let mut value = serde_json::to_value(&context.core).unwrap();
+    value["sysregs"]["impl_defined"][encoding.to_string()] = serde_json::json!(offset);
+    context.core = serde_json::from_value(value).unwrap();
+    let CpuState::Aarch64(public) = public else {
+        panic!()
+    };
+    public
+        .sregs
+        .execution
+        .as_mut()
+        .unwrap()
+        .sysregs
+        .impl_defined
+        .insert(encoding, offset);
+}
+
+#[test]
+fn legacy_offset_alias_is_imported_into_the_modeled_virtual_counter_bank() {
+    let mut source = Aarch64Vcpu::new(0, memory());
+    source.cpu.set_generic_counter(1234);
+    let mut state = source.get_state().unwrap();
+    let mut image = context(&source);
+    add_legacy_offset_alias(&mut image, &mut state, 13);
+    let raw = image.record().unwrap();
+    assert!(raw.data.starts_with(TAG));
+    let destination = memory();
+    destination
+        .write_slice(&0xd53b_e040u32.to_le_bytes(), GuestAddress(0))
+        .unwrap();
+    let mut target = Aarch64Vcpu::new(0, destination);
+    target
+        .restore_checkpoint_context(&state, &Default::default(), Some(&raw))
+        .unwrap();
+    assert!(!target.cpu.has_legacy_counter_offset());
+    target.step_insn().unwrap();
+    assert_eq!(target.cpu.get_gpr(0), 1234 + 16 - 13);
+}
+
+#[test]
+fn shared_counter_records_reject_legacy_offset_shadows_before_publication() {
+    use crate::vm::timing::{ClockMode, TimingContext};
+    let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let _scope = clock.enter();
+    let source = Aarch64Vcpu::new(0, memory());
+    let mut state = source.get_state().unwrap();
+    let mut image = context(&source);
+    add_legacy_offset_alias(&mut image, &mut state, 13);
+    let raw = image.record().unwrap();
+    assert!(raw.data.starts_with(counter_clock::TAG));
+    let mut target = Aarch64Vcpu::new(0, memory());
+    let before = CoreCheckpoint::capture(&target.cpu).unwrap();
+    assert!(
+        target
+            .restore_checkpoint_context(&state, &Default::default(), Some(&raw))
+            .unwrap_err()
+            .to_string()
+            .contains("legacy offset shadow")
+    );
+    assert_eq!(CoreCheckpoint::capture(&target.cpu).unwrap(), before);
+}
+
+#[test]
+fn counter_replacement_retains_target_clock_and_does_not_sample_it_while_preparing() {
+    use crate::vm::timing::{ClockMode, TimingContext};
+    let source_clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    source_clock.set_resume_base(1_000_000_000);
+    let mut source = {
+        let _scope = source_clock.enter();
+        Aarch64Vcpu::new(0, memory())
+    };
+    source.cpu.set_generic_counter(1234); // Retain an older cached sample.
+    let state = source.get_state().unwrap();
+    let raw = source.capture_backend_context().unwrap().unwrap();
+    let target_clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    target_clock.set_resume_base(160); // Ten ticks at the platform frequency.
+    let destination = memory();
+    destination
+        .write_slice(&0xd53b_e020u32.to_le_bytes(), GuestAddress(0))
+        .unwrap();
+    let mut target = {
+        let _scope = target_clock.enter();
+        Aarch64Vcpu::new(0, destination)
+    };
+    let before = CoreCheckpoint::capture(&source.cpu).unwrap();
+    target
+        .restore_checkpoint_context(&state, &Default::default(), Some(&raw))
+        .unwrap();
+    assert_eq!(CoreCheckpoint::capture(&target.cpu).unwrap(), before);
+    let foreign = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    foreign.set_resume_base(4_000_000_000);
+    let _foreign = foreign.enter();
+    target.step_insn().unwrap();
+    assert_eq!(target.cpu.get_gpr(0), 10);
+    assert_eq!(target_clock.elapsed_nanos(), 160);
+}
+
+#[test]
+fn legacy_instruction_counter_records_do_not_silently_acquire_a_vm_clock() {
+    use crate::vm::timing::{ClockMode, TimingContext};
+    let mut source = Aarch64Vcpu::new(0, memory());
+    source.cpu.set_generic_counter(1234);
+    let state = source.get_state().unwrap();
+    let raw = source.capture_backend_context().unwrap().unwrap();
+    assert!(raw.data.starts_with(TAG));
+    let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    clock.set_resume_base(1_000_000_000);
+    let destination = memory();
+    destination
+        .write_slice(&0xd53b_e020u32.to_le_bytes(), GuestAddress(0))
+        .unwrap();
+    let mut target = {
+        let _scope = clock.enter();
+        Aarch64Vcpu::new(0, destination)
+    };
+    assert!(target.cpu.system_counter_state().is_some());
+    target
+        .restore_checkpoint_context(&state, &Default::default(), Some(&raw))
+        .unwrap();
+    assert!(target.cpu.system_counter_state().is_none());
+    target.step_insn().unwrap();
+    assert_eq!(target.cpu.get_gpr(0), 1250);
+    assert_eq!(clock.elapsed_nanos(), 1_000_000_000);
+}
+
+#[test]
+fn counter_output_lock_failure_does_not_acknowledge_the_unpublished_timer_level() {
+    use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
+    use crate::vm::timing::{ClockMode, TimingContext};
+    let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let _scope = clock.enter();
+    let mut cpu = Aarch64Vcpu::new(0, memory());
+    cpu.cpu
+        .write_sysreg(Aarch64SysRegEncoding::new(3, 3, 14, 2, 1), 1)
+        .unwrap();
+    let before = CoreCheckpoint::capture(&cpu.cpu).unwrap();
+    let gic = cpu.cpu.gic_handle().unwrap();
+    assert!(
+        std::thread::spawn(move || {
+            let _guard = gic.lock().unwrap();
+            panic!("deliberate test-only GIC lock poisoning");
+        })
+        .join()
+        .is_err()
+    );
+    assert!(
+        cpu.poll_vm_clock()
+            .unwrap_err()
+            .to_string()
+            .contains("GIC lock poisoned")
+    );
+    assert_eq!(CoreCheckpoint::capture(&cpu.cpu).unwrap(), before);
+    assert_eq!(clock.retirement_count(), Some(0));
+}
+
+#[test]
+fn counter_record_rejects_mode_frequency_and_header_defects_without_changing_target() {
+    use crate::vm::timing::{ClockMode, TimingContext};
+    let source_clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let source = {
+        let _scope = source_clock.enter();
+        Aarch64Vcpu::new(0, memory())
+    };
+    let raw = source.capture_backend_context().unwrap().unwrap();
+    assert!(raw.data.starts_with(counter_clock::TAG));
+    let state = source.get_state().unwrap();
+    let target_clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let mut target = {
+        let _scope = target_clock.enter();
+        Aarch64Vcpu::new(0, memory())
+    };
+    let before = CoreCheckpoint::capture(&target.cpu).unwrap();
+    for defect in 0..7 {
+        let mut bad = raw.clone();
+        match defect {
+            0 => bad.data.truncate(16),
+            1 => bad.data[8] = 2,
+            2 => bad.data[8] = 0,
+            3 => bad.data[9..17].copy_from_slice(&0u64.to_le_bytes()),
+            4 => bad.data[9..17].copy_from_slice(&62_500_001u64.to_le_bytes()),
+            5 => bad.data[9..17].copy_from_slice(&u64::MAX.to_le_bytes()),
+            6 => bad.data.push(0),
+            _ => unreachable!(),
+        }
+        assert!(
+            target
+                .restore_checkpoint_context(&state, &Default::default(), Some(&bad))
+                .is_err(),
+            "defect {defect}"
+        );
+        assert_eq!(CoreCheckpoint::capture(&target.cpu).unwrap(), before);
+        assert_eq!(target_clock.retirement_count(), Some(0));
+    }
+}
+
 #[test]
 fn detached_cpu_cannot_run_until_ram_and_reservation_publication_complete() {
     let source_memory = memory();
@@ -304,4 +501,32 @@ fn legacy_migration_cannot_hide_conflicting_ids_and_new_records_require_coherenc
         panic!()
     };
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn complete_public_state_import_canonicalizes_the_legacy_virtual_offset_bank() {
+    let mut source = Aarch64Vcpu::new(0, memory());
+    source.cpu.set_generic_counter(1234);
+    let CpuState::Aarch64(mut state) = source.get_state().unwrap() else {
+        panic!()
+    };
+    let encoding =
+        crate::isa::arm::common::sysreg::Aarch64SysRegEncoding::new(3, 4, 14, 0, 3).encode();
+    state
+        .sregs
+        .execution
+        .as_mut()
+        .unwrap()
+        .sysregs
+        .impl_defined
+        .insert(encoding, 13);
+    let destination = memory();
+    destination
+        .write_slice(&0xd53b_e040u32.to_le_bytes(), GuestAddress(0))
+        .unwrap();
+    let mut target = Aarch64Vcpu::new(0, destination);
+    target.set_state(&CpuState::Aarch64(state)).unwrap();
+    assert!(!target.cpu.has_legacy_counter_offset());
+    target.step_insn().unwrap();
+    assert_eq!(target.cpu.get_gpr(0), 1234 + 16 - 13);
 }

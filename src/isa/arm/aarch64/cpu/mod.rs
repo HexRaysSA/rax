@@ -35,6 +35,8 @@ mod branch;
 pub use branch::*;
 mod checkpoint;
 pub(crate) use checkpoint::CoreCheckpoint;
+mod system_counter;
+pub(crate) use system_counter::SystemCounterState;
 mod entry;
 #[cfg(test)]
 mod event_tests;
@@ -276,6 +278,8 @@ pub struct AArch64Cpu {
     /// Cached generic-timer output levels mirrored into GIC PPIs (virt PPI 27,
     /// phys PPI 30); avoids locking the GIC when nothing changed.
     timer_levels: (bool, bool),
+    /// Target-owned common system counter; standalone cores retain local ticks.
+    system_counter: Option<system_counter::SystemCounterBinding>,
     /// Guarded-page attribute of the most recent successful instruction fetch.
     instruction_guarded: std::sync::atomic::AtomicBool,
     /// Translation level of the most recent MMU fault, for abort syndromes.

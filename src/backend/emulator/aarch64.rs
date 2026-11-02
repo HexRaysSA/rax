@@ -696,6 +696,11 @@ impl Aarch64Vcpu {
             exclusive: monitor.clone(),
         };
         let mut cpu = AArch64Cpu::new_with_cpu_id(config, Box::new(bridge), id);
+        if devices_enabled {
+            if let Some(clock) = crate::vm::timing::TimingContext::current() {
+                cpu.bind_system_counter(clock);
+            }
+        }
         if let Some((platform, line)) = &binding {
             cpu.bind_platform_gic(platform.gic.clone(), id as usize, line.clone());
             // new_in_cluster validates the CPU index before this private build.

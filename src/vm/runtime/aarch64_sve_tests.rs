@@ -3,6 +3,7 @@ use super::{CODE, Fixture};
 use crate::isa::arm::common::features::ArmFeatures;
 use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
 use crate::vm::runtime::Vmm;
+use crate::vm::timing::ClockMode;
 use crate::vm::vcpu::{CpuState, VcpuExit};
 use vm_memory::{Bytes, GuestAddress};
 
@@ -21,7 +22,7 @@ fn handler(id: usize) -> u64 {
 }
 
 fn source(count: u8) -> Fixture {
-    let mut source = Fixture::new(count);
+    let mut source = Fixture::with_clock(count, ClockMode::Retired);
     for id in 1..count {
         source
             .cluster()
@@ -160,7 +161,7 @@ fn two_and_four_cpu_files_preserve_scalable_controls_fault_frames_and_handler_co
             .save(&path)
             .unwrap();
         let loaded = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();
-        let mut restored = Fixture::new(count);
+        let mut restored = Fixture::with_clock(count, ClockMode::Retired);
         restored.vm.restore_snapshot_bundle(&loaded).unwrap();
         deliver(&mut original.vm, count);
         deliver(&mut restored.vm, count);
@@ -173,7 +174,7 @@ fn two_and_four_cpu_files_preserve_scalable_controls_fault_frames_and_handler_co
             .save(&after)
             .unwrap();
         let loaded = crate::vm::snapshot::SnapshotBundle::load(&after).unwrap();
-        let mut resumed = Fixture::new(count);
+        let mut resumed = Fixture::with_clock(count, ClockMode::Retired);
         resumed.vm.restore_snapshot_bundle(&loaded).unwrap();
         continue_handlers(&mut original.vm, count);
         continue_handlers(&mut resumed.vm, count);
@@ -280,7 +281,7 @@ fn two_and_four_cpu_files_preserve_selected_capabilities_before_access_checks() 
             .save(&before)
             .unwrap();
         let loaded = crate::vm::snapshot::SnapshotBundle::load(&before).unwrap();
-        let mut restored = Fixture::new(count);
+        let mut restored = Fixture::with_clock(count, ClockMode::Retired);
         restored.vm.restore_snapshot_bundle(&loaded).unwrap();
         deliver_selected_profile_faults(&mut original.vm, count);
         deliver_selected_profile_faults(&mut restored.vm, count);
@@ -293,7 +294,7 @@ fn two_and_four_cpu_files_preserve_selected_capabilities_before_access_checks() 
             .save(&after)
             .unwrap();
         let loaded = crate::vm::snapshot::SnapshotBundle::load(&after).unwrap();
-        let mut resumed = Fixture::new(count);
+        let mut resumed = Fixture::with_clock(count, ClockMode::Retired);
         resumed.vm.restore_snapshot_bundle(&loaded).unwrap();
         for vm in [&mut original.vm, &mut resumed.vm] {
             for id in 0..usize::from(count) {
@@ -326,7 +327,7 @@ fn two_and_four_cpu_files_preserve_scalar_sme_execution_with_sve_present_or_abse
             .save(&path)
             .unwrap();
         let loaded = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();
-        let mut restored = Fixture::new(count);
+        let mut restored = Fixture::with_clock(count, ClockMode::Retired);
         restored.vm.restore_snapshot_bundle(&loaded).unwrap();
         for vm in [&mut original.vm, &mut restored.vm] {
             for id in 0..usize::from(count) {

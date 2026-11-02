@@ -679,6 +679,8 @@ impl SystemRegisters {
             // Timer registers
             // CNTKCTL_EL1
             (3, 0, 14, 1, 0) => Some(self.cntkctl_el1),
+            // CNTVOFF_EL2 is not an EL1 implementation-defined register.
+            (3, 4, 14, 0, 3) => (current_el >= 2).then_some(self.cntvoff_el2),
             // CNTFRQ_EL0
             (3, 3, 14, 0, 0) => Some(self.cntfrq_el0),
             // CNTPCT_EL0
@@ -966,6 +968,15 @@ impl SystemRegisters {
                 self.cntkctl_el1 = value;
                 true
             }
+            (3, 4, 14, 0, 3) => {
+                if current_el < 2 {
+                    return false;
+                }
+                self.impl_defined.remove(&encoding.encode());
+                self.cntvoff_el2 = value;
+                self.cntvct_el0 = self.cntpct_el0.wrapping_sub(value);
+                true
+            }
             (3, 3, 14, 0, 0) if current_el >= 1 => {
                 self.cntfrq_el0 = value;
                 true
@@ -1112,6 +1123,21 @@ impl SystemRegisters {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn virtual_counter_offset_uses_its_architectural_bank_and_el2_access() {
+        let mut regs = SystemRegisters::new();
+        regs.cntpct_el0 = 100;
+        let offset = Aarch64SysRegEncoding::new(3, 4, 14, 0, 3);
+        assert!(!regs.write(offset, 13, 1));
+        assert_eq!(regs.read(offset, 1), None);
+        assert!(regs.write(offset, 13, 2));
+        assert_eq!(regs.read(offset, 2), Some(13));
+        assert_eq!(regs.cntvct_el0, 87);
+        assert!(!regs.impl_defined.contains_key(&offset.encode()));
+        regs.tick_timers(48);
+        assert_eq!(regs.cntvct_el0, 135);
+    }
 
     #[test]
     fn test_sysregs_default() {

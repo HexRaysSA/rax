@@ -210,6 +210,9 @@ impl AArch64Cpu {
 
     /// Read system register.
     pub(crate) fn read_sysreg(&self, encoding: Aarch64SysRegEncoding) -> Result<u64, ArmError> {
+        if encoding == Aarch64SysRegEncoding::new(3, 4, 14, 0, 3) && self.current_el < 2 {
+            return Err(ArmError::InvalidExceptionLevel(self.current_el));
+        }
         if self.current_el == 0 && !Self::sysreg_read_allowed_at_el0(encoding) {
             return Err(ArmError::InvalidExceptionLevel(0));
         }
@@ -410,6 +413,9 @@ impl AArch64Cpu {
         encoding: Aarch64SysRegEncoding,
         value: u64,
     ) -> Result<(), ArmError> {
+        if encoding == Aarch64SysRegEncoding::new(3, 4, 14, 0, 3) && self.current_el < 2 {
+            return Err(ArmError::InvalidExceptionLevel(self.current_el));
+        }
         if self.current_el == 0 && !Self::sysreg_write_allowed_at_el0(encoding) {
             return Err(ArmError::InvalidExceptionLevel(0));
         }

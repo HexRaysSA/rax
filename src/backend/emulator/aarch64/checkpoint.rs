@@ -2,11 +2,15 @@
 
 use super::*;
 use crate::isa::arm::aarch64::cpu::CoreCheckpoint;
+use crate::isa::arm::aarch64::cpu::SystemCounterState;
 use crate::isa::arm::aarch64::gic::checkpoint::GicCheckpoint;
 use crate::vm::memory::checkpoint::{CheckpointBindings, CheckpointPublication, CpuPublication};
 use crate::vm::memory::reservations::{Monitor, Reservation};
 use crate::vm::snapshot::{AARCH64_CONTEXT, BackendContext};
 use serde::{Deserialize, Serialize};
+
+#[path = "checkpoint_clock.rs"]
+mod counter_clock;
 
 const TAG: &[u8; 8] = b"RAXA6403";
 const PREVIOUS_TAG: &[u8; 8] = b"RAXA6402";
@@ -36,6 +40,8 @@ struct UserCheckpoint {
 
 #[derive(Serialize, Deserialize)]
 struct Context {
+    #[serde(skip)]
+    counter_clock: Option<SystemCounterState>,
     id: u32,
     core: CoreCheckpoint,
     observed_instructions: u64,
@@ -84,6 +90,9 @@ impl Context {
             return Err(invalid("detached CPU has not been published"));
         }
         cpu.validate_fp_profile().map_err(invalid)?;
+        if cpu.system_counter_state().is_some() && cpu.has_legacy_counter_offset() {
+            return Err(invalid("shared system counter has a legacy offset shadow"));
+        }
         let core = CoreCheckpoint::capture(cpu).map_err(invalid)?;
         let observations = recorder
             .records
@@ -105,6 +114,7 @@ impl Context {
             None
         };
         Ok(Self {
+            counter_clock: cpu.system_counter_state(),
             id: *id,
             core,
             observed_instructions: insn_count.load(Ordering::Relaxed),
@@ -127,16 +137,34 @@ impl Context {
     }
 
     fn decode(raw: &[u8], target: &Aarch64Vcpu) -> Result<Self> {
-        let payload = raw
-            .strip_prefix(TAG)
-            .or_else(|| raw.strip_prefix(PREVIOUS_TAG))
-            .or_else(|| raw.strip_prefix(LEGACY_TAG))
-            .ok_or_else(|| invalid("invalid tag"))?;
+        let (raw, counter_clock) = if let Some(payload) = raw.strip_prefix(counter_clock::TAG) {
+            if raw.len() > MAX_PAYLOAD + TAG.len() {
+                return Err(invalid("record exceeds budget"));
+            }
+            let header = payload
+                .get(..counter_clock::SIZE)
+                .ok_or_else(|| invalid("truncated system counter header"))?;
+            (
+                &payload[counter_clock::SIZE..],
+                Some(counter_clock::decode(header)?),
+            )
+        } else {
+            (raw, None)
+        };
+        let payload = if counter_clock.is_some() {
+            raw
+        } else {
+            raw.strip_prefix(TAG)
+                .or_else(|| raw.strip_prefix(PREVIOUS_TAG))
+                .or_else(|| raw.strip_prefix(LEGACY_TAG))
+                .ok_or_else(|| invalid("invalid tag"))?
+        };
         if payload.len() > MAX_PAYLOAD {
             return Err(invalid("record exceeds budget"));
         }
-        let state: Self =
+        let mut state: Self =
             crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?;
+        state.counter_clock = counter_clock;
         if state.id != target.id
             || state.user.is_some() != target.user.is_some()
             || state.clustered != target.cluster.is_some()
@@ -151,6 +179,24 @@ impl Context {
             return Err(invalid("invalid controller or reservation state"));
         }
         Ok(state)
+    }
+
+    fn record(&self) -> Result<BackendContext> {
+        let mut data = match self.counter_clock {
+            Some(clock) => {
+                let mut data = counter_clock::TAG.to_vec();
+                data.extend_from_slice(&counter_clock::encode(clock)?);
+                data
+            }
+            None => TAG.to_vec(),
+        };
+        let limit = MAX_PAYLOAD - (data.len() - TAG.len());
+        let payload = crate::codec::serialize_limited(self, limit).map_err(invalid)?;
+        data.extend_from_slice(&payload);
+        Ok(BackendContext {
+            kind: AARCH64_CONTEXT,
+            data,
+        })
     }
 
     fn prepare(self, target: &Aarch64Vcpu) -> Result<Aarch64Vcpu> {
@@ -179,6 +225,8 @@ impl Context {
         let mut cpu =
             AArch64Cpu::new_with_cpu_id(self.core.configuration(), Box::new(bridge), self.id);
         cpu.retain_checkpoint_bindings(&target.cpu);
+        cpu.restore_system_counter_binding(self.counter_clock, &target.cpu)
+            .map_err(invalid)?;
         self.core.install_in_prepared(&mut cpu).map_err(invalid)?;
         if let Some(state) = &self.owned_gic {
             cpu.gic_handle()
@@ -224,33 +272,72 @@ impl Context {
 }
 
 impl Aarch64Vcpu {
+    /// A shared counter is a VM-wide profile, not a per-CPU optional overlay.
+    /// This declaration check runs at capture, configuration admission and
+    /// in-place restore, before CPU/resource preparation or publication.
+    pub(crate) fn validate_counter_clock_set(
+        bundle: &crate::vm::snapshot::SnapshotBundle,
+    ) -> Result<()> {
+        let Some(records) = bundle.backend_contexts() else {
+            return Ok(());
+        };
+        let entries = records.entries();
+        let Some(first) = entries.iter().flatten().find(|record| {
+            record.kind == AARCH64_CONTEXT && record.data.starts_with(counter_clock::TAG)
+        }) else {
+            return Ok(()); // Explicit legacy profiles retain their own domain.
+        };
+        let declaration = |record: &BackendContext| -> Result<SystemCounterState> {
+            if record.kind != AARCH64_CONTEXT || !record.data.starts_with(counter_clock::TAG) {
+                return Err(invalid("mixed legacy/shared system counter records"));
+            }
+            if record.data.len() > MAX_PAYLOAD + TAG.len() {
+                return Err(invalid("record exceeds budget"));
+            }
+            counter_clock::decode(
+                record
+                    .data
+                    .get(8..8 + counter_clock::SIZE)
+                    .ok_or_else(|| invalid("truncated system counter header"))?,
+            )
+        };
+        let expected = declaration(first)?;
+        let clock = bundle
+            .clock()
+            .ok_or_else(|| invalid("system counter requires complete VM clock state"))?;
+        if clock.mode != expected.mode {
+            return Err(invalid("system counter and VM clock modes differ"));
+        }
+        if bundle.cpus().is_none() || bundle.execution().is_none() {
+            return Err(invalid(
+                "system counter requires complete CPU/coordinator state",
+            ));
+        }
+        for record in entries {
+            let record = record
+                .as_ref()
+                .ok_or_else(|| invalid("missing system counter private CPU record"))?;
+            if declaration(record)? != expected {
+                return Err(invalid("system counter declarations differ across CPUs"));
+            }
+        }
+        Ok(())
+    }
+
     pub(super) fn checkpoint_for_remap(&self) -> Result<BackendContext> {
         let bindings = CheckpointBindings::new(&self.physical_memory, self.checkpoint_owned_gics());
         let scope = bindings.enter()?;
         let mut context = Context::capture(self, &scope)?;
         context.reservation = None;
         context.core.invalidate_mapping_reservation();
-        let payload = crate::codec::serialize_limited(&context, MAX_PAYLOAD).map_err(invalid)?;
-        let mut data = TAG.to_vec();
-        data.extend_from_slice(&payload);
-        Ok(BackendContext {
-            kind: AARCH64_CONTEXT,
-            data,
-        })
+        context.record()
     }
     pub(super) fn checkpoint_in_scope(
         &self,
         scope: &CheckpointPublication<'_>,
     ) -> Result<BackendContext> {
         let context = Context::capture(self, scope)?;
-        let payload = crate::codec::serialize_limited(&context, MAX_PAYLOAD).map_err(invalid)?;
-        let mut data = Vec::with_capacity(TAG.len() + payload.len());
-        data.extend_from_slice(TAG);
-        data.extend_from_slice(&payload);
-        Ok(BackendContext {
-            kind: AARCH64_CONTEXT,
-            data,
-        })
+        context.record()
     }
 
     pub(super) fn prepare_private_checkpoint(
@@ -268,12 +355,19 @@ impl Aarch64Vcpu {
             (CpuState::Aarch64(actual), CpuState::Aarch64(expected)) if actual == *expected => {}
             _ => return Err(invalid("public and private projections differ")),
         }
+        if raw.data.starts_with(counter_clock::TAG) {
+            if candidate.cpu.has_legacy_counter_offset() {
+                return Err(invalid("shared system counter has a legacy offset shadow"));
+            }
+        } else {
+            candidate.cpu.migrate_legacy_counter_offset();
+        }
         // Compare the original public/private projection before any legacy ID
         // normalization, so migration cannot hide a conflicting source image.
         if raw.data.starts_with(LEGACY_TAG) {
             candidate.cpu.migrate_legacy_fp_profile();
         }
-        if !raw.data.starts_with(TAG) {
+        if !raw.data.starts_with(TAG) && !raw.data.starts_with(counter_clock::TAG) {
             candidate
                 .cpu
                 .migrate_legacy_optional_fp_profile()

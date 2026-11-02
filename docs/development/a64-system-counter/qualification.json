@@ -1,0 +1,1240 @@
+{
+  "schema": 1,
+  "group": "aarch64-vm-system-counter-2026-11-02",
+  "utc": "2026-11-02T14:25:36.265686+00:00",
+  "parent": "10f105135e6fc67e784c5d219258a597ea3fea65",
+  "status": "locally_validated_with_explicit_scope",
+  "full_goal_complete": false,
+  "scope": "Bind system-mode AArch64 generic counters to their owning VM clock at the fixed platform frequency, preserve standalone/legacy instruction counters, per-PE virtual offsets, timer PPIs and full counter-domain checkpoint restoration. This converts an independent clock consumer; idle/default/replay and full four-finding scope remain open.",
+  "source_sha256": {
+    "src/isa/arm/aarch64/cpu/mod.rs": "c78a95840f93bcbaa237df0a869142906ac3dc1cf7b916cb568a97b6ee1126ee",
+    "src/isa/arm/aarch64/cpu/system_counter.rs": "d541cc0106b13db12bd9cad4b2f0da241b7700bf7574ddd8f31d9c78c8b38473",
+    "src/isa/arm/aarch64/cpu/system_step.rs": "f94219d3d8f653f240757da746f0f3de4a6b4cf29fe18d73df007ab76250fda4",
+    "src/isa/arm/aarch64/cpu/checkpoint.rs": "1056e48f2e990bccbb9ea393e6233a6476d692b8edbbc6c5dc8b1f1bdb717636",
+    "src/backend/emulator/aarch64.rs": "020835c2c8d2c1ed53efe0dc9268d92f2701032e399167801c08c79e8238d96b",
+    "src/backend/emulator/aarch64/checkpoint.rs": "a960da62c28326ff28ddd626c81ad78c893df9c0b9caec4ee99ee7da9acc2392",
+    "src/backend/emulator/aarch64/checkpoint_tests.rs": "991fdbe763ef82edc297655ff805b6386657a5d1631912010a3663a6e2ffb39a",
+    "src/vm/runtime/aarch64_cluster_tests.rs": "e325bd4ea67c55eaa4bb77a91c133ce65057615ae541c8dd2e1f0cc36ce0dbe4",
+    "src/vm/runtime/aarch64_counter_clock_tests.rs": "b98920ac5ec6a6ebca39620cffb35b5541e2d07ac7c108c3a5415e77e6da3a05",
+    "src/isa/arm/aarch64/cpu/exec.rs": "241a46a7f37adfe97b19885ff1f95d10622429f63fa1f2999eb0d318681c65f4",
+    "src/backend/emulator/aarch64/checkpoint_clock.rs": "73bf7b0137e3de7959467ed45601f2a104f97a9fa4f132fc8c87af7ef6ee8a3f",
+    "src/vm/runtime/backend_context_tests.rs": "b384fa784e7447de0df0853b16bb479e14b4c5fb6bf6e26711265317a61d4edc",
+    "src/vm/vcpu/mod.rs": "9ac2244c6d9c439fe0dd50cc0f61c21463571920aa8583276425da1b089a6cbf",
+    "src/backend/emulator/aarch64/vcpu.rs": "bf84fa93a8cacfdeac87f355dc2631776e1a0e2a6cc9a9bfd4b761b904cae65b",
+    "src/vm/runtime/coordinator.rs": "57ba6641eb3b41a3b941de2ea564191e6baf56d74d59c517ce845edd1dd97186",
+    "src/isa/arm/aarch64/cpu/tests/pauth_jit.rs": "228a87f815c5f6c9aaffa6a9306bee1901472819caa2f4bb06981baf1c7924d6",
+    "src/config/runtime.rs": "8f7ac37954990f73a04e690f0bf98054ad367e9b754543e6b12dc130cdcda929",
+    "src/isa/arm/aarch64/sysregs.rs": "5b534421f616fb891cec057b437930f48920042bf58dc27e26519a4517e24f39",
+    "src/isa/arm/aarch64/cpu/state.rs": "127db43fb207bc249738aa192aaa9c221ccd090adb9ee8be6f913ea82262ab1b",
+    "src/isa/arm/aarch64/cpu/registers.rs": "1585f4eee4436171d11347c0e33669be4d3002ad87886139e31eed67088b7530",
+    "src/vm/runtime/aarch64_bounded_native_tests.rs": "0a413e9c21cf2be3028bab4b7e50a4cb1b3d521a72c974bf20f54362363794a4",
+    "src/vm/runtime/aarch64_event_tests.rs": "e9ee793d30b5ead9290f4db6d55aaa38840d3542bc848d6db5cc372c606feb53",
+    "src/vm/runtime/aarch64_sve_tests.rs": "6865868ed1ea976ac64388b491ce7dc1cb443d489cfb0ee4cd8f695fb7e9ee82"
+  },
+  "primary_sources": [
+    {
+      "url": "https://documentation-service.arm.com/static/6294c39db334256d9ea8ae53?token=",
+      "document": "Arm102379_0100_02_en,Generic Timer,v1.0,Issue02",
+      "path": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/arm-102379_0100_02.pdf",
+      "sha256": "a067f58710ea3ce55532b6a23ce904f1b4e9a87f6478d7c5e489fbec1098ddd6",
+      "retrieved_utc": "2026-11-02T12:36:09.094680+00:00"
+    },
+    {
+      "url": "https://documentation-service.arm.com/static/5f8daeb7f86e16515cdb8c4e",
+      "document": "Arm DDI 0406C.d",
+      "path": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/arm-ddi0406c-d.pdf",
+      "bytes": 18635697,
+      "sha256": "294668ae6480133b32d85e9567cc77c5eb0e1232decdf42cac7ab480e884f6e0",
+      "retrieved_utc": "2026-11-02T13:54:34.950029+00:00",
+      "matches": [
+        {
+          "pdf_page_1based": 1951,
+          "unsigned_lines": [
+            [
+              34,
+              "\u2022      A 64-bit CompareValue register, that provides a 64-bit unsigned upcounter."
+            ]
+          ]
+        },
+        {
+          "pdf_page_1based": 1953,
+          "unsigned_lines": [
+            [
+              18,
+              "In this view of a timer, Counter, Offset, and CompareValue are all 64-bit unsigned values."
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "host_and_encodings": {
+    "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "tools": {
+      "rustc --version --verbose": {
+        "exit_code": 0,
+        "stdout": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+        "stderr": ""
+      },
+      "cargo --version": {
+        "exit_code": 0,
+        "stdout": "cargo 1.99.1 (5f94df478 2026-08-27)\n",
+        "stderr": ""
+      },
+      "xcrun clang --version": {
+        "exit_code": 0,
+        "stdout": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+        "stderr": ""
+      },
+      "xcrun llvm-objdump --version": {
+        "exit_code": 0,
+        "stdout": "Apple LLVM version 21.0.0\n  Optimized build.\n\n\n  Registered Targets:\n    aarch64    - AArch64 (little endian)\n    aarch64_32 - AArch64 (little endian ILP32)\n    aarch64_be - AArch64 (big endian)\n    arm        - ARM\n    arm64      - ARM64 (little endian)\n    arm64_32   - ARM64 (little endian ILP32)\n    armeb      - ARM (big endian)\n    thumb      - Thumb\n    thumbeb    - Thumb (big endian)\n    wasm32     - WebAssembly 32-bit\n    wasm64     - WebAssembly 64-bit\n    x86        - 32-bit X86: Pentium-Pro and above\n    x86-64     - 64-bit X86: EM64T and AMD64\n",
+        "stderr": ""
+      }
+    },
+    "assembler": {
+      "argv": [
+        "xcrun",
+        "clang",
+        "-target",
+        "arm64-apple-macos11",
+        "-c",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/timer-words.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/timer-words.o"
+      ],
+      "source_sha256": "5ca6116e0d885e538e1acb63a744115d30090d8964d6d4feb2a0956f6185a560",
+      "object_sha256": "44dc2d901971f37b2e0dcda8ad970d5d61fd28da4bd93dc2675691a0a515b5dd",
+      "disassemble_argv": [
+        "xcrun",
+        "llvm-objdump",
+        "-d",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/timer-words.o"
+      ],
+      "disassembly_sha256": "764b277ec602a6ec3cb87b970eeae98e62555706c28f7b7113849fcc2c1f1a11"
+    }
+  },
+  "assumption_register": [
+    {
+      "id": "SC1",
+      "assumption": "System counters are common to all PEs; CNTVOFF is per-PE and CNTFRQ is frequency metadata rather than a clock-rate control.",
+      "status": "confirmed_with_selected_software_profile_scope",
+      "stress_test": "Guest CNTPCT/CNTVCT across1/2/4 CPUs,wrong ambient clocks,CNTFRQ writes,phase and wrap.",
+      "falsification_probe": "PEs at the same VM time observe different physical counts or metadata writes change the actual rate."
+    },
+    {
+      "id": "SC2",
+      "assumption": "A VM-owned binding must survive private replacement without importing the source Arc or sampling the live target clock before coordinated publication.",
+      "status": "confirmed_with_bounded_tests",
+      "stress_test": "Actual source-free files,prior target skew,final-slot declaration rejection before preparation,backend target-binding checks and explicitly transformed legacy fixture.",
+      "falsification_probe": "Capture/restore changes a live target,uses source clock identity or loses the counter domain."
+    },
+    {
+      "id": "SC3",
+      "assumption": "Unbound standalone/user timing domains remain instruction/external-input driven, with explicit offset-bank canonicalization and poisoned-GIC error corrections.",
+      "status": "revised",
+      "stress_test": "Complete owning ISA/root/C API and existing native/bounded suites.",
+      "falsification_probe": "An unbound CPU changes its existing timer advancement or caller-injected counter values."
+    },
+    {
+      "id": "SC4",
+      "assumption": "Timer wrap requires replacing unsigned compare with a signed modular compare.",
+      "status": "falsified",
+      "stress_test": "Primary Arm DDI0406C.d B8.1 explicitly describes unsigned Counter,Offset,CompareValue and the near-wrap limitation;Generic Timer guide102379 gives CVAL<=count.",
+      "falsification_probe": "Primary architectural definition differs from an assumed signed-wrap convention.",
+      "action": "Keep existing unsigned comparisons; no speculative compare rewrite."
+    },
+    {
+      "id": "SC5",
+      "assumption": "The generic physical count is derived from the existing u64 nanosecond clock domain, including its wrap, rather than a separately continuous 64-bit hardware counter.",
+      "status": "retained_as_explicit_model_boundary",
+      "stress_test": "Independent u128 formula with phases0/1/2,nanosecond wrap and retirement-total wrap across actual1/2/4-PE files.",
+      "falsification_probe": "A different continuity contract is selected for the VM clock; current claims must then be requalified."
+    }
+  ],
+  "change_surface": {
+    "decode_registers": "Existing generic register decode; dedicate CNTVOFF bank and reject lower-EL access before generic fallback.",
+    "execute_and_timer": "Bound system steps sample the owner clock; unbound timing retains16-tick steps. Poll active peer timer outputs after coordinator progress; deferred synchronous native faults retain priority.",
+    "public_private_state": "No CoreCheckpoint body layout change; target-owned runtime binding outside that body. Complete public legacy aliases migrate.",
+    "wire_admission": "RAXA6404 adds9-byte mode/frequency header inside16MiB record cap; all CPUs require complete same-domain clock/coordinator state. Legacy-only profiles remain unbound.",
+    "restore": "Original projection comparison precedes legacy migration; offside target binding without sampling or GIC output; existing coordinated publication owns restored clock/device state.",
+    "smir_native": "No IR/lifter/lowering schema change. Existing bounded hot loop requires native participation but does not prove native MRS lowering.",
+    "user_capi": "User adapter remains unbound; no C/C++ ABI layout or identifier changes. Full C API owner executed.",
+    "native_hvf": "No HVF implementation changes or physical Intel execution claim."
+  },
+  "baseline": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/baseline-counter-red-v1.json",
+    "receipt_sha256": "6ace88807d972dd821df7c2e302660f4aaf69540c8eb586988d5203297dfdfee",
+    "test_results": [
+      {
+        "passed": 0,
+        "failed": 2,
+        "ignored": 0
+      }
+    ],
+    "executable": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "sha256": "6a1194923d05701c7131538ccf4de3da6a5ba0aa4ed5217c434a2400f2a4b3e7",
+      "inode": 402065855
+    },
+    "observations": [
+      "Guest CNTPCT16 differed from VM-derived62500000.",
+      "Zero-retirement WFI attempts advanced a private counter despite frozen selected VM time."
+    ]
+  },
+  "validation": {
+    "focused-prior-root-failures-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/focused-prior-root-failures-v9.json",
+      "receipt_sha256": "a89295f82c931b0c4fcaac77845d40cffcef5c47cb69de2d9ed6eb30bb309542",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "aarch64_cluster_tests::bounded_native::",
+        "aarch64_cluster_tests::events::",
+        "aarch64_cluster_tests::sve_profile::",
+        "present_private_context_set_rejects_a_missing_software_aarch64_cpu",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 144.89279229193926,
+      "test_results": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "ccd63bf311aacd573baad060b4fc2e1964f61c705233f4c6bdc52bf82d75b84c",
+        "inode": 402169994
+      }
+    },
+    "build-workspace-all-targets-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/build-workspace-all-targets-v9.json",
+      "receipt_sha256": "243e57f19de911b57fab25a8c41963bcb086e4fea51b970309a3a06154523452",
+      "argv": [
+        "cargo",
+        "build",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 190.21668183302972,
+      "test_results": [],
+      "source_unchanged": true,
+      "executable": null
+    },
+    "fmt-workspace-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/fmt-workspace-v9.json",
+      "receipt_sha256": "1ccec5d88228fcc67280acfa9499d6917719714fce4e547c2bf33fd6b9b0f709",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 13.31840208300855,
+      "test_results": [],
+      "source_unchanged": true,
+      "executable": null
+    },
+    "check-workspace-all-targets-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/check-workspace-all-targets-v9.json",
+      "receipt_sha256": "91ce85878bae41851f959a2803dfe13c67470b1e1ed6bff46f53dd1dd5f6edad",
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 85.65030025003944,
+      "test_results": [],
+      "source_unchanged": true,
+      "executable": null
+    },
+    "clippy-workspace-all-targets-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/clippy-workspace-all-targets-v9.json",
+      "receipt_sha256": "7be8efea29086685fdbf82f18d4549c592e4b029e1bbc70eafee6f8e11a8ff69",
+      "argv": [
+        "cargo",
+        "clippy",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 81.42356441600714,
+      "test_results": [],
+      "source_unchanged": true,
+      "executable": null
+    },
+    "check-workspace-without-debug-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/check-workspace-without-debug-v9.json",
+      "receipt_sha256": "b87dfbc2a09214c0b17346dd111216b7895fb6661373e5bb8e2c4726e6313a8b",
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,rax-capi/jit",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 29.119728832971305,
+      "test_results": [],
+      "source_unchanged": true,
+      "executable": null
+    },
+    "check-workspace-without-jit-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/check-workspace-without-jit-v9.json",
+      "receipt_sha256": "2a88d028c304d80e5bc9372b831d423b89866efa55c97f4f34a4cc401ab27606",
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 27.78758495801594,
+      "test_results": [],
+      "source_unchanged": true,
+      "executable": null
+    },
+    "doctests-workspace-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/doctests-workspace-v9.json",
+      "receipt_sha256": "35b0b3f20dbe7af0348f76c6c0d6b0c3b665d693b15a409da95b5b76285b2153",
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 7.227088500047103,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": null
+    },
+    "root-ignored-inventory-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/root-ignored-inventory-v9.json",
+      "receipt_sha256": "16b0148c469a0c0e16b88fec980d51b2446d15e3f1907f7b49d61fe725e5d45e",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--ignored",
+        "--list"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01715245796367526,
+      "test_results": [],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "ccd63bf311aacd573baad060b4fc2e1964f61c705233f4c6bdc52bf82d75b84c",
+        "inode": 402169994
+      }
+    },
+    "owning-root-library-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-root-library-v9.json",
+      "receipt_sha256": "199be5f61c40345651ae9ff36ac4d0d4aca79f6de222a3536ddaedd94dbae257",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 956.3030882080784,
+      "test_results": [
+        {
+          "passed": 11962,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "ccd63bf311aacd573baad060b4fc2e1964f61c705233f4c6bdc52bf82d75b84c",
+        "inode": 402169994
+      }
+    },
+    "owning-arm-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-arm-v9.json",
+      "receipt_sha256": "deea1081508b492ce1720e1a1e242a0e322c401a8f205bedb6684c3f557778fe",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm-450a485a27c8b290",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 86.62925870798063,
+      "test_results": [
+        {
+          "passed": 46850,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm-450a485a27c8b290",
+        "sha256": "ed51dc2d06e4aaeae45a9687077be4a7556e895ae86e50abce55a1078de3b999",
+        "inode": 402169920
+      }
+    },
+    "owning-arm_vfp_a32-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-arm_vfp_a32-v9.json",
+      "receipt_sha256": "226a15d60329290f659d2619921afefd35041892271a4ef1d7a04d85428e62a7",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm_vfp_a32-b9ec10417225ec0e",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 6.353929042001255,
+      "test_results": [
+        {
+          "passed": 521,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm_vfp_a32-b9ec10417225ec0e",
+        "sha256": "e1e0d437e9af3e608b684639790c2d1678642a3d9a2730c81da49593e875f321",
+        "inode": 402168140
+      }
+    },
+    "owning-aarch64_smir_programs-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-aarch64_smir_programs-v9.json",
+      "receipt_sha256": "0b2f05b96e74fd22d1ffc6c1475bc393dfe1e62f2b58f667946c79ad85030eb5",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_smir_programs-796f90c4682e3b90",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 73.84253870800603,
+      "test_results": [
+        {
+          "passed": 75,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_smir_programs-796f90c4682e3b90",
+        "sha256": "81885c10d6e834d755d49b35ef92bea3fc0a91389da1ecf98c015631a677ace9",
+        "inode": 402168225
+      }
+    },
+    "owning-aarch64_smir_native-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-aarch64_smir_native-v9.json",
+      "receipt_sha256": "d9c9120a265cf48b04000f95f872334fb27ff7554dd239e70e1bbe371155c178",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_smir_native-30deed9906cc6747",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.0071031249826774,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_smir_native-30deed9906cc6747",
+        "sha256": "03a598f1f99bdc79341b7e8fe8ff805b63275ee1ac432a2382bd67927cb4e82b",
+        "inode": 402168524
+      }
+    },
+    "owning-smir_jit_aarch32_aarch64-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-smir_jit_aarch32_aarch64-v9.json",
+      "receipt_sha256": "235435eb9145951ede9d3e4d44309758a4ad9a9bd5366a6c3b17d140e61b4008",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/smir_jit_aarch32_aarch64-8ce2d758260d6040",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.04502941691316664,
+      "test_results": [
+        {
+          "passed": 26,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/smir_jit_aarch32_aarch64-8ce2d758260d6040",
+        "sha256": "1c180101f6c16886adea4994fd43439f737a3b58780ee942d0f72d11a62931fb",
+        "inode": 402167540
+      }
+    },
+    "owning-smir_jit_thumb_aarch64-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-smir_jit_thumb_aarch64-v9.json",
+      "receipt_sha256": "5ed8ffc969a54211114cfc283ae133f1de8995b408bf7993d5b15da2e05f89d0",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/smir_jit_thumb_aarch64-4e4edeba9b5406d5",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.02595679194200784,
+      "test_results": [
+        {
+          "passed": 25,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/smir_jit_thumb_aarch64-4e4edeba9b5406d5",
+        "sha256": "db2ee3fcbd1302989282fba7b88884710735230d067df0256aae151ef94e0731",
+        "inode": 402168500
+      }
+    },
+    "owning-checkpoint_cpus-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-checkpoint_cpus-v9.json",
+      "receipt_sha256": "72bcbd15fc289a874ada779236def3554921b03c3acbffc89e60be2881d7173d",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_cpus-4b86ae490049f9e9",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.0594070409424603,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_cpus-4b86ae490049f9e9",
+        "sha256": "afe2c99e46825bd1c8b1a5cbe9447a19813d277fd2951067cb83aae747e9666b",
+        "inode": 402167492
+      }
+    },
+    "owning-checkpoint_resume-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-checkpoint_resume-v9.json",
+      "receipt_sha256": "e185bbb084bcb6d57b98c76d13388d8c4d8a49e5650db4e15bfc210ceb273aea",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_resume-1ba9346c51c2c83f",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 34.02921637496911,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_resume-1ba9346c51c2c83f",
+        "sha256": "1976969d4d6a7ed6cdf5a49d37e5fac42129766b15f030f11b092f89113e17ae",
+        "inode": 402167953
+      }
+    },
+    "owning-checkpoint_config-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-checkpoint_config-v9.json",
+      "receipt_sha256": "e9a5c1b2ec647e622f0ee52001469a6dee803ee62c19ab70feb50c04b69963b3",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_config-dee5be787ba9a753",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.006295333034358919,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_config-dee5be787ba9a753",
+        "sha256": "942c49e00e8c59d5c21ab81676c030233ca1fc2c00f5af2fd256502ee5fd9a64",
+        "inode": 402167986
+      }
+    },
+    "owning-retired_clock-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-retired_clock-v9.json",
+      "receipt_sha256": "706d894433c2c1cfdd58bac7556d6612785decc8dac7769a7b721ae45b0e337d",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retired_clock-4fd413f370064705",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.00750220799818635,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retired_clock-4fd413f370064705",
+        "sha256": "ec2d3976275242bde009d8dd3664b3c8a732b5a5c1cbbc590e442a8038f7dd91",
+        "inode": 402168063
+      }
+    },
+    "owning-checkpoint_clock-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-checkpoint_clock-v9.json",
+      "receipt_sha256": "4c5e513e311422d87da0ec65a2894e26213161a716d03890e73b05f09072feb2",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_clock-b8724286b91fbeeb",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 35.550639917026274,
+      "test_results": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_clock-b8724286b91fbeeb",
+        "sha256": "3c7198c07bfe5a1d95a33ebf6c2638f53a9f0665f1775e87a787da515ae614de",
+        "inode": 402168459
+      }
+    },
+    "owning-retirement_clock-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-retirement_clock-v9.json",
+      "receipt_sha256": "100d932c1cf44a3c6c6a1e3582e43ba5d417e0c4ce8611f490d5eed366e4e309",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_clock-b411028c145cb526",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01914054190274328,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_clock-b411028c145cb526",
+        "sha256": "265f797200d387b246cbfc7a67e59dbb3cb3f960aad059e5ce72462a3888ed2e",
+        "inode": 402167031
+      }
+    },
+    "owning-counter_ticks-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-counter_ticks-v9.json",
+      "receipt_sha256": "636f8fda35e87dfe9a703cea7ccc10e8877eb518ba61b204e42f3e54442bbf83",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/counter_ticks-624c935d58f7f37e",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.007499625091440976,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/counter_ticks-624c935d58f7f37e",
+        "sha256": "5d866030263f30cfae5df49251803818fc360f43d332c7d629a67ef18ba32692",
+        "inode": 402167438
+      }
+    },
+    "owning-retirement_budget-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-retirement_budget-v9.json",
+      "receipt_sha256": "63bc53690d0f5404a7731a50c0844e30cd65b8051c8d7b4440e8c901055ba76b",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-3477bb2ea3989bed",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.013181332964450121,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 2
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-3477bb2ea3989bed",
+        "sha256": "d2410fdf1fe233d2355aa46e3202064d9f538b0139a39bdfe76f49926e723d90",
+        "inode": 402167538
+      }
+    },
+    "owning-user_linux-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-user_linux-v9.json",
+      "receipt_sha256": "475231a3ed2db868b2c0d9dbbd4019772869b2943ba1fa7b87b130dadef243c6",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/user_linux-b43750afc9c90efb",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 122.26265333301853,
+      "test_results": [
+        {
+          "passed": 43,
+          "failed": 0,
+          "ignored": 1
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/user_linux-b43750afc9c90efb",
+        "sha256": "f6f8b162379e3ce7e8278488ea3ba5c881b24fe3db884f45e530fcb6221d8067",
+        "inode": 402167410
+      }
+    },
+    "owning-capi-library-v9": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/owning-capi-library-v9.json",
+      "receipt_sha256": "ae6d792b6a5e625aee214365e874e244eafe3349aea857d41f7039e154f1b740",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.684489040984772,
+      "test_results": [
+        {
+          "passed": 241,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true,
+      "executable": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "53946548ace1b6cf93a7f0f1b6ab663505e201381116d24a3df2222f830a54e5",
+        "inode": 402167592
+      }
+    }
+  },
+  "ignored_inventory": {
+    "total": 35,
+    "entries": {
+      "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_consumed_peer_input_and_error_through_file_restart": [
+        {
+          "path": "src/vm/runtime/native_terminal_io_tests.rs",
+          "line": 27,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_retryable_peer_input_through_file_restart": [
+        {
+          "path": "src/vm/runtime/native_terminal_io_tests.rs",
+          "line": 33,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_undispatched_peer_output_through_file_restart": [
+        {
+          "path": "src/vm/runtime/native_terminal_io_tests.rs",
+          "line": 39,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_unserviced_peer_input_through_file_restart": [
+        {
+          "path": "src/vm/runtime/native_terminal_io_tests.rs",
+          "line": 21,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::gdb_lifecycle_tests::transport::disconnected_owner_child": [
+        {
+          "path": "src/vm/runtime/gdb_transport_tests.rs",
+          "line": 74,
+          "reason": "Executed by the bounded production-owner parent test"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::store_retirement::acknowledged_store_file_retries_only_pc_without_replaying_external_output": [
+        {
+          "path": "src/vm/runtime/native_store_retirement_tests.rs",
+          "line": 30,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::gdb_smp_tests::client::installed_gdb_enumerates_selects_steps_and_writes_an_ap": [
+        {
+          "path": "src/vm/runtime/gdb_smp_client_tests.rs",
+          "line": 5,
+          "reason": "Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::active_sme_modes_restore_all_storage_and_execute_za_after_real_file_resume": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 302,
+          "reason": "requires physical Apple Silicon SME2 and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::active_uart_spi_file_restore_preserves_priority_reassertion_and_deassertion": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 602,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::actual_native_vmm_restores_one_two_four_cpu_files_and_continues_pending_mmio": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 56,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::failed_native_reply_file_retries_saved_data_without_a_second_device_read": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 984,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::late_sdk_gic_rejection_rolls_back_every_native_cpu_ram_and_irq_level": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 915,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::native_coordinator_runs_online_cpus_and_resumes_the_next_cpu_from_a_real_file": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 1244,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::native_coordinator_yields_from_gic_handled_wfi_without_claiming_retirement": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 1379,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::native_cpu_destruction_preserves_peer_entry_but_rejects_incomplete_checkpoint": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 1142,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::native_failed_restore_and_failed_rollback_disable_all_further_entry": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 451,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::native_kick_spawn_failure_unwinds_sdk_owner_and_allows_identity_reuse": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 1180,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::native_pending_mmio_store_survives_real_file_before_device_dispatch": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 838,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::native_psci_shutdown_survives_files_and_register_overlays_until_explicit_restart": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 481,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::native_register_overlay_preserves_each_pending_io_phase": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 736,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::native_reversed_cpu_creation_order_preserves_real_file_continuation": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 64,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::native_short_mmio_reply_reports_pending_before_more_execution": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 1087,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::native_target_rejects_legacy_cpu_projection_before_any_mutation": [
+        {
+          "path": "src/vm/runtime/native_checkpoint_tests.rs",
+          "line": 819,
+          "reason": "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+        }
+      ],
+      "vm::runtime::gdb_smp_tests::memory::installed_gdb_uses_selected_cpu_virtual_memory_and_read_only_writes": [
+        {
+          "path": "src/vm/runtime/gdb_memory_tests.rs",
+          "line": 252,
+          "reason": "Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::standalone::standalone_native_shared_capture_preserves_a_restored_pending_power_graph": [
+        {
+          "path": "src/vm/runtime/native_standalone_tests.rs",
+          "line": 156,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::standalone::standalone_native_shutdown_is_vm_wide_and_restores_with_the_shared_graph": [
+        {
+          "path": "src/vm/runtime/native_standalone_tests.rs",
+          "line": 34,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::psci::native_cpu_off_blocks_entry_and_pending_stop_survives_file_before_restart": [
+        {
+          "path": "src/vm/runtime/native_psci_tests.rs",
+          "line": 414,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::psci::native_guest_cpu_on_starts_secondaries_and_continues_after_real_file_restore": [
+        {
+          "path": "src/vm/runtime/native_psci_tests.rs",
+          "line": 7,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::psci::native_pending_start_failure_retains_remaining_cpus_through_real_file": [
+        {
+          "path": "src/vm/runtime/native_psci_tests.rs",
+          "line": 240,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::psci::native_psci_32_64_conduits_admit_arguments_and_copy_caller_endianness": [
+        {
+          "path": "src/vm/runtime/native_psci_tests.rs",
+          "line": 302,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "vm::runtime::native_checkpoint_tests::psci::native_secondary_system_off_stops_every_cpu_through_real_file": [
+        {
+          "path": "src/vm/runtime/native_psci_tests.rs",
+          "line": 478,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "smir::lower::validation::tests::test_lift_lower_full_microkernel": [
+        {
+          "path": "src/smir/lower/validation.rs",
+          "line": 315,
+          "reason": ""
+        }
+      ],
+      "smir::lower::validation::tests::test_roundtrip_exact_bytes_microkernel": [
+        {
+          "path": "src/smir/lower/validation.rs",
+          "line": 477,
+          "reason": ""
+        }
+      ],
+      "backend::hvf::arm64::worker::timing_tests::native_instruction_frontier_advance_wraps_the_sdk_pc_at_64_bits": [
+        {
+          "path": "src/backend/hvf/arm64_worker.rs",
+          "line": 104,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ],
+      "backend::hvf::arm64::worker::timing_tests::native_owner_requests_preserve_nested_caller_clocks_without_leaking_bindings": [
+        {
+          "path": "src/backend/hvf/arm64_worker.rs",
+          "line": 122,
+          "reason": "requires physical Apple Silicon and signed Hypervisor executable"
+        }
+      ]
+    },
+    "unmatched": []
+  },
+  "compiled_input_audit": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/compiled-input-tracking-before-commit.json",
+  "preserved_user_artifacts": {
+    "path": "/Users/int/dev/rax/ax.trace",
+    "size": 88489448,
+    "mtime_ns": 1793608971876554261,
+    "sha256": "a54c8d91d578df088f1261d72267b09e7ec99da3fcc5142b8332bff0d0bde29f",
+    "primary_binary_sha256": "7280b01ba2ddc38fd9b68bf92b97a001392f27a9cded274158ddbf93506e06aa",
+    "primary_binary_inode": 397245110,
+    "protected_guests": "28735 /Users/int/dev/rax/target/debug/rax-user --arch arm64 /Users/int/dev/rax/target/tmp/user-darwin/ptrace_attach_stopped.arm64\n28737 /Users/int/dev/rax/target/debug/rax-user --arch arm64 /Users/int/dev/rax/target/tmp/user-darwin/ptrace_attach_stopped_self.arm64 self\n",
+    "utc": "2026-11-02T14:25:36.214595+00:00"
+  },
+  "behavior_partitions": {
+    "runtime_test_cases_added": 10,
+    "backend_test_cases_added": 7,
+    "sysreg_test_cases_added": 1,
+    "prepared_pes": [
+      1,
+      2,
+      4
+    ],
+    "clock_modes": {
+      "Wall": "two-PE owning-clock read brackets",
+      "Retired": "exact1/2/4-PE counter/file/phase/wrap/PPI continuations"
+    },
+    "phases": [
+      0,
+      1,
+      2
+    ],
+    "guest_offset_cases": [
+      0,
+      13,
+      62500001,
+      18446744073709551615
+    ],
+    "file_frontiers": [
+      "counter samples",
+      "pending timer PPI"
+    ],
+    "invalid_shared_declarations": [
+      "truncated mode/frequency",
+      "unknown mode",
+      "zero or out-of-range frequency",
+      "target mode/rate mismatch",
+      "mixed domain",
+      "missing clock/CPU/coordinator/private slot",
+      "final CPU declaration mismatch"
+    ],
+    "native_hot_loop_retirement_units": 2049,
+    "legacy_schema03_fixture": "Explicit current-payload conversion,not a parent-produced03 artifact."
+  },
+  "excluded_attempts": {
+    "owning-root-library-v8": "Six observed Wall-time equality/diagnostic failures;cancelled exact owned process after556s,no full-suite result. Five counter-only state differences are retained in root-v8-live-failure-differences.json;fixture repairs select explicit Retired time and account direct event steps.",
+    "library-build-v3": "Missing ArmError conversion,test private-field and wrapper comparison traits;compile failure,no behavioral result.",
+    "library-build-v4": "Test wrappers did not implement serde;compile failure,no behavioral result.",
+    "counter-expanded-v5": "6 passed2 failed:real missing CNTVOFF bank plus fixture expecting config construction to perform admission.",
+    "checkpoint-and-sysreg-diagnostic-v6": "26 passed2 failed;alias fixture omitted matching public image,triggering intended consistency rejection.",
+    "backend-checkpoints-v6": "21 passed2 failed;same alias-fixture issue.",
+    "focused-counters-v7": "31 passed;pre-final test-header helper source,subsumed by final full root.",
+    "fmt-workspace-v7": "Passed before final checkpoint-test helper adjustment;final v8 formatting covers exact source."
+  },
+  "complexity": {
+    "counter_sampling_time": "O(1)",
+    "counter_sampling_space": "O(1)",
+    "coordinator_refresh_time": "O(P) per existing selection/retirement boundary",
+    "coordinator_refresh_space": "O(1)",
+    "P": "configured CPU slots",
+    "arithmetic": "u128 widened,exact integer floor;resolution16ns at62500000Hz;conversion error0<=e<16ns",
+    "domain_boundary": "u64 nanosecond wrap;at62500000Hz physical count spans2^60 ticks over that domain;virtual subtraction modulo2^64"
+  },
+  "limitations": [
+    "All four original full findings remain incomplete.",
+    "No new idle/default clock policy;Retired all-waiting time remains frozen.",
+    "Other clocks,entropy,complete replay,native/private/IRQ profiles and physical Intel execution remain open.",
+    "Prepared peers use platform startup requests;no new guest PSCI/native startup proof.",
+    "The macOS aarch64_smir_native target executes zero tests;compilation only. Doctest zero/ignored counts retained.",
+    "Legacy03 fixture is explicitly synthesized;existing actual02 optional-profile fixtures remain covered by owning root.",
+    "Marker-free public/base projections retain existing legacy admission;the shared-domain guarantee requires current private records.",
+    "No independent QEMU or physical-hardware oracle for this new shared-counter component;primary definitions,independent arithmetic and guest observations are the evidence.",
+    "Native loop participation does not prove native lowering of system-register reads.",
+    "No performance benchmark or changed default throughput claim.",
+    "No standalone C/C++ consumer rebuild;exported layouts/names unchanged;owning C API suite executed."
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Shared counter ownership and coordinated file restoration are prerequisite components;complete original findings remain open."
+    },
+    {
+      "impact": "medium",
+      "finding": "Existing u64 nanosecond wrap and all-waiting Retired freeze are explicit model boundaries."
+    },
+    {
+      "impact": "low",
+      "finding": "O(P) timer refresh adds unbenchmarked work at coordinator boundaries."
+    }
+  ],
+  "quality_gates": {
+    "scope": "This shared-counter semantic group only;original full audit remains incomplete.",
+    "assumptions": "Reconciled with falsification probes;SC4 rejected.",
+    "coverage": "Owning unfiltered root,affected ISA/JIT/checkpoint/C API owners and feature/build gates.",
+    "units": "Exact integer formula,Hz/ns/retirement scale and wrap boundaries explicit.",
+    "edges": "Source/target ownership,foreign ambient scope,legacy aliases,missing/mixed metadata,phase/wrap,poison and synchronous fault priority.",
+    "provenance": "Primary source PDFs and LLVM bytes hashed;source and actual executable hashes retained.",
+    "bounded_expansion": "Impact-labeled model/performance limitations.",
+    "integrity": "Exact paths,direct master,source/executable guards;commit/cleanup receipts required."
+  },
+  "workflow": "Direct master; exact owned-path git add then red -m --staged --run; no branches/worktrees/push; guarded cleanup of canonical C/T.",
+  "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/commit-receipt.json",
+  "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/cleanup-final.json"
+}

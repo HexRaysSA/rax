@@ -7,8 +7,15 @@ const SEV: u32 = 0xd503_209f;
 const SEVL: u32 = 0xd503_20bf;
 const NOP: u32 = 0xd503_201f;
 
+fn step(vm: &mut Vmm, id: usize) -> crate::vm::vcpu::RetirementRun {
+    let _timing = vm.timing_context.enter();
+    let result = vm.vcpus[id].run_retirement_budget(1).unwrap();
+    vm.coordinator.retired = vm.coordinator.retired.wrapping_add(result.retired);
+    result
+}
+
 fn source(count: u8) -> Fixture {
-    let mut source = Fixture::new(count);
+    let mut source = Fixture::with_clock(count, ClockMode::Retired);
     for id in 1..count {
         source
             .cluster()
@@ -33,7 +40,7 @@ fn source(count: u8) -> Fixture {
             .memory()
             .write_slice(&bytes, GuestAddress(CODE + id as u64 * 0x100))
             .unwrap();
-        let result = source.vm.vcpus[id].run_retirement_budget(1).unwrap();
+        let result = step(&mut source.vm, id);
         assert_eq!(result.retired, 1);
         assert!(matches!(result.stop, RetirementStop::BudgetExhausted));
     }
@@ -42,7 +49,7 @@ fn source(count: u8) -> Fixture {
 
 fn continuation(vm: &mut Vmm, count: u8) {
     for id in 0..usize::from(count) {
-        let result = vm.vcpus[id].run_retirement_budget(1).unwrap();
+        let result = step(vm, id);
         assert_eq!(result.retired, 1);
         if id % 2 == 0 {
             assert!(matches!(result.stop, RetirementStop::BudgetExhausted));
@@ -58,11 +65,11 @@ fn continuation(vm: &mut Vmm, count: u8) {
     // The sender executes SEV after restoration; fresh peer WFE must consume it.
     let sender = 0;
     assert!(matches!(
-        vm.vcpus[sender].run_retirement_budget(1).unwrap().stop,
+        step(vm, sender).stop,
         RetirementStop::BudgetExhausted
     ));
     for id in 0..usize::from(count) {
-        let result = vm.vcpus[id].run_retirement_budget(1).unwrap();
+        let result = step(vm, id);
         assert_eq!(result.retired, 1);
         // Odd peers were waiting: completing their old WFE consumes the signal,
         // so the new WFE can wait again. Even peers consume it in this WFE.
@@ -82,7 +89,7 @@ fn two_and_four_cpu_file_restore_preserves_distinct_latches_and_peer_delivery() 
         let path = original.kernel.with_extension("events.rxc");
         saved.save(&path).unwrap();
         let loaded = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();
-        let mut restored = Fixture::new(count);
+        let mut restored = Fixture::with_clock(count, ClockMode::Retired);
         restored.vm.restore_snapshot_bundle(&loaded).unwrap();
         continuation(&mut original.vm, count);
         continuation(&mut restored.vm, count);
@@ -98,7 +105,7 @@ fn two_and_four_cpu_file_restore_preserves_distinct_latches_and_peer_delivery() 
 #[test]
 fn final_cpu_rejection_preserves_each_live_event_latch() {
     for count in [2, 4] {
-        let source = Fixture::new(count);
+        let source = Fixture::with_clock(count, ClockMode::Retired);
         let mut saved = source.vm.take_snapshot_bundle(0).unwrap();
         let mut contexts = saved.take_backend_contexts().unwrap().entries().to_vec();
         contexts.last_mut().unwrap().as_mut().unwrap().data.pop();
@@ -145,7 +152,7 @@ fn coordinator_executes_event_wakeup_cycles_on_every_two_and_four_cpu_peer() {
             assert_eq!(fixture.vm.coordinator.cursor, 0);
             assert_eq!(
                 fixture.vm.coordinator.retired,
-                u64::from(count) * (6 + (round - 1) * 5)
+                u64::from(count) * (1 + 6 + (round - 1) * 5)
             );
             for (id, cpu) in fixture.vm.vcpus.iter().enumerate() {
                 let state = cpu.get_state().unwrap();
