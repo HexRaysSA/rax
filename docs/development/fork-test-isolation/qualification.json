@@ -1,0 +1,460 @@
+{
+  "group": "host-fork-peer-eof-test-isolation-2026-11-02",
+  "utc": "2026-11-02T12:13:23.851460+00:00",
+  "parent": "40ea084a41f8039942753db3ca06180ea95f0b40",
+  "status": "locally_validated_with_explicit_scope",
+  "scope": "Test-only subprocess isolation of the four direct host-fork tests AND the ptrace peer-EOF test; keep freshly created ptrace sockets outside the shared parent libtest process. Preserve all original assertions and production code.",
+  "production_code_changed": false,
+  "full_goal_complete": false,
+  "source_sha256": {
+    "src/user/mod.rs": "df3292860887289257ed1771d11e6e9e1d89f023a05ff13e4067eec6f482915f",
+    "src/user/test_fork.rs": "15c960ffb1d5f45aa114becc2d881a7840862afd5f6326dc79dc4369cdcbcc9b",
+    "src/user/mm/shared_words.rs": "f91f8e8a3a8a8ea7965787ba5f22aec2632f6ed61787d43a2f57c45d3784a79e",
+    "src/user/readiness.rs": "5b0f6018ddde7a0dd3dbddca1f152607d796a67758124d6fd29ddaa4078926b4",
+    "src/user/linux/tests/pidfd.rs": "c8bae5a87751c7fd663465b93411a12c5ed1fbba3fd7a828cbdc49fb8c9f0733",
+    "src/user/linux/tests/ptrace_stops.rs": "5704e50f85701c2d8c18862a51eeccb2285fb4dbbefe5f9bab1b65a298eee59d"
+  },
+  "host": {
+    "kernel": {
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "stdout": "Darwin ints-MacBook-Pro.local 27.2.0 Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041 arm64\n",
+      "stderr": ""
+    },
+    "os": {
+      "argv": [
+        "sw_vers"
+      ],
+      "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+      "stderr": ""
+    },
+    "rustc": {
+      "argv": [
+        "rustc",
+        "-vV"
+      ],
+      "stdout": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+      "stderr": ""
+    },
+    "cargo": {
+      "argv": [
+        "cargo",
+        "-V"
+      ],
+      "stdout": "cargo 1.99.1 (5f94df478 2026-08-27)\n",
+      "stderr": ""
+    }
+  },
+  "primary_sources": [
+    {
+      "url": "https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/bsd/man/man2/fork.2",
+      "path": "apple-fork.2",
+      "sha256": "e9ab8f14990c2aa679887ecb15a317b2f0b37d096c2b3390c9008362a539c428",
+      "retrieved_utc": "2026-11-02T11:47:47.661501+00:00"
+    },
+    {
+      "url": "https://doc.rust-lang.org/rustc/tests/index.html",
+      "path": "rust-tests.html",
+      "sha256": "ec0dbb46adfb9c8a51f15e30af740bfe0fe2b4085ef8a0b380ba6ec485ccf29c",
+      "retrieved_utc": "2026-11-02T11:47:48.170520+00:00"
+    }
+  ],
+  "assumption_register": [
+    {
+      "id": "FI1",
+      "assumption": "Concurrent fork copies sockets belonging to unrelated tests and delays peer EOF until child closes or exits.",
+      "status": "revised",
+      "stress_test": "Original raw-fork pairs fail; first fork-caller-only isolation still fails on iteration33; ptrace alone1000 runs/zero failures. Isolate socket-sensitive fixture too and rerun all pairs.",
+      "falsification_probe": "Any identical ptrace+subprocess pair fails after placing both resource creators in separate child test processes."
+    },
+    {
+      "id": "FI2",
+      "assumption": "The exact child test is selected by the current libtest executable on the Unix host.",
+      "status": "confirmed",
+      "stress_test": "Require success and exactly one passed, zero failed/ignored in captured child summary; run all four tests plus contention and full root.",
+      "falsification_probe": "Wrong name selects zero tests, recursive subprocess execution, or child failure is hidden."
+    },
+    {
+      "id": "FI3",
+      "assumption": "The ptrace fixture creates its sockets only after selected-child entry, and its original body creates no further host process.",
+      "status": "confirmed",
+      "stress_test": "Source-preservation receipt,1000 prior standalone diagnostic runs,all four 100-repeat concurrent pairs,100 combined selections and full unfiltered owning binary.",
+      "falsification_probe": "Any original fixture assertion fails under the same concurrent selection, or a selected child is zero/ignored rather than executing the original test."
+    }
+  ],
+  "acceptance": [
+    {
+      "requirement": "Preserve production behavior and original test assertions",
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/original-assertion-preservation-v2.json"
+    },
+    {
+      "requirement": "Reject empty selection and propagate child failure",
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/helper-negative-probe-run-v2.json"
+    },
+    {
+      "requirement": "Exercise observed failing concurrent selections with nonzero counts",
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/contention-green-v2.json"
+    },
+    {
+      "requirement": "Full owning binary and applicable Unix integration gate",
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/owning-root-library-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/owning-user-linux-v2.json"
+      ]
+    },
+    {
+      "requirement": "Exact owned-path commit directly on master and idle canonical build cleanup",
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/commit-receipt.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/cleanup-final.json"
+      ]
+    }
+  ],
+  "validation": {
+    "build-workspace-all-targets-v2": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/build-workspace-all-targets-v2.json",
+      "receipt_sha256": "f48cbdb46118caf893fd62026f1373e7a9801f096213040971e47c044257bfe3",
+      "argv": [
+        "cargo",
+        "build",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 163.8923742090119,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "fmt-workspace-v2": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/fmt-workspace-v2.json",
+      "receipt_sha256": "2027f0448ea61584250825b16c2edef69097543dca23ccfb45abf4aaeacf1356",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 13.260451874986757,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "check-workspace-all-targets-v2": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/check-workspace-all-targets-v2.json",
+      "receipt_sha256": "8f76e5a8f9ac0581ac16214d1f224211c9920661b6554b867fd39a490f6df879",
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 77.59788883302826,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "clippy-workspace-all-targets-v2": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/clippy-workspace-all-targets-v2.json",
+      "receipt_sha256": "529571efbc2c67f04be35bfc278b901581965a65ec2de2d2ae0599afec9f7d34",
+      "argv": [
+        "cargo",
+        "clippy",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 75.8852771659731,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "doctests-workspace-v2": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/doctests-workspace-v2.json",
+      "receipt_sha256": "bd78e8373e8ed574dadfbfd892d6693af3f1d78ca396757d83acc96a647adf9a",
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 6.297103082993999,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true
+    },
+    "owning-root-library-v2": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/owning-root-library-v2.json",
+      "receipt_sha256": "ba3e363696192dc6e2a741ec8e535a26d4e72c385b270d269885aef1f113ea3f",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 951.1022662919713,
+      "test_results": [
+        {
+          "passed": 11944,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "source_unchanged": true
+    },
+    "owning-ptrace-stops-v2": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/owning-ptrace-stops-v2.json",
+      "receipt_sha256": "15009498b154718c5726c7adaaab3013211484a03f7536c7de81a50ada15d4dd",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "user::linux::tests::ptrace_stops::",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.03448149998439476,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true
+    },
+    "owning-user-linux-v2": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/owning-user-linux-v2.json",
+      "receipt_sha256": "5db3df262587676259d99d4a0d6e0ba95534310e51f845cbe5070d44571b49bc",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/user_linux-b43750afc9c90efb",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 33.08504475001246,
+      "test_results": [
+        {
+          "passed": 43,
+          "failed": 0,
+          "ignored": 1
+        }
+      ],
+      "source_unchanged": true
+    },
+    "helper-negative-probe-build-v2": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/helper-negative-probe-build-v2.json",
+      "receipt_sha256": "0b3d9a081addd657f913984973f6fd386fd359478fdea0c7a81116b1aa787592",
+      "argv": [
+        "rustc",
+        "--edition=2024",
+        "--test",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/helper-negative-probe.rs",
+        "-o",
+        "/Users/int/dev/rax-audit-work/main-integration-target/helper-negative-probe-v2"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.1746230840217322,
+      "test_results": [],
+      "source_unchanged": true
+    },
+    "helper-negative-probe-run-v2": {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/helper-negative-probe-run-v2.json",
+      "receipt_sha256": "f4ce2ee120a4495539f065b920d085e0517051cc7a3f7678442807c25386f2ca",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/helper-negative-probe-v2",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.015254124999046326,
+      "test_results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "source_unchanged": true
+    }
+  },
+  "contention": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/contention-green-v2.json",
+    "receipt_sha256": "2da6eb5c86bb224a536b6446bb2c2f7485eed2d2a43598a49418a481b226303e",
+    "invocations": 500,
+    "parent_test_cases": 1300,
+    "isolated_child_test_cases": 1300,
+    "failures": 0,
+    "scope": "Finite samples of known timing-dependent cases; no general race-freedom proof."
+  },
+  "excluded_and_red_evidence": [
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/baseline-red-provenance.json",
+      "scope": "Previous full-root failure and two failing minimal pairs on unchanged fixture source."
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/contention-green-v1.json",
+      "scope": "First fork-caller-only isolation failed; ptrace/readiness pair on repetition 33. Not a green result."
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/root-v1-cancellation.json",
+      "scope": "Superseded full root run stopped by SIGTERM after a failed contention case; no full-suite result claimed."
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/ptrace-alone-diagnostic-v1.json",
+      "scope": "1000 standalone successes; diagnostic only, does not erase concurrent failures."
+    }
+  ],
+  "helper_negative_probe_source": {
+    "path": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/helper-negative-probe.rs",
+    "sha256": "055f5b9e798ceb58800d9b32fa334a1e8f6411bdadc7a06e77760ae4b376a8fa"
+  },
+  "ignored_inventory": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/root-ignored-inventory-v2.json",
+  "compiled_input_audit": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/compiled-input-tracking-before-commit.json",
+  "original_assertions": [
+    {
+      "path": "src/user/mm/shared_words.rs",
+      "original_sha256": "a0fc33ebb6fc771690c6193953766604dc5b6cf4c9d76bb47113a323d4e4d092",
+      "original_body_preserved": true
+    },
+    {
+      "path": "src/user/readiness.rs",
+      "original_sha256": "b41f3ed3404d67daa612795abae49a7cd3f38ec3bba1be97c386fbe6780681b2",
+      "original_body_preserved": true
+    },
+    {
+      "path": "src/user/linux/tests/pidfd.rs",
+      "original_sha256": "1fe1405edf0a51852c73a017350316b161d242e9c8716cd24ae7d93753739e7c",
+      "original_body_preserved": true
+    },
+    {
+      "path": "src/user/linux/tests/ptrace_stops.rs",
+      "original_sha256": "e9a637e98d3e2751df6aeb3e092d7e1ed4152375b6e06cc9edc8542f9d19017b",
+      "original_body_preserved": true
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Full A32-FP, C-STATE, C-SMP, C-HVF scope and physical Intel qualification remain open.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "Exact child test names must remain synchronized with libtest registration; summary assertions reject zero/ignored selection."
+    },
+    {
+      "impact": "low",
+      "finding": "Process startup overhead is added to these five tests; no throughput benchmark or Linux/Windows host execution claim."
+    }
+  ],
+  "complexity": {
+    "time": "O(B) summary scan in addition to process startup and original test time",
+    "space": "O(B) captured child output",
+    "B": "child stdout+stderr bytes"
+  },
+  "workflow": "Direct master; exact owned-path git add then red -m --staged --run; no push/branches/worktrees; guarded cleanup of canonical C/T.",
+  "quality_gates": {
+    "scope": "This test-only semantic group; overall audit remains incomplete",
+    "assumptions": "reconciled",
+    "requirement_coverage": "mapped",
+    "reproducibility": "exact commands,environment,source and executable hashes retained",
+    "edges": "zero/ignored selection,child failure,subprocess-launch race,original assertions and exclusions explicit",
+    "provenance": "retained primary source bytes and hashes",
+    "bounded_expansion": "impact labeled",
+    "worktree_integrity": "exact paths and protected-process/untracked guards required by commit and cleanup receipts",
+    "behavior": "nonzero child and parent cases; full owning binary",
+    "repository_consistency": "Unix/test cfg,exact names,docs and inventory checked"
+  }
+}

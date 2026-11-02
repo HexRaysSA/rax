@@ -205,6 +205,11 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn unix_mapping_remains_shared_after_fork() {
+        if crate::user::test_fork::isolated(
+            "user::mm::shared_words::tests::unix_mapping_remains_shared_after_fork",
+        ) {
+            return;
+        }
         let words = SharedWords::new(1).unwrap();
         // SAFETY: the child performs only lock-free atomic access and _exit;
         // it neither allocates nor calls Rust destructors after fork.

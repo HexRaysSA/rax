@@ -1023,7 +1023,8 @@
         "docs/development/a32-short-vectors/qualification.json",
         "docs/development/a32-short-vectors/qemu-reference.json",
         "docs/development/a32-fp-traps/qualification.json",
-        "docs/development/a32-fp-traps/README.md"
+        "docs/development/a32-fp-traps/README.md",
+        "docs/development/fork-test-isolation/qualification.json"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
@@ -1036,7 +1037,7 @@
         "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
         "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open.",
         "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json.",
-        "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. Full root run retains one separately reproduced ptrace/fork test failure; no full-suite green claim. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json."
+        "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. The historical FP-group full root run retained one separately reproduced ptrace/fork test failure. Its test-only isolation followup qualifies a new root run (11944 passed, 0 failed, 35 ignored); see fork-test-isolation/qualification.json. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -2765,7 +2766,8 @@
         "docs/development/s5l-selected-clock/qualification.json",
         "docs/development/rtc-selected-clock/qualification.json",
         "docs/development/a32-fp-traps/qualification.json",
-        "docs/development/a32-fp-traps/README.md"
+        "docs/development/a32-fp-traps/README.md",
+        "docs/development/fork-test-isolation/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2812,7 +2814,7 @@
         "Explicit VMM clock selection before devices, complete retired-file construction and strict timeline/base-loss admission are locally qualified with real1/2/4 prepared x86 files,exact TSC/phase/wrap and retained LAPIC clock identity. Defaults remain wall; independent board clocks, idle advancement, native retirement and complete replay remain open. Armv8a32/CortexR factories remain unsupported and explicitly tested as such. No full original finding closure; see vmm-selected-clock/qualification.json.",
         "Selected S5L elapsed clocks retain VM identity and incoming restore epochs, with actual source-free 1/2/4 prepared-context guest timer continuation; see s5l-selected-clock/qualification.json. Synthetic profiles, PMU RTC/timezone, other clocks, default/idle/native/replay and full original findings remain open.",
         "PC CMOS and S5L PMU calendars now retain selected VM time in Retired mode with fixed UTC2000 origin,new private tags,strict legacy Wall-only admission and actual1/2/4 prepared-context guest-file continuation. See rtc-selected-clock/qualification.json. Default/idle/periodic IRQ policy,Wall external input,complete replay/native and physical Intel requirements remain open.",
-        "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. Full root run retains one separately reproduced ptrace/fork test failure; no full-suite green claim. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json."
+        "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. The historical FP-group full root run retained one separately reproduced ptrace/fork test failure. Its test-only isolation followup qualifies a new root run (11944 passed, 0 failed, 35 ignored); see fork-test-isolation/qualification.json. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3544,7 +3546,8 @@
         "docs/development/s5l-selected-clock/qualification.json",
         "docs/development/rtc-selected-clock/qualification.json",
         "docs/development/a32-fp-traps/qualification.json",
-        "docs/development/a32-fp-traps/README.md"
+        "docs/development/a32-fp-traps/README.md",
+        "docs/development/fork-test-isolation/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3581,7 +3584,7 @@
         "Explicit VMM clock selection before devices, complete retired-file construction and strict timeline/base-loss admission are locally qualified with real1/2/4 prepared x86 files,exact TSC/phase/wrap and retained LAPIC clock identity. Defaults remain wall; independent board clocks, idle advancement, native retirement and complete replay remain open. Armv8a32/CortexR factories remain unsupported and explicitly tested as such. No full original finding closure; see vmm-selected-clock/qualification.json.",
         "Selected S5L elapsed clocks retain VM identity and incoming restore epochs, with actual source-free 1/2/4 prepared-context guest timer continuation; see s5l-selected-clock/qualification.json. Synthetic profiles, PMU RTC/timezone, other clocks, default/idle/native/replay and full original findings remain open.",
         "PC CMOS and S5L PMU calendars now retain selected VM time in Retired mode with fixed UTC2000 origin,new private tags,strict legacy Wall-only admission and actual1/2/4 prepared-context guest-file continuation. See rtc-selected-clock/qualification.json. Default/idle/periodic IRQ policy,Wall external input,complete replay/native and physical Intel requirements remain open.",
-        "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. Full root run retains one separately reproduced ptrace/fork test failure; no full-suite green claim. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json."
+        "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. The historical FP-group full root run retained one separately reproduced ptrace/fork test failure. Its test-only isolation followup qualifies a new root run (11944 passed, 0 failed, 35 ignored); see fork-test-isolation/qualification.json. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -198201,6 +198204,18 @@
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-synchronous-fp-traps-v1/commit-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-synchronous-fp-traps-v1/cleanup-final.json",
       "workflow": "Direct master; exact owned-path git add and red -m --staged --run; no branches/worktrees/push; guarded idle C/T cleanup",
+      "full_goal_complete": false
+    },
+    {
+      "id": "host-fork-peer-eof-test-isolation-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [],
+      "parent": "40ea084a41f8039942753db3ca06180ea95f0b40",
+      "scope": "Repair independently reproduced parallel host-process/ptrace EOF test interference; preserve all production code and original assertions. Full root and repeated paired/combined checks qualified separately from historical FP failure.",
+      "qualification": "docs/development/fork-test-isolation/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/fork-test-isolation-v1/cleanup-final.json",
+      "workflow": "Direct master; exact owned-path git add then red -m --staged --run; no push/branches/worktrees; guarded cleanup of canonical C/T.",
       "full_goal_complete": false
     }
   ],

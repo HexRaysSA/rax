@@ -536,6 +536,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn unix_levels_survive_fork() {
+        if crate::user::test_fork::isolated("user::readiness::tests::unix_levels_survive_fork") {
+            return;
+        }
         let pair = LevelPair::new().unwrap();
         let reader = pair.descriptor(0);
         let writer = pair.descriptor(1);

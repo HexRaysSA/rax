@@ -381,6 +381,14 @@ fn a_syscall_stops_signal_is_sent_from_the_kernel() {
 
 #[test]
 fn a_tracer_gone_at_a_syscall_stop_sends_sigtrap_unless_tracesysgood() {
+    // A concurrent process launch can retain a copy of the tracer socket
+    // while this test expects immediate EOF. Create its links only inside
+    // the selected child test, outside the shared parallel test process.
+    if crate::user::test_fork::isolated(
+        "user::linux::tests::ptrace_stops::a_tracer_gone_at_a_syscall_stop_sends_sigtrap_unless_tracesysgood",
+    ) {
+        return;
+    }
     each_abi(|abi| {
         for (options, sigtrap) in [(0, true), (opt::TRACESYSGOOD, false)] {
             let mut h = Harness::new(abi);

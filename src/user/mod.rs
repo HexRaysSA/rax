@@ -30,5 +30,7 @@ pub mod linux;
 pub mod mm;
 pub(crate) mod readiness;
 pub mod supplied_fs;
+#[cfg(all(test, unix))]
+mod test_fork;
 pub mod trace;
 pub mod windows;

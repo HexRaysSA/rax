@@ -528,6 +528,11 @@ impl Drop for HostChild {
 
 #[test]
 fn a_host_watch_sees_another_process_end() {
+    if crate::user::test_fork::isolated(
+        "user::linux::tests::pidfd::a_host_watch_sees_another_process_end",
+    ) {
+        return;
+    }
     use crate::user::linux::fs::pidfd::Target;
     let child = HostChild::new();
     let t = Target::new(child.pid, child.pid, true).unwrap();
@@ -556,6 +561,11 @@ fn a_host_watch_sees_another_process_end() {
 
 #[test]
 fn another_process_is_seen_through_the_host() {
+    if crate::user::test_fork::isolated(
+        "user::linux::tests::pidfd::another_process_is_seen_through_the_host",
+    ) {
+        return;
+    }
     let mut h = Harness::new(LinuxAbi::Aarch64);
     h.proc.state.config.processes = true;
     let child = HostChild::new();
