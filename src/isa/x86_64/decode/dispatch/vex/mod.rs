@@ -1093,9 +1093,9 @@ mod gather;
 mod integer;
 mod logical;
 mod misc;
+mod r#move;
 mod packed_string;
 #[cfg(test)]
 mod packed_string_tests;
-mod r#move;
 mod shift;
 mod shuffle;
