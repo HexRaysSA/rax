@@ -1,0 +1,211 @@
+{
+  "kernel": [
+    10,
+    0,
+    29698
+  ],
+  "native_machine": 43620,
+  "scope": "four process views on one ARM64 kernel; frozen v7 C++ and v9 validators",
+  "native_inputs_unchanged": true,
+  "controller_sha256": "e9e05aca19e06ff16925be5b553f825a3b772e752d85903f53f1be8b7c84f1b6",
+  "CMake_source_sha256": "72041123d42cce049aca1653e6900a11e773305f099d2529b31f1dcc688f2703",
+  "archive": {
+    "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-image-information-29698-v2\\artifacts-v1.zip",
+    "bytes": 13434809,
+    "sha256": "3d5b2a904caae761c47f19ca6ace289e89c69617bdbd97ba8b72bb6ff0f3a1a2",
+    "payloads": 605
+  },
+  "providers": {
+    "arm64": {
+      "path": "C:\\Windows\\System32\\ntdll.dll",
+      "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+      "before_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "identity_before": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 8,
+        "entry_bytes": 24,
+        "layout_offsets": [
+          0,
+          8,
+          12,
+          16
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      },
+      "identity_image": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\query-multiple-values-ci-v4\\native-query-multiple-values-arm64.exe",
+      "identity_image_sha256": "65423eb2eb90e1096e6021100eed3e7c71e61a8692d25ba5a75c899ccc07fc0d",
+      "after_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "identity_after": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 8,
+        "entry_bytes": 24,
+        "layout_offsets": [
+          0,
+          8,
+          12,
+          16
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      }
+    },
+    "x64": {
+      "path": "C:\\Windows\\System32\\ntdll.dll",
+      "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+      "before_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "identity_before": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 8,
+        "entry_bytes": 24,
+        "layout_offsets": [
+          0,
+          8,
+          12,
+          16
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      },
+      "identity_image": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\query-multiple-values-ci-v4\\native-query-multiple-values-x64.exe",
+      "identity_image_sha256": "a8d62f49edd404fea9db9a94111f4ee0454f342805ab01f3ce50533e2aadb565",
+      "after_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "identity_after": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 8,
+        "entry_bytes": 24,
+        "layout_offsets": [
+          0,
+          8,
+          12,
+          16
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      }
+    },
+    "x86": {
+      "path": "C:\\Windows\\SyChpe32\\ntdll.dll",
+      "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+      "before_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+      "identity_before": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 4,
+        "entry_bytes": 16,
+        "layout_offsets": [
+          0,
+          4,
+          8,
+          12
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      },
+      "identity_image": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\query-multiple-values-ci-v4\\native-query-multiple-values-x86.exe",
+      "identity_image_sha256": "7181d99c46ea0684e50bc77d0b799a98c878a79864b0b4065e9ff17d014d1063",
+      "after_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+      "identity_after": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 4,
+        "entry_bytes": 16,
+        "layout_offsets": [
+          0,
+          4,
+          8,
+          12
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      }
+    }
+  },
+  "files": {
+    "docs/specifications/windows/native-process-image-information/native-image-information-v7.cpp": {
+      "bytes": 16397,
+      "sha256": "3e633e4d1950d38fab62d48b21062317a51559f1fbe41e8b8501db6be67b302d"
+    },
+    "docs/specifications/windows/native-process-image-information/run-v9.py": {
+      "bytes": 20076,
+      "sha256": "120487684bcbcf78d538d020da5b515d2f6cdba0f2e7d80d1f6b6dd2571207b6"
+    },
+    "docs/specifications/windows/native-process-image-information/run-relocation-directory-v1.py": {
+      "bytes": 8956,
+      "sha256": "33e948f0c5a8883371436ed3573ff0bbf0e975b154954b8d545da8e3ed901d32"
+    },
+    "docs/specifications/windows/native-exception-entry-profile/run-second-chance-v1.py": {
+      "bytes": 6158,
+      "sha256": "db5872d29c5575770b29843489f246e4dae99eb8df8ec6c8d7b260e0d3827ec1"
+    },
+    "docs/specifications/windows/native-exception-entry-profile/run-v2.py": {
+      "bytes": 8790,
+      "sha256": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba"
+    },
+    "docs/specifications/windows/native-process-image-information/local-29698-v1.json": {
+      "bytes": 2681373,
+      "sha256": "ec362da71a69cc28dd504d27e7c180558c59fd126afb92dd94fa566dca55813d"
+    },
+    "docs/specifications/windows/native-process-image-information/local-relocation-directory-29698-v1.json": {
+      "bytes": 21026,
+      "sha256": "f21911aa191d7e31048b2c660cbdf0d70576380b4b3e07146cb43cfabea4a927"
+    },
+    "docs/specifications/windows/native-process-image-information/test_29698_projection.py": {
+      "bytes": 5157,
+      "sha256": "541e3fd947068f21d62196aa36a862327ad472a495d8b96925c2a5acc5405e8e"
+    }
+  },
+  "initial_attempt": "Visual Studio environment setup timed out before compilation or any native query; failure retained; CMake adapter preserves executed C++ and validators"
+}

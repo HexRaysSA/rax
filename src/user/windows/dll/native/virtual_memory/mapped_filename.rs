@@ -131,7 +131,7 @@ fn profile(c: &Ctx) -> Result<Profile, crate::user::windows::hle::ApiErr> {
         native.version.build,
         native.object_namespace.native_machine,
     ) {
-        (10, 0, 29695, Some(0xaa64)) => Ok(Profile::Arm64),
+        (10, 0, 29695 | 29698, Some(0xaa64)) => Ok(Profile::Arm64),
         (10, 0, 20348 | 26100, Some(0x8664)) => Ok(Profile::Amd64),
         _ => Err(c.unsupported("mapped filename kernel copy profile is not captured")),
     }

@@ -73,6 +73,11 @@ fn native_notify_key_uncaptured_io_profile_keeps_memory_events_and_objects_unarm
             (20348, None),
             (29694, Some(0xAA64)),
             (29695, Some(0x8664)),
+            (29697, Some(0xAA64)),
+            (29699, Some(0xAA64)),
+            (29698, Some(0x8664)),
+            (29698, Some(0x14c)),
+            (29698, None),
         ] {
             let (mut process, mut t, base) = setup(arch);
             let p = process.state_mut();
@@ -105,5 +110,22 @@ fn native_notify_key_uncaptured_io_profile_keeps_memory_events_and_objects_unarm
             assert_eq!(replay::signal(p, event), 0);
             assert_eq!(call(p, &mut t, "NtClose", &[event]), 0);
         }
+    }
+}
+
+#[test]
+fn native_notify_key_29698_profile_uses_captured_kernel_identity() {
+    use crate::user::windows::process::registry_notify::{IoStores, io_stores};
+    for arch in WinArch::ALL {
+        let (mut process, _, _) = setup(arch);
+        let p = process.state_mut();
+        super::super::native_profile::kernel_profile(p, 29698, 0xAA64);
+        std::sync::Arc::make_mut(&mut p.cfg).version.build = 1;
+        assert_eq!(io_stores(p), Ok(IoStores::PointerStatus));
+        p.native.as_mut().unwrap().version.minor = 1;
+        assert!(io_stores(p).is_err());
+        p.native.as_mut().unwrap().version.minor = 0;
+        p.native.as_mut().unwrap().version.major = 11;
+        assert!(io_stores(p).is_err());
     }
 }

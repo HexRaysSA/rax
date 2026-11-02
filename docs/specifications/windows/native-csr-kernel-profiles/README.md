@@ -1,7 +1,7 @@
 # Measured CSR kernel profiles
 
-The selected ARM64/session 0 CSR path admits Windows 10.0 builds 29683 and
-29695. It retains the existing section, metadata, pointer, packet and ownership
+The selected ARM64/session 0 CSR path admits Windows 10.0 builds 29683,
+29695 and 29698. It retains the existing section, metadata, pointer, packet and ownership
 checks. Other architectures, sessions and builds are not admitted by this
 profile. This is a CSR qualification, not complete installed-library startup.
 
@@ -9,6 +9,8 @@ Windows upgraded to 29695 during validation. The unchanged original fault
 fixture then stopped at NtSecureConnectPort because no selected server profile
 was available. The additional build is supported by rerunning frozen controls,
 not by extending a version interval or inferring compatibility from the name.
+The same failure recurred after the installed kernel advanced to 29698. Frozen
+controls were compiled and executed again before admitting that exact build.
 
 ## Native evidence
 
@@ -30,6 +32,43 @@ observations do not establish physical AMD64-kernel support.
 | USER capture | Length 628, pointer count 1, information at capture+40, pointer-field offset 72, 584 zero input bytes |
 | Native child outcomes | Secure-only child exits 41 after one successful call; exchange child exits 41 after secure and USER calls |
 
+`profile-29698-v1.json` retains six fresh metadata observations, three complete
+SharedSection geometry observations, three USER acquisition observations and
+two ARM64 protocol observations. Fourteen executable identities and all six
+unchanged C++ source hashes bind these observations. The 29698 invariants in
+the table are unchanged, except that the captured server PID is 660. PID and
+server addresses are native identities, not constants for the modeled server.
+The two ARM64 getter captures agree on all 64 bytes. Independent LLVM
+disassembly of its first seven instructions confirms byte-flag and
+pointer-width loads, comparison, conditional selection and return. Address
+immediates differ from the prior kernel; the no-argument ABI is unchanged.
+
+The canonical 29698 archive is `csr-29698-native-artifacts-v2.zip`, 6339530
+bytes, SHA-256
+`bc92d53251b7de3a9173b016726b8ad229f3846a7d3ff53e8bfd9e0ee45af294`.
+It binds ARM64 and x64 compatibility to the actual `System32/ntdll.dll` and
+x86 compatibility to `SyChpe32/ntdll.dll`, with before/after identities and
+hashes. The first archive's x86 bookkeeping hashed the logical `System32`
+path from native Python. The corrected repeat supersedes that provider binding
+and re-executes all fourteen unchanged observers.
+
+Regenerate and verify the typed projection from the retained archive:
+
+```sh
+python3 -I -B docs/specifications/windows/native-csr-kernel-profiles/project-profile-v1.py \
+  path/to/csr-29698-native-artifacts-v2.zip profile-29698-rebuilt.json \
+  --archive-sha256 bc92d53251b7de3a9173b016726b8ad229f3846a7d3ff53e8bfd9e0ee45af294
+```
+
+The result reports six metadata samples and fourteen native images. Compare
+the output bytes with the checked-in `profile-29698-v1.json`. The projector
+checks every archive payload hash, source and executable identity, PE machine,
+raw stdout identity, actual provider binding, getter instruction pattern,
+section geometry and typed connection/exchange fields before writing output.
+It normalizes CRLF only after checking the raw stdout hash. This command needs
+the separately retained archive; the projection alone cannot reconstruct the
+original binaries or stdout.
+
 The capture allocation arithmetic is `40 + 584 = 624` bytes of header and
 information, plus 4 allocation-padding bytes: `624 + 4 = 628`. Padding is outside
 the information input and is not required to be zero. Native allocator fill in
@@ -48,7 +87,19 @@ The unchanged primary producers are:
 - `../native-shared-section/native-windows-shared-section-geometry.cpp`.
 
 Compile each in its matching MSVC environment with C++20, static CRT, EHsc,
-UTF-8 and W4/WX. The frozen debugger controls additionally suppress only
+UTF-8 and W4/WX. For example, in a matching Native Tools command prompt, create
+an in-tree output directory and compile from that directory:
+
+```bat
+cl /nologo /std:c++20 /MT /Od /EHsc /utf-8 /W4 /WX path\to\native-csr-readonly-metadata.cpp /Fe:metadata1.exe /Fo:metadata1.obj
+metadata1.exe > metadata1.log
+```
+
+Repeat for ARM64, x64 and x86 using both metadata sources, the section source
+and `native-csr-client-connect-v6.cpp`; pass the architecture label to the
+client executable. Compile the secure and exchange debugger controls for
+native ARM64. The archive also retains the exact CMake source and compiler
+commands. The frozen debugger controls additionally suppress only
 C4100/C4456/C4505 for their existing architecture-unused/shadowed declarations.
 The initial strict-warning compile failure is retained. No producer source,
 original fault fixture, assertion or deadline was edited. All binaries and
@@ -70,16 +121,22 @@ nonoverlapping outputs, transactional publication and endpoint lifetime retain
 their previous checks. No guest-directed host operation or capability is added.
 The version check is O(1), with no additional retained runtime storage.
 
-The successful secure connection test now runs both builds. The USER test runs
-both builds against four existing native payload fixtures and four repeated
-exchanges per fixture: `2 * 4 * 4 = 32` exchanges. Those payload fixtures retain
-their original kernel/source identities. New adjacent-build, major/minor and
+The successful secure connection test now runs all three ARM64 builds with
+matching selected metadata and guest configuration. The previous test helper
+reset the guest build to 29683 after the caller selected another build; the
+new helper takes the build explicitly and asserts the selected metadata.
+The USER test runs all three builds against four existing native payload
+fixtures and four repeated exchanges per fixture: `3 * 4 * 4 = 48` exchanges.
+Those payload fixtures retain their original kernel/source identities. A
+separate constructor regression consumes the actual 29698 prefix, metadata
+and allocation geometry; unused view bytes are zero padding, not a claim of
+whole-view replay. Adjacent-build, major/minor and
 unknown-build refusals preserve output bytes, handle counts, commitment and RNG
 state. The existing installed ARM64 test exercises the measured native profile;
 unmeasured builds retain the unavailable-path assertion. The existing CI step
 runs the `csr` filter, without adding a job.
 
-macOS and Linux each pass 85 selected tests and 191 C API tests, with no failures
+Historical 29695 qualification: macOS and Linux each passed 85 selected tests and 191 C API tests, with no failures
 or ignores. Their shared-runtime frame is unchanged by the final Windows-only
 installed-test update. Windows passes all 86 selected tests, including the actual installed-native
 connection, all 39 object-namespace tests and all 191 C API tests. Its final source frame adds only
@@ -87,16 +144,23 @@ the Windows-only installed-test update after the Unix runs. The unchanged
 original fault fixture now passes CSR startup and stops at
 `NtInitializeNlsFiles native build profile is unmeasured`; complete startup is
 not established. Combined macOS/Windows trees retain the
-separate native-entry draft; that draft is excluded from this changeset.
+separate native-entry draft; that draft was excluded from that changeset.
+These historical counts do not qualify the 29698 amendment. The current
+installed CLI passed the CSR boundary on 29698 and stopped at the independent
+`NtInitializeNlsFiles native build profile is unmeasured` boundary. Full
+cross-platform qualification of the amended source is recorded separately.
 
 | ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
 |---|---|---|---|---|---|---|
 | KP1 | The 29695 selected CSR layout matches the existing ARM64/session 0 contract. | Frozen native metadata, full allocations and natural protocol observations. | Add 29695 to the finite build set. | Full section extent, two client views, exact packet widths and pointer identities. | Any observed protection, extent, schema or identity mismatch. | Confirmed for recorded native inputs; model/native validation retained separately. |
 | KP2 | The 29695 getter retains the measured pointer-width, no-argument ABI. | Two independently compiled observers, identical export bytes and decoded load/select/return. | Reuse fixed readonly native getter. | Compare code, PID, PEB version/session and selected prefix. | Export ABI or identity correlation differs. | Confirmed on the measured ARM64 kernel. |
+| KP3 | The 29698 ARM64/session 0 layout retains the selected CSR contract. | Fresh frozen metadata, allocation, acquisition and natural protocol controls with corrected physical provider bindings. | Add exactly 29698. | Full section geometry, pointer identities, packet widths, readonly acquisitions and actual getter bytes. | Any captured geometry, protection, ABI, status or identity mismatch. | Confirmed for the fourteen recorded native observations; shared and installed-runtime validation remain distinct. |
 
-High-impact outstanding scope: physical AMD64 CSR admission, other sessions,
-generic CSR families and complete Windows startup remain unqualified. Other
-NT contracts need independent qualification where reached on 29695.
+High-impact outstanding scope: other ARM64 sessions, generic CSR families and
+complete Windows startup remain unqualified. Physical AMD64 kernels have a
+separate finite 20348/26100 profile in `csr::supports_profile`; the ARM64
+compatibility observations here do not establish AMD64 build 29698 support.
+Other NT contracts need independent qualification where reached on 29698.
 [NLS initialization and query-only MUI](../native-nls-build-29695/README.md)
 have their own measured qualification and predicate. The CSR predicate does
 not substitute versions into those contracts. The full Linux/macOS/Windows

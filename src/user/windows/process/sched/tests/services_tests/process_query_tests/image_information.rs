@@ -163,19 +163,27 @@ fn native_process_image_information_refuses_unqualified_image_and_kernel_profile
 fn native_process_image_information_rejects_adjacent_builds_and_wrong_kernel_identity() {
     for arch in WinArch::ALL {
         for (major, minor, build, machine) in [
-            (10, 0, 29682, 0xaa64),
-            (10, 0, 29684, 0xaa64),
-            (10, 0, 29694, 0xaa64),
-            (10, 0, 29696, 0xaa64),
-            (10, 1, 29695, 0xaa64),
-            (11, 0, 29695, 0xaa64),
-            (10, 0, 29695, 0x8664),
-            (10, 0, 29695, 0x14c),
+            (10, 0, 29682, Some(0xaa64)),
+            (10, 0, 29684, Some(0xaa64)),
+            (10, 0, 29694, Some(0xaa64)),
+            (10, 0, 29696, Some(0xaa64)),
+            (10, 1, 29695, Some(0xaa64)),
+            (11, 0, 29695, Some(0xaa64)),
+            (10, 0, 29695, Some(0x8664)),
+            (10, 0, 29695, Some(0x14c)),
+            (10, 0, 29697, Some(0xaa64)),
+            (10, 0, 29699, Some(0xaa64)),
+            (10, 1, 29698, Some(0xaa64)),
+            (11, 0, 29698, Some(0xaa64)),
+            (10, 0, 29698, Some(0x8664)),
+            (10, 0, 29698, Some(0x14c)),
+            (10, 0, 29698, None),
         ] {
             let (mut process, mut thread, scratch) = setup(arch);
             let p = process.state_mut();
-            replay::kernel_profile(p, build, machine);
+            replay::kernel_profile(p, build, machine.unwrap_or(0));
             let native = p.native.as_mut().unwrap();
+            native.object_namespace.native_machine = machine;
             native.version.major = major;
             native.version.minor = minor;
             let charge = p.vm.committed_bytes();

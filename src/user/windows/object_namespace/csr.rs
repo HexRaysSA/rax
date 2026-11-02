@@ -11,10 +11,14 @@ use std::sync::atomic::{AtomicU32, Ordering};
 pub(crate) mod client_data;
 pub(crate) mod pid_export;
 
+#[cfg(test)]
+#[path = "csr/kernel_profile_tests.rs"]
+mod kernel_profile_tests;
+
 /// Measured CSR build sets. Callers also bind captured architecture/session
 /// and exact selected section, peer, packet and readonly view identities. O(1).
 pub(crate) fn supports_kernel(major: u32, minor: u32, build: u32) -> bool {
-    major == 10 && minor == 0 && matches!(build, 29683 | 29695)
+    major == 10 && minor == 0 && matches!(build, 29683 | 29695 | 29698)
 }
 
 pub(crate) fn supports_profile(arch: WinArch, major: u32, minor: u32, build: u32) -> bool {

@@ -1,0 +1,344 @@
+{
+  "pid": 2052,
+  "created_epoch_seconds": 1793565693.0332139,
+  "kernel": [
+    10,
+    0,
+    29698,
+    2,
+    ""
+  ],
+  "state": "finished",
+  "commands": [
+    {
+      "label": "configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-29698-observe-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-29698-observe-v1\\build",
+        "-A",
+        "Win32"
+      ],
+      "exit_code": 0,
+      "seconds": 15.15348745799929
+    },
+    {
+      "label": "build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-29698-observe-v1\\build",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false"
+      ],
+      "exit_code": 0,
+      "seconds": 7.738219999999274
+    },
+    {
+      "label": "information-off",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-29698-observe-v1\\build\\Release\\information-off.exe"
+      ],
+      "exit_code": 0,
+      "seconds": 0.12556225000298582
+    },
+    {
+      "label": "information-on",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-29698-observe-v1\\build\\Release\\information-on.exe"
+      ],
+      "exit_code": 0,
+      "seconds": 0.10294533399792272
+    },
+    {
+      "label": "resources-off",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-29698-observe-v1\\build\\Release\\resources-off.exe"
+      ],
+      "exit_code": 0,
+      "seconds": 0.11574958300116123
+    },
+    {
+      "label": "resources-on",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-29698-observe-v1\\build\\Release\\resources-on.exe"
+      ],
+      "exit_code": 0,
+      "seconds": 0.1507917080016341
+    }
+  ],
+  "samples": [
+    {
+      "arch": "x86",
+      "kind": "information",
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-29698-observe-v1\\build\\Release\\information-off.exe",
+        "bytes": 119808,
+        "sha256": "6abffb7344bead8622799ebb4eba15631e2c6d3ef8e5d55a38534a7fc0836150",
+        "machine": 332,
+        "large_address_aware": false
+      },
+      "stdout_sha256": "1bd602051ac8716394b698a81eeb4d4ae40b1a6ec2bd5cbeb49927a070f8c213",
+      "exit_code": 0,
+      "rows": [
+        {
+          "sample": "main",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29698,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        },
+        {
+          "sample": "thread",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29698,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        }
+      ]
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "information",
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-29698-observe-v1\\build\\Release\\information-on.exe",
+        "bytes": 119808,
+        "sha256": "94572d411d914c4cdc21d190e7906805a71a3351d0851264cb29901dcffc64da",
+        "machine": 332,
+        "large_address_aware": true
+      },
+      "stdout_sha256": "1bd602051ac8716394b698a81eeb4d4ae40b1a6ec2bd5cbeb49927a070f8c213",
+      "exit_code": 0,
+      "rows": [
+        {
+          "sample": "main",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29698,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        },
+        {
+          "sample": "thread",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29698,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        }
+      ]
+    },
+    {
+      "arch": "x86",
+      "kind": "resources",
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-29698-observe-v1\\build\\Release\\resources-off.exe",
+        "bytes": 119808,
+        "sha256": "9f0d988676da139a9591fce6f05776113b42d711b3806707f11f10a020d2b2f9",
+        "machine": 332,
+        "large_address_aware": false
+      },
+      "stdout_sha256": "9476608242f3519e8b483aec24525f487680836384502e98e59975303752908c",
+      "exit_code": 0,
+      "rows": [
+        {
+          "kind": "unknown_word",
+          "nonnull": true,
+          "mapped": true,
+          "state": 4096,
+          "protect": 32,
+          "type": 16777216,
+          "region_bytes": 917504,
+          "allocation_offset": 212992,
+          "module_basename": "xtajit.dll",
+          "equals_ntdll_base": false
+        },
+        {
+          "kind": "section",
+          "query_status": 0,
+          "return_bytes": 16,
+          "maximum_bytes": 16384,
+          "attributes": 134217728,
+          "base_nonnull": false,
+          "object_status": 0,
+          "object_return_bytes": 56,
+          "object_attributes": 0,
+          "granted_access": 983071
+        },
+        {
+          "kind": "work_list",
+          "read64_available": true,
+          "address_above_32bit": false,
+          "status": 0,
+          "copied_bytes": 48,
+          "free_first": 16328,
+          "free_counter": 408,
+          "work_first": 0,
+          "work_counter": 0,
+          "reserved_nonzero": false
+        }
+      ]
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "resources",
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-29698-observe-v1\\build\\Release\\resources-on.exe",
+        "bytes": 119808,
+        "sha256": "8b1acf406b807407fe5fdf0ca2edf48bebdf21704f794a690bf887d68cb44f77",
+        "machine": 332,
+        "large_address_aware": true
+      },
+      "stdout_sha256": "9476608242f3519e8b483aec24525f487680836384502e98e59975303752908c",
+      "exit_code": 0,
+      "rows": [
+        {
+          "kind": "unknown_word",
+          "nonnull": true,
+          "mapped": true,
+          "state": 4096,
+          "protect": 32,
+          "type": 16777216,
+          "region_bytes": 917504,
+          "allocation_offset": 212992,
+          "module_basename": "xtajit.dll",
+          "equals_ntdll_base": false
+        },
+        {
+          "kind": "section",
+          "query_status": 0,
+          "return_bytes": 16,
+          "maximum_bytes": 16384,
+          "attributes": 134217728,
+          "base_nonnull": false,
+          "object_status": 0,
+          "object_return_bytes": 56,
+          "object_attributes": 0,
+          "granted_access": 983071
+        },
+        {
+          "kind": "work_list",
+          "read64_available": true,
+          "address_above_32bit": false,
+          "status": 0,
+          "copied_bytes": 48,
+          "free_first": 16328,
+          "free_counter": 408,
+          "work_first": 0,
+          "work_counter": 0,
+          "reserved_nonzero": false
+        }
+      ]
+    }
+  ],
+  "source_hashes": {
+    "CMakeLists.txt": "453c33fab0dab47bcc5772e88201375fae2a13f4f227252fce6fe55e39186f0b",
+    "information.cpp": "1171706b1fc5a5690873ed6596d50546305df8e0999fb154d0c175af1c6c77f6",
+    "resources.cpp": "faa47b41380b684640fb94eae34b7ce0162508803fe9b62dbee2264f636f8038"
+  },
+  "controller_sha256": "f22a550cc34721e8833dceb11f7ab265ab5beece50e94b35c69f83b59bb6d930",
+  "child_pid": 4900,
+  "exit_code": 0,
+  "inputs_unchanged": true,
+  "runtime_archive": {
+    "bytes": 454109,
+    "sha256": "067b88b554231abefaa314abaf2f488d4e037cf95c4daeb221174da45db2fe14",
+    "payloads": 167,
+    "all_payloads_verified": true,
+    "file": "wow64-29698-native-artifacts-v1.zip"
+  }
+}

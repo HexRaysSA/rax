@@ -23,6 +23,10 @@ pub(super) fn corpus() -> Json {
                 env!("CARGO_MANIFEST_DIR"),
                 "/docs/specifications/windows/native-key-notify/controls-amd64-26100-v1.json"
             )),
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-startup-build-29698/notify-v1.json"
+            )),
         ]
         .into_iter()
         .map(str::to_owned)

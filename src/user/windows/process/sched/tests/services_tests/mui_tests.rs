@@ -34,14 +34,15 @@ fn field(line: &str, key: &str, radix: u32) -> u32 {
 }
 
 #[test]
-fn native_mui_query_replays_both_measured_builds_pointer_length_and_alias_rows() {
+fn native_mui_query_replays_measured_builds_pointer_length_and_alias_rows() {
     let mut total = 0;
     for (arch, raw, build) in CORPORA
         .into_iter()
-        .flat_map(|(arch, raw)| [29683, 29695].map(|build| (arch, raw, build)))
+        .flat_map(|(arch, raw)| [29683, 29695, 29698].map(|build| (arch, raw, build)))
     {
         let (mut process, mut thread) = fixture(arch, "NtGetMUIRegistryInfo", 0x12);
         let p = process.state_mut();
+        p.object_namespace.native_machine = Some(0xAA64);
         Arc::make_mut(&mut p.cfg).version.build = build;
         let base =
             p.vm.allocate(None, 16384, mem::RESERVE | mem::COMMIT, prot::READWRITE)
@@ -162,17 +163,18 @@ fn native_mui_query_replays_both_measured_builds_pointer_length_and_alias_rows()
         assert_eq!(count, 1680);
         total += count;
     }
-    assert_eq!(total, 10080);
+    assert_eq!(total, 15120);
 }
 
 #[test]
 fn mui_cache_mutations_report_unavailable_without_query_argument_side_effects() {
     for (arch, build) in WinArch::ALL
         .into_iter()
-        .flat_map(|arch| [29683, 29695].map(|build| (arch, build)))
+        .flat_map(|arch| [29683, 29695, 29698].map(|build| (arch, build)))
     {
         let (mut process, mut thread) = fixture(arch, "NtGetMUIRegistryInfo", 0x12);
         let p = process.state_mut();
+        p.object_namespace.native_machine = Some(0xAA64);
         Arc::make_mut(&mut p.cfg).version.build = build;
         let sp = thread.cpu.sp();
         let before = p.vm.committed_bytes();
@@ -194,16 +196,24 @@ fn mui_cache_mutations_report_unavailable_without_query_argument_side_effects() 
 #[test]
 fn mui_unmeasured_profiles_publish_no_size_or_payload() {
     for arch in WinArch::ALL {
-        for (major, minor, build) in [
-            (10, 0, 29682),
-            (10, 0, 29684),
-            (10, 0, 29694),
-            (10, 0, 29696),
-            (10, 1, 29695),
-            (11, 0, 29695),
+        for (major, minor, build, machine) in [
+            (10, 0, 29682, Some(0xAA64)),
+            (10, 0, 29684, Some(0xAA64)),
+            (10, 0, 29694, Some(0xAA64)),
+            (10, 0, 29696, Some(0xAA64)),
+            (10, 0, 29697, Some(0xAA64)),
+            (10, 0, 29699, Some(0xAA64)),
+            (10, 1, 29695, Some(0xAA64)),
+            (11, 0, 29695, Some(0xAA64)),
+            (10, 1, 29698, Some(0xAA64)),
+            (11, 0, 29698, Some(0xAA64)),
+            (10, 0, 29698, None),
+            (10, 0, 29698, Some(0x8664)),
+            (10, 0, 29698, Some(0x14C)),
         ] {
             let (mut process, mut thread) = fixture(arch, "NtGetMUIRegistryInfo", 0x12);
             let p = process.state_mut();
+            p.object_namespace.native_machine = machine;
             let cfg = Arc::make_mut(&mut p.cfg);
             cfg.version.major = major;
             cfg.version.minor = minor;

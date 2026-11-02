@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(native_startup_profiles_29698 LANGUAGES C CXX)
+file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/compiler.txt" CONTENT "${CMAKE_C_COMPILER}")
+add_subdirectory(prefetch)
+add_subdirectory(flush)
+add_subdirectory(docs/specifications/windows/native-key-notify notify)

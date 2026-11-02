@@ -1,6 +1,9 @@
 # NLS initialization and query-only MUI on Windows 29695
 
-The finite NLS startup profile admits Windows 10.0 builds 29683 and 29695.
+This record qualifies Windows 10.0 builds 29683 and 29695. The later
+[29698 qualification](../native-nls-build-29698/README.md) adds that exact build
+with an independent ARM64 native-machine requirement; the validation counts
+below describe the original two-build changeset.
 Initialization and query-only MUI acquisition and guest dispatch use the same
 NLS predicate. It is independent of CSR, processor and other NT profile gates.
 Adjacent builds, a different major version, and a different minor version

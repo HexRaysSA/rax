@@ -138,3 +138,27 @@ x86 process creation at the unmeasured WoW64 gate. The failed run remains in
 the task ledger. [The NLS kernel qualification](../native-nls-build-29695/README.md)
 records the paired NLS/MUI change and its final validation separately from
 ordinary program completion.
+
+## ARM64 kernel build 29698
+
+[The build-29698 record](local-29698-v1.json) captures the unchanged information
+and resource C++ observers in ordinary and large-address-aware x86 processes.
+All four native images exited successfully. PE machine and large-address flags,
+compiler/build records, image hashes, raw stdout, and the frozen producer inputs
+are bound by the runtime archive recorded in the capture.
+
+Both main/owned-thread pairs report information at PEB + `0x490`, words
+`[4096, 2, 0]`, native/emulated machines `0xAA64/0x014C`, and companion offsets
+`-8192/+8192` bytes. Both resource observations report a 16384-byte section with
+access mask `0xF001F`; the 48-byte header has 408 free entries, first offset
+16328, and an empty work list. The native opaque word still identifies XtA code;
+the guest retains its zero callback and existing native64 identity-page limits.
+
+The exact ARM64 `10.0.29698` profile is admitted. Adjacent builds 29697/29699,
+wrong kernel machines, and different major/minor versions remain rejected.
+Capture-driven tests compare the information and live guest section/header to
+the new native observations. The installed bulk-query x86 test exposed this
+prerequisite before reaching its NTDLL leaf. Admission does not establish whole
+process completion or broaden the native callback contract. Existing portable
+`run-v2.py` and `run-resources-v1.py` reproduce the two observer families on the
+current Windows kernel.

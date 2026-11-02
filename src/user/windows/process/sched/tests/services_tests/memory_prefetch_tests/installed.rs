@@ -42,7 +42,7 @@ fn native_memory_prefetch_installed_leaves_populate_guest_pages_and_keep_ret24()
         let kernel = p.native.as_ref().unwrap();
         let working_set = match (kernel.version.build, kernel.object_namespace.native_machine) {
             (20348, Some(0x8664)) => false,
-            (26100, Some(0x8664)) | (29695, Some(0xaa64)) => true,
+            (26100, Some(0x8664)) | (29695 | 29698, Some(0xaa64)) => true,
             other => panic!("uncaptured installed prefetch kernel {other:?}"),
         };
         let tid = *p.threads.keys().next().unwrap();

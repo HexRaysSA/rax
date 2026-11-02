@@ -22,11 +22,35 @@ fn wow64_csr_replays_native_root_syntax_case_and_null_buffer_retry() {
 }
 
 fn replay(corpus: &serde_json::Value) -> usize {
+    replay_for_kernel(corpus, 29695)
+}
+
+#[test]
+fn wow64_csr_replays_29698_native_first_calls_and_retries() {
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-wow64-csr-connect/profile-29698-v1.json"
+    )).unwrap();
+    assert_eq!(corpus["kernel"], serde_json::json!([10, 0, 29698]));
+    assert_eq!(corpus["native_machine"], 0xaa64);
+    assert_eq!(corpus["fresh_cases"], 31);
+    assert_eq!(corpus["fresh_returns"], 38);
+    let mut cases = 0;
+    let mut returns = 0;
+    for group in corpus["groups"].as_array().unwrap() {
+        cases += group["samples"].as_array().unwrap().len();
+        let observed = replay_for_kernel(group, 29698);
+        assert_eq!(observed as u64, group["return_count"].as_u64().unwrap());
+        returns += observed;
+    }
+    assert_eq!((cases, returns), (31, 38));
+}
+
+fn replay_for_kernel(corpus: &serde_json::Value, build: u32) -> usize {
     let mut returns = 0;
     for row in corpus["samples"].as_array().unwrap() {
         let label = row["mode"].as_str().unwrap();
         let mode = label.strip_prefix("retry-").unwrap_or(label);
-        let (mut process, mut thread, b) = setup();
+        let (mut process, mut thread, b) = setup_for_kernel(build);
         let p = process.state_mut();
         let mut request = args(b);
         configure(p, b, mode, &mut request);

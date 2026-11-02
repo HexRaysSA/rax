@@ -33,7 +33,7 @@ impl Profile {
         let (flags, information_offset) =
             match (version.major, version.minor, version.build, machine) {
                 (10, 0, 20348 | 26100, 0x8664) => (1, 0x488),
-                (10, 0, 29683 | 29695, 0xaa64) => (2, 0x490),
+                (10, 0, 29683 | 29695 | 29698, 0xaa64) => (2, 0x490),
                 _ => return Err(STATUS_NOT_SUPPORTED),
             };
         Ok(Self {

@@ -1,0 +1,5 @@
+set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
+set(CMAKE_C_FLAGS_RELEASE "/O1 /DNDEBUG")
+add_executable(prefetch ../docs/specifications/windows/native-memory-prefetch/probe-v4.c)
+target_link_libraries(prefetch PRIVATE psapi)
+file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/prefetch-$<CONFIG>.txt" CONTENT "$<TARGET_FILE:prefetch>")

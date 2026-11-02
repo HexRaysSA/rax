@@ -1,0 +1,2 @@
+# Preserve frozen native sources and evidence under core.autocrlf.
+* -text whitespace=cr-at-eol

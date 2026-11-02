@@ -178,7 +178,7 @@ spoofable guest version fields:
 
 | Kernel | Native64 padding on success | High-address/output-alignment order | WoW64 string stores |
 | --- | --- | --- | --- |
-| ARM64 10.0.29695 | Preserve four bytes | Address first | Length-dependent ARM64 vector stores, including overlapping tail stores |
+| ARM64 10.0.29695 / 10.0.29698 | Preserve four bytes | Address first | Length-dependent ARM64 vector stores, including overlapping tail stores |
 | AMD64 10.0.20348 / 10.0.26100 | Zero four bytes | Output alignment first | First vector, destination-aligned vectors, then final-tail/remaining-vector order |
 
 Short native results preserve padding on both families. The common synthetic
@@ -195,7 +195,7 @@ and final-tail precedence on both captured kernels. The emulator retains that
 order, including gaps in partially written destinations, and checks caller
 permissions before allocating temporary conversion storage.
 
-The exact replay now evaluates 3,437 retained rows: 399 original ARM64-host
+The pre-29698 exact replay evaluates 3,437 retained rows: 399 original ARM64-host
 rows, 192 long-name boundary rows, 768 short-name boundary rows, 266 first-run
 AMD64 rows, 788 corrected AMD64 setup/boundary rows and 1,024 AMD64 short-name
 rows. The additional 144 version-7 ARM64-host setup receipts retain deletion
@@ -219,3 +219,88 @@ arena's private extents with `MEM_COMMIT`; two simultaneous default-size
 oracles request 32 GiB of host commitment and can exhaust a CI runner's limit.
 The bounded filename fixture preserves every exit/status/byte assertion and
 its 60 s timeout; the original hardware-fault fixture is unchanged.
+
+## ARM64 kernel 29698 qualification
+
+The exact ARM64 10.0.29698 kernel profile is independently qualified by
+`profile-29698-v1.json`. Eight unchanged C producers were compiled and
+executed on ARM64, x64 compatibility and x86 compatibility: 24 images and
+1,359 measured query rows. The version-7 producer supplies the corrected
+first-group deletion setup. Its replay cases retain the version-1 semantics;
+every recorded deletion result/error remains checked. Each producer also
+performs its own initial executable-size query.
+
+A separate capture records 24 full-name queries from those same images:
+21 executable names and three KERNEL32 names. These supply independent input
+identities to the replay. The new capture does not infer an NT device path
+from a DOS path or substitute the older capture's directory layout. Version 5
+sets its query length to `case - 46`, so baseline case 4142 requests 4096
+bytes. Version 9 always selects KERNEL32; its earlier executable-size
+measurement and the actual query's ReturnLength refer to different subjects.
+Both values are preserved. Failed predecessor baseline captures are retained
+separately; producer sources and output assertions were not edited.
+
+| Retained archive | Bytes | SHA-256 |
+|---|---:|---|
+| `mapped-filename-29698-native-artifacts-v1.zip` | 6949185 | `de828f8572fac50fa9a07f8884873fe869073b70282065cc4d36b8106b54e6f0` |
+| `mapped-filename-29698-baselines-native-artifacts-v3.zip` | 5319816 | `ecf26399764d454f9a707b60c55ed691dc4b33a7a25db16c496eee4d705f8cc0` |
+| `memcpy-29698-native-artifacts-v1.zip` | 2231128 | `13b67c99ce22bcc4fda5a62986a593c34ec20c776e57924eb2dd6a95a865e4c2` |
+
+The main archive retains every raw output, source, actual image, compiler
+identity, build input and physical NTDLL provider. ARM64 and x64 compatibility
+bind to `System32/ntdll.dll`; x86 compatibility binds to `SyChpe32/ntdll.dll`.
+Source, image and provider identities are checked before and after execution.
+These compatibility observations do not qualify a physical AMD64 build-29698
+kernel.
+
+The native ARM64 `memcpy` export at RVA `0x3390C0` begins with a branch thunk.
+The observed loaded branch targets RVA `0x17B860`. The initial 2048-byte
+export snapshot is retained, without interpreting its padding as the function
+body. The bounded observer in `memcpy-body-v1/` follows direct ARM64 branches
+within the same image and captures the implementation. Two separately
+executed compiled observations and the independent Python observation agree
+on its 2048 bytes, SHA-256
+`9b4b8dbbb13fc3d68140abb744393bbddf12ef7e07965472be6adee392d32a13`.
+Independent LLVM 23.1.3 decoding confirms the branch and load/store stream.
+The body differs from the older capture's full hash; admission follows the
+fresh exact behavioral replay rather than an assumption of code identity.
+
+Verify local frozen sources and the projection:
+
+```sh
+python3 -I -B docs/specifications/windows/native-mapped-filename/check-29698.py
+```
+
+With the three archives available, verify raw bytes, PE machines, provider
+bindings, all query rows, independent names and compiled body captures:
+
+```sh
+python3 -I -B docs/specifications/windows/native-mapped-filename/check-29698.py \
+  path/to/mapped-filename-29698-native-artifacts-v1.zip \
+  path/to/mapped-filename-29698-baselines-native-artifacts-v3.zip \
+  path/to/memcpy-29698-native-artifacts-v1.zip
+```
+
+Use `python` on Windows. The no-argument mode does not check the separately
+retained raw archives. Native reproduction uses the exact archived compiler
+and execution commands. The standalone body observer's frozen CMake input
+is also provided under `memcpy-body-v1/`; it requires native ARM64 Windows.
+
+The pre-fix shared regression fails at the explicit unmeasured-copy-profile
+boundary. With exact 29698 admission, all 1,359 fresh rows and the 3,437 older
+rows pass together on macOS, retaining exact output bytes except the existing
+checked ASLR pointer field. Nine unsupported identities across all three
+guest ABIs preserve caller bytes, handle counts and commitment. All five
+selected filename tests pass with zero failures or ignores. Whole-library
+and installed Windows-leaf qualification of this amended source remain
+separate gates.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+|---|---|---|---|---|---|---|
+| MF98-1 | The recorded 29698 ARM64 copy policy retains the modeled native64/WoW64 behavior. | Frozen native query matrix, independent names and exact service replay. | Admit exactly 29698 with captured native machine 0xAA64. | Guards, aliases, partial copies, padding and 1-128-byte caller boundaries. | Any differing status, returned length, output byte, guard or ownership result. | Confirmed for recorded native inputs and shared macOS replay; installed-runtime qualification remains separate. |
+| MF98-2 | An exported address directly identifies the implementation body. | Initial auxiliary snapshot. | Direct code-identity comparison. | Decode the export and follow bounded same-image branches. | A thunk or different target. | Falsified; the original snapshot is preserved and the followed body is captured separately. |
+
+High-impact remaining scope includes independent AMD64 build 29698, other
+native kernels and full installed-process startup. The full Windows library
+run also identified separate prefetch, notification and flush-metadata
+admission gaps; this copy profile does not admit those contracts.

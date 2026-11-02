@@ -66,7 +66,16 @@ fn csr_setup(
     p: &mut Proc,
     fixture_index: usize,
 ) -> (u32, u64, u64, Arc<client_data::CsrClientData>) {
-    let (section, server) = super::secure_connect_tests::csr::server();
+    csr_setup_for_kernel(p, fixture_index, 29683)
+}
+
+fn csr_setup_for_kernel(
+    p: &mut Proc,
+    fixture_index: usize,
+    build: u32,
+) -> (u32, u64, u64, Arc<client_data::CsrClientData>) {
+    let (section, server) = super::secure_connect_tests::csr::server_for_kernel(build);
+    assert_eq!(server.metadata.kernel, (10, 0, build));
     let data = client_data::native_fixture(fixture_index);
     let server =
         CsrServer::selected_with_client_data(section, server.metadata.clone(), Some(data.clone()))
@@ -79,7 +88,7 @@ fn csr_setup(
     let object = p.objects.create(Object::LpcPort(LpcPort::csr(view, peer)));
     let handle = p.objects.open_access(object, false, 0x1F0001).unwrap();
     Arc::make_mut(&mut p.cfg).version.major = 10;
-    Arc::make_mut(&mut p.cfg).version.build = 29683;
+    Arc::make_mut(&mut p.cfg).version.build = build;
     (handle, local, remote, data)
 }
 
@@ -102,7 +111,7 @@ fn csr_request(p: &Proc, base: u64, local: u64, remote: u64, port: u32) -> [u64;
 
 #[test]
 fn native_alpc_csr_exchange_owns_repeated_reply_mappings_and_server_capture() {
-    for build in [29683, 29695] {
+    for build in [29683, 29695, 29698] {
         for fixture_index in 0..4 {
             let (mut process, mut t) =
                 fixture(WinArch::Arm64, "NtAlpcSendWaitReceivePort", SERVICE);
@@ -111,8 +120,12 @@ fn native_alpc_csr_exchange_owns_repeated_reply_mappings_and_server_capture() {
                 p.vm.allocate(None, 4096, mem::RESERVE | mem::COMMIT, prot::READWRITE)
                     .unwrap()
                     .0;
-            let (port, local, remote, data) = csr_setup(p, fixture_index);
-            Arc::make_mut(&mut p.cfg).version.build = build;
+            let (port, local, remote, data) = csr_setup_for_kernel(p, fixture_index, build);
+            let Some(Object::LpcPort(endpoint)) = p.objects.get(port.into()) else {
+                panic!("typed peer")
+            };
+            assert_eq!(endpoint.peer().unwrap().server_pid, 0x348);
+            assert_eq!(p.cfg.version.build, build);
             let before = p.vm.committed_bytes();
             let handles = p.objects.handle_count();
             let rng = p.rng;
@@ -166,7 +179,7 @@ fn native_alpc_csr_exchange_owns_repeated_reply_mappings_and_server_capture() {
 
 #[test]
 fn native_alpc_csr_rejects_foreign_capture_and_changed_schema_without_publication() {
-    for variant in 0..10 {
+    for variant in 0..12 {
         let (mut process, mut t) = fixture(WinArch::Arm64, "NtAlpcSendWaitReceivePort", SERVICE);
         let p = process.state_mut();
         let base =
@@ -188,6 +201,8 @@ fn native_alpc_csr_rejects_foreign_capture_and_changed_schema_without_publicatio
             7 => Arc::make_mut(&mut p.cfg).version.build = 29696,
             8 => Arc::make_mut(&mut p.cfg).version.minor = 1,
             9 => Arc::make_mut(&mut p.cfg).version.major = 11,
+            10 => Arc::make_mut(&mut p.cfg).version.build = 29697,
+            11 => Arc::make_mut(&mut p.cfg).version.build = 29699,
             _ => unreachable!(),
         }
         let before = (p.vm.committed_bytes(), p.objects.handle_count(), p.rng);

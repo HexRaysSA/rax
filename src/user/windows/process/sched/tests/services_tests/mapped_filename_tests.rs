@@ -12,10 +12,90 @@ fn decode_hex(text: &str) -> Vec<u8> {
 }
 
 fn captured_name(row: &serde_json::Value) -> Vec<u16> {
-    decode_hex(row["observation"]["name_hex"].as_str().unwrap())
+    captured_units(row["observation"]["name_hex"].as_str().unwrap())
+}
+
+fn captured_units(text: &str) -> Vec<u16> {
+    decode_hex(text)
         .chunks_exact(2)
         .map(|unit| u16::from_le_bytes([unit[0], unit[1]]))
         .collect()
+}
+
+#[test]
+fn mapped_filename_29698_replays_fresh_native_queries_with_independent_names() {
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-mapped-filename/profile-29698-v1.json"
+    )))
+    .unwrap();
+    assert_eq!(corpus["kernel"], serde_json::json!([10, 0, 29698]));
+    assert_eq!(corpus["native_machine"], 0xaa64);
+    assert_eq!(corpus["native_queries"], 1359);
+    assert_eq!(corpus["baseline_capture"]["native_queries"], 24);
+    let groups: Vec<_> = corpus["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|group| {
+            (
+                group["replay_version"].as_u64().unwrap() as usize - 1,
+                group["corpus"].clone(),
+            )
+        })
+        .collect();
+    replay(&groups, 3, 1359, 29698, 0xaa64, true);
+}
+
+#[test]
+fn mapped_filename_29698_refuses_unqualified_native_identity_without_publication() {
+    for arch in WinArch::ALL {
+        for (major, minor, build, machine) in [
+            (10, 0, 29694, Some(0xaa64)),
+            (10, 0, 29696, Some(0xaa64)),
+            (10, 0, 29697, Some(0xaa64)),
+            (10, 0, 29699, Some(0xaa64)),
+            (10, 1, 29698, Some(0xaa64)),
+            (11, 0, 29698, Some(0xaa64)),
+            (10, 0, 29698, None),
+            (10, 0, 29698, Some(0x14c)),
+            (10, 0, 29698, Some(0x8664)),
+        ] {
+            let (mut process, mut thread, base) = setup(arch);
+            let p = process.state_mut();
+            kernel_profile(p, build, machine.unwrap_or(0));
+            let native = p.native.as_mut().unwrap();
+            native.version.major = major;
+            native.version.minor = minor;
+            native.object_namespace.native_machine = machine;
+            // A guest-visible admitted version cannot replace native identity.
+            std::sync::Arc::make_mut(&mut p.cfg).version.build = 29695;
+            p.space.wr(base, &[0xa5; 2048]).unwrap();
+            let handles = p.objects.handle_count();
+            let committed = p.vm.committed_bytes();
+            let executable = p.modules.exe().base;
+            arguments(
+                p,
+                &mut thread,
+                &[
+                    arch.ptr(u64::MAX),
+                    executable,
+                    2,
+                    base + 128,
+                    1024,
+                    base + 64,
+                ],
+            );
+            assert!(
+                matches!(dispatch(p, &mut thread), Outcome::Fail(reason)
+                    if reason.contains("mapped filename kernel copy profile is not captured")),
+                "{arch} {major}.{minor}.{build} {machine:?}"
+            );
+            assert_eq!(p.space.bytes(base, 2048).unwrap(), [0xa5; 2048]);
+            assert_eq!(p.objects.handle_count(), handles);
+            assert_eq!(p.vm.committed_bytes(), committed);
+        }
+    }
 }
 
 fn map(p: &mut Proc, kind: AllocKind, size: u64, name: Option<Vec<u16>>) -> u64 {
@@ -246,11 +326,15 @@ fn replay_with_baseline(
                         })
                         .unwrap()
                 };
-                let exe_name = String::from_utf16(&captured_name(find(0)))
-                    .unwrap()
-                    .replace("observation-v1", &format!("observation-v{}", version + 1))
-                    .encode_utf16()
-                    .collect::<Vec<_>>();
+                let exe_name = if let Some(names) = corpus.get("executable_names") {
+                    captured_units(names[arch_name].as_str().unwrap())
+                } else {
+                    String::from_utf16(&captured_name(find(0)))
+                        .unwrap()
+                        .replace("observation-v1", &format!("observation-v{}", version + 1))
+                        .encode_utf16()
+                        .collect::<Vec<_>>()
+                };
                 let (mut process, mut thread, base) = setup(arch);
                 let p = process.state_mut();
                 kernel_profile(p, build, machine);
@@ -442,12 +526,12 @@ fn replay_with_baseline(
                     _ => {}
                 }
                 if *version == 8 {
-                    address = map(
-                        p,
-                        AllocKind::Image,
-                        PAGE_SIZE,
-                        Some(captured_name(find(36))),
-                    );
+                    let name = if let Some(names) = corpus.get("subject_names") {
+                        captured_units(names[arch_name].as_str().unwrap())
+                    } else {
+                        captured_name(find(36))
+                    };
+                    address = map(p, AllocKind::Image, PAGE_SIZE, Some(name));
                 }
                 let last_error =
                     thread.teb + crate::user::windows::layout::offsets(arch).teb_last_error;

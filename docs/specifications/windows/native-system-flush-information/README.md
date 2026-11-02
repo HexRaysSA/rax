@@ -115,3 +115,8 @@ The executed v1 driver is retained unchanged. V2 allows an aliased ReturnLength
 word to contain copied record data, rather than treating that final word as an
 independent report of record extent. It preserves the producer, all input cases
 and the raw bytes. Portable verification accepts either recorded driver version.
+
+The subsequent exact ARM64 build-29698 admission adds 1056 independently
+captured queries, including all three process ABIs and the separate WoW64 API.
+See [the build-29698 startup controls](../native-startup-build-29698/README.md)
+for raw-artifact verification and the finite scope of this addition.

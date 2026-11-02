@@ -1,0 +1,6 @@
+set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
+set(CMAKE_CXX_FLAGS_RELEASE "/Od /DNDEBUG")
+add_executable(flush ../docs/specifications/windows/native-system-flush-information/native-system-flush-information-v1.cpp)
+target_compile_features(flush PRIVATE cxx_std_20)
+target_compile_options(flush PRIVATE /EHsc /utf-8 /W4 /WX)
+file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/flush-$<CONFIG>.txt" CONTENT "$<TARGET_FILE:flush>")

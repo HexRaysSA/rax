@@ -216,3 +216,9 @@ Its formatter/Clippy and Linux C API jobs passed; Windows C API was running and
 macOS C API queued at publication preparation. Separate local C API checks
 passed191 tests on each host. These results do not claim an entirely green
 general matrix, packages, installed Assist or full process compatibility.
+
+The subsequent exact ARM64 build-29698 admission and its 1026 fresh
+three-ABI observations are documented in
+[the build-29698 startup controls](../native-startup-build-29698/README.md).
+They add 822 class-0 and invalid-class rows to the shared replay while retaining
+explicit rejection of classes 1 through 8 and unmeasured native identities.

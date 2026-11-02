@@ -5,7 +5,7 @@ fn flush_profile(version: &super::WinVersion, machine: Option<u16>) -> bool {
         && version.minor == 0
         && matches!(
             (machine, version.build),
-            (Some(0x8664), 20348 | 26100) | (Some(0xAA64), 29695)
+            (Some(0x8664), 20348 | 26100) | (Some(0xAA64), 29695 | 29698)
         )
 }
 
@@ -66,10 +66,16 @@ mod flush_tests {
             (Some(0x8664), 20348, true),
             (Some(0x8664), 26100, true),
             (Some(0xAA64), 29695, true),
+            (Some(0xAA64), 29698, true),
             (Some(0xAA64), 20348, false),
             (Some(0x8664), 29695, false),
             (Some(0xAA64), 29694, false),
             (Some(0xAA64), 29696, false),
+            (Some(0xAA64), 29697, false),
+            (Some(0xAA64), 29699, false),
+            (Some(0x8664), 29698, false),
+            (Some(0x14C), 29698, false),
+            (None, 29698, false),
             (Some(0x14C), 20348, false),
             (None, 20348, false),
         ] {

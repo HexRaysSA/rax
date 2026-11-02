@@ -18,14 +18,18 @@ mod amd64;
 mod installed;
 
 fn setup() -> (WindowsProcess, Thread, u64) {
+    setup_for_kernel(29695)
+}
+
+fn setup_for_kernel(build: u32) -> (WindowsProcess, Thread, u64) {
     let (mut process, thread) = fixture(WinArch::X86, NAME, SERVICE);
     let p = process.state_mut();
     let cfg = Arc::make_mut(&mut p.cfg);
     cfg.version.major = 10;
     cfg.version.minor = 0;
-    cfg.version.build = 29695;
+    cfg.version.build = build;
     wow64::initialize_test_profile(p, 0xaa64).unwrap();
-    let (section, server) = secure_connect_tests::csr::server_for_kernel(29695);
+    let (section, server) = secure_connect_tests::csr::server_for_kernel(build);
     p.object_namespace = secure_connect_tests::selected_namespace();
     p.object_namespace.select_data_section(section).unwrap();
     p.object_namespace.select_csr_server(server).unwrap();
@@ -292,6 +296,57 @@ fn wow64_csr_cannot_borrow_a_retired_connection_or_spoofed_native_profile() {
     assert!(matches!(call(p, &mut thread, &args(b)), Outcome::Fail(_)));
     assert!(crate::user::windows::dll::nt_service(NAME, WinArch::X64).is_none());
     assert!(crate::user::windows::dll::nt_service(NAME, WinArch::Arm64).is_none());
+}
+
+#[test]
+fn wow64_csr_29698_uses_captured_identity_and_refuses_mutated_profiles() {
+    let (mut process, mut thread, b) = setup_for_kernel(29698);
+    let p = process.state_mut();
+    Arc::make_mut(&mut p.cfg).version.build = 1;
+    assert_eq!(invoke(p, &mut thread, &args(b)), STATUS_SUCCESS);
+    publication(p, true);
+
+    for (kernel, machine, session) in [
+        ((10, 0, 29683), 0xaa64, 0),
+        ((10, 0, 29694), 0xaa64, 0),
+        ((10, 0, 29696), 0xaa64, 0),
+        ((10, 0, 29697), 0xaa64, 0),
+        ((10, 0, 29699), 0xaa64, 0),
+        ((10, 1, 29698), 0xaa64, 0),
+        ((11, 0, 29698), 0xaa64, 0),
+        ((10, 0, 29698), 0, 0),
+        ((10, 0, 29698), 0x14c, 0),
+        ((10, 0, 29698), 0x8664, 0),
+        ((10, 0, 29698), 0xaa64, 1),
+    ] {
+        let (mut process, mut thread, b) = setup_for_kernel(29698);
+        let p = process.state_mut();
+        Arc::make_mut(&mut p.cfg).version.build = 29695;
+        let state = p.wow64.as_mut().unwrap();
+        state.kernel = kernel;
+        state.machine = machine;
+        state.session = session;
+        let native = state.native_peb;
+        let handles = p.objects.handle_count();
+        let committed = p.vm.committed_bytes();
+        let caller = p.space.bytes(b, 16384).unwrap();
+        let fields: Vec<_> = [0x88, 0x98, 0x380]
+            .into_iter()
+            .map(|offset| p.space.u64(native + offset).unwrap())
+            .collect();
+        assert!(
+            matches!(call(p, &mut thread, &args(b)), Outcome::Fail(reason)
+                if reason.contains("unmeasured WoW64 CSR")),
+            "{kernel:?} machine {machine:#x} session {session}"
+        );
+        assert_eq!(p.objects.handle_count(), handles);
+        assert_eq!(p.vm.committed_bytes(), committed);
+        assert_eq!(p.space.bytes(b, 16384).unwrap(), caller);
+        assert!(p.wow64.as_ref().unwrap().csr.is_none());
+        for (offset, expected) in [0x88, 0x98, 0x380].into_iter().zip(fields) {
+            assert_eq!(p.space.u64(native + offset).unwrap(), expected);
+        }
+    }
 }
 
 #[test]

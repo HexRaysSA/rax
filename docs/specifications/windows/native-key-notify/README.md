@@ -134,3 +134,9 @@ own the user-mode failure order and lifecycle observations above:
 
 - [Microsoft: ZwNotifyChangeKey](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-zwnotifychangekey)
 - [Microsoft: RegNotifyChangeKeyValue](https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regnotifychangekeyvalue)
+
+The subsequent exact ARM64 build-29698 admission adds 1488 selected
+three-ABI observations to the shared replay. The initial thread observer's
+failed handle-count verdict remains separate from the successful unchanged
+repetitions. See [the build-29698 startup controls](../native-startup-build-29698/README.md)
+for the complete provenance, follow-up controls and limits of that result.

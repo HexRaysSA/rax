@@ -121,7 +121,7 @@ pub(crate) fn snapshot(
         let (locale, bytes) = initialize::capture()?;
         nls = nls.with_initialize(locale, bytes)?;
     }
-    if super::supports_startup_profile(version) {
+    if super::supports_startup_profile(version, native_machine) {
         nls = nls.with_mui(mui::capture()?)?;
     }
     Ok(nls)
@@ -184,7 +184,10 @@ mod tests {
         } else {
             assert!(nls.initialize().is_none());
         }
-        if !super::super::supports_startup_profile(&runtime.version) {
+        if !super::super::supports_startup_profile(
+            &runtime.version,
+            runtime.object_namespace.native_machine,
+        ) {
             assert!(nls.mui().is_none());
         }
     }

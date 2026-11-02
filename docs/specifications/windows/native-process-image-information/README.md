@@ -374,3 +374,80 @@ unrelated Windows-only leaf refinements. These results are separate from a
 new current-root linked Assist archive or shipping-package qualification.
 Public C API 1.15.0, the 73534-byte header, feature defaults and private owning
 interfaces remain unchanged.
+
+## ARM64 kernel 29698 qualification
+
+The fresh 29698 observations use the unchanged version-7 C++ producer and
+version-9 validators. Four executable views cover ARM64, x64 compatibility,
+x86 and x86 with large-address awareness on one ARM64 kernel. They do not
+establish an AMD64 kernel profile. Native major/minor/build and machine remain
+independent of the editable guest PEB version and caller ISA.
+
+The first observer stopped during Visual Studio environment setup, before
+compilation or any native query. The retained replacement uses CMake with
+MSVC, SDK 10.0.26100.0, C++20, static CRT, `/Od /EHsc /W4 /WX /NXCOMPAT` and
+explicit x86 large-address-awareness selection. It retains every original and
+patched executable. Executed C++ and validators are unchanged; only the build
+adapter differs. Native process queries target the observer itself or an owned
+suspended child. Each suspended child is terminated and reaped after its
+metadata query, before user entry.
+
+| Fresh observation | Count | Result |
+| --- | ---: | --- |
+| Complete query matrices | 2800 cases | Status, probe-order inputs, guards, access grants and redaction masks match the 29695 controls |
+| Admitted executable profiles | 45 self queries | Actual PE/file fields and metadata projections retained |
+| ARM64 matrix loader rejections | 3 | Windows error 193; zero queries attributed |
+| Relocation controls | 15 records, 13 queries | Three baselines, ten suspended-child queries and two qualified loader rejections |
+| Total class-37 queries | 2858 | `2800 + 45 + 13` |
+
+Both native64 views retain all eight transfer-address bytes before the
+offset-4088 destination faults at the next page. Their validity, change and
+match masks are all 255. This distinguishes the observed eight-byte copy
+group from the independent AMD64 sixteen-byte profile. WoW64 retains its
+complete 48-byte validation and late converted ReturnLength behavior. The
+physical provider bindings are checked before and after execution, including
+`SyChpe32/ntdll.dll` for x86 rather than its redirected logical System32 name.
+
+`local-29698-v1.json`, `local-relocation-directory-29698-v1.json` and
+`inputs-29698-v1.json` retain observations and source identities. The archive
+`image-information-29698-native-artifacts-v1.zip` has 13434809 bytes, SHA-256
+`3d5b2a904caae761c47f19ca6ace289e89c69617bdbd97ba8b72bb6ff0f3a1a2`,
+and 605 independently verified payloads. It includes actual executables,
+original source copies, CMake input, compiler/build records, raw stdout and
+physical providers. The failed setup attempt remains recorded separately.
+
+Verify the projection and its rejection cases without native execution:
+
+```sh
+python3 -I -B -m unittest discover \
+  -s docs/specifications/windows/native-process-image-information \
+  -p test_29698_projection.py
+```
+
+The four checks cover complete ordered views/profiles, source and file-byte
+bindings, eight-byte boundary witnesses, suspended-child metadata and rejection
+of missing/reordered inputs, wrong kernels/machines, altered sources and
+invalid pointer masks. The existing CI discovery command includes these tests.
+The separately retained archive provides the exact native CMake/compiler and
+execution commands; the version-9 parser's `file_metadata` and `patched`
+functions reproduce the declared preferred-base arguments and PE variants.
+
+The expanded shared replay consumes 10508 query rows and 171 admitted image
+profiles across five captured kernel identities. It also checks 30 suspended
+child profiles, with six directory-control rejections excluded from query
+coverage. The initial old-predicate run is kept as regression evidence before
+admitting the new build. Adjacent builds, changed major/minor versions, foreign
+native machines and an absent native-machine identity retain explicit refusal
+without output, allocation or commitment changes. Runtime and complete-platform
+validation remain separate from native observation/projection checks.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| PI98-A1 | The measured ARM64 kernel retains the existing copy, metadata and lifetime contract. | Fresh unchanged C++ controls, full matrices, exact status/guard/access/mask comparison and independent suspended-child fields. | Admit exactly native 10.0.29698/machine 0xAA64. | Eight-byte and sixty-byte boundaries, guards, aliases, rights, PE fields, file length and relocation flags across four process views. | Any native status, projection, copy, grant, metadata or ownership mismatch. | Confirmed for recorded native observations; model qualification is separate. |
+
+High-impact remaining scope: other 29698 native machines, other builds,
+unqualified image kinds, later service/exception boundaries and complete
+installed-process startup. The finite admission adds no guest-directed native
+query or success placeholder. Copying remains O(1) time and scratch for the
+fixed 64-byte native or 48-byte converted record; the existing guest-budget
+policy for converted backing remains unchanged.

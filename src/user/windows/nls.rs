@@ -11,9 +11,19 @@ mod initialize;
 mod mui;
 
 /// Finite qualification for initialization and query-only MUI snapshots.
-/// The two ARM64 kernel profiles independently cover native64 and WoW64 calls.
-pub(crate) fn supports_startup_profile(version: &super::process::WinVersion) -> bool {
-    version.major == 10 && version.minor == 0 && matches!(version.build, 29683 | 29695)
+/// The 29698 extension binds the measured ARM64 kernel machine independently
+/// of the guest ABI. Earlier profile admission retains its existing contract.
+pub(crate) fn supports_startup_profile(
+    version: &super::process::WinVersion,
+    native_machine: Option<u16>,
+) -> bool {
+    version.major == 10
+        && version.minor == 0
+        && match version.build {
+            29683 | 29695 => true,
+            29698 => native_machine == Some(0xAA64),
+            _ => false,
+        }
 }
 
 /// Initialization has independent AMD64 controls; MUI retains its own admission.
@@ -22,7 +32,7 @@ pub(crate) fn supports_initialize_profile(
     native_machine: Option<u16>,
     arch: super::arch::WinArch,
 ) -> bool {
-    supports_startup_profile(version)
+    supports_startup_profile(version, native_machine)
         || version.major == 10
             && version.minor == 0
             && matches!(version.build, 20348 | 26100)
@@ -119,7 +129,7 @@ mod tests {
                         expected
                     );
                     assert!(
-                        !supports_startup_profile(&version),
+                        !supports_startup_profile(&version, machine),
                         "MUI admission is independent"
                     );
                     version.minor = 1;
@@ -137,12 +147,17 @@ mod tests {
         for (major, minor, build, expected) in [
             (10, 0, 29683, true),
             (10, 0, 29695, true),
+            (10, 0, 29698, true),
             (10, 0, 29682, false),
             (10, 0, 29684, false),
             (10, 0, 29694, false),
             (10, 0, 29696, false),
+            (10, 0, 29697, false),
+            (10, 0, 29699, false),
             (10, 1, 29695, false),
             (11, 0, 29695, false),
+            (10, 1, 29698, false),
+            (11, 0, 29698, false),
         ] {
             let version = super::super::process::WinVersion {
                 major,
@@ -150,7 +165,16 @@ mod tests {
                 build,
                 ..Default::default()
             };
-            assert_eq!(supports_startup_profile(&version), expected);
+            for machine in [None, Some(0x14C), Some(0x8664), Some(0xAA64)] {
+                let expected = expected && (build != 29698 || machine == Some(0xAA64));
+                assert_eq!(supports_startup_profile(&version, machine), expected);
+                for arch in super::super::arch::WinArch::ALL {
+                    assert_eq!(
+                        supports_initialize_profile(&version, machine, arch),
+                        expected
+                    );
+                }
+            }
         }
     }
 

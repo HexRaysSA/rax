@@ -37,7 +37,7 @@ fn wow64_csr_installed_x86_leaf_publishes_owned_connection_and_returns_with_ret2
         super::super::secure_connect_tests::installed::try_leaf(p, &mut thread, NAME, &args(b));
     let measured = matches!(
         (machine, native_kernel),
-        (0xaa64, (10, 0, 29695)) | (0x8664, (10, 0, 20348 | 26100))
+        (0xaa64, (10, 0, 29695 | 29698)) | (0x8664, (10, 0, 20348 | 26100))
     );
     if !measured {
         assert!(matches!(result, Err(reason) if reason.contains("WoW64 CSR")));

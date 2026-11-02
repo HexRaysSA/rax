@@ -225,6 +225,10 @@ fn native_process_image_information_replays_measured_kernel_queries_and_metadata
             env!("CARGO_MANIFEST_DIR"),
             "/docs/specifications/windows/native-process-image-information/local-29695-v1.json"
         )),
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/docs/specifications/windows/native-process-image-information/local-29698-v1.json"
+        )),
     ];
     let mut profiles = 0;
     let mut queries = 0;
@@ -410,9 +414,9 @@ fn native_process_image_information_replays_measured_kernel_queries_and_metadata
             }
         }
     }
-    assert_eq!(profiles, 126);
-    assert_eq!(queries, 7708);
-    assert_eq!(rejected, 6);
+    assert_eq!(profiles, 171);
+    assert_eq!(queries, 10508);
+    assert_eq!(rejected, 9);
     assert!(
         pointer_bits > 25000,
         "nonzero validity-qualified pointer coverage"
@@ -423,6 +427,7 @@ fn native_process_image_information_replays_measured_kernel_queries_and_metadata
 fn native_process_image_information_replays_suspended_child_metadata_profiles() {
     let records: Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/specifications/windows/native-process-image-information/local-relocation-directory-29683-v1.json"))).unwrap();
     let fresh: Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/specifications/windows/native-process-image-information/local-relocation-directory-29695-v1.json"))).unwrap();
+    let current: Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/specifications/windows/native-process-image-information/local-relocation-directory-29698-v1.json"))).unwrap();
     let mut admitted = 0;
     let mut rejected = 0;
     for record in records
@@ -430,6 +435,7 @@ fn native_process_image_information_replays_suspended_child_metadata_profiles() 
         .unwrap()
         .iter()
         .chain(fresh.as_array().unwrap().iter())
+        .chain(current.as_array().unwrap().iter())
         .filter(|r| r["kind"] == "section-metadata")
     {
         if record["available"] == false {
@@ -451,6 +457,6 @@ fn native_process_image_information_replays_suspended_child_metadata_profiles() 
         install_metadata(p, arch, &profile);
         verify_metadata(p, &mut thread, scratch, arch, &profile);
     }
-    assert_eq!(admitted, 20);
-    assert_eq!(rejected, 4);
+    assert_eq!(admitted, 30);
+    assert_eq!(rejected, 6);
 }

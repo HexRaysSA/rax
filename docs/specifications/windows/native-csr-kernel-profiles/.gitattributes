@@ -1,0 +1,3 @@
+# Keep generated observation bytes stable with Windows core.autocrlf.
+profile-29698-v1.json -text
+project-profile-v1.py -text

@@ -1,14 +1,14 @@
-# Pure x86 CSR BASE connection on ARM64 Windows 29695
+# Pure x86 CSR BASE connection on ARM64 Windows
 
 The installed `NtWow64CsrClientConnectToServer` leaf takes five 32-bit
 arguments: `PWSTR`, `ULONG`, `PVOID`, scalar `ULONG`, `PBOOLEAN`. Its own
 `RET20` removes 20 argument bytes after the WoW64 transition returns.
-The observed pure-x86 export RVA is `0x77490`; the CHPE export RVA is
+On build 29695 the pure-x86 export RVA is `0x77490`; the CHPE export RVA is
 `0x1BCEB0`. The historical six-argument Dr. Memory declaration in
 `references/drmemory-ntwow64.h` does not describe this installed ABI.
 
-This implementation admits the measured BASE server1 on independently
-captured ARM64 kernel `10.0.29695`, session0. Both immutable selected CSR
+This ARM64 profile admits the measured BASE server1 on independently
+captured kernels `10.0.29695` and `10.0.29698`, session0. Both immutable selected CSR
 metadata and process-owned WoW64 metadata must match. Guest-visible version
 fields cannot select a native kernel profile. Other servers, kernels,
 sessions and captures exceeding 80 bytes produce an explicit unsupported
@@ -148,7 +148,7 @@ to check producer identities, the 31/38 fresh/retry projection, cross-family
 336-call equality, original native exit0 and the separate volume observation.
 The verifier is read-only and uses the Python standard library.
 
-## Validation results
+## Historical 29695 validation results
 
 | Host | Final CSR filter | Tail ordinal check | Complete C API | Evidence verifier |
 |---|---:|---:|---:|---|
@@ -177,3 +177,81 @@ unimplemented `NtQueryInformationProcess` class26 (`ProcessWow64Information`).
 Its final explicit rerun reports 0 passed/1 failed/0 ignored at the same
 frontier. Neither overall Windows qualification nor the full host-library
 process objective is complete.
+
+## ARM64 kernel 29698 qualification
+
+`profile-29698-v1.json` adds a separately measured Windows 10.0.29698,
+ARM64, session0 profile. The installed CLI reached the existing explicit
+`NtWow64CsrClientConnectToServer` unavailable result before this amendment.
+The private captured kernel, machine, session and selected server metadata
+continue to own admission. The existing native AMD64 profiles retain their
+independent contracts.
+
+Six frozen C++ sources and the original x86 fault executable were reused
+without editing their bytes. The compiler adapter uses the archived CMake
+project, C++20, static CRT, `/Od /EHsc /utf-8 /W4 /WX` and Windows SDK
+10.0.26100.0. The minimal diagnostic child retains `/GS- /Zl`, its explicit
+entry point and kernel32 imports. All build outputs remain in the
+selected task tree.
+
+| Fresh observation | Count | Comparison with the retained controls |
+|---|---:|---|
+| First-call/retry cases | 31 | All 38 statuses, handle deltas, new handle grants/types/names and mapping geometries agree |
+| Publication phases | 38 | Native64 and PEB32 publication/nonpublication agree at each return |
+| Repeated calls | 336 | All semantic rows agree exactly across default, CHPE-enabled and pure-x86 children and with the older capture |
+| Original native fault executable | 1 | Completes with exit0 |
+
+The pure-x86 export now has RVA `0x77030`; its five-argument ABI and own
+`RET20` cleanup remain unchanged. Captured process addresses and the number
+of changed pointer bytes vary with ASLR. Raw logs retain them; the typed
+comparison checks publication state rather than treating pointer-byte
+counts as a new service policy. The controlled first/retry children still
+end with exit70 after observation.
+
+The canonical archive is `wow64-csr-29698-native-artifacts-v1.zip`, 7163538
+bytes, SHA-256
+`60a3deccd08004edcb3b19259f37ee0d7a0088b458b9494707d5a47135057c5b`.
+Its 403 payloads retain the six actual observer/child images, compiler and
+source identities, raw output, actual NTDLL providers, CMake input and the
+original fault executable. Provider hashes and all source/image hashes
+were checked before and after native execution.
+
+Check the byte-bound projection and its frozen local source inputs:
+
+```sh
+python3 -I -B docs/specifications/windows/native-wow64-csr-connect/check-29698.py
+```
+
+With the retained archive available, regenerate the projection:
+
+```sh
+python3 -I -B docs/specifications/windows/native-wow64-csr-connect/check-29698.py \
+  path/to/wow64-csr-29698-native-artifacts-v1.zip > profile-29698-rebuilt.json
+```
+
+The output must equal `profile-29698-v1.json` byte for byte. On Windows,
+use `python` for the interpreter command. The archive verifier first
+reproduces every old typed step with its parser, checks every archive
+payload, then compares the fresh native semantics. Its no-argument mode
+checks the local frozen sources and projection; it does not check the
+separately retained raw archive.
+
+The shared regression replays all 31 fresh cases and 38 returns with
+matching 29698 process and selected-server metadata. An additional
+regression verifies that changing guest-facing version fields cannot
+override the captured identity, and that adjacent/foreign kernel,
+architecture and session mutations preserve caller bytes, native CSR
+fields, handle counts and commitment. The existing Windows installed-leaf
+test now exercises this exact profile. The pre-fix regression fails at
+the explicit unmeasured-profile boundary; full platform qualification of
+the amendment is recorded separately.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+|---|---|---|---|---|---|---|
+| WC5 | The measured 29698 ARM64/session0 BASE bridge retains the selected first/connected contract. | Frozen first/retry and family controls, original native fault completion and exact typed comparison. | Admit exactly 29698 with matching captured metadata. | Readonly/guarded buffers, Boolean faults, failed retries, root syntax and partial publication. | Any differing status, resource geometry, publication phase or leaf cleanup. | Confirmed for recorded native controls; shared and installed-runtime qualification are separate gates. |
+
+High-impact remaining scope includes complete installed-process startup,
+other native kernels/sessions, larger captures and other CSR servers.
+The independent mapped-filename profile currently blocks another installed
+CLI fixture on 29698. These native observations do not establish completion
+of the full Linux/macOS/Windows process-emulation objective.

@@ -106,7 +106,7 @@ fn checked(c: &mut Ctx, handle: u64, output: u64, length: u32, returned: u64) ->
             native.version.build,
             native.object_namespace.native_machine,
         ) {
-            (10, 0, 29683 | 29695, Some(0xaa64)) => 8,
+            (10, 0, 29683 | 29695 | 29698, Some(0xaa64)) => 8,
             (10, 0, 20348 | 26100, Some(0x8664)) => 16,
             _ => {
                 return Err(c.unsupported(

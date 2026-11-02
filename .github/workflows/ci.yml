@@ -438,6 +438,10 @@ jobs:
         run: python -B -m unittest discover -s docs/specifications/windows/native-wow64-csr-amd64 -p test_matrix_projection.py
       - name: Measured Windows startup profiles
         run: |
+          python -I -B docs/specifications/windows/native-startup-build-29698/check.py
+          python -I -B docs/specifications/windows/native-mapped-filename/check-29698.py
+          python -I -B docs/specifications/windows/native-wow64-csr-connect/check-29698.py
+          python -I -B docs/specifications/windows/native-nls-build-29698/check.py
           cargo test --locked --no-default-features --lib csr
           cargo test --locked --no-default-features --lib nls
           cargo test --locked --no-default-features --lib mui

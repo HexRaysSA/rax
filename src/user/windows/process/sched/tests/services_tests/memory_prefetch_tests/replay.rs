@@ -158,6 +158,17 @@ fn native_memory_prefetch_replays_822_independent_class0_and_invalid_class_rows(
 }
 
 #[test]
+fn native_memory_prefetch_replays_822_build_29698_rows() {
+    corpus(
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/docs/specifications/windows/native-startup-build-29698/prefetch-v1.json"
+        )),
+        3,
+    );
+}
+
+#[test]
 fn native_memory_prefetch_replays_548_native_amd64_20348_rows() {
     corpus(
         include_str!(concat!(

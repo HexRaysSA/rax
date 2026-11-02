@@ -1,0 +1,1347 @@
+{
+  "schema": "rax-native-wow64-csr-29698-v1",
+  "kernel": [
+    10,
+    0,
+    29698
+  ],
+  "native_machine": 43620,
+  "session": 0,
+  "archive_sha256": "60a3deccd08004edcb3b19259f37ee0d7a0088b458b9494707d5a47135057c5b",
+  "original_native_exit": 0,
+  "fresh_cases": 31,
+  "fresh_returns": 38,
+  "family_calls": 336,
+  "sources": {
+    "initial-v4.cpp": {
+      "bytes": 18297,
+      "sha256": "a1c0c3e529c0d8bef6415866f5bff0948fd4b079bd2b673b68458c47d8bf7fbf"
+    },
+    "initial-v8.cpp": {
+      "bytes": 31588,
+      "sha256": "edffb6d0fbb4e4224e8ae294c36a767760245d243c271e80fde4d97318d04af5"
+    },
+    "initial-v9.cpp": {
+      "bytes": 32599,
+      "sha256": "868bd617de633cc742e64fa2da600a336edb36cc3359e593172c329f00504c0b"
+    },
+    "initial-child-v1.cpp": {
+      "bytes": 101,
+      "sha256": "ef16f8b19e715cd4cfe2064f97326e874ff50c0d54be72dec5a511a68084af7c"
+    },
+    "family-launcher-v1.cpp": {
+      "bytes": 5764,
+      "sha256": "f872295861572a098ffca08f2e3b418e45b5f97d99ccfb250e5c75f448b91460"
+    },
+    "family-v4.cpp": {
+      "bytes": 11849,
+      "sha256": "84a9af3ac8402b18e13f79cc127dd65ccb7aa566a30414b92784015084304fb4"
+    },
+    "fault.exe": {
+      "bytes": 2560,
+      "sha256": "4a0f28a1fba11a97b7498f6bf5b231d32c124ce15d2bcb90084816e342c09544"
+    },
+    "CMakeLists.txt": {
+      "bytes": 1176,
+      "sha256": "e0907ccc65b717a4cd52a0f0fb145dbd8665208c9f84c9af2bef3d41341f44e7"
+    }
+  },
+  "images": [
+    {
+      "label": "initial_v4",
+      "arch": "arm64",
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-csr-29698-v1\\build-arm64\\Release\\initial_v4.exe",
+      "bytes": 162816,
+      "sha256": "2b441a151e4d2ccb9f99cb4fbeb5f63aef60245cab2d1236b7a696cec74f71b4",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835"
+    },
+    {
+      "label": "initial_v8",
+      "arch": "arm64",
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-csr-29698-v1\\build-arm64\\Release\\initial_v8.exe",
+      "bytes": 184320,
+      "sha256": "a5e265f849a6b9fcd06c434409c1bfb6c8e6917b06bd6b1581dcc140a9807548",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835"
+    },
+    {
+      "label": "initial_v9",
+      "arch": "arm64",
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-csr-29698-v1\\build-arm64\\Release\\initial_v9.exe",
+      "bytes": 184832,
+      "sha256": "01ed8bf5426a839415cbf74f35e742877e4e74f6916f953222eee66c51444026",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835"
+    },
+    {
+      "label": "family_launcher",
+      "arch": "arm64",
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-csr-29698-v1\\build-arm64\\Release\\family_launcher.exe",
+      "bytes": 150016,
+      "sha256": "9c3b5b4271946c601a8198893f125f0138c35f34d799a5f7b92fd6a734c013d2",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835"
+    },
+    {
+      "label": "initial_child",
+      "arch": "x86",
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-csr-29698-v1\\build-x86\\Release\\initial_child.exe",
+      "bytes": 3072,
+      "sha256": "35f21eeee9d3ad10c3fb118f89e078e52a4de69d80e9add86360a7bf8edbd265",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad"
+    },
+    {
+      "label": "family_child",
+      "arch": "x86",
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-csr-29698-v1\\build-x86\\Release\\family_child.exe",
+      "bytes": 135168,
+      "sha256": "f3f46f8b110bc1bb728e30b1c3ebd7c2085a3c1cf6e83fc176fb7126e2b15073",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad"
+    }
+  ],
+  "providers": {
+    "arm64": {
+      "path": "C:\\Windows\\System32\\ntdll.dll",
+      "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+      "before_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "identity_before": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 8,
+        "entry_bytes": 24,
+        "layout_offsets": [
+          0,
+          8,
+          12,
+          16
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      },
+      "identity_image": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\query-multiple-values-ci-v4\\native-query-multiple-values-arm64.exe",
+      "identity_image_sha256": "65423eb2eb90e1096e6021100eed3e7c71e61a8692d25ba5a75c899ccc07fc0d",
+      "after_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "identity_after": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 8,
+        "entry_bytes": 24,
+        "layout_offsets": [
+          0,
+          8,
+          12,
+          16
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      }
+    },
+    "x64": {
+      "path": "C:\\Windows\\System32\\ntdll.dll",
+      "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+      "before_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "identity_before": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 8,
+        "entry_bytes": 24,
+        "layout_offsets": [
+          0,
+          8,
+          12,
+          16
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      },
+      "identity_image": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\query-multiple-values-ci-v4\\native-query-multiple-values-x64.exe",
+      "identity_image_sha256": "a8d62f49edd404fea9db9a94111f4ee0454f342805ab01f3ce50533e2aadb565",
+      "after_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "identity_after": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 8,
+        "entry_bytes": 24,
+        "layout_offsets": [
+          0,
+          8,
+          12,
+          16
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      }
+    },
+    "x86": {
+      "path": "C:\\Windows\\SyChpe32\\ntdll.dll",
+      "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+      "before_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+      "identity_before": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 4,
+        "entry_bytes": 16,
+        "layout_offsets": [
+          0,
+          4,
+          8,
+          12
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      },
+      "identity_image": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\query-multiple-values-ci-v4\\native-query-multiple-values-x86.exe",
+      "identity_image_sha256": "7181d99c46ea0684e50bc77d0b799a98c878a79864b0b4065e9ff17d014d1063",
+      "after_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+      "identity_after": {
+        "kind": "identity",
+        "schema": "rax-native-query-multiple-values-v6",
+        "pointer_bytes": 4,
+        "entry_bytes": 16,
+        "layout_offsets": [
+          0,
+          4,
+          8,
+          12
+        ],
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "arena_base": 0,
+        "arena": 65536,
+        "provider_utf16": "43003a005c00570049004e0044004f00570053005c00530059005300540045004d00330032005c006e00740064006c006c002e0064006c006c00",
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00",
+        "key_path_utf16": ""
+      }
+    },
+    "pure-x86": {
+      "path": "C:\\Windows\\SysWOW64\\ntdll.dll",
+      "before_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280"
+    }
+  },
+  "groups": [
+    {
+      "version": 8,
+      "case_count": 26,
+      "return_count": 32,
+      "samples": [
+        {
+          "mode": "valid",
+          "stdout_sha256": "7fd944a384386bc01da3d3fc67ff2b75081a77824ae8ab0ae89869a831fc7fe4",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "00000000",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 10
+            }
+          ]
+        },
+        {
+          "mode": "zero",
+          "stdout_sha256": "955b9af943cbac47e492fb223ced12b2c3b0f5008665d8e7dd620a8b3162d2a5",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C000000D",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "short",
+          "stdout_sha256": "262332573f97a184fb1d11228b5f79a73ff524aa183a1627a8beca6a191b5862",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C000000D",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 10
+            }
+          ]
+        },
+        {
+          "mode": "null-buffer",
+          "stdout_sha256": "22fd63af00fc22e4a282539218f975381a169ebf0da914f7749a09da2dbef505",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "00000000",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "noaccess-buffer",
+          "stdout_sha256": "c72b2cc650ff76f41c12491494bf7d26d7a988b8b45be3ee383d14fa0fc85034",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C0000005",
+              "new_handles": [
+                {
+                  "access": "00000004",
+                  "type": "Section",
+                  "name": "\\Windows\\SharedSection"
+                },
+                {
+                  "access": "000F001F",
+                  "type": "Section",
+                  "name": null
+                }
+              ],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 48,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "readonly-buffer",
+          "stdout_sha256": "24d20e059cdb27a562b9a53cc0dba1a2c0abe5754daea805f05c906ce3fd40eb",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "00000000",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 10
+            }
+          ]
+        },
+        {
+          "mode": "guard-buffer",
+          "stdout_sha256": "c2fad6f854b379711ffbe98a81b3eb7084e2bc83c6a94f0d7fcf1c4bf0dff36a",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "80000001",
+              "new_handles": [
+                {
+                  "access": "00000004",
+                  "type": "Section",
+                  "name": "\\Windows\\SharedSection"
+                },
+                {
+                  "access": "000F001F",
+                  "type": "Section",
+                  "name": null
+                }
+              ],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 48,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "bad-inside",
+          "stdout_sha256": "267462b26ae0ab8e644ed38163ba44d4af4a8db9a5c997e522ae9b75c74b6670",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C0000005",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "guard-inside",
+          "stdout_sha256": "ea4cff6310b18c904b63fa615111211502cdb4b2aa54aad8a724bd4c57e1fb09",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "80000001",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "null-root",
+          "stdout_sha256": "66e4e9edabcd4121ad76c6e0d501b30917f9d7ff50f44063d29aa981a49aaea7",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C000000D",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "bad-root",
+          "stdout_sha256": "2ffd2bbd8d7ad78f515a2fbaa2fe38220885bd0ed02dfa314f6eeff6e6623da8",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C0000005",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "missing-root",
+          "stdout_sha256": "e8549423326761e8a67a0303bdf6c0fb0a0e970f4f90cc064cada0d8d3c86617",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C000003A",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "readonly-inside",
+          "stdout_sha256": "5c6bd21afb845b0587727d7f642cc8c1f157733275485a912dcbda28b202b4a2",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C0000005",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "readonly-guard-inside",
+          "stdout_sha256": "026225164c0d505e3d79d81b92b1bb08db192b2c50586dfe3549538643c51c2b",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C0000005",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "null-inside",
+          "stdout_sha256": "36eacf4a0a66ad797d1877cb8fa5c020436d637c634f7a0a4feb2b204eb5ba81",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "00000000",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 10
+            }
+          ]
+        },
+        {
+          "mode": "guard-root",
+          "stdout_sha256": "3c6c0feeed748507f8f7de1bdec5b71879a2b523edd4a145b0cb0475c01d2bc6",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "80000001",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "null-buffer-null-root",
+          "stdout_sha256": "43de2dd96939fad3fb753f48c5568a0ca0a91a7f8c39655d015fa1274b938a65",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "00000000",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "zero-bad-root",
+          "stdout_sha256": "04118abcd2b74240907af068dffeb0b68831de6d177a87663c0e190cc6d583e2",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C000000D",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "length-16",
+          "stdout_sha256": "8027de583d1f5571fe31cd81ad0dce175164ba0f2971c21599ebf2c3418fec18",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C000000D",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 10
+            }
+          ]
+        },
+        {
+          "mode": "length-64",
+          "stdout_sha256": "87733efcd3bf0dcbbc93978e815f3d3d2afbeb18f5b739ea88854addbfa9a0b8",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C000000D",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 10
+            }
+          ]
+        },
+        {
+          "mode": "retry-valid",
+          "stdout_sha256": "24bad45412c12f055e66c094dc37f8ce0f667880c352663da352a04da883b2b9",
+          "terminal": "DONE installed=1 entered=2 returned=2 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "00000000",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 10
+            },
+            {
+              "ordinal": 1,
+              "status": "00000000",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 47,
+              "handles_after": 47,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "retry-readonly-buffer",
+          "stdout_sha256": "49e06a4b59bdeb90f81e71c9bb2dcaf69e32d4fdfe02411ff0b37e8432331a80",
+          "terminal": "DONE installed=1 entered=2 returned=2 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "00000000",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 10
+            },
+            {
+              "ordinal": 1,
+              "status": "C0000005",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 47,
+              "handles_after": 47,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "retry-noaccess-buffer",
+          "stdout_sha256": "649b39dde7283e826b850332b50a2d3892821223ae13e7f0bf26461181733e78",
+          "terminal": "DONE installed=1 entered=2 returned=2 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C0000005",
+              "new_handles": [
+                {
+                  "access": "00000004",
+                  "type": "Section",
+                  "name": "\\Windows\\SharedSection"
+                },
+                {
+                  "access": "000F001F",
+                  "type": "Section",
+                  "name": null
+                }
+              ],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 48,
+              "changed64": 0,
+              "changed32": 0
+            },
+            {
+              "ordinal": 1,
+              "status": "C0000005",
+              "new_handles": [
+                {
+                  "access": "00000004",
+                  "type": "Section",
+                  "name": "\\Windows\\SharedSection"
+                },
+                {
+                  "access": "000F001F",
+                  "type": "Section",
+                  "name": null
+                }
+              ],
+              "new_mappings": [],
+              "handles_before": 48,
+              "handles_after": 50,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "retry-guard-buffer",
+          "stdout_sha256": "1ebe4cc28f1e496f08afc9ba54217bb4bdb187d980696f71b51f2f8a7ae2ec80",
+          "terminal": "DONE installed=1 entered=2 returned=2 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "80000001",
+              "new_handles": [
+                {
+                  "access": "00000004",
+                  "type": "Section",
+                  "name": "\\Windows\\SharedSection"
+                },
+                {
+                  "access": "000F001F",
+                  "type": "Section",
+                  "name": null
+                }
+              ],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 48,
+              "changed64": 0,
+              "changed32": 0
+            },
+            {
+              "ordinal": 1,
+              "status": "00000000",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 48,
+              "handles_after": 49,
+              "changed64": 10,
+              "changed32": 10
+            }
+          ]
+        },
+        {
+          "mode": "retry-bad-inside",
+          "stdout_sha256": "a8a754779b60a691bee197bc2fe3da54485d16ce763b02f40adf1eaec8b1a452",
+          "terminal": "DONE installed=1 entered=2 returned=2 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C0000005",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 0
+            },
+            {
+              "ordinal": 1,
+              "status": "C0000005",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 47,
+              "handles_after": 47,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "retry-guard-inside",
+          "stdout_sha256": "0570ddfbe8bbdb781e854501f58f81de5a1cd092e75535a9e875ceef3652183b",
+          "terminal": "DONE installed=1 entered=2 returned=2 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "80000001",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 0
+            },
+            {
+              "ordinal": 1,
+              "status": "00000000",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 47,
+              "handles_after": 47,
+              "changed64": 0,
+              "changed32": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": 9,
+      "case_count": 5,
+      "return_count": 6,
+      "samples": [
+        {
+          "mode": "lower-root",
+          "stdout_sha256": "2b936c83c57898a424dd7fcd103a33e742c4475a7f1a7bc09f45f4451ac6b097",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C000003A",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "upper-root",
+          "stdout_sha256": "73bc3cefa106481f7ae857020fcac9eb89988f164a8ecbb239669de13ab644af",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C000003A",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "trailing-root",
+          "stdout_sha256": "bbc3b5487f5c637c2ba3d52621793f6d2aaae7824fd2308008d4445eb38194f8",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C0000033",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "root-only",
+          "stdout_sha256": "2ca9cda9ebed5e75cf1906e44c0bf9a134fdd45c652751a164678ce656018367",
+          "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "C0000033",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 46,
+              "handles_after": 46,
+              "changed64": 0,
+              "changed32": 0
+            }
+          ]
+        },
+        {
+          "mode": "retry-guard-inside-null-buffer",
+          "stdout_sha256": "1d4604e908b03004683fc9918648bbc1efe53ada4d3c45384235da8ae4ba7bc3",
+          "terminal": "DONE installed=1 entered=2 returned=2 base-calls=1 pending=0 exit=70",
+          "steps": [
+            {
+              "ordinal": 0,
+              "status": "80000001",
+              "new_handles": [
+                {
+                  "access": "001F0001",
+                  "type": "ALPC Port",
+                  "name": null
+                }
+              ],
+              "new_mappings": [
+                {
+                  "bytes": 65536,
+                  "state": 4096,
+                  "protect": 4,
+                  "type": 262144
+                },
+                {
+                  "bytes": 20480,
+                  "state": 4096,
+                  "protect": 2,
+                  "type": 262144
+                },
+                {
+                  "bytes": 1028096,
+                  "state": 8192,
+                  "protect": 0,
+                  "type": 262144
+                }
+              ],
+              "handles_before": 46,
+              "handles_after": 47,
+              "changed64": 10,
+              "changed32": 0
+            },
+            {
+              "ordinal": 1,
+              "status": "00000000",
+              "new_handles": [],
+              "new_mappings": [],
+              "handles_before": 47,
+              "handles_after": 47,
+              "changed64": 0,
+              "changed32": 10
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "family": [
+    {
+      "mode": "default",
+      "rows": 112,
+      "stdout_sha256": "25ced6ed21facfcc77a721af8d014d2460a8254ac85311f65edb8472cbc2a3f6"
+    },
+    {
+      "mode": "enabled",
+      "rows": 112,
+      "stdout_sha256": "b7d8d0e2b024523b73e4cb6a721a42ecbf87edb9d08b69f4c3ef19ab2876c2b4"
+    },
+    {
+      "mode": "disabled",
+      "rows": 112,
+      "stdout_sha256": "2b7f78e82877434bba298a9bdb80c60d444f8c9e9b97d4d9267c89db4da7b7ba"
+    }
+  ],
+  "comparison": "Exact status, new handle grants/types/names, mapped geometry, per-step handle deltas, publication state and all 336 repeated-call semantic rows match prior controls. Pointer addresses and the number of changed pointer bytes are retained in raw logs, without interpreting ASLR bytes as policy."
+}

@@ -61,7 +61,7 @@ fn working_set_supported(c: &Ctx) -> Result<bool, ApiErr> {
         native.object_namespace.native_machine,
     ) {
         (10, 0, 20348, Some(0x8664)) => Ok(false),
-        (10, 0, 26100, Some(0x8664)) | (10, 0, 29695, Some(0xaa64)) => Ok(true),
+        (10, 0, 26100, Some(0x8664)) | (10, 0, 29695 | 29698, Some(0xaa64)) => Ok(true),
         _ => Err(c.unsupported("native memory-prefetch flag profile is not captured")),
     }
 }

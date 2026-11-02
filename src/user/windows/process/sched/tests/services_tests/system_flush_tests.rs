@@ -8,13 +8,8 @@ fn decode(value: &str) -> Vec<u8> {
         .collect()
 }
 
-#[test]
-fn system_flush_replays_all_2640_native_queries_without_output_rebasing() {
-    let capture: serde_json::Value = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/docs/specifications/windows/native-system-flush-information/replay.json"
-    )))
-    .unwrap();
+fn replay(text: &str, expected: usize) {
+    let capture: serde_json::Value = serde_json::from_str(text).unwrap();
     let mut count = 0;
     for profile in capture["profiles"].as_array().unwrap() {
         for sample in profile["samples"].as_array().unwrap() {
@@ -208,7 +203,29 @@ fn system_flush_replays_all_2640_native_queries_without_output_rebasing() {
             }
         }
     }
-    assert_eq!(count, 2640);
+    assert_eq!(count, expected);
+}
+
+#[test]
+fn system_flush_replays_all_2640_native_queries_without_output_rebasing() {
+    replay(
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/docs/specifications/windows/native-system-flush-information/replay.json"
+        )),
+        2640,
+    );
+}
+
+#[test]
+fn system_flush_replays_all_1056_build_29698_queries_without_output_rebasing() {
+    replay(
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/docs/specifications/windows/native-startup-build-29698/flush-v1.json"
+        )),
+        1056,
+    );
 }
 
 #[test]

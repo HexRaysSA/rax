@@ -25,7 +25,7 @@ pub(crate) fn io_stores(p: &Proc) -> Result<IoStores, &'static str> {
         native.object_namespace.native_machine,
         p.arch,
     ) {
-        (10, 0, 29695, Some(0xAA64), _) => Ok(IoStores::PointerStatus),
+        (10, 0, 29695 | 29698, Some(0xAA64), _) => Ok(IoStores::PointerStatus),
         (10, 0, 20348 | 26100, Some(0x8664), WinArch::X64 | WinArch::X86) => Ok(IoStores::Status32),
         _ => Err("registry notification kernel profile is not captured"),
     }

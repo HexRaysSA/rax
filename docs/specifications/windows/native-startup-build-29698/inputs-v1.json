@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "profiles": {
+    "prefetch-v1.json": "f4a3fc236cf991e0c6ca57143045ddd48e36c53614c82d5a2b903e0caaa7c4c5",
+    "flush-v1.json": "0697b086ae5064c28b3f6d869b79d094b0eb81045f6ab1f2a940de0c6d7bdb9e",
+    "notify-v1.json": "d5197a322540af0d2ead33b9d7e91396046f9468869fcbfffe0ef86e407f655f"
+  },
+  "sources": {
+    "docs/specifications/windows/native-memory-prefetch/probe-v4.c": "d8e09d8376230012d86867fca3a4e056b286eaff63a5deeb2512f3cc04888870",
+    "docs/specifications/windows/native-system-flush-information/native-system-flush-information-v1.cpp": "81c2864fe21cca16ebb293432e64754b63ce705e61a3a111405620183bd48308",
+    "docs/specifications/windows/native-system-flush-information/run-v2.py": "ad4a516240445eaaabf04ef0f7072b5fd87bab4523c6515b2054f17e2b77bb27",
+    "docs/specifications/windows/native-exception-entry-profile/run-second-chance-v1.py": "db5872d29c5575770b29843489f246e4dae99eb8df8ec6c8d7b260e0d3827ec1",
+    "docs/specifications/windows/native-exception-entry-profile/run-v2.py": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba",
+    "docs/specifications/windows/native-key-notify/CMakeLists.txt": "92c73276757bcd8e1ac0cebfbaa3c96676fbd9bda3a0e0160b4efebad1adfc41",
+    "docs/specifications/windows/native-key-notify/probe-lifetime-v1.c": "7339222b2667d8ec4a1363fcb017f751654c02be7fe9baabd7d5d54125421b44",
+    "docs/specifications/windows/native-key-notify/probe-admission-v2.c": "090280bd9ffc5e0479c4bb70da083fe9142572aa145d5d30724b960f154b9ecf",
+    "docs/specifications/windows/native-key-notify/probe-thread-v3.c": "f4e164172f3294f770570c9085b4666c6234eec1adad8058b294c21f328b5d38",
+    "docs/specifications/windows/native-key-notify/probe-flags-v4.c": "78c326c645e6ee956ab045e0e5f11c3e4157e4fc61b51edba1c98e0832afea6a",
+    "docs/specifications/windows/native-key-notify/probe-completion-v5.c": "04c0cc51e8423b03d6744527fa7248d90988114fa18d46c88907d87d0c49fabe",
+    "docs/specifications/windows/native-key-notify/probe-completion-stores-v6.c": "8644efffd3181f602c31af970edbc079ac858139f52a25281c68679d22a4f7c4",
+    "docs/specifications/windows/native-startup-build-29698/capture-build-v1/CMakeLists.txt": "9915e632f65bd921e84ce231153d8c611c442c46935518e459a4d685bc06e0be",
+    "docs/specifications/windows/native-startup-build-29698/capture-build-v1/prefetch/CMakeLists.txt": "9f16c2a1e92cca4c62668c3c5d49e59877211beb3253d23aa97f619f293bfd07",
+    "docs/specifications/windows/native-startup-build-29698/capture-build-v1/flush/CMakeLists.txt": "9840a19c1997931792e9978dd6d8ac978ab04b75ee2a0082380cfd752f84dd09"
+  },
+  "archives": {
+    "original": {
+      "bytes": 157680913,
+      "sha256": "e9ffcbe50ced3e0566f6d9811e43afdae69ac4c7c9421f14e5ea90211bf60860"
+    },
+    "supplement": {
+      "bytes": 5900779,
+      "sha256": "bfee4a1709a14e57c6ab3a23810dd04e4b0964661621fcae4b5872c987ec9317"
+    }
+  }
+}

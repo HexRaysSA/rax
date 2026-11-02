@@ -49,12 +49,16 @@ pub(in super::super) fn server_for_kernel(build: u32) -> (Arc<DataSection>, Arc<
 }
 
 fn setup(p: &mut Proc, b: u64) -> [u64; 9] {
-    let (section, server) = server();
+    setup_for_kernel(p, b, 29683)
+}
+
+fn setup_for_kernel(p: &mut Proc, b: u64, build: u32) -> [u64; 9] {
+    let (section, server) = server_for_kernel(build);
     p.object_namespace = selected_namespace();
     p.object_namespace.select_data_section(section).unwrap();
     p.object_namespace.select_csr_server(server).unwrap();
     Arc::make_mut(&mut p.cfg).version.major = 10;
-    Arc::make_mut(&mut p.cfg).version.build = 29683;
+    Arc::make_mut(&mut p.cfg).version.build = build;
     packet(p, b, None)
 }
 
@@ -101,12 +105,20 @@ fn packet(p: &mut Proc, b: u64, section: Option<u32>) -> [u64; 9] {
 
 #[test]
 fn native_secure_connect_csr_replies_with_owned_aliases_preserved_tail_and_native_fields() {
-    for build in [29683, 29695] {
+    for build in [29683, 29695, 29698] {
         let (mut process, mut thread) = fixture(WinArch::Arm64, "NtSecureConnectPort", SERVICE);
         let p = process.state_mut();
-        Arc::make_mut(&mut p.cfg).version.build = build;
         let b = scratch(p, 65536);
-        let args = setup(p, b);
+        let args = setup_for_kernel(p, b, build);
+        assert_eq!(
+            p.object_namespace
+                .selected_csr_server()
+                .unwrap()
+                .metadata
+                .kernel,
+            (10, 0, build)
+        );
+        assert_eq!(p.cfg.version.build, build);
         let initial = p.vm.committed_bytes();
         assert_eq!(invoke(p, &mut thread, &args), Outcome::Continue);
         assert_eq!(thread.cpu.gpr(0), 0);
@@ -151,7 +163,7 @@ fn native_secure_connect_csr_replies_with_owned_aliases_preserved_tail_and_nativ
 
 #[test]
 fn native_secure_connect_csr_refuses_unmeasured_profiles_without_outputs_or_leaks() {
-    for variant in 0..12 {
+    for variant in 0..14 {
         let (mut process, mut thread) = fixture(WinArch::Arm64, "NtSecureConnectPort", SERVICE);
         let p = process.state_mut();
         let b = scratch(p, 65536);
@@ -171,6 +183,8 @@ fn native_secure_connect_csr_refuses_unmeasured_profiles_without_outputs_or_leak
             9 => Arc::make_mut(&mut p.cfg).version.minor = 1,
             10 => Arc::make_mut(&mut p.cfg).version.build = 29694,
             11 => Arc::make_mut(&mut p.cfg).version.build = 29696,
+            12 => Arc::make_mut(&mut p.cfg).version.build = 29697,
+            13 => Arc::make_mut(&mut p.cfg).version.build = 29699,
             _ => unreachable!(),
         }
         let before = p.space.bytes(b, 65536).unwrap();
