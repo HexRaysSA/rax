@@ -8,6 +8,8 @@
 //! - Interrupt prioritization and routing
 
 pub mod checkpoint;
+mod cpu_interface;
+mod distributor_state;
 mod forwarding;
 mod sgi;
 mod sources;
@@ -475,8 +477,8 @@ pub struct Gic {
     /// Per-CPU interfaces.
     cpu_interfaces: Vec<CpuInterface>,
     sources: sources::SourceBank,
-    /// Published per-CPU IRQ line levels: lets the CPU's hot path test for a
-    /// pending interrupt without taking a lock on a shared GIC.
+    /// Published aggregate per-CPU interrupt requests. The historical IRQ
+    /// handle includes Group 0 (FIQ); delivery resolves the group under lock.
     irq_lines: Vec<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
@@ -510,8 +512,8 @@ impl Gic {
         }
     }
 
-    /// Shared handle to a CPU's IRQ line level (updated on every GIC state
-    /// change).
+    /// Shared aggregate interrupt-request handle, including IRQ and FIQ.
+    /// Updated on every controller state change; retained across restore.
     pub fn irq_line(&self, cpu_id: usize) -> Option<std::sync::Arc<std::sync::atomic::AtomicBool>> {
         self.irq_lines.get(cpu_id).cloned()
     }
@@ -667,8 +669,8 @@ impl Gic {
     /// Update pending state for all CPUs.
     fn update_all_cpus(&mut self) {
         self.reconcile_sources();
+        forwarding::update_selection(&mut self.cpu_interfaces, &self.spis, self.dist_groups);
         for (i, cpu) in self.cpu_interfaces.iter_mut().enumerate() {
-            cpu.update_pending_for_groups(&self.spis, self.dist_groups);
             if let Some(line) = self.irq_lines.get(i) {
                 line.store(
                     cpu.pending_interrupt(),
@@ -684,6 +686,9 @@ impl Gic {
 
     /// Read distributor register.
     pub fn read_dist(&self, offset: u64) -> u32 {
+        if let Some(value) = self.read_dist_state(offset) {
+            return value;
+        }
         match offset {
             // GICD_CTLR
             0x0000 => {
@@ -748,42 +753,6 @@ impl Gic {
                 }
                 val
             }
-            // GICD_ISENABLER0-31 (Interrupt Set-Enable)
-            0x0100..=0x017C => {
-                let reg = ((offset - 0x0100) / 4) as usize;
-                let base = reg * 32;
-                let mut val = 0u32;
-                for bit in 0..32 {
-                    let intid = base + bit;
-                    if intid >= SPI_START as usize
-                        && intid <= SPI_END as usize
-                        && (intid - SPI_START as usize) < self.spis.len()
-                    {
-                        if self.spis[intid - SPI_START as usize].enabled {
-                            val |= 1 << bit;
-                        }
-                    }
-                }
-                val
-            }
-            // GICD_ISPENDR0-31 (Interrupt Set-Pending)
-            0x0200..=0x027C => {
-                let reg = ((offset - 0x0200) / 4) as usize;
-                let base = reg * 32;
-                let mut val = 0u32;
-                for bit in 0..32 {
-                    let intid = base + bit;
-                    if intid >= SPI_START as usize
-                        && intid <= SPI_END as usize
-                        && (intid - SPI_START as usize) < self.spis.len()
-                    {
-                        if self.spis[intid - SPI_START as usize].state.is_pending() {
-                            val |= 1 << bit;
-                        }
-                    }
-                }
-                val
-            }
             // GICD_IPRIORITYR0-254 (Interrupt Priority)
             0x0400..=0x07F8 => {
                 let reg = ((offset - 0x0400) / 4) as usize;
@@ -832,6 +801,9 @@ impl Gic {
 
     /// Write distributor register.
     pub fn write_dist(&mut self, offset: u64, value: u32) {
+        if self.write_dist_active(offset, value) {
+            return;
+        }
         match offset {
             // GICD_CTLR
             0x0000 => {
@@ -1145,6 +1117,18 @@ impl Gic {
                     }
                 }
             }
+            // GICR_ISACTIVER0: activation does not consume a pending request.
+            0x10300 => {
+                for (i, cfg) in cpu.private_interrupts.iter_mut().enumerate() {
+                    if (value >> i) & 1 != 0 {
+                        cfg.state = if cfg.state.is_pending() {
+                            InterruptState::ActivePending
+                        } else {
+                            InterruptState::Active
+                        };
+                    }
+                }
+            }
             // GICR_ICACTIVER0
             0x10380 => {
                 for (i, cfg) in cpu.private_interrupts.iter_mut().enumerate() {
@@ -1362,3 +1346,6 @@ mod source_tests;
 #[cfg(test)]
 #[path = "gic/forwarding_tests.rs"]
 mod forwarding_tests;
+
+#[cfg(test)]
+mod cpu_interface_tests;

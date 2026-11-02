@@ -3,6 +3,12 @@ use super::Gic;
 
 impl Gic {
     pub(crate) fn raise_sgi_from(&mut self, source: usize, value: u64) {
+        self.raise_sgi_from_groups(source, value, 3);
+    }
+
+    /// The caller resolves Table12-14's register/security-state group mask.
+    /// An SGI request never changes the target PE's configured interrupt group.
+    pub(crate) fn raise_sgi_from_groups(&mut self, source: usize, value: u64, groups: u8) {
         let intid = ((value >> 24) & 0xf) as u32;
         let all_others = value & (1 << 40) != 0;
         let aff1 = (value >> 16) & 0xff;
@@ -22,7 +28,12 @@ impl Gic {
                     && aff0 / 16 == range
                     && targets & (1 << (aff0 % 16)) != 0
             };
-            if selected {
+            let group_selected = match cpu.private_interrupts[intid as usize].group {
+                0 => groups & 1 != 0,
+                1 => groups & 2 != 0,
+                _ => false,
+            };
+            if selected && group_selected {
                 cpu.send_sgi(intid);
             }
         }

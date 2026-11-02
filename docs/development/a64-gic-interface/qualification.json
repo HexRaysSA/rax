@@ -1,0 +1,1169 @@
+{
+  "schema": 1,
+  "group": "aarch64-gic-cpu-interface-2026-11-02",
+  "scope": "Selected classic single-Security-state banked CPU interface, IRQ/FIQ and waits, Any participation, active-state programming and coordinated restoration; full original findings remain incomplete.",
+  "baseline_head": "1620eb240f41d9360642a0322775c3d3a1cf5e4d",
+  "tested_tree": {
+    "head": "1620eb240f41d9360642a0322775c3d3a1cf5e4d",
+    "tracked_diff_sha256": "b7dd7e9b296f716373ed8959c7842a4e61799d6ebdd3bdf847340f579b7fadd2",
+    "owned_source_sha256": {
+      "src/isa/arm/aarch64/gic.rs": "f727fff1a87b566a32c74f0db085ba271d27d4e83e1cd7c43d0c363ddb6885db",
+      "src/isa/arm/aarch64/gic/forwarding.rs": "430bcccaf3b8ff1a313e252373f51d76e8adf06b665c175248228c4082aeeea6",
+      "src/isa/arm/aarch64/gic/cpu_interface.rs": "1ff926a536e9844d626f1bde5fba6685040aba2c844b2f447f14f079ddcfd6d5",
+      "src/isa/arm/aarch64/gic/cpu_interface_tests.rs": "a70e7d841a390e05d12c9294526569ebde410a6c929da13f1cded057affbb1f4",
+      "src/isa/arm/aarch64/cpu/registers.rs": "0960d1a5c0b772713569799b39ce64de4928ee76331465fe54bd13e88e9fb2a2",
+      "src/isa/arm/aarch64/cpu/exec.rs": "02de6dc8b568d0715974c2b513dadf54cc156d15aa52b71cf0f2664eba886741",
+      "src/isa/arm/aarch64/cpu/mod.rs": "22e5b223bb890167d6d796c19e96c84aad2cbba25527126be9e5f35a69828ddd",
+      "src/isa/arm/aarch64/cpu/interrupt_binding.rs": "3e3549ba01eeb781b8f1b3ccd871ed5c532151e93107aeb896e88d0f7ea8d377",
+      "src/isa/arm/aarch64/cpu/system_step.rs": "bd2bbae6433f5bd2db1d5954416eeab4f16c21527359af5fffdea2634e333f6a",
+      "src/isa/arm/aarch64/cpu/interrupt_delivery.rs": "1d09a1263ec757d4543731e1f86713786a4c2f4282bea13ab174676f97238da9",
+      "src/isa/arm/aarch64/cpu/interrupt_delivery_tests.rs": "fed5fef27190575875956a5e0dcb7b2fb98cd62bf0ebdcb9639d9b63754e5224",
+      "src/backend/emulator/aarch64/cluster.rs": "0dd6c67436fd13d509ec8f9401f787d479fb1621f6e2f3a3eb512e46af1651f7",
+      "src/vm/runtime/aarch64_gic_interface_tests.rs": "118b5f757e1d887841837e0e4fbcd20ca7c065d41326a384d015f3107b6f8c4d",
+      "src/isa/arm/aarch64/gic/checkpoint.rs": "b75385125248825e72e0b7d3219bf5b135a73ccbafc0d06706fdc890d00a203c",
+      "src/isa/arm/aarch64/gic/sgi.rs": "ef3cff35375bbc96a06b351a1bddc9105d340bdd1274859a2c6c6c4b40ec5cca",
+      "src/vm/runtime/aarch64_cluster_tests.rs": "a0daec757df3782d79150da0e1945f0ac12eb50814d15ff9d56d6a668a43f00a",
+      "src/isa/arm/aarch64/gic/distributor_state.rs": "fbc7d01dc9c71517fd4c4adc2164b626563edb649bb42a10f7531e83776e1b48",
+      "tests/suites/backend/aarch64_cluster.rs": "b18d013d747c06ba5298bf25fe31d8a1e4da75f154f97fa9a3852bb087cd2326"
+    },
+    "compiler_inputs": 5985,
+    "compiler_manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/compiled-project-source-sha256-build-v7.json",
+    "compiler_manifest_sha256": "8f5c10d494d703b1cc6a87aed05c4d47765a030da0375c68a54955a18866601a"
+  },
+  "environment": {
+    "RUSTC_WRAPPER": "",
+    "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+    "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+    "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+    "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+    "CARGO_BUILD_JOBS": "8",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_NET_OFFLINE": "true",
+    "RUSTC_WORKSPACE_WRAPPER": "",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_TEST_LTO": "off",
+    "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+    "CARGO_PROFILE_DEV_LTO": "off",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true"
+  },
+  "host_and_toolchain": {
+    "utc": "2026-11-02T21:43:58.561306+00:00",
+    "results": [
+      {
+        "argv": [
+          "uname",
+          "-a"
+        ],
+        "exit_code": 0,
+        "stdout": "Darwin ints-MacBook-Pro.local 27.2.0 Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041 arm64\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "sw_vers"
+        ],
+        "exit_code": 0,
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "sysctl",
+          "-n",
+          "machdep.cpu.brand_string"
+        ],
+        "exit_code": 0,
+        "stdout": "Apple M4 Max\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "rustc",
+          "--version",
+          "--verbose"
+        ],
+        "exit_code": 0,
+        "stdout": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "cargo",
+          "--version"
+        ],
+        "exit_code": 0,
+        "stdout": "cargo 1.99.1 (5f94df478 2026-08-27)\n",
+        "stderr": ""
+      }
+    ]
+  },
+  "primary": [
+    {
+      "path": "docs/specifications/arm/gic-ihi0069.pdf",
+      "sha256": "4b66bedbab044103f8870f48c5fc0e00320ce8a85ca17e6568aec5334b3a2159",
+      "sections": [
+        "2.2.1 special INTID1023 for wrong bank",
+        "2.3.2 participating Any target",
+        "4.1 priority drop and Table4-1 wrong-bank EOI",
+        "4.6.2 Table4-5 single-state signal",
+        "12.1.10 Table12-14 DS1 SGI group exceptions",
+        "12.2.11-14 HPPIR and IAR bank purposes",
+        "A.4.9 single-state SGI forwarding",
+        "12.9.5/7/11/24 active, enable and pending state readback and W1 active programming",
+        "12.11.3 GICR_ICACTIVER0",
+        "12.11.23 GICR_ISACTIVER0"
+      ]
+    },
+    {
+      "path": "docs/specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf",
+      "sha256": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e",
+      "sections": [
+        "D1.14.2 interrupt mask and target Exception level",
+        "D1.17.2 WFI wakeup independent of PSTATE masks",
+        "D1.14.1 Tables D1-12/13/14 effective TGE/E2H routing"
+      ]
+    },
+    {
+      "path": "docs/specifications/arm/pauth/shared_pseudocode-2025-12.xml",
+      "sha256": "84c3572ef27cb9a7b12cba314d62d1b8afd71c770ee92d818cbdb4dc6ac37d6b",
+      "functions": [
+        "AArch64_TakePhysicalIRQException",
+        "AArch64_TakePhysicalFIQException"
+      ],
+      "rule": "TGE independently routes physical requests to EL2, including E2H=1. Effective IMO/FMO values do not cancel this routing."
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "A1",
+      "assumption": "Current GICv3/v4 profile is single Security state with affinity routing",
+      "basis": "GICD_CTLR DS/ARE RAO and GICD_TYPER SecurityExtn zero; live source and retained primary IHI0069H inspected, tested reset controls retain SCR.RW/HCR.RW",
+      "dependent_result": "bank/signal semantics",
+      "stress_test": "both groups, priority arbitration, wrong banks",
+      "falsification_probe": "guest reads show DS zero or SecurityExtn one",
+      "status": "confirmed"
+    },
+    {
+      "id": "A2",
+      "assumption": "Published aggregate handle remains target-owned wake/request indicator",
+      "basis": "existing IRQ Arc restore contract and bindings",
+      "dependent_result": "avoid serialized state changes; resolve type under same GIC mutex",
+      "stress_test": "restore pending opposite-group request into fresh target; Arc identity",
+      "falsification_probe": "request type stale after restore or Arc identity changes",
+      "status": "confirmed"
+    },
+    {
+      "id": "A3",
+      "assumption": "VHE E2H=1 effective IMO/FMO zero can cancel TGE physical interrupt routing",
+      "basis": "Initial interpretation of2017 effective-field table; contradicted by current primary pseudocode",
+      "dependent_result": "Discarded v4 routing and test expectation",
+      "stress_test": "EL0, E2H=TGE=1, both masks set, pending IRQ/FIQ",
+      "falsification_probe": "tge-vhe-red.json observed0pass2fail; retained2025 AArch64_TakePhysicalIRQ/FIQException independently routes on TGE",
+      "status": "falsified"
+    },
+    {
+      "id": "A4",
+      "assumption": "Physical TGE routing is independent of E2H effective IMO/FMO values",
+      "basis": "Retained Arm XML2025-12 AArch64_TakePhysicalIRQException and AArch64_TakePhysicalFIQException",
+      "dependent_result": "Corrected routing, truth-table and private-checkpoint tests",
+      "stress_test": "Both groups, raw routebits, VHE/E2H/TGE partitions and higher-EL masks",
+      "falsification_probe": "Independent tge-vhe probe or checkpoint reentry stays at EL0 instead of entering EL2",
+      "status": "confirmed"
+    }
+  ],
+  "surface": {
+    "direct_decode": "unaffected: existing MRS/MSR encodings",
+    "direct_execute": "affected: ICC banks and polling",
+    "cpu_state": "affected derived polling; no new serialized field",
+    "memory_mmu": "GIC MMIO Any routing eligibility",
+    "smir_lift": "system instruction frontier remains interpreter",
+    "smir_ir": "unaffected no new operation",
+    "smir_interpret": "existing system frontier",
+    "optimizer": "no changed operation",
+    "native_lowering": "existing boundary; interrupt polling before native entry",
+    "jit_runtime": "typed request before entry",
+    "backend": "shared per-PE GIC and restore",
+    "machine_device": "controller eligibility and SGI routing",
+    "oracle_analysis": "no decode metadata changes",
+    "c_abi": "no declaration/layout/ID changes",
+    "tests_docs": "new root tests, runtime file continuation and qualification"
+  },
+  "routing_choice": "Deterministically select the first awake group-enabled PE for an Any SPI; E1NWF=0, DPGS=0. Recompute from serialized state, no added field.",
+  "new_test_declarations": {
+    "root": 21,
+    "standalone_cluster": 1
+  },
+  "guest_files": {
+    "files": 6,
+    "prepared_pe_counts": [
+      1,
+      2,
+      4
+    ],
+    "groups": [
+      0,
+      1
+    ],
+    "ram_bytes": 134217728,
+    "source_kernel_and_checkpoint_removed_before_constructor": true,
+    "target_handles_retained_on_re_restore": true,
+    "post_snapshot_handler_executions": 28,
+    "retired_per_pe_before_entry": 9,
+    "retired_per_pe_after_handler": 20,
+    "exception_entry_retired": 0,
+    "compared": [
+      "full CPU state",
+      "per-PE instruction counts",
+      "controller/platform graph",
+      "coordinator",
+      "Retired clock"
+    ],
+    "qualification": "prepared cohorts; no guest cold-start claim"
+  },
+  "owning": [
+    {
+      "target": "arm",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-arm-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm-450a485a27c8b290",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "elapsed_seconds": 33.49076887499541,
+      "test_results": [
+        {
+          "passed": 46850,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm-450a485a27c8b290",
+        "src_path": "/Users/int/dev/rax/tests/suites/isa/arm/main.rs",
+        "sha256": "48b6ed67d27a8c4a256af0e6b9fa376a94e334598072bd83281ce02c42bc58b5"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "arm_vfp_a32",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-arm_vfp_a32-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm_vfp_a32-b9ec10417225ec0e",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "elapsed_seconds": 3.8020485000452027,
+      "test_results": [
+        {
+          "passed": 521,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm_vfp_a32-b9ec10417225ec0e",
+        "src_path": "/Users/int/dev/rax/tests/suites/isa/arm/aarch32/vfp.rs",
+        "sha256": "e9d6c5e8174f534abf860f08c183e5f19207e9ea697551fe72e77b6ae8561787"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "aarch64_smir_programs",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-aarch64_smir_programs-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_smir_programs-796f90c4682e3b90",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 77.47437629196793,
+      "test_results": [
+        {
+          "passed": 75,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_smir_programs-796f90c4682e3b90",
+        "src_path": "/Users/int/dev/rax/tests/suites/smir/jit/aarch64_programs.rs",
+        "sha256": "86886139afa118721437f59f0a1f999812764d6b75c23cf23629a80d72f4012f"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "aarch64_smir_native",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-aarch64_smir_native-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_smir_native-30deed9906cc6747",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.009073249995708466,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_smir_native-30deed9906cc6747",
+        "src_path": "/Users/int/dev/rax/tests/suites/smir/lower/aarch64_native.rs",
+        "sha256": "03a598f1f99bdc79341b7e8fe8ff805b63275ee1ac432a2382bd67927cb4e82b"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "cfg-empty on macOS; compilation only"
+    },
+    {
+      "target": "smir_jit_aarch32_aarch64",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-smir_jit_aarch32_aarch64-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/smir_jit_aarch32_aarch64-8ce2d758260d6040",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.08442145795561373,
+      "test_results": [
+        {
+          "passed": 26,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/smir_jit_aarch32_aarch64-8ce2d758260d6040",
+        "src_path": "/Users/int/dev/rax/tests/suites/smir/jit/aarch32_aarch64.rs",
+        "sha256": "786273de1cf816849de45d5bf3abebf6dc2e52069b1270dc7c270a44314c6ba1"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "smir_jit_thumb_aarch64",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-smir_jit_thumb_aarch64-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/smir_jit_thumb_aarch64-4e4edeba9b5406d5",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.040238959016278386,
+      "test_results": [
+        {
+          "passed": 25,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/smir_jit_thumb_aarch64-4e4edeba9b5406d5",
+        "src_path": "/Users/int/dev/rax/tests/suites/smir/jit/thumb_aarch64.rs",
+        "sha256": "6c92547ba5380379e79bcd0a0987560903cbef0d777787daea0935fa768bac5d"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "checkpoint_cpus",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-checkpoint_cpus-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_cpus-4b86ae490049f9e9",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.0710480420384556,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_cpus-4b86ae490049f9e9",
+        "src_path": "/Users/int/dev/rax/tests/suites/vm/checkpoint_cpus.rs",
+        "sha256": "6247614392e0766d6019d85e42d4838eec1be6778a787012d76e270549707855"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "checkpoint_resume",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-checkpoint_resume-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_resume-1ba9346c51c2c83f",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 52.74788870802149,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_resume-1ba9346c51c2c83f",
+        "src_path": "/Users/int/dev/rax/tests/suites/vm/checkpoint_resume.rs",
+        "sha256": "d05d4fd9dfcf916f305b162e0abb336a348e374f062263218a85733a7cb36245"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "checkpoint_config",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-checkpoint_config-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_config-dee5be787ba9a753",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.023727833991870284,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_config-dee5be787ba9a753",
+        "src_path": "/Users/int/dev/rax/tests/suites/vm/checkpoint_config.rs",
+        "sha256": "9c168db4c728833ea48daea04d77e9f02e09ff0064d6e5b6856963784346ecfa"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "retired_clock",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-retired_clock-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retired_clock-4fd413f370064705",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.021630666917189956,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retired_clock-4fd413f370064705",
+        "src_path": "/Users/int/dev/rax/tests/suites/vm/retired_clock.rs",
+        "sha256": "276a227419796b61049c32bc87864c3f94d90f90554b11f93f3c5fcdfdf8eb8a"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "checkpoint_clock",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-checkpoint_clock-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_clock-b8724286b91fbeeb",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 47.386566292028874,
+      "test_results": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_clock-b8724286b91fbeeb",
+        "src_path": "/Users/int/dev/rax/tests/suites/vm/checkpoint_clock.rs",
+        "sha256": "075cb2bea9c3431516584019b39871b8f191b31c907ab15dbf77ec7e7c37563b"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "retirement_clock",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-retirement_clock-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_clock-b411028c145cb526",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.012757332995533943,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_clock-b411028c145cb526",
+        "src_path": "/Users/int/dev/rax/tests/suites/backend/retirement_clock.rs",
+        "sha256": "e5e7db8a8aa0da1783961d3c004435e06414c911ceba532a20ea530ae1d12f60"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "counter_ticks",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-counter_ticks-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/counter_ticks-624c935d58f7f37e",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.008710249909199774,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/counter_ticks-624c935d58f7f37e",
+        "src_path": "/Users/int/dev/rax/tests/suites/vm/counter_ticks.rs",
+        "sha256": "fcea7ee6cfc1bb4176f089494cbf619b60dc3dd30587c0fd248a551a8952cfd4"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "retirement_budget",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-retirement_budget-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-3477bb2ea3989bed",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.015461749979294837,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 2
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-3477bb2ea3989bed",
+        "src_path": "/Users/int/dev/rax/tests/suites/backend/retirement_budget.rs",
+        "sha256": "4b81433ea45a93c3f27fdb4442091227005258b515cdd0351489bb95b5af2952"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "user_linux",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-user_linux-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/user_linux-b43750afc9c90efb",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 140.30648520891555,
+      "test_results": [
+        {
+          "passed": 43,
+          "failed": 0,
+          "ignored": 1
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/user_linux-b43750afc9c90efb",
+        "src_path": "/Users/int/dev/rax/tests/suites/user/linux/main.rs",
+        "sha256": "dfe01a4e46caa15dd80c683a90f345bf8b26fd0b1d33e89a67ed078651f41ebd"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "aarch64_cluster",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-aarch64_cluster-v7.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_cluster-2eef04fed6bc1b66",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.040761749958619475,
+      "test_results": [
+        {
+          "passed": 27,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_cluster-2eef04fed6bc1b66",
+        "src_path": "/Users/int/dev/rax/tests/suites/backend/aarch64_cluster.rs",
+        "sha256": "1f6b01e7eb7d8e0dbf2222c76ec32f10dfa5e7c7a23f2324a092626f66086c0b"
+      },
+      "reused_by_identity": false,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "aarch64_affinity",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-aarch64_affinity-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_affinity-27f0236fe2a386a6",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.012726916931569576,
+      "test_results": [
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_affinity-27f0236fe2a386a6",
+        "src_path": "/Users/int/dev/rax/tests/suites/backend/aarch64_affinity.rs",
+        "sha256": "f833737155bce0bb2737c2a5b1f18dfc33a7ae43cc0f466e404f491af0b02d68"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "aarch64_step_jit",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-aarch64_step_jit-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_step_jit-c0c70ac9bc52936e",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.023702333914116025,
+      "test_results": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_step_jit-c0c70ac9bc52936e",
+        "src_path": "/Users/int/dev/rax/tests/suites/backend/aarch64_step_jit.rs",
+        "sha256": "805ab23c3d445c7296ff5aeb503ef9caa6ad96bbc55d0edfff9b623b00354cd8"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "a32_fp_controls",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-a32_fp_controls-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/a32_fp_controls-9c7cc4ead222655f",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 2.243367583025247,
+      "test_results": [
+        {
+          "passed": 79,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/a32_fp_controls-9c7cc4ead222655f",
+        "src_path": "/Users/int/dev/rax/tests/suites/backend/a32_fp_controls.rs",
+        "sha256": "151effbd38b396e9e2954be2c20051022a1340167a6335915fc36d3f719d10fd"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "a32_fp_pairs",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-a32_fp_pairs-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/a32_fp_pairs-b3470579c9bfdc59",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 0.04569908301346004,
+      "test_results": [
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/a32_fp_pairs-b3470579c9bfdc59",
+        "src_path": "/Users/int/dev/rax/tests/suites/backend/a32_fp_pairs.rs",
+        "sha256": "0222a9a2877dc2897ad87916931b886d91a946d19092c5f0d5ac91bf3148e4db"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "runtime_checkpoint_bundle",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-runtime_checkpoint_bundle-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/runtime_checkpoint_bundle-77e008297b43c3c1",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 129.54289120808244,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/runtime_checkpoint_bundle-77e008297b43c3c1",
+        "src_path": "/Users/int/dev/rax/tests/suites/vm/runtime_checkpoint_bundle.rs",
+        "sha256": "cac7d0b339f136809a158c1742337ccbbab9b9553459f7c0627b41ba1b0a2bef"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "capi-library",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-capi-library-v5.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 4.4703696250217035,
+      "test_results": [
+        {
+          "passed": 241,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "src_path": "/Users/int/dev/rax/capi/src/lib.rs",
+        "sha256": "a6f1600510981dcfe064ac795f40aa60593377899709102981168491f8e62bbc"
+      },
+      "reused_by_identity": true,
+      "execution_scope": "executed"
+    },
+    {
+      "target": "root-library",
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/owning-root-library-v7.json",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--nocapture",
+        "--test-threads=16"
+      ],
+      "elapsed_seconds": 1257.2067987499759,
+      "test_results": [
+        {
+          "passed": 12073,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "artifact": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "src_path": "/Users/int/dev/rax/src/lib.rs",
+        "sha256": "9de1b1b77204cfa0105083b82e26af0b7bf333de39eb7c68703c4d35193c67df"
+      },
+      "reused_by_identity": false,
+      "execution_scope": "executed"
+    }
+  ],
+  "reuse_proof": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/unchanged-owning-artifacts-v7.json",
+  "quality": [
+    {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 14.139002000098117,
+      "test_results": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/fmt-workspace-v7.json"
+    },
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 81.09026358299889,
+      "test_results": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/check-workspace-all-targets-v7.json"
+    },
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 80.14821587491315,
+      "test_results": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/clippy-workspace-all-targets-v7.json"
+    },
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 30.068688125000335,
+      "test_results": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/check-without-debug-v7.json"
+    },
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,hvf,debug"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 28.406207041000016,
+      "test_results": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/check-without-jit-v7.json"
+    },
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "test",
+        "--doc",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 5.953765875077806,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/doctests-workspace-v7.json"
+    }
+  ],
+  "focused": {
+    "final_fixture_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/corrected-fixtures-v7.json",
+    "final_fixture_results": [
+      {
+        "passed": 20,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "prior_production_focused_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/focused-v5.json",
+    "prior_production_focused_results": [
+      {
+        "passed": 90,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "scope": "The production library is byte-identical across the later fixture corrections; the corrected final root run independently repeats the complete root suite."
+  },
+  "external_green": [
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/extended-register-green-v7.json",
+      "results": [
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/valid-routing-green-v7.json",
+      "results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/distributor-state-green-v7.json",
+      "results": [
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/tge-vhe-green-v7.json",
+      "results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/private-active-strict-green-v7.json",
+      "results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    }
+  ],
+  "actual_reds": [
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/extended-register-red.json",
+      "scope": "Actual baseline root library:0pass11fail"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/routing-frontier-red.json",
+      "scope": "Iteration1:2fail; initial EL2 fixture has invalid security premise and is excluded from architectural claims; EL3 case remains valid"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/distributor-state-red.json",
+      "scope": "Iteration2 actual root library:0pass3fail"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/private-active-strict-red.json",
+      "scope": "Iteration4 actual root library:0pass2fail with activation readback"
+    },
+    {
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/tge-vhe-red.json",
+      "scope": "Iteration4 actual root library:0pass2fail for the discarded TGE interpretation"
+    }
+  ],
+  "excluded_evidence": [
+    "v1 root test compile failed due to fixture field sysregs instead of sregs; not a passing gate.",
+    "v2 focused run stopped after observed fixture SCR.RW clobber and active-register readback failures; no passing gate.",
+    "Initial EL2 routing probe inherited Secure state while forcing EL2. Excluded from architectural red claims; EL3 case remains valid. Final tests must preserve width controls and legal security state.",
+    "v3 root test compile failed because a boundary test inferred signed integer IDs for u64 conversion; corrected with explicit u32 input. No v3 passing root gate.",
+    "v4 actual provisional executable:145pass2fail. SPI activation incorrectly consumed pending; corrected with ActivePending, matching the architecture. Runtime fixture did not account for zero-retirement exception-entry turns; corrected with explicit intermediate-state assertions.",
+    "v4 initial TGE/E2H expectation was incorrect; two independent direct-CPU probes observed the failure against retained2025 primary. Corrected expectation and implementation.",
+    "The initial private-active probe omitted activation readback and passed2; it was not a valid activation check. Strict readback probe actually failed2 and is the retained regression.",
+    "v5 full-root run was deliberately interrupted after further fixture review found SGI source SCR.RW clobber; it is not a passing gate. All21 unaffected owning executable gates passed.",
+    "The standalone cluster suite failed3 inherited premises: missing distributor enable/wakeup and an unconstrained Any-target assumption. Corrected exact source preview passed27; final registered Cargo target still required.",
+    "Final normative SGI fixtures retain SCR.RW and EL0 fixtures select SP0 explicitly. Only cfg(test) unit fixture and standalone integration source changed after production v5."
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "item": "Native physical Intel validation remains unavailable; not proven by Apple Silicon portable tests",
+      "blocks_this_group": false
+    },
+    {
+      "impact": "high",
+      "item": "Historical ax.trace truncation remains unexplained; guard current bytes and do not alter",
+      "blocks_this_group": false
+    },
+    {
+      "impact": "high",
+      "item": "Native hardware controller paths are separate; this group does not qualify HVF/KVM delivery or physical Intel execution",
+      "blocks_this_group": false
+    },
+    {
+      "impact": "medium",
+      "item": "Only classic configured SPI/SGI/PPI state and word state-register accesses qualified; optional GIC/NMI/virtual interrupt/debug profiles remain open",
+      "blocks_this_group": false
+    },
+    {
+      "impact": "high",
+      "item": "GICD_TYPER.ITLinesNumber under-reports configured SPI domain, omitting private IDs and partial-bank coverage; actual5-case root-linked probe failed5, including default256 SPIs",
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/remaining-spi-discovery-red.json",
+      "primary": "IHI0069H12.9.38 GICD_TYPER",
+      "blocks_this_group": false,
+      "next_work": "Correct and qualify controller capability/discovery surface under original C-SMP/C-STATE scope; no full finding closure claimed"
+    }
+  ],
+  "unrun": [
+    {
+      "gate": "Physical Intel HVF VM execution",
+      "reason": "Current host Apple Silicon; Intel runner availability unknown. Discovery transport failure and unanswered host question are not proof of no runners."
+    },
+    {
+      "gate": "New independent hardware/QEMU GIC oracle",
+      "reason": "This group uses retained primary rules, actual software guest execution and source/artifact-guarded probes; no new external GIC oracle was run."
+    },
+    {
+      "gate": "Linux AArch64-only native suite",
+      "reason": "cfg-empty on macOS; counted as compilation only."
+    },
+    {
+      "gate": "Standalone C/C++ consumer rebuild",
+      "reason": "Public declarations, enum IDs and ABI layouts unchanged."
+    }
+  ],
+  "complexity": {
+    "selection": "O(P(32+S)) time, O(P) participation selection, constant additional target storage",
+    "word_state_read": "At most32 configured interrupt states",
+    "benchmark": "none"
+  },
+  "serialization": {
+    "new_fields": 0,
+    "new_tags": 0,
+    "target_owned_handles": true,
+    "legacy_source_ambiguity_rejection": "unchanged",
+    "derived_selection_recomputed": true
+  },
+  "ownership": {
+    "branch": "master",
+    "new_branches": 0,
+    "new_worktrees": 0,
+    "protected_baseline": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/baseline.json",
+    "historical_trace_preservation": false,
+    "current_trace_guarded": true,
+    "other_checkouts_untouched": true
+  },
+  "workflow": [
+    "git add -- exact owned paths",
+    "red -m --staged --run exact owned paths",
+    "normal push origin master:master",
+    "guarded owned build cleanup"
+  ],
+  "publication_receipts": {
+    "commit-receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/commit-receipt.json",
+    "push-receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/push-receipt.json",
+    "cleanup-final": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/cleanup-final.json"
+  },
+  "full_goal_complete": false,
+  "remaining_full_findings": [
+    "A32-FP",
+    "C-STATE",
+    "C-SMP",
+    "C-HVF"
+  ],
+  "feature_check_inputs": {
+    "compiler_inputs": 5986,
+    "manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/compiled-project-source-sha256-v7.json",
+    "manifest_sha256": "a18d7c8e320c5c18b9e90641acc3c24b1d4096bbdab7bb0da4db0390074a6ab8",
+    "additional_unchanged_tracked_inputs": [
+      "Cargo.toml"
+    ],
+    "unowned": 0,
+    "missing": 0
+  }
+}

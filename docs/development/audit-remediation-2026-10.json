@@ -2781,7 +2781,8 @@
         "docs/development/a64-gic-sources/README.md",
         "docs/development/a64-gic-sources/qualification.json",
         "docs/development/a64-gic-forwarding/README.md",
-        "docs/development/a64-gic-forwarding/qualification.json"
+        "docs/development/a64-gic-forwarding/qualification.json",
+        "docs/development/a64-gic-interface/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2833,7 +2834,8 @@
         "AArch64 retained-GIC resets now preserve owed timer publication;only changed PPI inputs are written. Real1/2/4-CPU reset files,guest2/4-CPU PSCI off/on files,poison/repair and failed admission are locally qualified in a64-timer-output/qualification.json. Same-INTID source coalescing,already-lost legacy history,complete IRQ/native/private/replay and physical Intel remain open;no original finding closure.",
         "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
         "Distinct classic GIC physical/software/edge sources,owned/shared versioned records,complete private timer-source admission and actual source-free1/2/4prepared-PE continuations are locally qualified in a64-gic-sources/qualification.json. Ambiguous legacy sources reject by explicit user choice; already-erased historical input truth remains unrecoverable. Complete backend/private/in-flight/startup/IRQ/clock/replay and physicalIntel requirements remain open;no full finding closure.",
-        "Independent distributor/CPU group gating,current-output direct timer polling,versioned exact-mask restoration and actual1/2/4prepared-PE source-free files are locally qualified in a64-gic-forwarding/qualification.json. Prior coalesced controls import their recorded readback;original writes are unknown. Group-specific IRQ/FIQ/ICC/WFI paths and complete profile/backend/private/in-flight/startup/IRQ/clock/replay/physical Intel requirements remain open;no full finding closure."
+        "Independent distributor/CPU group gating,current-output direct timer polling,versioned exact-mask restoration and actual1/2/4prepared-PE source-free files are locally qualified in a64-gic-forwarding/qualification.json. Prior coalesced controls import their recorded readback;original writes are unknown. Group-specific IRQ/FIQ/ICC/WFI paths and complete profile/backend/private/in-flight/startup/IRQ/clock/replay/physical Intel requirements remain open;no full finding closure.",
+        "Selected classic banked GIC operations, IRQ/FIQ masks/routing, waits, Any participation and active-state programming are locally qualified, including prepared1/2/4-PE source-free files. Full startup/backend/private/in-flight/clock/replay/native work remains open; actual GICD_TYPER SPI-domain under-reporting remains reproduced and unresolved."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3581,7 +3583,8 @@
         "docs/development/a64-gic-sources/README.md",
         "docs/development/a64-gic-sources/qualification.json",
         "docs/development/a64-gic-forwarding/README.md",
-        "docs/development/a64-gic-forwarding/qualification.json"
+        "docs/development/a64-gic-forwarding/qualification.json",
+        "docs/development/a64-gic-interface/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3623,7 +3626,8 @@
         "AArch64 retained-GIC resets now preserve owed timer publication;only changed PPI inputs are written. Real1/2/4-CPU reset files,guest2/4-CPU PSCI off/on files,poison/repair and failed admission are locally qualified in a64-timer-output/qualification.json. Same-INTID source coalescing,already-lost legacy history,complete IRQ/native/private/replay and physical Intel remain open;no original finding closure.",
         "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
         "Distinct classic GIC physical/software/edge sources,owned/shared versioned records,complete private timer-source admission and actual source-free1/2/4prepared-PE continuations are locally qualified in a64-gic-sources/qualification.json. Ambiguous legacy sources reject by explicit user choice; already-erased historical input truth remains unrecoverable. Complete backend/private/in-flight/startup/IRQ/clock/replay and physicalIntel requirements remain open;no full finding closure.",
-        "Independent distributor/CPU group gating,current-output direct timer polling,versioned exact-mask restoration and actual1/2/4prepared-PE source-free files are locally qualified in a64-gic-forwarding/qualification.json. Prior coalesced controls import their recorded readback;original writes are unknown. Group-specific IRQ/FIQ/ICC/WFI paths and complete profile/backend/private/in-flight/startup/IRQ/clock/replay/physical Intel requirements remain open;no full finding closure."
+        "Independent distributor/CPU group gating,current-output direct timer polling,versioned exact-mask restoration and actual1/2/4prepared-PE source-free files are locally qualified in a64-gic-forwarding/qualification.json. Prior coalesced controls import their recorded readback;original writes are unknown. Group-specific IRQ/FIQ/ICC/WFI paths and complete profile/backend/private/in-flight/startup/IRQ/clock/replay/physical Intel requirements remain open;no full finding closure.",
+        "Selected classic banked GIC operations, IRQ/FIQ masks/routing, waits, Any participation and active-state programming are locally qualified, including prepared1/2/4-PE source-free files. Full startup/backend/private/in-flight/clock/replay/native work remains open; actual GICD_TYPER SPI-domain under-reporting remains reproduced and unresolved."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -198358,6 +198362,27 @@
         "git add -- exact owned paths",
         "red -m --staged --run exact owned paths",
         "normal git push origin master:master",
+        "guarded owned build cleanup"
+      ],
+      "full_goal_complete": false
+    },
+    {
+      "id": "aarch64-gic-cpu-interface-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "parent": "1620eb240f41d9360642a0322775c3d3a1cf5e4d",
+      "scope": "Selected classic single-Security-state banked CPU interface, IRQ/FIQ and waits, Any participation, active-state programming and coordinated restoration; full original findings remain incomplete.",
+      "qualification": "docs/development/a64-gic-interface/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/commit-receipt.json",
+      "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/push-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-cpu-interface-v1/cleanup-final.json",
+      "workflow": [
+        "git add -- exact owned paths",
+        "red -m --staged --run exact owned paths",
+        "normal push origin master:master",
         "guarded owned build cleanup"
       ],
       "full_goal_complete": false

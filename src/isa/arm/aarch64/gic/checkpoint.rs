@@ -90,9 +90,7 @@ impl LegacyGicCheckpoint {
 
 impl GicCheckpoint {
     fn update_selection(&mut self) {
-        for cpu in &mut self.cpu_interfaces {
-            cpu.update_pending_for_groups(&self.spis, self.dist_groups);
-        }
+        super::forwarding::update_selection(&mut self.cpu_interfaces, &self.spis, self.dist_groups);
     }
 
     #[cfg(test)]

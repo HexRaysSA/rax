@@ -219,12 +219,18 @@ fn a_shared_active_spi_cannot_be_acknowledged_twice_before_deactivation() {
     g.write_dist(0, 3);
     g.set_group_enable(0, true, true);
     g.set_group_enable(1, true, true);
+    g.write_redist(0, 0x14, 0);
+    g.write_redist(1, 0x14, 0);
     g.write_dist(0x6000 + 42 * 8, 1 << 31);
     g.set_enabled(42, true);
     g.set_pending(42);
     assert_eq!(g.acknowledge(0), 42);
     assert_eq!(g.acknowledge(1), 1023);
     g.end_of_interrupt(0, 42);
+    assert!(g.pending_interrupt(0));
+    assert!(!g.pending_interrupt(1));
+    // The deterministic 1-of-N policy selects the first participating PE.
+    g.set_group_enable(0, true, false);
     assert_eq!(g.acknowledge(1), 42);
 }
 
@@ -234,7 +240,9 @@ fn sgi_broadcast_excludes_the_sender_and_range_selectors_reach_high_affinities()
         num_cpus: 255,
         ..Default::default()
     });
+    g.write_dist(0, 3);
     for id in [0, 1, 15, 16, 123, 254] {
+        g.write_redist(id, 0x14, 0);
         g.set_group_enable(id, true, true);
         g.write_redist(id, 0x10100, 1 << 7);
     }
@@ -253,6 +261,8 @@ fn sgi_broadcast_excludes_the_sender_and_range_selectors_reach_high_affinities()
 fn masked_wfi_wakes_on_its_own_pending_irq_without_taking_an_exception() {
     let mut f = Fixture::new(2);
     f.start(1, 0);
+    f.write(0, 0x0800_0000, 3);
+    f.write(0, 0x080c_0000 + 0x14, 0);
     f.write(0, 0x080c_0000 + 0x10100, 1 << 7);
     f.instruction(1, 0xd518_cce0, 1, 0); // MSR ICC_IGRPEN1_EL1, X0
     f.mem
@@ -648,3 +658,40 @@ fn constrained_or_unprivileged_hvc_forms_take_undefined_without_retirement() {
 
 #[path = "aarch64_reservations.rs"]
 mod reservations;
+
+#[test]
+fn controllerless_physical_timer_reaches_managed_irq_entry() {
+    use rax::isa::arm::{
+        aarch64::cpu::{AArch64Config, AArch64Cpu},
+        common::{
+            cpu::{ArmCpu, CpuExit},
+            memory::FlatMemory,
+        },
+    };
+    let mut cpu = AArch64Cpu::new(
+        AArch64Config {
+            gic_config: None,
+            ..Default::default()
+        },
+        Box::new(FlatMemory::new(0, 4096)),
+    );
+    let program = [0xd51b_e25fu32, 0xd51b_e220, 0xd503_201f];
+    cpu.write_memory(
+        0,
+        &program
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect::<Vec<_>>(),
+    )
+    .unwrap();
+    cpu.set_gpr(0, 1);
+    let mut state = cpu.get_pstate();
+    state.i = false;
+    cpu.set_pstate(state);
+    for _ in 0..2 {
+        assert!(matches!(cpu.step_system().unwrap(), CpuExit::Continue));
+    }
+    assert_eq!((cpu.get_pc(), cpu.instruction_count()), (8, 2));
+    assert!(matches!(cpu.step_system().unwrap(), CpuExit::Continue));
+    assert_eq!((cpu.get_pc(), cpu.instruction_count()), (0x280, 2));
+}

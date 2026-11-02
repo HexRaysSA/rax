@@ -55,24 +55,20 @@ impl AArch64Cpu {
             return Ok(CpuExit::Halt);
         }
 
-        let irq_line = self
-            .gic_irq_line
-            .as_ref()
-            .map(|l| l.load(std::sync::atomic::Ordering::Acquire))
-            .unwrap_or(false);
+        let interrupt = self.pending_interrupt_kind()?;
 
         // A pending event completes the previous WFE. Without one, retain the
         // existing single-yield spurious-wakeup policy. Atomic consumption must
         // not erase a signal arriving after the test.
         if self.wfe {
             self.wfe = false;
-            if !self.take_event() {
+            if !self.take_event() && !interrupt.is_some_and(|kind| self.interrupt_unmasked(kind)) {
                 return Ok(CpuExit::Wfe);
             }
         }
 
         if self.wfi {
-            if irq_line {
+            if interrupt.is_some() {
                 self.wfi = false;
             } else {
                 // Idle: skip the counter ahead to the next timer deadline so
@@ -82,9 +78,10 @@ impl AArch64Cpu {
             }
         }
 
-        // Deliver a pending IRQ if PSTATE.I allows.
-        if irq_line && (self.daif & 0x2) == 0 {
-            self.take_irq()?;
+        // Single-Security-state Group0 is FIQ, Group1 is IRQ (IHI0069H4.6.2).
+        if let Some(kind) = interrupt.filter(|kind| self.interrupt_unmasked(*kind)) {
+            let target = self.interrupt_target_el(kind);
+            self.take_exception(target, kind, SyndromeRegister::new())?;
             return Ok(CpuExit::Continue);
         }
 

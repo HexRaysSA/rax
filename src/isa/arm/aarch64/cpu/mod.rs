@@ -55,6 +55,9 @@ mod fpexc32_tests;
 mod identity;
 mod instruction;
 mod interrupt_binding;
+mod interrupt_delivery;
+#[cfg(test)]
+mod interrupt_delivery_tests;
 #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
 mod native_admission;
 mod native_execution;
@@ -687,7 +690,9 @@ impl ArmCpu for AArch64Cpu {
 
         // Check for WFI/WFE completion
         if self.wfi {
-            if let Some(_) = self.check_pending_interrupts()? {
+            self.tick_system(0)?;
+            // WFI wakeup is independent of PSTATE.I/F (DDI0487B.a D1.17.2).
+            if self.pending_interrupt_kind()?.is_some() {
                 self.wfi = false;
             } else {
                 return Ok(CpuExit::Wfi);
@@ -695,7 +700,9 @@ impl ArmCpu for AArch64Cpu {
         }
 
         if self.wfe {
-            if self.take_event() {
+            self.tick_system(0)?;
+            let interrupt = self.pending_interrupt_kind()?;
+            if self.take_event() || interrupt.is_some_and(|kind| self.interrupt_unmasked(kind)) {
                 self.wfe = false;
             } else {
                 return Ok(CpuExit::Wfe);

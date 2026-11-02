@@ -316,12 +316,12 @@ impl AArch64Cpu {
         let value = match enc {
             // ICC_PMR_EL1
             (3, 0, 4, 6, 0) => gic.cpu(self.gic_cpu_id)?.priority_mask as u64,
-            // ICC_IAR0_EL1 / ICC_IAR1_EL1 (read acknowledges)
-            (3, 0, 12, 8, 0) | (3, 0, 12, 12, 0) => gic.acknowledge(self.gic_cpu_id) as u64,
+            // ICC_IAR0_EL1 / ICC_IAR1_EL1 (read acknowledges that group).
+            (3, 0, 12, 8, 0) => gic.acknowledge_group(self.gic_cpu_id, 0) as u64,
+            (3, 0, 12, 12, 0) => gic.acknowledge_group(self.gic_cpu_id, 1) as u64,
             // ICC_HPPIR0_EL1 / ICC_HPPIR1_EL1
-            (3, 0, 12, 8, 2) | (3, 0, 12, 12, 2) => {
-                gic.cpu(self.gic_cpu_id)?.highest_pending_intid as u64
-            }
+            (3, 0, 12, 8, 2) => gic.highest_pending_in_group(self.gic_cpu_id, 0) as u64,
+            (3, 0, 12, 12, 2) => gic.highest_pending_in_group(self.gic_cpu_id, 1) as u64,
             // ICC_BPR0_EL1
             (3, 0, 12, 8, 3) => gic.cpu(self.gic_cpu_id)?.bpr0 as u64,
             // ICC_BPR1_EL1
@@ -366,9 +366,8 @@ impl AArch64Cpu {
             // ICC_PMR_EL1
             (3, 0, 4, 6, 0) => gic.set_priority_mask(self.gic_cpu_id, value as u8),
             // ICC_EOIR0_EL1 / ICC_EOIR1_EL1
-            (3, 0, 12, 8, 1) | (3, 0, 12, 12, 1) => {
-                gic.end_of_interrupt(self.gic_cpu_id, value as u32)
-            }
+            (3, 0, 12, 8, 1) => gic.end_of_interrupt_group(self.gic_cpu_id, value as u32, 0),
+            (3, 0, 12, 12, 1) => gic.end_of_interrupt_group(self.gic_cpu_id, value as u32, 1),
             // ICC_BPR0_EL1
             (3, 0, 12, 8, 3) => {
                 if let Some(cpu) = gic.cpu_mut(self.gic_cpu_id) {
@@ -387,7 +386,30 @@ impl AArch64Cpu {
             (3, 0, 12, 11, 1) => gic.deactivate(self.gic_cpu_id, value as u32),
             // ICC_SGI1R_EL1 / ICC_ASGI1R_EL1 / ICC_SGI0R_EL1
             (3, 0, 12, 11, 5) | (3, 0, 12, 11, 6) | (3, 0, 12, 11, 7) => {
-                gic.raise_sgi_from(self.gic_cpu_id, value)
+                // IHI0069H Table12-14: with DS=1 the Secure Group1
+                // configuration is treated as Group0. Without EL3 the
+                // effective SCR_EL3.NS is 1 (Table4-8).
+                let have_el3 = self.pauth_controls().implemented_els & 8 != 0;
+                let secure = have_el3 && (self.current_el == 3 || self.is_secure());
+                let groups = match enc.4 {
+                    5 => {
+                        if secure {
+                            1
+                        } else {
+                            3
+                        }
+                    } // SGI1R
+                    6 => {
+                        if secure {
+                            2
+                        } else {
+                            1
+                        }
+                    } // ASGI1R
+                    7 => 1, // SGI0R
+                    _ => return false,
+                };
+                gic.raise_sgi_from_groups(self.gic_cpu_id, value, groups)
             }
             // ICC_CTLR_EL1: only EOImode is writable here
             (3, 0, 12, 12, 4) => {

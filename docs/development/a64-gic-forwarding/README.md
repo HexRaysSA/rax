@@ -129,3 +129,11 @@ only. Workspace doctests executed zero cases and ignored five. The v4 owning
 results are reused after verifying all sixteen executables are byte-identical;
 the final v5 root run covers the revised fixtures. Exact commands and limits are
 in qualification.json.
+
+## Later CPU-interface qualification
+
+The [CPU-interface group](../a64-gic-interface/README.md) addresses the classic
+IAR/HPPIR/EOIR banks, SGI forwarding, IRQ/FIQ masks, wait wakeup, Any participation
+and active-state programming listed as open above. Its qualification retains the
+remaining scope, discovered SPI capability-reporting defect and all original
+finding boundaries; this historical group does not imply full audit closure.

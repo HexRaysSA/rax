@@ -204,50 +204,6 @@ impl AArch64Cpu {
         }
     }
 
-    /// Check for pending interrupts.
-    pub(crate) fn check_pending_interrupts(&mut self) -> Result<Option<CpuExit>, ArmError> {
-        // The direct stepping API must publish current timer outputs before
-        // consulting controller enables. Zero cycles preserves its counter epoch.
-        self.tick_system(0)?;
-
-        // Check GIC for pending interrupt
-        if let Some(ref gic) = self.gic {
-            let cpu_id = self.gic_cpu_id;
-
-            if gic
-                .lock()
-                .map(|g| g.pending_interrupt(cpu_id))
-                .unwrap_or(false)
-            {
-                // Check if IRQ is masked
-                let irq_masked = (self.daif & 0x2) != 0;
-
-                if !irq_masked {
-                    // Determine target EL
-                    let target_el = exception_target_el(
-                        ExceptionType::Irq,
-                        self.current_el,
-                        self.sysregs.hcr_el2,
-                        self.sysregs.scr_el3,
-                    );
-
-                    return Ok(Some(CpuExit::InterruptPending));
-                }
-            }
-        }
-
-        // With a GIC bound, its individual and group controls gate timer PPIs.
-        // Only a controller-less core retains the local timer fallback.
-        if self.gic.is_none() && self.sysregs.cntp_interrupt_pending() {
-            let irq_masked = (self.daif & 0x2) != 0;
-            if !irq_masked {
-                return Ok(Some(CpuExit::InterruptPending));
-            }
-        }
-
-        Ok(None)
-    }
-
     // =========================================================================
     // Instruction Execution Stubs
     // =========================================================================

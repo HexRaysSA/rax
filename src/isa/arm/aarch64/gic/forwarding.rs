@@ -1,6 +1,19 @@
 //! Group forwarding before interrupt prioritization (Arm IHI0069H4.7.2).
 use super::{CpuInterface, INTID_SPURIOUS, InterruptConfig, RoutingMode, SPI_END, SPI_START};
 
+/// The implemented E1NWF=0, DPGS=0 profile selects the first participating PE
+/// for each group. Selection is derived, including after checkpoint restore.
+pub(super) fn update_selection(cpus: &mut [CpuInterface], spis: &[InterruptConfig], groups: u8) {
+    let targets = [0, 1].map(|group| {
+        cpus.iter()
+            .find(|cpu| !cpu.waker_processor_sleep && cpu.group_forwarded(group, groups))
+            .map(|cpu| cpu.cpu_id)
+    });
+    for cpu in cpus {
+        cpu.update_pending_for_routing(spis, groups, targets);
+    }
+}
+
 impl CpuInterface {
     fn group_forwarded(&self, group: u8, distributor: u8) -> bool {
         let cpu_enabled = match group {
@@ -17,6 +30,18 @@ impl CpuInterface {
     }
 
     pub(super) fn update_pending_for_groups(&mut self, spis: &[InterruptConfig], groups: u8) {
+        // Standalone CPU-interface callers do not supply a cohort. Controller
+        // callers use update_selection to select exactly one participating PE.
+        let target = (!self.waker_processor_sleep).then_some(self.cpu_id);
+        self.update_pending_for_routing(spis, groups, [target; 2]);
+    }
+
+    fn update_pending_for_routing(
+        &mut self,
+        spis: &[InterruptConfig],
+        groups: u8,
+        any_targets: [Option<u8>; 2],
+    ) {
         let mut best_priority = 0xFF;
         let mut best_intid = INTID_SPURIOUS;
 
@@ -50,7 +75,9 @@ impl CpuInterface {
             {
                 // Check routing
                 let routed = match config.routing {
-                    RoutingMode::Any => true,
+                    RoutingMode::Any => {
+                        any_targets.get(usize::from(config.group)) == Some(&Some(self.cpu_id))
+                    }
                     RoutingMode::Affinity(aff) => aff == self.affinity,
                 };
 
