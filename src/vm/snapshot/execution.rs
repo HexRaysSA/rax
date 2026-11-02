@@ -8,8 +8,10 @@ const TAG: &[u8; 8] = b"RAXEXE01";
 const ARM_TAG: &[u8; 8] = b"RAXEXE02";
 const PC_TAG: &[u8; 8] = b"RAXEXE04";
 const UART_TAG: &[u8; 8] = b"RAXEXE03";
-const SOURCE_ARM_TAG: &[u8; 8] = b"RAXEXE05";
-const SOURCE_UART_TAG: &[u8; 8] = b"RAXEXE06";
+const SOURCE_ARM_TAG: &[u8; 8] = b"RAXEXE07";
+const PREVIOUS_SOURCE_ARM_TAG: &[u8; 8] = b"RAXEXE05";
+const SOURCE_UART_TAG: &[u8; 8] = b"RAXEXE08";
+const PREVIOUS_SOURCE_UART_TAG: &[u8; 8] = b"RAXEXE06";
 pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
 const MAX_CONTROL: usize = 4096;
 const MAX_REQUESTS: usize = 1_048_576;
@@ -141,6 +143,48 @@ mod tests {
                 .unwrap(),
             legacy
         );
+    }
+
+    #[test]
+    fn source_bearing_shared_frames_migrate_with_and_without_uart() {
+        for uart in [false, true] {
+            let mut state = ExecutionSnapshot::decode(&fixture(), 1).unwrap();
+            let cluster =
+                crate::backend::emulator::aarch64::cluster::ArmCluster::new(1, 0x8000).unwrap();
+            state.arm_cluster = Some(cluster.checkpoint().unwrap());
+            if uart {
+                state.pl011 = Some(crate::devices::pl011::Pl011::new().checkpoint().unwrap());
+            }
+            let expected = state.encoded().unwrap();
+            let platform = state
+                .arm_cluster
+                .as_ref()
+                .unwrap()
+                .previous_source_bytes_for_test();
+            let mut old = fixture();
+            old[..8].copy_from_slice(if uart {
+                PREVIOUS_SOURCE_UART_TAG
+            } else {
+                PREVIOUS_SOURCE_ARM_TAG
+            });
+            old.extend_from_slice(&(platform.len() as u32).to_le_bytes());
+            old.extend_from_slice(&platform);
+            if let Some(uart) = &state.pl011 {
+                let bytes = crate::codec::serialize(uart).unwrap();
+                old.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+                old.extend_from_slice(&bytes);
+            }
+            let migrated = ExecutionSnapshot::decode(&old, 1).unwrap();
+            assert_eq!(migrated.encoded().unwrap(), expected);
+            for end in 0..old.len() {
+                assert!(
+                    ExecutionSnapshot::decode(&old[..end], 1).is_err(),
+                    "uart={uart} prefix={end}"
+                );
+            }
+            old.push(0);
+            assert!(ExecutionSnapshot::decode(&old, 1).is_err());
+        }
     }
 
     #[test]
@@ -371,6 +415,8 @@ impl ExecutionSnapshot {
             PC_TAG,
             SOURCE_ARM_TAG,
             SOURCE_UART_TAG,
+            PREVIOUS_SOURCE_ARM_TAG,
+            PREVIOUS_SOURCE_UART_TAG,
         ]
         .contains(&tag.try_into().unwrap())
         {
@@ -426,6 +472,8 @@ impl ExecutionSnapshot {
             || tag == UART_TAG
             || tag == SOURCE_ARM_TAG
             || tag == SOURCE_UART_TAG
+            || tag == PREVIOUS_SOURCE_ARM_TAG
+            || tag == PREVIOUS_SOURCE_UART_TAG
         {
             let length = reader.u32()? as usize;
             if length > MAX_SECTION as usize || (length == 0 && tag != UART_TAG) {
@@ -437,6 +485,8 @@ impl ExecutionSnapshot {
                 let cluster: crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint =
                     if tag == ARM_TAG || tag == UART_TAG {
                         crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint::decode_legacy(reader.take(length)?)?
+                    } else if tag == PREVIOUS_SOURCE_ARM_TAG || tag == PREVIOUS_SOURCE_UART_TAG {
+                        crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint::decode_previous_sources(reader.take(length)?)?
                     } else {
                         crate::codec::deserialize_limited::<_, { MAX_SECTION as usize }>(
                             reader.take(length)?,
@@ -449,7 +499,8 @@ impl ExecutionSnapshot {
         } else {
             None
         };
-        let pl011 = if tag == UART_TAG || tag == SOURCE_UART_TAG {
+        let pl011 = if tag == UART_TAG || tag == SOURCE_UART_TAG || tag == PREVIOUS_SOURCE_UART_TAG
+        {
             let length = reader.u32()? as usize;
             if length == 0 || length > MAX_SECTION as usize {
                 return Err(invalid("bad UART length"));

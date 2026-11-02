@@ -1,11 +1,12 @@
 //! Framed owned-GIC source records and complete VM timer-input admission.
 use super::*;
 
-pub(super) const TAG: &[u8; 8] = b"RAXA6405";
+pub(super) const TAG: &[u8; 8] = b"RAXA6407";
+const PREVIOUS_SOURCE_TAG: &[u8; 8] = b"RAXA6405";
 
-use crate::isa::arm::aarch64::gic::checkpoint::LegacyGicCheckpoint;
+use crate::isa::arm::aarch64::gic::checkpoint::{LegacyGicCheckpoint, SourceGicCheckpoint};
 
-fn upgrade_legacy(old: Context<LegacyGicCheckpoint>) -> Result<Context> {
+fn upgrade_gic<T>(old: Context<T>, upgrade: fn(T) -> Result<GicCheckpoint>) -> Result<Context> {
     let Context {
         counter_clock,
         id,
@@ -40,7 +41,7 @@ fn upgrade_legacy(old: Context<LegacyGicCheckpoint>) -> Result<Context> {
         observations,
         user,
         reservation,
-        owned_gic: owned_gic.map(LegacyGicCheckpoint::upgrade).transpose()?,
+        owned_gic: owned_gic.map(upgrade).transpose()?,
     })
 }
 
@@ -49,6 +50,8 @@ pub(super) fn decode(raw: &[u8]) -> Result<Context> {
         return Err(invalid("record exceeds budget"));
     }
     let owned_sources = raw.starts_with(TAG) || raw.starts_with(counter_clock::OWNED_TAG);
+    let previous_sources =
+        raw.starts_with(PREVIOUS_SOURCE_TAG) || raw.starts_with(counter_clock::PREVIOUS_OWNED_TAG);
     let (payload, clock) = if counter_clock::is_tag(raw) {
         let header = raw
             .get(8..8 + counter_clock::SIZE)
@@ -60,6 +63,7 @@ pub(super) fn decode(raw: &[u8]) -> Result<Context> {
     } else {
         let payload = raw
             .strip_prefix(TAG)
+            .or_else(|| raw.strip_prefix(PREVIOUS_SOURCE_TAG))
             .or_else(|| raw.strip_prefix(super::TAG))
             .or_else(|| raw.strip_prefix(PREVIOUS_TAG))
             .or_else(|| raw.strip_prefix(LEGACY_TAG))
@@ -68,14 +72,21 @@ pub(super) fn decode(raw: &[u8]) -> Result<Context> {
     };
     let mut state: Context = if owned_sources {
         crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?
+    } else if previous_sources {
+        upgrade_gic(
+            crate::codec::deserialize_limited::<Context<SourceGicCheckpoint>, MAX_PAYLOAD>(payload)
+                .map_err(invalid)?,
+            SourceGicCheckpoint::upgrade,
+        )?
     } else {
-        upgrade_legacy(
+        upgrade_gic(
             crate::codec::deserialize_limited::<Context<LegacyGicCheckpoint>, MAX_PAYLOAD>(payload)
                 .map_err(invalid)?,
+            LegacyGicCheckpoint::upgrade,
         )?
     };
     state.counter_clock = clock;
-    if owned_sources && state.owned_gic.is_none() {
+    if (owned_sources || previous_sources) && state.owned_gic.is_none() {
         return Err(invalid("owned-GIC source record has no controller"));
     }
     validate_owned(&state)?;
@@ -144,7 +155,20 @@ pub(super) fn validate_set(bundle: &crate::vm::snapshot::SnapshotBundle) -> Resu
 
 #[cfg(test)]
 pub(super) fn legacy_payload_for_test(state: &Context) -> Vec<u8> {
-    let old: Context<LegacyGicCheckpoint> =
-        serde_json::from_value(serde_json::to_value(state).unwrap()).unwrap();
+    let mut value = serde_json::to_value(state).unwrap();
+    if let Some(gic) = &state.owned_gic {
+        value["owned_gic"] = gic.legacy_fields_for_test();
+    }
+    let old: Context<LegacyGicCheckpoint> = serde_json::from_value(value).unwrap();
+    crate::codec::serialize(&old).unwrap()
+}
+
+#[cfg(test)]
+pub(super) fn previous_source_payload_for_test(state: &Context) -> Vec<u8> {
+    let mut value = serde_json::to_value(state).unwrap();
+    if let Some(gic) = &state.owned_gic {
+        value["owned_gic"] = gic.legacy_fields_for_test();
+    }
+    let old: Context<SourceGicCheckpoint> = serde_json::from_value(value).unwrap();
     crate::codec::serialize(&old).unwrap()
 }

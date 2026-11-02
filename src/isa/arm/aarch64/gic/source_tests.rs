@@ -141,7 +141,7 @@ fn spi_software_latch_and_physical_input_survive_independent_clear_and_restore()
 }
 
 fn legacy(gic: &Gic) -> checkpoint::LegacyGicCheckpoint {
-    serde_json::from_value(serde_json::to_value(gic.checkpoint()).unwrap()).unwrap()
+    serde_json::from_value(gic.checkpoint().legacy_fields_for_test()).unwrap()
 }
 
 #[test]

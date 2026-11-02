@@ -8,6 +8,7 @@
 //! - Interrupt prioritization and routing
 
 pub mod checkpoint;
+mod forwarding;
 mod sgi;
 mod sources;
 
@@ -320,51 +321,6 @@ impl CpuInterface {
         }
     }
 
-    /// Update highest pending interrupt.
-    pub fn update_pending(&mut self, spis: &[InterruptConfig]) {
-        let mut best_priority = 0xFF;
-        let mut best_intid = INTID_SPURIOUS;
-
-        // Check private interrupts (SGI/PPI)
-        for (i, config) in self.private_interrupts.iter().enumerate() {
-            if config.enabled
-                && config.state.is_pending()
-                && !config.state.is_active()
-                && config.priority < best_priority
-            {
-                // Check if unmasked
-                if config.priority < self.priority_mask {
-                    best_priority = config.priority;
-                    best_intid = i as u32;
-                }
-            }
-        }
-
-        // Check SPIs
-        for (i, config) in spis.iter().enumerate() {
-            let intid = SPI_START + i as u32;
-            if config.enabled
-                && config.state.is_pending()
-                && !config.state.is_active()
-                && config.priority < best_priority
-            {
-                // Check routing
-                let routed = match config.routing {
-                    RoutingMode::Any => true,
-                    RoutingMode::Affinity(aff) => aff == self.affinity,
-                };
-
-                if routed && config.priority < self.priority_mask {
-                    best_priority = config.priority;
-                    best_intid = intid;
-                }
-            }
-        }
-
-        self.highest_pending_priority = best_priority;
-        self.highest_pending_intid = best_intid;
-    }
-
     /// Check if there's a pending interrupt to signal.
     pub fn pending_interrupt(&self) -> bool {
         // Check if any group is enabled
@@ -403,7 +359,7 @@ impl CpuInterface {
     pub fn acknowledge(&mut self, spis: &mut [InterruptConfig]) -> u32 {
         let intid = self.highest_pending_intid;
 
-        if intid == INTID_SPURIOUS {
+        if !self.pending_interrupt() {
             return INTID_SPURIOUS;
         }
 
@@ -512,13 +468,8 @@ impl CpuInterface {
 pub struct Gic {
     /// Configuration.
     config: GicConfig,
-    /// Distributor enabled.
-    dist_enabled: bool,
-    /// Security state.
-    security_enabled: bool,
-    /// Affinity Routing Enable (ARE).
-    are_s: bool, // Secure
-    are_ns: bool, // Non-secure
+    /// Independent distributor enables for the two implemented interrupt groups.
+    dist_groups: u8,
     /// SPI configuration.
     spis: Vec<InterruptConfig>,
     /// Per-CPU interfaces.
@@ -551,10 +502,7 @@ impl Gic {
 
         Self {
             config,
-            dist_enabled: false,
-            security_enabled: false,
-            are_s: true,
-            are_ns: true,
+            dist_groups: 0,
             spis,
             cpu_interfaces,
             irq_lines,
@@ -575,10 +523,7 @@ impl Gic {
 
     /// Reset the GIC.
     pub fn reset(&mut self) {
-        self.dist_enabled = false;
-        self.security_enabled = false;
-        self.are_s = true;
-        self.are_ns = true;
+        self.dist_groups = 0;
 
         for spi in &mut self.spis {
             *spi = InterruptConfig::default();
@@ -700,7 +645,7 @@ impl Gic {
 
     /// Acknowledge interrupt for CPU.
     pub fn acknowledge(&mut self, cpu_id: usize) -> u32 {
-        self.reconcile_sources();
+        self.update_all_cpus();
         if let Some(cpu) = self.cpu_interfaces.get_mut(cpu_id) {
             let intid = cpu.acknowledge(&mut self.spis);
             self.acknowledge_source(cpu_id, intid);
@@ -723,7 +668,7 @@ impl Gic {
     fn update_all_cpus(&mut self) {
         self.reconcile_sources();
         for (i, cpu) in self.cpu_interfaces.iter_mut().enumerate() {
-            cpu.update_pending(&self.spis);
+            cpu.update_pending_for_groups(&self.spis, self.dist_groups);
             if let Some(line) = self.irq_lines.get(i) {
                 line.store(
                     cpu.pending_interrupt(),
@@ -742,27 +687,20 @@ impl Gic {
         match offset {
             // GICD_CTLR
             0x0000 => {
-                let mut val = 0u32;
-                if self.dist_enabled {
-                    val |= 1; // EnableGrp0
-                    val |= 2; // EnableGrp1
-                }
-                if self.are_s {
-                    val |= 1 << 4; // ARE_S
-                }
-                if self.are_ns {
-                    val |= 1 << 5; // ARE_NS
-                }
-                if self.security_enabled {
-                    val |= 1 << 6; // DS
-                }
-                val
+                // The implemented GICv3/v4 profile has one Security state and
+                // no legacy routing: DS and ARE are RAO/WI (IHI0069H12.9.4).
+                let fixed = if self.config.version == GicVersion::V2 {
+                    0
+                } else {
+                    (1 << 6) | (1 << 4)
+                };
+                fixed | u32::from(self.dist_groups)
             }
             // GICD_TYPER
             0x0004 => {
                 let it_lines = (self.config.num_spis / 32).saturating_sub(1) as u32;
                 let cpu_number = (self.config.num_cpus - 1) as u32;
-                let security = if self.security_enabled { 1 } else { 0 };
+                let security = 0; // One Security state; matches GICD_CTLR.DS.
                 let mbis = 0; // No message-based interrupts
                 let lpis = 0; // No LPIs
                 let dvis = 0; // No direct virtual LPI injection
@@ -897,9 +835,8 @@ impl Gic {
         match offset {
             // GICD_CTLR
             0x0000 => {
-                self.dist_enabled = (value & 0x3) != 0;
-                self.are_s = (value >> 4) & 1 != 0;
-                self.are_ns = (value >> 5) & 1 != 0;
+                self.dist_groups = (value & 0x3) as u8;
+                self.update_all_cpus();
             }
             // GICD_IGROUPR0-31
             0x0080..=0x00FC => {
@@ -915,6 +852,7 @@ impl Gic {
                             if (value >> bit) & 1 != 0 { 1 } else { 0 };
                     }
                 }
+                self.update_all_cpus();
             }
             // GICD_ISENABLER0-31
             0x0100..=0x017C => {
@@ -1320,6 +1258,7 @@ mod tests {
     #[test]
     fn test_sgi() {
         let mut gic = Gic::new(GicConfig::default());
+        gic.write_dist(0, 2);
 
         // Enable group 1 and set priority mask
         if let Some(cpu) = gic.cpu_mut(0) {
@@ -1347,6 +1286,7 @@ mod tests {
     #[test]
     fn test_spi() {
         let mut gic = Gic::new(GicConfig::default());
+        gic.write_dist(0, 2);
 
         // Configure SPI 32
         gic.set_enabled(32, true);
@@ -1418,3 +1358,7 @@ mod tests {
 #[cfg(test)]
 #[path = "gic/source_tests.rs"]
 mod source_tests;
+
+#[cfg(test)]
+#[path = "gic/forwarding_tests.rs"]
+mod forwarding_tests;

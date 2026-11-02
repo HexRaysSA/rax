@@ -278,6 +278,13 @@ impl ArmCluster {
     }
 }
 
+#[cfg(test)]
+impl ArmCluster {
+    pub(crate) fn irq_line_for_test(&self, id: usize) -> Arc<AtomicBool> {
+        self.gic.lock().unwrap().irq_line(id).unwrap()
+    }
+}
+
 impl ArmClusterCheckpoint {
     #[cfg(test)]
     pub(crate) fn legacy_bytes_for_test(&self) -> Vec<u8> {
@@ -287,8 +294,9 @@ impl ArmClusterCheckpoint {
             gic: crate::isa::arm::aarch64::gic::checkpoint::LegacyGicCheckpoint,
             high_redist_base: u64,
         }
-        let old: LegacyCluster =
-            serde_json::from_value(serde_json::to_value(self).unwrap()).unwrap();
+        let mut value = serde_json::to_value(self).unwrap();
+        value["gic"] = self.gic.legacy_fields_for_test();
+        let old: LegacyCluster = serde_json::from_value(value).unwrap();
         crate::codec::serialize(&old).unwrap()
     }
 
@@ -300,6 +308,36 @@ impl ArmClusterCheckpoint {
             high_redist_base: u64,
         }
         let old: LegacyCluster = crate::codec::deserialize_limited::<_, { 64 * 1024 * 1024 }>(raw)
+            .map_err(|error| invalid(&error.to_string()))?;
+        Ok(Self {
+            control: old.control,
+            gic: old.gic.upgrade()?,
+            high_redist_base: old.high_redist_base,
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn previous_source_bytes_for_test(&self) -> Vec<u8> {
+        #[derive(serde::Deserialize, serde::Serialize)]
+        struct SourceCluster {
+            control: Control,
+            gic: crate::isa::arm::aarch64::gic::checkpoint::SourceGicCheckpoint,
+            high_redist_base: u64,
+        }
+        let mut value = serde_json::to_value(self).unwrap();
+        value["gic"] = self.gic.legacy_fields_for_test();
+        let old: SourceCluster = serde_json::from_value(value).unwrap();
+        crate::codec::serialize(&old).unwrap()
+    }
+
+    pub(crate) fn decode_previous_sources(raw: &[u8]) -> Result<Self> {
+        #[derive(serde::Deserialize)]
+        struct SourceCluster {
+            control: Control,
+            gic: crate::isa::arm::aarch64::gic::checkpoint::SourceGicCheckpoint,
+            high_redist_base: u64,
+        }
+        let old: SourceCluster = crate::codec::deserialize_limited::<_, { 64 * 1024 * 1024 }>(raw)
             .map_err(|error| invalid(&error.to_string()))?;
         Ok(Self {
             control: old.control,
@@ -419,6 +457,7 @@ mod tests {
         let cluster = ArmCluster::new(2, 0x8000).unwrap();
         let line = {
             let mut gic = cluster.gic.lock().unwrap();
+            gic.write_dist(0, 2);
             gic.set_group_enable(1, true, true);
             gic.write_redist(1, 0x10100, 1 << 7);
             gic.raise_sgi((7 << 24) | 2);

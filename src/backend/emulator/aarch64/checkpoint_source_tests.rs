@@ -200,3 +200,55 @@ fn uart_boundary_and_guest_read_publish_physical_levels_without_clearing_softwar
     handle.lock().unwrap().write_dist(0x284, 1 << 1);
     assert_eq!(handle.lock().unwrap().read_dist(0x204) & (1 << 1), 0);
 }
+
+#[test]
+fn source_bearing_owned_frames_migrate_readback_and_keep_pending_sources_in_both_clock_profiles() {
+    for mode in [None, Some(ClockMode::Retired)] {
+        let clock = mode.map(|mode| Arc::new(TimingContext::with_mode(mode)));
+        let _scope = clock.as_ref().map(|clock| clock.enter());
+        let source = Aarch64Vcpu::new(0, memory());
+        {
+            let handle = source.cpu.gic_handle().unwrap();
+            let mut gic = handle.lock().unwrap();
+            gic.write_dist(0, 2);
+            gic.set_spi_level(40, true);
+            gic.set_pending(40);
+        }
+        let state = state(&source);
+        let mut data = if let Some(clock) = state.counter_clock {
+            let mut data = b"RAXA6406".to_vec();
+            data.extend_from_slice(&counter_clock::encode(clock).unwrap());
+            data
+        } else {
+            b"RAXA6405".to_vec()
+        };
+        data.extend_from_slice(&gic_sources::previous_source_payload_for_test(&state));
+        let record = BackendContext {
+            kind: AARCH64_CONTEXT,
+            data,
+        };
+        let mut target = Aarch64Vcpu::new(0, memory());
+        let handle = target.cpu.gic_handle().unwrap();
+        target
+            .restore_checkpoint_context(
+                &source.get_state().unwrap(),
+                &Default::default(),
+                Some(&record),
+            )
+            .unwrap();
+        assert!(Arc::ptr_eq(&handle, &target.cpu.gic_handle().unwrap()));
+        let mut gic = handle.lock().unwrap();
+        assert_eq!(gic.read_dist(0) & 3, 3);
+        gic.set_spi_level(40, false);
+        assert_eq!(gic.read_dist(0x204) & (1 << 8), 1 << 8);
+        gic.write_dist(0x284, 1 << 8);
+        assert_eq!(gic.read_dist(0x204) & (1 << 8), 0);
+        drop(gic);
+        let current = target.capture_backend_context().unwrap().unwrap();
+        assert!(current.data.starts_with(if mode.is_some() {
+            b"RAXA6408"
+        } else {
+            b"RAXA6407"
+        }));
+    }
+}

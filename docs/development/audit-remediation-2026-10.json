@@ -2779,7 +2779,9 @@
         "docs/development/a64-fpexc32/README.md",
         "docs/development/a64-fpexc32/qualification.json",
         "docs/development/a64-gic-sources/README.md",
-        "docs/development/a64-gic-sources/qualification.json"
+        "docs/development/a64-gic-sources/qualification.json",
+        "docs/development/a64-gic-forwarding/README.md",
+        "docs/development/a64-gic-forwarding/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2830,7 +2832,8 @@
         "Software AArch64 generic counters now retain selected VM-clock ownership at fixed62500000Hz,per-PE offsets and peer timer PPI refresh,with actual1/2/4 prepared-context files and explicit legacy domains. See a64-system-counter/qualification.json. Other clocks,all-waiting idle/default policy,complete native/private/startup/IRQ/replay and physical Intel remain open;no original finding closure.",
         "AArch64 retained-GIC resets now preserve owed timer publication;only changed PPI inputs are written. Real1/2/4-CPU reset files,guest2/4-CPU PSCI off/on files,poison/repair and failed admission are locally qualified in a64-timer-output/qualification.json. Same-INTID source coalescing,already-lost legacy history,complete IRQ/native/private/replay and physical Intel remain open;no original finding closure.",
         "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
-        "Distinct classic GIC physical/software/edge sources,owned/shared versioned records,complete private timer-source admission and actual source-free1/2/4prepared-PE continuations are locally qualified in a64-gic-sources/qualification.json. Ambiguous legacy sources reject by explicit user choice; already-erased historical input truth remains unrecoverable. Complete backend/private/in-flight/startup/IRQ/clock/replay and physicalIntel requirements remain open;no full finding closure."
+        "Distinct classic GIC physical/software/edge sources,owned/shared versioned records,complete private timer-source admission and actual source-free1/2/4prepared-PE continuations are locally qualified in a64-gic-sources/qualification.json. Ambiguous legacy sources reject by explicit user choice; already-erased historical input truth remains unrecoverable. Complete backend/private/in-flight/startup/IRQ/clock/replay and physicalIntel requirements remain open;no full finding closure.",
+        "Independent distributor/CPU group gating,current-output direct timer polling,versioned exact-mask restoration and actual1/2/4prepared-PE source-free files are locally qualified in a64-gic-forwarding/qualification.json. Prior coalesced controls import their recorded readback;original writes are unknown. Group-specific IRQ/FIQ/ICC/WFI paths and complete profile/backend/private/in-flight/startup/IRQ/clock/replay/physical Intel requirements remain open;no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2900,7 +2903,8 @@
         "aarch64-vm-system-counter-2026-11-02",
         "aarch64-timer-output-frontier-2026-11-02",
         "aarch64-fpexc32-access-2026-11-02",
-        "aarch64-gic-pending-sources-2026-11-02"
+        "aarch64-gic-pending-sources-2026-11-02",
+        "aarch64-gic-group-forwarding-2026-11-02"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3575,7 +3579,9 @@
         "docs/development/a64-fpexc32/README.md",
         "docs/development/a64-fpexc32/qualification.json",
         "docs/development/a64-gic-sources/README.md",
-        "docs/development/a64-gic-sources/qualification.json"
+        "docs/development/a64-gic-sources/qualification.json",
+        "docs/development/a64-gic-forwarding/README.md",
+        "docs/development/a64-gic-forwarding/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3616,7 +3622,8 @@
         "Software AArch64 generic counters now retain selected VM-clock ownership at fixed62500000Hz,per-PE offsets and peer timer PPI refresh,with actual1/2/4 prepared-context files and explicit legacy domains. See a64-system-counter/qualification.json. Other clocks,all-waiting idle/default policy,complete native/private/startup/IRQ/replay and physical Intel remain open;no original finding closure.",
         "AArch64 retained-GIC resets now preserve owed timer publication;only changed PPI inputs are written. Real1/2/4-CPU reset files,guest2/4-CPU PSCI off/on files,poison/repair and failed admission are locally qualified in a64-timer-output/qualification.json. Same-INTID source coalescing,already-lost legacy history,complete IRQ/native/private/replay and physical Intel remain open;no original finding closure.",
         "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
-        "Distinct classic GIC physical/software/edge sources,owned/shared versioned records,complete private timer-source admission and actual source-free1/2/4prepared-PE continuations are locally qualified in a64-gic-sources/qualification.json. Ambiguous legacy sources reject by explicit user choice; already-erased historical input truth remains unrecoverable. Complete backend/private/in-flight/startup/IRQ/clock/replay and physicalIntel requirements remain open;no full finding closure."
+        "Distinct classic GIC physical/software/edge sources,owned/shared versioned records,complete private timer-source admission and actual source-free1/2/4prepared-PE continuations are locally qualified in a64-gic-sources/qualification.json. Ambiguous legacy sources reject by explicit user choice; already-erased historical input truth remains unrecoverable. Complete backend/private/in-flight/startup/IRQ/clock/replay and physicalIntel requirements remain open;no full finding closure.",
+        "Independent distributor/CPU group gating,current-output direct timer polling,versioned exact-mask restoration and actual1/2/4prepared-PE source-free files are locally qualified in a64-gic-forwarding/qualification.json. Prior coalesced controls import their recorded readback;original writes are unknown. Group-specific IRQ/FIQ/ICC/WFI paths and complete profile/backend/private/in-flight/startup/IRQ/clock/replay/physical Intel requirements remain open;no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3668,7 +3675,8 @@
         "aarch64-vm-system-counter-2026-11-02",
         "aarch64-timer-output-frontier-2026-11-02",
         "aarch64-fpexc32-access-2026-11-02",
-        "aarch64-gic-pending-sources-2026-11-02"
+        "aarch64-gic-pending-sources-2026-11-02",
+        "aarch64-gic-group-forwarding-2026-11-02"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198331,6 +198339,27 @@
       "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-pending-sources-v1/push-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-pending-sources-v1/cleanup-final.json",
       "workflow": "Direct master; exact owned-path git add then red -m --staged --run; normal push to origin/master after every semantic commit; no new merge commits, branches or worktrees; guarded canonical C/T cleanup.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "aarch64-gic-group-forwarding-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "parent": "29ac0f7a1dfe9e7eacc6c19038c4d0b2e1b83757",
+      "scope": "Independent classic GIC distributor/CPU group forwarding,source conservation and versioned coordinated restore; no full finding closure.",
+      "qualification": "docs/development/a64-gic-forwarding/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-group-forwarding-v1/commit-receipt.json",
+      "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-group-forwarding-v1/push-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-group-forwarding-v1/cleanup-final.json",
+      "workflow": [
+        "git add -- exact owned paths",
+        "red -m --staged --run exact owned paths",
+        "normal git push origin master:master",
+        "guarded owned build cleanup"
+      ],
       "full_goal_complete": false
     }
   ],

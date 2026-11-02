@@ -6,6 +6,16 @@ use crate::error::{Error, Result};
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct GicCheckpoint {
     config: GicConfig,
+    dist_groups: u8,
+    spis: Vec<InterruptConfig>,
+    cpu_interfaces: Vec<CpuInterface>,
+    sources: SourceBank,
+}
+
+/// Frozen source-bearing layout used by private6405/06 and sharedEXE05/06.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct SourceGicCheckpoint {
+    config: GicConfig,
     dist_enabled: bool,
     security_enabled: bool,
     are_s: bool,
@@ -13,6 +23,23 @@ pub struct GicCheckpoint {
     spis: Vec<InterruptConfig>,
     cpu_interfaces: Vec<CpuInterface>,
     sources: SourceBank,
+}
+
+impl SourceGicCheckpoint {
+    pub(crate) fn upgrade(self) -> Result<GicCheckpoint> {
+        // The former public readback expanded true to both enables. This is
+        // a logical migration; individual historical writes are not recoverable.
+        let mut state = GicCheckpoint {
+            config: self.config,
+            dist_groups: if self.dist_enabled { 3 } else { 0 },
+            spis: self.spis,
+            cpu_interfaces: self.cpu_interfaces,
+            sources: self.sources,
+        };
+        state.validate_shape(state.cpu_interfaces.len())?;
+        state.update_selection();
+        Ok(state)
+    }
 }
 
 /// Frozen positional GIC layout used before physical source state was retained.
@@ -47,7 +74,7 @@ impl LegacyGicCheckpoint {
             ));
         }
         let sources = SourceBank::new(self.cpu_interfaces.len(), self.spis.len());
-        let result = GicCheckpoint {
+        let result = SourceGicCheckpoint {
             config: self.config,
             dist_enabled: self.dist_enabled,
             security_enabled: self.security_enabled,
@@ -57,12 +84,28 @@ impl LegacyGicCheckpoint {
             cpu_interfaces: self.cpu_interfaces,
             sources,
         };
-        result.validate_shape(result.cpu_interfaces.len())?;
-        Ok(result)
+        result.upgrade()
     }
 }
 
 impl GicCheckpoint {
+    fn update_selection(&mut self) {
+        for cpu in &mut self.cpu_interfaces {
+            cpu.update_pending_for_groups(&self.spis, self.dist_groups);
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn legacy_fields_for_test(&self) -> serde_json::Value {
+        let mut value = serde_json::to_value(self).unwrap();
+        let object = value.as_object_mut().unwrap();
+        object.insert("dist_enabled".into(), (self.dist_groups != 0).into());
+        object.insert("security_enabled".into(), false.into());
+        object.insert("are_s".into(), true.into());
+        object.insert("are_ns".into(), true.into());
+        value
+    }
+
     pub(crate) fn validate_timer_inputs(&self, cpu: usize, levels: (bool, bool)) -> Result<()> {
         self.validate_shape(self.cpu_interfaces.len())?;
         if self.sources.ppi_level(cpu, 27) != Some(levels.0)
@@ -78,7 +121,8 @@ impl GicCheckpoint {
     pub(crate) fn validate_shape(&self, count: usize) -> Result<()> {
         let invalid =
             || Error::Emulator("GIC checkpoint topology or interrupt state is invalid".into());
-        if count == 0
+        if self.dist_groups & !3 != 0
+            || count == 0
             || count != usize::from(self.config.num_cpus)
             || self.cpu_interfaces.len() != count
             || self.spis.len() != usize::from(self.config.num_spis)
@@ -114,10 +158,7 @@ impl Gic {
     pub fn checkpoint(&self) -> GicCheckpoint {
         let mut state = GicCheckpoint {
             config: self.config.clone(),
-            dist_enabled: self.dist_enabled,
-            security_enabled: self.security_enabled,
-            are_s: self.are_s,
-            are_ns: self.are_ns,
+            dist_groups: self.dist_groups,
             spis: self.spis.clone(),
             cpu_interfaces: self.cpu_interfaces.clone(),
             sources: self.sources.clone(),
@@ -125,9 +166,7 @@ impl Gic {
         state
             .sources
             .reconcile(&mut state.cpu_interfaces, &mut state.spis);
-        for cpu in &mut state.cpu_interfaces {
-            cpu.update_pending(&state.spis);
-        }
+        state.update_selection();
         state
     }
 
@@ -151,10 +190,7 @@ impl Gic {
     /// The caller validated this state before publication. IRQ mirrors are
     /// recomputed into existing Arcs, so every PE retains its live binding.
     pub fn restore_checkpoint(&mut self, state: GicCheckpoint) {
-        self.dist_enabled = state.dist_enabled;
-        self.security_enabled = state.security_enabled;
-        self.are_s = state.are_s;
-        self.are_ns = state.are_ns;
+        self.dist_groups = state.dist_groups;
         self.spis = state.spis;
         self.cpu_interfaces = state.cpu_interfaces;
         self.sources = state.sources;

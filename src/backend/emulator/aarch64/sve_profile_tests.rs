@@ -109,7 +109,7 @@ fn restored_private_controls_preserve_denial_frontier_and_zero_retirement_clock(
         let mut source = fixture(&case);
         let public = source.get_state().unwrap();
         let private = source.capture_backend_context().unwrap().unwrap();
-        assert!(private.data.starts_with(b"RAXA6405"));
+        assert!(private.data.starts_with(b"RAXA6407"));
         let mut target = fixture(&case);
         target
             .restore_checkpoint_context(&public, &Default::default(), Some(&private))

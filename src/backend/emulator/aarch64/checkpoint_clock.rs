@@ -4,11 +4,12 @@ use crate::isa::arm::aarch64::cpu::SystemCounterState;
 use crate::vm::timing::ClockMode;
 
 pub(super) const TAG: &[u8; 8] = b"RAXA6404";
-pub(super) const OWNED_TAG: &[u8; 8] = b"RAXA6406";
+pub(super) const OWNED_TAG: &[u8; 8] = b"RAXA6408";
+pub(super) const PREVIOUS_OWNED_TAG: &[u8; 8] = b"RAXA6406";
 pub(super) const SIZE: usize = 9;
 
 pub(super) fn is_tag(raw: &[u8]) -> bool {
-    raw.starts_with(TAG) || raw.starts_with(OWNED_TAG)
+    raw.starts_with(TAG) || raw.starts_with(OWNED_TAG) || raw.starts_with(PREVIOUS_OWNED_TAG)
 }
 
 pub(super) fn encode(state: SystemCounterState) -> Result<[u8; SIZE]> {

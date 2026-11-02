@@ -96,7 +96,7 @@ fn optional_profile_actual_v2_records_preserve_advertised_caps_and_continue() {
         );
         assert_eq!(after.regs, original.regs, "{name}");
         let current = cpu.capture_backend_context().unwrap().unwrap();
-        assert!(current.data.starts_with(b"RAXA6405"));
+        assert!(current.data.starts_with(b"RAXA6407"));
         let (mut roundtrip, _) = target();
         roundtrip
             .restore_checkpoint_context(

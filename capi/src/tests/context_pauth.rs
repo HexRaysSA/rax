@@ -618,7 +618,7 @@ fn actual_legacy_a64_private_fixture_migrates_profile_after_projection_validatio
         assert_eq!((execution.sysregs.id_aa64isar0_el1 >> 48) & 15, 0);
         assert_eq!((execution.sysregs.id_aa64pfr0_el1 >> 16) & 15, 0);
         let current = save(engine);
-        assert!(current.windows(8).any(|tag| tag == b"RAXA6405"));
+        assert!(current.windows(8).any(|tag| tag == b"RAXA6407"));
         assert_eq!(
             rax_context_restore(engine, current.as_ptr(), current.len()),
             RaxStatus::Ok

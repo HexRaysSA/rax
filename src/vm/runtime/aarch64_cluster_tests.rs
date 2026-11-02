@@ -19,6 +19,8 @@ mod counter_clock;
 mod events;
 #[path = "aarch64_fpexc32_tests.rs"]
 mod fpexc32;
+#[path = "aarch64_gic_forwarding_tests.rs"]
+mod gic_forwarding;
 #[path = "aarch64_gic_source_tests.rs"]
 mod gic_sources;
 #[path = "aarch64_timer_output_tests.rs"]

@@ -358,6 +358,7 @@ impl Aarch64Vcpu {
         }
         if !raw.data.starts_with(TAG)
             && !raw.data.starts_with(gic_sources::TAG)
+            && !raw.data.starts_with(b"RAXA6405")
             && !counter_clock::is_tag(&raw.data)
         {
             candidate

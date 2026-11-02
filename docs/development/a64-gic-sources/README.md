@@ -162,3 +162,12 @@ qualification does not imply that this historical user-file invariant passed.
 | owning-capi-library-v10 | 241 passed / 0 failed / 0 ignored |
 
 All-target build/check/Clippy, without-debug/without-JIT compilation, formatting and retained Windows corpus checks passed. Exact receipts are in qualification.json.
+
+## Later group-forwarding framing
+
+The [group-forwarding followup](../a64-gic-forwarding/README.md) replaces the
+coalesced distributor enable with independent group controls. Current owned/shared
+frames are RAXA6407/08 and RAXEXE07/08. The 05/06 frames qualified above retain
+explicit source-bearing readers; their boolean control imports as its recorded
+readback,0 or3. Historical qualification records continue to describe their
+captured source revisions.
