@@ -5,7 +5,8 @@ Each entry contains the backend's existing public `CpuState` and represented
 `EmulatorState`. Restore validates every entry against its target backend before
 assigning the first CPU or changing RAM/devices. A multi-vCPU bundle without this
 required component is rejected by typed configuration and runtime restore. The
-older base `Snapshot` API retains its CPU-0 projection contract.
+older base `Snapshot` API retains its CPU-0 projection contract for wall contexts.
+Explicit retired VMMs require complete clock/coordinator/CPU/private bundle records.
 
 Required tagged-v8 section 11/schema 1 starts with `RAXCPU01` and a little-endian
 u32 count. A complete table of u64 public/private record lengths precedes all
@@ -57,3 +58,10 @@ backend records and resource-closed NAND, detached CPU preparation, shared UART
 and physical RAM publication, and common elapsed-clock rebasing. Its 1/2/4
 prepared-context continuation tests preserve the cold CPU0-only startup policy;
 architectural S5L secondary startup and deterministic PMU RTC replay remain open.
+
+
+[Explicit VMM clock construction](vmm-selected-clock/README.md) selects the saved
+clock before constructing devices/CPUs and restores complete software retired
+files with exact fractional phase. It rejects mismatched/incomplete timelines
+before publication. The intended deterministic default, independent board clocks,
+idle advancement, native accounting and full replay remain open.

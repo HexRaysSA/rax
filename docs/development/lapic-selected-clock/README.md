@@ -38,10 +38,11 @@ the changed restore caller. Counts overlap across layers.
 
 The complete ignored native CPU-profile module was not rerun for this device
 change. Its independently reproduced streaming-FPSR failure remains open.
-Physical Intel execution was unavailable. These results do not qualify a
-retired-clock VMM: constructors still select wall mode and reject retired-mode
-files. Deterministic default scheduling, native retirement accounting, RTC,
-external-event replay and the remaining audit findings remain incomplete.
+Physical Intel execution was unavailable. That controller-only qualification did not establish a retired-clock VMM.
+[Explicit VMM clock construction](../vmm-selected-clock/README.md) now selects the
+requested/saved mode before devices and admits complete software retired files.
+Default constructors remain wall-mode. Idle advancement, independent board clocks,
+native retirement, RTC, external-event replay and the full audit findings remain incomplete.
 
 The [qualification record](qualification.json) contains assumptions,
 falsification probes, exact source/executable provenance and remaining limits.

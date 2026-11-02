@@ -2755,7 +2755,9 @@
         "src/vm/runtime/s5l_context_tests.rs",
         "docs/development/a32-short-vectors/README.md",
         "docs/development/a32-short-vectors/qualification.json",
-        "docs/development/a32-short-vectors/qemu-reference.json"
+        "docs/development/a32-short-vectors/qemu-reference.json",
+        "docs/development/vmm-selected-clock/README.md",
+        "docs/development/vmm-selected-clock/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2798,7 +2800,8 @@
         "GSC complete represented core/platform resource-backed contexts and matching-RAM publication locally qualified with seven pre-fix actual-file failures and ten repaired file tests. New-file construction is independent of GSC process selectors/profile and deleted AP flash. S5L8900, remaining backend/shared state and full original findings remain open; no full finding closure.",
         "NAND component now captures all represented controller/in-flight fields, unread page backing and saved media policy; component and independent fresh-process witnesses are qualified. Full S5L CPU/device/UART/family and coordinated RAM publication remain required; this is not full VM checkpoint closure.",
         "Complete represented S5L private producer, source-closed NAND, saved effective profile, common elapsed-clock epoch, UART/RAM publication and source-free 1/2/4 prepared-context continuations are locally qualified in s5l-checkpoints/qualification.json. PMU live RTC/timezone replay, architectural S5L secondary startup, other full private/backend/profile/native requirements and physical Intel remain open; no full finding closure.",
-        "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json."
+        "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json.",
+        "Explicit VMM clock selection before devices, complete retired-file construction and strict timeline/base-loss admission are locally qualified with real1/2/4 prepared x86 files,exact TSC/phase/wrap and retained LAPIC clock identity. Defaults remain wall; independent board clocks, idle advancement, native retirement and complete replay remain open. Armv8a32/CortexR factories remain unsupported and explicitly tested as such. No full original finding closure; see vmm-selected-clock/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2860,7 +2863,8 @@
         "legacy-s3c-fixture-tracking-2026-11-02",
         "s5l-nand-resource-closed-component-2026-11-02",
         "s5l-complete-represented-private-producer-2026-11-02",
-        "a32-optional-short-vector-profile-2026-11-02"
+        "a32-optional-short-vector-profile-2026-11-02",
+        "vmm-selected-clock-construction-2026-11-02"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3520,7 +3524,9 @@
         "src/vm/runtime/s5l_context_tests.rs",
         "docs/development/a32-short-vectors/README.md",
         "docs/development/a32-short-vectors/qualification.json",
-        "docs/development/a32-short-vectors/qemu-reference.json"
+        "docs/development/a32-short-vectors/qemu-reference.json",
+        "docs/development/vmm-selected-clock/README.md",
+        "docs/development/vmm-selected-clock/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3553,7 +3559,8 @@
         "GSC platform-aware stepping is locally qualified after five guest-effect and two actual factory/coordinator failures. The original core counter survives warm reset; no duplicate counter was added. Complete GSC/S5L8900 private/platform contexts, full backend startup/IRQ/clock/replay and physical Intel requirements remain open. No full finding closure.",
         "S5L platform stepping and completed-retirement accounting qualified after9 baseline failures. Prepared online1/2/4 contexts prove exact quanta/selection; a separate test preserves cold BSP-only policy. No S5L architectural startup or complete private checkpoint producer is claimed; full original findings remain open.",
         "Complete represented S5L private producer, source-closed NAND, saved effective profile, common elapsed-clock epoch, UART/RAM publication and source-free 1/2/4 prepared-context continuations are locally qualified in s5l-checkpoints/qualification.json. PMU live RTC/timezone replay, architectural S5L secondary startup, other full private/backend/profile/native requirements and physical Intel remain open; no full finding closure.",
-        "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json."
+        "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json.",
+        "Explicit VMM clock selection before devices, complete retired-file construction and strict timeline/base-loss admission are locally qualified with real1/2/4 prepared x86 files,exact TSC/phase/wrap and retained LAPIC clock identity. Defaults remain wall; independent board clocks, idle advancement, native retirement and complete replay remain open. Armv8a32/CortexR factories remain unsupported and explicitly tested as such. No full original finding closure; see vmm-selected-clock/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3597,7 +3604,8 @@
         "gsc-platform-aware-bounded-steps-2026-11-02",
         "s5l-platform-bounded-retirement-2026-11-02",
         "s5l-complete-represented-private-producer-2026-11-02",
-        "a32-optional-short-vector-profile-2026-11-02"
+        "a32-optional-short-vector-profile-2026-11-02",
+        "vmm-selected-clock-construction-2026-11-02"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198108,6 +198116,21 @@
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/commit-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/cleanup-final.json",
       "workflow": "Direct master; git add -- exact owned paths; red -m --staged --run same paths; remove idle owned canonical C/T; no push, branch or worktree.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "vmm-selected-clock-construction-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "parent": "37601f3de09bbce52886f02cccc40dbc474b53ab",
+      "scope": "Actual explicit software-VMM clock construction and source-independent retired-clock checkpoint reconstruction, complete clock identity/fractional phase, no native false admission. Full deterministic-default/idle/native/replay and original four findings remain open.",
+      "qualification": "docs/development/vmm-selected-clock/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/cleanup-final.json",
+      "workflow": "Exact owned-path stage and red commit directly in master, then guarded idle C/T cleanup; no push, branch or worktree.",
       "full_goal_complete": false
     }
   ],

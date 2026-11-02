@@ -1,0 +1,872 @@
+{
+  "schema": 1,
+  "utc": "2026-11-02T07:36:41.900880+00:00",
+  "parent": "37601f3de09bbce52886f02cccc40dbc474b53ab",
+  "status": "locally_validated_with_explicit_scope",
+  "scope": "Actual explicit software-VMM clock construction and source-independent retired-clock checkpoint reconstruction, complete clock identity/fractional phase, no native false admission. Full deterministic-default/idle/native/replay and original four findings remain open.",
+  "full_goal_complete": false,
+  "source_sha256": {
+    "src/vm/runtime.rs": "9ac9292825b28c2212cf307ce3cece83637b062622f7357377ddd3f0afcdd455",
+    "src/vm/runtime/clock.rs": "39fb8362c94d31ce080b241e354ea33007e9a3b95285f34cce1567a8bce398a5",
+    "src/vm/runtime/clock_tests.rs": "eda8bc36e67fc942b7362a41943c5c57071f0c0a8edca89a33da18dc893101b1",
+    "src/config/runtime.rs": "0e8fee6825a0f2f1273366e3ee1a45e2ff9235d5287b86974526011f65f2c431",
+    "src/vm/timing.rs": "7734a79396b18d2f35f289a690e9432f52f2ec43b36104b37b93936e8d9a64fd",
+    "src/vm/snapshot.rs": "4ad5f699e85d6876d925d5af61ab2870bcfb1f347d1f9af0e47ad0c7da629cb9",
+    "src/vm/runtime/checkpoint_capture.rs": "a2390ab810f301344c6aa58a986c0db41e76e66a3066f3637c95995b30562ac2",
+    "src/vm/runtime/checkpoint_restore.rs": "2d5d67d4ba0fc5f6e5760df61ae967c31e31269a8e6fbbf723a1b06014711c78",
+    "tests/suites/vm/checkpoint_clock.rs": "1e2fa5d090dc36138d7e0cd1baa9b705005b4d7e5f0dc532944d2a3d2891997f"
+  },
+  "source_lines": {
+    "src/vm/runtime.rs": 1070,
+    "src/vm/runtime/clock.rs": 41,
+    "src/vm/runtime/clock_tests.rs": 387,
+    "src/config/runtime.rs": 653,
+    "src/vm/timing.rs": 173,
+    "src/vm/snapshot.rs": 566,
+    "src/vm/runtime/checkpoint_capture.rs": 156,
+    "src/vm/runtime/checkpoint_restore.rs": 514,
+    "tests/suites/vm/checkpoint_clock.rs": 505
+  },
+  "assumptions": [
+    {
+      "id": "VC1",
+      "assumption": "The existing retired timing/budget contract is authoritative: one validated retired instruction or Hexagon packet adds one third of a nanosecond.",
+      "basis": "src/vm/timing/{retired,context}.rs and src/vm/vcpu/budget.rs",
+      "dependent_result": "Explicit software VMM construction and exact continuation.",
+      "stress_test": "Host delays,1/2/4 CPU exact counts and fractional phase/wrap, zero-retirement faults.",
+      "falsification_probe": "A selected VMM uses wall time or a record loses phase/retirement.",
+      "status": "confirmed",
+      "evidence": [
+        "focused-clock-v4",
+        "owning-root-library-v4"
+      ]
+    },
+    {
+      "id": "VC2",
+      "assumption": "Native backends do not yet expose complete deterministic retirement accounting.",
+      "basis": "Current coordinator nonstepping native path and recorded full-goal limitations.",
+      "dependent_result": "Reject explicit native Retired before backend/resource construction.",
+      "stress_test": "KVM/HVF selected with unavailable device/deleted kernel/invalid large allocation.",
+      "falsification_probe": "An error from host initialization occurs before the mode rejection.",
+      "status": "retained",
+      "evidence": [
+        "focused-clock-v4",
+        "owning-root-library-v4"
+      ]
+    },
+    {
+      "id": "VC3",
+      "assumption": "Clock mode is immutable per TimingContext and must be selected before device/CPU construction.",
+      "basis": "TimingContext.validate_checkpoint_state and LAPIC retained binding.",
+      "dependent_result": "Bundle mode selection before construction; mismatched in-place restore remains side-effect free.",
+      "stress_test": "Retired target restored from wall file and reverse; source and target epochs differ.",
+      "falsification_probe": "Any CPU/device/RAM mutation before a clock-mode denial or target device retains a foreign clock.",
+      "status": "confirmed",
+      "evidence": [
+        "focused-clock-v4",
+        "owning-root-library-v4"
+      ]
+    },
+    {
+      "id": "VC4",
+      "assumption": "Changing the default requires a complete logical idle/timer model; this group exposes the real explicit contract and fixes actual file admission first.",
+      "basis": "Retirement-only clocks cannot advance while every CPU waits; idle APIs and platform timers differ.",
+      "dependent_result": "Preserve current default until idle work, retain full original goal and ledger limitations.",
+      "stress_test": "A waiting selected clock must not acquire host elapsed time or fabricate retired work.",
+      "falsification_probe": "Documentation claims deterministic default, RTC/external-event replay or native timing is complete.",
+      "status": "retained",
+      "evidence": [
+        "focused-clock-v4",
+        "owning-root-library-v4"
+      ]
+    },
+    {
+      "id": "VC5",
+      "assumption": "ClockMode selects TimingContext; independent board clocks/RTC/entropy are separate unfinished deterministic-time requirements.",
+      "basis": "S5L runtime/time.rs ElapsedClock uses host::time::Instant, which is std::time::Instant on this host; other standalone clocks remain in the inventory.",
+      "dependent_result": "Do not claim complete all-machine determinism, default scheduling or replay from constructor/selected-clock tests.",
+      "stress_test": "Inspect host-clock users; compare host-delay traces only for the explicitly observed selected x86/TSC/LAPIC clocks.",
+      "falsification_probe": "Documentation claims host delay is excluded from every board clock or native execution.",
+      "status": "confirmed",
+      "evidence": [
+        "focused-clock-v4",
+        "owning-root-library-v4"
+      ]
+    }
+  ],
+  "primary_contracts": [
+    {
+      "path": "src/vm/timing/retired.rs",
+      "claim": "Existing 3,000,000,000 retirement-unit/s model, u64 state and independent phase bounds.",
+      "sha256": "5dd2e8fef54d2304a6c76d0a92c6467f84c4e28f1aa549a0a2dc3620669de005"
+    },
+    {
+      "path": "src/vm/timing/context.rs",
+      "claim": "Selected clock modes, exact thirds-of-ns advance, immutable mode and prepared clock publication.",
+      "sha256": "0ee3bb9c45832f9eb60cdb162b9b3cda76634d9b6ea133d9a47632407e86a3cb"
+    },
+    {
+      "path": "src/vm/vcpu/budget.rs",
+      "claim": "Only validated completed retirement advances the clock before the next guest instruction; failed/charged meters are distinguished.",
+      "sha256": "fc99c2a4ca36772c84cef03a208cdf757b9f5c7543f54b3732ec7ed67007d0ff"
+    },
+    {
+      "path": "src/vm/snapshot/clock.rs",
+      "claim": "Existing fixed44-byte RAXCLK01 record, base elapsed consistency, no wire-format change.",
+      "sha256": "dc5591ecc06f50374a9c7b2db2b2dde4db94d06225f1d39f9f9449e099607ad2"
+    },
+    {
+      "path": "src/devices/lapic/timer_clock.rs",
+      "claim": "Retained per-VM clock identity and wrapping source/target epoch rebasing.",
+      "sha256": "ed3f2a26e6d675bd769958af6f5840a2c6719c8adf77d52cf87b97cd82bd075b"
+    }
+  ],
+  "baseline": {
+    "behavioral_red": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "vm::runtime::clock_tests::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 101,
+      "expected_exit_code": 101,
+      "elapsed_seconds": 17.160463500011247,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 1,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "51ce35b62c29118cd76f75ecb8f84203388f2bbda0226946db08eb40eff150e6",
+        "inode": 401117130
+      },
+      "executable_after_sha256": "51ce35b62c29118cd76f75ecb8f84203388f2bbda0226946db08eb40eff150e6",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/vm/runtime.rs": "bf8bcf050315cf40d2d33265ab39f3744ab69adc64a2012dbbb2decb15683354",
+        "src/vm/runtime/clock_tests.rs": "ee02da98906a3c2cac1737bd7075d7b723b26661125192b6d29c745145311690",
+        "src/config/runtime.rs": "a679efc6826e0d4590394324d41d7d7500c4043a0fde2de27f989d4f1226ddef",
+        "docs/development/audit-remediation-2026-10.json": "f143dcf885dca4fc75e0d396767b8782dab49e3a2d7b78d633fc256e60d8a31e",
+        "docs/development/lapic-selected-clock/README.md": "cf44c7ab354bed7aef8ae3bcb8ad7166a4162ef136d5ab6e0c0c81e9cb1cac8d",
+        "docs/development/checkpoint-cpus.md": "b49ced3dce983be794082efe9c78afe0557fbb6062be674be7736aac7968b3e5",
+        "__HEAD__": "37601f3de09bbce52886f02cccc40dbc474b53ab",
+        "__tracked_changes__": "889f2cc319f5fec78a4e3195f11136f16d40c3e3c42251bc238addba37b0ffd2"
+      }
+    },
+    "fixture_binding": "Existing full producer reached by test-only TimingContext injection, no guest or timer execution under that old binding; actual file and public constructor/configuration path.",
+    "excluded_compiler_fixture_errors": [
+      "implementation-build-v1: opaque record serialization and nonexistent public field",
+      "implementation-build-v2: Snapshot does not implement Debug for unwrap_err"
+    ],
+    "corrected_factory_expectation": {
+      "utc": "2026-11-02T07:08:13.742015+00:00",
+      "observed": "focused-clock-v3:5 passed,1 failed; Armv8a32 returned the existing Unsupported architecture error",
+      "source": "EmulatorVm.create_vcpu only implements x86/Hexagon/Riscv/AArch64/CortexM/Armv7a; audit ledger already records Armv8A32/CortexR unsupported selection as unresolved.",
+      "correction": "Keep all8 selectors in both-mode sweep; require success for6 and exact existing denial for2. Do not modify capability support or claim those platforms implemented.",
+      "production_changed_for_correction": false,
+      "remaining_full_goal_and_backlog_unchanged": true
+    }
+  },
+  "validation": {
+    "focused-clock-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "vm::runtime::clock_tests::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 209.1395132499747,
+      "test_results": [
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "ba1579d3e0cbf3313174c88a84f1120339ebefbc0d287cca7dc7cabf709aec66",
+        "inode": 401181530
+      },
+      "executable_after_sha256": "ba1579d3e0cbf3313174c88a84f1120339ebefbc0d287cca7dc7cabf709aec66",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/focused-clock-v4.json"
+    },
+    "owning-root-library-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1239.1474783329759,
+      "test_results": [
+        {
+          "passed": 11907,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "ba1579d3e0cbf3313174c88a84f1120339ebefbc0d287cca7dc7cabf709aec66",
+        "inode": 401181530
+      },
+      "executable_after_sha256": "ba1579d3e0cbf3313174c88a84f1120339ebefbc0d287cca7dc7cabf709aec66",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/owning-root-library-v4.json"
+    },
+    "owning-CAPI-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 14.066552332951687,
+      "test_results": [
+        {
+          "passed": 240,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "c600cfcc1dfa64eab48ccadb1a3ef0040159f2b32965c9e7016aa5bb7f6d63ba",
+        "inode": 401137364
+      },
+      "executable_after_sha256": "c600cfcc1dfa64eab48ccadb1a3ef0040159f2b32965c9e7016aa5bb7f6d63ba",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/owning-CAPI-v4.json"
+    },
+    "owning-retirement_budget-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-3477bb2ea3989bed",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.016613584011793137,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 2
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-3477bb2ea3989bed",
+        "sha256": "39d138db30eae5ba68ed21eeabe0652a6f5647bba88afef73b2beaa004b1a857",
+        "inode": 401200457
+      },
+      "executable_after_sha256": "39d138db30eae5ba68ed21eeabe0652a6f5647bba88afef73b2beaa004b1a857",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/owning-retirement_budget-v4.json"
+    },
+    "owning-vm_timing-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/vm_timing-de64801cbad1fc5e",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.013588375004474074,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/vm_timing-de64801cbad1fc5e",
+        "sha256": "2c6b2210fd07c04c1b235835508c9ef8bb148a33ab2cdabb41a607354f0d4bd4",
+        "inode": 401201189
+      },
+      "executable_after_sha256": "2c6b2210fd07c04c1b235835508c9ef8bb148a33ab2cdabb41a607354f0d4bd4",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/owning-vm_timing-v4.json"
+    },
+    "owning-retired_clock-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retired_clock-4fd413f370064705",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.008891249948646873,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retired_clock-4fd413f370064705",
+        "sha256": "c8219fa82e1bcbe6b7d0723513c4133f4a9f82a1d85f9a34b7a785687573d847",
+        "inode": 401201086
+      },
+      "executable_after_sha256": "c8219fa82e1bcbe6b7d0723513c4133f4a9f82a1d85f9a34b7a785687573d847",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/owning-retired_clock-v4.json"
+    },
+    "owning-checkpoint_clock-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_clock-b8724286b91fbeeb",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 69.8220225420082,
+      "test_results": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_clock-b8724286b91fbeeb",
+        "sha256": "7e7393f74eeebfa128b1b86f9171d5f895804ff7bcf9ca1c40b06079dea6e968",
+        "inode": 401201455
+      },
+      "executable_after_sha256": "7e7393f74eeebfa128b1b86f9171d5f895804ff7bcf9ca1c40b06079dea6e968",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/owning-checkpoint_clock-v4.json"
+    },
+    "owning-retirement_clock-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_clock-b411028c145cb526",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01747024996438995,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_clock-b411028c145cb526",
+        "sha256": "b2053d4c9fabbafbc87356b5393b8e926ca5192d0f36837b241f71b59c1ad728",
+        "inode": 401199671
+      },
+      "executable_after_sha256": "b2053d4c9fabbafbc87356b5393b8e926ca5192d0f36837b241f71b59c1ad728",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/owning-retirement_clock-v4.json"
+    },
+    "owning-x86_retired_tsc-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/x86_retired_tsc-a7cb01f382fd00e1",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.018190208997111768,
+      "test_results": [
+        {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/x86_retired_tsc-a7cb01f382fd00e1",
+        "sha256": "dfb84be684dbb13c495e07b1c5f8d92d7286e1e1892bda28bfbf7e6f7a9a850b",
+        "inode": 401201484
+      },
+      "executable_after_sha256": "dfb84be684dbb13c495e07b1c5f8d92d7286e1e1892bda28bfbf7e6f7a9a850b",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/owning-x86_retired_tsc-v4.json"
+    },
+    "owning-checkpoint_cpus-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_cpus-4b86ae490049f9e9",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.20367908297339454,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_cpus-4b86ae490049f9e9",
+        "sha256": "a62c8006a353c19342d9bbdf79bbbeb4f186bb9b5a9bc6a783cca55b74f3e5f7",
+        "inode": 401200141
+      },
+      "executable_after_sha256": "a62c8006a353c19342d9bbdf79bbbeb4f186bb9b5a9bc6a783cca55b74f3e5f7",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/owning-checkpoint_cpus-v4.json"
+    },
+    "owning-checkpoint_resume-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_resume-1ba9346c51c2c83f",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 65.11278116697213,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_resume-1ba9346c51c2c83f",
+        "sha256": "0a8c2cb68e37656bedf84393eae4835ee32e09d48a74043c03dc6c9cf3e03c4c",
+        "inode": 401200861
+      },
+      "executable_after_sha256": "0a8c2cb68e37656bedf84393eae4835ee32e09d48a74043c03dc6c9cf3e03c4c",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/owning-checkpoint_resume-v4.json"
+    },
+    "owning-ci_actions_pinned-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-684b758ed82515b1",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.030081417004112154,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-684b758ed82515b1",
+        "sha256": "0188b6bb3f5f2ca6323ccd17c1fc57a115719fc033133a7cbf8c57f92b1e62e2",
+        "inode": 401200071
+      },
+      "executable_after_sha256": "0188b6bb3f5f2ca6323ccd17c1fc57a115719fc033133a7cbf8c57f92b1e62e2",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/owning-ci_actions_pinned-v4.json"
+    },
+    "implementation-build-v4": {
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--lib",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 201.14748154202243,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/implementation-build-v4.json"
+    },
+    "fmt-workspace-v4": {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 20.55175658297958,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/fmt-workspace-v4.json"
+    },
+    "build-workspace-all-targets-v4": {
+      "argv": [
+        "cargo",
+        "build",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 120.06541991699487,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/build-workspace-all-targets-v4.json"
+    },
+    "check-workspace-all-targets-v4": {
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 248.5628961659968,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/check-workspace-all-targets-v4.json"
+    },
+    "clippy-workspace-all-targets-v4": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 217.86748187500052,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/clippy-workspace-all-targets-v4.json"
+    },
+    "doctests-workspace-v4": {
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 11.082719083002303,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/doctests-workspace-v4.json"
+    },
+    "check-workspace-without-debug-v4": {
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,rax-capi/jit",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 74.69769679196179,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/check-workspace-without-debug-v4.json"
+    }
+  },
+  "implementation_review": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/implementation-review-v4.json",
+  "observation": {
+    "focused_sample": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/focused-clock-v3.sample.txt",
+    "finding": "Live owned test959 was active in snapshot SHA256/compression, not a lock wait; no restart or signal to protected guests.",
+    "earlier_focus_v3": "5 passed,1 failed because test incorrectly expected the already unresolved Armv8a32 factory; retained exact failure and corrected only the boundary expectation. Final v4 all6 pass."
+  },
+  "coverage": {
+    "factory": "Six implemented selectors x2 modes: x86,A64,ARMv7,CortexM,RISC-V,Hexagon. Armv8a32/CortexR both-mode exact existing Unsupported architecture errors remain asserted.",
+    "fresh": "Actual selected-clock cold A64 raw NOP/WFI guest:2 retired units,0 ns,phase2.",
+    "files": "Actual1/2/4 prepared x86 CPU files; all three incoming fractional phases, counter/nanosecond wrap, per-CPU RDTSC/RAM/private data, coordinator cursor/count and selected LAPIC elapsed.",
+    "native": "KVM/HVF selection rejected before host backend/resource/kernel access, using a missing kernel and u64::MAX requested allocation.",
+    "rejections": "Missing coordinator/CPU/private/clock, mismatched units, mismatched mode, base capture/restore and inconsistent capture; full RAM/CPU/private/clock/coordinator observed before/after.",
+    "host_delays": "3 ms before execution and1 ms between peer runs; foreign1 s timing context must not alter owned LAPIC observations.",
+    "ignored": "Root35 and retirement-budget integration2 remain explicitly ignored; other selected targets have0 ignored. Workspace doctests complete with0 executed and5 ignored examples; ignored/native bodies are not execution evidence.",
+    "profile_boundary": "ClockMode selects TimingContext. Independent board clocks/RTC/entropy and automatic idle advance are not implemented by this component."
+  },
+  "change_surface": {
+    "configuration": "Pure mode and complete-retired-timeline admission, no config-field changes.",
+    "VMM": "Additive explicit public Rust constructors; saved mode selected before devices/CPUs. DefaultWall retained.",
+    "capture_restore": "Complete record/count checks; retired base-only loss prevented; matching existing prepared publication unchanged.",
+    "coordinator": "Existing O(C) selection and common validated-retirement path; no instruction quantum or startup policy change.",
+    "devices": "No device implementation changes; real LAPIC clock identity tested through construction/restore.",
+    "ISA_SMIR_C_ABI": "No decode, arithmetic, lowering, native admission, C ABI or serialized-layout changes."
+  },
+  "requirements": [
+    {
+      "id": "VC-R1",
+      "requirement": "Clock selection before device/CPU construction",
+      "implementation": [
+        "src/vm/runtime.rs",
+        "src/vm/runtime/clock.rs"
+      ],
+      "evidence": [
+        "focused-clock-v4"
+      ]
+    },
+    {
+      "id": "VC-R2",
+      "requirement": "Source-independent actual retired-file reconstruction",
+      "implementation": [
+        "src/config/runtime.rs",
+        "src/vm/runtime.rs"
+      ],
+      "evidence": [
+        "baseline-red-v1",
+        "focused-clock-v4"
+      ]
+    },
+    {
+      "id": "VC-R3",
+      "requirement": "Full clock/coordinator/private timeline admission and base-loss prevention",
+      "implementation": [
+        "src/config/runtime.rs",
+        "src/vm/runtime/checkpoint_capture.rs",
+        "src/vm/runtime/checkpoint_restore.rs"
+      ],
+      "evidence": [
+        "focused-clock-v4"
+      ]
+    },
+    {
+      "id": "VC-R4",
+      "requirement": "Exact1/2/4 CPU timestamps,phase,wrap and device clock identity",
+      "implementation": [
+        "src/vm/runtime/clock_tests.rs"
+      ],
+      "evidence": [
+        "focused-clock-v4",
+        "owning-root-library-v4"
+      ]
+    },
+    {
+      "id": "VC-R5",
+      "requirement": "Early unsupported-native rejection and unchanged default/factory boundaries",
+      "implementation": [
+        "src/config/runtime.rs",
+        "src/vm/runtime/clock_tests.rs"
+      ],
+      "evidence": [
+        "focused-clock-v4",
+        "factory-boundary-correction-v4"
+      ]
+    },
+    {
+      "id": "VC-R6",
+      "requirement": "Master-only exact owned-path red commit and owned build cleanup",
+      "implementation": [
+        "docs/development/audit-remediation-2026-10.json"
+      ],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/commit-receipt.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/cleanup-final.json"
+      ]
+    }
+  ],
+  "algorithm": {
+    "frequency_hz": 3000000000,
+    "units": "retired instruction/Hexagon packet; exact thirds of SI nanoseconds",
+    "advance": "q=p+N; elapsed=initial_elapsed+floor(q/3) modulo2^64; phase=q mod3; units=initial_units+N modulo2^64",
+    "timestamps": "Each CPU executes8 instructions; two RDTSC observations see initial_units+8*id and initial_units+8*id+4 modulo2^64.",
+    "admission": "O(C) time and O(1) additional state, excluding existing codec/device/RAM costs.",
+    "comparison": "All observed timestamp/private/clock fields exact; no masks or tolerance; no physical cycle accuracy claim."
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Intended deterministic default and idle/timer advance remain open",
+      "evidence": "src/vm/runtime/execution.rs and ClockMode retired non-advance on zero retirement",
+      "blocks": "Full default/scheduler/replay closure, not the explicit selected-clock construction contract."
+    },
+    {
+      "impact": "high",
+      "item": "Independent board clocks,RTC and entropy remain host/external driven",
+      "evidence": [
+        "src/machine/s5l8900/runtime/time.rs",
+        "src/host/time.rs"
+      ],
+      "blocks": "Full all-machine deterministic time/replay; constructor selection does not replace these clocks."
+    },
+    {
+      "impact": "high",
+      "item": "Native retirement and physical Intel execution remain open",
+      "evidence": "Native coordinator path has no validated instruction count; current host is Apple Silicon. An asynchronous Intel-host request is pending.",
+      "blocks": "Full original C-HVF/C-SMP/C-STATE closure."
+    },
+    {
+      "impact": "medium",
+      "item": "Armv8a32/CortexR selectors lack software CPU factories",
+      "evidence": "src/backend/emulator/mod.rs and existing audit ledger unresolved entries; both-mode denial explicitly tested.",
+      "blocks": "Those platform implementations; not newly claimed by this component."
+    },
+    {
+      "impact": "medium",
+      "item": "Prepared contexts do not establish architectural secondary startup or weak-memory interleavings",
+      "evidence": "clock_tests prepare fills online directly; separate owning existing SMP tests rerun in full root.",
+      "blocks": "Broader original SMP proof beyond this timing/file component."
+    },
+    {
+      "impact": "low",
+      "item": "Snapshot hashing/compression dominates focused wall duration",
+      "evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/focused-clock-v3.sample.txt",
+      "blocks": false
+    }
+  ],
+  "quality_gates": {
+    "QG1": "pass: no normative judgment required",
+    "QG2": "pass: reconciled5-entry assumptions with stress/falsification probes",
+    "QG3": "pass for explicit construction/timeline contract; original full requirements remain open",
+    "QG4": "pass: exact SI-unit policy and wrapping integer phase/counter calculations",
+    "QG5": "pass: independent board/default/native/platform limitations retained explicitly",
+    "QG6": "pass: actual source contracts and executed parent/repaired public-file paths",
+    "QG7": "pass: bounded impact register",
+    "repository": "All owning unfiltered binaries and relevant workspace gates completed; master/ref/source/cleanup integrity required by receipts"
+  },
+  "environment": {
+    "record": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-selected-clock-v1/environment.json",
+    "host": "Darwin ints-MacBook-Pro.local 27.2.0 Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041 arm64",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1",
+    "guest_overrides": "No RAX_NO_JIT and no GSC/S5L/NAND/TRACE_PC overrides; build wrappers empty; offline pinned checked profiles."
+  },
+  "workflow": {
+    "branch": "master",
+    "new_branches": 0,
+    "new_worktrees": 0,
+    "push": false,
+    "commit": "git add -- exact owned paths; red -m --staged --run same paths",
+    "cleanup": "Idle canonical C/T only, preserving source/evidence, user repositories, primary target and protected guests28735/28737."
+  }
+}

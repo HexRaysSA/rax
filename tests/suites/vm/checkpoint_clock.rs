@@ -331,7 +331,7 @@ fn runtime_restores_diagnostic_ticks_notification_and_time_anchor() {
     );
 }
 #[test]
-fn retired_mode_is_rejected_before_runtime_or_constructor_mutation() {
+fn incomplete_retired_timeline_is_rejected_before_runtime_or_constructor_mutation() {
     let f = Fixture::new();
     let b = f.bundle(state(ClockMode::Retired, 2));
     let mut vm = Vmm::new_resume(f.config()).unwrap();
@@ -350,7 +350,7 @@ fn retired_mode_is_rejected_before_runtime_or_constructor_mutation() {
             .err()
             .unwrap()
             .to_string()
-            .contains("deterministic coordinator")
+            .contains("execution coordinator state")
     );
     assert!(Vmm::new_resume_bundle(f.config(), &b).is_err());
 }

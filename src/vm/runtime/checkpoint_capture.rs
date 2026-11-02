@@ -132,7 +132,9 @@ impl Vmm {
                     if let Some(pci) = pci {
                         bundle = bundle.with_pci(pci)?;
                     }
-                    bundle.with_physical_memory(physical)
+                    let bundle = bundle.with_physical_memory(physical)?;
+                    crate::config::runtime::validate_checkpoint_clock(self.backend_kind, &bundle)?;
+                    Ok(bundle)
                 };
                 match &cluster {
                     Some(cluster) => cluster.checkpoint_with(|state| capture(Some(state))),

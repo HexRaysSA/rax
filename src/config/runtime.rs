@@ -15,9 +15,9 @@ const MIN_MEM_MIB: u64 = 128;
 const DEFAULT_VCPUS: u8 = 1;
 /// Default kernel command line for emulator boot.
 /// Includes timing options for stable emulation:
-/// - tsc=reliable: Don't recalibrate TSC (we provide stable instruction-based TSC)
+/// - tsc=reliable: Don't recalibrate TSC (we provide a stable virtual TSC)
 /// - nohz=off: Disable tickless mode (simplifies timer handling)
-/// - clocksource=tsc: Use TSC as clock source (we emulate it based on instruction count)
+/// - clocksource=tsc: Use TSC as clock source (its source is the selected VM clock)
 const DEFAULT_CMDLINE: &str =
     "console=ttyS0 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc";
 /// Default kernel command line for AArch64 guests: PL011 console at the virt
@@ -371,6 +371,12 @@ impl VmConfig {
         }
     }
 
+    /// Select only clock modes whose retirement source the backend implements.
+    /// This check precedes host backend, device and memory construction.
+    pub(crate) fn validate_clock_mode(&self, mode: crate::vm::timing::ClockMode) -> Result<()> {
+        validate_clock_mode(self.backend, mode)
+    }
+
     pub fn validate(&self) -> Result<()> {
         self.validate_inner(true, false)
     }
@@ -390,14 +396,7 @@ impl VmConfig {
         bundle: &crate::vm::snapshot::SnapshotBundle,
     ) -> Result<()> {
         bundle.validate_complete()?;
-        if let Some(clock) = bundle.clock() {
-            clock.validate()?;
-            if clock.mode != crate::vm::timing::ClockMode::Wall {
-                return Err(Error::InvalidConfig(
-                    "retired clock checkpoint requires deterministic coordinator support".into(),
-                ));
-            }
-        }
+        validate_checkpoint_clock(self.backend, bundle)?;
 
         self.validate_inner(false, bundle.pci().is_some_and(|p| p.has_endpoints()))?;
         let base = bundle.base();
@@ -607,4 +606,48 @@ pub struct CheckpointConfig {
     pub pci_devices: bool,
     #[serde(default)]
     pub storage: StorageConfig,
+}
+
+fn validate_clock_mode(backend: BackendKind, mode: crate::vm::timing::ClockMode) -> Result<()> {
+    if mode == crate::vm::timing::ClockMode::Retired && backend != BackendKind::Emulator {
+        return Err(Error::InvalidConfig(
+            "retired VM clock requires the software backend".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Retired-mode files require the coordinator and complete software CPU records;
+/// a public/base projection cannot preserve that execution timeline.
+pub(crate) fn validate_checkpoint_clock(
+    backend: BackendKind,
+    bundle: &crate::vm::snapshot::SnapshotBundle,
+) -> Result<()> {
+    let Some(clock) = bundle.clock() else {
+        return Ok(());
+    };
+    clock.validate()?;
+    validate_clock_mode(backend, clock.mode)?;
+    if clock.mode == crate::vm::timing::ClockMode::Retired {
+        let execution = bundle.execution().ok_or_else(|| {
+            Error::InvalidConfig(
+                "retired VM checkpoint requires execution coordinator state".into(),
+            )
+        })?;
+        if execution.retired() != clock.retired_units {
+            return Err(Error::InvalidConfig(
+                "retired VM clock and coordinator counts disagree".into(),
+            ));
+        }
+        if bundle.cpus().is_none()
+            || bundle
+                .backend_contexts()
+                .is_none_or(|contexts| contexts.entries().iter().any(Option::is_none))
+        {
+            return Err(Error::InvalidConfig(
+                "retired VM checkpoint requires complete CPU/private records".into(),
+            ));
+        }
+    }
+    Ok(())
 }

@@ -1,7 +1,8 @@
 //! Explicit VM wall/retirement clocks and the legacy unbound wall fallback.
 //!
 //! Bound contexts select their clock source explicitly. Existing VMM constructors
-//! still select wall time; coordinator wiring selects retirement time separately.
+//! default to wall time; explicit constructors and saved bundles select retirement
+//! time before device construction.
 //! Standalone callers without a binding retain the previous wall-time behavior.
 
 mod context;

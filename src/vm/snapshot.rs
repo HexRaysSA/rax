@@ -216,7 +216,7 @@ pub struct Snapshot {
     pub config: CheckpointConfig,
     /// Instruction count when the checkpoint was taken
     pub instruction_count: u64,
-    /// Wall-clock nanoseconds elapsed (`timing::elapsed_nanos`) at capture, so
+    /// Selected VM-clock nanoseconds elapsed (`timing::elapsed_nanos`) at capture, so
     /// the resumed machine's real-time TSC/timers continue monotonically.
     pub elapsed_nanos: u64,
     /// CPU state (GPRs, segment/control/debug regs, SIMD, …)

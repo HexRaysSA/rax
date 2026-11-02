@@ -56,6 +56,14 @@ impl Vmm {
         )?;
         let snapshot = bundle.base();
         self.validate_snapshot_target(snapshot)?;
+        crate::config::runtime::validate_checkpoint_clock(self.backend_kind, bundle)?;
+        if self.timing_context.mode() == crate::vm::timing::ClockMode::Retired
+            && bundle.clock().is_none()
+        {
+            return Err(Error::InvalidConfig(
+                "retired VM restore requires complete clock state".into(),
+            ));
+        }
         #[cfg(feature = "debug")]
         if let Some(execution) = bundle.execution() {
             self.validate_debugger_restore_online(execution.online())?;
@@ -460,6 +468,7 @@ impl Vmm {
     /// Restore represented base state after validating input and target admission.
     /// Full SMP/private/platform/PCI closure remains separate.
     pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
+        self.validate_base_snapshot_clock()?;
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
         let _timing = self.timing_context.enter();

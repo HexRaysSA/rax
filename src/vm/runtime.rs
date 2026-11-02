@@ -367,13 +367,23 @@ impl Vmm {
                 "using captured media; writable disk changes are retained in memory and subsequent checkpoints"
             );
         }
-        let mut vm = Self::build_with_contexts(config, true, true, bundle.backend_contexts())?;
+        let mode = bundle
+            .clock()
+            .map_or(crate::vm::timing::ClockMode::Wall, |clock| clock.mode);
+        let mut vm =
+            Self::build_with_contexts(config, true, true, bundle.backend_contexts(), mode)?;
         vm.restore_snapshot_bundle(bundle)?;
         Ok(vm)
     }
 
     fn build(config: VmConfig, resume: bool, detached_media: bool) -> Result<Self> {
-        Self::build_with_contexts(config, resume, detached_media, None)
+        Self::build_with_contexts(
+            config,
+            resume,
+            detached_media,
+            None,
+            crate::vm::timing::ClockMode::Wall,
+        )
     }
 
     fn build_with_contexts(
@@ -381,8 +391,10 @@ impl Vmm {
         resume: bool,
         detached_media: bool,
         contexts: Option<&crate::vm::snapshot::BackendContexts>,
+        clock_mode: crate::vm::timing::ClockMode,
     ) -> Result<Self> {
-        let timing_context = Arc::new(crate::vm::timing::TimingContext::new());
+        config.validate_clock_mode(clock_mode)?;
+        let timing_context = Arc::new(crate::vm::timing::TimingContext::with_mode(clock_mode));
         let _timing = timing_context.enter();
         info!(
             vcpus = config.vcpus,
@@ -608,6 +620,11 @@ impl Vmm {
         for cpu_id in 0..config.vcpus {
             debug!(cpu_id, "creating vCPU");
             let mut vcpu = vm.create_vcpu(cpu_id as u32, mem_arc.clone())?;
+            if clock_mode == crate::vm::timing::ClockMode::Retired && !vcpu.supports_stepping() {
+                return Err(Error::InvalidConfig(
+                    "retired VM clock requires single-instruction stepping for every vCPU".into(),
+                ));
+            }
             debug!(cpu_id, "created vCPU, setting initial state");
 
             // Setup initial CPU state for BSP (cpu 0). Skipped on resume — the
@@ -796,6 +813,7 @@ impl Vmm {
 
     /// Capture the represented CPU-0 and legacy-device base checkpoint.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
+        self.validate_base_snapshot_clock()?;
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
         let _timing = self.timing_context.enter();
@@ -1043,3 +1061,10 @@ mod s5l_bounded_tests;
 
 #[cfg(test)]
 mod s5l_context_tests;
+
+#[cfg(test)]
+#[path = "runtime/clock_tests.rs"]
+mod clock_tests;
+
+#[path = "runtime/clock.rs"]
+mod clock;
