@@ -293,11 +293,7 @@ impl GuestBridge {
         };
         let level = uart.lock().map(|u| u.irq_pending()).unwrap_or(false);
         if let Ok(mut gic) = gic.lock() {
-            if level {
-                gic.set_pending(AARCH64_UART_IRQ);
-            } else {
-                gic.clear_pending(AARCH64_UART_IRQ);
-            }
+            gic.set_spi_level(AARCH64_UART_IRQ, level);
         }
     }
 
@@ -949,11 +945,7 @@ impl Aarch64Vcpu {
         };
         let level = uart.lock().map(|u| u.irq_pending()).unwrap_or(false);
         if let Ok(mut gic) = gic.lock() {
-            if level {
-                gic.set_pending(AARCH64_UART_IRQ);
-            } else {
-                gic.clear_pending(AARCH64_UART_IRQ);
-            }
+            gic.set_spi_level(AARCH64_UART_IRQ, level);
         }
     }
 }

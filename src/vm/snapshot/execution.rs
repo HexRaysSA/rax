@@ -8,6 +8,8 @@ const TAG: &[u8; 8] = b"RAXEXE01";
 const ARM_TAG: &[u8; 8] = b"RAXEXE02";
 const PC_TAG: &[u8; 8] = b"RAXEXE04";
 const UART_TAG: &[u8; 8] = b"RAXEXE03";
+const SOURCE_ARM_TAG: &[u8; 8] = b"RAXEXE05";
+const SOURCE_UART_TAG: &[u8; 8] = b"RAXEXE06";
 pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
 const MAX_CONTROL: usize = 4096;
 const MAX_REQUESTS: usize = 1_048_576;
@@ -83,7 +85,36 @@ mod tests {
                 .unwrap(),
         );
         let raw = state.encoded().unwrap();
-        assert_eq!(&raw[..8], ARM_TAG);
+        assert_eq!(&raw[..8], SOURCE_ARM_TAG);
+        // The frozen old aggregate layout is accepted only when each
+        // physical source has a unique inactive interpretation.
+        let controller = state.arm_cluster.as_ref().unwrap().legacy_bytes_for_test();
+        let mut old = legacy.clone();
+        old[..8].copy_from_slice(ARM_TAG);
+        old.extend_from_slice(&(controller.len() as u32).to_le_bytes());
+        old.extend_from_slice(&controller);
+        assert_eq!(
+            ExecutionSnapshot::decode(&old, 1)
+                .unwrap()
+                .encoded()
+                .unwrap(),
+            raw
+        );
+        let ambiguous =
+            crate::backend::emulator::aarch64::cluster::ArmCluster::new(1, 0x8000).unwrap();
+        ambiguous.set_irq_line(40, true).unwrap();
+        let controller = ambiguous.checkpoint().unwrap().legacy_bytes_for_test();
+        let mut old = legacy.clone();
+        old[..8].copy_from_slice(ARM_TAG);
+        old.extend_from_slice(&(controller.len() as u32).to_le_bytes());
+        old.extend_from_slice(&controller);
+        assert!(
+            ExecutionSnapshot::decode(&old, 1)
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("ambiguous")
+        );
         assert_eq!(
             ExecutionSnapshot::decode(&raw, 1)
                 .unwrap()
@@ -229,9 +260,13 @@ impl ExecutionSnapshot {
         raw.extend_from_slice(if self.pc.is_some() {
             PC_TAG
         } else if self.pl011.is_some() {
-            UART_TAG
+            if self.arm_cluster.is_some() {
+                SOURCE_UART_TAG
+            } else {
+                UART_TAG
+            }
         } else if self.arm_cluster.is_some() {
-            ARM_TAG
+            SOURCE_ARM_TAG
         } else {
             TAG
         });
@@ -329,7 +364,16 @@ impl ExecutionSnapshot {
         }
         let mut reader = Reader(raw);
         let tag = reader.take(8)?;
-        if tag != TAG && tag != ARM_TAG && tag != UART_TAG && tag != PC_TAG {
+        if ![
+            TAG,
+            ARM_TAG,
+            UART_TAG,
+            PC_TAG,
+            SOURCE_ARM_TAG,
+            SOURCE_UART_TAG,
+        ]
+        .contains(&tag.try_into().unwrap())
+        {
             return Err(invalid("bad execution section tag"));
         }
         let count = reader.u32()? as usize;
@@ -378,26 +422,34 @@ impl ExecutionSnapshot {
                 timer_age_nanos: (armed != 0).then_some(age),
             });
         }
-        let arm_cluster = if tag == ARM_TAG || tag == UART_TAG {
+        let arm_cluster = if tag == ARM_TAG
+            || tag == UART_TAG
+            || tag == SOURCE_ARM_TAG
+            || tag == SOURCE_UART_TAG
+        {
             let length = reader.u32()? as usize;
-            if length > MAX_SECTION as usize || (length == 0 && tag == ARM_TAG) {
+            if length > MAX_SECTION as usize || (length == 0 && tag != UART_TAG) {
                 return Err(invalid("bad ARM platform length"));
             }
             if length == 0 {
                 None
             } else {
                 let cluster: crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint =
-                    crate::codec::deserialize_limited::<_, { MAX_SECTION as usize }>(
-                        reader.take(length)?,
-                    )
-                    .map_err(invalid)?;
+                    if tag == ARM_TAG || tag == UART_TAG {
+                        crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint::decode_legacy(reader.take(length)?)?
+                    } else {
+                        crate::codec::deserialize_limited::<_, { MAX_SECTION as usize }>(
+                            reader.take(length)?,
+                        )
+                        .map_err(invalid)?
+                    };
                 cluster.validate(&online)?;
                 Some(cluster)
             }
         } else {
             None
         };
-        let pl011 = if tag == UART_TAG {
+        let pl011 = if tag == UART_TAG || tag == SOURCE_UART_TAG {
             let length = reader.u32()? as usize;
             if length == 0 || length > MAX_SECTION as usize {
                 return Err(invalid("bad UART length"));

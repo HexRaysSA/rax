@@ -2777,7 +2777,9 @@
         "docs/development/a64-timer-output/README.md",
         "docs/development/a64-timer-output/qualification.json",
         "docs/development/a64-fpexc32/README.md",
-        "docs/development/a64-fpexc32/qualification.json"
+        "docs/development/a64-fpexc32/qualification.json",
+        "docs/development/a64-gic-sources/README.md",
+        "docs/development/a64-gic-sources/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2827,7 +2829,8 @@
         "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. The historical FP-group full root run retained one separately reproduced ptrace/fork test failure. Its test-only isolation followup qualifies a new root run (11944 passed, 0 failed, 35 ignored); see fork-test-isolation/qualification.json. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json.",
         "Software AArch64 generic counters now retain selected VM-clock ownership at fixed62500000Hz,per-PE offsets and peer timer PPI refresh,with actual1/2/4 prepared-context files and explicit legacy domains. See a64-system-counter/qualification.json. Other clocks,all-waiting idle/default policy,complete native/private/startup/IRQ/replay and physical Intel remain open;no original finding closure.",
         "AArch64 retained-GIC resets now preserve owed timer publication;only changed PPI inputs are written. Real1/2/4-CPU reset files,guest2/4-CPU PSCI off/on files,poison/repair and failed admission are locally qualified in a64-timer-output/qualification.json. Same-INTID source coalescing,already-lost legacy history,complete IRQ/native/private/replay and physical Intel remain open;no original finding closure.",
-        "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure."
+        "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
+        "Distinct classic GIC physical/software/edge sources,owned/shared versioned records,complete private timer-source admission and actual source-free1/2/4prepared-PE continuations are locally qualified in a64-gic-sources/qualification.json. Ambiguous legacy sources reject by explicit user choice; already-erased historical input truth remains unrecoverable. Complete backend/private/in-flight/startup/IRQ/clock/replay and physicalIntel requirements remain open;no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2896,7 +2899,8 @@
         "a32-synchronous-fp-traps-2026-11-02",
         "aarch64-vm-system-counter-2026-11-02",
         "aarch64-timer-output-frontier-2026-11-02",
-        "aarch64-fpexc32-access-2026-11-02"
+        "aarch64-fpexc32-access-2026-11-02",
+        "aarch64-gic-pending-sources-2026-11-02"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3569,7 +3573,9 @@
         "docs/development/a64-timer-output/README.md",
         "docs/development/a64-timer-output/qualification.json",
         "docs/development/a64-fpexc32/README.md",
-        "docs/development/a64-fpexc32/qualification.json"
+        "docs/development/a64-fpexc32/qualification.json",
+        "docs/development/a64-gic-sources/README.md",
+        "docs/development/a64-gic-sources/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3609,7 +3615,8 @@
         "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. The historical FP-group full root run retained one separately reproduced ptrace/fork test failure. Its test-only isolation followup qualifies a new root run (11944 passed, 0 failed, 35 ignored); see fork-test-isolation/qualification.json. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json.",
         "Software AArch64 generic counters now retain selected VM-clock ownership at fixed62500000Hz,per-PE offsets and peer timer PPI refresh,with actual1/2/4 prepared-context files and explicit legacy domains. See a64-system-counter/qualification.json. Other clocks,all-waiting idle/default policy,complete native/private/startup/IRQ/replay and physical Intel remain open;no original finding closure.",
         "AArch64 retained-GIC resets now preserve owed timer publication;only changed PPI inputs are written. Real1/2/4-CPU reset files,guest2/4-CPU PSCI off/on files,poison/repair and failed admission are locally qualified in a64-timer-output/qualification.json. Same-INTID source coalescing,already-lost legacy history,complete IRQ/native/private/replay and physical Intel remain open;no original finding closure.",
-        "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure."
+        "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
+        "Distinct classic GIC physical/software/edge sources,owned/shared versioned records,complete private timer-source admission and actual source-free1/2/4prepared-PE continuations are locally qualified in a64-gic-sources/qualification.json. Ambiguous legacy sources reject by explicit user choice; already-erased historical input truth remains unrecoverable. Complete backend/private/in-flight/startup/IRQ/clock/replay and physicalIntel requirements remain open;no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3660,7 +3667,8 @@
         "a32-synchronous-fp-traps-2026-11-02",
         "aarch64-vm-system-counter-2026-11-02",
         "aarch64-timer-output-frontier-2026-11-02",
-        "aarch64-fpexc32-access-2026-11-02"
+        "aarch64-fpexc32-access-2026-11-02",
+        "aarch64-gic-pending-sources-2026-11-02"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198307,6 +198315,22 @@
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-fpexc32-access-v1/commit-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-fpexc32-access-v1/cleanup-final.json",
       "workflow": "Direct master; exact owned-path git add then red -m --staged --run; no branches/worktrees/push; guarded cleanup of canonical build and scratch roots.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "aarch64-gic-pending-sources-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "parent": "a41169a4336a5e8760a2e8424590d93253d109d3",
+      "scope": "Preserve distinct GIC physical input levels, software pending latches and edge events; canonical guest pending/ack/EOI behavior and complete owned/shared source checkpoint state with explicit legacy admission.",
+      "qualification": "docs/development/a64-gic-sources/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-pending-sources-v1/commit-receipt.json",
+      "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-pending-sources-v1/push-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-gic-pending-sources-v1/cleanup-final.json",
+      "workflow": "Direct master; exact owned-path git add then red -m --staged --run; normal push to origin/master after every semantic commit; no new merge commits, branches or worktrees; guarded canonical C/T cleanup.",
       "full_goal_complete": false
     }
   ],

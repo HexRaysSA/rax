@@ -112,6 +112,11 @@ impl ConfigCheckpoint {
 }
 
 impl CoreCheckpoint {
+    pub(crate) fn gic_timer_frontier(&self) -> Option<(bool, usize, (bool, bool))> {
+        self.gic_present
+            .then_some((self.gic_shared, self.gic_cpu_id as usize, self.timer_levels))
+    }
+
     pub(crate) fn invalidate_mapping_reservation(&mut self) {
         self.monitor = (None, 0);
     }

@@ -9,6 +9,7 @@
 
 pub mod checkpoint;
 mod sgi;
+mod sources;
 
 use std::collections::VecDeque;
 
@@ -522,6 +523,7 @@ pub struct Gic {
     spis: Vec<InterruptConfig>,
     /// Per-CPU interfaces.
     cpu_interfaces: Vec<CpuInterface>,
+    sources: sources::SourceBank,
     /// Published per-CPU IRQ line levels: lets the CPU's hot path test for a
     /// pending interrupt without taking a lock on a shared GIC.
     irq_lines: Vec<std::sync::Arc<std::sync::atomic::AtomicBool>>,
@@ -556,6 +558,7 @@ impl Gic {
             spis,
             cpu_interfaces,
             irq_lines,
+            sources: sources::SourceBank::new(num_cpus, num_spis),
         }
     }
 
@@ -584,6 +587,7 @@ impl Gic {
         for (i, cpu) in self.cpu_interfaces.iter_mut().enumerate() {
             *cpu = CpuInterface::new(i as u8);
         }
+        self.sources = sources::SourceBank::new(self.cpu_interfaces.len(), self.spis.len());
         self.update_all_cpus();
     }
 
@@ -602,7 +606,7 @@ impl Gic {
         if intid >= SPI_START && intid <= SPI_END {
             let idx = (intid - SPI_START) as usize;
             if idx < self.spis.len() {
-                self.spis[idx].state.set_pending();
+                self.sources.spis[idx].software_pending(&mut self.spis[idx], true);
                 self.update_all_cpus();
             }
         }
@@ -613,7 +617,7 @@ impl Gic {
         if intid >= SPI_START && intid <= SPI_END {
             let idx = (intid - SPI_START) as usize;
             if idx < self.spis.len() {
-                self.spis[idx].state.clear_pending();
+                self.sources.spis[idx].software_pending(&mut self.spis[idx], false);
                 self.update_all_cpus();
             }
         }
@@ -696,8 +700,10 @@ impl Gic {
 
     /// Acknowledge interrupt for CPU.
     pub fn acknowledge(&mut self, cpu_id: usize) -> u32 {
+        self.reconcile_sources();
         if let Some(cpu) = self.cpu_interfaces.get_mut(cpu_id) {
             let intid = cpu.acknowledge(&mut self.spis);
+            self.acknowledge_source(cpu_id, intid);
             self.update_all_cpus();
             intid
         } else {
@@ -715,6 +721,7 @@ impl Gic {
 
     /// Update pending state for all CPUs.
     fn update_all_cpus(&mut self) {
+        self.reconcile_sources();
         for (i, cpu) in self.cpu_interfaces.iter_mut().enumerate() {
             cpu.update_pending(&self.spis);
             if let Some(line) = self.irq_lines.get(i) {
@@ -792,7 +799,9 @@ impl Gic {
                 let mut val = 0u32;
                 for bit in 0..32 {
                     let intid = base + bit;
-                    if intid >= SPI_START as usize && (intid - SPI_START as usize) < self.spis.len()
+                    if intid >= SPI_START as usize
+                        && intid <= SPI_END as usize
+                        && (intid - SPI_START as usize) < self.spis.len()
                     {
                         if self.spis[intid - SPI_START as usize].group == 1 {
                             val |= 1 << bit;
@@ -808,7 +817,9 @@ impl Gic {
                 let mut val = 0u32;
                 for bit in 0..32 {
                     let intid = base + bit;
-                    if intid >= SPI_START as usize && (intid - SPI_START as usize) < self.spis.len()
+                    if intid >= SPI_START as usize
+                        && intid <= SPI_END as usize
+                        && (intid - SPI_START as usize) < self.spis.len()
                     {
                         if self.spis[intid - SPI_START as usize].enabled {
                             val |= 1 << bit;
@@ -824,7 +835,9 @@ impl Gic {
                 let mut val = 0u32;
                 for bit in 0..32 {
                     let intid = base + bit;
-                    if intid >= SPI_START as usize && (intid - SPI_START as usize) < self.spis.len()
+                    if intid >= SPI_START as usize
+                        && intid <= SPI_END as usize
+                        && (intid - SPI_START as usize) < self.spis.len()
                     {
                         if self.spis[intid - SPI_START as usize].state.is_pending() {
                             val |= 1 << bit;
@@ -840,7 +853,9 @@ impl Gic {
                 let mut val = 0u32;
                 for byte in 0..4 {
                     let intid = base + byte;
-                    if intid >= SPI_START as usize && (intid - SPI_START as usize) < self.spis.len()
+                    if intid >= SPI_START as usize
+                        && intid <= SPI_END as usize
+                        && (intid - SPI_START as usize) < self.spis.len()
                     {
                         val |=
                             (self.spis[intid - SPI_START as usize].priority as u32) << (byte * 8);
@@ -857,7 +872,9 @@ impl Gic {
                 let mut val = 0u32;
                 for nibble in 0..16 {
                     let intid = base + nibble;
-                    if intid >= SPI_START as usize && (intid - SPI_START as usize) < self.spis.len()
+                    if intid >= SPI_START as usize
+                        && intid <= SPI_END as usize
+                        && (intid - SPI_START as usize) < self.spis.len()
                     {
                         if self.spis[intid - SPI_START as usize].trigger == TriggerType::Edge {
                             val |= 2 << (nibble * 2);
@@ -890,7 +907,9 @@ impl Gic {
                 let base = reg * 32;
                 for bit in 0..32 {
                     let intid = base + bit;
-                    if intid >= SPI_START as usize && (intid - SPI_START as usize) < self.spis.len()
+                    if intid >= SPI_START as usize
+                        && intid <= SPI_END as usize
+                        && (intid - SPI_START as usize) < self.spis.len()
                     {
                         self.spis[intid - SPI_START as usize].group =
                             if (value >> bit) & 1 != 0 { 1 } else { 0 };
@@ -905,6 +924,7 @@ impl Gic {
                     if (value >> bit) & 1 != 0 {
                         let intid = base + bit;
                         if intid >= SPI_START as usize
+                            && intid <= SPI_END as usize
                             && (intid - SPI_START as usize) < self.spis.len()
                         {
                             self.spis[intid - SPI_START as usize].enabled = true;
@@ -921,6 +941,7 @@ impl Gic {
                     if (value >> bit) & 1 != 0 {
                         let intid = base + bit;
                         if intid >= SPI_START as usize
+                            && intid <= SPI_END as usize
                             && (intid - SPI_START as usize) < self.spis.len()
                         {
                             self.spis[intid - SPI_START as usize].enabled = false;
@@ -937,9 +958,11 @@ impl Gic {
                     if (value >> bit) & 1 != 0 {
                         let intid = base + bit;
                         if intid >= SPI_START as usize
+                            && intid <= SPI_END as usize
                             && (intid - SPI_START as usize) < self.spis.len()
                         {
-                            self.spis[intid - SPI_START as usize].state.set_pending();
+                            self.sources.spis[intid - SPI_START as usize]
+                                .software_pending(&mut self.spis[intid - SPI_START as usize], true);
                         }
                     }
                 }
@@ -953,9 +976,13 @@ impl Gic {
                     if (value >> bit) & 1 != 0 {
                         let intid = base + bit;
                         if intid >= SPI_START as usize
+                            && intid <= SPI_END as usize
                             && (intid - SPI_START as usize) < self.spis.len()
                         {
-                            self.spis[intid - SPI_START as usize].state.clear_pending();
+                            self.sources.spis[intid - SPI_START as usize].software_pending(
+                                &mut self.spis[intid - SPI_START as usize],
+                                false,
+                            );
                         }
                     }
                 }
@@ -967,7 +994,9 @@ impl Gic {
                 let base = reg * 4;
                 for byte in 0..4 {
                     let intid = base + byte;
-                    if intid >= SPI_START as usize && (intid - SPI_START as usize) < self.spis.len()
+                    if intid >= SPI_START as usize
+                        && intid <= SPI_END as usize
+                        && (intid - SPI_START as usize) < self.spis.len()
                     {
                         self.spis[intid - SPI_START as usize].priority =
                             ((value >> (byte * 8)) & 0xFF) as u8;
@@ -981,7 +1010,9 @@ impl Gic {
                 let base = reg * 16;
                 for nibble in 0..16 {
                     let intid = base + nibble;
-                    if intid >= SPI_START as usize && (intid - SPI_START as usize) < self.spis.len()
+                    if intid >= SPI_START as usize
+                        && intid <= SPI_END as usize
+                        && (intid - SPI_START as usize) < self.spis.len()
                     {
                         self.spis[intid - SPI_START as usize].trigger =
                             if (value >> (nibble * 2 + 1)) & 1 != 0 {
@@ -995,7 +1026,10 @@ impl Gic {
             // GICD_IROUTER32-1019 (Interrupt Routing)
             0x6100..=0x7FD8 => {
                 let intid = ((offset - 0x6100) / 8) as usize + SPI_START as usize;
-                if intid >= SPI_START as usize && (intid - SPI_START as usize) < self.spis.len() {
+                if intid >= SPI_START as usize
+                    && intid <= SPI_END as usize
+                    && (intid - SPI_START as usize) < self.spis.len()
+                {
                     let irm = (value >> 31) & 1 != 0;
                     let affinity = (value & 0x00FF_FFFF) as u64;
                     self.spis[intid - SPI_START as usize].routing = if irm {
@@ -1153,7 +1187,11 @@ impl Gic {
             0x10200 => {
                 for (i, cfg) in cpu.private_interrupts.iter_mut().enumerate() {
                     if (value >> i) & 1 != 0 {
-                        cfg.state.set_pending();
+                        if i < NUM_SGI {
+                            cfg.state.set_pending();
+                        } else {
+                            self.sources.ppis[cpu_id][i - NUM_SGI].software_pending(cfg, true);
+                        }
                     }
                 }
             }
@@ -1161,7 +1199,11 @@ impl Gic {
             0x10280 => {
                 for (i, cfg) in cpu.private_interrupts.iter_mut().enumerate() {
                     if (value >> i) & 1 != 0 {
-                        cfg.state.clear_pending();
+                        if i < NUM_SGI {
+                            cfg.state.clear_pending();
+                        } else {
+                            self.sources.ppis[cpu_id][i - NUM_SGI].software_pending(cfg, false);
+                        }
                     }
                 }
             }
@@ -1201,23 +1243,6 @@ impl Gic {
     // =========================================================================
     // CPU-facing helpers (ICC system registers, device level lines)
     // =========================================================================
-
-    /// Drive the level of a private (PPI) interrupt line for a CPU.
-    pub fn set_ppi_level(&mut self, cpu_id: usize, intid: u32, level: bool) {
-        let Some(cpu) = self.cpu_interfaces.get_mut(cpu_id) else {
-            return;
-        };
-        let idx = intid as usize;
-        if !(NUM_SGI..NUM_SGI + NUM_PPI).contains(&idx) {
-            return;
-        }
-        if level {
-            cpu.private_interrupts[idx].state.set_pending();
-        } else {
-            cpu.private_interrupts[idx].state.clear_pending();
-        }
-        self.update_all_cpus();
-    }
 
     /// ICC_PMR_EL1 write.
     pub fn set_priority_mask(&mut self, cpu_id: usize, mask: u8) {
@@ -1389,3 +1414,7 @@ mod tests {
         assert_eq!(iidr & 0xFFF, 0x43B); // ARM implementer
     }
 }
+
+#[cfg(test)]
+#[path = "gic/source_tests.rs"]
+mod source_tests;

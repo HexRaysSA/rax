@@ -76,11 +76,7 @@ impl ArmCluster {
             return Err(invalid("external IRQ is outside the configured SPI domain"));
         }
         let mut gic = self.gic.lock().map_err(|_| invalid("GIC lock poisoned"))?;
-        if level {
-            gic.set_pending(irq);
-        } else {
-            gic.clear_pending(irq);
-        }
+        gic.set_spi_level(irq, level);
         Ok(())
     }
 
@@ -283,6 +279,39 @@ impl ArmCluster {
 }
 
 impl ArmClusterCheckpoint {
+    #[cfg(test)]
+    pub(crate) fn legacy_bytes_for_test(&self) -> Vec<u8> {
+        #[derive(serde::Serialize, serde::Deserialize)]
+        struct LegacyCluster {
+            control: Control,
+            gic: crate::isa::arm::aarch64::gic::checkpoint::LegacyGicCheckpoint,
+            high_redist_base: u64,
+        }
+        let old: LegacyCluster =
+            serde_json::from_value(serde_json::to_value(self).unwrap()).unwrap();
+        crate::codec::serialize(&old).unwrap()
+    }
+
+    pub(crate) fn decode_legacy(raw: &[u8]) -> Result<Self> {
+        #[derive(serde::Deserialize)]
+        struct LegacyCluster {
+            control: Control,
+            gic: crate::isa::arm::aarch64::gic::checkpoint::LegacyGicCheckpoint,
+            high_redist_base: u64,
+        }
+        let old: LegacyCluster = crate::codec::deserialize_limited::<_, { 64 * 1024 * 1024 }>(raw)
+            .map_err(|error| invalid(&error.to_string()))?;
+        Ok(Self {
+            control: old.control,
+            gic: old.gic.upgrade()?,
+            high_redist_base: old.high_redist_base,
+        })
+    }
+
+    pub(crate) fn validate_timer_inputs(&self, cpu: usize, levels: (bool, bool)) -> Result<()> {
+        self.gic.validate_timer_inputs(cpu, levels)
+    }
+
     pub(crate) fn validate_cpu_power(&self, id: usize, powered_off: bool) -> Result<()> {
         let expected = match self.control.states.get(id) {
             Some(PowerState::On) => false,
@@ -415,3 +444,7 @@ mod retirement_error_tests;
 #[cfg(test)]
 #[path = "cluster/event_tests.rs"]
 mod event_tests;
+
+#[cfg(test)]
+#[path = "cluster/source_tests.rs"]
+mod source_tests;

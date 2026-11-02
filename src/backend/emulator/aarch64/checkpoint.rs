@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 
 #[path = "checkpoint_clock.rs"]
 mod counter_clock;
+#[path = "checkpoint_sources.rs"]
+mod gic_sources;
 
 const TAG: &[u8; 8] = b"RAXA6403";
 const PREVIOUS_TAG: &[u8; 8] = b"RAXA6402";
@@ -39,7 +41,7 @@ struct UserCheckpoint {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Context {
+struct Context<GicState = GicCheckpoint> {
     #[serde(skip)]
     counter_clock: Option<SystemCounterState>,
     id: u32,
@@ -56,7 +58,7 @@ struct Context {
     observations: Vec<MemRecord>,
     user: Option<UserCheckpoint>,
     reservation: Option<Reservation>,
-    owned_gic: Option<GicCheckpoint>,
+    owned_gic: Option<GicState>,
 }
 
 fn invalid(message: impl std::fmt::Display) -> Error {
@@ -137,34 +139,7 @@ impl Context {
     }
 
     fn decode(raw: &[u8], target: &Aarch64Vcpu) -> Result<Self> {
-        let (raw, counter_clock) = if let Some(payload) = raw.strip_prefix(counter_clock::TAG) {
-            if raw.len() > MAX_PAYLOAD + TAG.len() {
-                return Err(invalid("record exceeds budget"));
-            }
-            let header = payload
-                .get(..counter_clock::SIZE)
-                .ok_or_else(|| invalid("truncated system counter header"))?;
-            (
-                &payload[counter_clock::SIZE..],
-                Some(counter_clock::decode(header)?),
-            )
-        } else {
-            (raw, None)
-        };
-        let payload = if counter_clock.is_some() {
-            raw
-        } else {
-            raw.strip_prefix(TAG)
-                .or_else(|| raw.strip_prefix(PREVIOUS_TAG))
-                .or_else(|| raw.strip_prefix(LEGACY_TAG))
-                .ok_or_else(|| invalid("invalid tag"))?
-        };
-        if payload.len() > MAX_PAYLOAD {
-            return Err(invalid("record exceeds budget"));
-        }
-        let mut state: Self =
-            crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?;
-        state.counter_clock = counter_clock;
+        let state = gic_sources::decode(raw)?;
         if state.id != target.id
             || state.user.is_some() != target.user.is_some()
             || state.clustered != target.cluster.is_some()
@@ -182,13 +157,24 @@ impl Context {
     }
 
     fn record(&self) -> Result<BackendContext> {
+        gic_sources::validate_owned(self)?;
         let mut data = match self.counter_clock {
             Some(clock) => {
-                let mut data = counter_clock::TAG.to_vec();
+                let mut data = if self.owned_gic.is_some() {
+                    counter_clock::OWNED_TAG
+                } else {
+                    counter_clock::TAG
+                }
+                .to_vec();
                 data.extend_from_slice(&counter_clock::encode(clock)?);
                 data
             }
-            None => TAG.to_vec(),
+            None => if self.owned_gic.is_some() {
+                gic_sources::TAG
+            } else {
+                TAG
+            }
+            .to_vec(),
         };
         let limit = MAX_PAYLOAD - (data.len() - TAG.len());
         let payload = crate::codec::serialize_limited(self, limit).map_err(invalid)?;
@@ -278,17 +264,20 @@ impl Aarch64Vcpu {
     pub(crate) fn validate_counter_clock_set(
         bundle: &crate::vm::snapshot::SnapshotBundle,
     ) -> Result<()> {
+        gic_sources::validate_set(bundle)?;
         let Some(records) = bundle.backend_contexts() else {
             return Ok(());
         };
         let entries = records.entries();
-        let Some(first) = entries.iter().flatten().find(|record| {
-            record.kind == AARCH64_CONTEXT && record.data.starts_with(counter_clock::TAG)
-        }) else {
+        let Some(first) = entries
+            .iter()
+            .flatten()
+            .find(|record| record.kind == AARCH64_CONTEXT && counter_clock::is_tag(&record.data))
+        else {
             return Ok(()); // Explicit legacy profiles retain their own domain.
         };
         let declaration = |record: &BackendContext| -> Result<SystemCounterState> {
-            if record.kind != AARCH64_CONTEXT || !record.data.starts_with(counter_clock::TAG) {
+            if record.kind != AARCH64_CONTEXT || !counter_clock::is_tag(&record.data) {
                 return Err(invalid("mixed legacy/shared system counter records"));
             }
             if record.data.len() > MAX_PAYLOAD + TAG.len() {
@@ -355,7 +344,7 @@ impl Aarch64Vcpu {
             (CpuState::Aarch64(actual), CpuState::Aarch64(expected)) if actual == *expected => {}
             _ => return Err(invalid("public and private projections differ")),
         }
-        if raw.data.starts_with(counter_clock::TAG) {
+        if counter_clock::is_tag(&raw.data) {
             if candidate.cpu.has_legacy_counter_offset() {
                 return Err(invalid("shared system counter has a legacy offset shadow"));
             }
@@ -367,7 +356,10 @@ impl Aarch64Vcpu {
         if raw.data.starts_with(LEGACY_TAG) {
             candidate.cpu.migrate_legacy_fp_profile();
         }
-        if !raw.data.starts_with(TAG) && !raw.data.starts_with(counter_clock::TAG) {
+        if !raw.data.starts_with(TAG)
+            && !raw.data.starts_with(gic_sources::TAG)
+            && !counter_clock::is_tag(&raw.data)
+        {
             candidate
                 .cpu
                 .migrate_legacy_optional_fp_profile()
@@ -438,3 +430,7 @@ mod event_tests;
 #[cfg(test)]
 #[path = "sve_profile_tests.rs"]
 mod sve_profile_tests;
+
+#[cfg(test)]
+#[path = "checkpoint_source_tests.rs"]
+mod source_tests;

@@ -37,7 +37,7 @@ fn legacy_offset_alias_is_imported_into_the_modeled_virtual_counter_bank() {
     let mut image = context(&source);
     add_legacy_offset_alias(&mut image, &mut state, 13);
     let raw = image.record().unwrap();
-    assert!(raw.data.starts_with(TAG));
+    assert!(raw.data.starts_with(gic_sources::TAG));
     let destination = memory();
     destination
         .write_slice(&0xd53b_e040u32.to_le_bytes(), GuestAddress(0))
@@ -61,7 +61,7 @@ fn shared_counter_records_reject_legacy_offset_shadows_before_publication() {
     let mut image = context(&source);
     add_legacy_offset_alias(&mut image, &mut state, 13);
     let raw = image.record().unwrap();
-    assert!(raw.data.starts_with(counter_clock::TAG));
+    assert!(counter_clock::is_tag(&raw.data));
     let mut target = Aarch64Vcpu::new(0, memory());
     let before = CoreCheckpoint::capture(&target.cpu).unwrap();
     assert!(
@@ -116,7 +116,7 @@ fn legacy_instruction_counter_records_do_not_silently_acquire_a_vm_clock() {
     source.cpu.set_generic_counter(1234);
     let state = source.get_state().unwrap();
     let raw = source.capture_backend_context().unwrap().unwrap();
-    assert!(raw.data.starts_with(TAG));
+    assert!(raw.data.starts_with(gic_sources::TAG));
     let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
     clock.set_resume_base(1_000_000_000);
     let destination = memory();
@@ -176,7 +176,7 @@ fn counter_record_rejects_mode_frequency_and_header_defects_without_changing_tar
         Aarch64Vcpu::new(0, memory())
     };
     let raw = source.capture_backend_context().unwrap().unwrap();
-    assert!(raw.data.starts_with(counter_clock::TAG));
+    assert!(counter_clock::is_tag(&raw.data));
     let state = source.get_state().unwrap();
     let target_clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
     let mut target = {
@@ -341,7 +341,7 @@ fn malformed_contexts_and_projection_disagreement_do_not_change_live_cpu_or_ram(
                     }
                     _ => unreachable!(),
                 }
-                bad.data = TAG.to_vec();
+                bad.data = gic_sources::TAG.to_vec();
                 bad.data
                     .extend_from_slice(&crate::codec::serialize(&payload).unwrap());
             }
@@ -439,7 +439,7 @@ fn legacy_migration_cannot_hide_conflicting_ids_and_new_records_require_coherenc
     let sys = &mut arm.sregs.execution.as_mut().unwrap().sysregs;
     sys.id_aa64pfr0_el1 = legacy_pfr;
     sys.id_aa64isar0_el1 = legacy_isar;
-    let payload = crate::codec::serialize(&raw_context).unwrap();
+    let payload = gic_sources::legacy_payload_for_test(&raw_context);
     let mut data = LEGACY_TAG.to_vec();
     data.extend_from_slice(&payload);
     let raw = BackendContext {
@@ -481,8 +481,8 @@ fn legacy_migration_cannot_hide_conflicting_ids_and_new_records_require_coherenc
             )
             .is_err()
     );
-    let mut new_data = TAG.to_vec();
-    new_data.extend_from_slice(&payload);
+    let mut new_data = gic_sources::TAG.to_vec();
+    new_data.extend_from_slice(&crate::codec::serialize(&raw_context).unwrap());
     assert!(
         target
             .restore_checkpoint_context(

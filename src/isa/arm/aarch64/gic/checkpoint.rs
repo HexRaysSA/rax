@@ -1,4 +1,5 @@
 //! Complete represented GIC state, retaining target-owned IRQ line handles.
+use super::sources::SourceBank;
 use super::{CpuInterface, Gic, GicConfig, InterruptConfig};
 use crate::error::{Error, Result};
 
@@ -11,9 +12,69 @@ pub struct GicCheckpoint {
     are_ns: bool,
     spis: Vec<InterruptConfig>,
     cpu_interfaces: Vec<CpuInterface>,
+    sources: SourceBank,
+}
+
+/// Frozen positional GIC layout used before physical source state was retained.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct LegacyGicCheckpoint {
+    config: GicConfig,
+    dist_enabled: bool,
+    security_enabled: bool,
+    are_s: bool,
+    are_ns: bool,
+    spis: Vec<InterruptConfig>,
+    cpu_interfaces: Vec<CpuInterface>,
+}
+
+impl LegacyGicCheckpoint {
+    pub(crate) fn upgrade(self) -> Result<GicCheckpoint> {
+        // For a level input, aggregate pending = physical OR software. Only
+        // aggregate false uniquely determines both sources. Edge inputs also
+        // require the lost physical input history, even when not pending.
+        if self
+            .spis
+            .iter()
+            .chain(
+                self.cpu_interfaces
+                    .iter()
+                    .flat_map(|cpu| &cpu.private_interrupts[super::NUM_SGI..]),
+            )
+            .any(|config| config.trigger != super::TriggerType::Level || config.state.is_pending())
+        {
+            return Err(Error::Emulator(
+                "legacy GIC pending or edge sources are ambiguous".into(),
+            ));
+        }
+        let sources = SourceBank::new(self.cpu_interfaces.len(), self.spis.len());
+        let result = GicCheckpoint {
+            config: self.config,
+            dist_enabled: self.dist_enabled,
+            security_enabled: self.security_enabled,
+            are_s: self.are_s,
+            are_ns: self.are_ns,
+            spis: self.spis,
+            cpu_interfaces: self.cpu_interfaces,
+            sources,
+        };
+        result.validate_shape(result.cpu_interfaces.len())?;
+        Ok(result)
+    }
 }
 
 impl GicCheckpoint {
+    pub(crate) fn validate_timer_inputs(&self, cpu: usize, levels: (bool, bool)) -> Result<()> {
+        self.validate_shape(self.cpu_interfaces.len())?;
+        if self.sources.ppi_level(cpu, 27) != Some(levels.0)
+            || self.sources.ppi_level(cpu, 30) != Some(levels.1)
+        {
+            return Err(Error::Emulator(
+                "GIC physical timer inputs disagree with last published CPU outputs".into(),
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn validate_shape(&self, count: usize) -> Result<()> {
         let invalid =
             || Error::Emulator("GIC checkpoint topology or interrupt state is invalid".into());
@@ -22,6 +83,7 @@ impl GicCheckpoint {
             || self.cpu_interfaces.len() != count
             || self.spis.len() != usize::from(self.config.num_spis)
             || self.spis.len() > 992
+            || !self.sources.valid(&self.cpu_interfaces, &self.spis)
         {
             return Err(invalid());
         }
@@ -50,7 +112,7 @@ impl GicCheckpoint {
 
 impl Gic {
     pub fn checkpoint(&self) -> GicCheckpoint {
-        GicCheckpoint {
+        let mut state = GicCheckpoint {
             config: self.config.clone(),
             dist_enabled: self.dist_enabled,
             security_enabled: self.security_enabled,
@@ -58,7 +120,15 @@ impl Gic {
             are_ns: self.are_ns,
             spis: self.spis.clone(),
             cpu_interfaces: self.cpu_interfaces.clone(),
+            sources: self.sources.clone(),
+        };
+        state
+            .sources
+            .reconcile(&mut state.cpu_interfaces, &mut state.spis);
+        for cpu in &mut state.cpu_interfaces {
+            cpu.update_pending(&state.spis);
         }
+        state
     }
 
     pub fn validate_checkpoint(&self, state: &GicCheckpoint) -> Result<()> {
@@ -87,6 +157,7 @@ impl Gic {
         self.are_ns = state.are_ns;
         self.spis = state.spis;
         self.cpu_interfaces = state.cpu_interfaces;
+        self.sources = state.sources;
         self.update_all_cpus();
     }
 }

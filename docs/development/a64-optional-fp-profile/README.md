@@ -176,3 +176,12 @@ regenerate architectural expectations from RAX itself.
   bounded SMP native execution and physical Intel HVF validation.
 
 OP1 is confirmed for the represented legacy advertised contract. OP2 remains the explicit boundary against claiming full cross-state CPU conformance. OP3 is confirmed for the synthetic pending event and public reset/rebuild workflows. All four full audit findings remain partial.
+
+## Later owned-GIC source framing
+
+The [GIC source conservation followup](../a64-gic-sources/README.md) adds private
+RAXA6405/06 and shared RAXEXE05/06 frames when a GIC source bank is present.
+Private records without an owned GIC retain RAXA6403/04. Historical qualification
+receipts and retained legacy FP fixtures above describe their captured revisions;
+the followup preserves their optional-profile migration rules and rejects
+ambiguous legacy GIC input sources.

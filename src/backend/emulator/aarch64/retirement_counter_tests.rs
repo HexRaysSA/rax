@@ -52,9 +52,9 @@ fn restored(
         .core
         .with_test_retirement_counters(instructions, cycles);
     payload.observed_instructions = observed;
-    raw.data = TAG.to_vec();
-    raw.data
-        .extend_from_slice(&crate::codec::serialize(&payload).unwrap());
+    // This probe deliberately uses the unbound CPU-counter domain.
+    payload.counter_clock = None;
+    raw = payload.record().unwrap();
     let mut target = construct();
     target
         .validate_checkpoint_context(&state, &Default::default(), Some(&raw))
