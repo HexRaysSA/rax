@@ -7148,3 +7148,6 @@ mod fp_access;
 
 #[path = "fp_simd_access.rs"]
 mod fp_simd_access;
+
+#[path = "fp_short_vector_contract.rs"]
+mod fp_short_vector_contract;

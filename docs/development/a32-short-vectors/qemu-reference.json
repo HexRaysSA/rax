@@ -1,0 +1,5332 @@
+{
+  "schema": 1,
+  "scope": "Recorded independent QEMU 11.1.2 Cortex-A8 run. All register and FPSCR bits compared; no masking. Source-derived expectations remain authoritative where this model disagrees.",
+  "primary": "docs/specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf, D11.1-4",
+  "qemu_source": "docs/development/a32-fp-controls/references/qemu-11.1.2/target/arm/tcg/translate-vfp.c",
+  "source_provenance": "docs/development/a32-fp-controls/references/qemu-11.1.2/provenance.json",
+  "cases_sha256": "16c70acb95bbd27fbb3865cb80312be76a33d45c14a213bfac859e7e40c90419",
+  "cases": 2138,
+  "matched": 1938,
+  "mismatched": 200,
+  "mvfr0": "11110222",
+  "guest_source_sha256": "ef4f27b19cd4d81ed3441ef79fa30f90e663edcf9eb195c14c22c5456fc0fbde",
+  "raw_output_sha256": "fa9d3052765e0ba684470e5c9476df608c3ee4f27fb8bde207d10643a6f78573",
+  "results_sha256": "3d15c840be48ed1e34f00c3b312aae1631e09e0dd3ddd4f2db0126ea5810ede4",
+  "raw_evidence": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/qemu-full-v3",
+  "partition_counts": [
+    {
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "mismatched": 104
+    },
+    {
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "mismatched": 12
+    },
+    {
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "mismatched": 48
+    },
+    {
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "mismatched": 28
+    },
+    {
+      "bits": 64,
+      "shape": "unary",
+      "stride": 2,
+      "mismatched": 8
+    }
+  ],
+  "all_flags_matched": true,
+  "deviations": [
+    {
+      "index": 4,
+      "name": "vadd-binary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4872894797947338752
+        ],
+        [
+          15,
+          4728779609837928448,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 5,
+      "name": "vadd-binary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4872894797947338752
+        ],
+        [
+          15,
+          4728779609837928448,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 10,
+      "name": "vadd-binary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4728779609837928448,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 11,
+      "name": "vadd-binary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4728779609837928448,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 12,
+      "name": "vadd-binary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4728779609837928448,
+          4791830004621115392
+        ],
+        [
+          15,
+          4728779609837928448,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 13,
+      "name": "vadd-binary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4728779609837928448,
+          4791830004621115392
+        ],
+        [
+          15,
+          4728779609837928448,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 48,
+      "name": "vadd-binary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4755801207635705856
+        ],
+        [
+          15,
+          4866139398472728576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 49,
+      "name": "vadd-binary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4755801207635705856
+        ],
+        [
+          15,
+          4866139398472728576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 54,
+      "name": "vadd-binary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4866139398472728576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 55,
+      "name": "vadd-binary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4866139398472728576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 56,
+      "name": "vadd-binary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4866139398472728576,
+          4791830004621115392
+        ],
+        [
+          15,
+          4866139398472728576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 57,
+      "name": "vadd-binary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4866139398472728576,
+          4791830004621115392
+        ],
+        [
+          15,
+          4866139398472728576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 92,
+      "name": "vsub-binary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4845873200183115776
+        ],
+        [
+          15,
+          4701758012073705472,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 93,
+      "name": "vsub-binary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4845873200183115776
+        ],
+        [
+          15,
+          4701758012073705472,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 98,
+      "name": "vsub-binary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4701758012073705472,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 99,
+      "name": "vsub-binary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4701758012073705472,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 100,
+      "name": "vsub-binary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4701758012073705472,
+          4791830004621115392
+        ],
+        [
+          15,
+          4701758012073705472,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 101,
+      "name": "vsub-binary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4701758012073705472,
+          4791830004621115392
+        ],
+        [
+          15,
+          4701758012073705472,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 136,
+      "name": "vsub-binary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          1132462080
+        ],
+        [
+          15,
+          4859383999031672832,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 137,
+      "name": "vsub-binary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          1132462080
+        ],
+        [
+          15,
+          4859383999031672832,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 142,
+      "name": "vsub-binary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4859383999031672832,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 143,
+      "name": "vsub-binary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4859383999031672832,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 144,
+      "name": "vsub-binary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4859383999031672832,
+          4791830004621115392
+        ],
+        [
+          15,
+          4859383999031672832,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 145,
+      "name": "vsub-binary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4859383999031672832,
+          4791830004621115392
+        ],
+        [
+          15,
+          4859383999031672832,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 180,
+      "name": "vmul-binary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          5080060380806381568
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 181,
+      "name": "vmul-binary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          5080060380806381568
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 224,
+      "name": "vmul-binary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4863887598692597760
+        ],
+        [
+          15,
+          5008002786734899200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 225,
+      "name": "vmul-binary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4863887598692597760
+        ],
+        [
+          15,
+          5008002786734899200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 230,
+      "name": "vmul-binary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          5008002786734899200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 231,
+      "name": "vmul-binary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          5008002786734899200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 232,
+      "name": "vmul-binary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          5008002786734899200,
+          4791830004621115392
+        ],
+        [
+          15,
+          5008002786734899200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 233,
+      "name": "vmul-binary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          5008002786734899200,
+          4791830004621115392
+        ],
+        [
+          15,
+          5008002786734899200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 268,
+      "name": "vdiv-binary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 269,
+      "name": "vdiv-binary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 274,
+      "name": "vdiv-binary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 275,
+      "name": "vdiv-binary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 276,
+      "name": "vdiv-binary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4647714816545259520,
+          4791830004621115392
+        ],
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 277,
+      "name": "vdiv-binary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4647714816545259520,
+          4791830004621115392
+        ],
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 312,
+      "name": "vdiv-binary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4575657222540886016
+        ],
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 313,
+      "name": "vdiv-binary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4575657222540886016
+        ],
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 318,
+      "name": "vdiv-binary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 319,
+      "name": "vdiv-binary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 320,
+      "name": "vdiv-binary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4719772410583187456,
+          4791830004621115392
+        ],
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 321,
+      "name": "vdiv-binary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4719772410583187456,
+          4791830004621115392
+        ],
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 356,
+      "name": "vmla-binary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          5080069176899403776
+        ],
+        [
+          15,
+          4827858801640079360,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 357,
+      "name": "vmla-binary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          5080069176899403776
+        ],
+        [
+          15,
+          4827858801640079360,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 362,
+      "name": "vmla-binary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          5080069176899403776,
+          5116093575871856640
+        ],
+        [
+          15,
+          4827858801640079360,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 363,
+      "name": "vmla-binary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          5080069176899403776,
+          5116093575871856640
+        ],
+        [
+          15,
+          4827858801640079360,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 364,
+      "name": "vmla-binary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          5080069176899403776,
+          5116093575871856640
+        ],
+        [
+          13,
+          4827858801640079360,
+          4791830004621115392
+        ],
+        [
+          14,
+          5080069176899403776,
+          5116093575871856640
+        ],
+        [
+          15,
+          4827858801640079360,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 365,
+      "name": "vmla-binary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          5080069176899403776,
+          5116093575871856640
+        ],
+        [
+          13,
+          4827858801640079360,
+          4791830004621115392
+        ],
+        [
+          14,
+          5080069176899403776,
+          5116093575871856640
+        ],
+        [
+          15,
+          4827858801640079360,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 400,
+      "name": "vmla-binary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4864450548646019072
+        ],
+        [
+          15,
+          5008565736688320512,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 401,
+      "name": "vmla-binary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4864450548646019072
+        ],
+        [
+          15,
+          5008565736688320512,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 406,
+      "name": "vmla-binary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          4864450548646019072,
+          4900197870688272384
+        ],
+        [
+          15,
+          5008565736688320512,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 407,
+      "name": "vmla-binary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          4864450548646019072,
+          4900197870688272384
+        ],
+        [
+          15,
+          5008565736688320512,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 408,
+      "name": "vmla-binary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          4864450548646019072,
+          4900197870688272384
+        ],
+        [
+          13,
+          5008565736688320512,
+          4791830004621115392
+        ],
+        [
+          14,
+          4864450548646019072,
+          4900197870688272384
+        ],
+        [
+          15,
+          5008565736688320512,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 409,
+      "name": "vmla-binary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          4864450548646019072,
+          4900197870688272384
+        ],
+        [
+          13,
+          5008565736688320512,
+          4791830004621115392
+        ],
+        [
+          14,
+          4864450548646019072,
+          4900197870688272384
+        ],
+        [
+          15,
+          5008565736688320512,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 444,
+      "name": "vmls-binary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14303414825475112960
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 445,
+      "name": "vmls-binary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14303414825475112960
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 450,
+      "name": "vmls-binary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          14303414825475112960,
+          14339452418587099136
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 451,
+      "name": "vmls-binary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          14303414825475112960,
+          14339452418587099136
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 452,
+      "name": "vmls-binary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          14303414825475112960,
+          14339452418587099136
+        ],
+        [
+          13,
+          1098907648,
+          4791830004621115392
+        ],
+        [
+          14,
+          14303414825475112960,
+          14339452418587099136
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 453,
+      "name": "vmls-binary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          14303414825475112960,
+          14339452418587099136
+        ],
+        [
+          13,
+          1098907648,
+          4791830004621115392
+        ],
+        [
+          14,
+          14303414825475112960,
+          14339452418587099136
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 488,
+      "name": "vmls-binary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14086133735640530944
+        ],
+        [
+          15,
+          14230248923682832384,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 489,
+      "name": "vmls-binary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14086133735640530944
+        ],
+        [
+          15,
+          14230248923682832384,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 494,
+      "name": "vmls-binary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          14086133735640530944,
+          14122725482612916224
+        ],
+        [
+          15,
+          14230248923682832384,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 495,
+      "name": "vmls-binary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          14086133735640530944,
+          14122725482612916224
+        ],
+        [
+          15,
+          14230248923682832384,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 496,
+      "name": "vmls-binary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          14086133735640530944,
+          14122725482612916224
+        ],
+        [
+          13,
+          14230248923682832384,
+          4791830004621115392
+        ],
+        [
+          14,
+          14086133735640530944,
+          14122725482612916224
+        ],
+        [
+          15,
+          14230248923682832384,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 497,
+      "name": "vmls-binary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          14086133735640530944,
+          14122725482612916224
+        ],
+        [
+          13,
+          14230248923682832384,
+          4791830004621115392
+        ],
+        [
+          14,
+          14086133735640530944,
+          14122725482612916224
+        ],
+        [
+          15,
+          14230248923682832384,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 532,
+      "name": "vnmla-binary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14303441213754179584
+        ],
+        [
+          15,
+          14051230838494855168,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 533,
+      "name": "vnmla-binary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14303441213754179584
+        ],
+        [
+          15,
+          14051230838494855168,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 538,
+      "name": "vnmla-binary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          14303441213754179584,
+          4647714816578813952
+        ],
+        [
+          15,
+          14051230838494855168,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 539,
+      "name": "vnmla-binary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          14303441213754179584,
+          4647714816578813952
+        ],
+        [
+          15,
+          14051230838494855168,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 540,
+      "name": "vnmla-binary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          14303441213754179584,
+          4647714816578813952
+        ],
+        [
+          13,
+          14051230838494855168,
+          4791830004621115392
+        ],
+        [
+          14,
+          14303441213754179584,
+          4647714816578813952
+        ],
+        [
+          15,
+          14051230838494855168,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 541,
+      "name": "vnmla-binary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          14303441213754179584,
+          4647714816578813952
+        ],
+        [
+          13,
+          14051230838494855168,
+          4791830004621115392
+        ],
+        [
+          14,
+          14303441213754179584,
+          4647714816578813952
+        ],
+        [
+          15,
+          14051230838494855168,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 576,
+      "name": "vnmla-binary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14087822585500794880
+        ],
+        [
+          15,
+          14231937773543096320,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 577,
+      "name": "vnmla-binary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14087822585500794880
+        ],
+        [
+          15,
+          14231937773543096320,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 582,
+      "name": "vnmla-binary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          14087822585500794880,
+          4647714816578813952
+        ],
+        [
+          15,
+          14231937773543096320,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 583,
+      "name": "vnmla-binary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          14087822585500794880,
+          4647714816578813952
+        ],
+        [
+          15,
+          14231937773543096320,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 584,
+      "name": "vnmla-binary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          14087822585500794880,
+          4647714816578813952
+        ],
+        [
+          13,
+          14231937773543096320,
+          4791830004621115392
+        ],
+        [
+          14,
+          14087822585500794880,
+          4647714816578813952
+        ],
+        [
+          15,
+          14231937773543096320,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 585,
+      "name": "vnmla-binary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          14087822585500794880,
+          4647714816578813952
+        ],
+        [
+          13,
+          14231937773543096320,
+          4791830004621115392
+        ],
+        [
+          14,
+          14087822585500794880,
+          4647714816578813952
+        ],
+        [
+          15,
+          14231937773543096320,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 620,
+      "name": "vnmls-binary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          5080042788620337152
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 621,
+      "name": "vnmls-binary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          5080042788620337152
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 626,
+      "name": "vnmls-binary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          5080042788620337152,
+          4647714816578813952
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 627,
+      "name": "vnmls-binary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          5080042788620337152,
+          4647714816578813952
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 628,
+      "name": "vnmls-binary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          5080042788620337152,
+          4647714816578813952
+        ],
+        [
+          13,
+          1098907648,
+          4791830004621115392
+        ],
+        [
+          14,
+          5080042788620337152,
+          4647714816578813952
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 629,
+      "name": "vnmls-binary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          5080042788620337152,
+          4647714816578813952
+        ],
+        [
+          13,
+          1098907648,
+          4791830004621115392
+        ],
+        [
+          14,
+          5080042788620337152,
+          4647714816578813952
+        ],
+        [
+          15,
+          1098907648,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 664,
+      "name": "vnmls-binary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4862761698785755136
+        ],
+        [
+          15,
+          5006876886828056576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 665,
+      "name": "vnmls-binary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4862761698785755136
+        ],
+        [
+          15,
+          5006876886828056576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 670,
+      "name": "vnmls-binary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          4862761698785755136,
+          4647714816578813952
+        ],
+        [
+          15,
+          5006876886828056576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 671,
+      "name": "vnmls-binary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          14,
+          4862761698785755136,
+          4647714816578813952
+        ],
+        [
+          15,
+          5006876886828056576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 672,
+      "name": "vnmls-binary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          4862761698785755136,
+          4647714816578813952
+        ],
+        [
+          13,
+          5006876886828056576,
+          4791830004621115392
+        ],
+        [
+          14,
+          4862761698785755136,
+          4647714816578813952
+        ],
+        [
+          15,
+          5006876886828056576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 673,
+      "name": "vnmls-binary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          12,
+          4862761698785755136,
+          4647714816578813952
+        ],
+        [
+          13,
+          5006876886828056576,
+          4791830004621115392
+        ],
+        [
+          14,
+          4862761698785755136,
+          4647714816578813952
+        ],
+        [
+          15,
+          5006876886828056576,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 708,
+      "name": "vnmul-binary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14303432417661157376
+        ],
+        [
+          15,
+          14015202041475891200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 709,
+      "name": "vnmul-binary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14303432417661157376
+        ],
+        [
+          15,
+          14015202041475891200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 714,
+      "name": "vnmul-binary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          14015202041475891200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 715,
+      "name": "vnmul-binary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          14015202041475891200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 716,
+      "name": "vnmul-binary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          14015202041475891200,
+          4791830004621115392
+        ],
+        [
+          15,
+          14015202041475891200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 717,
+      "name": "vnmul-binary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          14015202041475891200,
+          4791830004621115392
+        ],
+        [
+          15,
+          14015202041475891200,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 752,
+      "name": "vnmul-binary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14087259635547373568
+        ],
+        [
+          15,
+          14231374823589675008,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 753,
+      "name": "vnmul-binary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          14087259635547373568
+        ],
+        [
+          15,
+          14231374823589675008,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 758,
+      "name": "vnmul-binary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          14231374823589675008,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 759,
+      "name": "vnmul-binary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          14231374823589675008,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 760,
+      "name": "vnmul-binary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          14231374823589675008,
+          4791830004621115392
+        ],
+        [
+          15,
+          14231374823589675008,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 761,
+      "name": "vnmul-binary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "binary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          14231374823589675008,
+          4791830004621115392
+        ],
+        [
+          15,
+          14231374823589675008,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 796,
+      "name": "vabs-unary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          13871086853433589760,
+          4791830004654669824
+        ],
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 797,
+      "name": "vabs-unary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          13871086853433589760,
+          4791830004654669824
+        ],
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 802,
+      "name": "vabs-unary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 803,
+      "name": "vabs-unary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 804,
+      "name": "vabs-unary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4647714816545259520,
+          14015202041475891200
+        ],
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 805,
+      "name": "vabs-unary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4647714816545259520,
+          14015202041475891200
+        ],
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 840,
+      "name": "vabs-unary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          13871086853433589760,
+          4719772410616741888
+        ],
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 841,
+      "name": "vabs-unary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          13871086853433589760,
+          4719772410616741888
+        ],
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 846,
+      "name": "vabs-unary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 847,
+      "name": "vabs-unary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 848,
+      "name": "vabs-unary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4719772410583187456,
+          14015202041475891200
+        ],
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 849,
+      "name": "vabs-unary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4719772410583187456,
+          14015202041475891200
+        ],
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 884,
+      "name": "vneg-unary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          13871086853433589760,
+          4791830004654669824
+        ],
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 885,
+      "name": "vneg-unary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          13871086853433589760,
+          4791830004654669824
+        ],
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 890,
+      "name": "vneg-unary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 891,
+      "name": "vneg-unary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 892,
+      "name": "vneg-unary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4647714816545259520,
+          14015202041475891200
+        ],
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 893,
+      "name": "vneg-unary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4647714816545259520,
+          14015202041475891200
+        ],
+        [
+          15,
+          4647714816545259520,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 928,
+      "name": "vneg-unary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          13871086853433589760,
+          4719772410616741888
+        ],
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 929,
+      "name": "vneg-unary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          13871086853433589760,
+          4719772410616741888
+        ],
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 934,
+      "name": "vneg-unary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 935,
+      "name": "vneg-unary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 936,
+      "name": "vneg-unary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4719772410583187456,
+          14015202041475891200
+        ],
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 937,
+      "name": "vneg-unary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4719772410583187456,
+          14015202041475891200
+        ],
+        [
+          15,
+          4719772410583187456,
+          14015202041475891200
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 972,
+      "name": "vsqrt-unary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4683743613597777920
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 973,
+      "name": "vsqrt-unary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4683743613597777920
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 978,
+      "name": "vsqrt-unary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 979,
+      "name": "vsqrt-unary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 980,
+      "name": "vsqrt-unary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4611686019526295552,
+          4791830004621115392
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 981,
+      "name": "vsqrt-unary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4611686019526295552,
+          4791830004621115392
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1016,
+      "name": "vsqrt-unary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1017,
+      "name": "vsqrt-unary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1022,
+      "name": "vsqrt-unary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1023,
+      "name": "vsqrt-unary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1024,
+      "name": "vsqrt-unary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4647714816545259520,
+          4791830004621115392
+        ],
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1025,
+      "name": "vsqrt-unary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4647714816545259520,
+          4791830004621115392
+        ],
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1060,
+      "name": "vmov-unary-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4791830004654669824
+        ],
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1061,
+      "name": "vmov-unary-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4791830004654669824
+        ],
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1066,
+      "name": "vmov-unary-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1067,
+      "name": "vmov-unary-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1068,
+      "name": "vmov-unary-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4647714816545259520,
+          4791830004621115392
+        ],
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1069,
+      "name": "vmov-unary-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4647714816545259520,
+          4791830004621115392
+        ],
+        [
+          15,
+          4647714816545259520,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1104,
+      "name": "vmov-unary-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4719772410616741888
+        ],
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1105,
+      "name": "vmov-unary-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4719772410616741888
+        ],
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1110,
+      "name": "vmov-unary-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1111,
+      "name": "vmov-unary-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1112,
+      "name": "vmov-unary-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4719772410583187456,
+          4791830004621115392
+        ],
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1113,
+      "name": "vmov-unary-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "unary",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4719772410583187456,
+          4791830004621115392
+        ],
+        [
+          15,
+          4719772410583187456,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1148,
+      "name": "vmov-immediate-f32-vector-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4611686019559849984
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1149,
+      "name": "vmov-immediate-f32-vector-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4611686019559849984
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1154,
+      "name": "vmov-immediate-f32-vector-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1155,
+      "name": "vmov-immediate-f32-vector-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1156,
+      "name": "vmov-immediate-f32-vector-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4611686019526295552,
+          4791830004621115392
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1157,
+      "name": "vmov-immediate-f32-vector-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4611686019526295552,
+          4791830004621115392
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1192,
+      "name": "vmov-immediate-f32-scalar_source-len2-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4611686019559849984
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1193,
+      "name": "vmov-immediate-f32-scalar_source-len2-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          12,
+          4647714816578813952,
+          4611686019559849984
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1198,
+      "name": "vmov-immediate-f32-scalar_source-len3-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1199,
+      "name": "vmov-immediate-f32-scalar_source-len3-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 3,
+      "fpscr": 3276800,
+      "expected_fpscr": 3276800,
+      "differences": [
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1200,
+      "name": "vmov-immediate-f32-scalar_source-len4-stride2",
+      "thumb": false,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4611686019526295552,
+          4791830004621115392
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1201,
+      "name": "vmov-immediate-f32-scalar_source-len4-stride2",
+      "thumb": true,
+      "bits": 32,
+      "shape": "immediate",
+      "stride": 2,
+      "length": 4,
+      "fpscr": 3342336,
+      "expected_fpscr": 3342336,
+      "differences": [
+        [
+          13,
+          4611686019526295552,
+          4791830004621115392
+        ],
+        [
+          15,
+          4611686019526295552,
+          4791830004621115392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1810,
+      "name": "vabs-unary-f64-vector-len2-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 2,
+      "fpscr": 65536,
+      "expected_fpscr": 65536,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1811,
+      "name": "vabs-unary-f64-vector-len2-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 2,
+      "fpscr": 65536,
+      "expected_fpscr": 65536,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1812,
+      "name": "vabs-unary-f64-vector-len2-stride2",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          13839561654909534208,
+          4634204016564240384
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1813,
+      "name": "vabs-unary-f64-vector-len2-stride2",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          13839561654909534208,
+          4634204016564240384
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1814,
+      "name": "vabs-unary-f64-vector-len3-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 3,
+      "fpscr": 131072,
+      "expected_fpscr": 131072,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1815,
+      "name": "vabs-unary-f64-vector-len3-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 3,
+      "fpscr": 131072,
+      "expected_fpscr": 131072,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1816,
+      "name": "vabs-unary-f64-vector-len4-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          28,
+          4625196817309499392,
+          4643211215818981376
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1817,
+      "name": "vabs-unary-f64-vector-len4-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          28,
+          4625196817309499392,
+          4643211215818981376
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1874,
+      "name": "vneg-unary-f64-vector-len2-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 2,
+      "fpscr": 65536,
+      "expected_fpscr": 65536,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          13866583252673757184,
+          4625196817309499392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1875,
+      "name": "vneg-unary-f64-vector-len2-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 2,
+      "fpscr": 65536,
+      "expected_fpscr": 65536,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          13866583252673757184,
+          4625196817309499392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1876,
+      "name": "vneg-unary-f64-vector-len2-stride2",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          13839561654909534208,
+          4634204016564240384
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1877,
+      "name": "vneg-unary-f64-vector-len2-stride2",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          13839561654909534208,
+          4634204016564240384
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1878,
+      "name": "vneg-unary-f64-vector-len3-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 3,
+      "fpscr": 131072,
+      "expected_fpscr": 131072,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          13866583252673757184,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1879,
+      "name": "vneg-unary-f64-vector-len3-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 3,
+      "fpscr": 131072,
+      "expected_fpscr": 131072,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          13866583252673757184,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1880,
+      "name": "vneg-unary-f64-vector-len4-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          28,
+          13848568854164275200,
+          4643211215818981376
+        ],
+        [
+          30,
+          13866583252673757184,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1881,
+      "name": "vneg-unary-f64-vector-len4-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          28,
+          13848568854164275200,
+          4643211215818981376
+        ],
+        [
+          30,
+          13866583252673757184,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          13857576053419016192
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1938,
+      "name": "vsqrt-unary-f64-vector-len2-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 2,
+      "fpscr": 65536,
+      "expected_fpscr": 65536,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4620693217682128896
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1939,
+      "name": "vsqrt-unary-f64-vector-len2-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 2,
+      "fpscr": 65536,
+      "expected_fpscr": 65536,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4620693217682128896
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1940,
+      "name": "vsqrt-unary-f64-vector-len2-stride2",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          4616189618054758400,
+          4620693217682128896
+        ],
+        [
+          31,
+          4611686018427387904,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1941,
+      "name": "vsqrt-unary-f64-vector-len2-stride2",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          4616189618054758400,
+          4620693217682128896
+        ],
+        [
+          31,
+          4611686018427387904,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1942,
+      "name": "vsqrt-unary-f64-vector-len3-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 3,
+      "fpscr": 131072,
+      "expected_fpscr": 131072,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4620693217682128896
+        ],
+        [
+          31,
+          4611686018427387904,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1943,
+      "name": "vsqrt-unary-f64-vector-len3-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 3,
+      "fpscr": 131072,
+      "expected_fpscr": 131072,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4620693217682128896
+        ],
+        [
+          31,
+          4611686018427387904,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1944,
+      "name": "vsqrt-unary-f64-vector-len4-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4620693217682128896
+        ],
+        [
+          28,
+          4616189618054758400,
+          4643211215818981376
+        ],
+        [
+          31,
+          4611686018427387904,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 1945,
+      "name": "vsqrt-unary-f64-vector-len4-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4620693217682128896
+        ],
+        [
+          28,
+          4616189618054758400,
+          4643211215818981376
+        ],
+        [
+          31,
+          4611686018427387904,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2002,
+      "name": "vmov-unary-f64-vector-len2-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 2,
+      "fpscr": 65536,
+      "expected_fpscr": 65536,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2003,
+      "name": "vmov-unary-f64-vector-len2-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 2,
+      "fpscr": 65536,
+      "expected_fpscr": 65536,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2004,
+      "name": "vmov-unary-f64-vector-len2-stride2",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          4616189618054758400,
+          4634204016564240384
+        ],
+        [
+          31,
+          4616189618054758400,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2005,
+      "name": "vmov-unary-f64-vector-len2-stride2",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 2,
+      "length": 2,
+      "fpscr": 3211264,
+      "expected_fpscr": 3211264,
+      "differences": [
+        [
+          15,
+          4616189618054758400,
+          4634204016564240384
+        ],
+        [
+          31,
+          4616189618054758400,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2006,
+      "name": "vmov-unary-f64-vector-len3-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 3,
+      "fpscr": 131072,
+      "expected_fpscr": 131072,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2007,
+      "name": "vmov-unary-f64-vector-len3-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 3,
+      "fpscr": 131072,
+      "expected_fpscr": 131072,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2008,
+      "name": "vmov-unary-f64-vector-len4-stride1",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          28,
+          4625196817309499392,
+          4643211215818981376
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2009,
+      "name": "vmov-unary-f64-vector-len4-stride1",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          14,
+          4643211215818981376,
+          4634204016564240384
+        ],
+        [
+          28,
+          4625196817309499392,
+          4643211215818981376
+        ],
+        [
+          30,
+          4643211215818981376,
+          4625196817309499392
+        ],
+        [
+          31,
+          4616189618054758400,
+          4634204016564240384
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2134,
+      "name": "overlap/vmov.f64 d4,d5",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          5,
+          4613937818241073152,
+          4611686018427387904
+        ],
+        [
+          6,
+          4616189618054758400,
+          4611686018427387904
+        ],
+        [
+          7,
+          4611686018427387904,
+          4616189618054758400
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2135,
+      "name": "overlap/vmov.f64 d4,d5",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          5,
+          4613937818241073152,
+          4611686018427387904
+        ],
+        [
+          6,
+          4616189618054758400,
+          4611686018427387904
+        ],
+        [
+          7,
+          4611686018427387904,
+          4616189618054758400
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2136,
+      "name": "overlap/vabs.f64 d4,d5",
+      "thumb": false,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          5,
+          4613937818241073152,
+          13835058055282163712
+        ],
+        [
+          6,
+          4616189618054758400,
+          4611686018427387904
+        ],
+        [
+          7,
+          4611686018427387904,
+          13839561654909534208
+        ]
+      ],
+      "matched": false
+    },
+    {
+      "index": 2137,
+      "name": "overlap/vabs.f64 d4,d5",
+      "thumb": true,
+      "bits": 64,
+      "shape": "unary",
+      "stride": 1,
+      "length": 4,
+      "fpscr": 196608,
+      "expected_fpscr": 196608,
+      "differences": [
+        [
+          5,
+          4613937818241073152,
+          13835058055282163712
+        ],
+        [
+          6,
+          4616189618054758400,
+          4611686018427387904
+        ],
+        [
+          7,
+          4611686018427387904,
+          13839561654909534208
+        ]
+      ],
+      "matched": false
+    }
+  ],
+  "calibration": {
+    "MVFR0": "11110222",
+    "commands": [
+      [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv7a-none-eabi",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/qemu-calibration.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/qemu-calibration.o"
+      ],
+      [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/qemu-calibration.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/qemu-calibration.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/qemu-calibration.elf"
+      ],
+      [
+        "/opt/homebrew/bin/qemu-system-arm",
+        "-machine",
+        "versatilepb",
+        "-cpu",
+        "cortex-a8",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-nic",
+        "none",
+        "-audio",
+        "none",
+        "-semihosting-config",
+        "enable=on,target=native",
+        "-device",
+        "loader,file=/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/qemu-calibration.elf,cpu-num=0"
+      ]
+    ],
+    "cases": [
+      {
+        "case": "sp-add-unit",
+        "instruction": "vadd.f32 s29,s21,s13",
+        "fpscr": "0x30000",
+        "requested": "0x30000",
+        "changes": [
+          {
+            "register": 24,
+            "before": 4.0,
+            "after": 8.0
+          },
+          {
+            "register": 29,
+            "before": 16.0,
+            "after": 32.0
+          },
+          {
+            "register": 30,
+            "before": 64.0,
+            "after": 128.0
+          },
+          {
+            "register": 31,
+            "before": 256.0,
+            "after": 512.0
+          }
+        ],
+        "words": [
+          196608,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1090519040,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1107296256,
+          1124073472,
+          1140850688,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "case": "sp-add-stride2",
+        "instruction": "vadd.f32 s29,s21,s13",
+        "fpscr": "0x310000",
+        "requested": "0x310000",
+        "changes": [
+          {
+            "register": 25,
+            "before": 16.0,
+            "after": 32.0
+          },
+          {
+            "register": 29,
+            "before": 16.0,
+            "after": 32.0
+          }
+        ],
+        "words": [
+          3211264,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1098907648,
+          1115684864,
+          1132462080,
+          1082130432,
+          1107296256,
+          1115684864,
+          1132462080,
+          1082130432,
+          1107296256,
+          1115684864,
+          1132462080,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "case": "dp-add-unit",
+        "instruction": "vadd.f64 d29,d21,d13",
+        "fpscr": "0x10000",
+        "requested": "0x10000",
+        "changes": [
+          {
+            "register": 29,
+            "before": 16.0,
+            "after": 32.0
+          },
+          {
+            "register": 30,
+            "before": 64.0,
+            "after": 128.0
+          }
+        ],
+        "words": [
+          65536,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1077936128,
+          0,
+          1080033280,
+          0,
+          1081081856
+        ]
+      },
+      {
+        "case": "dp-abs-unit",
+        "instruction": "vabs.f64 d29,d13",
+        "fpscr": "0x10000",
+        "requested": "0x10000",
+        "changes": [
+          {
+            "register": 14,
+            "before": 64.0,
+            "after": 16.0
+          }
+        ],
+        "words": [
+          65536,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1076887552,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856,
+          0,
+          1074790400,
+          0,
+          1076887552,
+          0,
+          1078984704,
+          0,
+          1081081856
+        ]
+      }
+    ],
+    "full_goal_complete": false,
+    "scope": "Independent QEMU calibration only; compare primary D11 before treating it as an oracle."
+  },
+  "fixture_error_excluded": {
+    "scope": "Fixture-only error; excluded from semantic oracle results",
+    "output_bytes": 529,
+    "tail": "eef0000001fdeadbeefU",
+    "symbols": [
+      "00010094 t probe1",
+      "0001009c t returned1"
+    ],
+    "cause": "Thumb function symbols already carry bit0=1. Adding1 changes the entry address/state.",
+    "correction": "Load the symbol then OR bit0, preserving its encoded address.",
+    "ELF_symbol_values": {
+      "probe1": "0x10095 (STT_FUNC, Thumb bit set)",
+      "returned1": "0x1009c (ARM NOTYPE)"
+    },
+    "verification": "llvm-readelf -s on the failed ELF verifies the low Thumb function bit; the corrected BX fixture completed2128 cases."
+  },
+  "reproduce_tool": "tools/execution/a32_short_vector_qemu.py",
+  "physical_A32_conformance": false,
+  "base_cases": 2128,
+  "overlap_cases": 10,
+  "runner_sha256": "180d943385b5d15030f6421a76ea097b748c7696b22b1f35b6b6069d32d42e4b",
+  "tools": {
+    "qemu": {
+      "path": "/opt/homebrew/bin/qemu-system-arm",
+      "sha256": "121d02f5d368300139d1ae21dc75595b434d7b6318c221b23886fdb28aecd876",
+      "version": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n"
+    },
+    "llvm_mc": {
+      "path": "/Users/int/local/bin/llvm-mc",
+      "sha256": "0311e88d2281780e2784cd7657bcdc71b70044fa4c530c89a5431a45acc1b971",
+      "version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore\n"
+    },
+    "ld_lld": {
+      "path": "/Users/int/local/bin/ld.lld",
+      "sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd",
+      "version": "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d) (compatible with GNU linkers)\n"
+    }
+  }
+}

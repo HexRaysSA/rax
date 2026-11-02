@@ -756,3 +756,6 @@ fn present_private_context_set_rejects_a_missing_software_riscv_cpu() {
 fn present_private_context_set_rejects_a_missing_software_x86_cpu() {
     assert_present_private_set_admits_no_missing_required_cpu(ArchKind::X86_64);
 }
+
+#[path = "backend_short_vector_tests.rs"]
+mod short_vectors;

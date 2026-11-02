@@ -1,0 +1,918 @@
+{
+  "schema": 1,
+  "utc": "2026-11-02T06:43:06.244430+00:00",
+  "parent": "40f259fc8c7fcffc1b9055fb7c3af760c6dfec03",
+  "status": "locally_validated_with_explicit_scope",
+  "scope": "Resolve remaining optional A32 short-vector profile controls/admission and execution from primary architecture requirements; full four-finding goal remains active.",
+  "full_goal_complete": false,
+  "source_sha256": {
+    "src/isa/arm/aarch32/fp_admission.rs": "ecdbfb91fd865b3c504dc71d4145e9f08f63b56b93ced8588c0657f76f3a7a47",
+    "src/isa/arm/aarch32/vfp.rs": "55834ae3b335bc6efe2ab9d14378e2678004f6dcab502a19a12497644dac9491",
+    "src/isa/arm/aarch32/short_vectors.rs": "6f0aa0bb49121b68a3088e98556851793eed5c5397f70cc0a5aa57c6d1f997a4",
+    "src/isa/arm/aarch32/mod.rs": "6171798fe91a772a7a72d2dc9a19244dbf9f7802001e091f464488ff83c5331c",
+    "src/isa/arm/aarch32/instructions/mod.rs": "6e740dd0bb18bee2f5a98bdd6f674c55288af1ac5f03a907c370611095b71bbc",
+    "src/isa/arm/aarch32/instructions/misc.rs": "9b122f89a10fd032b637baac7c5e5c95faa441e890fbbae578df6e3af7860e97",
+    "src/isa/arm/aarch32/instructions/short_vectors.rs": "e5dd81f5cd072dc3cfd41c0180d0e11fc164ce53acfa187b1de493f2b669fa0b",
+    "tests/suites/isa/arm/aarch32/vfp.rs": "e5e5142028205302a5266a34ef0b33a2b14082d7413913ce95346f0b6cd7f867",
+    "tests/suites/isa/arm/aarch32/fp_short_vector_contract.rs": "3bd1497cf6e6706ec03d6c08dc1a495141ab67d23fa9177293a75291cce9a313",
+    "src/backend/emulator/aarch32.rs": "ce70bd5557c49a636799844eee0ffb8a0d465d5a881fcd9e02b67659a8872b54",
+    "src/backend/emulator/aarch32/short_vector_tests.rs": "13346f6eaa4dfacd96ac4bf38e99e15b459d98604829cbdcd364707bef555d87",
+    "src/vm/runtime/backend_context_tests.rs": "cf6f331228d9cf7bafcc46eb2933e57639cee1342f8c3675a9613b295d27066e",
+    "src/vm/runtime/backend_short_vector_tests.rs": "6a2e95f00273c4289c44add12f8dfbab8087b86948545b8cc3d6edd30665e3d9",
+    "docs/development/a32-short-vectors/cases.json": "16c70acb95bbd27fbb3865cb80312be76a33d45c14a213bfac859e7e40c90419",
+    "docs/development/a32-short-vectors/qemu-reference.json": "e41286cf395cc3e6617bcf56cd550cbd64582148fc75cdfd6650b863cdef82a8",
+    "tools/execution/a32_short_vector_cases.py": "ed3efea671a4d1a120159d3b128e750b0db6d7185df806f936148d0e8cf43b97",
+    "tools/execution/a32_short_vector_qemu.py": "180d943385b5d15030f6421a76ea097b748c7696b22b1f35b6b6069d32d42e4b"
+  },
+  "source_lines": {
+    "src/isa/arm/aarch32/fp_admission.rs": 304,
+    "src/isa/arm/aarch32/vfp.rs": 1072,
+    "src/isa/arm/aarch32/short_vectors.rs": 147,
+    "src/isa/arm/aarch32/mod.rs": 14,
+    "src/isa/arm/aarch32/instructions/mod.rs": 287,
+    "src/isa/arm/aarch32/instructions/misc.rs": 1447,
+    "src/isa/arm/aarch32/instructions/short_vectors.rs": 36,
+    "tests/suites/isa/arm/aarch32/vfp.rs": 7153,
+    "tests/suites/isa/arm/aarch32/fp_short_vector_contract.rs": 511,
+    "src/backend/emulator/aarch32.rs": 629,
+    "src/backend/emulator/aarch32/short_vector_tests.rs": 111,
+    "src/vm/runtime/backend_context_tests.rs": 761,
+    "src/vm/runtime/backend_short_vector_tests.rs": 142,
+    "tools/execution/a32_short_vector_cases.py": 120,
+    "tools/execution/a32_short_vector_qemu.py": 201
+  },
+  "primary": {
+    "path": "docs/specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf",
+    "provenance": "docs/specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.provenance.json",
+    "sha256": "294668ae6480133b32d85e9567cc77c5eb0e1232decdf42cac7ab480e884f6e0",
+    "sections": [
+      "D11.1.1 fourteen affected forms",
+      "D11.2/Table D11-1 length/stride and double-vector bounds",
+      "D11.3/Figures D11-1/2/3 scalar/vector banks",
+      "D11.4/Table D11-2 first-source advance and second-source broadcast",
+      "B4.1.58 FPSCR control fields",
+      "B4.1.108 MVFR0.ShortVectors",
+      "A8.8.318 VFMA/VFMS scalar controls",
+      "A8.8.319 VFNMA/VFNMS scalar controls"
+    ]
+  },
+  "assumptions": [
+    {
+      "id": "SV1",
+      "assumption": "The explicit MVFR0.ShortVectors=1 profile must implement DDI0406C.d D11 controls and all14 affected forms; default0 keeps its masked controls.",
+      "stress_test": "Both encodings/precisions, bank wrapping, scalar/broadcast/alias and every permitted length/stride.",
+      "falsification_probe": "One defined vector register result or control read differs from the primary contract.",
+      "basis": "Arm DDI0406C.d B4.1.58, B4.1.108 and D11.1-4; inspected retained primary text.",
+      "dependent_result": "Selected writable controls and complete fourteen-form bank/stride plan.",
+      "status": "confirmed",
+      "evidence": [
+        "owning-VFP-v6",
+        "generator-self-check-v7"
+      ]
+    },
+    {
+      "id": "SV2",
+      "assumption": "This group keeps the non-trapping profile and existing scalar arithmetic helpers; one vector instruction retires once.",
+      "stress_test": "FP flags and zero-retirement denials, private/file continuation before and after vector execution.",
+      "falsification_probe": "A vector iteration retires as a separate instruction or a denied operation publishes a partial FP state.",
+      "basis": "Existing non-trapping profile and scalar handlers; no new exception-trap fields or asynchronous iterations.",
+      "dependent_result": "Scalar arithmetic/status semantics, one retirement and exact private/file continuation.",
+      "status": "confirmed",
+      "evidence": [
+        "focused-backend-v5",
+        "focused-VM-files-v5",
+        "owning-root-library-v6"
+      ]
+    },
+    {
+      "id": "SV3",
+      "assumption": "UNPREDICTABLE length/stride combinations use an explicit Undefined admission choice before effects.",
+      "stress_test": "Invalid combinations, scalar destinations, false predicates and competing FP access traps.",
+      "falsification_probe": "One rejected vector mutates CPU/data or reaches an access trap first.",
+      "basis": "D11.2 labels nonpermitted shapes UNPREDICTABLE; A8.8.318/319 require scalar controls. RAX explicitly chooses Undefined.",
+      "dependent_result": "Pure admission before access checks and any element effect.",
+      "status": "retained",
+      "evidence": [
+        "focused-vfp-v6",
+        "owning-VFP-v6"
+      ]
+    },
+    {
+      "id": "SV4",
+      "assumption": "QEMU is a calibrated independent model, not an architectural substitute.",
+      "stress_test": "Stride, double unary, aliasing and feature/readback controls.",
+      "falsification_probe": "QEMU contradicts the primary table; retain disagreement and exclude only that comparison with direct evidence.",
+      "basis": "Primary rules outrank implementation models; four calibration probes exposed SP stride and DP unary discrepancies.",
+      "dependent_result": "All comparisons retained; primary-derived expectations used for the 200 QEMU disagreements.",
+      "status": "revised",
+      "evidence": [
+        "docs/development/a32-short-vectors/qemu-reference.json"
+      ]
+    },
+    {
+      "id": "SV5",
+      "assumption": "The selected PE executes overlapping short-vector operands in encoded-element order.",
+      "basis": "D11 specifies bank/element selection but does not explicitly specify operand read timing. Independent binary and SP unary QEMU observations support this selection; DP unary model is separately discrepant.",
+      "dependent_result": "Five overlap forms in both instruction sets; no operand snapshot.",
+      "stress_test": "Forward destructive binary overlap and wrapping unary source/destination alias, full 32-D images.",
+      "falsification_probe": "A physical compatible PE or explicit primary ordering rule requires a different defined overlap result.",
+      "status": "retained",
+      "evidence": [
+        "owning-VFP-v6",
+        "docs/development/a32-short-vectors/qemu-reference.json"
+      ],
+      "physical_conformance": "unknown"
+    }
+  ],
+  "baseline": {
+    "behavioral_red": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm_vfp_a32-b9ec10417225ec0e",
+        "short_vector_baseline",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 101,
+      "expected_exit_code": 101,
+      "elapsed_seconds": 0.024865875020623207,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 4,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm_vfp_a32-b9ec10417225ec0e",
+        "sha256": "64c87f64cad74ad3a74027dba9f1b40306c7e87339801c5827114c74ac550402",
+        "inode": 400992864
+      },
+      "executable_after_sha256": "64c87f64cad74ad3a74027dba9f1b40306c7e87339801c5827114c74ac550402",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/isa/arm/aarch32/fp_admission.rs": "c5e6f75c0e6d989d3e424882d96a9a4f8f9165551202ccf7c3c0d75cf2ebf820",
+        "src/isa/arm/aarch32/vfp.rs": "3194bc64645d82c9ef513cbb7bea662f928fdd2051a9c20f4b99d18b32b50c15",
+        "src/isa/arm/aarch32/mod.rs": "212155a592f40d793cf88c684c86d0a6ecd69fe354b9d0040887bc03aa18a603",
+        "src/isa/arm/aarch32/instructions/mod.rs": "ce85e0c0909cb2fd58c408fd45673cd812748dd6dca96948e46bbd8aa3c03156",
+        "src/isa/arm/aarch32/instructions/misc.rs": "c88246bd84371e0c940fcaf994da2ad6e743c84c064488ed2a902133d688861a",
+        "tests/suites/isa/arm/aarch32/vfp.rs": "e5e5142028205302a5266a34ef0b33a2b14082d7413913ce95346f0b6cd7f867",
+        "tests/suites/isa/arm/aarch32/fp_short_vector_contract.rs": "adb508991093a5bca19278ecbc39d77aa50631841bba88a0df77693401524586",
+        "src/backend/emulator/aarch32.rs": "14a4efae52bddf61c40d1a3e33337e70a63df96d95e44ebb12894d5d9c766397",
+        "src/vm/runtime/backend_context_tests.rs": "81380d75c64739f444f7a136d8010397612d109e4ec5d70845acd8381cb514f1",
+        "docs/development/audit-remediation-2026-10.json": "99a2dab07f1b977f8529d382ea3b9f81b9d628d73d2b2f3956b95cbf55d757f5",
+        "__HEAD__": "40f259fc8c7fcffc1b9055fb7c3af760c6dfec03",
+        "__tracked_changes__": "2cf96dc33706b1bb157e1ff30b4eff32429576ca730e71879f9854098c4e74f1"
+      }
+    },
+    "excluded_compiler_fixture_errors": [
+      "baseline-build-v1",
+      "workspace-test-build-v2",
+      "workspace-test-build-v4"
+    ],
+    "corrections": "Cargo package/feature selection, Vec fixture iteration and explicit f64 cast; no compiler failure is counted as behavioral red.",
+    "excluded_QEMU_fixture": {
+      "scope": "Fixture-only error; excluded from semantic oracle results",
+      "output_bytes": 529,
+      "tail": "eef0000001fdeadbeefU",
+      "symbols": [
+        "00010094 t probe1",
+        "0001009c t returned1"
+      ],
+      "cause": "Thumb function symbols already carry bit0=1. Adding1 changes the entry address/state.",
+      "correction": "Load the symbol then OR bit0, preserving its encoded address.",
+      "ELF_symbol_values": {
+        "probe1": "0x10095 (STT_FUNC, Thumb bit set)",
+        "returned1": "0x1009c (ARM NOTYPE)"
+      },
+      "verification": "llvm-readelf -s on the failed ELF verifies the low Thumb function bit; the corrected BX fixture completed2128 cases."
+    }
+  },
+  "validation": {
+    "focused-vfp-v6": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm_vfp_a32-b9ec10417225ec0e",
+        "short_vector",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.23864100000355393,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm_vfp_a32-b9ec10417225ec0e",
+        "sha256": "97e40d3bc294749898f60ea4d60e4055007c5fbf9c5c59fd84f90d87bf9928e1",
+        "inode": 401056921
+      },
+      "executable_after_sha256": "97e40d3bc294749898f60ea4d60e4055007c5fbf9c5c59fd84f90d87bf9928e1",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/focused-vfp-v6.json"
+    },
+    "focused-backend-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "backend::emulator::aarch32::short_vector_tests",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.026636000024154782,
+      "test_results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "4ea68150271c57154467a6b020b77841981973aa2e20298caf1c3e66fde6cc1c",
+        "inode": 401035521
+      },
+      "executable_after_sha256": "4ea68150271c57154467a6b020b77841981973aa2e20298caf1c3e66fde6cc1c",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/focused-backend-v5.json"
+    },
+    "focused-VM-files-v5": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "vm::runtime::backend_context_tests::short_vectors",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 340.7465116250096,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "4ea68150271c57154467a6b020b77841981973aa2e20298caf1c3e66fde6cc1c",
+        "inode": 401035521
+      },
+      "executable_after_sha256": "4ea68150271c57154467a6b020b77841981973aa2e20298caf1c3e66fde6cc1c",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/focused-VM-files-v5.json"
+    },
+    "owning-VFP-v6": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm_vfp_a32-b9ec10417225ec0e",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 10.904999250022229,
+      "test_results": [
+        {
+          "passed": 510,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm_vfp_a32-b9ec10417225ec0e",
+        "sha256": "97e40d3bc294749898f60ea4d60e4055007c5fbf9c5c59fd84f90d87bf9928e1",
+        "inode": 401056921
+      },
+      "executable_after_sha256": "97e40d3bc294749898f60ea4d60e4055007c5fbf9c5c59fd84f90d87bf9928e1",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/owning-VFP-v6.json"
+    },
+    "owning-ARM-v6": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm-450a485a27c8b290",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 83.80060662497999,
+      "test_results": [
+        {
+          "passed": 46850,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/arm-450a485a27c8b290",
+        "sha256": "aee15a3e5869ed81c1d9fe69d2b39e715b2f1d374cc2330dea44b75e9b91f450",
+        "inode": 401064770
+      },
+      "executable_after_sha256": "aee15a3e5869ed81c1d9fe69d2b39e715b2f1d374cc2330dea44b75e9b91f450",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/owning-ARM-v6.json"
+    },
+    "owning-CAPI-v6": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 6.902316624997184,
+      "test_results": [
+        {
+          "passed": 240,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "0a6fd3ded59fd7d6212130ab981496cd5611621a509a74169a2b4f0d764c60f9",
+        "inode": 401023270
+      },
+      "executable_after_sha256": "0a6fd3ded59fd7d6212130ab981496cd5611621a509a74169a2b4f0d764c60f9",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/owning-CAPI-v6.json"
+    },
+    "owning-CI-workflow-v6": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-684b758ed82515b1",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.026379749993793666,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-684b758ed82515b1",
+        "sha256": "0188b6bb3f5f2ca6323ccd17c1fc57a115719fc033133a7cbf8c57f92b1e62e2",
+        "inode": 401057635
+      },
+      "executable_after_sha256": "0188b6bb3f5f2ca6323ccd17c1fc57a115719fc033133a7cbf8c57f92b1e62e2",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/owning-CI-workflow-v6.json"
+    },
+    "owning-root-library-v6": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1035.1612791250227,
+      "test_results": [
+        {
+          "passed": 11901,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "4ea68150271c57154467a6b020b77841981973aa2e20298caf1c3e66fde6cc1c",
+        "inode": 401035521
+      },
+      "executable_after_sha256": "4ea68150271c57154467a6b020b77841981973aa2e20298caf1c3e66fde6cc1c",
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/owning-root-library-v6.json"
+    },
+    "workspace-test-build-v6": {
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--lib",
+        "--test",
+        "arm_vfp_a32",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 5.495868082973175,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/workspace-test-build-v6.json"
+    },
+    "fmt-workspace-v6": {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 20.51915916701546,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/fmt-workspace-v6.json"
+    },
+    "build-workspace-all-targets-v6": {
+      "argv": [
+        "cargo",
+        "build",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 83.24415475002024,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/build-workspace-all-targets-v6.json"
+    },
+    "check-workspace-all-targets-v6": {
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 177.15124783403007,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/check-workspace-all-targets-v6.json"
+    },
+    "clippy-workspace-all-targets-v6": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 163.59018775000004,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/clippy-workspace-all-targets-v6.json"
+    },
+    "doctests-workspace-v6": {
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 9.585033040959388,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/doctests-workspace-v6.json"
+    },
+    "check-workspace-without-debug-v6": {
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,rax-capi/jit",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 50.69539499998791,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/check-workspace-without-debug-v6.json"
+    },
+    "generator-self-check-v7": {
+      "argv": [
+        "python3",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/verify-generator-v7.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.6478751670219935,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/generator-self-check-v7.json"
+    }
+  },
+  "validation_scope": {
+    "doctests": "Workspace doctest command succeeded; zero bodies executed, five engine examples ignored, C API had zero doctests. This is not executable doctest-body evidence.",
+    "final_owning_runs": "Unfiltered root, ARM, VFP, C API and CI binaries; ignored root cases remain explicitly ignored; exact names are retained in ignored-root-inventory-v6.stdout.",
+    "earlier_focused_VM_and_backend": "v5 focused binaries have identical production/backend/VM-test source and root executable as final v6. v6 adds only a VFP integration D16 test. Final unfiltered root reruns all three backend/VM tests.",
+    "private_file_boundaries": "Actual 1/2/4 prepared-online-CPU files at pre-control/pre-vector/completed-vector boundaries; 32 D registers, FPSCR, MVFR0, private contexts, exact retirement and coordinator cursor/state.",
+    "not_startup": "Prepared online contexts do not establish architectural secondary startup.",
+    "external_reference": {
+      "cases": 2138,
+      "matched": 1938,
+      "records_with_register_differences": 200,
+      "all_FPSCR_matched": true,
+      "masks": false,
+      "reference": "docs/development/a32-short-vectors/qemu-reference.json",
+      "binary_source_identity": "unknown beyond separately recorded version/hash and retained tagged source",
+      "physical_A32": false
+    }
+  },
+  "generator_self_check": {
+    "generator_sha256": "ed3efea671a4d1a120159d3b128e750b0db6d7185df806f936148d0e8cf43b97",
+    "fixture_sha256": "16c70acb95bbd27fbb3865cb80312be76a33d45c14a213bfac859e7e40c90419",
+    "byte_exact_regeneration": true,
+    "checks": [
+      {
+        "label": "isolated unchanged fixture",
+        "argv": [
+          "/opt/homebrew/opt/python@3.15/bin/python3.15",
+          "/Users/int/dev/rax-audit-work/build-tmp/a32-short-vector-generator-v7/tools/execution/a32_short_vector_cases.py",
+          "--llvm-mc",
+          "/Users/int/local/bin/llvm-mc"
+        ],
+        "exit_code": 0,
+        "stdout": "1064 semantic cases, 125 distinct encodings per instruction set; fixture verified\n",
+        "stderr": ""
+      },
+      {
+        "label": "isolated regeneration",
+        "argv": [
+          "/opt/homebrew/opt/python@3.15/bin/python3.15",
+          "/Users/int/dev/rax-audit-work/build-tmp/a32-short-vector-generator-v7/tools/execution/a32_short_vector_cases.py",
+          "--llvm-mc",
+          "/Users/int/local/bin/llvm-mc",
+          "--write"
+        ],
+        "exit_code": 0,
+        "stdout": "1064 semantic cases, 125 distinct encodings per instruction set; fixture written\n",
+        "stderr": ""
+      },
+      {
+        "label": "negative stale instruction word",
+        "argv": [
+          "/opt/homebrew/opt/python@3.15/bin/python3.15",
+          "/Users/int/dev/rax-audit-work/build-tmp/a32-short-vector-generator-v7/tools/execution/a32_short_vector_cases.py",
+          "--llvm-mc",
+          "/Users/int/local/bin/llvm-mc"
+        ],
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"/Users/int/dev/rax-audit-work/build-tmp/a32-short-vector-generator-v7/tools/execution/a32_short_vector_cases.py\", line 119, in <module>\n    assert target.read_text() == encoded, 'stale short-vector fixture; inspect inputs and regenerate with --write'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: stale short-vector fixture; inspect inputs and regenerate with --write\n"
+      },
+      {
+        "label": "negative stale expected register",
+        "argv": [
+          "/opt/homebrew/opt/python@3.15/bin/python3.15",
+          "/Users/int/dev/rax-audit-work/build-tmp/a32-short-vector-generator-v7/tools/execution/a32_short_vector_cases.py",
+          "--llvm-mc",
+          "/Users/int/local/bin/llvm-mc"
+        ],
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"/Users/int/dev/rax-audit-work/build-tmp/a32-short-vector-generator-v7/tools/execution/a32_short_vector_cases.py\", line 119, in <module>\n    assert target.read_text() == encoded, 'stale short-vector fixture; inspect inputs and regenerate with --write'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: stale short-vector fixture; inspect inputs and regenerate with --write\n"
+      },
+      {
+        "label": "restored unchanged fixture",
+        "argv": [
+          "/opt/homebrew/opt/python@3.15/bin/python3.15",
+          "/Users/int/dev/rax-audit-work/build-tmp/a32-short-vector-generator-v7/tools/execution/a32_short_vector_cases.py",
+          "--llvm-mc",
+          "/Users/int/local/bin/llvm-mc"
+        ],
+        "exit_code": 0,
+        "stdout": "1064 semantic cases, 125 distinct encodings per instruction set; fixture verified\n",
+        "stderr": ""
+      }
+    ]
+  },
+  "change_surface": {
+    "direct_decode": "Existing ARM/T32 VFP decode unchanged; LLVM-encoded operands and canonical Thumb conversion exercised.",
+    "direct_execute": "Selected FPSCR controls, pure capability/shape admission and bounded fourteen-form iteration.",
+    "CPU_state": "Uses existing raw FPSCR/MVFR/32-D state; no added serde field or layout/version.",
+    "memory_MMU": "No memory access in these register forms; existing fetch/translation behavior unchanged.",
+    "SMIR": "Full 110 distinct affected base forms x2 encodings retain Unsupported; no new IR, optimizer, native or runtime admission.",
+    "backend": "Standalone A32 private/nonretirement and S3C actual prepared-context files exercised.",
+    "machine_device": "No production board/device changes; existing S3C checkpoint producer used.",
+    "oracle_analysis": "No new decoder or effects schema; independent encoding/model evidence added.",
+    "C_ABI": "No implementation/layout changes; full240 C API tests run.",
+    "HVF_KVM": "No native guest profile/lowerer change or physical Intel claim."
+  },
+  "requirements": [
+    {
+      "id": "SV-R1",
+      "requirement": "Default profile compatibility and selected FPSCR write/read",
+      "implementation": [
+        "src/isa/arm/aarch32/vfp.rs"
+      ],
+      "evidence": [
+        "short_vector_baseline_vmsr_vmrs_preserve_selected_len_stride",
+        "owning-VFP-v6"
+      ]
+    },
+    {
+      "id": "SV-R2",
+      "requirement": "All14 forms, both encodings/precisions, banks/broadcast/scalar/wrap/valid controls",
+      "implementation": [
+        "src/isa/arm/aarch32/short_vectors.rs",
+        "src/isa/arm/aarch32/instructions/short_vectors.rs"
+      ],
+      "evidence": [
+        "short_vector_primary_matrix_matches_every_register_in_arm_and_thumb",
+        "owning-VFP-v6",
+        "docs/development/a32-short-vectors/cases.json"
+      ]
+    },
+    {
+      "id": "SV-R3",
+      "requirement": "Invalid/reserved controls and D16/FP-access/predicate/restricted-mode admission before effects",
+      "implementation": [
+        "src/isa/arm/aarch32/fp_admission.rs",
+        "src/isa/arm/aarch32/short_vectors.rs"
+      ],
+      "evidence": [
+        "focused-vfp-v6",
+        "owning-VFP-v6"
+      ]
+    },
+    {
+      "id": "SV-R4",
+      "requirement": "Flag union and explicitly selected overlap order",
+      "implementation": [
+        "src/isa/arm/aarch32/instructions/short_vectors.rs"
+      ],
+      "evidence": [
+        "short_vector_accumulates_exception_flags_across_all_iterations",
+        "short_vector_overlaps_use_encoded_element_order_without_snapshotting_operands",
+        "owning-VFP-v6",
+        "docs/development/a32-short-vectors/qemu-reference.json"
+      ]
+    },
+    {
+      "id": "SV-R5",
+      "requirement": "One instruction retirement, rejection frontier and complete existing private/file continuation",
+      "implementation": [
+        "src/backend/emulator/aarch32/short_vector_tests.rs",
+        "src/vm/runtime/backend_short_vector_tests.rs"
+      ],
+      "evidence": [
+        "focused-backend-v5",
+        "focused-VM-files-v5",
+        "owning-root-library-v6"
+      ]
+    },
+    {
+      "id": "SV-R6",
+      "requirement": "Closed SMIR/native frontier",
+      "implementation": [
+        "tests/suites/isa/arm/aarch32/fp_short_vector_contract.rs"
+      ],
+      "evidence": [
+        "short_vectors_keep_the_complete_arm_and_thumb_smir_frontier_closed",
+        "owning-VFP-v6"
+      ]
+    },
+    {
+      "id": "SV-R7",
+      "requirement": "Independent reproducible input generation and calibrated oracle, no hidden mismatches",
+      "implementation": [
+        "tools/execution/a32_short_vector_cases.py",
+        "tools/execution/a32_short_vector_qemu.py"
+      ],
+      "evidence": [
+        "generator-self-check-v7",
+        "docs/development/a32-short-vectors/qemu-reference.json"
+      ]
+    },
+    {
+      "id": "SV-R8",
+      "requirement": "Exact-path commit directly on master and idle-build cleanup",
+      "implementation": [
+        "docs/development/audit-remediation-2026-10.json"
+      ],
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/commit-receipt.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/cleanup-final.json"
+      ]
+    }
+  ],
+  "algorithm": {
+    "time": "O(L), L<=8",
+    "space": "O(1), fixed VFP-state rollback image",
+    "integer_bound": "r<=31, i<=7, stride<=2; r+i*stride<=45<256 before bank masking",
+    "control_mask": "0x00370000 excludes FZ16 bit19",
+    "error_bounds": "Full-bit comparisons; no numeric tolerance or comparison masks."
+  },
+  "implementation_review": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/implementation-review-v6.json",
+  "source_organization": {
+    "new_semantic_files": "Separate bounded plan147 lines and scalar-dispatch loop36 lines; tests separate.",
+    "legacy_runner": "7150-line VFP legacy runner receives only a three-line child module registration; all new touched semantic tests are split into a511-line sibling. Existing unrelated tests were not moved."
+  },
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Physical AArch32 vector/overlap profile conformance unknown",
+      "evidence": "Local host is AArch64; retained primary plus calibrated QEMU, not physical A32 execution.",
+      "blocks": "Physical conformance claim; does not block this explicit synthetic software profile."
+    },
+    {
+      "impact": "high",
+      "item": "Optional FP exception trapping, wider profile/security/debug and original four findings remain incomplete",
+      "evidence": "MVFR0 trapping unchanged; audit-remediation ledger retains partial status.",
+      "blocks": "Full original goal closure."
+    },
+    {
+      "impact": "high",
+      "item": "Existing native ARM streaming-FPSR reentry",
+      "evidence": "docs/development/native-arm64-checkpoints/README.md",
+      "blocks": "Complete native state closure; separate from software short-vector implementation."
+    },
+    {
+      "impact": "medium",
+      "item": "QEMU SPstride2 and DP unary model discrepancies",
+      "evidence": "docs/development/a32-short-vectors/qemu-reference.json",
+      "blocks": "Treating QEMU as exact architectural substitute; all200 records retained."
+    },
+    {
+      "impact": "medium",
+      "item": "Prepared1/2/4 contexts do not prove architectural startup or complete IRQ/clock/replay",
+      "evidence": "src/vm/runtime/backend_short_vector_tests.rs online.fill(true)",
+      "blocks": "Full C-SMP closure."
+    },
+    {
+      "impact": "low",
+      "item": "Existing legacy VFP test runner remains oversized",
+      "evidence": "New semantic group split; only registration added to existing runner.",
+      "blocks": false
+    }
+  ],
+  "quality_gates": {
+    "QG1": "pass: no normative judgment required",
+    "QG2": "pass: complete reconciled five-entry Assumption Register",
+    "QG3": "pass for this component; full original requirements explicitly open",
+    "QG4": "pass: fixed-width bound and exact-bit reproducible expectations",
+    "QG5": "pass: all QEMU and overlap uncertainty retained explicitly",
+    "QG6": "pass: inspected retained primary, tool/source hashes and independent observations",
+    "QG7": "pass: bounded scope itemized",
+    "repository_behavior": "pass after every required nonzero owning binary and workspace gate",
+    "worktree_integrity": "commit and cleanup receipts must verify exact paths, master refs, primary protected guests and user state"
+  },
+  "environment": {
+    "record": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-short-vectors-v1/environment.json",
+    "host_platform": "Darwin ints-MacBook-Pro.local 27.2.0 Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041 arm64",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1",
+    "guest_environment": "RAX_NO_JIT absent; no GSC/S5L/NAND/TRACE_PC overrides; immutable checked test binaries; wrapper-free offline build."
+  },
+  "unrun": [
+    "Physical AArch32 hardware",
+    "Physical Intel VMX/HVF/KVM",
+    "Optional FP exception trapping",
+    "Unrelated ignored/external-oracle/other-host suites",
+    "Full native ARM streaming-FPSR repair and broader original four-finding requirements"
+  ],
+  "workflow": {
+    "branch": "master",
+    "new_worktrees": 0,
+    "new_branches": 0,
+    "push": false,
+    "commit": "git add -- exact owned paths; red -m --staged --run same paths",
+    "cleanup": "Remove only idle owned canonical C/T and exact calibration.o/.elf after commit; preserve evidence and primary target/protected guests/user branches."
+  }
+}

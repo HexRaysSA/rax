@@ -283,3 +283,5 @@ mod fp_register;
 
 mod fp_access;
 mod fp_system;
+
+mod short_vectors;

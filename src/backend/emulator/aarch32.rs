@@ -623,3 +623,7 @@ pub(crate) fn public_state(cpu: &Armv7Cpu) -> CpuState {
     };
     CpuState::Aarch32(Aarch32CpuState { regs, sregs })
 }
+
+#[cfg(test)]
+#[path = "aarch32/short_vector_tests.rs"]
+mod short_vector_tests;

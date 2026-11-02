@@ -47,6 +47,9 @@ pub(crate) fn instruction_supported(
             return false;
         }
     }
+    if !advsimd && super::short_vectors::plan(insn, state).is_err() {
+        return false;
+    }
     if !registers::instruction_supported(insn, advsimd, state)
         || !precision::instruction_supported(insn, advsimd, state)
         || advsimd && !simd_precision::instruction_supported(insn, state)

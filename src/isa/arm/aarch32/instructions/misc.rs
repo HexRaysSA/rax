@@ -115,6 +115,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             insn
         };
 
+        if let Some(result) = self.exec_short_vector(insn) {
+            return result;
+        }
+
         // Dispatch based on mnemonic
         match insn.mnemonic {
             // Data Processing - Arithmetic
