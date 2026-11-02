@@ -184,4 +184,4 @@ execution path. x86-64 `INT 0x80` calls are checked as `AUDIT_ARCH_I386` ones.
 record the unit, differential, and host-specific evidence for these contracts.
 
 Guest ptrace is distinct from the machine GDB interface; see
-[Observability](../../operations/observability.md#linux-process-observability).
+[Observability](../../operations/observability.md#user-mode-process-observability).

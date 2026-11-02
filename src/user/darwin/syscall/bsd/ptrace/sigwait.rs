@@ -81,9 +81,9 @@ pub(crate) fn needs_signal_ast(state: &State, thread: &Thread) -> bool {
 }
 
 /// A substituted signal interrupts a parked kernel continuation before its
-/// user handler is saved. Replaying the original trap preserves indirect
-/// arguments and each syscall's EINTR/ERESTART/Mach-abort contract. No guest
-/// user instruction precedes that trap: only its exact restart PC is admitted.
+/// user handler is saved. An owned BSD entry preserves its original arguments
+/// despite changes to saved user state. Other paths still require the exact
+/// trap restart PC before re-entry, preserving their interruption contract.
 /// Zero, masked, and fatal verdicts keep the ordinary signal AST path.
 pub(crate) fn resume_before_verdict(proc: &Proc, thread: &mut Thread) -> bool {
     let state = &proc.tracing;
@@ -108,7 +108,11 @@ pub(crate) fn resume_before_verdict(proc: &Proc, thread: &mut Thread) -> bool {
         crate::user::darwin::arch::DarwinCpu::Arm64(_) => 4,
         crate::user::darwin::arch::DarwinCpu::X86_64(_) => 2,
     };
-    if thread.cpu.pc() != resume.pc.wrapping_sub(length) {
+    let same_entry = match thread.pending_unix {
+        Some(entry) => entry.pc == resume.pc && i64::from(entry.nr) == resume.call,
+        None => thread.cpu.pc() == resume.pc.wrapping_sub(length),
+    };
+    if !same_entry {
         return false;
     }
     thread.sig.pending |= super::signal::bit(signal);

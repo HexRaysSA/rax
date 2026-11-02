@@ -1159,10 +1159,11 @@ pub fn ptrace(ctx: &mut Ctx<'_>, request: i32, pid: i32, addr: u64, data: i32) -
     } else {
         None
     };
-    // The observed MAC policy rejects a restricted process without
-    // get-task-allow when its parent has the same non-root credentials.
+    // With host debugging restrictions active, the observed MAC policy rejects
+    // a restricted process without get-task-allow under these credentials.
     #[cfg(unix)]
     let restricted_trace = request == PT_TRACE_ME
+        && !observed_signing.is_some_and(|observed| observed.allows_unrestricted_debugging())
         && ctx.proc.creds.1 != 0
         && ctx
             .proc

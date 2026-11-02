@@ -1,0 +1,46 @@
+{
+  "state": "failed",
+  "error": "Traceback (most recent call last):\n  File \"C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\docs\\specifications\\windows\\native-query-key\\run-v1.py\", line 144, in main\n    rows[0][\"native_machine\"] == nm.value\n    and rows[0][\"process_machine\"] == expected_machine\nAssertionError\n",
+  "rows": [
+    {
+      "label": "arm64",
+      "probes": {
+        "v2": {
+          "source_sha256": "0d485c3db53014f7601a73684f25c93e1efeda5a9322f4cdc31e5c932d9c98b7",
+          "build_returncode": 0,
+          "exe_before_sha256": "051974019a9e83f67fe8f3c7fddefcc3911169dc479961d8fd050b70352c63d1",
+          "run_returncode": 0,
+          "exe_after_sha256": "051974019a9e83f67fe8f3c7fddefcc3911169dc479961d8fd050b70352c63d1",
+          "source_after_sha256": "0d485c3db53014f7601a73684f25c93e1efeda5a9322f4cdc31e5c932d9c98b7",
+          "stdout_sha256": "b98c1ed9d9c39872ce156c7cf2f14a03996754b9ae4cfe23b43f00a164dd9e79",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "v4": {
+          "source_sha256": "3b7e844bece81d2746e99b2dcabcb1a4fba4f92424e84c467961b32a14c2b657",
+          "build_returncode": 0,
+          "exe_before_sha256": "e59a9e65c3bedc4609f62ac10f2de2d89ca5f3d5026bc5ea692faf8da040cf41",
+          "run_returncode": 0,
+          "exe_after_sha256": "e59a9e65c3bedc4609f62ac10f2de2d89ca5f3d5026bc5ea692faf8da040cf41",
+          "source_after_sha256": "3b7e844bece81d2746e99b2dcabcb1a4fba4f92424e84c467961b32a14c2b657",
+          "stdout_sha256": "07ba1b694987dddc6c162cd4a39a37987fb820a5b41dafbbfdec15ba41795bc8",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "label": "x64",
+      "probes": {
+        "v2": {
+          "source_sha256": "0d485c3db53014f7601a73684f25c93e1efeda5a9322f4cdc31e5c932d9c98b7",
+          "build_returncode": 0,
+          "exe_before_sha256": "a482e4a37257ef36e005c87a9c59ce6617db65a6e49259619300cf5e78000cd1",
+          "run_returncode": 0,
+          "exe_after_sha256": "a482e4a37257ef36e005c87a9c59ce6617db65a6e49259619300cf5e78000cd1",
+          "source_after_sha256": "0d485c3db53014f7601a73684f25c93e1efeda5a9322f4cdc31e5c932d9c98b7",
+          "stdout_sha256": "b98c1ed9d9c39872ce156c7cf2f14a03996754b9ae4cfe23b43f00a164dd9e79",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    }
+  ]
+}

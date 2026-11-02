@@ -28,7 +28,9 @@ impl Registry {
                     return Err(invalid("invalid or contradictory Segment Heap capture"));
                 }
                 Some(Arc::new(Key {
+                    enumeration: None,
                     path: SEGMENT_HEAP_KEY.encode_utf16().collect(),
+                    redirected_view: None,
                     children: selected.children,
                     upcase: self.upcase.clone(),
                     values: Arc::new(bounded_values(
@@ -38,12 +40,19 @@ impl Registry {
                     )?),
                     subkeys: None,
                     selected_child: None,
+                    selected_paths: BTreeMap::new(),
+                    command_access: None,
+                    logical_path: None,
+                    root_views: None,
+                    machine: None,
                 }))
             }
             None => None,
         };
         let key = Key {
+            enumeration: parent.enumeration.clone(),
             path: parent.path.clone(),
+            redirected_view: None,
             children: parent.children,
             upcase: parent.upcase.clone(),
             values: parent.values.clone(),
@@ -52,8 +61,14 @@ impl Registry {
                 parent.fold(&CHILD.encode_utf16().collect::<Vec<_>>()),
                 child,
             )),
+            selected_paths: BTreeMap::new(),
+            command_access: None,
+            logical_path: None,
+            root_views: None,
+            machine: None,
         };
         self.keys.insert(name, Arc::new(key));
+        self.relink_machine_hive()?;
         Ok(self)
     }
     pub(super) fn segment_heap_lookup(&self, folded: &[u16], original: &[u16]) -> Lookup {

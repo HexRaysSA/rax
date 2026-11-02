@@ -1,0 +1,4 @@
+phnt-ntexapi.h -text -whitespace
+PHNT-LICENSE -text
+native-receipt-v2.json -text whitespace=cr-at-eol
+*.jsonl -text whitespace=cr-at-eol

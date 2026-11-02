@@ -3120,3 +3120,461 @@ controls are replayed through NtOpenThread and both existing Win32 consumers,
 including LastError and final counts. The native handle-conservation test uses
 an isolated child test process so unrelated concurrent handle activity cannot
 invalidate its count. The opening service and public/private ABIs are unchanged.
+
+
+## Captured primary-user hive (2026-10-28 UTC)
+
+Installed Windows profiles acquire the captured primary SID hive's canonical
+name, root values and child count through fixed query-only native acquisition.
+The SID name and its measured native alias share one immutable guest key; a
+selected policy route remains owned by open handles after catalog replacement.
+Uncaptured nonempty descendants remain explicit frontiers. Native and Win32
+controls establish absence for a missing selected hive and its descendants.
+Aliases and policy references charge shared records once against existing budgets.
+No guest name or handle reaches a host registry service.
+
+The specification and immutable native producers are retained in
+`docs/specifications/windows/native-primary-user-hive/README.md`. Final local
+checks pass 8/8/10 targeted, 103/103/151 registry and 8/8/10 CLI tests on
+macOS/Linux/native Windows ARM64, with 191 C API tests and all-target compilation
+per host. macOS strict production Clippy passes; Linux uses translated x86-64.
+Independent native AMD64 source qualification passed on Windows2022 and
+Windows2025 at source `b821fec8816540fd3312c99947c5192870837028`, run40646336571.
+Both jobs retain the entire original hardware-fault fixture and budgets, along
+with fresh primary-hive observations, installed capture and CLI/write gates.
+All local post-integration checks pass on the three hosts. The next commit is
+provenance-only; the qualified runtime, test, fixture and workflow bytes remain
+unchanged. The broader matrix run40646462978 remains incomplete.
+
+Actual unchanged ARM64 system CMD passes the hive open and reaches unsupported
+guest `NtQueryKey` (0x16), exiting125 before stdout; native CMD exits0 with its
+marker. Its image retains SHA-256
+`d0f47e2d32ab33e593e5b49592d3dcfa3c8c5f9f9b345d512ef7269bca6b481a`.
+The final local CLI has SHA-256
+`ee734443d98cca3ab528e8b27af7f71f4ad02e0f14a74878a0cc513dfaa8feba`.
+Host `NtQueryKey` acquisition is distinct from the unimplemented guest service.
+The existing selected-registry MAXIMUM_ALLOWED read cap also differs from native
+full grants; the specification retains that measured limitation. Public C API
+1.15.0 and its header are unchanged. Full process, installed Assist, GUI, real-IDB
+and package qualification remain open.
+
+
+### Registry key-body handle tags
+
+Guest `NtQueryKey` now implements class7 from guest-owned key-body state.
+Native64 selected shared keys retain tags0; x86 opens retain the measured
+registry-view tags (default400, explicit64 100, explicit32 600). Duplicate
+handles share that state, and low handle bits do not alter it. Five-argument
+native dispatch and an appended synthetic export preserve preceding ordinals.
+
+The handler follows recorded output/result-length validation, nonzero-grant
+requirements, short-buffer statuses, aliases and one-shot guards. WoW64 converts
+outputs not aligned to eight bytes through initialized private scratch; copy-out
+uses the measured key-query store profile described below. No guest registry
+operation is forwarded to a host registry service. Other admitted `NtQueryKey` classes
+remain explicit metadata frontiers. This is not full CMD/process completion.
+
+The retained native captures, PE/hash proof, failed controls, fresh CI producer,
+portable replay and installed-NTDLL commands are documented in
+`docs/specifications/windows/native-query-key/README.md`. The corrected local
+macOS/Linux/Windows qualification passes5/5/6 targeted,130/127/157 registry,
+3/3/5 neighboring conversion,20 object,8/8/10 CLI and191 C API tests, plus
+all-target compilation. macOS/Linux production Clippy and three Python provenance
+tests pass. NativeWindows29695 includes fresh four-ABI replay and installed leaves.
+Both physical AMD64 jobs pass in run40667473190, including fresh replay,
+installed leaves, unchanged whole hardware-fault fixture and CLI regressions.
+
+Unchanged installed ARM64 CMD now gets past class7 and stops at the next native
+service frontier, `NtOpenKeyEx` (0x12b), exiting125 before stdout. Native CMD
+exits0 with `RAX_QUERY_KEY_CMD\r\n`. Neither whole-CMD completion nor broader
+process completion is claimed.
+
+
+The independent physical AMD64 run exposed a short-copy-order mismatch; the
+assertion was retained and v5 measured later-page controls on20348/26100 and
+ARM64. The dedicated key-query adapter now preserves AMD64 tail-first word
+stores through8 bytes and head-first qword stores through16, with captured
+larger-copy behavior retained. Its portable tests replay15360 retained v2 cases
+and19872 retained v5 cases, selecting the captured kernel identity explicitly.
+Ten frozen data files and a provenance manifest bind the added cases to their
+native producers and binaries. Corrected macOS/Linux gates pass5/5 targeted,
+130/127 registry,3 neighbor conversion,20 object,8 CLI and191 C API tests,
+all-target compilation and production Clippy. NativeWindows29695 completes
+its CLI/C API/all-target checks too. Both independent AMD64 jobs pass. The older
+end-relative processor-export guard is repaired to retain its ordinal assertions
+after later appended families. No whole-process completion is claimed.
+
+### Extended key opens and the fixed System policy snapshot (2026-10-28)
+
+The appended four-argument `NtOpenKeyEx` family shares immutable key selection
+with `NtOpenKey`, preserving all preceding export names, ordinals and trap RVAs.
+The fixed per-primary-SID System policy subtree joins the existing Safer route;
+known absence, captured native aliases, aggregate budgets and handle-owned
+snapshot lifetime remain distinct from uncaptured registry paths.
+
+Native controls on build29695 cover ARM64, x64, x86 and x86-LAA. The v3/v5/v7
+replay checks18492 native-equality calls and68 explicit namespace frontiers,
+retaining128 additional sibling-name calls as exploratory evidence. It covers
+output/attribute/name capture, guards, conflicting views, invalid relative
+roots, all four backup/restore privilege profiles, grants, tags and handle
+lifetime. Returned native handles and addresses are normalized separately from
+defined writes. Ordinary `MAXIMUM_ALLOWED` still has its documented read-cap
+versus native-grant difference; no complete grant parity is claimed.
+
+The native user-mode link diagnostic distinguishes OpenOptions bit8 from
+`OBJECT_ATTRIBUTES.Attributes` bit0x100 (`OBJ_OPENLINK`). Link-source metadata
+remains uncaptured and produces an explicit frontier. Source/producers,
+compressed unchanged observations, provenance checks, reference copies,
+reproduction commands, assumptions and exclusions are documented in
+`docs/specifications/windows/native-open-key-ex/README.md`.
+
+An instrumented prototype passes the earlier System-policy open and identifies
+`NtOpenKey` for `\Registry\Machine\SOFTWARE\Microsoft\AppModel\Lookaside\machine`,
+with desired access0x80000100. The final CLI independently stops at an uncaptured
+`NtOpenKey`, exiting125 before stdout while native CMD prints its marker and
+exits0; its exact key name has not been re-inspected. This is measured
+advancement, not CMD completion. That final CLI has SHA256
+`9da83b64fc680a57815a7a528cc4b37d59f38f53d0dccc55839e118936c3d17a`; source and both executable hashes remain unchanged across
+this run. macOS/Linux full library gates pass8771/8761 tests, each with two
+existing ignored tests; their191 C API tests and all-target checks pass. The
+Windows focused/fresh, registry, CLI,191 C API and all-target checks pass. Its
+unfiltered library gate recorded8076 passes, one live-volume fixture failure
+and two existing ignored tests. The separate volume fixture correction passes
+all seven focused checks on Windows/macOS/Linux, retaining all1056 observations.
+Installed-Assist/package results remain separate open gates.
+
+### Captured kernel identity for odd registry key names (2026-10-28)
+
+Independent AMD64 acquisition in run40689391666 completed on native kernels
+20348 and26100; both initial fresh replays failed on odd key-name length.
+Those kernels return `STATUS_OBJECT_NAME_INVALID` (0xC0000033), whereas the
+retained ARM64 profile returns `STATUS_INVALID_PARAMETER` (0xC000000D).
+The open-only selector uses captured native machine/build data and preserves
+native64 versus WoW64 validation order. Unknown native identities produce an
+explicit unsupported result for this distinction. Built-in behavior and
+`NtQueryValueKey` descriptor validation remain unchanged. Retained AMD64
+artifacts, compressed matrices and provenance checks live beside the ARM64
+controls under `docs/specifications/windows/native-open-key-ex`.
+
+The corrected retained replay checks46264 native-equality calls and136 explicit
+namespace frontiers across ten ABI/kernel views, with320 sibling calls retained
+as exploratory data. macOS/Linux/Windows focused checks pass9/9/10 and registry
+checks141/138/169; CLI and all-target gates pass on all three. Complete library
+gates pass8775 on macOS and8765 on Linux, each with zero failures, two existing
+ignored tests and zero filtered tests. Native Windows complete-library and
+fresh independent AMD64 results remained open at that source publication.
+
+### Final extended-key qualification (2026-10-28)
+
+Runtime source864523b57256d3fd90e505996c624b731c628d4a passes complete
+no-default-feature library gates8775/8765/8081 on macOS/Linux/Windows, with
+zero failures, two existing ignored tests per host and zero filtered tests.
+Native Windows takes2046.48s of test execution. All three hosts pass targeted,
+registry, CLI,191 C API and all-target checks. The Linux x86-64 container runs
+through translation on an ARM64 physical host.
+
+Both fresh physical AMD64 jobs in run40700723530 pass on that exact runtime
+source, including12000 order/view cases plus1920 privilege cases per host,
+installed leaves, unchanged whole hardware-fault fixtures and CLI/native-write
+regressions. ZIP digest/CRC and producer/receipt/compiler/PE/stdout chains are
+verified. The two archive SHA256 values and complete scope are recorded in
+`docs/specifications/windows/native-open-key-ex/README.md`. This final record
+changes only Markdown; qualified runtime/test/fixture/workflow sources are
+unchanged.
+
+The qualified CLI has SHA256
+`245691396fdfadcaed8abeebbe82616e29aaeb651e9584943e30e29a297d7689`.
+Unchanged installed CMD still has SHA256
+`d0f47e2d32ab33e593e5b49592d3dcfa3c8c5f9f9b345d512ef7269bca6b481a`.
+Native CMD exits0 with `RAX_OPEN_KEY_NAME_PROFILE\r\n`; emulation exits125
+before stdout at uncaptured `NtOpenKey`. The current-source inspector, using
+the same arguments and qualified core archive, directly observes
+`\Registry\Machine\SOFTWARE\Microsoft\AppModel\Lookaside\machine`, access
+0x80000100, attributes48bytes/root0/flags0x40 and name Length126/Maximum128bytes.
+All selected source/compiler/archive/inspector/CMD hashes remain stable.
+Independent native fixed-key queries return STATUS_OBJECT_NAME_NOT_FOUND;
+all three requested views report absence on this ARM64 host. The AppModel
+snapshot change, full CMD/process execution and installed Assist/package
+qualification remain open.
+
+### AppModel machine registry snapshots (2026-10-28)
+
+Installed selection captures the fixed
+`\Registry\Machine\Software\Microsoft\AppModel\Lookaside\machine`
+subtree independently through Win32 registry views0x100 and0x200. Native
+root not-found is retained per view; other acquisition errors abort. Both
+views share the existing4096-value/16MiB aggregate and a1024-key/1MiB path
+metadata bound. No guest name, access mask or handle reaches a native registry
+operation. Selected values and descendants remain immutable.
+
+Retained native controls cover ARM64 kernel29695 and physical AMD64
+kernels20348/26100:640 ordinary/extended opens across ten executable views.
+Native64 NT opens ignore view bits. WoW64 absolute opens select the default32
+or explicit32 snapshot, or64 for0x100; conflicting bits remain invalid.
+Relative opens retain their root view except for the measured explicit32
+request from a64-bit root. Handles retain their original immutable pair after
+catalog replacement and duplication, including the opposite-view transition.
+The earlier universal-retention summary is corrected against the raw canonical
+name records.
+
+Present AppModel mapping remains an explicit inference from inherited SOFTWARE
+redirection and the measured CurrentVersion control; AppModel itself is absent
+on all captured hosts. Native64 body tags remain zero. WoW64 AppModel body
+tags are explicitly uncaptured rather than assigned the existing shared-key
+formula. Key-query validation still precedes that boundary, and unsupported
+metadata does not publish invented bytes through an aligned or converted buffer.
+Producers, original captures, independent provenance tests and implementation
+limits are documented under
+`docs/specifications/windows/native-appmodel-registry/`.
+
+The prefix-corrected candidate passes complete-library gates8783/8773 on
+macOS/Linux, with zero failures, two existing ignored tests per host and zero
+filtered tests. Focused/registry/object/CLI/CAPI counts are8/149/8/8/191 on
+macOS and8/146/8/8/191 on Linux; both all-target checks pass. macOS strict
+production Clippy and12 workflow-policy checks pass. Four direct CLI/native
+program comparisons per Unix host also match stdout and exit0 without a
+separate sysroot, including a shell launching an external program. Those
+comparisons use the default host-service mode, while existing closed-runtime
+tests separately exercise installed glibc/libm or the dyld shared cache.
+
+The first Windows installed-library CLI run exceeds its unchanged60s child
+deadline; the exact same test/source/CLI subsequently passes in51.18s. Both
+records remain retained. Corrected-source native Windows qualification and
+current-source installed CMD observations are recorded below. Full CMD/process
+execution, installed Assist/GUI/real-IDB and final-package qualification remain
+open.
+
+The current corrected-source Windows filtered gates pass11 focused,180 registry,
+8 object,10 CLI and191 C API tests plus all-target checking and CLI build. Its
+complete-library gate passes8092 tests, with zero failures, two existing ignored
+tests and zero filtered tests, in991.78s. The CLI SHA256 is
+`acb37a7b351b4ae5f437923578f7890639111db41eede415de483fa2b9a8a8d5`.
+Current-source inspection advances the prior machine-root boundary to
+`\Registry\Machine\SOFTWARE\Microsoft\AppModel\Lookaside\user`,
+access0x80000100, attributes48bytes/root0/flags0x40, nameLength120/Maximum122bytes.
+Native CMD exits0; emulation exits125 before stdout. Independent read-only
+native64 and Win32 view queries report both leaves absent on this host, with
+balanced117/117 process handles. The current core archive has SHA256
+`3bef76cff4ff19ac892b292a2df897d94f03a2ea9694290306602464b2d8a9f1`.
+The sibling user-root snapshot and full CMD/process/installed-product
+qualification remain open.
+
+### Sibling HKLM AppModel user selection (2026-10-28)
+
+The selected AppModel catalog now separates the fixed HKLM `machine` and `user`
+leaves in both Native64 and Wow32 views. All four immutable trees share the
+existing key/path and value budgets; no guest registry operation is forwarded
+to the host. Capture aborts on non-not-found errors in any slot. Handle-owned
+catalogs preserve the original leaf as well as its paired view through duplicate
+and relative opens after replacement. The leaf named `user` is not HKCU.
+
+The frozen native ARM64 producer and all 14 original machine/user query results
+are retained as `probe-user-v1.py` and `user-capture-v1.zip` under the AppModel
+specification. Present-root native mapping remains unknown under assumption AM3;
+existing measured view controls and distinct controlled guest trees exercise the
+same inherited routing contract. WoW64 body tags remain explicitly uncaptured.
+Earlier machine-only qualification counts above do not qualify this revision.
+
+The sibling-root candidate passes macOS ARM64 serial library testing with
+8785 passes, zero failures, two existing ignored microkernel tests and zero
+filtered tests. Translated Linux x86-64 passes 8775 with the same failure,
+ignore and filter counts. Focused/registry/object/CLI/CAPI gates pass
+10/151/8/8/191 on macOS and 10/148/8/8/191 on Linux, with all-target checks
+and five provenance tests on both. macOS strict production Clippy and 12
+workflow-policy tests pass. Completed validation outputs are archived,
+verified and removed.
+
+Native Windows ARM64 passes 13/182/8/10/191 selected gates. All-target/build,
+provenance and actual CMD comparisons complete. Its serial complete-library
+gate passes 8094 tests with zero failures, two existing ignored microkernel
+tests and zero filtered tests, in 2597.34 s; all frozen inputs remain unchanged.
+CLI SHA-256
+`a5dc985654bddefeb2824c03d0192b1e95f39d1538e7fd6964c5b3a445354b7d`
+advances unchanged installed CMD to an uncaptured `NtOpenKeyEx` for
+`\REGISTRY\MACHINE`, access `0x02000000` (`MAXIMUM_ALLOWED`) and options 0.
+Native CMD exits 0; emulation exits 125 before stdout. The guarded current-core
+inspector confirms a 48-byte attributes structure, root 0, flags `0x40` and
+name Length/MaximumLength of 34/34 bytes. Fixed machine-hive root metadata and
+rights remain the next boundary.
+
+Separately, a parallel Darwin slice exposes three tracing transport/lifecycle
+failures in unchanged source. The successful serial gates do not establish
+concurrency or complete Linux/macOS/Windows process execution. The AppModel
+specification preserves the separate passing and failing source frames.
+The published baseline's native macOS 27 integration job also records 371
+passes and six code-signing/ptrace parity failures, across ARM64 and x86-64
+fixtures. Their cause remains unknown; this Windows registry change does not
+qualify those native Darwin paths.
+
+### Fixed MACHINE-root selection and retained routes (2026-10-28)
+
+Selection captures the actual fixed `\Registry\Machine` root header, values,
+canonical name, maximum-access ceiling and security-access result through
+owned native handles. Capture errors abort selection; the root is not an empty
+synthetic key. Native handles close before guest execution. Ordinary root
+`NtOpenKey`/`NtOpenKeyEx` grants use that captured ceiling and the independently
+measured generic mappings. Other selected keys keep their prior access rules.
+
+A root handle retains immutable routes to already selected fixed subtrees and
+both AppModel catalogs. Duplicate handles and relative opens preserve those
+records after namespace replacement. Unknown descendants remain unselected;
+recorded absence remains not-found. Root values share the existing aggregate
+value/byte bounds, and route references do not charge those values twice or
+retain cycles. Adding another selected tree replaces the namespace's root
+record while existing handles keep their original routes.
+
+The native corpus under `docs/specifications/windows/native-machine-hive/`
+contains 516 ordinary-open and relative-open controls on kernel 29695, covering
+ARM64, x64 and x86 process ABIs on Windows on ARM. It establishes distinct
+WoW64 root/self-open/NLS-descendant tag rules; it is not AMD64-kernel evidence.
+The existing Windows CI job captures fresh root controls and replays them
+through guest dispatch, alongside Windows-only acquisition and closure tests.
+The owning complete library passed on macOS (8,800 tests), Linux (8,790 tests)
+and native Windows on ARM (8,111 tests), each with zero failures and two ignored
+tests. Windows also passed the three native acquisition tests, 191 C API tests,
+the all-target check and ten Windows CLI tests; all 6,393 audited inputs were
+unchanged. Installed ARM64 CMD passed the MACHINE-root open and then stopped
+at the unselected relative `Software\Microsoft\Command Processor` key, before
+its expected echo output. Fresh AMD64-kernel controls, other-kernel and
+installed-product qualification remain separate gates.
+Present AppModel WoW64 body tags and key
+information classes other than the existing implemented class remain explicit
+boundaries; this change does not establish complete process execution.
+
+### Fixed Command Processor headers and retained paired views (2026-10-29)
+
+Installed selection captures the fixed machine CMD leaf through both Win32
+views, then captures the same suffix below the validated creator SID after its
+primary hive and policy selection. Captured canonical identity, values, child
+count, ordinary maximum access and security-access status stay immutable.
+Missing-name and missing-path results remain distinct. No guest name reaches a
+host registry operation, and native handles close before execution.
+
+The common view catalogue preserves AppModel's existing selection behavior.
+MACHINE and creator-hive handles retain both CMD views across namespace
+replacement and handle duplication. Explicit physical machine paths and
+asymmetric empty-name WoW64 reopens follow the native state closure rather than
+an unconditional view switch. Present AppModel body tags remain uncaptured.
+
+The six producers and retained corpus under
+`docs/specifications/windows/native-command-processor/` cover 1,144 NT opens
+and reopens on kernel 29695 across ARM64/x64/x86, including all reachable
+self-open states. The current user's leaf is absent in that context; a present
+user leaf is implemented and controlled-fixture tested without claiming an
+independent native present-user result. The owning library, native Windows
+adapter, fresh AMD64 corpus and actual CMD comparison are separate gates.
+
+### Complete fixed Command Processor subtrees (2026-10-29)
+
+Installed acquisition now enumerates every bounded descendant of both fixed
+CMD roots and views. Each node owns its observed canonical identity, raw
+values, complete child map and access profile. Native parents close before
+descendant opens. Shared aggregate key, depth, path and value budgets also
+cover pending sibling names. Partial-header fixtures remain explicitly partial.
+Redirecting descendant aliases outside the captured parent fail acquisition.
+
+The independent producer and corpus under
+`docs/specifications/windows/native-command-processor-tree/` retain 7,040
+relative/self/missing-name opens from ARM64/x64/x86 on kernel 29695. Portable
+dispatcher replay passed every row after handle duplication, original-handle
+closure and namespace replacement. Six model tests cover per-node grants,
+physical-path classification, malformed trees and aggregate bounds. The
+existing Windows CI runner captures fresh subtree data and requires replay
+through the actual installed snapshot; no additional CI job is introduced.
+
+The preceding header/view candidate completed its Windows library gate with
+8,121 passed, zero failed, two ignored and zero filtered tests; all 6,411 inputs
+were unchanged. Its unchanged installed ARM64 CMD still stopped before stdout
+at relative `KnownPackageManagers` below the machine CMD key. This request is
+the subtree change's measured regression target, rather than evidence that
+the new executable completes CMD. Native acquisition, actual CMD and complete
+platform qualification of this subtree change remain separate gates.
+
+Fresh AMD64 header/view controls from CI run 40800064800 exposed a fixture
+classification error for the native `Wow6432Node` spelling. Case-independent
+physical-view classification and the retained AMD64 corpus now cover that
+failure on every host. Raw native report hashes and the creator-name projection
+remain recorded. This fixture correction does not change product registry
+case-folding policy.
+
+### Ordered child metadata and class-0 key enumeration (2026-10-29)
+
+Fixed MACHINE acquisition retains immediate child names and FILETIMEs in native
+index order. Complete Command Processor acquisition retains the same ordered
+metadata at every captured node in both machine/creator-SID views. Lookup maps
+remain ordinal-folded maps; their sort order does not select enumeration index.
+Ordered records are immutable and owned by key objects, surviving duplicated
+handles and replacement of the selection namespace. No guest request forwards
+an HKEY or a path to the host registry.
+
+Each supplied enumeration must match its captured child count and component
+bounds, with no ordinal duplicates. Complete CMD child maps must agree with
+those names. The shared budget traversal counts aliases once and bounds ordered
+metadata separately to 2,048 child records and 1 MiB of name/FILETIME payload.
+Unknown metadata remains distinct from an empty list. Native capture compares
+ordered names/times and values twice plus parent metadata before/after; this
+establishes bounded per-key acquisition, not an atomic whole-registry snapshot.
+
+`NtEnumerateKey` adds a six-slot tail export without moving preceding synthetic
+exports or syscall slots. Class 0 implements required sizing, complete and
+partial UTF-16 names, FILETIME, rights checks, end of enumeration and native
+probe ordering. Native partial odd capacities zero the remaining half-WCHAR
+byte. WoW64 realignment preserves caller buffer tails and the measured copy-back
+ordering after native failures. The scalar capacity is bounded before allocating
+conversion storage; uncaptured copy profiles remain explicit unsupported.
+Valid class-1/class-2 payloads and unselected metadata remain explicit
+boundaries. A known zero child count can end enumeration without inventing
+names or timestamps.
+
+The producers and retained corpus under
+`docs/specifications/windows/native-key-enumeration/` cover 14,616 basic cases
+and 17,028 fault/rights cases across ARM64/x64/x86 on kernel 29695 ARM64.
+The final basic producer checks a 16-byte-aligned buffer and records physical
+pointer alignment; an earlier x86 stack experiment lacked that observation.
+Portable replay executes 14,580 class-0/invalid-selector cases and all 17,028
+fault/rights cases. The remaining 36 native valid-selector records do not
+qualify the unsupported node/full payloads. Lossless byte-monitor projection,
+raw report hashes, source hashes and image hashes retain provenance.
+
+An independent installed test brackets acquisition with native NT enumeration
+for MACHINE and both Command Processor views, comparing order, case and times.
+The Windows CI lane also builds both producers, captures fresh data on its
+actual kernel architecture, replays it and archives the evidence. Retained
+Windows-on-ARM observations alone do not establish AMD64-kernel behavior.
+Actual installed CMD, complete library binaries on every host platform and
+fresh native acquisition remain required qualification gates. This service
+group does not establish complete CMD or general process execution.
+
+### Full code integrity policies query
+
+`NtQuerySystemInformation` class 189 publishes the selected runtime's immutable
+opaque policy bytes and their actual required length. Native acquisition uses
+only a fixed class, private aligned destinations, a 16 MiB payload cap and at
+most three size/pair attempts. Missing, unstable, oversized or incompletely
+written metadata remains an explicit unavailable boundary. Guest query
+arguments never reach that host acquisition path.
+
+The independent producer and complete-arena corpus under
+`docs/specifications/windows/native-code-integrity-policies/` record 9,840 calls
+on one ARM64 Windows 10.0.29695 kernel. ARM64, x64 and x86 process ABIs returned
+the same opaque bytes and the same four-argument probe/copy behavior. Both
+destinations are probed before size dispatch, including under WoW64; aliased
+ReturnLength stores follow the payload copy. The raw format is not parsed or
+reinterpreted from the guest's configured Windows version. Native provider
+identities, exact producer sources, payloads, raw records and executed-image
+hashes retain their separate provenance.
+
+This query does not establish complete CMD startup or policy enforcement.
+The six-argument extended selector and protected IFEO acquisition under an
+ordinary token remain separate boundaries.
+
+### TokenStatistics publication
+
+Class 10 of `NtQueryInformationToken` publishes the exact captured subject's
+pointer-free 56-byte statistics. Capture requires aligned opposite-poison
+agreement and consistent group/privilege counts. Native64 probes full capacity
+and mandatory ReturnLength, then stores length before data. WoW64 uses bounded
+private scratch, copies only the record and stores optional length afterward.
+Handle/type/access faults and last-error effects follow 28,236 independent
+native calls, including 6,600 interior-page cases with no partial output stores.
+[Producer, primary references, reproduction and exact observation scope](../../../docs/specifications/windows/native-token-statistics/README.md).

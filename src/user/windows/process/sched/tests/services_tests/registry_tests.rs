@@ -3,6 +3,9 @@ use super::*;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::registry::{NLS_KEY, Registry, Value};
 
+#[path = "command_processor_registry_tests.rs"]
+mod command_processor;
+
 #[test]
 fn native_registry_selected_namespace_query_and_handle_lifetime_all_abis() {
     use crate::user::windows::registry::{SESSION_MANAGER_KEY, SelectedKey};
@@ -97,6 +100,24 @@ fn native_registry_selected_namespace_query_and_handle_lifetime_all_abis() {
 #[path = "registry_leaf_tests.rs"]
 mod installed;
 
+#[path = "appmodel_registry_tests.rs"]
+mod appmodel;
+
+#[path = "registry_key_enumeration_tests.rs"]
+mod key_enumeration;
+
+#[path = "registry_key_query_tests.rs"]
+mod key_query;
+
+#[path = "registry_key_set_tests.rs"]
+mod key_set;
+
+#[path = "registry_key_notify_tests.rs"]
+mod key_notify;
+
+#[path = "registry_key_open_ex_tests.rs"]
+mod key_open_ex;
+
 #[path = "registry_tree_tests.rs"]
 mod tree;
 
@@ -105,6 +126,9 @@ mod redirection;
 
 #[path = "registry_fixed_tests.rs"]
 mod fixed;
+
+#[path = "registry_machine_hive_tests.rs"]
+mod machine_hive;
 
 fn arguments(p: &mut Proc, t: &mut Thread, args: &[u64]) {
     let sp = t.cpu.sp();
@@ -133,7 +157,11 @@ fn arguments(p: &mut Proc, t: &mut Thread, args: &[u64]) {
         }
         WinArch::Arm64 => {
             for (index, value) in args.iter().enumerate() {
-                t.cpu.set_gpr(index, *value);
+                if index < 8 {
+                    t.cpu.set_gpr(index, *value);
+                } else {
+                    p.space.w64(sp + (index as u64 - 8) * 8, *value).unwrap();
+                }
             }
         }
     }
@@ -743,7 +771,12 @@ fn native_registry_open_capture_order_output_zeroing_and_read_only_policy_all_ab
                     "{arch}/role{role}"
                 );
             }
-            assert_eq!(p.objects.handle_count(), before);
+            // Native v3 controls retain one WoW64 handle after a successful
+            // open whose NULL caller destination faults during copy-back.
+            assert_eq!(
+                p.objects.handle_count(),
+                before + usize::from(arch == WinArch::X86 && role == 0)
+            );
         }
     }
 }

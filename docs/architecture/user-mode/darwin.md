@@ -59,13 +59,40 @@ from `bsd/kern/syscalls.master` (`abi::tables`, `tools/darwin/gen_abi.py`),
 Mach traps through the table generated from `osfmk/kern/syscall_sw.c`, and
 the machine-dependent calls (thread pointers: `thread_fast_set_cthread_self64`
 on x86-64, `TPIDRRO_EL0` on arm64). Results follow each call's
-`sy_return_type`. A call that must sleep records a `Wait` and returns
-`ERESTART`, which backs the PC up over the trap so the call runs again when
-its thread wakes; all guest threads run on one host thread (one emulated
-CPU, `hw.ncpu` = 1). The host descriptors the sleeping threads wait on are
+`sy_return_type`. A BSD entry owns its effective call number, at most
+eight decoded scalar arguments and original trap-successor context PC. A parked
+service records a `Wait` and keeps that entry without rewinding saved user
+state. On wake the scheduler continues the service without fetching another
+guest instruction or decoding registers again. Mach state writes independently
+select user registers and the eventual return PC. Existing `Resume` records
+retain per-service deadlines and progress; this does not snapshot every
+pointed-to user payload. Final return clears the entry. A final signal-induced
+`ERESTART` still rewinds the current saved PC by the entry instruction's size
+(4 bytes on ARM64, 2 bytes on x86-64) before user signal delivery. Mach traps
+retain their existing instruction-restart paths. Native entered-read controls
+separately check both BSD architecture routes.
+Apple's [ARM entry and return implementation](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/dev/arm/systemcalls.c)
+provides the reference separation between copied arguments, retained syscall
+identity and saved user state. That source revision is not the installed
+macOS 27 kernel's exact source; the native read controls establish the covered
+runtime behavior independently. Anonymous-pipe read draining is covered below.
+Other pending I/O still requires separate object-lifetime qualification: scalar
+entry retention alone does not retain every referenced kernel object across
+service attempts.
+All guest threads run on one host thread (one emulated CPU, `hw.ncpu` = 1).
+The host descriptors the sleeping threads wait on are
 polled together, each once for every readiness asked of it (the host
 answers a descriptor listed twice in only one entry), and each waiter is
 woken for the direction it waits for.
+
+With `--strace` every kernel entry is logged as `[tid] name(args) =
+result`. `--strace-pc` and `--strace-stack` add the caller's PC and a
+frame-pointer backtrace taken on entry (`syscall::trace`); the first return
+address is the leaf stub's (the word at `RSP`, or `LR` with its pointer
+authentication code stripped), kept only when it points into executable
+memory. `--strace-mach-msg` dumps every message at copy-in and copy-out
+(`syscall::mach::dump`); see
+[Observability](../../operations/observability.md#user-mode-process-observability).
 
 ## Mach IPC
 
@@ -451,7 +478,7 @@ source baseline rather than a claim about that host's exact kernel binary.
 | REG5 | An unrelated emulated tracer needs a cooperative exit report and reap acknowledgment rather than host wait4. | Host wait4 requires a real host child; native attach reparents the target, while a guest registry connection does not change host ancestry. | Virtual wait4/waitid exit/rusage delivery and target zombie lifetime. | WNOHANG/WNOWAIT, tracer exits without reaping, original parent waits concurrently, guest SIGKILL. | Independent RAX wait falls through to ECHILD or exposes/reuses a target PID before the emulated tracer reaps it. | Revised to cover family and registered tracing; native/RAX copyout, double-wait, waitid and reparent fixtures pass. |
 | REG6 | Independently launched Rosetta tasks are not a native oracle for x86 architectural thread state on this Apple Silicon host. | /tmp/rax-registry-state-diagnostic.json: two threads reject flavor 4 with KERN_INVALID_ARGUMENT and accept ARM64 flavor 6; arm64 native and RAX x86 state queries are tested separately. | The independent x86 Mach comparison excludes that host-only state observation; RAX must independently return its x86 state. | Physical Intel macOS, translated helper thread ordering and count, wrong guest flavor. | An independent native Rosetta target exposes x86_THREAD_STATE64 successfully under the same stopped profile. | Confirmed for the observed Rosetta profile; physical Intel execution remains unknown. |
 | REG7 | A host wait result is terminal only for WIFEXITED or WIFSIGNALED. | Frozen detach campaign iteration 2 reports native status 4991 (0x137f, continued), not a death; the original harness incorrectly treated it as terminal. | Native orchestration must ignore continued transitions and retain PID ownership until a terminal reap. | SIGCONT races with retained PT_DETACH SIGSTOP; WNOHANG and WUNTRACED statuses arrive in either order. | A nonterminal status is cached as a completed Child or an owned live target is leaked. | Native harness ignores nonterminal statuses; both-architecture independent detach/continue fixtures pass. |
-| REG8 | A caught debugger-supplied signal must complete the interrupted kernel continuation before its user handler frame is saved. | Pinned XNU kern_sig.c sigsuspend_nocancel always returns EINTR; actual RAX strace showed sigreturn resuming sigsuspend again before correction. | Exact restart-PC guard replays the original syscall instruction before the caught-signal AST; indirect arguments and syscall-specific restart semantics are preserved. | ARM64/x86-64, zero/fatal/masked/default verdicts, debugger PC edit, Mach traps, noninterruptible waits and read SA_RESTART. | After PT_CONTINUE with SIGUSR1, a pause handler returns to a new sigsuspend instead of its caller; a PC-edited or uncaught verdict enters replay. | Exact syscall-frontier replay is covered by focused units and the passing v4 full Darwin campaign. |
+| REG8 | A caught debugger-supplied signal completes the interrupted kernel continuation before its user handler frame is saved. | Pinned XNU kern_sig.c sigsuspend_nocancel returns EINTR; the ARM syscall source retains entry arguments and identity separately from user state. | BSD uses its owned entry despite saved-PC changes on both guest architectures; Mach paths keep the exact restart-PC guard. | Indirect arguments, edited return PC, mismatched owner, zero/fatal/masked verdicts, Mach traps and EINTR/ERESTART. | An unrelated owner is admitted or a caught handler is saved before its pending service reaches kernel return. | Covered by focused continuation/verdict units; complete platform and native campaigns qualify each implementation. |
 | REG9 | A stopped peer can be awakened without targeting a reused host PID by using the socket audit token. | /tmp/rax-registry-wake-audit-current.json and /tmp/rax-registry-wake-stage-current.json; SDK LOCAL_PEERTOKEN/proc_signal_with_audittoken and pinned XNU proc_info.c validate exact process identity. | Discovery of independently launched targets that were stopped before connecting. | Stale pidversion, running peer, false hello claim, peer death before wake and ordinary native SIGCONT. | A stale audit token wakes a replacement process, a running target receives an unsolicited SIGCONT, or an unauthenticated hello claims an internal wake. | Stale audit-token API probe and native/RAX self-stopped, externally stopped and caught-CONT fixtures pass. |
 | REG10 | Guest exit ownership follows p_oppid before physical host reaping, including when tracer and original parent coincide. | Pinned XNU kern_exit.c:2849-2918 and native double-wait/EFAULT probes on macOS 27.2 arm64 and Rosetta. | Reap acknowledgement protocol, current-parent shared snapshot, wait eligibility and zombie metadata. | Two successive WNOHANG waits, status/rusage EFAULT, foreign controller ack, original parent waits concurrently, tracer EOF, SA_NOCLDWAIT. | Native/RAX ptrace_reap or ptrace_reparent fixture differs, or a nonowner controller can advance a zombie. | Native/RAX EFAULT, WNOWAIT, double-wait, reparent and parent-ownership fixtures pass; new process-event assertions also pass on both architectures. |
 | REG11 | On the observed macOS 27.2 profile, MATTR_CACHE preserves tested input values; code-range invalidation supplies the flat guest map cache synchronization effect. | Pinned XNU vm_user.c/vm_map.c; native /tmp/rax-vm-attribute-native-arm64.log; LLVM MachVMMemory.cpp explains SDK post-write RPC. | Local and remote RPC 4812/3813 and successful debugger breakpoint/memory write acknowledgement. | Zero size with invalid attributes/address, integer overflow, unmapped/cross-page ranges, arbitrary signed values, read-only maps, both RPC variants and guest architectures. | Native/RAX vm_attribute output differs, code log lacks affected pages, or actual SDK breakpoint insertion still reports E09 after memory write. | Both cache RPC variants, range/error and code-log units, native/RAX cache fixtures, and actual SDK breakpoint/memory writes pass. |
@@ -984,16 +1011,34 @@ as defined in the pinned
 [`proc_reg.h`](../../specifications/darwin/xnu-12377.121.6/osfmk/arm64/proc_reg.h).
 The engine inspects at most 4 bytes
 before a stepped instruction to form this syndrome; guest fetch, access
-checks, and execution remain in the CPU. A saved syscall continuation is
-matched by both post-SVC PC and effective call number. Completing that
-replayed call leaves Arm stepping armed for the next user instruction,
-matching the blocking-read observation. No new syscall-progress field or
-guest CPU debug register is added. Step control and syndrome work take O(1)
+checks, and execution remain in the CPU. A retained ARM64 BSD entry is
+matched to its original post-SVC context PC and effective call number,
+independently of debugger changes to the user return PC. Continuing its service
+does not retire a user instruction or complete an Arm instruction step. Final
+return leaves stepping armed for the next user instruction, matching the
+blocking-read observation. No guest CPU debug register is added. Entry storage,
+step control and syndrome work take O(1)
 time and space per selected thread. The existing scan and private wait-set
 lookups remain O(T log(W + 2)) for T threads and W entered signal waiters.
 Direct ISA semantics, SMIR interpretation/lifting and
 lowering, JIT admission, VM backends/devices, oracle output, and C ABI are
 unaffected; this is a Darwin debug-state and scheduling change.
+
+The read fixture now proves entry before supplying pipe input: zero task holds,
+`TH_STATE_WAITING`, saved PC at the read SVC's successor and `X16 == 3` must
+all hold. It then observes an empty exception receive before writing. A
+separate ready-data fixture queues the byte before resume and requires the
+fast-return `0xca000022` stop; the proved-blocked fixture requires the following
+instruction's `0xcb000022` stop. State-write variants preserve an unrelated
+`X19` change, replace saved `X0` with an invalid descriptor, or redirect the
+saved user PC past the following MOV. The entered read still completes with
+its original arguments and result, returning at the selected user PC.
+
+The earlier WAITING-only barrier did not prove read entry: a controlled
+pre-entry thread hold passed it while PC still named SVC. The original CI
+mismatch did not record prewrite saved state, so its exact scheduling cause
+remains unknown. These separate preconditions retain the distinct ESR/PC
+expectations rather than accepting either output.
 
 The additional fault variant executes the unallocated word `0x00000000`.
 Native macOS reports `EXC_BAD_INSTRUCTION` (2), codes `[1, 0]`, the faulting
@@ -1012,7 +1057,7 @@ registers remain stored state without hardware event generation.
 | ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | ARMSTEP1 | Mach SS controls the selected thread independently of BSD tracing; PSTATE.SS is armed on user entry and retained by an instruction fault. | Pinned status/step handlers and native Mach-only/fault probes. | One-instruction scheduling, saved state, and exception delivery. | Clear before resume, task/thread holds, branch targets, instruction faults, and exclusive accesses. | A native Mach-only probe does not stop at the covered frontier, or a local held/faulting thread retires an extra instruction or loses saved SS. | Revised after the native fault probe falsified the first candidate; confirmed for the corrected unit, native-comparison, and debugger cases below. |
-| ARMSTEP2 | A parked Arm syscall continuation returns with stepping armed for the next user instruction. | 80 native blocking-read runs versus 80 nonblocking-getpid runs. | Replay-frontier handling and ESR ISV. | Empty pipe, bounded receive timeout before readiness, and effective call/PC matching. | The gated native read reports an exception before readiness or stops at the SVC return PC. | Confirmed for these return paths; other kernel scheduling paths are not exhaustively characterized. |
+| ARMSTEP2 | A proved-blocked Arm BSD read returns with stepping armed for the next user instruction. | Earlier blocking/getpid observations plus separate ready, entered-read and state-write controls. | Owned service continuation and distinct fast/slow ESR frontiers. | Entry PC and WAITING precondition, empty pipe, changed argument registers and selected return PC. | A proved-entered native read is retargeted by a scalar state write, or its return stops at the wrong instruction. | Confirmed for the measured read cases; the old WAITING-only precondition was insufficient, and other kernel paths remain bounded separately. |
 | ARMSTEP3 | Kernel instruction inspection and execution observe the same instruction bytes. | Requests for this process are dispatched between guest instruction steps. | Synthetic ESR instruction classification. | Instruction fault and code replacement before the step. | A concurrently writable shared code mapping changes between inspection and guest fetch. | Retained; unsynchronized external writes to shared executable mappings are outside this probe's evidence. |
 | ARMSTEP4 | A debug-control interruption may discard an earlier local exclusive reservation. | The user CPU already clears it on synchronous kernel exits; native exclusive-load step is followed by failed STXR. | Arming/delivery monitor reset and failed-store EX classification. | Exclusive load before the exception and store without a reservation. | A supported control writer preserves a reservation that allows a stepped store to succeed under this implementation. | Retained for control-boundary invalidation; no claim that native kernels always clear every reservation at every debug-state write. |
 
@@ -1165,6 +1210,35 @@ signing queries still use the host. A traced exec publishes its new image's
 status before its exec stop.
 These flag projections do not implement the accompanying VM-map or
 code-signing enforcement changes.
+
+The native CI host on macOS 27.0.1 reports SIP disabled, active CSR flags
+`0x6f`, and a successful `csr_check(CSR_ALLOW_TASK_FOR_PID)` (`1 << 2`).
+Its hardened-runtime children receive the invalid-page flag transition, and
+its restricted children succeed without `get-task-allow`, in both ARM64 and
+Rosetta x86-64 observations. The macOS 27.2 development host reports CSR 0
+and a denied check; its existing restricted/hardened results remain different.
+Both observed hosts have empty boot arguments, numeric real/effective UID 501,
+and `security.mac.proc_enforce = 1`. The standalone
+[`tools/darwin` probe](../../../tools/darwin/trace-policy.md) preserves the 16
+native cases, image/source hashes, raw command results, and the policy context.
+
+Host-services trace preparation now carries a successful read-only CSR debugging
+check alongside the image-matched signing flags. For the observed non-platform
+profile, that result permits restricted trace admission and the invalid-page
+flag projection; otherwise the existing signature/entitlement predicates apply.
+The check occurs only after a successful signing observation. Fallback or
+CDHash-mismatched observations cannot select this profile. Closed processes do
+not query CSR and do not consume host tracing observations. Platform images
+retain their existing restrictions.
+
+Assumption D3 is retained: this CSR result selects the observed third-party
+debugging profile. A native denial or differing flag transition for that
+profile with a successful check falsifies it. The two host samples also differ
+in OS revision, so they do not isolate CSR causality or establish every private
+MACF policy. No SIP, boot arguments, or host configuration is changed, and
+fixture assertions and native test selection remain unchanged. Qualification
+of this runtime revision is separate from qualification of the observation
+tool and the earlier serial library counts below.
 
 | Area | Module | Counterpart |
 |---|---|---|
@@ -1414,13 +1488,16 @@ the old `OSIOCGIFCONF`) are refused with `EOPNOTSUPP`, and
 | `PROC_INFO_CALL_PIDINFO` about the calling process: the flavor and size checks (`EINVAL`, `ENOMEM`, `EOVERFLOW` for a path buffer over 4096 bytes) and the identifier checks of `proc_info_extended_id` (`ESRCH`), then the emulated process: its names (the executed path's last component), `PROC_FLAG_EXEC`, and descriptor-table size in the process record (the session, terminal, start time, and unique identifiers the host's); the executable's UUID, CPU type, and platform; the task's memory, CPU times in Mach units, counters, and threads; thread records by TSD base or identifier with the thread's name and run state, and the thread lists; memory regions and the files mapped; the working directory; the executable's path (the whole buffer written, 0 returned); descriptors and their types; knote user data; workloop identifiers; the work queue's threads (`ESRCH` before it exists) | `procinfo::pidinfo` | `proc_pidinfo` |
 | `PROC_INFO_CALL_PIDFDINFO` about the calling process's descriptors (`EBADF` for none, the flavor's error for another type): a file, pipe, or shared memory object is the host's record of the host descriptor with the descriptor's status the guest's (close-on-exec; shared when another guest descriptor, or as the host says another process, holds the open file); a kqueue is the emulated kqueue's state, pending events, event size, and knotes; descriptor -1 names the work queue's kqueue | `procinfo::fdinfo` | `proc_pidfdinfo`, `fill_kqueueinfo`, `pid_kqueue_extinfo` |
 | The calling process's controls: a thread's name (`PROC_SELFSET_THREADNAME`, at most 63 characters, `ENAMETOOLONG`; the name Mach `thread_info` reports too), the other controls the host's; dyld's image-information registration (`TASK_DYLD_INFO`: final once a registration replaces another, `EINVAL` after); resource usage the host's with the executable's UUID (a whole record whatever the buffer size); its fileports (none) and workloops (`PIDDYNKQUEUEINFO`) | `procinfo::selfctl` | `proc_setcontrol`, `proc_set_dyld_images`, `task_set_dyld_info` |
-| Code signing (`csops`, `csops_audittoken`) of the calling process: XNU's checks in order (a change to another process refused without root, `EPERM`; the audit token's pid and pid version, `ESRCH`), then what the host kernel concluded of the executable at exec (status flags, code-directory hash, slice offset, identity and team, entitlements in XML and DER, the signature blob, validation category), with each operation's size rules (the 8-byte header with the length and `ERANGE` for a short buffer) and `EINVAL` once the process is invalid; and the flags the process changes (invalid, hard, killable, restricted, those `CS_OPS_SET_STATUS` may set, the installer's and library validation's cleared as XNU allows), a killable process dying of `SIGKILL` when it becomes invalid. Of another process, the host's answer | `codesign` | `csops_internal`, `csops_copy_token` |
+| Code signing (`csops`, `csops_audittoken`) of the calling process: XNU's checks in order (a change to another process refused without root, `EPERM`; the audit token's pid and pid version, `ESRCH`), then what the host kernel concluded of the executable at exec (status flags, code-directory hash, slice offset, identity and team, entitlements in XML and DER, the signature blob, validation category), with each operation's size rules (the 8-byte header with the length and `ERANGE` for a short buffer) and `EINVAL` once the process is invalid; and the flags the process changes (invalid, hard, killable, restricted, those `CS_OPS_SET_STATUS` may set, the installer's and library validation's cleared as XNU allows), a killable process dying of `SIGKILL` when it becomes invalid. Foreign-process signing queries in the host-services profile use the host's answer; the closed profile returns `ESRCH` before forwarding buffers | `codesign` | `csops_internal`, `csops_copy_token` |
 
-The executable's signature is the host kernel's verdict: the first
-`csops` of an image spawns the executable (the slice the emulator loaded)
-suspended on the host, asks it every question, and kills it before it
-runs; its `SIGCHLD` is not the guest's. Without a macOS host the process
-is an ad hoc, linker-signed program without entitlements. The macOS 27
+In the host-services profile, the executable's signature is the host kernel's
+verdict: the first `csops` of an image spawns the executable (the slice the
+emulator loaded) suspended on the host, asks it every question, and kills it
+before it runs; its `SIGCHLD` is not the guest's. Without a macOS host the process
+is an ad hoc, linker-signed program without entitlements. Closed supplied-file
+processes retain supplied signing state or that existing fallback; they never
+spawn a host executable for signature sampling. Their foreign-process signing
+queries return `ESRCH` before host buffer forwarding. The macOS 27
 kernel refuses `CS_OPS_CDHASH_WITH_INFO` (`EINVAL`) at every size, so the
 emulated process does too. `CS_ENFORCEMENT` and library validation are
 reported, not enforced on the emulated process's memory and libraries.
@@ -1431,9 +1508,9 @@ links resolved, the root overlay's prefix removed, and laid out as
 it was built as at the end. An image and a mapped file are named when
 they are mapped.
 
-Another emulated process is a host process running `rax-user`, so what
-the host says of it beyond its identity, credentials, status, and
-resource usage (its name and path, arguments, descriptors, memory, and
+In the host-services profile, another emulated process is a host process
+running `rax-user`, so what the host says of it beyond its identity,
+credentials, status, and resource usage (its name and path, arguments, descriptors, memory, and
 threads) is the emulator's. A region's share mode and shared flag follow the kind of
 mapping rather than the reference counts of its memory objects: two parts
 of one private mapping split by `munmap`, or a region copied by `fork`, are
@@ -1659,6 +1736,41 @@ admission and request selection, interpreter-line parsing, fat and thin
 grading with binary preferences, `NCARGS` accounting, `execsigs`,
 `fdt_exec`, the spawn layouts, and entitlement lookup in a signature.
 
+### Closed signing and descriptor lifetime qualification
+
+The closed-profile signing regressions exercise both guest ABIs with an existing
+host image and check that trace preparation keeps the existing fallback without
+sampling that image. A foreign status query with an unmapped output address
+returns `ESRCH` before host buffer forwarding. Supplied signing state remains
+covered by the existing trace-preparation test. These tests enforce the existing
+`host_services = false` boundary; the host-services signing and trace-admission
+policy is unchanged.
+
+The Unix transport fixtures retain the original reference to a transferred
+socket until the receiver adopts it. They still close the intermediate transport
+before receipt in the handoff case and still check the adopted endpoint after
+the original reference closes. A separate regular-file regression closes the
+sender before flushing, then verifies the received file type, 8-byte length, and
+exact `snapshot` contents. Production blob transfers therefore retain their
+close-before-receipt check. Frame limits, receive budgets, and assertions are
+unchanged.
+
+On macOS 27.2 ARM64, ten consecutive parallel Darwin library runs passed all
+420 selected tests; the full serial library run passed 8,788 tests with two
+existing ignores. On the Linux x86-64 container running through host translation,
+the full serial library run passed 8,778 tests with two existing ignores. Both
+platforms passed all 191 C API tests, all-target compilation, and four installed
+program comparisons (`true`, UTF-8 `printf`, a shell builtin, and a shell exec),
+with matching output, empty standard error, and exit status 0. These finite
+runs do not establish native x86-64 execution or resolve the separate macOS 27
+native-oracle failures for hardened-runtime and restricted trace admission.
+The macOS transport selection also passes all 16 tests with Cargo's default
+features enabled. That selected run does not qualify the complete core suite
+under those features; Assist's embedded dependency keeps its defaults disabled.
+On native Windows ARM64, the five signing tests and three parallel Darwin
+selections of 185 tests each pass, as do all 191 C API tests. The Unix transport
+selection applies to macOS and Linux; it is not compiled on Windows.
+
 ### Sampled same-host reclaim pressure
 
 The host-services profile reads the fixed read-only dispatch-pressure sysctl for
@@ -1669,3 +1781,107 @@ the normal model; unavailable/malformed reads also retain that fallback. Active
 swapping overrides,custom tunables and asynchronous guest-ring pressure walks
 remain separate limitations. See the native-reclaim-pressure corpus for native
 timestamp brackets,Apple source provenance and completed validation records.
+
+### Entered pipe reads and descriptor close
+
+An entered BSD service keeps its decoded scalar arguments and original context
+PC on both guest architectures. The saved user PC remains independently
+writable. A parked x86-64 call therefore exposes the original `SYSCALL`
+successor, and its continuation performs no additional user instruction or
+syscall entry. A completed continuation also reaches the x86 SYSRET single-step
+frontier; ARM64 retains its separately measured next-instruction frontier.
+
+Closing or replacing an anonymous-pipe descriptor commits successful EOF to
+`read`, `read_nocancel`, `readv`, and `readv_nocancel` calls already parked through
+that descriptor. The entry owns this terminal outcome until its thread resumes
+and returns. EOF writes no bytes to the caller's buffer. Reusing the descriptor
+cannot redirect an entered read to a replacement pipe. A separate duplicated
+descriptor remains usable, and `dup2(fd, fd)` leaves entered reads active.
+Multiple reads through the closing slot all receive EOF; a read through another
+alias still receives its original pipe's data.
+
+When a reader is suspended during close, ARM64 exposes the prepared EOF result
+in its saved general state. The measured Rosetta x86-64 route retains the
+entered syscall number until return; scalar reads expose saved carry set,
+whereas vector reads retain their entry carry. This scalar-read observation is
+confined to parked anonymous-pipe reads. A successful general-state write after
+completion supplies the eventual return state on both routes, including an
+unchanged snapshot written back by a debugger. Floating-point and debug-state
+writes, and rejected general-state writes, do not replace the pending return.
+The C API's Darwin context writer retains its cloned-CPU transaction and commits
+through the same completion ownership. A successful context write therefore has
+the same completion semantics and a rejected general-state write remains atomic.
+The C ABI layout is unchanged.
+
+The close path matches the guest descriptor and its captured host readiness
+wait. The immutable terminal outcome is bounded to one record per entered
+thread; the drain step scans T process threads in O(T) time and uses O(1)
+additional space. Other descriptor cleanup retains its existing cost. Close
+releases the original endpoint before returning, preserving the
+writer's subsequent `EPIPE` result when no read endpoint remains.
+
+Anonymous-pipe classification uses macOS `PROC_PIDFDPIPEINFO` and Linux pipefs
+identity. Descriptor reporting shares this classification. Named FIFOs remain
+vnodes while linked and after unlink. Their entered reads retain their original
+open object and use the closing-reservation path below. The anonymous-pipe EOF
+rule excludes that path.
+
+Apple's pinned
+[descriptor close and I/O-drain implementation](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/kern/kern_descrip.c#L1517)
+is an architectural reference. Native observations establish the covered
+macOS 27.2 behavior; the reference revision is not the installed kernel.
+
+`fd_pipe_drain.c` supplies a compact 100-case matrix for each architecture:
+four read entry points, both close entry points, replacement, no-op duplication,
+descriptor aliases, two concurrent readers, and mixed alias ownership. It
+verifies entry from the exact waiting saved PC and syscall number before
+starting close, then checks return status, carry, retained buffer bytes, and
+writer behavior. Another 36 cases suspend the entered reader across close,
+noncancelable close, or replacement, then leave its state untouched, replace
+its return value and carry, or write back an identical general-state snapshot.
+The registered ARM64 and x86-64 tests compare the same
+executable's native and emulated output and exit status. The x86-64 native run
+on Apple Silicon uses Rosetta and does not establish physical Intel behavior.
+
+| ID | Assumption | Basis and dependent result | Stress test and falsification probe | Status |
+| --- | --- | --- | --- | --- |
+| PIPE1 | Closing an entered anonymous-pipe read commits EOF for that descriptor. | Independent native scalar/vector and cancelable/noncancelable controls; owned terminal outcome. | Replacement, duplicate aliases, two readers and retained buffer bytes; a different native result falsifies the covered profile. | Confirmed for the measured macOS 27.2 ARM64 and Rosetta controls. |
+| PIPE2 | Kernel object type distinguishes anonymous pipes from named FIFOs. | Native FIFO close waits, while anonymous close produces EOF; shared host classification. | Linked and unlinked FIFOs with the same `S_IFIFO` mode; reporting either as an anonymous pipe falsifies classification. | Enforced by real-object host tests. |
+| PIPE3 | A BSD continuation preserves entered arguments independently of mutable saved user state. | Native successor-PC observations and direct/indirect x86 and ARM64 scheduler tests. | Changed arguments, syscall number, instruction bytes and selected return PC; refetching the entry or retiring another instruction falsifies ownership. | Enforced by continuation and native comparison tests; pointed-to payload ownership is separate. |
+| PIPE4 | Completed saved state and later successful general-state writes have architecture-specific ownership. | Suspended ARM64/Rosetta controls distinguish prepared EOF from deferred x86 return and unchanged snapshot writes. | Scalar/vector reads, all three close/replacement routes, unchanged/edited snapshots, invalid and unrelated state flavors; a native output difference falsifies the covered profile. | Measured on macOS 27.2 ARM64 and Rosetta; physical Intel equivalence remains unknown. |
+
+### Entered FIFO reads and closing reservations
+
+An entered blocking FIFO read owns a reference to the descriptor it acquired,
+independently of its duplicate aliases. `readv` and `readv_nocancel` also retain
+the vector copied before sleeping: rewriting the user vector array cannot
+redirect the entered transfer. At most 1,024 vectors are retained, each two
+64-bit words (16,384 bytes of vector metadata per entered vector read).
+
+Closing the descriptor detaches it from ordinary lookup immediately and
+reserves its number until entered uses finish. New reads, `F_GETFD`, and
+same-descriptor duplication then fail with `EBADF`; allocation skips the
+reserved number. Close waits uninterruptibly for the entered read, which can
+receive the original FIFO's data. Another `dup2` targeting the reserved number
+waits for that reservation. Duplicating another descriptor keeps a source use
+while draining its target, but revalidates that source before installation:
+closing the source during the wait makes the duplication fail with `EBADF`.
+
+Kernel I/O and close completion progress independently of Mach user-thread
+suspension. A held reader can receive its data and release the close barrier;
+a held closer can release the reservation before returning to user mode.
+ARM64 prepares the completed result in its saved general state, while the
+measured Rosetta route keeps the entered state until return. A parked Rosetta
+FIFO `read` exposes carry set; the noncancelable and vector entries retain
+their incoming flags. Thread termination drops the entered use. Fork and exec
+inherit open descriptors, excluding another thread's closing reservations.
+
+`fd_fifo_lifetime.c` runs 200 isolated cases per ABI across linked and unlinked
+FIFOs: four read entries, both close entries, replacement, concurrent descriptor
+lookups and allocation, source close, held readers and closers, and vector-array
+rewrites. Each case establishes the exact saved syscall successor and number
+before the competing operation. The registered tests compare the complete
+native and emulated transcripts from the same executable. Native observations
+cover macOS 27.2 ARM64 and Rosetta x86-64; physical Intel equivalence remains
+unknown. Other blocking object types and write-side operation ownership require
+their own native qualification.

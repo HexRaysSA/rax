@@ -1,0 +1,18 @@
+{
+  "sources": [
+    {
+      "file": "../native-code-integrity-policy/phnt-ntexapi.h",
+      "url": "https://github.com/winsiderss/phnt/blob/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntexapi.h",
+      "bytes": 386368,
+      "sha256": "0510ac40fa1690cd73bed8afe3ed602aaa7bb6870ab95ea9aaba36ce1f4c3d53",
+      "scope": "Class enum and native API declaration; no internal blob layout assumed."
+    },
+    {
+      "file": "../native-query/ntquerysysteminformation.md",
+      "url": "https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation",
+      "bytes": 39246,
+      "sha256": "47dd6f329e88cabe0f7e53cc90c46fa571d266dfe1f1333bee7f7376acb757af",
+      "scope": "Public four-argument API; private class189 semantics are measured separately."
+    }
+  ]
+}

@@ -25,6 +25,8 @@ use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{self, Wait};
 
 mod embedded;
+pub(crate) mod lifetime;
+mod pipe_drain;
 
 /// The largest single transfer (`read`/`write` fail larger `nbyte` with
 /// `EINVAL`, as `rd_uio`/`wr_uio` do).
@@ -71,12 +73,17 @@ fn block_until_ready(ctx: &mut Ctx<'_>, h: i32, read: bool) -> Option<SysResult>
     if wait::ready_now(&[(h, read, !read)])[0] || nonblocking(h) {
         return None;
     }
-    Some(syscall::sleep(ctx, Wait::fds(vec![(h, read, !read)], None)))
+    let first = ctx.thread.resume.is_none();
+    let result = syscall::sleep(ctx, Wait::fds(vec![(h, read, !read)], None));
+    if first && read && ctx.thread.wait.is_some() {
+        pipe_drain::parked(ctx, h);
+    }
+    Some(result)
 }
 
 /// `read(fd, cbuf, nbyte)` and `pread` (`offset` given).
 pub fn read(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64>) -> SysResult {
-    let file = ctx.proc.fds.file(fd)?;
+    let file = lifetime::read_file(ctx, fd)?;
     if nbyte > IO_MAX {
         return Err(Errno::EINVAL);
     }
@@ -94,6 +101,7 @@ pub fn read(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64
         if offset.is_none()
             && let Some(r) = block_until_ready(ctx, h, true)
         {
+            lifetime::parked_read(ctx, fd, &file, None);
             return r;
         }
         let mut done = 0u64;
@@ -262,7 +270,7 @@ fn iovecs(ctx: &Ctx<'_>, iov: u64, cnt: i32) -> Result<Vec<(u64, u64)>, Errno> {
 
 /// `readv(fd, iov, cnt)` and `preadv`.
 pub fn readv(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>) -> SysResult {
-    let file = ctx.proc.fds.file(fd)?;
+    let file = lifetime::read_file(ctx, fd)?;
     if let FileKind::Embedded(file) = &file.kind {
         return embedded::vector(ctx, file, &iovecs(ctx, iov, cnt)?, offset, true);
     }
@@ -270,7 +278,15 @@ pub fn readv(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>
     #[cfg(unix)]
     {
         let h = file.host_fd().ok_or(Errno::EBADF)?;
-        let v = iovecs(ctx, iov, cnt)?;
+        let v = match ctx
+            .thread
+            .file_io
+            .as_ref()
+            .and_then(|entered| entered.vectors.as_ref())
+        {
+            Some(vectors) => vectors.clone(),
+            None => iovecs(ctx, iov, cnt)?,
+        };
         if offset.is_none() && socket(&file) {
             #[cfg(target_os = "macos")]
             return super::socket::readv(ctx, fd, v);
@@ -279,6 +295,7 @@ pub fn readv(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>
         if offset.is_none()
             && let Some(r) = block_until_ready(ctx, h, true)
         {
+            lifetime::parked_read(ctx, fd, &file, Some(v));
             return r;
         }
         let mut buf = vec![0u8; total as usize];
@@ -400,9 +417,7 @@ fn host_seek_data() -> i32 {
 
 /// `close(fd)`.
 pub fn close(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
-    let removed = ctx.proc.fds.remove(fd)?;
-    crate::user::darwin::kevent::fd_closed(ctx.proc, fd, Some(removed.file));
-    Ok(Rv::one(0))
+    lifetime::close(ctx, fd)
 }
 
 /// `dup(fd)`.
@@ -423,8 +438,7 @@ pub fn dup2(ctx: &mut Ctx<'_>, from: i32, to: i32) -> SysResult {
     if from == to {
         return Ok(Rv::one(to as u64));
     }
-    replace(ctx, to, file, false, false);
-    Ok(Rv::one(to as u64))
+    lifetime::replace(ctx, from, to, file, false, false)
 }
 
 /// `dup3(from, to, flags)` (macOS 27; `dup(2)`): `dup2` with the new
@@ -442,18 +456,7 @@ pub fn dup3(ctx: &mut Ctx<'_>, from: i32, to: i32, flags: u32) -> SysResult {
         return Err(Errno::EBADF);
     }
     let (cloexec, clofork) = (flags & io::O_CLOEXEC != 0, flags & io::O_CLOFORK != 0);
-    replace(ctx, to, file, cloexec, clofork);
-    Ok(Rv::one(to as u64))
-}
-
-/// Puts `file` at descriptor `to` with the given flags, closing what was
-/// there.
-fn replace(ctx: &mut Ctx<'_>, to: i32, file: FileRef, cloexec: bool, clofork: bool) {
-    let replaced = ctx.proc.fds.install_at(to as usize, file, cloexec);
-    ctx.proc.fds.get_mut(to).expect("just installed").clofork = clofork;
-    if let Some(old) = replaced {
-        crate::user::darwin::kevent::fd_closed(ctx.proc, to, Some(old.file));
-    }
+    lifetime::replace(ctx, from, to, file, cloexec, clofork)
 }
 
 /// `pipe()`: the read and write ends in the two result words.

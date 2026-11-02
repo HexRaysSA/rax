@@ -173,6 +173,12 @@ pub(super) fn capture() -> Subject {
     let token = Token::current();
     let user = token.information(1).group(0);
     Subject {
+        statistics: Some(
+            crate::user::windows::security::token::statistics::Statistics::selected(
+                token.information(10).bytes().try_into().unwrap(),
+            )
+            .unwrap(),
+        ),
         user_attributes: user.attributes,
         user: user.sid,
         groups: token.information(2).groups(),

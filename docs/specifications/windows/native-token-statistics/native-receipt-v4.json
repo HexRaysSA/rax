@@ -1,0 +1,199 @@
+{
+  "pid": 9876,
+  "state": "finished",
+  "commands": [
+    {
+      "name": "arm64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\build-arm64",
+        "-A",
+        "ARM64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.3352363750018412
+    },
+    {
+      "name": "arm64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\build-arm64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false"
+      ],
+      "exit_code": 0,
+      "seconds": 1.6746105420024833
+    },
+    {
+      "name": "x64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\build-x64",
+        "-A",
+        "x64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.34986579199903645
+    },
+    {
+      "name": "x64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\build-x64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false"
+      ],
+      "exit_code": 0,
+      "seconds": 1.621171916998719
+    },
+    {
+      "name": "x86-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\build-x86",
+        "-A",
+        "Win32"
+      ],
+      "exit_code": 0,
+      "seconds": 0.1784676670031331
+    },
+    {
+      "name": "x86-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\build-x86",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false"
+      ],
+      "exit_code": 0,
+      "seconds": 1.693210082998121
+    }
+  ],
+  "reports": [
+    {
+      "architecture": "arm64",
+      "machine": 43620,
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 9412,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\run-v4\\artifacts\\native-token-statistics-arm64.exe",
+        "bytes": 18944,
+        "sha256": "7119a98ba322bd6036a4201111722b55243bf6e4be7e81416b7b1924390ca91e"
+      },
+      "stdout_sha256": "57ddc5d3612bd31f880356ffa4378dac5480ec88bb53aaf907ab85290e56ef9f",
+      "snapshot": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\run-v4\\artifacts\\statistics-arm64.bin",
+        "bytes": 112,
+        "sha256": "340992fa98c40bfc09ed6215c1f6444a89c62393fefb20bcb925f12f442bf14b"
+      },
+      "provider": {
+        "path": "C:\\Windows\\System32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+        "after_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e"
+      },
+      "exit_code": 0,
+      "seconds": 22.690873666000698
+    },
+    {
+      "architecture": "x64",
+      "machine": 34404,
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 9412,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\run-v4\\artifacts\\native-token-statistics-x64.exe",
+        "bytes": 18432,
+        "sha256": "b588d74fc0c68cf718d47e04195f847aceace64b20a2154d15cfd65960b933df"
+      },
+      "stdout_sha256": "6d85b294a8439431fbe26de3eecf4aaee0d2b032b48c1933d631d24ee373bc26",
+      "snapshot": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\run-v4\\artifacts\\statistics-x64.bin",
+        "bytes": 112,
+        "sha256": "bf5bf6386321dfc3d35a46cb19344e81482fc1c1db4444c0e30a2ec31c97cf36"
+      },
+      "provider": {
+        "path": "C:\\Windows\\System32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+        "after_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e"
+      },
+      "exit_code": 0,
+      "seconds": 21.509085499998037
+    },
+    {
+      "architecture": "x86",
+      "machine": 332,
+      "pointer_bytes": 4,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 9412,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\run-v4\\artifacts\\native-token-statistics-x86.exe",
+        "bytes": 16896,
+        "sha256": "8f6a92d936dc07ca1fec2fa87035be77edc98a2975b37483bdce756b05659048"
+      },
+      "stdout_sha256": "4b61e03f23864f60a4a3b7dd2569f8ef47ce91621d1de22be2af8cf84f45b10b",
+      "snapshot": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\token-statistics-native-v1\\run-v4\\artifacts\\statistics-x86.bin",
+        "bytes": 112,
+        "sha256": "047617f3c0f757c1a5ad07b485f7c9a78dbfebf04e29678ae2be0346e96a8550"
+      },
+      "provider": {
+        "path": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925",
+        "after_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925"
+      },
+      "exit_code": 0,
+      "seconds": 16.524804791999486
+    }
+  ],
+  "child_pid": 2124,
+  "image_sha256": "8f6a92d936dc07ca1fec2fa87035be77edc98a2975b37483bdce756b05659048",
+  "exit_code": 0,
+  "source_hashes": {
+    "target/token-statistics-native-v1/run-v4/controller.py": "a65ab13af7bc26197f8da07339d832fd169f6b0eb767615cd3074bc81312698b",
+    "target/token-statistics-native-v1/source/CMakeLists.txt": "aa6af730d3421676bf47a49b3657d46201d8a9c02a5d9daed72581958c1273dc",
+    "target/token-statistics-native-v1/source/probe-v1.c": "9314a115b27db61cef911c76dfe4420a19b2db930f7074f3bf0ea10102ec9e90"
+  },
+  "inputs_unchanged": true,
+  "records": 28236,
+  "independent_native_process_abis": 3
+}

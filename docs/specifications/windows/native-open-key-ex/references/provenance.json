@@ -1,0 +1,79 @@
+[
+  {
+    "file": "RegLoadAppKeyW.html",
+    "issuer": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regloadappkeyw",
+    "resolved_url": "https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regloadappkeyw",
+    "retrieved": "2026-10-28",
+    "bytes": 55176,
+    "sha256": "afb3a352a2feb6d33e13cea6a7481fba34afc27c81712477ec8e2135190b7744",
+    "title": "RegLoadAppKeyW function (winreg.h) - Win32 apps | Microsoft Learn",
+    "document_date": "2018-12-05T00:00:00Z"
+  },
+  {
+    "file": "ZwOpenKeyEx.html",
+    "issuer": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-zwopenkeyex",
+    "resolved_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-zwopenkeyex",
+    "retrieved": "2026-10-28",
+    "bytes": 55782,
+    "sha256": "2e6d0b364e1f5daf32ea337a7a5d4e1ca2cf73444adbf34c9fc5d1b41fbb10e0",
+    "title": "ZwOpenKeyEx function (wdm.h) - Windows drivers | Microsoft Learn",
+    "document_date": "2018-04-30T00:00:00Z"
+  },
+  {
+    "file": "MS-RRP-symbolic-links.html",
+    "issuer": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rrp/d5ce9dcc-1f90-4f5a-b076-cc1d2c9b4195",
+    "resolved_url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rrp/d5ce9dcc-1f90-4f5a-b076-cc1d2c9b4195",
+    "retrieved": "2026-10-28",
+    "bytes": 37342,
+    "sha256": "616678f558bea746ac61c930ffe4177f5a7af8c76ad10828b1814cecc9764e62",
+    "title": "[MS-RRP]: Symbolic Links | Microsoft Learn",
+    "document_date": "unknown"
+  },
+  {
+    "file": "registry-value-types.html",
+    "issuer": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/sysinfo/registry-value-types",
+    "resolved_url": "https://learn.microsoft.com/en-us/windows/win32/sysinfo/registry-value-types",
+    "retrieved": "2026-10-28",
+    "bytes": 52705,
+    "sha256": "6ef79abaee78aa63608f45eb518597aa2306da2ec9a37d3456e728194a1a2b13",
+    "title": "Registry value types - Win32 apps | Microsoft Learn",
+    "document_date": "2023-02-08T00:00:00Z"
+  },
+  {
+    "file": "privilege-constants.html",
+    "issuer": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/secauthz/privilege-constants",
+    "resolved_url": "https://learn.microsoft.com/en-us/windows/win32/secauthz/privilege-constants",
+    "retrieved": "2026-10-28",
+    "bytes": 64398,
+    "sha256": "eda04a9ee9669796c2d1becb3e34ebfc2b829321b76f781036e8243524f8bb52",
+    "title": "Privilege Constants (Winnt.h) - Win32 apps | Microsoft Learn",
+    "document_date": "2020-07-27T00:00:00Z"
+  },
+  {
+    "file": "application-hive-filtering.html",
+    "issuer": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/filtering-registry-operations-on-application-hives",
+    "resolved_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/filtering-registry-operations-on-application-hives",
+    "retrieved": "2026-10-28",
+    "bytes": 49831,
+    "sha256": "d9305b9f2d4c80047bf23ce567cbd1fe09b63dfddcce8b062680426753a2cb10",
+    "title": "Filtering Registry Operations on Application Hives - Windows drivers | Microsoft Learn",
+    "document_date": "2025-05-08T00:00:00Z"
+  },
+  {
+    "file": "opening-creating-closing-keys.html",
+    "issuer": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/sysinfo/opening-creating-and-closing-keys",
+    "resolved_url": "https://learn.microsoft.com/en-us/windows/win32/sysinfo/opening-creating-and-closing-keys",
+    "retrieved": "2026-10-28",
+    "bytes": 48453,
+    "sha256": "f144af5d388b9cd762ca3c641b7a341d6b07314556f1fe7c42dd84bbec836f11",
+    "title": "Opening, Creating, and Closing Keys - Win32 apps | Microsoft Learn",
+    "document_date": "2018-05-31T00:00:00Z"
+  }
+]

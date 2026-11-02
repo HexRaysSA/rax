@@ -19,6 +19,8 @@ use crate::user::windows::nt::status::{
 use vm_memory::{Address, GuestMemory};
 
 mod code_integrity;
+mod code_integrity_policies;
+mod code_integrity_policy;
 mod flush;
 mod processor;
 
@@ -32,6 +34,8 @@ const SYSTEM_NUMA_PROCESSOR_MAP: u32 = 55;
 const SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION: u32 = 197;
 const SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION: u32 = 250;
 const SYSTEM_CODE_INTEGRITY_INFORMATION: u32 = 103;
+const SYSTEM_CODE_INTEGRITY_POLICY_INFORMATION: u32 = 164;
+const SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION: u32 = 189;
 const SYSTEM_FLUSH_INFORMATION: u32 = 192;
 const WOW64_LENGTH_FAILURE: u32 = 0xFFFF_FFFC;
 
@@ -144,6 +148,9 @@ pub(super) fn write_guard_result(c: &mut Ctx, result: ApiResult) -> ApiResult {
 
 fn query(c: &mut Ctx) -> ApiResult {
     let (class, output, length, returned) = (c.u32(0)?, c.ptr(1)?, c.u32(2)?, c.ptr(3)?);
+    if class == SYSTEM_CODE_INTEGRITY_POLICY_INFORMATION && c.arch() == WinArch::X86 {
+        return code_integrity_policy::wow64(c, output, length, returned);
+    }
     if class == SYSTEM_FLUSH_INFORMATION && c.arch() == WinArch::X86 {
         return flush::wow64(c, output, length, returned);
     }
@@ -160,12 +167,13 @@ fn query(c: &mut Ctx) -> ApiResult {
     // Its output alignment is ULONG alignment (4), not pointer alignment (8).
     // Most WoW64 wrappers instead copy converted output first. Class55 passes
     // the original output/length to the native query, with a private ReturnLength.
-    // Class103 forwards both destinations without a converted record.
+    // Classes103 and189 forward both destinations without a converted record.
     if c.arch() != WinArch::X86
         || matches!(
             class,
             SYSTEM_NUMA_PROCESSOR_MAP
                 | SYSTEM_CODE_INTEGRITY_INFORMATION
+                | SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION
                 | SYSTEM_PROCESSOR_INFORMATION
                 | SYSTEM_EMULATION_PROCESSOR_INFORMATION
         )
@@ -194,6 +202,7 @@ fn query(c: &mut Ctx) -> ApiResult {
             || matches!(
                 class,
                 SYSTEM_CODE_INTEGRITY_INFORMATION
+                    | SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION
                     | SYSTEM_PROCESSOR_INFORMATION
                     | SYSTEM_EMULATION_PROCESSOR_INFORMATION
             ))
@@ -219,6 +228,12 @@ fn query(c: &mut Ctx) -> ApiResult {
             processor_features(c, output, length, returned)
         }
         SYSTEM_CODE_INTEGRITY_INFORMATION => code_integrity::query(c, output, length, returned),
+        SYSTEM_CODE_INTEGRITY_POLICY_INFORMATION => {
+            code_integrity_policy::query(c, output, length, returned)
+        }
+        SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION => {
+            code_integrity_policies::query(c, output, length, returned)
+        }
         SYSTEM_FLUSH_INFORMATION => flush::query(c, output, length, returned),
         _ => Err(c.unsupported(format!("NtQuerySystemInformation class {class}"))),
     }

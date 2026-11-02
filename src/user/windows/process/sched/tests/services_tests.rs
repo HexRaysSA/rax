@@ -1,6 +1,9 @@
 use super::*;
 use crate::user::windows::loader::services::tests::table;
 
+#[path = "services_tests/native_profile.rs"]
+mod native_profile;
+
 #[cfg(windows)]
 #[path = "services_tests/native_host_profile.rs"]
 mod native_host_profile;
@@ -204,6 +207,11 @@ mod gui_tests;
 
 #[path = "services_tests/code_integrity_tests.rs"]
 mod code_integrity_tests;
+
+#[path = "services_tests/code_integrity_policies_tests.rs"]
+mod code_integrity_policies_tests;
+#[path = "services_tests/code_integrity_policy_tests.rs"]
+mod code_integrity_policy_tests;
 
 #[path = "services_tests/system_flush_tests.rs"]
 mod system_flush_tests;

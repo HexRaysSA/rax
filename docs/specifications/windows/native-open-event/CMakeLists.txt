@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 3.20)
+project(rax_native_open_event LANGUAGES C)
+if(NOT WIN32 OR NOT MSVC)
+    message(FATAL_ERROR "The independent observer requires native Windows and MSVC")
+endif()
+add_executable(rax_native_open_event probe-v1.c)
+target_link_libraries(rax_native_open_event PRIVATE psapi)
+target_compile_options(rax_native_open_event PRIVATE /W4 /utf-8)
+file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/probe-paths-$<CONFIG>.txt"
+    CONTENT "$<TARGET_FILE:rax_native_open_event>\n")

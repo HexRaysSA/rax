@@ -67,8 +67,7 @@ pub fn dtype(file: &FileRef) -> u32 {
             let h = fd.as_raw_fd();
             match crate::user::darwin::host::fstat(h).map(|st| st.st_mode & libc::S_IFMT) {
                 Ok(libc::S_IFSOCK) => dtype::SOCKET,
-                // An anonymous pipe has no path; a named one is a vnode.
-                Ok(libc::S_IFIFO) if crate::user::darwin::host::fd_path(h).is_none() => dtype::PIPE,
+                Ok(libc::S_IFIFO) if crate::user::darwin::host::anonymous_pipe(h) => dtype::PIPE,
                 _ => dtype::VNODE,
             }
         }

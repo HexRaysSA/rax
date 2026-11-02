@@ -152,7 +152,7 @@ fn native_single_wait_apc_precedes_signal_and_preserves_kernel_frame_all_abis() 
         let sp = t.cpu.sp();
         let (handle, id) = event(p, 1);
         t.cpu.set_gpr(3, 0xCC55);
-        t.apcs.push_back((0x50000, 0x1111));
+        t.apcs.push_back((0x50000, 0x1111).into());
         assert_eq!(invoke(p, &mut t, handle, 1, 0), Outcome::Park);
         let wait = waiting(&t);
         let status = sync::poll(p, t.tid, &wait, Instant::now(), true)
@@ -238,7 +238,7 @@ fn native_single_wait_alertable_low_byte_with_pending_apc_all_abis() {
                 let sp = t.cpu.sp();
                 let (handle, id) = event(p, signaled);
                 p.space.w64(data, 0).unwrap();
-                t.apcs.push_back((0x50000, 0x1111));
+                t.apcs.push_back((0x50000, 0x1111).into());
                 let result = invoke(p, &mut t, handle, alertable, data);
                 if alertable as u8 == 0 {
                     assert_eq!(result, Outcome::Continue);

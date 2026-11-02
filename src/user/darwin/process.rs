@@ -40,9 +40,15 @@ pub(crate) mod embedding;
 #[cfg(test)]
 pub(crate) mod bounded_tests;
 #[cfg(test)]
+mod continuation_tests;
+#[cfg(test)]
 mod exclusive_tests;
+#[cfg(all(test, unix))]
+mod fifo_lifetime_tests;
 #[cfg(test)]
 mod pauth_tests;
+#[cfg(all(test, unix))]
+mod pipe_drain_tests;
 #[cfg(test)]
 mod step_tests;
 mod stepping;
@@ -81,6 +87,17 @@ pub struct DarwinConfig {
     pub abi: Option<DarwinAbi>,
     /// Log every system call and trap to standard error.
     pub strace: bool,
+    /// With `strace`: dump each Mach message sent and received (header,
+    /// descriptors, and at most this many bytes of its contents, of each
+    /// out-of-line region, and of its auxiliary data); `None`: no dumps
+    /// ([`syscall::mach::dump`]).
+    pub strace_messages: Option<usize>,
+    /// With `strace`: prefix each traced call with the caller's PC.
+    pub strace_pc: bool,
+    /// With `strace`: follow each traced call with a frame-pointer
+    /// backtrace of at most this many frames; 0: none
+    /// ([`syscall::trace`]).
+    pub strace_stack: usize,
     /// Write every executed guest instruction to this file
     /// ([`crate::user::trace`]).
     pub instruction_trace: Option<PathBuf>,
@@ -144,6 +161,9 @@ impl DarwinConfig {
             cwd: "/".into(),
             abi: None,
             strace: false,
+            strace_messages: None,
+            strace_pc: false,
+            strace_stack: 0,
             instruction_trace: None,
             seed: None,
             stack_limit: None,
@@ -321,6 +341,10 @@ pub struct Thread {
     pub wait: Option<Wait>,
     /// Progress of a restarted call.
     pub resume: Option<Resume>,
+    /// An entered BSD service, independent of mutable saved user state.
+    pub(crate) pending_unix: Option<syscall::PendingUnix>,
+    /// The descriptor reference owned by entered I/O or a waiting dup2.
+    pub(crate) file_io: Option<syscall::bsd::file::lifetime::Use>,
     /// The thread's `pthread_t` (its user stack's top), zero for the main
     /// thread until libpthread registers.
     pub pthread: u64,
@@ -388,6 +412,7 @@ pub struct Proc {
     pub cwd: Vec<u8>,
     /// Descriptors.
     pub fds: FdTable,
+    pub(crate) closers: syscall::bsd::file::lifetime::Closers,
     /// Process ID (the host's).
     pub pid: i32,
     /// Parent process ID.
@@ -765,6 +790,7 @@ impl DarwinProcess {
             super::workq::redrive(&mut self.proc);
             self.deliver_posted();
             self.poll_waits();
+            syscall::bsd::file::lifetime::progress(&mut self.proc);
             let Some(tid) = self.next_runnable() else {
                 if self.proc.threads.values().all(|t| t.exited) {
                     self.proc.exit_with(ExitStatus::Exited(0));
@@ -811,9 +837,10 @@ impl DarwinProcess {
             let t0 = thread_cpu_ns();
             let step = stepping::Step::capture(&self.proc, &thread);
             let stepping = step.enabled(&thread);
+            let continuing = thread.mach.exception.is_none() && thread.pending_unix.is_some();
             // A thread whose exception a handler had goes on with the
             // handler's reply first.
-            let trap = if thread.mach.exception.is_some() {
+            let trap = if thread.mach.exception.is_some() || continuing {
                 None
             } else if stepping {
                 step.enter_user(&mut thread);
@@ -826,6 +853,7 @@ impl DarwinProcess {
             match trap {
                 Some(Trap::Yield) if stepping => {}
                 Some(trap) => self.handle(&mut thread, trap),
+                None if continuing => syscall::resume_unix(&mut self.proc, &mut thread),
                 None => super::exception::resume(&mut self.proc, &mut thread),
             }
             if stepped_instruction
@@ -853,7 +881,11 @@ impl DarwinProcess {
                 continue;
             }
             let t2 = thread_cpu_ns();
-            let (user, system) = (t1.saturating_sub(t0), t2.saturating_sub(t1));
+            let (user, system) = if continuing {
+                (0, t2.saturating_sub(t0))
+            } else {
+                (t1.saturating_sub(t0), t2.saturating_sub(t1))
+            };
             thread.mach.user_ns += user;
             thread.mach.system_ns += system;
             signal::timer::charge(&mut self.proc, &mut thread, user, system);
@@ -1226,6 +1258,8 @@ pub(crate) fn start(
         },
         wait: None,
         resume: None,
+        pending_unix: None,
+        file_io: None,
         pthread: 0,
         exited: false,
         woken: false,
@@ -1252,6 +1286,7 @@ pub(crate) fn start(
             vfs,
             cwd,
             fds: c.fds,
+            closers: Default::default(),
             pid,
             ppid: c.ppid,
             creds: c.creds,
@@ -1373,6 +1408,7 @@ pub(crate) fn start(
                 vfs,
                 cwd,
                 fds,
+                closers: Default::default(),
                 pid,
                 ppid,
                 creds,

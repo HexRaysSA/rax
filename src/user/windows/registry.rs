@@ -15,6 +15,10 @@ pub(crate) const MAX_NAME_UNITS: usize = 16_383;
 pub(crate) const MAX_VALUE_BYTES: usize = 1 << 20;
 const MAX_TOTAL_BYTES: usize = 16 << 20;
 
+#[path = "registry/budget.rs"]
+mod budget;
+use budget::ValueBudget;
+
 #[path = "registry/tree.rs"]
 mod tree;
 #[cfg(test)]
@@ -27,10 +31,41 @@ pub(crate) use tree::{
 };
 #[path = "registry/user_policy.rs"]
 mod user_policy;
-pub(crate) use user_policy::user_policy_path;
+pub(crate) use user_policy::{UserPolicyRoot, user_policy_path};
+#[path = "registry/primary_hive.rs"]
+mod primary_hive;
+#[cfg(test)]
+pub(crate) use primary_hive::HiveHeader;
+use primary_hive::PrimaryHive;
+#[path = "registry/appmodel.rs"]
+mod appmodel;
+pub(crate) use appmodel::AppModelRoot;
+#[path = "registry/redirected.rs"]
+mod redirected;
+pub(crate) use redirected::{RegistryView, RegistryViews, ViewRoot};
+#[path = "registry/command_processor.rs"]
+mod command_processor;
+pub(crate) use command_processor::{
+    COMMAND_PROCESSOR_KEY, CommandHeader, CommandRoot, CommandTree,
+};
+#[path = "registry/snapshot_root.rs"]
+mod snapshot_root;
+pub(crate) use snapshot_root::{OLE_KEY, SnapshotRoot};
 #[path = "registry/fixed.rs"]
 mod fixed;
+#[path = "registry/local_settings.rs"]
+mod local_settings;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;
+#[path = "registry/machine_hive.rs"]
+mod machine_hive;
+use machine_hive::MachineKey;
+pub(crate) use machine_hive::{MACHINE_HIVE_KEY, MachineHeader};
+#[path = "registry/key_enumeration.rs"]
+mod key_enumeration;
+pub(crate) use key_enumeration::BasicChild;
+#[path = "registry/access.rs"]
+mod access;
+pub(crate) use access::KeyAccess;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Value {
@@ -49,12 +84,19 @@ pub(crate) struct SelectedKey {
 /// No native handle or host-operation callback is stored in this object.
 #[derive(Debug)]
 pub struct Key {
+    enumeration: Option<Arc<[BasicChild]>>,
     pub(crate) path: Vec<u16>,
+    pub(crate) redirected_view: Option<RegistryView>,
     pub(crate) children: u32,
     upcase: Arc<[u16]>,
     values: Arc<BTreeMap<Vec<u16>, Value>>,
     subkeys: Option<BTreeMap<Vec<u16>, Arc<Key>>>,
     selected_child: Option<(Vec<u16>, Option<Arc<Key>>)>,
+    selected_paths: BTreeMap<Vec<u16>, Option<Arc<Key>>>,
+    command_access: Option<KeyAccess>,
+    logical_path: Option<Arc<[u16]>>,
+    root_views: Option<Arc<RegistryViews>>,
+    machine: Option<MachineKey>,
 }
 impl Key {
     #[cfg(test)]
@@ -74,7 +116,10 @@ pub(crate) struct Registry {
     keys: BTreeMap<Vec<u16>, Arc<Key>>,
     upcase: Arc<[u16]>,
     selected_trees: BTreeSet<TreeRoot>,
-    user_policy: Option<Arc<[u16]>>,
+    user_policies: BTreeMap<UserPolicyRoot, Arc<[u16]>>,
+    primary_hive: Option<PrimaryHive>,
+    machine_hive: Option<Arc<Key>>,
+    pub(crate) views: Arc<RegistryViews>,
 }
 impl Registry {
     #[cfg(test)]
@@ -96,7 +141,10 @@ impl Registry {
             keys: BTreeMap::new(),
             upcase: upcase.into(),
             selected_trees: BTreeSet::new(),
-            user_policy: None,
+            user_policies: BTreeMap::new(),
+            primary_hive: None,
+            machine_hive: None,
+            views: Arc::default(),
         };
         let mut budget = ValueBudget::default();
         for selected in selected {
@@ -104,7 +152,9 @@ impl Registry {
                 return Err(invalid("registry key outside fixed runtime selection"));
             }
             let key = Key {
+                enumeration: None,
                 path: selected.path.encode_utf16().collect(),
+                redirected_view: None,
                 children: selected.children,
                 upcase: result.upcase.clone(),
                 values: Arc::new(bounded_values(
@@ -114,6 +164,11 @@ impl Registry {
                 )?),
                 subkeys: None,
                 selected_child: None,
+                selected_paths: BTreeMap::new(),
+                command_access: None,
+                logical_path: None,
+                root_views: None,
+                machine: None,
             };
             if result
                 .keys
@@ -154,44 +209,39 @@ impl Registry {
         }
     }
     pub(crate) fn lookup(&self, name: &[u16]) -> Lookup {
-        if self.keys.is_empty() && self.selected_trees.is_empty() && self.user_policy.is_none() {
+        self.lookup_view(name, RegistryView::Native64)
+    }
+    pub(crate) fn lookup_view(&self, name: &[u16], view: RegistryView) -> Lookup {
+        match self.views.lookup(name, view) {
+            Lookup::Unselected => {}
+            selected => return selected,
+        }
+        if self.keys.is_empty()
+            && self.selected_trees.is_empty()
+            && self.user_policies.is_empty()
+            && self.primary_hive.is_none()
+            && self.machine_hive.is_none()
+        {
             return Lookup::Unselected;
         }
         let folded: Vec<_> = name.iter().map(|&u| self.upcase[usize::from(u)]).collect();
         if let Some(key) = self.keys.get(&folded) {
             return Lookup::Present(key.clone());
         }
+        match self.machine_hive_lookup(&folded, name, view) {
+            Lookup::Unselected => {}
+            selected => return selected,
+        }
         match self.tree_lookup(&folded, name) {
-            Lookup::Unselected => self.segment_heap_lookup(&folded, name),
+            Lookup::Unselected => match self.primary_hive_lookup(&folded, name, view) {
+                Lookup::Unselected => self.segment_heap_lookup(&folded, name),
+                selected => selected,
+            },
             selected => selected,
         }
     }
 }
 
-#[derive(Default)]
-struct ValueBudget {
-    count: usize,
-    bytes: usize,
-}
-impl ValueBudget {
-    fn charge(&mut self, value: &Value) -> io::Result<()> {
-        if value.name.len() > MAX_NAME_UNITS || value.data.len() > MAX_VALUE_BYTES {
-            return Err(invalid("runtime registry value exceeds bounds"));
-        }
-        self.count = self
-            .count
-            .checked_add(1)
-            .ok_or_else(|| invalid("runtime registry count overflow"))?;
-        self.bytes = self
-            .bytes
-            .checked_add(value.name.len() * 2 + value.data.len())
-            .ok_or_else(|| invalid("runtime registry size overflow"))?;
-        if self.count > MAX_VALUES || self.bytes > MAX_TOTAL_BYTES {
-            return Err(invalid("runtime registry aggregate exceeds bounds"));
-        }
-        Ok(())
-    }
-}
 fn bounded_values(
     upcase: &[u16],
     values: Vec<Value>,
@@ -217,7 +267,7 @@ mod installed;
 #[cfg(windows)]
 pub(crate) use installed::wnf_values;
 #[cfg(windows)]
-pub(crate) use installed::{capture_user_policy, snapshot};
+pub(crate) use installed::{capture_primary_user, snapshot};
 #[cfg(not(windows))]
 pub(crate) fn snapshot() -> io::Result<Registry> {
     Err(io::Error::new(
@@ -227,10 +277,10 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
 }
 
 #[cfg(not(windows))]
-pub(crate) fn capture_user_policy(_: Registry, _: &[u8]) -> io::Result<Registry> {
+pub(crate) fn capture_primary_user(_: Registry, _: &[u8]) -> io::Result<Registry> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
-        "installed per-user registry metadata requires Windows",
+        "installed primary-user registry metadata requires Windows",
     ))
 }
 

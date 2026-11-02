@@ -83,8 +83,22 @@ static int parked(task_t task, thread_t thread, int holds) {
     if (thread_info(thread, THREAD_BASIC_INFO, (thread_info_t)&thread_info_data, &n))
       return 0;
     if (task_info_data.suspend_count == holds &&
-        thread_info_data.run_state == TH_STATE_WAITING)
+        thread_info_data.run_state == TH_STATE_WAITING) {
+#if defined(STEP_READ) && !defined(STEP_READ_READY)
+      if (holds == 0) {
+        arm_thread_state64_t entered;
+        n = ARM_THREAD_STATE64_COUNT;
+        if (thread_get_state(thread, ARM_THREAD_STATE64, (thread_state_t)&entered, &n))
+          return 0;
+        if (arm_thread_state64_get_pc(entered) != (uintptr_t)arm_step_after ||
+            entered.__x[16] != 3) {
+          usleep(1000);
+          continue;
+        }
+      }
+#endif
       return 1;
+    }
     usleep(1000);
   } while (now_ns() < deadline);
   return 0;
@@ -172,6 +186,11 @@ int main(void) {
                        ARM_THREAD_STATE64_COUNT))
     goto fail;
 #endif
+#ifdef STEP_READ_READY
+  if (write(gate[1], "r", 1) != 1)
+    goto fail;
+  printf("read-ready=1\n");
+#endif
   arm_debug_state64_t debug = {0};
   debug.__mdscr_el1 = 1;
   kern_return_t set = thread_set_state(thread, ARM_DEBUG_STATE64,
@@ -183,13 +202,33 @@ int main(void) {
     __Request__exception_raise_t request;
     mach_msg_trailer_t trailer;
   } message = {0};
-#ifdef STEP_READ
+#if defined(STEP_READ) && !defined(STEP_READ_READY)
   if (!parked(task, thread, 0))
     goto fail;
+  printf("read-entered=1\n");
   kern_return_t deferred = mach_msg(&message.request.Head, MACH_RCV_MSG | MACH_RCV_TIMEOUT,
                                     0, sizeof message, port, 20, MACH_PORT_NULL);
   printf("deferred=%d\n", deferred == MACH_RCV_TIMED_OUT);
-  if (deferred != MACH_RCV_TIMED_OUT || write(gate[1], "r", 1) != 1)
+  if (deferred != MACH_RCV_TIMED_OUT)
+    goto fail;
+#if defined(STEP_READ_STATE) || defined(STEP_READ_ARGUMENT) || defined(STEP_READ_PC)
+  arm_thread_state64_t pending;
+  mach_msg_type_number_t pending_count = ARM_THREAD_STATE64_COUNT;
+  if (thread_get_state(thread, ARM_THREAD_STATE64, (thread_state_t)&pending, &pending_count))
+    goto fail;
+  pending.__x[19] = 0x3456;
+#ifdef STEP_READ_ARGUMENT
+  pending.__x[0] = UINT64_MAX;
+#endif
+#ifdef STEP_READ_PC
+  __darwin_arm_thread_state64_set_pc_fptr(pending, (void *)(arm_step_after + 4));
+#endif
+  if (thread_set_state(thread, ARM_THREAD_STATE64, (thread_state_t)&pending,
+                       ARM_THREAD_STATE64_COUNT))
+    goto fail;
+  printf("wrote-state=1\n");
+#endif
+  if (write(gate[1], "r", 1) != 1)
     goto fail;
 #endif
   kern_return_t received = mach_msg(&message.request.Head, MACH_RCV_MSG | MACH_RCV_TIMEOUT,
@@ -219,6 +258,27 @@ int main(void) {
          (unsigned long long)(debug.__mdscr_el1 & 1), state.__cpsr & 0x2003c0,
          exception.__esr >> 26, (exception.__esr >> 25) & 1);
   printf("esr=%08x\n", exception.__esr);
+#ifdef STEP_READ
+  uintptr_t expected_pc = (uintptr_t)arm_step_after;
+  uint64_t expected_x20 = 0;
+  uint32_t expected_esr = 0xca000022;
+#ifndef STEP_READ_READY
+  expected_pc += 4;
+  expected_x20 = 0x2345;
+  expected_esr = 0xcb000022;
+#endif
+#ifdef STEP_READ_PC
+  expected_pc += 4;
+  expected_x20 = 0;
+#endif
+  if (arm_thread_state64_get_pc(state) != expected_pc || state.__x[20] != expected_x20 ||
+      state.__x[0] != 1 || exception.__esr != expected_esr)
+    goto fail;
+#if defined(STEP_READ_STATE) || defined(STEP_READ_ARGUMENT) || defined(STEP_READ_PC)
+  if (state.__x[19] != 0x3456)
+    goto fail;
+#endif
+#endif
 #if defined(STEP_SYSCALL) || defined(STEP_READ)
 #ifdef STEP_READ
   printf("syscall-result=%d\n", state.__x[0] == 1);
@@ -267,7 +327,7 @@ int main(void) {
     goto fail;
   tracee = 0;
   printf("exit=%d\n", WEXITSTATUS(status));
-  return 0;
+  return WEXITSTATUS(status) == 42 ? 0 : 1;
 fail:
   kill(child, SIGKILL);
   while (waitpid(child, NULL, 0) < 0 && errno == EINTR) {

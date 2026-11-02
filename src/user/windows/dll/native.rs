@@ -494,6 +494,54 @@ pub(super) static MEMORY_PREFETCH_EXPORTS: &[Export] = &[Export::func(
     memory_prefetch::set,
 )];
 
+// A tail family preserves every preceding synthetic ordinal and trap slot.
+pub(super) static KEY_QUERY_EXPORTS: &[Export] = &[Export::func(
+    "NtQueryKey",
+    Stdcall,
+    &[Ptr, I32, Ptr, I32, Ptr],
+    registry::query_key,
+)];
+
+// Keep existing synthetic ordinals and trap slots stable.
+pub(super) static KEY_OPEN_EX_EXPORTS: &[Export] = &[Export::func(
+    "NtOpenKeyEx",
+    Stdcall,
+    &[Ptr, I32, Ptr, I32],
+    registry::open_ex,
+)];
+
+// Append rather than changing prior synthetic ordinals or syscall slots.
+pub(super) static KEY_ENUMERATION_EXPORTS: &[Export] = &[Export::func(
+    "NtEnumerateKey",
+    Stdcall,
+    &[Ptr, I32, I32, Ptr, I32, Ptr],
+    registry::enumerate_key,
+)];
+
+// A new tail family preserves prior synthetic ordinals and service trap slots.
+pub(super) static KEY_SET_EXPORTS: &[Export] = &[Export::func(
+    "NtSetInformationKey",
+    Stdcall,
+    &[Ptr, I32, Ptr, I32],
+    registry::set_key,
+)];
+
+// Append the ten-slot family without renumbering earlier synthetic exports.
+pub(super) static KEY_NOTIFY_EXPORTS: &[Export] = &[Export::func(
+    "NtNotifyChangeKey",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, Ptr, Ptr, I32, I32, Ptr, I32, I32],
+    registry::notify_key,
+)];
+
+// Keep every preceding synthetic ordinal and trap slot unchanged.
+pub(super) static EVENT_OPEN_EXPORTS: &[Export] = &[Export::func(
+    "NtOpenEvent",
+    Stdcall,
+    &[Ptr, I32, Ptr],
+    events::open,
+)];
+
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)
 }

@@ -45,6 +45,8 @@ fn native_runtime() -> NativeRuntime {
         startup: None,
         gui: Default::default(),
         code_integrity: Err("controlled fixture".into()),
+        code_integrity_policy: Err("code integrity policy not captured in this fixture".into()),
+        code_integrity_policies: Err("code integrity policies not captured in this fixture".into()),
     }
 }
 

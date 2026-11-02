@@ -1,10 +1,13 @@
-//! Read-only acquisition below the primary SID and the one fixed policy suffix.
+//! Read-only acquisition below the primary SID and fixed policy suffixes.
 use super::*;
 
-pub(crate) fn capture(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
-    let fixed = super::super::user_policy_path(sid)?;
-    let tree = tree::capture_path_with(&registry, fixed.clone(), |path| open(&fixed, path))?;
-    registry.with_user_policy(sid, tree)
+pub(crate) fn capture(mut registry: Registry, sid: &[u8]) -> io::Result<Registry> {
+    for root in super::super::UserPolicyRoot::ALL {
+        let fixed = root.path(sid)?;
+        let tree = tree::capture_path_with(&registry, fixed.clone(), |path| open(&fixed, path))?;
+        registry = registry.with_user_policy_root(root, sid, tree)?;
+    }
+    Ok(registry)
 }
 
 pub(super) fn open(fixed: &[u16], path: &[u16]) -> io::Result<OwnedKey> {

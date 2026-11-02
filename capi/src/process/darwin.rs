@@ -2,7 +2,6 @@
 use super::runtime::{Boundary, Termination};
 use super::*;
 use rax_engine::user::darwin::abi::DarwinAbi;
-use rax_engine::user::darwin::arch::DarwinCpu;
 use rax_engine::user::darwin::loader::ImageFile;
 use rax_engine::user::darwin::process::Thread;
 use rax_engine::user::darwin::thread_status::{self, arm, x86};
@@ -96,7 +95,7 @@ impl Process {
     }
 
     pub(super) fn write_context(&mut self, tid: u32, bytes: &[u8]) -> Result<()> {
-        let (flavor, count) = context_flavor(self.0.proc.abi);
+        let (_, count) = context_flavor(self.0.proc.abi);
         if bytes.len() != count as usize * 4 {
             return Err(bad("incorrect Darwin THREAD_STATE64 byte size"));
         }
@@ -106,22 +105,14 @@ impl Process {
             .threads
             .get_mut(&u64::from(tid))
             .ok_or_else(|| bad("unknown process thread"))?;
-        let mut cpu = match &t.cpu {
-            DarwinCpu::X86_64(cpu) => DarwinCpu::X86_64(cpu.clone_thread()),
-            DarwinCpu::Arm64(cpu) => DarwinCpu::Arm64(cpu.clone_thread()),
-        };
         let words: Vec<u32> = bytes
             .chunks_exact(4)
             .map(|word| u32::from_le_bytes(word.try_into().expect("four bytes")))
             .collect();
-        let mut debug = t.mach.debug_state.clone();
-        thread_status::set(&mut cpu, &mut debug, flavor, &words)
+        // The personality retains the context API's cloned-CPU transaction and
+        // commits successful writes with the same completion ownership as Mach.
+        thread_status::set_general_context(t, &words)
             .map_err(|e| bad(format!("invalid Darwin THREAD_STATE64: {e}")))?;
-        cpu.discard_native_code();
-        // Commit only after validation. Pending syscall/exception continuations
-        // and all other thread state remain owned by the personality.
-        t.cpu = cpu;
-        t.mach.debug_state = debug;
         Ok(())
     }
 
@@ -163,3 +154,7 @@ impl Process {
                 "context_format":"darwin_thread_state64","checkpoint":false}}))
     }
 }
+
+#[cfg(all(test, unix))]
+#[path = "darwin_tests.rs"]
+mod tests;

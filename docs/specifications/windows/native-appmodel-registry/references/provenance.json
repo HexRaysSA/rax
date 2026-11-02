@@ -1,0 +1,18 @@
+[
+  {
+    "file": "shared-registry-keys.html",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/winprog64/shared-registry-keys",
+    "title": "Registry keys affected by WOW64",
+    "retrieved": "2026-10-28",
+    "bytes": 66038,
+    "sha256": "dc2134dd3ea975f9d2280ef90db47face5b0617e8442eeb534d4b3e37b918eab"
+  },
+  {
+    "file": "accessing-an-alternate-registry-view.html",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/winprog64/accessing-an-alternate-registry-view",
+    "title": "Accessing an alternate registry view",
+    "retrieved": "2026-10-28",
+    "bytes": 50563,
+    "sha256": "8fcfe982413d16f96c271d4bd853eb6e3d25130d469ea5636a861fe20084b9c7"
+  }
+]

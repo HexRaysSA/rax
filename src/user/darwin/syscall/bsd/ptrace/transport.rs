@@ -627,6 +627,37 @@ mod tests {
     }
 
     #[test]
+    fn socket_descriptor_survives_after_receipt_when_sender_is_closed() {
+        let (mut a, mut b) = Link::pair().unwrap();
+        let (offered, mut peer) = UnixStream::pair().unwrap();
+        let offered: OwnedFd = offered.into();
+        a.queue(b"before").unwrap();
+        a.queue_with_fd(b"with fd", &offered).unwrap();
+        a.queue(b"").unwrap();
+        a.flush().unwrap();
+        let (mut frames, closed) = b.receive_frames().unwrap();
+        assert!(!closed);
+        assert_eq!(frames.len(), 3);
+        assert_eq!(frames[0].payload, b"before");
+        assert!(frames[0].fd.is_none());
+        assert_eq!(frames[1].payload, b"with fd");
+        assert_eq!(frames[2].payload, b"");
+        assert!(frames[2].fd.is_none());
+        let fd = frames[1].fd.take().unwrap();
+        // SAFETY: `fd` is owned and live; F_GETFD has no pointer argument.
+        let flags = unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_GETFD) };
+        assert_ne!(flags & libc::FD_CLOEXEC, 0);
+        let mut received = UnixStream::from(fd);
+        // Socket senders remain live through receipt; the adopted endpoint
+        // must then work after the original sender reference is gone.
+        drop(offered);
+        peer.write_all(b"x").unwrap();
+        let mut byte = [0];
+        received.read_exact(&mut byte).unwrap();
+        assert_eq!(byte, *b"x");
+    }
+
+    #[test]
     fn transferred_connection_survives_the_intermediate_endpoint() {
         let (mut ancestor, mut intermediate) = Link::pair().unwrap();
         let (offered, mut child) = Link::pair().unwrap();
@@ -643,12 +674,35 @@ mod tests {
         assert_eq!(frames[0].payload, b"descendant");
         let fd = frames[0].fd.take().unwrap();
         let mut adopted = Link::new(UnixStream::from(fd)).unwrap();
+        drop(offered);
         child.queue(b"direct").unwrap();
         child.flush().unwrap();
         assert_eq!(
             adopted.receive().unwrap(),
             (vec![b"direct".to_vec()], false)
         );
+    }
+
+    #[test]
+    fn regular_file_frame_survives_sender_close_before_receipt() {
+        use std::os::unix::fs::FileExt;
+
+        let (mut a, mut b) = Link::pair().unwrap();
+        let mut file = crate::user::mm::anonymous_file().unwrap();
+        file.write_all(b"snapshot").unwrap();
+        a.queue_with_fd(b"blob", &file).unwrap();
+        drop(file);
+        a.flush().unwrap();
+        let (mut frames, closed) = b.receive_frames().unwrap();
+        assert!(!closed);
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].payload, b"blob");
+        let file = std::fs::File::from(frames[0].fd.take().unwrap());
+        assert!(file.metadata().unwrap().is_file());
+        assert_eq!(file.metadata().unwrap().len(), 8);
+        let mut bytes = [0; 8];
+        file.read_exact_at(&mut bytes, 0).unwrap();
+        assert_eq!(bytes, *b"snapshot");
     }
 
     #[test]
@@ -701,12 +755,12 @@ mod tests {
         let (fd, mut peer) = UnixStream::pair().unwrap();
         let fd: OwnedFd = fd.into();
         assert_eq!(send_descriptor(&a.stream, &[0], &fd).unwrap(), 1);
-        drop(fd);
         drop(a);
         assert_eq!(
             b.receive_frames().unwrap_err().kind(),
             io::ErrorKind::UnexpectedEof
         );
+        drop(fd);
         peer.set_nonblocking(true).unwrap();
         assert_eq!(peer.read(&mut [0]).unwrap(), 0);
     }
@@ -740,11 +794,11 @@ mod tests {
             }
             assert_eq!(libc::sendmsg(a.fd(), &msg, 0), bytes.len() as libc::ssize_t);
         }
-        drop(fd);
         assert_eq!(
             b.receive_frames().unwrap_err().kind(),
             io::ErrorKind::InvalidData
         );
+        drop(fd);
         peer.set_nonblocking(true).unwrap();
         assert_eq!(
             peer.read(&mut [0]).unwrap(),

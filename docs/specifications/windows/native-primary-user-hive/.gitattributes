@@ -1,0 +1,2 @@
+# Executed producer bytes are part of the retained native evidence.
+probe-v*.py -text

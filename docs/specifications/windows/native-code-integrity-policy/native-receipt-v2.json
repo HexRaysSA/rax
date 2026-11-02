@@ -1,0 +1,183 @@
+{
+  "pid": 10332,
+  "state": "finished",
+  "commands": [
+    {
+      "name": "arm64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\docs\\specifications\\windows\\native-code-integrity-policy",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-native-v1\\build-arm64",
+        "-A",
+        "ARM64"
+      ],
+      "exit_code": 0,
+      "seconds": 2.1381003749993397
+    },
+    {
+      "name": "arm64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-native-v1\\build-arm64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false"
+      ],
+      "exit_code": 0,
+      "seconds": 1.2559372920004535
+    },
+    {
+      "name": "x64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\docs\\specifications\\windows\\native-code-integrity-policy",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-native-v1\\build-x64",
+        "-A",
+        "x64"
+      ],
+      "exit_code": 0,
+      "seconds": 2.1425092080007744
+    },
+    {
+      "name": "x64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-native-v1\\build-x64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false"
+      ],
+      "exit_code": 0,
+      "seconds": 1.0141165830009413
+    },
+    {
+      "name": "x86-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\docs\\specifications\\windows\\native-code-integrity-policy",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-native-v1\\build-x86",
+        "-A",
+        "Win32"
+      ],
+      "exit_code": 0,
+      "seconds": 1.9554599580005743
+    },
+    {
+      "name": "x86-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-native-v1\\build-x86",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false"
+      ],
+      "exit_code": 0,
+      "seconds": 1.0156568750007864
+    }
+  ],
+  "reports": [
+    {
+      "architecture": "arm64",
+      "machine": 43620,
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 2916,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-native-v1\\run-v2\\artifacts\\native-code-integrity-policy-arm64.exe",
+        "bytes": 15360,
+        "sha256": "d13093d1c1dd167450c284d8dbf4cdeaa573f05ca9a701d208e3a98b17147aac"
+      },
+      "stdout_sha256": "f5691789d413bc67ade8b59657ef38680b2e99c9ad7f1093a4200551de16aa5d",
+      "provider": {
+        "path": "C:\\Windows\\System32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+        "after_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e"
+      },
+      "exit_code": 0,
+      "seconds": 3.3665913749991887
+    },
+    {
+      "architecture": "x64",
+      "machine": 34404,
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 2916,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-native-v1\\run-v2\\artifacts\\native-code-integrity-policy-x64.exe",
+        "bytes": 14336,
+        "sha256": "efac5722821897f1d7c21a720167d33f424340ba0d67897b9391ab0b00aea256"
+      },
+      "stdout_sha256": "f5691789d413bc67ade8b59657ef38680b2e99c9ad7f1093a4200551de16aa5d",
+      "provider": {
+        "path": "C:\\Windows\\System32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+        "after_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e"
+      },
+      "exit_code": 0,
+      "seconds": 3.538298792000205
+    },
+    {
+      "architecture": "x86",
+      "machine": 332,
+      "pointer_bytes": 4,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 2916,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-native-v1\\run-v2\\artifacts\\native-code-integrity-policy-x86.exe",
+        "bytes": 12800,
+        "sha256": "5e69f7422c10d0568d75052dabf1c9728346895f89d81037f7ea8e3f5e63dda1"
+      },
+      "stdout_sha256": "a07bb90cc3eb6e03b806224435da6a5f5303c6e0be6488c6ca4ac94549d5c1be",
+      "provider": {
+        "path": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925",
+        "after_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925"
+      },
+      "exit_code": 0,
+      "seconds": 3.6072985000009794
+    }
+  ],
+  "child_pid": 9760,
+  "image_sha256": "5e69f7422c10d0568d75052dabf1c9728346895f89d81037f7ea8e3f5e63dda1",
+  "exit_code": 0,
+  "source_hashes": {
+    "docs/specifications/windows/native-code-integrity-policy/CMakeLists.txt": "0cfe28f4615dceeac5063c17b19934912c45c6a5fd9234a49fc5b8da7fa16ca0",
+    "docs/specifications/windows/native-code-integrity-policy/probe-v1.c": "cbe0694181109e7886e6b85c0370c7a15a8024d819fb9308b8a17ebee6dfdd86"
+  },
+  "inputs_unchanged": true,
+  "records": 8748,
+  "independent_native_process_abis": 3
+}

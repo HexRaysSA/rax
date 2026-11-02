@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.20)
+project(rax_key_set_controls LANGUAGES C)
+if(NOT WIN32 OR NOT MSVC)
+    message(FATAL_ERROR "Native Windows and MSVC are required")
+endif()
+add_executable(key_set_probe probe-v1.c)
+add_executable(key_set_post post-v1.c)
+foreach(target IN ITEMS key_set_probe key_set_post)
+    set_target_properties(${target} PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES
+        MSVC_RUNTIME_LIBRARY MultiThreaded)
+    target_compile_options(${target} PRIVATE /W4 /WX)
+    target_link_libraries(${target} PRIVATE ntdll kernel32 advapi32)
+endforeach()
+file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/probe-paths-$<CONFIG>.txt"
+    CONTENT "$<TARGET_FILE:key_set_probe>\n$<TARGET_FILE:key_set_post>\n")

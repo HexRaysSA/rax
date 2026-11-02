@@ -133,6 +133,9 @@ fn enter(
     if let Some(rcx) = saved_rcx {
         t.cpu.set_gpr(1, rcx);
     }
+    if let Err(error) = super::registry_notify::finish(p, t) {
+        return Some(Outcome::Fail(error));
+    }
     if let Err(error) = p.reclaim_scheduler_views() {
         return Some(Outcome::Fail(format!(
             "scheduler view cleanup failed: {error}"

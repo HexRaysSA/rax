@@ -53,6 +53,7 @@ fn decimal(row: &Value, key: &str) -> u32 {
 
 fn select(p: &mut Proc, attribute: Attribute) {
     let subject = Subject {
+        statistics: None,
         user_attributes: 0,
         user: vec![1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0],
         groups: vec![],

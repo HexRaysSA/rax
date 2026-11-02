@@ -31,7 +31,6 @@ pub(crate) const LANGUAGE_OVERLAY_PACKAGES_KEY: &str =
 pub(super) const MAX_TREE_KEYS: usize = 1024;
 pub(super) const MAX_TREE_DEPTH: usize = 32;
 pub(super) const MAX_COMPONENT_UNITS: usize = 255;
-const MAX_PATH_BYTES: usize = 1 << 20;
 
 #[derive(Default)]
 pub(crate) struct KeyTree {
@@ -79,14 +78,42 @@ impl TreeRoot {
 pub(crate) enum Lookup {
     Present(Arc<Key>),
     Missing,
+    MissingPath,
     Unselected,
 }
-#[derive(Default)]
 pub(super) struct TreeBudget {
     keys: usize,
     path_bytes: usize,
+    limits: super::budget::Limits,
+}
+impl Default for TreeBudget {
+    fn default() -> Self {
+        Self::with_limits(super::budget::STARTUP)
+    }
 }
 impl TreeBudget {
+    pub(super) fn with_limits(limits: super::budget::Limits) -> Self {
+        Self {
+            keys: 0,
+            path_bytes: 0,
+            limits,
+        }
+    }
+    pub(super) fn key_limit(&self) -> usize {
+        self.limits.keys
+    }
+    pub(super) fn key_count(&self) -> usize {
+        self.keys
+    }
+    pub(super) fn charge_tree(&mut self, key: &Key, depth: usize) -> io::Result<()> {
+        self.charge(&key.path, depth)?;
+        if let Some(children) = &key.subkeys {
+            for child in children.values() {
+                self.charge_tree(child, depth + 1)?;
+            }
+        }
+        Ok(())
+    }
     pub(super) fn charge(&mut self, path: &[u16], depth: usize) -> io::Result<()> {
         if depth > MAX_TREE_DEPTH || path.len() > 32_767 {
             return Err(invalid("runtime registry depth/path exceeds bounds"));
@@ -96,7 +123,7 @@ impl TreeBudget {
             .path_bytes
             .checked_add(path.len() * 2)
             .ok_or_else(|| invalid("runtime registry path size overflow"))?;
-        if self.keys > MAX_TREE_KEYS || self.path_bytes > MAX_PATH_BYTES {
+        if self.keys > self.limits.keys || self.path_bytes > self.limits.path_bytes {
             return Err(invalid("runtime registry key/path budget exhausted"));
         }
         Ok(())
@@ -121,8 +148,19 @@ pub(super) fn child_path(parent: &[u16], name: &[u16]) -> io::Result<Vec<u16>> {
 impl Registry {
     pub(super) fn value_budget(&self) -> io::Result<ValueBudget> {
         let mut budget = ValueBudget::default();
+        let mut seen = BTreeSet::new();
         for key in self.keys.values() {
-            charge_key(key, &mut budget)?;
+            charge_key(key, &mut budget, &mut seen)?;
+        }
+        for ((kind, _), key) in &self.views.roots {
+            if *kind != ViewRoot::LocalSettings {
+                if let Some(key) = key {
+                    charge_key(key, &mut budget, &mut seen)?;
+                }
+            }
+        }
+        if let Some(root) = &self.machine_hive {
+            charge_key(root, &mut budget, &mut seen)?;
         }
         Ok(budget)
     }
@@ -146,10 +184,12 @@ impl Registry {
                 0,
                 &mut self.value_budget()?,
                 &mut TreeBudget::default(),
+                None,
             )?;
             self.keys.insert(folded, key);
         }
         self.selected_trees.insert(root);
+        self.relink_machine_hive()?;
         Ok(self)
     }
     pub(super) fn tree_lookup(&self, name: &[u16], original: &[u16]) -> Lookup {
@@ -172,7 +212,7 @@ impl Registry {
             // The supplied case table need not be assumed idempotent here.
             return root.relative(&original[prefix.len()..]);
         }
-        if let Some(prefix) = &self.user_policy {
+        for prefix in self.user_policies.values() {
             if name == prefix.as_ref() {
                 return Lookup::Missing;
             }
@@ -186,22 +226,62 @@ impl Registry {
         Lookup::Unselected
     }
 }
-fn charge_key(key: &Key, budget: &mut ValueBudget) -> io::Result<()> {
+pub(super) fn charge_key(
+    key: &Arc<Key>,
+    budget: &mut ValueBudget,
+    seen: &mut BTreeSet<usize>,
+) -> io::Result<()> {
+    if !seen.insert(Arc::as_ptr(key) as usize) {
+        return Ok(());
+    }
+    if let Some(children) = &key.enumeration {
+        budget.charge_enumeration(children)?;
+    }
     for value in key.values.values() {
         budget.charge(value)?;
     }
     if let Some((_, Some(child))) = &key.selected_child {
-        charge_key(child, budget)?;
+        charge_key(child, budget, seen)?;
+    }
+    for child in key.selected_paths.values().flatten() {
+        charge_key(child, budget, seen)?;
     }
     if let Some(children) = &key.subkeys {
         for child in children.values() {
-            charge_key(child, budget)?;
+            charge_key(child, budget, seen)?;
         }
     }
     Ok(())
 }
 impl Key {
     pub(crate) fn relative(self: &Arc<Self>, name: &[u16]) -> Lookup {
+        if self.machine.is_some() || self.root_views.is_some() {
+            return self.relative_in_view(name, RegistryView::Native64);
+        }
+        self.relative_selected(name)
+    }
+    pub(super) fn relative_selected(self: &Arc<Self>, name: &[u16]) -> Lookup {
+        if !self.selected_paths.is_empty() {
+            let mut normalized = Vec::with_capacity(name.len());
+            for component in name.split(|u| *u == 92).filter(|part| !part.is_empty()) {
+                if !normalized.is_empty() {
+                    normalized.push(92);
+                }
+                normalized.extend_from_slice(component);
+            }
+            let folded = self.fold(&normalized);
+            for (selected, child) in &self.selected_paths {
+                if folded.starts_with(selected)
+                    && (folded.len() == selected.len()
+                        || normalized.get(selected.len()) == Some(&92))
+                {
+                    return match child {
+                        Some(child) => child.relative(&normalized[selected.len()..]),
+                        None => Lookup::Missing,
+                    };
+                }
+            }
+        }
         let mut key = self.clone();
         // Native registry opens ignore repeated and trailing separators.
         // Dot components and '/' remain literal registry names.
@@ -238,6 +318,7 @@ pub(super) fn build(
     depth: usize,
     values: &mut ValueBudget,
     metadata: &mut TreeBudget,
+    redirected_view: Option<RegistryView>,
 ) -> io::Result<Arc<Key>> {
     metadata.charge(&path, depth)?;
     if tree.children.len() >= MAX_TREE_KEYS {
@@ -245,18 +326,33 @@ pub(super) fn build(
     }
     let raw_values = bounded_values(&upcase, tree.values, values)?;
     let mut key = Key {
+        enumeration: None,
         path,
+        redirected_view,
         children: tree.children.len() as u32,
         upcase,
         values: Arc::new(raw_values),
         subkeys: None,
         selected_child: None,
+        selected_paths: BTreeMap::new(),
+        command_access: None,
+        logical_path: None,
+        root_views: None,
+        machine: None,
     };
     let mut children = BTreeMap::new();
     for (name, child) in tree.children {
         let path = child_path(&key.path, &name)?;
         let name = key.fold(&name);
-        let child = build(key.upcase.clone(), path, child, depth + 1, values, metadata)?;
+        let child = build(
+            key.upcase.clone(),
+            path,
+            child,
+            depth + 1,
+            values,
+            metadata,
+            redirected_view,
+        )?;
         if children.insert(name, child).is_some() {
             return Err(invalid("duplicate ordinal runtime registry child"));
         }

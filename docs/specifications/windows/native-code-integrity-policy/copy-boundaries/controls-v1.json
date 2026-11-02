@@ -1,0 +1,93 @@
+{
+  "source_hashes": {
+    "docs/specifications/windows/native-code-integrity-policy/copy-boundaries/CMakeLists.txt": "f070e2e721df6ed5006bc8fedd413006ee3ae0ebbedc40f63c3e00e02a164b82",
+    "docs/specifications/windows/native-code-integrity-policy/copy-boundaries/probe-v1.c": "cefcbdb03e120b420bf267feb47b48cb6c894f41d20e4ad7cb52e0a64d659d00"
+  },
+  "reports": [
+    {
+      "architecture": "arm64",
+      "machine": 43620,
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 124,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-copy-boundaries-v1\\artifacts\\native-policy-copy-boundaries-arm64.exe",
+        "bytes": 12800,
+        "sha256": "fdc0248196895a41ec7f45e33041a62d3c90c6bde87c78abac9a3425426d5de5"
+      },
+      "stdout_sha256": "2e0f5f6e31d1eca86e68cfca274459f87504f1db8cdabaa88245acb624081361",
+      "provider": {
+        "path": "C:\\Windows\\System32\\ntdll.dll",
+        "logical_path": null,
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+        "after_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e"
+      },
+      "exit_code": 0,
+      "seconds": 0.052723374999914085
+    },
+    {
+      "architecture": "x64",
+      "machine": 34404,
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 124,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-copy-boundaries-v1\\artifacts\\native-policy-copy-boundaries-x64.exe",
+        "bytes": 12800,
+        "sha256": "58146d6e6653facb5ba9c2720fa5fa16b1bc1003ae1b56ba27fadb0ad48cba2e"
+      },
+      "stdout_sha256": "2e0f5f6e31d1eca86e68cfca274459f87504f1db8cdabaa88245acb624081361",
+      "provider": {
+        "path": "C:\\Windows\\System32\\ntdll.dll",
+        "logical_path": null,
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+        "after_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e"
+      },
+      "exit_code": 0,
+      "seconds": 0.046563666001020465
+    },
+    {
+      "architecture": "x86",
+      "machine": 332,
+      "pointer_bytes": 4,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 124,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\code-integrity-policy-copy-boundaries-v1\\artifacts\\native-policy-copy-boundaries-x86.exe",
+        "bytes": 11264,
+        "sha256": "f74bf91cea9785356cc17f8c439bce5f2edd14d1deb3bb4256f22787326238eb"
+      },
+      "stdout_sha256": "44e1ce05f928746afe48726d50d4d409ddf04755228f966008313daa9a7b87ba",
+      "provider": {
+        "path": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "logical_path": null,
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925",
+        "after_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925"
+      },
+      "exit_code": 0,
+      "seconds": 0.07062724999923375
+    }
+  ],
+  "records": 372,
+  "inputs_unchanged": true,
+  "schema": "rax-native-policy-copy-boundaries-v1",
+  "purpose": "Independently check partial-store behavior at all31 interior byte positions; not included in the original8748-case guest replay."
+}

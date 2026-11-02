@@ -49,37 +49,41 @@ fn installed_user_policy_snapshot_matches_primary_sid_and_native_views() {
     };
     let runtime = crate::user::windows::native::NativeRuntime::select(arch).unwrap();
     let subject = runtime.wnf_catalog.primary_subject().unwrap();
-    let mut relative = native_sid_text(&subject.user);
-    relative
-        .extend("\\Software\\Policies\\Microsoft\\Windows\\Safer\\CodeIdentifiers".encode_utf16());
-    let guest: Vec<_> = "\\Registry\\User\\"
-        .encode_utf16()
-        .chain(relative.iter().copied())
-        .collect();
-    relative.push(0);
-    for view in [0, 0x100, 0x200] {
-        let mut handle = null_mut();
-        // SAFETY: fixed policy suffix below independently queried primary SID;
-        // query/enumerate only, terminated UTF16 and exclusive native output.
-        let status = unsafe {
-            RegOpenKeyExW(
-                (-2_147_483_645isize) as Hkey,
-                relative.as_ptr(),
-                0,
-                9 | view,
-                &mut handle,
-            )
-        };
-        if status == 2 {
-            assert!(matches!(
-                runtime.registry.lookup(&guest),
-                super::super::Lookup::Missing
-            ));
-        } else {
-            assert_eq!(status, 0);
-            let native = OwnedKey(handle);
-            assert!(runtime.registry.key(&guest).is_some());
-            super::tests::check_ifeo(&runtime.registry, &native, &guest, 0);
+    for suffix in [
+        "\\Software\\Policies\\Microsoft\\Windows\\Safer\\CodeIdentifiers",
+        "\\Software\\Policies\\Microsoft\\Windows\\System",
+    ] {
+        let mut relative = native_sid_text(&subject.user);
+        relative.extend(suffix.encode_utf16());
+        let guest: Vec<_> = "\\Registry\\User\\"
+            .encode_utf16()
+            .chain(relative.iter().copied())
+            .collect();
+        relative.push(0);
+        for view in [0, 0x100, 0x200] {
+            let mut handle = null_mut();
+            // SAFETY: fixed policy suffix below independently queried primary SID;
+            // query/enumerate only, terminated UTF16 and exclusive native output.
+            let status = unsafe {
+                RegOpenKeyExW(
+                    (-2_147_483_645isize) as Hkey,
+                    relative.as_ptr(),
+                    0,
+                    9 | view,
+                    &mut handle,
+                )
+            };
+            if status == 2 {
+                assert!(matches!(
+                    runtime.registry.lookup(&guest),
+                    super::super::Lookup::Missing
+                ));
+            } else {
+                assert_eq!(status, 0);
+                let native = OwnedKey(handle);
+                assert!(runtime.registry.key(&guest).is_some());
+                super::tests::check_ifeo(&runtime.registry, &native, &guest, 0);
+            }
         }
     }
 }
@@ -120,33 +124,37 @@ fn installed_user_policy_present_capture_reads_controlled_primary_user_environme
         .chain(sid_text)
         .chain("\\Environment".encode_utf16())
         .collect();
-    let policy = super::super::user_policy_path(&subject.user).unwrap();
-    // SAFETY: pure native one-WCHAR ordinal lookup, with no pointers retained.
-    let upcase = (0..=u16::MAX)
-        .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
-        .collect();
-    let registry = Registry::selected(upcase, vec![]).unwrap();
-    let captured = tree::capture_path_with(&registry, policy.clone(), |requested| {
-        assert!(requested.starts_with(&policy));
-        let path: Vec<_> = fixture
-            .iter()
-            .copied()
-            .chain(requested[policy.len()..].iter().copied())
+    for selection in super::super::UserPolicyRoot::ALL {
+        let policy = selection.path(&subject.user).unwrap();
+        // SAFETY: pure native one-WCHAR ordinal lookup, with no pointers retained.
+        let upcase = (0..=u16::MAX)
+            .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
             .collect();
-        user_policy::open(&fixture, &path)
-    })
-    .unwrap()
-    .expect("native read-only per-user Environment fixture is present");
-    let selected = registry
-        .with_user_policy(&subject.user, Some(captured))
-        .unwrap();
-    let native = user_policy::open(&fixture, &fixture).unwrap();
-    let (keys, values, bytes) = super::tests::check_ifeo(&selected, &native, &policy, 0);
-    assert!(
-        keys >= 1 && values > 0,
-        "controlled fixture must retain actual native values"
-    );
-    eprintln!("native controlled user policy capture: {keys} keys, {values} values, {bytes} bytes");
+        let registry = Registry::selected(upcase, vec![]).unwrap();
+        let captured = tree::capture_path_with(&registry, policy.clone(), |requested| {
+            assert!(requested.starts_with(&policy));
+            let path: Vec<_> = fixture
+                .iter()
+                .copied()
+                .chain(requested[policy.len()..].iter().copied())
+                .collect();
+            user_policy::open(&fixture, &path)
+        })
+        .unwrap()
+        .expect("native read-only per-user Environment fixture is present");
+        let selected = registry
+            .with_user_policy_root(selection, &subject.user, Some(captured))
+            .unwrap();
+        let native = user_policy::open(&fixture, &fixture).unwrap();
+        let (keys, values, bytes) = super::tests::check_ifeo(&selected, &native, &policy, 0);
+        assert!(
+            keys >= 1 && values > 0,
+            "controlled fixture must retain actual native values"
+        );
+        eprintln!(
+            "native controlled user policy capture: {keys} keys, {values} values, {bytes} bytes"
+        );
+    }
     for outside in [
         "\\Registry\\Machine\\Software",
         "\\Registry\\User\\S-1-5-19\\Environment",

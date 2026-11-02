@@ -9,6 +9,7 @@
 use crate::host::time::{Duration, Instant};
 
 use super::RESTART;
+use super::dump;
 use super::kmsg::{self, UserHeader};
 use crate::user::darwin::mach::ipc::{KObject, MACH_PORT_NULL, Object, PortName, disp};
 use crate::user::darwin::mach::kr::{self, KernReturn};
@@ -450,6 +451,9 @@ fn do_send(
         };
     }
 
+    // Dumped once the send no longer waits, while the sender's memory is
+    // as it sent it (copy-in may deallocate it).
+    dump::send(ctx, &raw, s.dsc_count, &aux);
     let sender = sender(ctx);
     let mut m = match kmsg::copyin(ctx, &h, &raw, s.dsc_count, options, sender) {
         Ok(m) => m,
@@ -653,20 +657,7 @@ fn receive_from(
     let trailer = msg::trailer(options, seqno, &sender, context);
     let room = r.size as usize - out.len();
     out.extend_from_slice(&trailer[..trailer.len().min(room)]);
-    if ctx.proc.config.strace {
-        let w = |o: usize| u32::from_le_bytes(out[o..o + 4].try_into().expect("header"));
-        eprintln!(
-            "[{:#x}]   received bits={:#x} size={} remote={:#x} local={:#x} voucher={:#x} id={} ({} bytes with trailer)",
-            ctx.thread.tid,
-            w(0),
-            w(4),
-            w(8),
-            w(12),
-            w(16),
-            w(20) as i32,
-            out.len()
-        );
-    }
+    dump::received(ctx, &out, &aux, &sender);
     let trailer_len = out.len() - msize.min(out.len());
     if ctx.write(msg_addr, &out).is_err() {
         return done(kr::MACH_RCV_INVALID_DATA, 0, 0, 0);

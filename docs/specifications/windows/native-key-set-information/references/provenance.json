@@ -1,0 +1,7 @@
+{
+  "url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ne-wdm-_key_set_information_class",
+  "retrieved_utc": "2026-10-29T12:00:38.079155+00:00",
+  "sha256": "4a8afe8d6cfbb9ba4e22f0461fec38b90883c642598129cc56a2f02cf473cd39",
+  "bytes": 51164,
+  "scope": "Official enum declaration identifies class5 KeySetHandleTagsInformation; its behavior is reserved, so native controls own measured status/copy/lifetime semantics."
+}

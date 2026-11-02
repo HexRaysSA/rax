@@ -1,0 +1,98 @@
+[
+  {
+    "directory": "nt-query-key-probe-v2",
+    "label": "arm64",
+    "pe_machine": 43620,
+    "observation": {
+      "kind": "machine",
+      "pointer_bytes": 8,
+      "native_machine": 43620,
+      "process_machine": 0
+    },
+    "sha256": "ce5c8c04dc3db297fa4fb0dbcc3dfd41a1ad3dbe36480fe8ba2a60e60ba2b951"
+  },
+  {
+    "directory": "nt-query-key-probe-v2",
+    "label": "x64",
+    "pe_machine": 34404,
+    "observation": {
+      "kind": "machine",
+      "pointer_bytes": 8,
+      "native_machine": 43620,
+      "process_machine": 0
+    },
+    "sha256": "65160378c4e4ef4e3a374d6b5fc959dc15dee1b51fa9f4fdbda427acbdfedd70"
+  },
+  {
+    "directory": "nt-query-key-probe-v2",
+    "label": "x86",
+    "pe_machine": 332,
+    "observation": {
+      "kind": "machine",
+      "pointer_bytes": 4,
+      "native_machine": 43620,
+      "process_machine": 332
+    },
+    "sha256": "75d4db62e726c8f8cf0c7afff86801c17ffa29c3ba8c92adbd87f5d91fb18aa5"
+  },
+  {
+    "directory": "nt-query-key-probe-v2",
+    "label": "x86-laa",
+    "pe_machine": 332,
+    "observation": {
+      "kind": "machine",
+      "pointer_bytes": 4,
+      "native_machine": 43620,
+      "process_machine": 332
+    },
+    "sha256": "90c7815833ece595ee3cd569185ac7b7d65f3880e16d8f4c268ec7f398073a9f"
+  },
+  {
+    "directory": "nt-query-key-probe-v4",
+    "label": "arm64",
+    "pe_machine": 43620,
+    "observation": {
+      "kind": "machine",
+      "pointer_bytes": 8,
+      "native_machine": 43620,
+      "process_machine": 0
+    },
+    "sha256": "18b5a6ceec160e33978d960515988127ee2f4da3ead16a0c32bac6ff939291f5"
+  },
+  {
+    "directory": "nt-query-key-probe-v4",
+    "label": "x64",
+    "pe_machine": 34404,
+    "observation": {
+      "kind": "machine",
+      "pointer_bytes": 8,
+      "native_machine": 43620,
+      "process_machine": 0
+    },
+    "sha256": "9c17a9b08f7a3abfe1df632dc97b778d12f45d40a6629aedf0ea1991e352a8ab"
+  },
+  {
+    "directory": "nt-query-key-probe-v4",
+    "label": "x86",
+    "pe_machine": 332,
+    "observation": {
+      "kind": "machine",
+      "pointer_bytes": 4,
+      "native_machine": 43620,
+      "process_machine": 332
+    },
+    "sha256": "0fdb7f8c0bccb738eed9d3bc549539a10395295ca947924a85ad1e21ef142e1a"
+  },
+  {
+    "directory": "nt-query-key-probe-v4",
+    "label": "x86-laa",
+    "pe_machine": 332,
+    "observation": {
+      "kind": "machine",
+      "pointer_bytes": 4,
+      "native_machine": 43620,
+      "process_machine": 332
+    },
+    "sha256": "b002a6818cb323688d4a4371778ca73d53edbd041a17055601f10840696bb682"
+  }
+]

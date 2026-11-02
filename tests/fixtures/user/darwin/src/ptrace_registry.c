@@ -89,6 +89,23 @@ static volatile sig_atomic_t continued;
 static void catch_continue(int signal_number) { (void)signal_number;continued=1; }
 static void finish(int signal_number) { (void)signal_number; finished = 1; }
 
+static int wait_for_finish(int spin, int pending) {
+    if (spin) {
+        while (!finished) __asm__ volatile("" ::: "memory");
+        return 0;
+    }
+    sigset_t blocked, previous;
+    if (sigemptyset(&blocked) || sigaddset(&blocked, SIGUSR1) ||
+        sigprocmask(SIG_BLOCK, &blocked, &previous)) return 86;
+    /* The regression queues SIGUSR1 inside the same protected transition
+       used by the independently traced target. */
+    if (pending && kill(getpid(), SIGUSR1)) return 87;
+    while (!finished) {
+        if (sigsuspend(&previous) != -1 || errno != EINTR) return 88;
+    }
+    return sigprocmask(SIG_SETMASK, &previous, NULL) ? 89 : 0;
+}
+
 static int exited(pid_t pid) {
     int status = 0;
     pid_t waited = waitpid(pid, &status, 0);
@@ -106,10 +123,10 @@ int main(int argc, char **argv) {
         fflush(stdout);
         if (strncmp(argv[1],"target-stopped",14)==0 || strcmp(argv[1],"target-native-continue")==0) raise(SIGSTOP);
         if (strcmp(argv[1],"target-native-continue")==0) return continued ? 42 : 85;
-        while (!finished) {
-            if (strstr(argv[1],"spin")) __asm__ volatile("" ::: "memory");
-            else pause();
-        }
+        int pending_finish = strcmp(argv[1], "target-pending-finish") == 0;
+        int waited = wait_for_finish(strstr(argv[1], "spin") != NULL, pending_finish);
+        if (waited) return waited;
+        if (pending_finish) return 42;
         if (strstr(argv[1],"catch") && continued) return 85;
         int restored = strcmp(argv[1], "target-detach") == 0;
         return (getppid() == original_parent) == restored ? 42 : 83;

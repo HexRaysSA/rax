@@ -2,6 +2,9 @@
 use super::*;
 use crate::user::windows::process::{WindowsConfig, WindowsProcess};
 
+#[path = "token_statistics_tests.rs"]
+mod statistics;
+
 #[path = "token_session_id_tests.rs"]
 mod session_id;
 

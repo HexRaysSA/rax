@@ -1,0 +1,23 @@
+{
+  "source_hashes": {
+    "docs/specifications/windows/native-code-integrity-policy/wow64-entry/CMakeLists.txt": "f179821d194ba05268bd9e2438a4572ab0004b359878d7b1ecc9b719753df694",
+    "docs/specifications/windows/native-code-integrity-policy/wow64-entry/probe-v1.c": "318424c188f14553523e228a1dc3ab92197372934740917fcdedae6b129bd526"
+  },
+  "image_sha256": "fe62d111ddffed76311d3eda32381e82072e10163867bdc817789a9cdba2b1a0",
+  "observer_sha256": "fe62d111ddffed76311d3eda32381e82072e10163867bdc817789a9cdba2b1a0",
+  "provider_path": "C:\\Windows\\SyChpe32\\ntdll.dll",
+  "provider_before_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925",
+  "provider_after_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925",
+  "kernel": [
+    10,
+    0,
+    29695
+  ],
+  "stdout_sha256": "4255cbc2b12b70c9a28f266d3d5894921870c779aff84a16677627e47c796fd2",
+  "inputs_unchanged": true,
+  "schema": "rax-native-policy-wow64-entry-v1",
+  "records": 9,
+  "query": "NtWow64GetNativeSystemInformation",
+  "process_abi": "x86",
+  "scope": "One ARM64 Windows10.0.29695 kernel; class164 invalid-before-probe controls and class0 length44 control."
+}

@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.20)
+project(rax_native_policy_copy_boundaries LANGUAGES C)
+if(NOT WIN32 OR NOT MSVC)
+    message(FATAL_ERROR "This observer requires native Windows and MSVC")
+endif()
+add_executable(rax_native_policy_copy_boundaries probe-v1.c)
+target_compile_features(rax_native_policy_copy_boundaries PRIVATE c_std_11)
+target_compile_options(rax_native_policy_copy_boundaries PRIVATE /W4 /utf-8)
+target_link_libraries(rax_native_policy_copy_boundaries PRIVATE psapi)
+file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/probe-paths-$<CONFIG>.txt"
+    CONTENT "$<TARGET_FILE:rax_native_policy_copy_boundaries>\n")

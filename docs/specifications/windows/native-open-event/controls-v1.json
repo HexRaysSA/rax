@@ -1,0 +1,93 @@
+{
+  "schema": "rax-native-open-event-v1",
+  "state": "complete",
+  "source_hashes": {
+    "native-open-event/CMakeLists.txt": "a07764e60fdac9be766f33a18e4eef2deb02c5b73a27b39926a8245f436105b6",
+    "native-open-event/probe-v1.c": "bb9737db555270ba1aaa07279d4380ad9c7842de1867cc0d8fcd95de61247db0"
+  },
+  "reports": [
+    {
+      "architecture": "arm64",
+      "file": "arm64.jsonl",
+      "stdout_sha256": "07d17e5c01893e7bbe5d5daa4e7f1b3bc1d2f1dd0f6aa8638d8f6e6063e82668",
+      "image": {
+        "bytes": 19456,
+        "sha256": "5bee174b836cde460f6883dded1fbafd915bb67380ff58a6469e8311b324b002"
+      },
+      "machine": 43620,
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 507,
+      "provider": {
+        "path": "C:\\Windows\\System32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+        "after_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e"
+      },
+      "handles_before": 44,
+      "handles_after": 44,
+      "exit_code": 0
+    },
+    {
+      "architecture": "x64",
+      "file": "x64.jsonl",
+      "stdout_sha256": "b1c21054b1e011f42205fa2d3e0ccb09944e3d80c7c4807a5a4477ff1ba3d557",
+      "image": {
+        "bytes": 19456,
+        "sha256": "acbf44536dfe61aa28e1e758a04732c63c5a269d688f2782d9fc76e682a48a42"
+      },
+      "machine": 34404,
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 507,
+      "provider": {
+        "path": "C:\\Windows\\System32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "resolved_with": "GetMappedFileNameW and QueryDosDeviceW",
+        "before_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+        "after_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e"
+      },
+      "handles_before": 69,
+      "handles_after": 69,
+      "exit_code": 0
+    },
+    {
+      "architecture": "x86",
+      "file": "x86.jsonl",
+      "stdout_sha256": "59672f722a003788d0517d38e6924a83263cfef4e3d29081b98da59e58af0d2a",
+      "image": {
+        "bytes": 17408,
+        "sha256": "cb2cb83e4b63cd48feb73bfe508d2a7f956c8d10661ca90ba3a0ef313579a906"
+      },
+      "machine": 332,
+      "pointer_bytes": 4,
+      "kernel": [
+        10,
+        0,
+        29695
+      ],
+      "records": 507,
+      "provider": {
+        "path": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+        "before_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925",
+        "after_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925"
+      },
+      "handles_before": 86,
+      "handles_after": 86,
+      "exit_code": 0
+    }
+  ]
+}

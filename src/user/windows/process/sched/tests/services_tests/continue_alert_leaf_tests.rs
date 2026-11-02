@@ -1,6 +1,7 @@
 //! Actual installed NtContinue leaves resume the supplied target, including
 //! owned CPU APC callbacks, without executing the leaf's normal return.
 use super::*;
+use crate::user::windows::process::thread::UserApc;
 use crate::user::windows::{
     context::RegContext,
     layout,
@@ -133,7 +134,11 @@ fn native_continue_alert_installed_leaves_execute_callbacks_against_the_replaced
         for alerted in [false, true] {
             p.space.w32(error, 0xC0DE).unwrap();
             p.space.w32(counter, 0).unwrap();
-            t.apcs.extend([(callback, counter), (callback, counter)]);
+            t.apcs.extend(
+                [(callback, counter), (callback, counter)]
+                    .into_iter()
+                    .map(UserApc::from),
+            );
             t.user_alerted = alerted;
             invoke(p, &mut t, entry, address, 0, &target);
             assert_eq!(t.user_alerted, alerted);
@@ -185,7 +190,7 @@ fn native_continue_alert_installed_leaves_execute_callbacks_against_the_replaced
         };
         p.vm.poke(callback, &abandon).unwrap();
         p.space.w32(counter, 0).unwrap();
-        t.apcs.push_back((callback, address));
+        t.apcs.push_back((callback, address).into());
         invoke(p, &mut t, entry, address, 1, &target);
         assert_eq!(p.space.u32(counter).unwrap(), 1);
         assert!(t.frames.is_empty());

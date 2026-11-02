@@ -1,0 +1,1745 @@
+ <!DOCTYPE html>
+		<html
+			class="layout layout-holy-grail   show-table-of-contents conceptual show-breadcrumb default-focus"
+			lang="en-us"
+			dir="ltr"
+			data-authenticated="false"
+			data-auth-status-determined="false"
+			data-target="docs"
+			x-ms-format-detection="none"
+		>
+			
+		<head>
+			<title>CreateProcessAsUserW function (processthreadsapi.h) - Win32 apps | Microsoft Learn</title>
+			<meta charset="utf-8" />
+			<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+			<meta name="color-scheme" content="light dark" />
+
+			<meta name="description" content="Creates a new process and its primary thread. The new process runs in the security context of the user represented by the specified token. (Unicode)" />
+			<link rel="canonical" href="https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessasuserw" /> 
+
+			<!-- Non-customizable open graph and sharing-related metadata -->
+			<meta name="twitter:card" content="summary_large_image" />
+			<meta name="twitter:site" content="@MicrosoftLearn" />
+			<meta property="og:type" content="website" />
+			<meta property="og:image:alt" content="Microsoft Learn" />
+			<meta property="og:image" content="https://learn.microsoft.com/en-us/media/open-graph-image.png" />
+			<!-- Page specific open graph and sharing-related metadata -->
+			<meta property="og:title" content="CreateProcessAsUserW function (processthreadsapi.h) - Win32 apps" />
+			<meta property="og:url" content="https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessasuserw" />
+			<meta property="og:description" content="Creates a new process and its primary thread. The new process runs in the security context of the user represented by the specified token. (Unicode)" />
+			<meta name="platform_id" content="c792d8fd-e5fc-d301-814f-fdd428660eaf" /> <meta name="scope" content="Windows,Desktop" />
+			<meta name="locale" content="en-us" />
+			 
+			<meta name="uhfHeaderId" content="MSDocsHeader-WinDevCenter" />
+
+			<meta name="page_type" content="conceptual" />
+
+			<!--page specific meta tags-->
+			
+
+			<!-- custom meta tags -->
+			
+		<meta name="adobe-target" content="true" />
+	
+		<meta name="breadcrumb_path" content="/windows/desktop/api/breadcrumb/toc.json" />
+	
+		<meta name="ms.service" content="windows-api-desktop-tech" />
+	
+		<meta name="ms.subservice" content="sdk-api-reference" />
+	
+		<meta name="ms.topic" content="reference" />
+	
+		<meta name="ms.author" content="kbridge" />
+	
+		<meta name="author" content="karl-bridge-microsoft" />
+	
+		<meta name="feedback_system" content="Standard" />
+	
+		<meta name="feedback_product_url" content="https://www.microsoft.com/en-us/windowsinsider/feedbackhub/fb" />
+	
+		<meta name="feedback_help_link_url" content="https://learn.microsoft.com/answers/tags/224/windows-api-win32/" />
+	
+		<meta name="feedback_help_link_type" content="get-help-at-qna" />
+	
+		<meta name="UID" content="NF:processthreadsapi.CreateProcessAsUserW" />
+	
+		<meta name="old-location" content="base\createprocessasuser.htm" />
+	
+		<meta name="tech.root" content="processthreadsapi" />
+	
+		<meta name="ms.assetid" content="6b3f4dd9-500b-420e-804a-401a9e188be8" />
+	
+		<meta name="ms.date" content="2018-12-05T00:00:00Z" />
+	
+		<meta name="ms.keywords" content="CreateProcessAsUser, CreateProcessAsUser function, CreateProcessAsUserA, CreateProcessAsUserW, _win32_createprocessasuser, base.createprocessasuser, processthreadsapi/CreateProcessAsUser, processthreadsapi/CreateProcessAsUserA, processthreadsapi/CreateProcessAsUserW" />
+	
+		<meta name="req.header" content="processthreadsapi.h" />
+	
+		<meta name="req.include-header" content="Windows.h" />
+	
+		<meta name="req.target-type" content="Windows" />
+	
+		<meta name="req.target-min-winverclnt" content="Windows XP [desktop apps only]" />
+	
+		<meta name="req.target-min-winversvr" content="Windows Server 2003 [desktop apps only]" />
+	
+		<meta name="req.kmdf-ver" content="" />
+	
+		<meta name="req.umdf-ver" content="" />
+	
+		<meta name="req.ddi-compliance" content="" />
+	
+		<meta name="req.unicode-ansi" content="CreateProcessAsUserW (Unicode) and CreateProcessAsUserA (ANSI)" />
+	
+		<meta name="req.idl" content="" />
+	
+		<meta name="req.max-support" content="" />
+	
+		<meta name="req.namespace" content="" />
+	
+		<meta name="req.assembly" content="" />
+	
+		<meta name="req.type-library" content="" />
+	
+		<meta name="req.lib" content="Advapi32.lib" />
+	
+		<meta name="req.dll" content="Advapi32.dll" />
+	
+		<meta name="req.irql" content="" />
+	
+		<meta name="targetos" content="Windows" />
+	
+		<meta name="req.typenames" content="" />
+	
+		<meta name="req.redist" content="" />
+	
+		<meta name="ms.custom" content="19H1" />
+	
+		<meta name="TopicType" content="APIRef" />
+	
+		<meta name="TopicType" content="kbSyntax" />
+	
+		<meta name="APIType" content="DllExport" />
+	
+		<meta name="APILocation" content="api-ms-win-core-processthreads-l1-1-8.dll" />
+	
+		<meta name="APILocation" content="api-ms-win-core-processthreads-l1-1-7.dll" />
+	
+		<meta name="APILocation" content="api-ms-win-core-processthreads-l1-1-6.dll" />
+	
+		<meta name="APILocation" content="api-ms-win-core-processthreads-l1-1-5.dll" />
+	
+		<meta name="APILocation" content="api-ms-win-core-processthreads-l1-1-4.dll" />
+	
+		<meta name="APILocation" content="Advapi32.dll" />
+	
+		<meta name="APILocation" content="API-MS-Win-Core-Processsecurity-l1-1-0.dll" />
+	
+		<meta name="APILocation" content="Kernel32.dll" />
+	
+		<meta name="APILocation" content="KernelBase.dll" />
+	
+		<meta name="APILocation" content="API-MS-Win-Core-Processthreads-l1-1-0.dll" />
+	
+		<meta name="APILocation" content="API-MS-Win-Core-Processthreads-l1-1-1.dll" />
+	
+		<meta name="APILocation" content="API-MS-Win-Core-Processthreads-l1-1-2.dll" />
+	
+		<meta name="APILocation" content="API-MS-Win-DownLevel-AdvApi32-l1-1-0.dll" />
+	
+		<meta name="APILocation" content="API-MS-Win-DownLevel-AdvApi32-l1-1-1.dll" />
+	
+		<meta name="APILocation" content="MinKernelBase.dll" />
+	
+		<meta name="APILocation" content="API-MS-Win-Core-ProcessThreads-L1-1-3.dll" />
+	
+		<meta name="APIName" content="CreateProcessAsUser" />
+	
+		<meta name="APIName" content="CreateProcessAsUserA" />
+	
+		<meta name="APIName" content="CreateProcessAsUserW" />
+	
+		<meta name="document_id" content="89c102b1-a8bb-d88d-73c5-0faaddd0a260" />
+	
+		<meta name="document_version_independent_id" content="ba59e42a-5040-6e39-12bf-0a6595da6a8e" />
+	
+		<meta name="updated_at" content="2025-07-01T18:41:00Z" />
+	
+		<meta name="original_content_git_url" content="https://cpubwin.visualstudio.com/DefaultCollection/win32/_git/sdk-api-build?path=/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-createprocessasuserw.md&amp;version=GBlive&amp;_a=contents" />
+	
+		<meta name="gitcommit" content="https://cpubwin.visualstudio.com/DefaultCollection/win32/_git/sdk-api-build/commit/fa53641576e3603fa7b66d3a4ad969d3ce49d6f3?path=/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-createprocessasuserw.md&amp;_a=contents" />
+	
+		<meta name="git_commit_id" content="fa53641576e3603fa7b66d3a4ad969d3ce49d6f3" />
+	
+		<meta name="site_name" content="Docs" />
+	
+		<meta name="depot_name" content="MSDN.sdk-api-build" />
+	
+		<meta name="schema" content="Conceptual" />
+	
+		<meta name="toc_rel" content="../_processthreadsapi/toc.json" />
+	
+		<meta name="pdf_url_template" content="https://learn.microsoft.com/pdfstore/en-us/MSDN.sdk-api-build/{branchName}{pdfName}" />
+	
+		<meta name="search.mshattr.devlang" content="c++" />
+	
+		<meta name="word_count" content="3021" />
+	
+		<meta name="asset_id" content="processthreadsapi/nf-processthreadsapi-createprocessasuserw" />
+	
+		<meta name="moniker_range_name" content="" />
+	
+		<meta name="item_type" content="Content" />
+	
+		<meta name="source_path" content="sdk-api-src/content/processthreadsapi/nf-processthreadsapi-createprocessasuserw.md" />
+	
+		<meta name="previous_tlsh_hash" content="BFC6D492A71ED701EFC25E19185FDD5413F0C2C9BBA0BA6405293554825D2FB71F45A8FABA176B8C23B201C311A2761FE2E7DBAA80BC33B551B09CE9C1482B55A7943FB7FA" />
+	
+		<meta name="github_feedback_content_git_url" content="https://github.com/MicrosoftDocs/sdk-api/blob/docs/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-createprocessasuserw.md" />
+	
+		<meta name="markdown_url" content="https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessasuserw?accept=text/markdown" />
+	 
+		<meta name="cmProducts" content="https://authoring-docs-microsoft.poolparty.biz/devrel/540ac133-a371-4dbb-8f94-28d6cc77a70b" data-source="generated" />
+	
+		<meta name="cmProducts" content="https://authoring-docs-microsoft.poolparty.biz/devrel/bcbcbad5-4208-4783-8035-8481272c98b8" data-source="generated" />
+	
+		<meta name="spProducts" content="https://authoring-docs-microsoft.poolparty.biz/devrel/60bfc045-f127-4841-9d00-ea35495a5800" data-source="generated" />
+	
+		<meta name="spProducts" content="https://authoring-docs-microsoft.poolparty.biz/devrel/43b2e5aa-8a6d-4de2-a252-692232e5edc8" data-source="generated" />
+	
+
+			<!-- Apply persisted/system theme before first paint to prevent wrong-theme flash when scripts are deferred. -->
+			<script id="theme-preference">
+				(function () {
+			try {
+				var stored = localStorage.getItem('theme');
+				var theme = /^(light|dark|high-contrast)$/.test(stored)
+					? stored
+					: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+				document.documentElement.classList.add('theme-' + theme);
+			} catch (e) {}
+		})();;
+			</script>
+
+			<script id="atlas-layout-preferences">
+				(function () {
+			try {
+				var state = JSON.parse(localStorage.getItem('atlas-layout-preferences') || '{}');
+				var view = state["docs-layout-persistence"] || {};
+				var excludesKey = "";
+				var blocked = {};
+				if (excludesKey) {
+					var exclusions = JSON.parse(localStorage.getItem('atlas-layout-exclusions') || '{}');
+					if (Object.prototype.hasOwnProperty.call(exclusions, excludesKey)) {
+						var scoped = exclusions[excludesKey];
+						if (scoped) {
+							if (typeof scoped === 'object') blocked = scoped;
+						}
+					}
+				}
+				var html = document.documentElement;
+				for (var c in view) {
+					if (Object.prototype.hasOwnProperty.call(blocked, c)) continue;
+					if (view[c]) html.classList.add(c);
+					else html.classList.remove(c);
+				}
+			} catch (e) {}
+		})();;
+			</script>
+
+			<!-- assets and js globals -->
+			
+			<link rel="stylesheet" href="/static/assets/0.4.03585.8329-a252cb59/styles/site.css" />
+			
+			<script src="https://wcpstatic.microsoft.com/mscc/lib/v2/wcp-consent.js"></script>
+			<!-- Keep this URL in sync with oneDSScriptSelector in instrumentation/one-ds.ts. -->
+			<script async src="https://js.monitor.azure.com/scripts/c/ms.jsll-4.min.js"></script>
+			
+
+			<!-- msdocs global object -->
+			<script id="msdocs-script">
+		var msDocs = {
+  "environment": {
+    "accessLevel": "online",
+    "azurePortalHostname": "portal.azure.com",
+    "reviewFeatures": false,
+    "supportLevel": "production",
+    "systemContent": true,
+    "siteName": "learn",
+    "legacyHosting": false
+  },
+  "data": {
+    "contentLocale": "en-us",
+    "contentDir": "ltr",
+    "userLocale": "en-us",
+    "userDir": "ltr",
+    "pageTemplate": "Conceptual",
+    "layoutStateStorageKey": "docs-layout-persistence",
+    "brand": "",
+    "context": {},
+    "standardFeedback": true,
+    "showFeedbackReport": false,
+    "feedbackHelpLinkType": "get-help-at-qna",
+    "feedbackHelpLinkUrl": "https://learn.microsoft.com/answers/tags/224/windows-api-win32/",
+    "feedbackSystem": "Standard",
+    "feedbackGitHubRepo": "",
+    "feedbackProductUrl": "https://www.microsoft.com/en-us/windowsinsider/feedbackhub/fb",
+    "extendBreadcrumb": true,
+    "isEditDisplayable": true,
+    "isPrivateUnauthorized": false,
+    "hideViewSource": false,
+    "isPermissioned": false,
+    "hasRecommendations": false
+  },
+  "functions": {}
+};;
+	</script>
+
+			<!-- base scripts, msdocs global should be before this -->
+			<script
+				src="/static/assets/0.4.03585.8329-a252cb59/scripts/en-us/index-docs.js"
+				async
+			></script>
+			
+
+			<!-- json-ld -->
+			
+		</head>
+	
+			<body
+				id="body"
+				data-bi-name="body"
+				class="layout-body "
+				lang="en-us"
+				dir="ltr"
+			>
+				<header class="layout-body-header background-color-body-medium">
+		<div class="header-holder has-default-focus">
+			
+		<a
+			href="#main"
+			
+			style="z-index: 1070"
+			class="outline-color-text visually-hidden-until-focused position-fixed inner-focus focus-visible top-0 left-0 right-0 padding-xs text-align-center background-color-body"
+			
+		>
+			Skip to main content
+		</a>
+	
+		<a
+			href="#"
+			data-skip-to-ask-learn
+			style="z-index: 1070"
+			class="outline-color-text visually-hidden-until-focused position-fixed inner-focus focus-visible top-0 left-0 right-0 padding-xs text-align-center background-color-body"
+			hidden
+		>
+			Skip to Ask Learn chat experience
+		</a>
+	
+
+			<div hidden id="cookie-consent-holder" data-test-id="cookie-consent-container"></div>
+			<!-- Unsupported browser warning -->
+			<div
+				id="unsupported-browser"
+				style="background-color: white; color: black; padding: 16px; border-bottom: 1px solid grey;"
+				hidden
+			>
+				<div style="max-width: 800px; margin: 0 auto;">
+					<p style="font-size: 24px">This browser is no longer supported.</p>
+					<p style="font-size: 16px; margin-top: 16px;">
+						Upgrade to Microsoft Edge to take advantage of the latest features, security updates, and technical support.
+					</p>
+					<div style="margin-top: 12px;">
+						<a
+							href="https://go.microsoft.com/fwlink/p/?LinkID=2092881 "
+							style="background-color: #0078d4; border: 1px solid #0078d4; color: white; padding: 6px 12px; border-radius: 2px; display: inline-block;"
+						>
+							Download Microsoft Edge
+						</a>
+						<a
+							href="https://learn.microsoft.com/en-us/lifecycle/faq/internet-explorer-microsoft-edge"
+							style="background-color: white; padding: 6px 12px; border: 1px solid #505050; color: #171717; border-radius: 2px; display: inline-block;"
+						>
+							More info about Internet Explorer and Microsoft Edge
+						</a>
+					</div>
+				</div>
+			</div>
+			<!-- site header -->
+			<div
+				id="ms--site-header"
+				data-test-id="site-header-wrapper"
+				itemscope="itemscope"
+				itemtype="http://schema.org/Organization"
+			>
+				<div
+					id="ms--mobile-nav"
+					class="site-header display-none-tablet padding-inline-none gap-none"
+					data-bi-name="mobile-header"
+					data-test-id="mobile-header"
+				></div>
+				<div
+					id="ms--primary-nav"
+					class="site-header display-none display-flex-tablet"
+					data-bi-name="L1-header"
+					data-test-id="primary-header"
+				></div>
+				<div
+					id="ms--secondary-nav"
+					class="site-header display-none display-flex-tablet"
+					data-bi-name="L2-header"
+					data-test-id="secondary-header"
+					
+				></div>
+			</div>
+			
+		<!-- banner -->
+		<div data-banner>
+			<div id="disclaimer-holder"></div>
+			
+		</div>
+		<!-- banner end -->
+	
+		</div>
+	</header>
+				 <section
+					id="layout-body-menu"
+					class="layout-body-menu border-right display-flex background-color-body-medium"
+					data-bi-name="menu"
+			  >
+					
+		<div
+			id="left-container"
+			class="left-container display-none padding-none display-block-tablet width-full display-none-until-layout-restored"
+			data-toc-container="true"
+		>
+			<div
+				id="ms--toc-content"
+				class="padding-left-sm padding-right-none padding-bottom-sm height-full"
+			>
+				<nav
+					id="affixed-left-container"
+					class="margin-top-xxs-tablet position-sticky display-flex flex-direction-column width-full"
+					aria-label="Primary"
+					data-bi-name="left-toc"
+					role="navigation"
+				>
+					<div
+						id="ms--collapsible-toc-header"
+						class="display-flex flex-direction-row-reverse justify-content-center align-items-center margin-bottom-xxs margin-right-xxs"
+					>
+						<button
+							type="button"
+							class="button button-clear button-sm inner-focus"
+							data-collapsible-toc-toggle
+							aria-expanded="true"
+							hidden
+							aria-controls="ms--toc-content"
+							aria-label="Table of contents"
+						>
+							<span class="icon icon-mirrored-rtl" aria-hidden="true">
+								<span
+									class="docon docon-panel-left-contract display-none-layout-menu-collapsed"
+								></span>
+								<span
+									class="docon docon-panel-left-expand display-none display-inline-layout-menu-collapsed"
+								></span>
+							</span>
+						</button>
+						<div
+							id="ms--collapsible-toc-moniker-slot"
+							class="flex-grow-1 display-none-layout-menu-collapsed"
+						></div>
+					</div>
+				</nav>
+			</div>
+		</div>
+	
+			  </section>
+
+				<main
+					id="main"
+					role="main"
+					class="layout-body-main "
+					data-bi-name="content"
+					lang="en-us"
+					dir="ltr"
+				>
+					
+			<div
+		id="ms--content-header"
+		class="content-header default-focus border-bottom-none"
+		data-bi-name="content-header"
+	>
+		<div class="content-header-controls margin-xxs margin-inline-sm-tablet">
+			<button
+				type="button"
+				class="contents-button button button-sm margin-right-xxs"
+				data-bi-name="contents-expand"
+				aria-haspopup="true"
+				data-contents-button
+			>
+				<span class="icon" aria-hidden="true"><span class="docon docon-menu"></span></span>
+				<span class="contents-expand-title"> Table of contents </span>
+			</button>
+			<button
+				type="button"
+				class="ap-collapse-behavior ap-expanded button button-sm"
+				data-bi-name="ap-collapse"
+				aria-controls="action-panel"
+			>
+				<span class="icon" aria-hidden="true"><span class="docon docon-exit-mode"></span></span>
+				<span>Exit editor mode</span>
+			</button>
+		</div>
+	</div> 
+		<div
+			id="action-panel"
+			role="region"
+			aria-label="Action Panel"
+			class="action-panel"
+			tabindex="-1"
+		></div>
+	
+			<div
+				data-main-column
+				class="reading-width margin-inline-auto layout-padding padding-top-none padding-top-sm-tablet padding-bottom-sm"
+			>
+				<div>
+					
+		<div id="article-header" class="background-color-body margin-bottom-xs display-none-print">
+			<div class="display-flex align-items-center justify-content-space-between">
+				
+		<details
+			id="article-header-breadcrumbs-overflow-popover"
+			class="popover popover-left"
+			data-for="article-header-breadcrumbs"
+		>
+			<summary
+				class="button button-clear button-primary button-sm inner-focus"
+				aria-label="All breadcrumbs"
+			>
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-more"></span>
+				</span>
+			</summary>
+			<div id="article-header-breadcrumbs-overflow" class="popover-content"></div>
+		</details>
+
+		<bread-crumbs
+			id="article-header-breadcrumbs"
+			role="group"
+			aria-label="Breadcrumbs"
+			data-test-id="article-header-breadcrumbs"
+			class="overflow-hidden flex-grow-1 margin-right-sm margin-right-md-tablet margin-right-lg-desktop margin-left-negative-xxs padding-left-xxs"
+		></bread-crumbs>
+	 
+		<div
+			id="article-header-page-actions"
+			class="opacity-none margin-left-auto display-flex flex-wrap-no-wrap align-items-stretch"
+		>
+			
+		<button
+			class="button button-sm border-none inner-focus display-none-tablet flex-shrink-0 "
+			data-bi-name="ask-learn-assistant-entry"
+			data-test-id="ask-learn-assistant-modal-entry-mobile"
+			data-ask-learn-modal-entry
+			
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-label="Ask Learn"
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+		</button>
+		<button
+			class="button button-sm display-none display-inline-flex-tablet display-none-desktop flex-shrink-0 margin-right-xxs border-color-ask-learn "
+			data-bi-name="ask-learn-assistant-entry"
+			
+			data-test-id="ask-learn-assistant-modal-entry-tablet"
+			data-ask-learn-modal-entry
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+		<button
+			class="button button-sm display-none flex-shrink-0 display-inline-flex-desktop margin-right-xxs border-color-ask-learn "
+			data-bi-name="ask-learn-assistant-entry"
+			
+			data-test-id="ask-learn-assistant-flyout-entry"
+			data-ask-learn-flyout-entry
+			data-flyout-button="toggle"
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-controls="ask-learn-flyout"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+	 
+
+			<details class="popover popover-right" id="article-header-page-actions-overflow">
+				<summary
+					class="justify-content-flex-start button button-clear button-sm button-primary inner-focus"
+					aria-label="More actions"
+					aria-expanded="false"
+					title="More actions"
+				>
+					<span class="icon" aria-hidden="true">
+						<span class="docon docon-more-vertical"></span>
+					</span>
+				</summary>
+				<div class="popover-content">
+					
+		<button
+			type="button"
+			id="ms--focus-mode-button"
+			data-focus-mode
+			data-bi-name="focus-mode-entry"
+			data-page-action-item="overflow-all"
+			data-popover-close
+			class="button button-clear button-sm button-block justify-content-flex-start text-align-left inner-focus display-none display-inline-flex-tablet"
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-glasses"></span>
+			</span>
+			<span>Reading mode</span>
+		</button>
+	 
+		<button
+			data-page-action-item="overflow-mobile"
+			type="button"
+			class="display-block-layout-menu-collapsed button-block button-sm inner-focus button button-clear display-none-tablet justify-content-flex-start text-align-left"
+			data-bi-name="contents-expand"
+			data-contents-button
+			data-popover-close
+		>
+			<span class="icon" aria-hidden="true"
+				><span class="docon docon-editor-list-bullet"></span
+			></span>
+			<span class="contents-expand-title">Table of contents</span>
+		</button>
+	 
+		<a
+			id="lang-link-overflow"
+			class="button-sm inner-focus button button-clear button-block justify-content-flex-start text-align-left"
+			data-bi-name="language-toggle"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			data-read-in-link
+			href="#"
+			hidden
+		>
+			<span class="icon" aria-hidden="true" data-read-in-link-icon>
+				<span class="docon docon-locale-globe"></span>
+			</span>
+			<span data-read-in-link-text>Read in English</span>
+		</a>
+	
+					
+		<button
+			type="button"
+			class="collection button button-clear button-sm button-block justify-content-flex-start text-align-left inner-focus"
+			data-list-type="collection"
+			data-bi-name="collection"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			data-popover-close
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-circle-addition"></span>
+			</span>
+			<span class="collection-status">Add</span>
+		</button>
+	 
+		<button
+			type="button"
+			class="collection button button-block button-clear button-sm justify-content-flex-start text-align-left inner-focus"
+			data-list-type="plan"
+			data-bi-name="plan"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			data-popover-close
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-circle-addition"></span>
+			</span>
+			<span class="plan-status">Add to Plans</span>
+		</button>
+	 
+					
+		<a
+			data-contenteditbtn
+			class="button button-clear button-block button-sm inner-focus justify-content-flex-start text-align-left text-decoration-none"
+			data-bi-name="edit"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			
+			href="https://github.com/MicrosoftDocs/sdk-api/blob/docs/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-createprocessasuserw.md"
+			data-original_content_git_url="https://cpubwin.visualstudio.com/DefaultCollection/win32/_git/sdk-api-build?path=/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-createprocessasuserw.md&amp;version=GBlive&amp;_a=contents"
+			data-original_content_git_url_template="{repo}?path=/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-createprocessasuserw.md&amp;version=GB{branch}&amp;_a=contents"
+			data-pr_repo=""
+			data-pr_branch=""
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-edit-outline"></span>
+			</span>
+			<span>Edit</span>
+		</a>
+	  
+		<hr class="margin-block-xxs" />
+		
+				<button
+					class="button button-block button-clear button-sm justify-content-flex-start text-align-left inner-focus"
+					type="button"
+					data-bi-name="copy-markdown"
+					data-page-action-item="overflow-all"
+					data-copy-markdown
+					data-copy-state="idle"
+					data-check-hidden="true"
+				>
+					<span class="icon color-primary" aria-hidden="true">
+						<span data-show-when="idle" class="docon docon-code-lang"></span>
+						<span data-show-when="loading" class="loader" hidden></span>
+						<span data-show-when="success" class="docon docon-check-mark" hidden></span>
+					</span>
+					<span>Copy Markdown</span>
+				</button>
+		   
+				<button
+					class="button button-block button-clear button-sm justify-content-flex-start text-align-left inner-focus"
+					type="button"
+					data-bi-name="print"
+					data-page-action-item="overflow-all"
+					data-popover-close
+					data-print-page
+					data-check-hidden="true"
+				>
+					<span class="icon color-primary" aria-hidden="true">
+						<span class="docon docon-print"></span>
+					</span>
+					<span>Print</span>
+				</button>
+		  
+	
+				</div>
+			</details>
+		</div>
+	
+			</div>
+		</div>
+	  
+		<!-- privateUnauthorizedTemplate is hidden by default -->
+		<div unauthorized-private-section data-bi-name="permission-content-unauthorized-private" hidden>
+			<hr class="hr margin-top-xs margin-bottom-sm" />
+			<div class="notification notification-info">
+				<div class="notification-content">
+					<p class="margin-top-none notification-title">
+						<span class="icon" aria-hidden="true"
+							><span class="docon docon-exclamation-circle-solid"></span
+						></span>
+						<span>Note</span>
+					</p>
+					<p class="margin-top-none authentication-determined not-authenticated">
+						Access to this page requires authorization. You can try <a class="docs-sign-in" href="#" data-bi-name="permission-content-sign-in">signing in</a> or <a  class="docs-change-directory" data-bi-name="permisson-content-change-directory">changing directories</a>.
+					</p>
+					<p class="margin-top-none authentication-determined authenticated">
+						Access to this page requires authorization. You can try <a class="docs-change-directory" data-bi-name="permisson-content-change-directory">changing directories</a>.
+					</p>
+				</div>
+			</div>
+		</div>
+	
+					<div class="content"><h1 id="createprocessasuserw-function-processthreadsapih">CreateProcessAsUserW function (processthreadsapi.h)</h1></div>
+					
+		<div
+			id="article-metadata"
+			data-bi-name="article-metadata"
+			data-test-id="article-metadata"
+			class="page-metadata-container display-flex gap-xxs justify-content-space-between align-items-center flex-wrap-wrap"
+		>
+			 
+				<div
+					id="user-feedback"
+					class="margin-block-xxs display-none display-none-print"
+					hidden
+					data-hide-on-archived
+				>
+					
+		<button
+			id="user-feedback-button"
+			data-test-id="conceptual-feedback-button"
+			class="button button-sm button-clear button-primary display-none"
+			type="button"
+			data-bi-name="user-feedback-button"
+			data-user-feedback-button
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-like"></span>
+			</span>
+			<span>Feedback</span>
+		</button>
+	
+				</div>
+		  
+		</div>
+	 
+		<div data-id="ai-summary" class="display-none-print">
+			<div id="ms--ai-summary-cta" class="margin-top-xs display-flex align-items-center">
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-sparkle-fill gradient-text-vivid"></span>
+				</span>
+				<button
+					id="ms--ai-summary"
+					type="button"
+					class="tag tag-sm tag-suggestion margin-left-xxs"
+					data-test-id="ai-summary-cta"
+					data-bi-name="ai-summary-cta"
+					data-an="ai-summary"
+				>
+					<span class="ai-summary-cta-text">
+						Summarize this article for me
+					</span>
+				</button>
+			</div>
+			<!-- Slot where the client will render the summary card after the user clicks the CTA -->
+			<div id="ms--ai-summary-header" class="margin-top-xs"></div>
+		</div>
+	 
+		<nav
+			id="center-doc-outline"
+			class="doc-outline display-none-desktop display-none-print margin-bottom-sm"
+			data-bi-name="intopic toc"
+			aria-label="In this article"
+		>
+			<h2 id="ms--in-this-article" class="title is-6 margin-block-xs">
+				In this article
+			</h2>
+		</nav>
+	 <div class="content"><p>Creates a new process and its primary thread. The new process runs in the security context of the user represented by the specified token.</p>
+<p>Typically, the process that calls the
+<b>CreateProcessAsUser</b> function must have the <b>SE_INCREASE_QUOTA_NAME</b> privilege and may require the <b>SE_ASSIGNPRIMARYTOKEN_NAME</b> privilege if the token is  not assignable. If this function fails with <b>ERROR_PRIVILEGE_NOT_HELD</b> (1314), use the <a href="/en-us/windows/desktop/api/winbase/nf-winbase-createprocesswithlogonw" data-linktype="absolute-path">CreateProcessWithLogonW</a> function instead. <b>CreateProcessWithLogonW</b> requires no special privileges, but the specified user account must be allowed to log on interactively. Generally, it is best to use <b>CreateProcessWithLogonW</b> to create a process with alternate credentials.</p>
+<h2 id="syntax">Syntax</h2>
+<pre><code class="lang-cpp">BOOL CreateProcessAsUserW(
+  [in, optional]      HANDLE                hToken,
+  [in, optional]      LPCWSTR               lpApplicationName,
+  [in, out, optional] LPWSTR                lpCommandLine,
+  [in, optional]      LPSECURITY_ATTRIBUTES lpProcessAttributes,
+  [in, optional]      LPSECURITY_ATTRIBUTES lpThreadAttributes,
+  [in]                BOOL                  bInheritHandles,
+  [in]                DWORD                 dwCreationFlags,
+  [in, optional]      LPVOID                lpEnvironment,
+  [in, optional]      LPCWSTR               lpCurrentDirectory,
+  [in]                LPSTARTUPINFOW        lpStartupInfo,
+  [out]               LPPROCESS_INFORMATION lpProcessInformation
+);
+</code></pre>
+<h2 id="parameters">Parameters</h2>
+<p><code>[in, optional] hToken</code></p>
+<p>A handle to the primary token that represents a user. The handle must have the <b>TOKEN_QUERY</b>, <b>TOKEN_DUPLICATE</b>, and <b>TOKEN_ASSIGN_PRIMARY</b> access rights. For more information, see
+<a href="/en-us/windows/desktop/SecAuthZ/access-rights-for-access-token-objects" data-linktype="absolute-path">Access Rights for Access-Token Objects</a>. The user represented by the token must have read and execute access to the application specified by the <i>lpApplicationName</i> or the <i>lpCommandLine</i> parameter.</p>
+<p>To get a primary token that represents the specified user, call the
+<a href="/en-us/windows/desktop/api/winbase/nf-winbase-logonusera" data-linktype="absolute-path">LogonUser</a> function. Alternatively, you can call the
+<a href="/en-us/windows/desktop/api/securitybaseapi/nf-securitybaseapi-duplicatetokenex" data-linktype="absolute-path">DuplicateTokenEx</a> function to convert an impersonation token into a primary token. This allows a server application that is impersonating a client to create a process that has the security context of the client.</p>
+<p>If <i>hToken</i> is a restricted version of the caller's primary token, the <b>SE_ASSIGNPRIMARYTOKEN_NAME</b> privilege is not required. If the necessary privileges are not already enabled,
+<b>CreateProcessAsUser</b> enables them for the duration of the call. For more information, see
+<a href="/en-us/windows/desktop/SecBP/running-with-special-privileges" data-linktype="absolute-path">Running with Special Privileges</a>.</p>
+<p><b>Terminal Services:&nbsp;&nbsp;</b>The process is run in the session specified in the token. By default, this is the same session that called <a href="/en-us/windows/desktop/api/winbase/nf-winbase-logonusera" data-linktype="absolute-path">LogonUser</a>. To change the session, use the
+<a href="/en-us/windows/desktop/api/securitybaseapi/nf-securitybaseapi-settokeninformation" data-linktype="absolute-path">SetTokenInformation</a> function.</p>
+<p><code>[in, optional] lpApplicationName</code></p>
+<p>The name of the module to be executed. This module can be a Windows-based application. It can be some other type of module (for example, MS-DOS or OS/2) if the appropriate subsystem is available on the local computer.</p>
+<p>The string can specify the full path and file name of the module to execute or it can specify a partial name. In the case of a partial name, the function uses the current drive and current directory to complete the specification. The function will not use the search path. This parameter must include the file name extension; no default extension is assumed.</p>
+<p>The <i>lpApplicationName</i> parameter can be <b>NULL</b>. In that case, the module name must be the first white space–delimited token in the <i>lpCommandLine</i> string. If you are using a long file name that contains a space, use quoted strings to indicate where the file name ends and the arguments begin; otherwise, the file name is ambiguous. For example, consider the string "c:\program files\sub dir\program name". This string can be interpreted in a number of ways. The system tries to interpret the possibilities in the following order:</p>
+<p><b>c:\program.exe</b>
+<b>c:\program files\sub.exe</b>
+<b>c:\program files\sub dir\program.exe</b>
+<b>c:\program files\sub dir\program name.exe</b>
+If the executable module is a 16-bit application, <i>lpApplicationName</i> should be <b>NULL</b>, and the string pointed to by <i>lpCommandLine</i> should specify the executable module as well as its arguments. By default, all 16-bit Windows-based applications created by
+<b>CreateProcessAsUser</b> are run in a separate VDM (equivalent to <b>CREATE_SEPARATE_WOW_VDM</b> in
+<a href="/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-createprocessa" data-linktype="absolute-path">CreateProcess</a>).</p>
+<p><code>[in, out, optional] lpCommandLine</code></p>
+<p>The command line to be executed. The maximum length of this string is 32K characters. If <i>lpApplicationName</i> is <b>NULL</b>, the module name portion of <i>lpCommandLine</i> is limited to <b>MAX_PATH</b> characters.</p>
+<p>The Unicode version of this function, <b>CreateProcessAsUserW</b>, can modify the contents of this string. Therefore, this parameter cannot be a pointer to read-only memory (such as a <b>const</b> variable or a literal string). If this parameter is a constant string, the function may cause an access violation.</p>
+<p>The <i>lpCommandLine</i> parameter can be <b>NULL</b>. In that case, the function uses the string pointed to by <i>lpApplicationName</i> as the command line.</p>
+<p>If both <i>lpApplicationName</i> and <i>lpCommandLine</i> are non-<b>NULL</b>, *<i>lpApplicationName</i> specifies the module to execute, and *<i>lpCommandLine</i> specifies the command line. The new process can use
+<a href="/en-us/windows/desktop/api/processenv/nf-processenv-getcommandlinea" data-linktype="absolute-path">GetCommandLine</a> to retrieve the entire command line. Console processes written in C can use the <i>argc</i> and <i>argv</i> arguments to parse the command line. Because <i>argv</i>[0] is the module name, C programmers generally repeat the module name as the first token in the command line.</p>
+<p>If <i>lpApplicationName</i> is <b>NULL</b>, the first white space–delimited token of the command line specifies the module name. If you are using a long file name that contains a space, use quoted strings to indicate where the file name ends and the arguments begin (see the explanation for the <i>lpApplicationName</i> parameter). If the file name does not contain an extension, .exe is appended. Therefore, if the file name extension is .com, this parameter must include the .com extension. If the file name ends in a period (.) with no extension, or if the file name contains a path, .exe is not appended. If the file name does not contain a directory path, the system searches for the executable file in the following sequence:</p>
+<ol>
+<li>The directory from which the application loaded.</li>
+<li>The current directory for the parent process.</li>
+<li>The 32-bit Windows system directory. Use the <a href="/en-us/windows/desktop/api/sysinfoapi/nf-sysinfoapi-getsystemdirectorya" data-linktype="absolute-path">GetSystemDirectory</a> function to get the path of this directory. </li>
+<li>The 16-bit Windows system directory. There is no function that obtains the path of this directory, but it is searched. </li>
+<li>The Windows directory. Use the 
+<a href="/en-us/windows/desktop/api/sysinfoapi/nf-sysinfoapi-getwindowsdirectorya" data-linktype="absolute-path">GetWindowsDirectory</a> function to get the path of this directory.</li>
+<li>The directories that are listed in the PATH environment variable. Note that this function does not search the per-application path specified by the <b>App Paths</b> registry key. To include this per-application path in the search sequence, use the <a href="/en-us/previous-versions/windows/desktop/axe/shellexecute" data-linktype="absolute-path">ShellExecute</a> function.</li>
+</ol>
+The system adds a null character to the command line string to separate the file name from the arguments. This divides the original string into two strings for internal processing.
+<p><code>[in, optional] lpProcessAttributes</code></p>
+<p>A pointer to a <a href="/en-us/windows/win32/api/wtypesbase/ns-wtypesbase-security_attributes" data-linktype="absolute-path">SECURITY_ATTRIBUTES</a> structure that specifies a security descriptor for the new process object and determines whether child processes can inherit the returned handle to the process. If <i>lpProcessAttributes</i> is <b>NULL</b> or <b>lpSecurityDescriptor</b> is <b>NULL</b>, the process gets a default security descriptor and the handle cannot be inherited. The default security descriptor is that of the user referenced in the <i>hToken</i> parameter. This security descriptor may not allow access for the caller, in which case the process may not be opened again after it is run. The process handle is valid and will continue to have full access rights.</p>
+<p><code>[in, optional] lpThreadAttributes</code></p>
+<p>A pointer to a <a href="/en-us/windows/win32/api/wtypesbase/ns-wtypesbase-security_attributes" data-linktype="absolute-path">SECURITY_ATTRIBUTES</a> structure that specifies a security descriptor for the new thread object and determines whether child processes can inherit the returned handle to the thread. If <i>lpThreadAttributes</i> is <b>NULL</b> or <b>lpSecurityDescriptor</b> is <b>NULL</b>, the thread gets a default security descriptor and the handle cannot be inherited. The default security descriptor is that of the user referenced in the <i>hToken</i> parameter. This security descriptor may not allow access for the caller.</p>
+<p><code>[in] bInheritHandles</code></p>
+<p>If this parameter is <b>TRUE</b>, each inheritable handle in the calling process is inherited by the new process. If the parameter is <b>FALSE</b>, the handles are not inherited. Note that inherited handles have the same value and access rights as the original handles.
+For additional discussion of inheritable handles, see Remarks.</p>
+<p><b>Terminal Services:&nbsp;&nbsp;</b>You cannot inherit handles across sessions. Additionally, if this parameter is <b>TRUE</b>, you must create the process in the same session as the caller.</p>
+<p><b>Protected Process Light (PPL) processes:&nbsp;&nbsp;</b>The generic handle inheritance is blocked when a PPL process creates a non-PPL process since PROCESS_DUP_HANDLE is not allowed from a non-PPL process to a PPL process. See <a href="/en-us/windows/desktop/ProcThread/process-security-and-access-rights" data-linktype="absolute-path">Process Security and Access Rights</a></p>
+<p><code>[in] dwCreationFlags</code></p>
+<p>The flags that control the priority class and the creation of the process. For a list of values, see
+<a href="/en-us/windows/desktop/ProcThread/process-creation-flags" data-linktype="absolute-path">Process Creation Flags</a>.</p>
+<p>This parameter also controls the new process's priority class, which is used to determine the scheduling priorities of the process's threads. For a list of values, see
+<a href="/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-getpriorityclass" data-linktype="absolute-path">GetPriorityClass</a>. If none of the priority class flags is specified, the priority class defaults to <b>NORMAL_PRIORITY_CLASS</b> unless the priority class of the creating process is <b>IDLE_PRIORITY_CLASS</b> or <b>BELOW_NORMAL_PRIORITY_CLASS</b>. In this case, the child process receives the default priority class of the calling process.</p>
+<p>If the dwCreationFlags parameter has a value of 0:</p>
+<ul>
+<li>The process inherits both the error mode of the caller and the parent's console.</li>
+<li>The environment block for the new process is assumed to contain ANSI characters (see <em>lpEnvironment</em> parameter for additional information).</li>
+<li>A 16-bit Windows-based application runs in a shared Virtual DOS machine (VDM).</li>
+</ul>
+<p><code>[in, optional] lpEnvironment</code></p>
+<p>A pointer to an <a href="/en-us/windows/win32/procthread/environment-variables" data-linktype="absolute-path">environment block</a> for the new process. If this parameter is <b>NULL</b>, the new process uses the environment of the calling process.</p>
+<p>An environment block consists of a null-terminated block of null-terminated strings. Each string is in the following form:</p>
+<p><i>name</i>=<i>value</i>\0</p>
+<p>Because the equal sign is used as a separator, it must not be used in the name of an environment variable.</p>
+<p>An environment block can contain either Unicode or ANSI characters. If the environment block pointed to by <i>lpEnvironment</i> contains Unicode characters, be sure that <i>dwCreationFlags</i> includes <b>CREATE_UNICODE_ENVIRONMENT</b>.</p>
+<p>The ANSI version of this function, <b>CreateProcessAsUserA</b> fails if the total size of the environment block for the process exceeds 32,767 characters.</p>
+<p>Note that an ANSI environment block is terminated by two zero bytes: one for the last string, one more to terminate the block. A Unicode environment block is terminated by four zero bytes: two for the last string, two more to terminate the block.</p>
+<p><b>Windows Server&nbsp;2003 and Windows&nbsp;XP:&nbsp;&nbsp;</b>If the size of the combined user and system environment variable exceeds 8192 bytes, the process created by <b>CreateProcessAsUser</b> no longer runs with the environment block passed to the function by the parent process. Instead, the child process runs with the environment block returned by the <a href="/en-us/windows/desktop/api/userenv/nf-userenv-createenvironmentblock" data-linktype="absolute-path">CreateEnvironmentBlock</a> function.</p>
+<p>To retrieve a copy of the environment block for a given user, use the
+<a href="/en-us/windows/desktop/api/userenv/nf-userenv-createenvironmentblock" data-linktype="absolute-path">CreateEnvironmentBlock</a> function.</p>
+<p><code>[in, optional] lpCurrentDirectory</code></p>
+<p>The full path to the current directory for the process. The string can also specify a UNC path.</p>
+<p>If this parameter is NULL, the new process will have the same current drive and directory as the calling process. (This feature is provided primarily for shells that need to start an application and specify its initial drive and working directory.)</p>
+<p><code>[in] lpStartupInfo</code></p>
+<p>A pointer to a
+<a href="/en-us/windows/desktop/api/processthreadsapi/ns-processthreadsapi-startupinfoa" data-linktype="absolute-path">STARTUPINFO</a> or <a href="/en-us/windows/desktop/api/winbase/ns-winbase-startupinfoexa" data-linktype="absolute-path">STARTUPINFOEX</a> structure.</p>
+<p>The user must have full access to both the specified window station and desktop. If you want the process to be interactive, specify winsta0\default. If the <b>lpDesktop</b> member is NULL, the new process inherits the desktop and window station of its parent process.
+If this member is an empty string, "", the new process connects to a window station using the rules described in <a href="/en-us/windows/desktop/winstation/process-connection-to-a-window-station" data-linktype="absolute-path">Process Connection to a Window Station</a>.</p>
+<p>To set extended attributes, use a <a href="/en-us/windows/desktop/api/winbase/ns-winbase-startupinfoexa" data-linktype="absolute-path">STARTUPINFOEX</a> structure and specify <b>EXTENDED_STARTUPINFO_PRESENT</b> in the <i>dwCreationFlags</i> parameter.</p>
+<p>Handles in
+<a href="/en-us/windows/desktop/api/processthreadsapi/ns-processthreadsapi-startupinfoa" data-linktype="absolute-path">STARTUPINFO</a> or <a href="/en-us/windows/desktop/api/winbase/ns-winbase-startupinfoexa" data-linktype="absolute-path">STARTUPINFOEX</a> must be closed with
+<a href="/en-us/windows/desktop/api/handleapi/nf-handleapi-closehandle" data-linktype="absolute-path">CloseHandle</a> when they are no longer needed.</p>
+<div class="alert"><b>Important</b>&nbsp;&nbsp;The caller is responsible for ensuring that the standard handle fields in <a href="/en-us/windows/desktop/api/processthreadsapi/ns-processthreadsapi-startupinfoa" data-linktype="absolute-path">STARTUPINFO</a> contain valid handle values. These fields are copied unchanged to the child process without validation, even when the <b>dwFlags</b> member specifies <b>STARTF_USESTDHANDLES</b>. Incorrect values can cause the child process to misbehave or crash. Use the <a href="/en-us/windows-hardware/drivers/devtest/application-verifier" data-linktype="absolute-path">Application Verifier</a> runtime verification tool to detect invalid handles. </div>
+<div>&nbsp;</div>
+<p><code>[out] lpProcessInformation</code></p>
+<p>A pointer to a
+<a href="/en-us/windows/win32/api/processthreadsapi/ns-processthreadsapi-process_information" data-linktype="absolute-path">PROCESS_INFORMATION</a> structure that receives identification information about the new process.</p>
+<p>Handles in
+<a href="/en-us/windows/win32/api/processthreadsapi/ns-processthreadsapi-process_information" data-linktype="absolute-path">PROCESS_INFORMATION</a> must be closed with
+<a href="/en-us/windows/desktop/api/handleapi/nf-handleapi-closehandle" data-linktype="absolute-path">CloseHandle</a> when they are no longer needed.</p>
+<h2 id="return-value">Return value</h2>
+<p>If the function succeeds, the return value is nonzero.</p>
+<p>If the function fails, the return value is zero. To get extended error information, call
+<a href="/en-us/windows/desktop/api/errhandlingapi/nf-errhandlingapi-getlasterror" data-linktype="absolute-path">GetLastError</a>.</p>
+<p>Note that the function returns before the process has finished initialization. If a required DLL cannot be located or fails to initialize, the process is terminated. To get the termination status of a process, call <a href="/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-getexitcodeprocess" data-linktype="absolute-path">GetExitCodeProcess</a>.</p>
+<h2 id="remarks">Remarks</h2>
+<p><b>CreateProcessAsUser</b> must be able to open the primary token of the calling process with the <b>TOKEN_DUPLICATE</b> and <b>TOKEN_IMPERSONATE</b> access rights.</p>
+<p>By default,
+<b>CreateProcessAsUser</b> creates the new process on a noninteractive window station with a desktop that is not visible and cannot receive user input. To enable user interaction with the new process, you must specify the name of the default interactive window station and desktop, "winsta0\default", in the <b>lpDesktop</b> member of the
+<a href="/en-us/windows/desktop/api/processthreadsapi/ns-processthreadsapi-startupinfoa" data-linktype="absolute-path">STARTUPINFO</a> structure. In addition, before calling
+<b>CreateProcessAsUser</b>, you must change the discretionary access control list (DACL) of both the default interactive window station and the default desktop. The DACLs for the window station and desktop must grant access to the user or the logon session represented by the <i>hToken</i> parameter.</p>
+<p><b>CreateProcessAsUser</b> does not load the specified user's profile into the <b>HKEY_USERS</b> registry key. Therefore, to access the information in the <b>HKEY_CURRENT_USER</b> registry key, you must load the user's profile information into <b>HKEY_USERS</b> with the
+<a href="/en-us/windows/desktop/api/userenv/nf-userenv-loaduserprofilea" data-linktype="absolute-path">LoadUserProfile</a> function before calling
+<b>CreateProcessAsUser</b>. Be sure to call <a href="/en-us/windows/desktop/api/userenv/nf-userenv-unloaduserprofile" data-linktype="absolute-path">UnloadUserProfile</a> after the new process exits.</p>
+<p>If the <i>lpEnvironment</i> parameter is NULL, the new process inherits the environment of the calling process.
+<b>CreateProcessAsUser</b> does not automatically modify the environment block to include environment variables specific to the user represented by <i>hToken</i>. For example, the USERNAME and USERDOMAIN variables are inherited from the calling process if <i>lpEnvironment</i> is NULL. It is your responsibility to prepare the environment block for the new process and specify it in <i>lpEnvironment</i>.</p>
+<p>The
+<a href="/en-us/windows/desktop/api/winbase/nf-winbase-createprocesswithlogonw" data-linktype="absolute-path">CreateProcessWithLogonW</a>    and <a href="/en-us/windows/desktop/api/winbase/nf-winbase-createprocesswithtokenw" data-linktype="absolute-path">CreateProcessWithTokenW</a> functions are similar to
+<b>CreateProcessAsUser</b>, except that the caller does not need to call the
+<a href="/en-us/windows/desktop/api/winbase/nf-winbase-logonusera" data-linktype="absolute-path">LogonUser</a> function to authenticate the user and get a token.</p>
+<p><b>CreateProcessAsUser</b> allows you to access the specified directory and executable image in the security context of the caller or the target user. By default,
+<b>CreateProcessAsUser</b> accesses the directory and executable image in the security context of the caller. In this case, if the caller does not have access to the directory and executable image, the function fails. To access the directory and executable image using the security context of the target user, specify <i>hToken</i> in a call to the
+<a href="/en-us/windows/desktop/api/securitybaseapi/nf-securitybaseapi-impersonateloggedonuser" data-linktype="absolute-path">ImpersonateLoggedOnUser</a> function before calling
+<b>CreateProcessAsUser</b>.</p>
+<p>The process is assigned a process identifier. The identifier is valid until the process terminates. It can be used to identify the process, or specified in the
+<a href="/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-openprocess" data-linktype="absolute-path">OpenProcess</a> function to open a handle to the process. The initial thread in the process is also assigned a thread identifier. It can be specified in the
+<a href="/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-openthread" data-linktype="absolute-path">OpenThread</a> function to open a handle to the thread. The identifier is valid until the thread terminates and can be used to uniquely identify the thread within the system. These identifiers are returned in the
+<a href="/en-us/windows/win32/api/processthreadsapi/ns-processthreadsapi-process_information" data-linktype="absolute-path">PROCESS_INFORMATION</a> structure.</p>
+<p>The calling thread can use the
+<a href="/en-us/windows/desktop/api/winuser/nf-winuser-waitforinputidle" data-linktype="absolute-path">WaitForInputIdle</a> function to wait until the new process has finished its initialization and is waiting for user input with no input pending. This can be useful for synchronization between parent and child processes, because
+<b>CreateProcessAsUser</b> returns without waiting for the new process to finish its initialization. For example, the creating process would use
+<b>WaitForInputIdle</b> before trying to find a window associated with the new process.</p>
+<p>The preferred way to shut down a process is by using the
+<a href="/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-exitprocess" data-linktype="absolute-path">ExitProcess</a> function, because this function sends notification of approaching termination to all DLLs attached to the process. Other means of shutting down a process do not notify the attached DLLs. Note that when a thread calls
+<b>ExitProcess</b>, other threads of the process are terminated without an opportunity to execute any additional code (including the thread termination code of attached DLLs). For more information, see
+<a href="/en-us/windows/desktop/ProcThread/terminating-a-process" data-linktype="absolute-path">Terminating a Process</a>.</p>
+<p>By default, passing <b>TRUE</b> as the value of the <i>bInheritHandles</i> parameter causes all inheritable handles to be inherited by the new process.
+This can be problematic for applications which create processes from multiple threads simultaneously
+yet desire each process to inherit different handles.
+Applications can use the
+<a href="/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute" data-linktype="absolute-path">UpdateProcThreadAttributeList</a> function
+with the <b>PROC_THREAD_ATTRIBUTE_HANDLE_LIST</b> parameter
+to provide a list of handles to be inherited by a particular process.</p>
+<h3><a id="Security_Remarks"></a><a id="security_remarks"></a><a id="SECURITY_REMARKS"></a>Security Remarks</h3>
+The <i>lpApplicationName</i> parameter can be NULL, in which case the executable name must be the first white space–delimited string in <i>lpCommandLine</i>. If the executable or path name has a space in it, there is a risk that a different executable could be run because of the way the function parses spaces. The following example is dangerous because the function will attempt to run "Program.exe", if it exists, instead of "MyApp.exe".
+<pre><code class="lang-syntax">    LPTSTR szCmdline[] = _tcsdup(TEXT("C:\\Program Files\\MyApp"));
+    CreateProcessAsUser(hToken, NULL, szCmdline, /*...*/ );
+</code></pre>
+<p>If a malicious user were to create an application called "Program.exe" on a system, any program that incorrectly calls
+<b>CreateProcessAsUser</b> using the Program Files directory will run this application instead of the intended application.</p>
+<p>To avoid this problem, do not pass NULL for <i>lpApplicationName</i>. If you do pass <b>NULL</b> for <i>lpApplicationName</i>, use quotation marks around the executable path in <i>lpCommandLine</i>, as shown in the example below.</p>
+<pre><code class="lang-syntax">    LPTSTR szCmdline[] = _tcsdup(TEXT("\"C:\\Program Files\\MyApp\""));
+    CreateProcessAsUser(hToken, NULL, szCmdline, /*...*/);
+</code></pre>
+<p><b>PowerShell:&nbsp;&nbsp;</b>When the <b>CreateProcessAsUser</b> function is used to implement a cmdlet in PowerShell version 2.0, the cmdlet operates correctly for both fan-in and fan-out remote sessions. Because of certain security scenarios, however, a cmdlet implemented with <b>CreateProcessAsUser</b> only operates correctly in PowerShell version 3.0 for fan-in remote sessions; fan-out remote sessions will fail because of insufficient client security privileges. To implement a cmdlet that works for both fan-in and fan-out remote sessions in PowerShell version 3.0, use the <a href="/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-createprocessa" data-linktype="absolute-path">CreateProcess</a> function.</p>
+<h4 id="examples">Examples</h4>
+<p>For an example, see
+<a href="/en-us/previous-versions/aa379608(v=vs.85)" data-linktype="absolute-path">Starting an Interactive Client Process</a>.</p>
+<div class="code"></div>
+<div class="NOTE">
+<p>Note</p>
+<p>The processthreadsapi.h header defines CreateProcessAsUser as an alias that automatically selects the ANSI or Unicode version of this function based on the definition of the UNICODE preprocessor constant. Mixing usage of the encoding-neutral alias with code that is not encoding-neutral can lead to mismatches that result in compilation or runtime errors. For more information, see <a href="/en-us/windows/win32/intl/conventions-for-function-prototypes" data-linktype="absolute-path">Conventions for Function Prototypes</a>.</p>
+</div>
+<h2 id="requirements">Requirements</h2>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th style="text-align: left;">Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Minimum supported client</strong></td>
+<td style="text-align: left;">Windows&nbsp;XP [desktop apps only]</td>
+</tr>
+<tr>
+<td><strong>Minimum supported server</strong></td>
+<td style="text-align: left;">Windows Server&nbsp;2003 [desktop apps only]</td>
+</tr>
+<tr>
+<td><strong>Target Platform</strong></td>
+<td style="text-align: left;">Windows</td>
+</tr>
+<tr>
+<td><strong>Header</strong></td>
+<td style="text-align: left;">processthreadsapi.h (include Windows.h)</td>
+</tr>
+<tr>
+<td><strong>Library</strong></td>
+<td style="text-align: left;">Advapi32.lib</td>
+</tr>
+<tr>
+<td><strong>DLL</strong></td>
+<td style="text-align: left;">Advapi32.dll</td>
+</tr>
+</tbody>
+</table>
+<h2 id="see-also">See also</h2>
+<p><a href="/en-us/windows/desktop/api/handleapi/nf-handleapi-closehandle" data-linktype="absolute-path">CloseHandle</a></p>
+<p><a href="/en-us/windows/desktop/api/userenv/nf-userenv-createenvironmentblock" data-linktype="absolute-path">CreateEnvironmentBlock</a></p>
+<p><a href="/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-createprocessa" data-linktype="absolute-path">CreateProcess</a></p>
+<p><a href="/en-us/windows/desktop/api/winbase/nf-winbase-createprocesswithlogonw" data-linktype="absolute-path">CreateProcessWithLogonW</a></p>
+<p><a href="/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-exitprocess" data-linktype="absolute-path">ExitProcess</a></p>
+<p><a href="/en-us/windows/desktop/api/rrascfg/nf-rrascfg-ieapproviderconfig-initialize" data-linktype="absolute-path">GetEnvironmentStrings</a></p>
+<p><a href="/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-getexitcodeprocess" data-linktype="absolute-path">GetExitCodeProcess</a></p>
+<p><a href="nf-processthreadsapi-getstartupinfow" data-linktype="relative-path">GetStartupInfo</a></p>
+<p><a href="/en-us/windows/desktop/api/securitybaseapi/nf-securitybaseapi-impersonateloggedonuser" data-linktype="absolute-path">ImpersonateLoggedOnUser</a></p>
+<p><a href="/en-us/windows/desktop/api/userenv/nf-userenv-loaduserprofilea" data-linktype="absolute-path">LoadUserProfile</a></p>
+<p><a href="/en-us/windows/win32/api/processthreadsapi/ns-processthreadsapi-process_information" data-linktype="absolute-path">PROCESS_INFORMATION</a></p>
+<p><a href="/en-us/windows/desktop/ProcThread/process-and-thread-functions" data-linktype="absolute-path">Process and Thread Functions</a></p>
+<p><a href="/en-us/windows/desktop/ProcThread/child-processes" data-linktype="absolute-path">Processes</a></p>
+<p><a href="/en-us/windows/win32/api/wtypesbase/ns-wtypesbase-security_attributes" data-linktype="absolute-path">SECURITY_ATTRIBUTES</a></p>
+<p><a href="/en-us/windows/desktop/api/shellapi/nf-shellapi-shcreateprocessasuserw" data-linktype="absolute-path">SHCreateProcessAsUserW</a></p>
+<p><a href="/en-us/windows/desktop/api/processthreadsapi/ns-processthreadsapi-startupinfoa" data-linktype="absolute-path">STARTUPINFO</a></p>
+<p><a href="/en-us/windows/desktop/api/winbase/ns-winbase-startupinfoexa" data-linktype="absolute-path">STARTUPINFOEX</a></p>
+<p><a href="/en-us/windows/desktop/api/errhandlingapi/nf-errhandlingapi-seterrormode" data-linktype="absolute-path">SetErrorMode</a></p>
+<p><a href="/en-us/windows/desktop/api/winuser/nf-winuser-waitforinputidle" data-linktype="absolute-path">WaitForInputIdle</a></p>
+</div>
+					
+		<div
+			id="ms--inline-notifications"
+			class="margin-block-xs"
+			data-bi-name="inline-notification"
+		></div>
+	 
+		<div
+			id="assertive-live-region"
+			role="alert"
+			aria-live="assertive"
+			class="visually-hidden"
+			aria-relevant="additions"
+			aria-atomic="true"
+		></div>
+		<div
+			id="polite-live-region"
+			role="status"
+			aria-live="polite"
+			class="visually-hidden"
+			aria-relevant="additions"
+			aria-atomic="true"
+		></div>
+	
+					
+		<!-- feedback section -->
+		<section
+			id="site-user-feedback-footer"
+			class="font-size-sm margin-top-md display-none-print display-none-desktop"
+			data-test-id="site-user-feedback-footer"
+			data-bi-name="site-feedback-section"
+		>
+			<hr class="hr" />
+			<h2 id="ms--feedback" class="title is-3">Feedback</h2>
+			<div class="display-flex flex-wrap-wrap align-items-center">
+				<p class="font-weight-semibold margin-xxs margin-left-none">
+					Was this page helpful?
+				</p>
+				<div class="buttons">
+					<button
+						class="thumb-rating-button like button button-primary button-sm"
+						data-test-id="footer-rating-yes"
+						data-binary-rating-response="rating-yes"
+						type="button"
+						title="This article is helpful"
+						data-bi-name="button-rating-yes"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-like"></span>
+						</span>
+						<span>Yes</span>
+					</button>
+					<button
+						class="thumb-rating-button dislike button button-primary button-sm"
+						id="standard-rating-no-button"
+						hidden
+						data-test-id="footer-rating-no"
+						data-binary-rating-response="rating-no"
+						type="button"
+						title="This article is not helpful"
+						data-bi-name="button-rating-no"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-dislike"></span>
+						</span>
+						<span>No</span>
+					</button>
+					<details
+						class="popover popover-top"
+						id="mobile-help-popover"
+						data-test-id="footer-feedback-popover"
+					>
+						<summary
+							class="thumb-rating-button dislike button button-primary button-sm"
+							data-test-id="details-footer-rating-no"
+							data-binary-rating-response="rating-no"
+							title="This article is not helpful"
+							data-bi-name="button-rating-no"
+							aria-pressed="false"
+							data-bi-an="feedback-unhelpful-popover"
+						>
+							<span class="icon" aria-hidden="true">
+								<span class="docon docon-dislike"></span>
+							</span>
+							<span>No</span>
+						</summary>
+						<div
+							class="popover-content width-200 width-300-tablet"
+							role="dialog"
+							aria-labelledby="popover-heading"
+							aria-describedby="popover-description"
+						>
+							<p id="popover-heading" class="font-size-lg margin-bottom-xxs font-weight-semibold">
+								Need help with this topic?
+							</p>
+							<p id="popover-description" class="font-size-sm margin-bottom-xs">
+								Want to try using Ask Learn to clarify or guide you through this topic?
+							</p>
+							
+		<div class="buttons flex-direction-row flex-wrap justify-content-center gap-xxs">
+			<div>
+		<button
+			class="button button-sm border inner-focus display-none margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-test-id="ask-learn-assistant-modal-entry-mobile-feedback"
+			data-ask-learn-modal-entry-feedback
+			data-bi-an=feedback-unhelpful-popover
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-label="Ask Learn"
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+		</button>
+		<button
+			class="button button-sm display-inline-flex display-none-desktop flex-shrink-0 margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-modal-entry-tablet-feedback"
+			data-ask-learn-modal-entry-feedback
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+		<button
+			class="button button-sm display-none flex-shrink-0 display-inline-flex-desktop margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-flyout-entry-feedback"
+			data-ask-learn-flyout-entry-show-only
+			data-flyout-button="toggle"
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-controls="ask-learn-flyout"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+	</div>
+			<button
+				type="button"
+				class="button button-sm margin-right-xxs"
+				data-help-option="suggest-fix"
+				data-bi-name="feedback-suggest"
+				data-bi-an="feedback-unhelpful-popover"
+				data-test-id="suggest-fix"
+			>
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-feedback"></span>
+				</span>
+				<span> Suggest a fix? </span>
+			</button>
+		</div>
+	
+						</div>
+					</details>
+				</div>
+			</div>
+		</section>
+		<!-- end feedback section -->
+	
+				</div>
+				
+		<div id="ms--additional-resources-mobile" class="display-none-print">
+			<hr class="hr" hidden />
+			<h2 id="ms--additional-resources-mobile-heading" class="title is-3" hidden>
+				Additional resources
+			</h2>
+			 
+		<section
+			id="right-rail-training-mobile"
+			class=""
+			data-bi-name="learning-resource-card"
+			hidden
+		></section>
+	 
+		<section
+			id="right-rail-events-mobile"
+			class=""
+			data-bi-name="events-card"
+			hidden
+		></section>
+	
+		</div>
+	 
+		<div
+			id="article-metadata-footer"
+			data-bi-name="article-metadata-footer"
+			data-test-id="article-metadata-footer"
+			class="page-metadata-container"
+		>
+			<hr class="hr" />
+			<ul class="metadata page-metadata" data-bi-name="page info" lang="en-us" dir="ltr">
+				<li class="visibility-hidden-visual-diff">
+			<span class="badge badge-sm text-wrap-pretty">
+				<span>Last updated on <local-time format="twoDigitNumeric"
+		datetime="2023-02-09T00:00:00.000Z"
+		data-article-date-source="calculated"
+		class="is-invisible"
+	>
+		2023-02-09
+	</local-time></span>
+			</span>
+		</li>
+			</ul>
+		</div>
+	
+			</div>
+		
+				</main>
+				<aside
+					id="layout-body-aside"
+					class="layout-body-aside  "
+					data-bi-name="aside"
+					aria-label="Additional resources"
+			  >
+					
+		<div
+			id="ms--additional-resources"
+			class="right-container padding-sm display-none display-block-desktop height-full"
+			data-bi-name="pageactions"
+		>
+			<div id="affixed-right-container" data-bi-name="right-column">
+				
+		<nav
+			id="side-doc-outline"
+			class="doc-outline border-bottom padding-bottom-xs margin-bottom-xs scrollbar-width-thin"
+			data-bi-name="intopic toc"
+			aria-label="In this article"
+		>
+			<h3>In this article</h3>
+		</nav>
+	
+				<!-- Feedback -->
+				
+		<section
+			id="ms--site-user-feedback-right-rail"
+			class="font-size-sm display-none-print"
+			data-test-id="site-user-feedback-right-rail"
+			data-bi-name="site-feedback-right-rail"
+		>
+			<div class="display-flex flex-wrap-wrap align-items-center">
+				<p class="font-weight-semibold margin-xxs margin-left-none">
+					Was this page helpful?
+				</p>
+				<div class="display-flex flex-wrap-nowrap">
+					<button
+						class="thumb-rating-button like inner-focus"
+						data-test-id="right-rail-rating-yes"
+						data-binary-rating-response="rating-yes"
+						type="button"
+						title="This article is helpful"
+						aria-label="This article is helpful"
+						data-bi-name="button-rating-yes"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-like"></span>
+						</span>
+					</button>
+					<button
+						class="thumb-rating-button dislike inner-focus"
+						id="right-rail-no-button"
+						hidden
+						data-test-id="right-rail-rating-no"
+						data-binary-rating-response="rating-no"
+						type="button"
+						title="This article is not helpful"
+						aria-label="This article is not helpful"
+						data-bi-name="button-rating-no"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-dislike"></span>
+						</span>
+					</button>
+					<details class="popover popover-right" id="help-popover" data-test-id="feedback-popover">
+						<summary
+							tabindex="0"
+							class="thumb-rating-button dislike inner-focus"
+							data-test-id="details-right-rail-rating-no"
+							data-binary-rating-response="rating-no"
+							title="This article is not helpful"
+							aria-label="This article is not helpful"
+							data-bi-name="button-rating-no"
+							aria-pressed="false"
+							data-bi-an="feedback-unhelpful-popover"
+						>
+							<span class="icon" aria-hidden="true">
+								<span class="docon docon-dislike"></span>
+							</span>
+						</summary>
+						<div
+							class="popover-content width-200 width-300-tablet"
+							role="dialog"
+							aria-labelledby="popover-heading-right-rail"
+							aria-describedby="popover-description-right-rail"
+						>
+							<p
+								id="popover-heading-right-rail"
+								class="font-size-lg margin-bottom-xxs font-weight-semibold"
+							>
+								Need help with this topic?
+							</p>
+							<p id="popover-description-right-rail" class="font-size-sm margin-bottom-xs">
+								Want to try using Ask Learn to clarify or guide you through this topic?
+							</p>
+							
+		<div class="buttons flex-direction-row flex-wrap justify-content-center gap-xxs">
+			<div>
+		<button
+			class="button button-sm border inner-focus display-none margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-test-id="ask-learn-assistant-modal-entry-mobile-feedback"
+			data-ask-learn-modal-entry-feedback
+			data-bi-an=feedback-unhelpful-popover
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-label="Ask Learn"
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+		</button>
+		<button
+			class="button button-sm display-inline-flex display-none-desktop flex-shrink-0 margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-modal-entry-tablet-feedback"
+			data-ask-learn-modal-entry-feedback
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+		<button
+			class="button button-sm display-none flex-shrink-0 display-inline-flex-desktop margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-flyout-entry-feedback"
+			data-ask-learn-flyout-entry-show-only
+			data-flyout-button="toggle"
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-controls="ask-learn-flyout"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+	</div>
+			<button
+				type="button"
+				class="button button-sm margin-right-xxs"
+				data-help-option="suggest-fix"
+				data-bi-name="feedback-suggest"
+				data-bi-an="feedback-unhelpful-popover"
+				data-test-id="suggest-fix"
+			>
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-feedback"></span>
+				</span>
+				<span> Suggest a fix? </span>
+			</button>
+		</div>
+	
+						</div>
+					</details>
+				</div>
+			</div>
+		</section>
+	
+			</div>
+		</div>
+	
+			  </aside> <section
+					id="layout-body-flyout"
+					class="layout-body-flyout "
+					data-bi-name="flyout"
+			  >
+					 <div
+	class="height-full border-left background-color-body-medium"
+	id="ask-learn-flyout"
+></div>
+			  </section> <div class="layout-body-footer " data-bi-name="layout-footer">
+		<footer
+			id="footer"
+			data-test-id="footer"
+			data-bi-name="footer"
+			class="footer-layout padding-xs padding-sm-desktop has-default-focus border-top"
+			role="contentinfo"
+		>
+			<div class="display-flex gap-xs flex-wrap-wrap is-full-height padding-right-lg-desktop">
+				
+		<a
+			data-mscc-ic="false"
+			href="#"
+			data-bi-name="select-locale"
+			class="locale-selector-link flex-shrink-0 button button-sm button-clear external-link-indicator"
+			id=""
+			title=""
+			><span class="icon" aria-hidden="true"
+				><span class="docon docon-world"></span></span
+			><span class="local-selector-link-text">en-us</span></a
+		>
+	 <div class="ccpa-privacy-link" data-ccpa-privacy-link hidden>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://aka.ms/yourcaliforniaprivacychoices"
+			data-bi-name="your-privacy-choices"
+			class="button button-sm button-clear flex-shrink-0 external-link-indicator"
+			id=""
+			title=""
+			>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 30 14"
+			xml:space="preserve"
+			height="16"
+			width="43"
+			aria-hidden="true"
+			focusable="false"
+		>
+			<path
+				d="M7.4 12.8h6.8l3.1-11.6H7.4C4.2 1.2 1.6 3.8 1.6 7s2.6 5.8 5.8 5.8z"
+				style="fill-rule:evenodd;clip-rule:evenodd;fill:#fff"
+			></path>
+			<path
+				d="M22.6 0H7.4c-3.9 0-7 3.1-7 7s3.1 7 7 7h15.2c3.9 0 7-3.1 7-7s-3.2-7-7-7zm-21 7c0-3.2 2.6-5.8 5.8-5.8h9.9l-3.1 11.6H7.4c-3.2 0-5.8-2.6-5.8-5.8z"
+				style="fill-rule:evenodd;clip-rule:evenodd;fill:#06f"
+			></path>
+			<path
+				d="M24.6 4c.2.2.2.6 0 .8L22.5 7l2.2 2.2c.2.2.2.6 0 .8-.2.2-.6.2-.8 0l-2.2-2.2-2.2 2.2c-.2.2-.6.2-.8 0-.2-.2-.2-.6 0-.8L20.8 7l-2.2-2.2c-.2-.2-.2-.6 0-.8.2-.2.6-.2.8 0l2.2 2.2L23.8 4c.2-.2.6-.2.8 0z"
+				style="fill:#fff"
+			></path>
+			<path
+				d="M12.7 4.1c.2.2.3.6.1.8L8.6 9.8c-.1.1-.2.2-.3.2-.2.1-.5.1-.7-.1L5.4 7.7c-.2-.2-.2-.6 0-.8.2-.2.6-.2.8 0L8 8.6l3.8-4.5c.2-.2.6-.2.9 0z"
+				style="fill:#06f"
+			></path>
+		</svg>
+	
+			<span>Your Privacy Choices</span></a
+		>
+	
+	</div>
+				<div class="flex-shrink-0">
+		<div class="dropdown has-caret-up">
+			<button
+				data-test-id="theme-selector-button"
+				class="dropdown-trigger button button-clear button-sm inner-focus theme-dropdown-trigger"
+				aria-controls="{{ themeMenuId }}"
+				aria-haspopup="true"
+				aria-expanded="false"
+				data-bi-name="theme"
+			>
+				<span class="icon" aria-hidden="true"><span class="docon docon-sun"></span></span>
+				<span>Theme</span>
+				<span class="icon expanded-indicator" aria-hidden="true">
+					<span class="docon docon-chevron-down-light"></span>
+				</span>
+			</button>
+			<div class="dropdown-menu" id="{{ themeMenuId }}" role="menu">
+				<ul class="theme-selector padding-xxs" data-test-id="theme-dropdown-menu" role="none">
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="light"
+							tabindex="-1"
+						>
+							<span class="theme-light margin-right-xxs">
+								<span
+									class="theme-selector-icon border display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> Light </span>
+						</button>
+					</li>
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="dark"
+							tabindex="-1"
+						>
+							<span class="theme-dark margin-right-xxs">
+								<span
+									class="border theme-selector-icon display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> Dark </span>
+						</button>
+					</li>
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="high-contrast"
+							tabindex="-1"
+						>
+							<span class="theme-high-contrast margin-right-xxs">
+								<span
+									class="border theme-selector-icon display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> High contrast </span>
+						</button>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+			</div>
+			<ul class="links" data-bi-name="footerlinks">
+				<li class="manage-cookies-holder" hidden=""></li>
+				<li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/principles-for-ai-generated-content"
+			data-bi-name="aiDisclaimer"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>AI Disclaimer</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/previous-versions/"
+			data-bi-name="archivelink"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Previous Versions</a
+		>
+	
+	</li> <li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://techcommunity.microsoft.com/t5/microsoft-learn-blog/bg-p/MicrosoftLearnBlog"
+			data-bi-name="bloglink"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Blog</a
+		>
+	
+	</li> <li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/contribute"
+			data-bi-name="contributorGuide"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Contribute</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://go.microsoft.com/fwlink/?LinkId=521839"
+			data-bi-name="privacy"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Privacy</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://go.microsoft.com/fwlink/?linkid=2259814"
+			data-bi-name="consumer-health-privacy"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Consumer Health Privacy</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/legal/termsofuse"
+			data-bi-name="termsofuse"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Terms of Use</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://www.microsoft.com/legal/intellectualproperty/Trademarks/"
+			data-bi-name="trademarks"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Trademarks</a
+		>
+	
+	</li>
+				<li>&copy; Microsoft 2026</li>
+			</ul>
+		</footer>
+	</footer>
+			</body>
+		</html>

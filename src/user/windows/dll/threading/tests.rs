@@ -6,12 +6,16 @@ use super::super::super::process::{WindowsConfig, WindowsProcess};
 use super::super::super::sync::{self, Wait};
 use super::*;
 use crate::host::time::Instant;
+use crate::user::windows::process::thread::UserApc;
 
 #[path = "native_wait_tests.rs"]
 mod native_wait_tests;
 
 #[path = "native_semaphore_tests.rs"]
 mod native_semaphore_tests;
+
+#[path = "native_event_open_tests.rs"]
+mod native_event_open_tests;
 
 #[path = "native_timer2_tests.rs"]
 mod native_timer2_tests;
@@ -63,6 +67,7 @@ fn api(name: &str) -> &'static Api {
         .chain(super::super::native::SEMAPHORE_EXPORTS.iter())
         .chain(super::super::native::TIMER2_EXPORTS.iter())
         .chain(super::super::native::THREAD_OPEN_EXPORTS.iter())
+        .chain(super::super::native::EVENT_OPEN_EXPORTS.iter())
         .find_map(|export| match &export.item {
             Item::Func(api) if api.name == name => Some(api),
             _ => None,
@@ -432,7 +437,7 @@ fn queued_apcs_fifo_and_alertable_sleep_flow_all_abis() {
             assert_eq!(integer(c, "QueueUserAPC", &[0x2222, current, 2]), 1);
             assert_eq!(
                 c.t.apcs.iter().copied().collect::<Vec<_>>(),
-                [(0x1111, 1), (0x2222, 2)]
+                [(0x1111, 1), (0x2222, 2)].map(UserApc::from)
             );
             assert!(matches!(
                 invoke(c, "SleepEx", &[0, 0]),

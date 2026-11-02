@@ -1,5 +1,5 @@
 //! Snapshot-backed runtime registry reads. Native64 and WoW64 capture/probe order
-//! follows the build29683 observations retained under docs/specifications.
+//! follows captured ARM64 and AMD64 kernel profiles under docs/specifications.
 //! No guest path, access mask or handle reaches a host registry service.
 use super::query::{guard_result, probe_write};
 use crate::error::MemoryAccessKind;
@@ -9,11 +9,27 @@ use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
-use crate::user::windows::registry::{Key, Lookup, Value};
+use crate::user::windows::registry::{Key, Lookup, RegistryView, Value};
 use std::sync::Arc;
 
 const READ_ACCESS: u32 = 0x0002_0019;
 const MAX_CONVERSION_BYTES: usize = 16 << 20;
+
+#[path = "registry/key_enumeration.rs"]
+mod key_enumeration;
+pub(super) use key_enumeration::enumerate_key;
+
+#[path = "registry/key_query.rs"]
+mod key_query;
+pub(super) use key_query::query_key;
+
+#[path = "registry/key_set.rs"]
+mod key_set;
+pub(super) use key_set::set_key;
+
+#[path = "registry/key_notify.rs"]
+mod key_notify;
+pub(super) use key_notify::notify_key;
 
 enum Failure {
     Status(u32),
@@ -82,6 +98,24 @@ struct Attributes {
     name: Name,
     flags: u32,
 }
+fn odd_open_name_status(c: &Ctx) -> Checked<u32> {
+    let Some(native) = &c.p.native else {
+        // The built-in personality retains its original ARM64-derived profile.
+        return Ok(STATUS_INVALID_PARAMETER);
+    };
+    match (
+        native.version.major,
+        native.version.minor,
+        native.version.build,
+        native.object_namespace.native_machine,
+    ) {
+        (10, 0, 20348 | 26100, Some(0x8664)) => Ok(STATUS_OBJECT_NAME_INVALID),
+        (10, 0, 29683 | 29695, Some(0xAA64)) => Ok(STATUS_INVALID_PARAMETER),
+        _ => Err(c
+            .unsupported("registry odd key-name kernel profile is not captured")
+            .into()),
+    }
+}
 fn attributes(c: &Ctx, address: u64) -> Checked<Attributes> {
     let wow = c.arch() == WinArch::X86;
     let size = if wow { 24 } else { 48 };
@@ -119,9 +153,16 @@ fn attributes(c: &Ctx, address: u64) -> Checked<Attributes> {
             return Err(c.unsupported(description).into());
         }
     }
+    let descriptor = name(c, object_name)?;
+    if !wow && descriptor.length % 2 != 0 {
+        return status(odd_open_name_status(c)?);
+    }
+    if !wow && descriptor.length != 0 && descriptor.length % 2 == 0 && descriptor.buffer % 2 != 0 {
+        return status(STATUS_DATATYPE_MISALIGNMENT);
+    }
     Ok(Attributes {
         root,
-        name: text(c, name(c, object_name)?, wow)?,
+        name: text(c, descriptor, wow)?,
         flags,
     })
 }
@@ -144,7 +185,7 @@ fn grant(c: &Ctx, access: u32) -> Checked<u32> {
     if c.arch() == WinArch::X86 && access & 0x300 == 0x300 {
         return status(STATUS_INVALID_PARAMETER);
     }
-    let access = access & !0x300; // Selected SYSTEM/IFEO keys are shared between views.
+    let access = access & !0x300; // View flags select snapshots; they are not granted rights.
     if access == 0 || access & !(READ_ACCESS | 0xA200_0000) != 0 {
         return status(STATUS_ACCESS_DENIED);
     }
@@ -155,13 +196,78 @@ fn grant(c: &Ctx, access: u32) -> Checked<u32> {
     })
 }
 
+fn open_grant(c: &Ctx, access: u32, options: u32, selected: &Key) -> Checked<u32> {
+    if c.arch() == WinArch::X86 && access & 0x300 == 0x300 {
+        return status(STATUS_INVALID_PARAMETER);
+    }
+    if options & 4 == 0 {
+        if let Some(profile) = selected.captured_access() {
+            return match profile.grant(access) {
+                Ok(granted) => Ok(granted),
+                Err(code) => status(code),
+            };
+        }
+        return grant(c, access);
+    }
+    let subject =
+        c.p.objects.primary_token_subject().ok_or_else(|| {
+            c.unsupported("registry backup/restore token subject is not captured")
+        })?;
+    // The current thread-token attachment boundary keeps this the captured
+    // primary subject. Native controls use a separately duplicated token.
+    let enabled = |luid| {
+        subject
+            .privileges
+            .iter()
+            .any(|privilege| privilege.luid == luid && privilege.attributes & 2 != 0)
+    };
+    let granted =
+        if enabled(17) { 0x0102_0019 } else { 0 } | if enabled(18) { 0x010F_0006 } else { 0 };
+    if granted == 0 {
+        status(STATUS_ACCESS_DENIED)
+    } else {
+        Ok(granted)
+    }
+}
+
+#[path = "registry/key_tags.rs"]
+mod key_tags;
+use key_tags::RelativeOpen;
+
+// Retained native parent graphs also exercise this common conversion policy.
+#[cfg(test)]
+fn command_reopen_tags(
+    wow: bool,
+    parent: u32,
+    parent_view: RegistryView,
+    requested: u32,
+) -> Option<u32> {
+    Some(RelativeOpen::new(wow, parent, requested)?.tags(
+        false,
+        parent_view == RegistryView::Wow32,
+        false,
+    ))
+}
+
+#[cfg(test)]
+#[path = "registry/system_command_tests.rs"]
+mod system_command_tests;
+
 pub(super) fn open(c: &mut Ctx) -> ApiResult {
-    let result = open_checked(c);
+    let result = open_checked(c, 0);
     finish(c, result)
 }
-fn open_checked(c: &mut Ctx) -> Checked<u32> {
+pub(super) fn open_ex(c: &mut Ctx) -> ApiResult {
+    let options = c.u32(3)?;
+    let result = open_checked(c, options);
+    finish(c, result)
+}
+fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     let (out, access, attrs) = (c.ptr(0)?, c.u32(1)?, c.ptr(2)?);
     let wow = c.arch() == WinArch::X86;
+    if !wow && options & !0x1C != 0 {
+        return status(STATUS_INVALID_PARAMETER_4);
+    }
     let attrs = if wow {
         attributes(c, attrs)?
     } else {
@@ -169,27 +275,104 @@ fn open_checked(c: &mut Ctx) -> Checked<u32> {
         c.write_ptr(out, 0)?;
         attributes(c, attrs)?
     };
-    if wow {
+    if wow && out != 0 {
         probe_write(c, out, 4)?;
         c.write_ptr(out, 0)?;
     }
-    if attrs.flags & !0x1EF2 != 0 || attrs.name.odd {
+    let absolute = attrs.name.units.first() == Some(&(b'\\' as u16));
+    if wow && attrs.root != 0 && absolute {
+        return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
+    }
+    if wow && access & 0x300 == 0x300 {
         return status(STATUS_INVALID_PARAMETER);
     }
-    let absolute = attrs.name.units.first() == Some(&(b'\\' as u16));
+    if wow && attrs.root != 0 {
+        // The thunk resolves a relative root before native option validation.
+        // Absolute syntax and contradictory views still precede this lookup.
+        key(c, attrs.root, false)?;
+    }
+    if options & !0x1C != 0 {
+        return status(STATUS_INVALID_PARAMETER_4);
+    }
+    if attrs.flags & !0x1FF2 != 0 {
+        return status(STATUS_INVALID_PARAMETER);
+    }
+    if attrs.name.odd {
+        return status(odd_open_name_status(c)?);
+    }
+    if attrs.flags & 0x100 != 0 {
+        return Err(c
+            .unsupported("registry link-source metadata is not captured")
+            .into());
+    }
+    let views;
+    let mut relative = None;
+    let mut physical_wow = false;
+    let mut control_set_alias = false;
+    let mut primary_default = None;
     let selected = if attrs.root != 0 {
         // The compatibility thunk rejects an absolute rooted name before the
         // native object manager checks the root handle's validity/type.
         if wow && absolute {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
+        if absolute && c.p.objects.get(attrs.root).is_some() {
+            return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
+        }
         let root = key(c, attrs.root, false)?;
+        primary_default = root.primary_hive_default();
         if absolute {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
-        match root.relative(&attrs.name.units) {
+        if let Some(tags) = c.p.objects.registry_tags(attrs.root) {
+            relative = Some(match RelativeOpen::new(wow, tags, access & 0x300) {
+                Some(state) => state,
+                None => return status(STATUS_INVALID_PARAMETER),
+            });
+        }
+        physical_wow = root.redirected_view == Some(RegistryView::Wow32)
+            && root.command_physical_name(&root.path);
+        if root.is_machine_hive() {
+            let folded = root.fold(&attrs.name.units);
+            let mut parts = folded.split(|u| *u == 92).filter(|part| !part.is_empty());
+            control_set_alias = parts
+                .next()
+                .is_some_and(|part| part.iter().copied().eq("SYSTEM".encode_utf16()))
+                && parts.next().is_some_and(|part| {
+                    part.iter().copied().eq("CURRENTCONTROLSET".encode_utf16())
+                });
+        }
+        let selected = if let Some(catalog) = root.hive_views() {
+            views = Some(catalog);
+            let view = if wow {
+                relative
+                    .as_ref()
+                    .ok_or_else(|| c.unsupported("parent key tags are not captured"))?
+                    .view()
+            } else {
+                RegistryView::Native64
+            };
+            root.relative_in_view(&attrs.name.units, view)
+        } else if wow
+            && relative.as_ref().map_or(access & 0x200 != 0, |state| {
+                state.view() == RegistryView::Wow32
+            })
+            && root.redirected_view == Some(RegistryView::Native64)
+        {
+            let captured = c.p.objects.registry_views(attrs.root).ok_or_else(|| {
+                c.unsupported("AppModel relative registry views are not captured")
+            })?;
+            let selected = captured.relative(&root, &attrs.name.units, RegistryView::Wow32);
+            views = Some(captured);
+            selected
+        } else {
+            views = c.p.objects.registry_views(attrs.root);
+            root.relative(&attrs.name.units)
+        };
+        match selected {
             Lookup::Present(key) => key,
             Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
+            Lookup::MissingPath => return status(STATUS_OBJECT_PATH_NOT_FOUND),
             Lookup::Unselected => {
                 return Err(c.unsupported("unsnapshotted registry subkey").into());
             }
@@ -198,9 +381,16 @@ fn open_checked(c: &mut Ctx) -> Checked<u32> {
         if !absolute {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
-        match c.p.registry.lookup(&attrs.name.units) {
+        let view = if wow && access & 0x100 == 0 {
+            RegistryView::Wow32
+        } else {
+            RegistryView::Native64
+        };
+        views = Some(c.p.registry.views.clone());
+        match c.p.registry.lookup_view(&attrs.name.units, view) {
             Lookup::Present(key) => key,
             Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
+            Lookup::MissingPath => return status(STATUS_OBJECT_PATH_NOT_FOUND),
             Lookup::Unselected => {
                 return Err(c
                     .unsupported("registry key outside selected runtime snapshot")
@@ -208,16 +398,82 @@ fn open_checked(c: &mut Ctx) -> Checked<u32> {
             }
         }
     };
-    let access = grant(c, access)?;
-    let Some(id) = c.p.objects.try_create(Object::Key(selected)) else {
+    // Native controls distinguish OBJ_OPENLINK above from OpenOptions bit8.
+    // The admitted option alone retains the ordinary resolved-key behavior.
+    // Relative opens consume key-body state. Absolute opens establish native
+    // initial tags; contradictory WoW64 views were rejected before selection.
+    let redirected = selected.redirected_view.is_some();
+    let initial_local = if wow {
+        selected.initial_local_settings_tags(
+            &attrs.name.units,
+            relative
+                .as_ref()
+                .map_or(access & 0x300, RelativeOpen::flags),
+            absolute,
+            primary_default,
+            relative.as_ref().map_or(0, RelativeOpen::parent_flags),
+        )
+    } else {
+        None
+    };
+    let tags = if let Some(tags) = initial_local {
+        tags
+    } else if let Some(relative) = &relative {
+        relative.tags(
+            selected.is_machine_hive(),
+            physical_wow || selected.command_physical_name(&attrs.name.units),
+            control_set_alias,
+        )
+    } else if wow {
+        let requested = access & 0x300;
+        if selected.is_machine_hive() || selected.primary_hive_sid_spelling(&attrs.name.units) {
+            requested
+        } else if selected.command_physical_name(&attrs.name.units) {
+            if requested == 0x100 { 0x100 } else { 0xE00 }
+        } else {
+            requested | if requested == 0x100 { 0 } else { 0x400 }
+        }
+    } else {
+        0
+    };
+    // Native Classes-hive bodies gain the per-user bit when the thunk
+    // converts a native-view handle back to the 32-bit view.
+    let tags = if wow
+        && relative
+            .as_ref()
+            .is_some_and(|state| state.view() == RegistryView::Wow32)
+        && selected.local_settings_classes_hive()
+    {
+        tags | 1
+    } else {
+        tags
+    };
+    let access = open_grant(c, access, options, &selected)?;
+    // Redirected WoW64 key-body metadata is not inferred from the shared-key
+    // formula. Keep it explicitly uncaptured until a present-root oracle exists.
+    let id = if redirected && wow && selected.command_access().is_none() {
+        c.p.objects.create_registry_key_metadata(selected, None)
+    } else {
+        c.p.objects.create_registry_key(selected, tags)
+    };
+    let Some(id) = id else {
         return status(STATUS_INSUFFICIENT_RESOURCES);
     };
+    if redirected {
+        if let Some(views) = views {
+            c.p.objects.set_registry_views(id, views);
+        }
+    }
     let Some(handle) = c.p.objects.open_access(id, attrs.flags & 2 != 0, access) else {
         c.p.objects.release(id);
         return status(STATUS_INSUFFICIENT_RESOURCES);
     };
     if let Err(fault) = c.write_ptr(out, u64::from(handle)) {
-        let _ = c.p.objects.close(u64::from(handle));
+        // The measured WoW64 NULL-output successful open leaks its handle.
+        // A NULL output on an earlier failure skips copy-back entirely.
+        if !wow || out != 0 {
+            let _ = c.p.objects.close(u64::from(handle));
+        }
         return Err(fault.into());
     }
     Ok(STATUS_SUCCESS)

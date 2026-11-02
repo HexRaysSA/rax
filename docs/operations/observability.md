@@ -6,7 +6,7 @@ The software interpreter is the observability path. It owns instruction fetch, d
 
 KVM and HVF execute guest instructions in hardware between exits. They are useful for speed and reference comparisons, but they do not become per-instruction software tracers merely because the binary was built with observability features.
 
-## Linux process observability
+## User-mode process observability
 
 `rax-user` uses a separate process loop. `--strace` logs guest syscall names,
 arguments, results, and TIDs without the machine `trace` feature:
@@ -14,6 +14,24 @@ arguments, results, and TIDs without the machine `trace` feature:
 ```sh
 ./target/release/rax-user --strace tests/fixtures/user/linux/bin/aarch64/hello
 ```
+
+For Darwin (Mach-O) guests, three options add detail to `--strace` and
+imply it:
+
+| Option | Effect |
+|---|---|
+| `--strace-mach-msg[=LIMIT]` | Dump each Mach message sent and received: the header (with the kernel object and MIG routine a request goes to, or the kernel notification or MIG reply a received message is), the decoded descriptors, and a hex dump of at most `LIMIT` bytes (default `4K`) of the inline message, of each out-of-line region or port array, and of the auxiliary data. A request is shown as the sender laid it out, before copy-in; a received message as the receiver gets it, after copy-out, trailer included. `LIMIT` 0 keeps the headers and descriptors only. |
+| `--strace-pc` | Show the caller's PC on each traced call: `rip=` on x86-64, `pc=` on arm64, the address after the trap instruction. |
+| `--strace-stack[=DEPTH]` | Follow each traced call with a frame-pointer backtrace of at most `DEPTH` frames (default 16): the PC, the system-call stub's return address, then the frame records, each named by the mapping holding it (an image path or `[shared region]`). |
+
+```sh
+./target/release/rax-user --strace-mach-msg --strace-stack=8 /bin/echo hello
+```
+
+A message's dump lines come before the `mach_msg2_trap` line of the call
+that sent or received it; the backtrace follows that line, marked ` > `.
+The backtrace is captured when the call is entered. Slides are zero, so
+its addresses are the images' and shared cache's unslid addresses.
 
 `--trace FILE` writes one line per executed guest instruction for every
 user-mode CPU adapter (x86-64, i386, AArch64, RV64, and AArch32), without the

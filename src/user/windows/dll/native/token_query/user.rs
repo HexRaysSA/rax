@@ -38,6 +38,9 @@ pub(super) fn handle_error(c: &mut Ctx, class: u32, returned: u64, status: u32) 
     if c.arch() == WinArch::X86 && class == 1 && returned != 0 {
         c.mem().w32(returned, u32::MAX - 7)?;
     }
+    if c.arch() == WinArch::X86 && class == 10 && returned != 0 {
+        c.mem().w32(returned, 0)?;
+    }
     Flow::ret(status.into())
 }
 

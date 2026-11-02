@@ -47,9 +47,12 @@ Native64 IOSB's unused upper Status-union word is zeroed deterministically.
 Some providers leave those reserved bytes unchanged; they are not the defined
 NTSTATUS field. The defined fields are the low four-byte Status and the
 pointer-sized Information count. No byte-identical claim is made for all
-providers' reserved padding. The complete replay matches every byte in its
-captured local-disk/standard-device matrices, including aliasing and failed
-partial publication. Query work is O(P) for P probed output pages plus host
+providers' reserved padding. The replay preserves every captured status, guard, nonpayload byte, alias and
+partial-publication assertion. Unix virtual-drive data remains the captured
+profile. On Windows, the real fixture file's eight-byte device payload is bound
+to an independent native class4 query before emulation; IOSB stores that overwrite
+aliased payload bytes retain their captured values. Actual volume flags may
+differ from the historical local-disk profile. Query work is O(P) for P probed output pages plus host
 metadata work, with O(1) private scratch; it does not allocate caller-length
 buffers. Pointer-width publication is checked and preserves caller LastError.
 
@@ -83,8 +86,8 @@ Six focused tests pass on all three hosts. The compiled V4 replay compares
 1,056 complete native observations: return status, memory windows, consumed and
 unconsumed guards, aliases, wrong handle kinds, handle-table stability and the
 retained file cursor. The red baseline against `3661ff6b` has zero passes and
-three failures. Its complete original test prefix remains unchanged in the
-extended final file. The frozen source graph contains 26,895 inputs, SHA-256
+three failures. The original test prefix remained unchanged at that qualification frame.
+The later live-volume binding below corrects its host-dependent disk fixture. The frozen source graph contains 26,895 inputs, SHA-256
 `336e8771aaa128fabb49c5e87cd2629285344f0b04f2de7eee78d851ceab44de`.
 Later publication records are outside the compilation graph.
 
@@ -111,3 +114,37 @@ Rust terminal index 2,558 corresponds to 2,559 C API turns started. C API reason
 NLS snapshot boundary, independent image-view unwind registration and previous
 image/runtime policy boundaries keep the full same-host userland objective
 active. No changelog or release work is included.
+
+
+## Live Windows replay fixture (2026-10-28)
+
+A later complete Windows29695 library run retained24 disk-payload mismatches
+while every corresponding NTSTATUS matched. A separate direct native query
+reports DeviceType0x07/Characteristics0x00220020 on the current volume; V4's
+historical local volume reports0x07/0x00020020. The production Windows adapter
+already returns live volume data as documented. Pinning it to the historical
+flags would change that contract.
+
+The fixture now queries its independently opened retained file through a raw
+native class4 call with separate private buffers. The file cursor remains7.
+If completion is pending, a private nonalertable file wait keeps those buffers
+alive. The oracle does not call the production host adapter. Only bytes whose
+captured source is the eight-byte device payload receive this live binding.
+Successful IOSB status/Information stores win over overlapping payload; fault
+rows require captured evidence that the complete payload store occurred. All
+1056 original rows, statuses, guards, aliases, other bytes, handle sets and
+cursor checks remain enabled. Original producer and capture bytes are unchanged.
+A pure regression checks changed type/flags against both x86 IOSB overlap
+directions, a late fault and a rejected output probe.
+
+Assumption VD1: a retained real Windows file exposes its owning volume's live
+class4 data. Basis: the native query and the existing adapter contract. The
+payload binding depends on it. Stress tests cover differing flags/type and
+captured alias/fault publication. A status, guard, cursor or nonpayload change
+falsifies the fixture projection; such changes remain hard replay failures.
+The filesystem flag bit names beyond the measured numeric masks are not inferred.
+
+The seven focused volume-device tests pass on Windows ARM64 build29695,
+macOS ARM64 and Linux x86-64 container execution. Each run includes all1056
+retained observations and the independent payload-binding regression. This
+fixture-only change does not alter the production host adapter.

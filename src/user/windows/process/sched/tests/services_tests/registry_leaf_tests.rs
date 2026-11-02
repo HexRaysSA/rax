@@ -5,7 +5,13 @@ use crate::user::windows::{
     process::{WindowsConfig, WindowsProcess},
 };
 
-fn invoke(p: &mut Proc, t: &mut Thread, module: usize, service: &str, args: &[u64]) -> u32 {
+pub(super) fn invoke(
+    p: &mut Proc,
+    t: &mut Thread,
+    module: usize,
+    service: &str,
+    args: &[u64],
+) -> u32 {
     let entry = loader::lookup(p, module, &SymRef::Name(service.as_bytes().to_vec(), None))
         .unwrap()
         .unwrap();
@@ -20,7 +26,8 @@ fn invoke(p: &mut Proc, t: &mut Thread, module: usize, service: &str, args: &[u6
                 .unwrap(),
             WinArch::X64 if index < 4 => t.cpu.set_gpr([1, 2, 8, 9][index], value),
             WinArch::X64 => p.space.w64(sp + 8 + index as u64 * 8, value).unwrap(),
-            WinArch::Arm64 => t.cpu.set_gpr(index, value),
+            WinArch::Arm64 if index < 8 => t.cpu.set_gpr(index, value),
+            WinArch::Arm64 => p.space.w64(sp + (index as u64 - 8) * 8, value).unwrap(),
         }
     }
     match arch {

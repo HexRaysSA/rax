@@ -32,6 +32,25 @@ occupy readable non-executable trap slots; the CPU's fetch fault enters checked
 host implementations with the guest's original calling-convention state.
 Unknown DLLs and imports produce explicit loader or execution failures.
 
+Installed registry selection includes the fixed machine
+`System\Software\Microsoft\Command Processor` path. Its immutable record
+retains native absence or a complete bounded subtree and captured access.
+Both shared views must agree on presence and physical contents; retained
+MACHINE handles preserve routing across duplication and namespace replacement.
+Other System paths remain outside that selection. The
+[independent native campaign](../../specifications/windows/native-system-command-processor/README.md)
+separates measured absence and parent-handle mechanics from synthetic positive
+leaf contents and from complete CMD startup qualification.
+
+Installed selection also captures the creator's complete fixed
+`Software\Classes\Local Settings` subject, including its captured primary-hive
+and separate Classes-hive aliases. Both shared views retain native grants,
+raw values and ordered child metadata. This subject uses its own bounded
+aggregate domain; existing startup-subject limits remain unchanged. Guest
+handles retain creator routes after namespace replacement. The
+[native Local Settings controls](../../specifications/windows/native-local-settings/README.md)
+describe the snapshot digest, native open/tag measurements and evidence limits.
+
 `GetCommandLineA` converts the process's UTF-16 command line with the named
 Windows-1252 best-fit process-code-page profile and returns one process-owned
 guest buffer on repeated calls. This includes mappings that can change narrow
@@ -678,3 +697,95 @@ x86_64-suite,smir-jit`. Formatting and diff checks passed. No compiled PE32
 guard-repair witness or native Windows x86 comparison was run; the scratch
 layout, private retry frontier, nested-handler precedence and overflow recovery
 are a tested RAX policy, not an established native equivalence claim.
+
+
+The fixed HKLM `Software\Microsoft\OLE` subject uses the same complete
+immutable subtree machinery. Both explicit views must agree on existence and
+physical contents. Captured grants, child metadata and values remain owned by
+guest handles after duplication and catalog replacement. Native acquisition
+selects the compile-time OLE path, closes its HKEYs, and never forwards guest
+registry arguments. [Independent controls and current validation scope](../../specifications/windows/native-ole-registry/README.md)
+record 15,572 native open cases across ARM64, x64 and x86 on build 29695;
+broader native profiles and full installed-process behavior remain separate.
+
+`NtSetInformationKey` class 5 replaces the guest key body's 16-bit handle-tag
+field after capturing exactly four input bytes. Duplicate handles share this
+state; independent opens retain separate key bodies. The setter accepts a
+zero-access handle, while the tag query still requires a nonzero grant.
+Input faults and guard consumption precede handle validation. Other valid set
+classes remain explicit unsupported boundaries, and guest arguments never reach
+the host registry. [Native controls and scope](../../specifications/windows/native-key-set-information/README.md)
+cover validation, unaligned and protected input, tag widths, and close lifetime.
+Relative opens consume the replaced tags: native opens inherit key-body metadata,
+while WoW64 selects or suppresses redirection, converts view tags, and rejects an
+inherited contradictory view. Empty-name reopens own independent tag state.
+Traversal through the captured CurrentControlSet alias resets native inheritance;
+WoW64 can subsequently publish its converted tags. The fixed snapshot authority
+and host registry access boundary remain unchanged.
+
+`NtNotifyChangeKey` admits real pending requests against owned registry key
+bodies. Each successful asynchronous request retains its event object; closing
+and reusing a caller handle cannot retarget the completion. The final duplicate
+key handle completes its requests, while an independent open has its own
+lifetime. Ordinary requests retire with their issuing thread; thread-agnostic
+requests survive it. Synchronous calls park on a private event without adding
+a caller-visible handle. I/O APCs share the existing FIFO with ordinary APCs,
+carry all three native callback arguments, and publish their IOSB/event at
+delivery. Captured ARM64 and AMD64 kernels have distinct IOSB stores. ARM64
+uses a pointer-sized status and an atomic 8-byte WoW64 record. AMD64 preserves
+native64 status padding and publishes separate status/information fields,
+including partial WoW64 stores before a late fault. Reached guards are consumed,
+and store faults do not prevent event completion. The immutable native kernel
+identity selects these recipes; the reported guest version does not.
+
+The snapshot remains immutable: notifications do not import later host registry
+changes, and this service adds no registry content writer. The public C ABI is
+unchanged. The Rust thread APC payload now distinguishes ordinary and I/O
+callbacks. [Native notification controls](../../specifications/windows/native-key-notify/README.md)
+record probe order, filter bits, retained objects, thread exit, synchronous
+cleanup, and callback arguments across the three Windows process ABIs.
+
+`NtOpenEvent` opens an existing private Event through the captured selected
+directories. Win32 creation, native state changes and waits share one object;
+each additional handle retains its own rights and inheritance flag. The opening
+service captures ABI-specific attributes, preserves measured fault/guard/store
+order, distinguishes missing intermediate directories from missing final names,
+and rolls back a handle if publication fails. Its separate tail export family
+preserves prior synthetic NTDLL ordinals and trap addresses. No guest name is
+forwarded to the host object manager. Explicit security/QoS and privilege policy
+remain unsupported boundaries, and named native Event creation is separate.
+[Native opening controls](../../specifications/windows/native-open-event/README.md)
+retain 1,521 observations from ARM64, x64 and x86 processes on ARM64 kernel
+10.0.29695, including actual mapped-provider hashes and finite-profile limits.
+
+`NtQuerySystemInformation` class 164 exposes the selected native runtime's
+immutable 32-byte code integrity policy record. Fixed read-only host acquisition
+checks length, opposite-poison initialization and bounded sample agreement;
+unavailable metadata stays explicit. Guest queries preserve independently
+measured native64 probing and WoW64 conversion/copy order, including aliasing,
+guard transitions and late faults. No guest pointer or length enters the host
+query, and no policy mutation is added. The returned metadata does not establish
+guest-loader signature enforcement.
+[Native policy controls](../../specifications/windows/native-code-integrity-policy/README.md)
+retain 8,748 cases across three process ABIs on one ARM64 kernel, with fresh
+native CI controls for the available Windows host architectures.
+
+Class 189 (`SystemCodeIntegrityPoliciesFullInformation`) separately returns an
+opaque, variable-length policy payload. Bounded fixed-class host acquisition
+compares opposite-poison buffers and retains an immutable process-owned record;
+unavailable data stays explicit. Native64 and WoW64 both probe the complete
+declared output span and optional ReturnLength before size dispatch, then copy
+exactly the captured payload and publish its required size. Guest arguments
+never enter a host query, and no guest-length-sized host workspace is allocated.
+[Full native policy controls](../../specifications/windows/native-code-integrity-policies/README.md)
+retain 9,840 complete-arena observations across three process ABIs on one ARM64
+kernel. These metadata queries do not implement policy mutation or signature
+enforcement, and do not establish complete installed-process startup.
+
+### Captured token statistics
+
+`NtQueryInformationToken` class 10 serves immutable 56-byte statistics from the
+same captured token subject as its SID, groups and privileges. Native64 and
+WoW64 retain independently observed probe, rights, copy and ReturnLength order.
+The WoW64 scratch check uses guest budgets and no guest-sized host allocation.
+[Native source, complete-arena controls and boundaries](../../specifications/windows/native-token-statistics/README.md).

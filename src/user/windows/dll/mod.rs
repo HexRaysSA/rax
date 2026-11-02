@@ -36,6 +36,12 @@ pub(crate) fn nt_service(
         .chain(native::WOW64_CSR_EXPORTS)
         .chain(native::THREAD_OPEN_EXPORTS)
         .chain(native::MEMORY_PREFETCH_EXPORTS)
+        .chain(native::KEY_QUERY_EXPORTS)
+        .chain(native::KEY_OPEN_EX_EXPORTS)
+        .chain(native::KEY_ENUMERATION_EXPORTS)
+        .chain(native::KEY_SET_EXPORTS)
+        .chain(native::KEY_NOTIFY_EXPORTS)
+        .chain(native::EVENT_OPEN_EXPORTS)
         .find_map(|export| {
             if export.name == name
                 && export.name.starts_with("Nt")
@@ -85,6 +91,12 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::WOW64_CSR_EXPORTS,
         native::THREAD_OPEN_EXPORTS,
         native::MEMORY_PREFETCH_EXPORTS,
+        native::KEY_QUERY_EXPORTS,
+        native::KEY_OPEN_EX_EXPORTS,
+        native::KEY_ENUMERATION_EXPORTS,
+        native::KEY_SET_EXPORTS,
+        native::KEY_NOTIFY_EXPORTS,
+        native::EVENT_OPEN_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {

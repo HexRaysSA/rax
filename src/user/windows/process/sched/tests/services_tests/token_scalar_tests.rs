@@ -365,6 +365,7 @@ fn native_token_scalars_preserve_nonzero_values_and_refuse_uncaptured_identity()
         let p = process.state_mut();
         select(p, &BTreeMap::from([(42, CapturedScalar::Value(0))]));
         let subject = crate::user::windows::security::Subject {
+            statistics: None,
             attributes: None,
             user_attributes: 0,
             user: vec![],

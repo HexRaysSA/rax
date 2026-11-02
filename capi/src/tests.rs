@@ -6,6 +6,7 @@
 
 mod aarch64_undefined;
 mod fp_access;
+pub(crate) mod macho_fixture;
 
 use std::os::raw::c_void;
 use std::ptr;

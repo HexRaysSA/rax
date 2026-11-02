@@ -1,0 +1,151 @@
+//! Complete CMD trees own every child and that child's captured access profile.
+use super::*;
+use crate::user::windows::registry::tree::{TreeBudget, child_path};
+
+pub(crate) struct CommandTree {
+    pub(crate) header: CommandHeader,
+    pub(crate) children: Vec<(Vec<u16>, CommandTree)>,
+}
+
+pub(in crate::user::windows::registry) struct Builder {
+    upcase: Arc<[u16]>,
+    view: RegistryView,
+    label: &'static str,
+    complete_metadata: bool,
+    values: ValueBudget,
+    metadata: TreeBudget,
+}
+
+impl Builder {
+    pub(in crate::user::windows::registry) fn new(
+        registry: &Registry,
+        view: RegistryView,
+        root: SnapshotRoot,
+    ) -> io::Result<Self> {
+        let (values, metadata) = registry.snapshot_budgets(root)?;
+        Ok(Self {
+            upcase: registry.upcase.clone(),
+            view,
+            label: root.label(),
+            complete_metadata: root == SnapshotRoot::LocalSettings,
+            values,
+            metadata,
+        })
+    }
+
+    pub(in crate::user::windows::registry) fn build(
+        &mut self,
+        logical: Vec<u16>,
+        header: CommandHeader,
+        children: Option<Vec<(Vec<u16>, CommandTree)>>,
+        depth: usize,
+    ) -> io::Result<Arc<Key>> {
+        if self.complete_metadata && (children.is_none() || header.enumeration.is_none()) {
+            return Err(invalid("Local Settings requires complete ordered metadata"));
+        }
+        if header.canonical.len() > MAX_NAME_UNITS || header.canonical.contains(&0) {
+            return Err(invalid(&format!(
+                "{} canonical name exceeds bounds",
+                self.label
+            )));
+        }
+        if header.access.maximum_access & !super::super::access::KEY_ALL_ACCESS != 0
+            || header.access.system_security_status != 0
+                && header.access.system_security_status & 0x8000_0000 == 0
+        {
+            return Err(invalid("invalid Command Processor access ceiling"));
+        }
+        if children.as_ref().is_some_and(|children| {
+            children.len() != header.children as usize
+                || children.len() >= self.metadata.key_limit()
+        }) {
+            return Err(invalid(&format!(
+                "{} complete child count differs",
+                self.label
+            )));
+        }
+        self.metadata.charge(&header.canonical, depth)?;
+        let values = bounded_values(&self.upcase, header.values, &mut self.values)?;
+        let enumeration = super::super::key_enumeration::bounded(
+            &self.upcase,
+            header.enumeration,
+            header.children,
+            &mut self.values,
+        )?;
+        let mut key = Key {
+            enumeration,
+            path: header.canonical,
+            redirected_view: Some(self.view),
+            children: header.children,
+            upcase: self.upcase.clone(),
+            values: Arc::new(values),
+            subkeys: None,
+            selected_child: None,
+            selected_paths: BTreeMap::new(),
+            command_access: Some(header.access),
+            logical_path: Some(logical.clone().into()),
+            root_views: None,
+            machine: None,
+        };
+        if let Some(children) = children {
+            let mut selected = BTreeMap::new();
+            for (name, child) in children {
+                let physical = child_path(&key.path, &name)?;
+                if key.fold(&physical) != key.fold(&child.header.canonical) {
+                    return Err(invalid(&format!(
+                        "{} child escapes captured parent",
+                        self.label
+                    )));
+                }
+                let logical = child_path(&logical, &name)?;
+                let child = self.build(logical, child.header, Some(child.children), depth + 1)?;
+                if selected.insert(key.fold(&name), child).is_some() {
+                    return Err(invalid("duplicate ordinal Command Processor child"));
+                }
+            }
+            if key.enumeration.as_ref().is_some_and(|entries| {
+                entries
+                    .iter()
+                    .any(|entry| !selected.contains_key(&key.fold(&entry.name)))
+            }) {
+                return Err(invalid(&format!(
+                    "{} enumeration differs from captured children",
+                    self.label
+                )));
+            }
+            key.subkeys = Some(selected);
+        }
+        Ok(Arc::new(key))
+    }
+}
+
+pub(in crate::user::windows::registry) fn same_physical_contents(left: &Key, right: &Key) -> bool {
+    if left.children != right.children
+        || left.values != right.values
+        || left.command_access != right.command_access
+    {
+        return false;
+    }
+    if let (Some(left), Some(right)) = (&left.enumeration, &right.enumeration)
+        && left != right
+    {
+        return false;
+    }
+    match (&left.subkeys, &right.subkeys) {
+        (Some(left), Some(right)) => {
+            left.len() == right.len()
+                && left.iter().all(|(name, child)| {
+                    right.get(name).is_some_and(|other| {
+                        child.fold(&child.path) == other.fold(&other.path)
+                            && same_physical_contents(child, other)
+                    })
+                })
+        }
+        // A separately selected partial header makes no descendant assertion.
+        _ => true,
+    }
+}
+
+#[cfg(test)]
+#[path = "command_processor_tree_tests.rs"]
+mod tests;

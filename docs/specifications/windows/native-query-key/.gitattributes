@@ -1,0 +1,7 @@
+# Machine observations are frozen generated evidence; review through producers and replay.
+*.json -text -diff
+probe-v*.cpp -text
+probe-v*.py -text
+controller-v*.py -text
+*-v*.jsonl -text -diff whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+run-v*.py -text

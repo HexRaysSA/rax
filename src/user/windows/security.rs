@@ -18,6 +18,8 @@ pub(crate) struct Privilege {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Subject {
+    /// Fixed statistics captured from this exact token, never a host HANDLE.
+    pub(crate) statistics: Option<token::statistics::Statistics>,
     /// Opaque TOKEN_USER SID attributes, captured without interpretation.
     pub(crate) user_attributes: u32,
     pub(crate) user: Vec<u8>,

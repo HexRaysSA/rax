@@ -1,6 +1,18 @@
 //! Fixed SYSTEM values and complete fixed subtrees during native selection.
 //! No guest name reaches a host registry operation. All HKEYs close before
 //! selection returns, and the kernel reads the resulting immutable records.
+#[path = "installed/appmodel.rs"]
+mod appmodel;
+#[path = "installed/command_processor.rs"]
+mod command_processor;
+#[path = "installed/key_enumeration.rs"]
+mod key_enumeration;
+#[path = "installed/machine_hive.rs"]
+mod machine_hive;
+#[path = "installed/native_key.rs"]
+mod native_key;
+#[path = "installed/primary_hive.rs"]
+mod primary_hive;
 #[path = "installed/tree.rs"]
 mod tree;
 #[path = "installed/user_policy.rs"]
@@ -10,10 +22,10 @@ use super::{
     MAX_NAME_UNITS, MAX_VALUE_BYTES, MAX_VALUES, NLS_KEY, Registry, SESSION_MANAGER_KEY,
     SelectedKey, Value, WNF_KEY, invalid,
 };
+pub(crate) use primary_hive::capture as capture_primary_user;
 use std::ffi::c_void;
 use std::io;
 use std::ptr::null_mut;
-pub(crate) use user_policy::capture as capture_user_policy;
 
 type Hkey = *mut c_void;
 #[link(name = "advapi32")]
@@ -59,6 +71,44 @@ unsafe extern "system" {
 #[link(name = "ntdll")]
 unsafe extern "system" {
     fn RtlUpcaseUnicodeChar(value: u16) -> u16;
+    fn NtQueryKey(
+        key: Hkey,
+        class: u32,
+        information: *mut u32,
+        length: u32,
+        returned: *mut u32,
+    ) -> i32;
+}
+
+fn canonical_hive_name(key: &OwnedKey, subject: &str) -> io::Result<Vec<u16>> {
+    let mut words = vec![0u32; (4 + MAX_NAME_UNITS * 2).div_ceil(4)];
+    let mut returned = 0xCCCC_CCCC;
+    let capacity = (words.len() * 4) as u32;
+    // SAFETY: live owned HKEY, KeyNameInformation=3, exclusive initialized
+    // ULONG-aligned bounded output and result length; no retained pointers.
+    let status = unsafe { NtQueryKey(key.0, 3, words.as_mut_ptr(), capacity, &mut returned) };
+    if status != 0 {
+        return Err(invalid(&format!(
+            "{subject} hive name query failed: 0x{:08X}",
+            status as u32
+        )));
+    }
+    let bytes = words[0] as usize;
+    if returned > capacity
+        || returned < 4
+        || bytes % 2 != 0
+        || bytes > MAX_NAME_UNITS * 2
+        || bytes + 4 > returned as usize
+    {
+        return Err(invalid(&format!(
+            "native {subject} hive name exceeded its returned buffer"
+        )));
+    }
+    Ok(words[1..]
+        .iter()
+        .flat_map(|&word| [word as u16, (word >> 16) as u16])
+        .take(bytes / 2)
+        .collect())
 }
 struct OwnedKey(Hkey);
 impl Drop for OwnedKey {
@@ -79,6 +129,9 @@ struct Info {
     time: [u32; 2],
 }
 fn info(key: &OwnedKey) -> io::Result<Info> {
+    info_with_value_limit(key, MAX_VALUES)
+}
+fn info_with_value_limit(key: &OwnedKey, value_limit: usize) -> io::Result<Info> {
     let mut i = Info {
         children: 0,
         max_child: 0,
@@ -108,7 +161,7 @@ fn info(key: &OwnedKey) -> io::Result<Info> {
     if s != 0 {
         return Err(io::Error::from_raw_os_error(s));
     }
-    if i.values as usize > MAX_VALUES
+    if i.values as usize > value_limit
         || i.max_name as usize > MAX_NAME_UNITS
         || i.max_data as usize > MAX_VALUE_BYTES
     {
@@ -201,30 +254,39 @@ fn capture_values(
     count_limit: usize,
     byte_limit: usize,
 ) -> io::Result<SelectedKey> {
+    let (children, values) = capture_stable_values(&key, count_limit, byte_limit)?;
+    Ok(SelectedKey {
+        path,
+        children,
+        values,
+    })
+}
+
+fn capture_stable_values(
+    key: &OwnedKey,
+    count_limit: usize,
+    byte_limit: usize,
+) -> io::Result<(u32, Vec<Value>)> {
     for _ in 0..3 {
-        let before = info(&key)?;
+        let before = info(key)?;
         if before.values as usize > count_limit {
             return Err(invalid(
                 "installed fixed registry value count exceeds remaining budget",
             ));
         }
-        let first = match values(&key, &before, byte_limit) {
+        let first = match values(key, &before, byte_limit) {
             Ok(values) => values,
             Err(error) if matches!(error.raw_os_error(), Some(234 | 259)) => continue,
             Err(error) => return Err(error),
         };
-        let second = match values(&key, &before, byte_limit) {
+        let second = match values(key, &before, byte_limit) {
             Ok(values) => values,
             Err(error) if matches!(error.raw_os_error(), Some(234 | 259)) => continue,
             Err(error) => return Err(error),
         };
-        let after = info(&key)?;
+        let after = info(key)?;
         if before == after && first == second {
-            return Ok(SelectedKey {
-                path,
-                children: before.children,
-                values: first,
-            });
+            return Ok((before.children, first));
         }
     }
     Err(invalid(
@@ -317,7 +379,12 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let registry = registry.with_tree(root, selected)?;
     let root = super::TreeRoot::LanguageOverlayPackages;
     let selected = tree::capture_root(&registry, root)?;
-    registry.with_tree(root, selected)
+    let registry = registry.with_tree(root, selected)?;
+    machine_hive::capture(command_processor::capture_ole(
+        command_processor::capture_system(command_processor::capture_machine(appmodel::capture(
+            registry,
+        )?)?)?,
+    )?)
 }
 
 #[cfg(test)]
@@ -379,3 +446,16 @@ mod mui_system_tests;
 #[cfg(test)]
 #[path = "installed/language_overlay_packages_tests.rs"]
 mod language_overlay_packages_tests;
+
+/// Exercise this fixed creator subject with its real acquisition adapters,
+/// independently of unrelated startup roots that the creator cannot read.
+#[cfg(test)]
+pub(super) fn local_settings_subject(sid: &[u8]) -> io::Result<Registry> {
+    // SAFETY: the same pure one-WCHAR NTDLL lookup used by snapshot().
+    let upcase = (0..=u16::MAX)
+        .map(|unit| unsafe { RtlUpcaseUnicodeChar(unit) })
+        .collect();
+    let registry = Registry::selected(upcase, vec![])?;
+    let registry = primary_hive::capture_header(registry, sid)?;
+    command_processor::capture_local_settings(registry, sid)
+}

@@ -1,0 +1,175 @@
+{
+  "kernel": "10.0.29695 ARM64",
+  "retrieved": "2026-10-28",
+  "raw_bytes_frozen": true,
+  "files": {
+    "probe-v1.cpp": {
+      "bytes": 8099,
+      "sha256": "165f9e64979a74641fc163d475fc01bca3a9a02e77b3e3e6f7af366a5dc4cf61"
+    },
+    "run-v1.py": {
+      "bytes": 7249,
+      "sha256": "d0525114c99a217e94aed021267b56f7d6e3e3f27b91b4d1dbc817180fbebd6e"
+    },
+    "capture-v1.zip": {
+      "bytes": 104084,
+      "sha256": "c8be8e501ecc55add5f8934ec087cb3eddcffa345ad0d1b1f45cfab47dba4dc7"
+    },
+    "probe-v2.cpp": {
+      "bytes": 8859,
+      "sha256": "8853cf14da89e3ba1b1b39e19578ef73693d1be1f8118e75cf3571ebc4153bdb"
+    },
+    "run-v2.py": {
+      "bytes": 7249,
+      "sha256": "5e9a69f64a4197e87f21a7b2d35043c1c95d7a2665810706608fd52f94c9b1cd"
+    },
+    "capture-v2.zip": {
+      "bytes": 111422,
+      "sha256": "58e734adbd24ca0277815d64b7702a8c00a3a37e3d095a44f5253eb29aab0baa"
+    },
+    "probe-v3.cpp": {
+      "bytes": 9460,
+      "sha256": "ed82c4b46eccefffb283a3fa232a8a42af83e5a851ae841452e72390a0faeede"
+    },
+    "run-v3.py": {
+      "bytes": 7249,
+      "sha256": "78fa6045f5480d4d3aa5a17ff36300826b88109a516c7d7363d0e371b44a9011"
+    },
+    "capture-v3.zip": {
+      "bytes": 363160,
+      "sha256": "ab09ee587576c213c56f8a85eb16884721cf82d79f731cf177649a7ed773a394"
+    },
+    "arm64-29695-v3.jsonl.zst": {
+      "bytes": 19513,
+      "sha256": "568a2ffe599d311624201edc6c6c6dc877cc265d4d194fa68d32a3da011e0eba",
+      "decoded_bytes": 2155469,
+      "decoded_sha256": "a69e3d4aca23adfceae360e5d173eed135ca97b47828c8c94c38a9c78a7aa2a3",
+      "rows": 6625
+    },
+    "x64-29695-v3.jsonl.zst": {
+      "bytes": 19492,
+      "sha256": "865d10968719579a8e7eeebbf2c30de6b79c817fb22a6207987ff3b967d839ee",
+      "decoded_bytes": 2155469,
+      "decoded_sha256": "9106e069f0c733999d52bc2b518eea7a91d47aa535f3611f16b35f18f4ed7123",
+      "rows": 6625
+    },
+    "x86-29695-v3.jsonl.zst": {
+      "bytes": 20818,
+      "sha256": "9add9a90af69d7417d52ca9db21e5137093e3ceae7bb86508e6737b6454eba65",
+      "decoded_bytes": 2155272,
+      "decoded_sha256": "560c8e19c9a5bf9747a7e827d684024d3c11e59828d1c05d54dcc0bbf1a5e9d9",
+      "rows": 6625
+    },
+    "x86-laa-29695-v3.jsonl.zst": {
+      "bytes": 20870,
+      "sha256": "e0854d83b4b7c3cca9bbe21276f24620cffeefc3131fd1935539efdb1769d8a1",
+      "decoded_bytes": 2155272,
+      "decoded_sha256": "6aed4b8ab11d37f434d87f5c9fca173c082e9eb2ef2bd2010aeb5920fdcec3c3",
+      "rows": 6625
+    },
+    "probe-v4.cpp": {
+      "bytes": 6742,
+      "sha256": "3a1e596db27228141778947a46fba6c259eaecfd653ce0f854dd77d4e3366700"
+    },
+    "run-v4.py": {
+      "bytes": 7285,
+      "sha256": "85fb576452270c2219379d371e6af0ae5036350eebbe38ac54221686e48464db"
+    },
+    "capture-v4.zip": {
+      "bytes": 119731,
+      "sha256": "6a44923bac5c0c26cdf59e6cd9032368861ce895e9c8847f8cdb5b7ef5cdd49e"
+    },
+    "probe-v5.cpp": {
+      "bytes": 11096,
+      "sha256": "491538457a607aa01d49daa57db0db7b18d76a2afc4112d1ae8f60a84fb7f83d"
+    },
+    "run-v5.py": {
+      "bytes": 7285,
+      "sha256": "b60303fd456dd357d8055de54c2b9ef8451a3c61730662e936bd9f432d729df2"
+    },
+    "capture-v5.zip": {
+      "bytes": 205825,
+      "sha256": "3f495786bc8c080362469325fbfeb81bfff09987750dfa36a80b93d0ddcdb511"
+    },
+    "arm64-29695-v5.jsonl.zst": {
+      "bytes": 10360,
+      "sha256": "e9e4a3c86778b78c3ff205e2028950c04ecb119719e1bf276b7152a4be7d9a1e",
+      "decoded_bytes": 1250630,
+      "decoded_sha256": "aa73264cfd7358eee4ffe88fed5d24836308fc0c1f9be7daee438b40537915f4",
+      "rows": 4689
+    },
+    "x64-29695-v5.jsonl.zst": {
+      "bytes": 10337,
+      "sha256": "1976ec69747fd8fed7adae30abd23becbade8feb8422f01c4da3a48a0bd39683",
+      "decoded_bytes": 1250630,
+      "decoded_sha256": "f4643c69844d5ccaf04519b182b7cc2914dd23b7e4c7469951336a71ca659061",
+      "rows": 4689
+    },
+    "x86-29695-v5.jsonl.zst": {
+      "bytes": 9328,
+      "sha256": "27641fefa07ed6088b092b86dc580ef92dbb59d56ea2355ced6ec604c9fe679a",
+      "decoded_bytes": 1098164,
+      "decoded_sha256": "20081b8e368a0e5e3015a3ef55c21cf955763e38afc139709f44f00e733f7ab2",
+      "rows": 4161
+    },
+    "x86-laa-29695-v5.jsonl.zst": {
+      "bytes": 9360,
+      "sha256": "205ab932c71f224c7a7537a005f0e72a4189cbc7c970654c585261046e8c1706",
+      "decoded_bytes": 1098164,
+      "decoded_sha256": "0e770908f093349e140110777405639caeab83e5c557868caab61fff22c2104b",
+      "rows": 4161
+    },
+    "probe-v6.cpp": {
+      "bytes": 11494,
+      "sha256": "82b51c0a072c9bf842b1add3620446cdc9b591d18b411495e94fa8552dff55cf"
+    },
+    "run-v6.py": {
+      "bytes": 7285,
+      "sha256": "e49aa1e2c8013a2bd2156416c4d474c06e8a3a7c8016ba6e5f4ffa5d91df9f73"
+    },
+    "capture-v6.zip": {
+      "bytes": 23769,
+      "sha256": "da8b7525f0aefb6470f864dd70261aa26e4d0451cf7d72c31105fe13beac624e"
+    },
+    "probe-v7.cpp": {
+      "bytes": 8809,
+      "sha256": "9a328a62aef13c87ad472faf93a58552ecdd0ea595de95a5177ed57b4e08f2cd"
+    },
+    "run-v7.py": {
+      "bytes": 7249,
+      "sha256": "5064160048c60c221348107dbb8a9512a4b4141b1bffd5adb23f3f41ee37a57a"
+    },
+    "capture-v7.zip": {
+      "bytes": 89364,
+      "sha256": "6098f29f9049d585de3ff468f73cbccbec56839f5bcd09d61fbb63224f5702a5"
+    },
+    "arm64-29695-v7.jsonl.zst": {
+      "bytes": 4756,
+      "sha256": "79386ec4099352668098eddbcb22414c6fffca5858ea9c1f288659c09fd19ca3",
+      "decoded_bytes": 469155,
+      "decoded_sha256": "dbd5224c56cbf8bacca6e2e92623589701e0a7074c00251b7960351171949d88",
+      "rows": 1441
+    },
+    "x64-29695-v7.jsonl.zst": {
+      "bytes": 4798,
+      "sha256": "cfb4fd5cea3979fd36f65f91a146a45a4581b3cbfa66932246c1d4a1466bb1f0",
+      "decoded_bytes": 469155,
+      "decoded_sha256": "d88c58186f61c4e1da8ee758745baa73961cbed1169e8cfab28b5baeb8d5f48a",
+      "rows": 1441
+    },
+    "x86-29695-v7.jsonl.zst": {
+      "bytes": 4187,
+      "sha256": "216c5387e516827bf18d5f9aab27767ad5b27d23d7e35b9a018803ba3b037127",
+      "decoded_bytes": 469616,
+      "decoded_sha256": "3ddb7c0fb1984a1109e9f55b6384f379d9ac1724dc14367f156c859938ce01a1",
+      "rows": 1441
+    },
+    "x86-laa-29695-v7.jsonl.zst": {
+      "bytes": 4183,
+      "sha256": "b98d9520b67510ca0fec1e1ba613e75ed85ba89a7fe8943f09f40f3865975f16",
+      "decoded_bytes": 469616,
+      "decoded_sha256": "dfe6581e67bcc88868720ac2a5d5c388ec8bf57b0b9da3980408a2c208bdb643",
+      "rows": 1441
+    }
+  }
+}

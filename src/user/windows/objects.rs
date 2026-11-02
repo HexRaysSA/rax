@@ -23,6 +23,8 @@ mod lpc;
 mod named;
 pub use lpc::LpcPort;
 mod primary_token;
+mod registry_notify;
+pub(crate) use registry_notify::RegistryCompletion;
 mod scheduler;
 pub use scheduler::SchedulerData;
 mod timers;
@@ -287,6 +289,10 @@ impl Object {
 #[derive(Debug)]
 struct Entry {
     obj: Object,
+    /// Registry key-body tags survive duplicated handles, independently of
+    /// immutable snapshot identity and the caller's low handle bits.
+    registry_tags: Option<u32>,
+    registry_views: Option<std::sync::Arc<super::registry::RegistryViews>>,
     /// Read-only installed-library authority, retained independently of a catalog.
     runtime_library: bool,
     refs: u32,
@@ -321,6 +327,7 @@ pub struct Objects {
     scheduler_bindings: BTreeMap<u32, (ObjId, u32)>,
     retired_scheduler_views: Vec<super::memory::SchedulerView>,
     retired_lpc_views: Vec<super::memory::SharedViewOwner>,
+    registry_notifications: registry_notify::Notifications,
 }
 
 fn name_key(name: &str) -> String {
@@ -353,10 +360,16 @@ impl Objects {
             self.retain_many(&ids[..if process.is_some() { 2 } else { 1 }])
                 .ok()?;
         }
+        let registry_tags = match &obj {
+            Object::Key(key) if key.redirected_view.is_some() => None,
+            _ => Some(0),
+        };
         self.objs.insert(
             next,
             Entry {
                 obj,
+                registry_tags,
+                registry_views: None,
                 runtime_library: false,
                 refs: 0,
                 name: None,
@@ -365,6 +378,64 @@ impl Objects {
         );
         self.next = next;
         Some(next)
+    }
+
+    pub(crate) fn create_registry_key(
+        &mut self,
+        key: std::sync::Arc<super::registry::Key>,
+        tags: u32,
+    ) -> Option<ObjId> {
+        self.create_registry_key_metadata(key, Some(tags))
+    }
+
+    pub(crate) fn create_registry_key_metadata(
+        &mut self,
+        key: std::sync::Arc<super::registry::Key>,
+        tags: Option<u32>,
+    ) -> Option<ObjId> {
+        let id = self.try_create(Object::Key(key))?;
+        self.objs.get_mut(&id)?.registry_tags = tags;
+        Some(id)
+    }
+
+    pub(crate) fn registry_tags(&self, handle: u64) -> Option<u32> {
+        let entry = self.objs.get(&self.id(handle)?)?;
+        matches!(entry.obj, Object::Key(_))
+            .then_some(entry.registry_tags)
+            .flatten()
+    }
+
+    /// Replace the key body's captured-width tag field, including unknown
+    /// initial metadata. Duplicates retain the same object entry.
+    pub(crate) fn set_registry_tags(&mut self, handle: u64, tags: u16) -> bool {
+        let Some(id) = self.id(handle) else {
+            return false;
+        };
+        let Some(entry) = self.objs.get_mut(&id) else {
+            return false;
+        };
+        if !matches!(entry.obj, Object::Key(_)) {
+            return false;
+        }
+        entry.registry_tags = Some(u32::from(tags));
+        true
+    }
+
+    pub(crate) fn set_registry_views(
+        &mut self,
+        id: ObjId,
+        views: std::sync::Arc<super::registry::RegistryViews>,
+    ) {
+        self.objs
+            .get_mut(&id)
+            .expect("new registry object")
+            .registry_views = Some(views);
+    }
+    pub(crate) fn registry_views(
+        &self,
+        handle: u64,
+    ) -> Option<std::sync::Arc<super::registry::RegistryViews>> {
+        self.objs.get(&self.id(handle)?)?.registry_views.clone()
     }
 
     /// Creates a named object, or finds the existing object of that name:
@@ -548,6 +619,7 @@ impl Objects {
         }
         self.handles.remove(&key);
         if !self.handles.values().any(|handle| handle.obj == e.obj) {
+            self.retire_registry_key(e.obj);
             self.retire_lpc_handle(e.obj);
             match self.obj(e.obj) {
                 // An independent object wait can still pin the packet.
@@ -614,6 +686,7 @@ impl Objects {
         self.desktop = None;
         self.wnf_subscriptions.records.clear();
         self.scheduler_bindings.clear();
+        self.registry_notifications = Default::default();
         // Queue all views eagerly: dropping a partially consumed Drain also
         // removes its remaining objects, without running iterator map closures.
         for entry in self.objs.values_mut() {

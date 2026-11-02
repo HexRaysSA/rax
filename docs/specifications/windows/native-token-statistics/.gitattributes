@@ -1,0 +1,8 @@
+*.jsonl -text whitespace=cr-at-eol
+*.bin -text
+native-receipt-v4.json -text whitespace=cr-at-eol
+# Preserve the exact licensed upstream source bytes, including trailing spaces.
+MICROSOFT-CODE-LICENSE -text whitespace=-blank-at-eol
+MICROSOFT-DOCS-LICENSE -text whitespace=-blank-at-eol
+token-information-class.md -text whitespace=-blank-at-eol
+token-statistics.md -text whitespace=-blank-at-eol
