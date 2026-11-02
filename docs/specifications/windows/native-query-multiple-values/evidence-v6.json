@@ -1,0 +1,32 @@
+{
+  "state": "complete",
+  "producer_version": 6,
+  "source_hashes": {
+    "CMakeLists.txt": "f659c3bec68b2a6990c24917754bd0a2ecab942589bb5e4732d50a09a40e998b",
+    "probe-v1.c": "40da9b94cf143801804a99768a38ae586075edeb2bd90c4d4e41fab7e6dc4fff"
+  },
+  "native_archive": {
+    "state": "verified",
+    "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\query-multiple-values-native-v1\\run-v6\\native-artifacts-v6.zip",
+    "bytes": 3273049,
+    "sha256": "ab00acf30bf37ebbffe3a5f53b497b91d1c0e25d9a9bde504924f03f814c6c43",
+    "payloads": 58,
+    "all_payloads_verified": true,
+    "independent_owned_key_absence_both_registry_views": true,
+    "records": 148956
+  },
+  "native_host_identity": {
+    "current_process_machine": 0,
+    "native_machine": 43620
+  },
+  "repeatability": {
+    "native_calls": 148956,
+    "prior_versions": [
+      2,
+      4,
+      5
+    ],
+    "all_fields_equal_except_global_case_index": true,
+    "three_process_abis": true
+  }
+}

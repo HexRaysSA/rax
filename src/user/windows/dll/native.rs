@@ -542,6 +542,14 @@ pub(super) static EVENT_OPEN_EXPORTS: &[Export] = &[Export::func(
     events::open,
 )];
 
+// Append the six-slot query without moving earlier synthetic ordinals.
+pub(super) static KEY_MULTIPLE_QUERY_EXPORTS: &[Export] = &[Export::func(
+    "NtQueryMultipleValueKey",
+    Stdcall,
+    &[Ptr, Ptr, I32, Ptr, Ptr, Ptr],
+    registry::query_multiple,
+)];
+
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)
 }

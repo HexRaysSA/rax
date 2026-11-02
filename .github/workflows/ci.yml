@@ -364,6 +364,18 @@ jobs:
         run: python tools/ci/windows_code_integrity_policies.py --verify-corpus
       - name: Verify retained token statistics producer identity
         run: python tools/ci/windows_token_statistics.py --verify-corpus
+      - name: Verify retained bulk registry query producer identity
+        run: python tools/ci/windows_query_multiple_values.py --verify-corpus
+      - name: Native bulk registry query controls and guest replay
+        if: runner.os == 'Windows'
+        run: python tools/ci/windows_query_multiple_values.py
+      - name: Preserve native bulk registry query controls
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-query-multiple-values-${{ matrix.name }}
+          path: target/native-query-multiple-values-v1
+          if-no-files-found: error
       - name: Native token statistics controls and guest replay
         if: runner.os == 'Windows'
         run: python tools/ci/windows_token_statistics.py

@@ -1,0 +1,19 @@
+{
+  "source_hashes": {
+    "copy-v2/CMakeLists.txt": "f659c3bec68b2a6990c24917754bd0a2ecab942589bb5e4732d50a09a40e998b",
+    "copy-v2/probe-v1.c": "48dca4852bd695ba23f78d088b1cdda8863b5d2e50b47b20194e0413dc680c92"
+  },
+  "controls_sha256": "c5985e4c8dc7a594ee82b87a8bea81e5556e85666cc688f7d4494d20bb37f06e",
+  "kernel": [
+    10,
+    0,
+    29698
+  ],
+  "native_machine": 43620,
+  "runtime_archive": {
+    "file": "overflow-native-artifacts-v2.zip",
+    "bytes": 347322,
+    "sha256": "8933aabf3d96928c129a5dcf324cc87fe0c56b1f3c47495f33c8b849e7dd2025"
+  },
+  "scope": "All native stdout bytes reconstruct exactly, including all 4098 entry field triples and the complete 2097152-byte destination as runs. Each reported native provider hash was observed after the process; kernel and mapped provider path were read in the producer before fixture creation."
+}

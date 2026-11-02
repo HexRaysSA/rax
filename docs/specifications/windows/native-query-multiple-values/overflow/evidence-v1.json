@@ -1,0 +1,20 @@
+{
+  "source_hashes": {
+    "CMakeLists.txt": "f659c3bec68b2a6990c24917754bd0a2ecab942589bb5e4732d50a09a40e998b",
+    "probe-v1.c": "b3dbeb3de4b693c8dab5333aaa1c81505fb00df181a3b8017f14c20cf7001b59"
+  },
+  "controls_sha256": "4d51d3e5da05379ac2c7d00d5bf35d8a63086f55fe4778eee6edba8b81fac3e9",
+  "kernel": [
+    10,
+    0,
+    29695
+  ],
+  "native_machine": 43620,
+  "scope": "All native stdout bytes reconstruct exactly from prefix, field runs, case fields, suffix, and CRLF. Replay compares every entry metadata field, every caller pointer, all padding, scalar outputs, and the entire 16-byte destination.",
+  "runtime_archive": {
+    "file": "windows-runtime-artifacts-v1.zip",
+    "bytes": 90228361,
+    "sha256": "028d83bf13b1484d639987e564dfb621caaf2832f82138961d2cdd61767fe94d",
+    "payload_prefix": "overflow/"
+  }
+}

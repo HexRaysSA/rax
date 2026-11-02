@@ -1,0 +1,12 @@
+key-value-entry.md -text whitespace=-blank-at-eol
+reg-query-multiple-value-key-information.md -text whitespace=-blank-at-eol
+MICROSOFT-DOCS-LICENSE -text whitespace=-blank-at-eol
+MICROSOFT-CODE-LICENSE -text whitespace=-blank-at-eol
+CMakeLists.txt -text
+probe-v1.c -text
+controls-v6.json -text
+overflow/*.c -text
+overflow/CMakeLists.txt -text
+overflow/copy-v2/*.c -text
+overflow/copy-v2/CMakeLists.txt -text
+overflow/controls-v*.json -text

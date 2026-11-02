@@ -1,0 +1,770 @@
+{
+  "schema": "rax-native-query-multiple-values-overflow-runs-v1",
+  "producer_version": 1,
+  "native_calls": 15,
+  "reports": [
+    {
+      "architecture": "arm64",
+      "machine": 43620,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\query-multiple-values-overflow-v1\\build-arm64\\Release\\rax_native_query_multiple_values.exe",
+        "bytes": 15360,
+        "sha256": "2a8a28f421d64a3886a4081c19c0ecbdf267c012c4e776e3cc9c782e56c3ba0a"
+      },
+      "SDK_header_sha256": "a43424486349c38f697c009512dfe4eb8fca733d7665afab42f50752170b9785",
+      "provider_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+      "stdout_sha256": "91a8ef62aa13e61246e0cdca1b811e31affb20be39adc7a304f05471b831257b",
+      "exit_code": 0,
+      "owner_key_deleted_both_views": true,
+      "prefix": [
+        {
+          "kind": "host",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "kernel": [
+            10,
+            0,
+            29695
+          ],
+          "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00"
+        },
+        {
+          "kind": "owned_key",
+          "marker": "589f783b745f20a9",
+          "path": "0053006f006600740077006100720065005c0052006100780051006d0076004f0076006500720066006c006f0077005f00320030003200360031003000330030005f0031003600360034005f00370031003000390033003600300039005f0030"
+        }
+      ],
+      "cases": [
+        {
+          "kind": "case",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "count": 1,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 1048576,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              1
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              4097
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "count": 4094,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 4292870144,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4094
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              4
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "count": 4095,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 4293918720,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4095
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              3
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "count": 4096,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 0,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4096
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              2
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "count": 4097,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 1048576,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4097
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              1
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        }
+      ],
+      "suffix": [
+        {
+          "kind": "finished",
+          "failed": 0,
+          "closed": 0,
+          "deleted": 0,
+          "absence": 2
+        }
+      ],
+      "newline": "\r\n"
+    },
+    {
+      "architecture": "x64",
+      "machine": 34404,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\query-multiple-values-overflow-v1\\build-x64\\Release\\rax_native_query_multiple_values.exe",
+        "bytes": 14848,
+        "sha256": "a868089f59db4dcc82a595cb2f63683d06553009d2f0afe89598c653b422399a"
+      },
+      "SDK_header_sha256": "a43424486349c38f697c009512dfe4eb8fca733d7665afab42f50752170b9785",
+      "provider_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+      "stdout_sha256": "7383f84803a1701c93b49793ff6529fe26cf05d11f6b7720878ce2a5287ffbb3",
+      "exit_code": 0,
+      "owner_key_deleted_both_views": true,
+      "prefix": [
+        {
+          "kind": "host",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "kernel": [
+            10,
+            0,
+            29695
+          ],
+          "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00"
+        },
+        {
+          "kind": "owned_key",
+          "marker": "efe267e7525f0e50",
+          "path": "0053006f006600740077006100720065005c0052006100780051006d0076004f0076006500720066006c006f0077005f00320030003200360031003000330030005f0032003400320030005f00370031003100310037003000360032005f0030"
+        }
+      ],
+      "cases": [
+        {
+          "kind": "case",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "count": 1,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 1048576,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              1
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              4097
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "count": 4094,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 4292870144,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4094
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              4
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "count": 4095,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 4293918720,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4095
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              3
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "count": 4096,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 0,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4096
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              2
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 8,
+          "entry_bytes": 24,
+          "count": 4097,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 1048576,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4097
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              1
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        }
+      ],
+      "suffix": [
+        {
+          "kind": "finished",
+          "failed": 0,
+          "closed": 0,
+          "deleted": 0,
+          "absence": 2
+        }
+      ],
+      "newline": "\r\n"
+    },
+    {
+      "architecture": "x86",
+      "machine": 332,
+      "image": {
+        "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\query-multiple-values-overflow-v1\\build-x86\\Release\\rax_native_query_multiple_values.exe",
+        "bytes": 12288,
+        "sha256": "059955d78f2f22dda4f93285fee5dfdf30a2f818f2fa8bd6ecaf312ae2c08ac7"
+      },
+      "SDK_header_sha256": "a43424486349c38f697c009512dfe4eb8fca733d7665afab42f50752170b9785",
+      "provider_sha256": "fdc9be0d70a120242fc5779bac1a7e9468515fbb52bd22bf95f03d0095671925",
+      "stdout_sha256": "27dd98cbbffb6530c30ee2e65310234252144f94b14bb9e5d2139dbe2a036378",
+      "exit_code": 0,
+      "owner_key_deleted_both_views": true,
+      "prefix": [
+        {
+          "kind": "host",
+          "pointer_bytes": 4,
+          "entry_bytes": 16,
+          "kernel": [
+            10,
+            0,
+            29695
+          ],
+          "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00"
+        },
+        {
+          "kind": "owned_key",
+          "marker": "29da6f84458b0eaa",
+          "path": "0053006f006600740077006100720065005c0052006100780051006d0076004f0076006500720066006c006f0077005f00320030003200360031003000330030005f0032003200320030005f00370031003100330037003800310032005f0030"
+        }
+      ],
+      "cases": [
+        {
+          "kind": "case",
+          "pointer_bytes": 4,
+          "entry_bytes": 16,
+          "count": 1,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 1048576,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              1
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              4097
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 4,
+          "entry_bytes": 16,
+          "count": 4094,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 4292870144,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4094
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              4
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 4,
+          "entry_bytes": 16,
+          "count": 4095,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 4293918720,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4095
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              3
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 4,
+          "entry_bytes": 16,
+          "count": 4096,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 0,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4096
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              2
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        },
+        {
+          "kind": "case",
+          "pointer_bytes": 4,
+          "entry_bytes": 16,
+          "count": 4097,
+          "value_bytes": 1048576,
+          "status": 2147483653,
+          "exception": 0,
+          "length": 0,
+          "required": 1048576,
+          "first_fields": [
+            0,
+            0,
+            0
+          ],
+          "last_fields": [
+            0,
+            0,
+            0
+          ],
+          "data_unchanged": true,
+          "fields_runs": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              4097
+            ],
+            [
+              [
+                2779096485,
+                2779096485,
+                2779096485
+              ],
+              1
+            ]
+          ],
+          "pointers_unchanged": true,
+          "padding_unchanged": true
+        }
+      ],
+      "suffix": [
+        {
+          "kind": "finished",
+          "failed": 0,
+          "closed": 0,
+          "deleted": 0,
+          "absence": 2
+        }
+      ],
+      "newline": "\r\n"
+    }
+  ],
+  "native_machine": 43620
+}

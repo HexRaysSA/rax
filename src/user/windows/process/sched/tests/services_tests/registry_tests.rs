@@ -109,6 +109,9 @@ mod key_enumeration;
 #[path = "registry_key_query_tests.rs"]
 mod key_query;
 
+#[path = "registry_query_multiple_tests.rs"]
+mod multiple_values;
+
 #[path = "registry_key_set_tests.rs"]
 mod key_set;
 

@@ -1,0 +1,30 @@
+{
+  "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+  "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+  "sources": [
+    {
+      "file": "key-value-entry.md",
+      "url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/wdm/ns-wdm-_key_value_entry.md",
+      "bytes": 3122,
+      "sha256": "138fcb4c5779dbbc4acbb9d27ee633c310953f15189a4e5bd1a3d4ea81f8ff3a"
+    },
+    {
+      "file": "reg-query-multiple-value-key-information.md",
+      "url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/wdm/ns-wdm-_reg_query_multiple_value_key_information.md",
+      "bytes": 5306,
+      "sha256": "0e0d447332af6f04a7fb552ba933e8ae69613cced86dae1b306aca135524ae94"
+    },
+    {
+      "file": "MICROSOFT-DOCS-LICENSE",
+      "url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/LICENSE",
+      "bytes": 18650,
+      "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+    },
+    {
+      "file": "MICROSOFT-CODE-LICENSE",
+      "url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/LICENSE-CODE",
+      "bytes": 1090,
+      "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+    }
+  ]
+}

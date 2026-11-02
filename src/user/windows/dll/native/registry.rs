@@ -31,6 +31,10 @@ pub(super) use key_set::set_key;
 mod key_notify;
 pub(super) use key_notify::notify_key;
 
+#[path = "registry/query_multiple.rs"]
+mod query_multiple;
+pub(super) use query_multiple::query_multiple;
+
 enum Failure {
     Status(u32),
     Api(ApiErr),
