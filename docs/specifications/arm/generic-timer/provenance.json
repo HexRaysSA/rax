@@ -1,0 +1,12 @@
+{
+  "url": "https://documentation-service.arm.com/static/6294c39db334256d9ea8ae53?token=",
+  "document": "Arm102379_0100_02_en,Generic Timer,v1.0,Issue02",
+  "path": "docs/specifications/arm/generic-timer/arm-102379_0100_02.pdf",
+  "sha256": "a067f58710ea3ce55532b6a23ce904f1b4e9a87f6478d7c5e489fbec1098ddd6",
+  "retrieved_utc": "2026-11-02T12:36:09.094680+00:00",
+  "title": "Generic Timer",
+  "issuer": "Arm Limited",
+  "revision": "Version1.0,Issue02,102379_0100_02_en",
+  "bytes": 361045,
+  "size_justification": "361045-byte complete primary reference already used for the VM system-counter implementation;repository retention required by AGENTS.md10.4;copied byte-for-byte with notices unchanged."
+}

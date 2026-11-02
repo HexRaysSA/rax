@@ -35,14 +35,16 @@
     {
       "url": "https://documentation-service.arm.com/static/6294c39db334256d9ea8ae53?token=",
       "document": "Arm102379_0100_02_en,Generic Timer,v1.0,Issue02",
-      "path": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/arm-102379_0100_02.pdf",
+      "path": "docs/specifications/arm/generic-timer/arm-102379_0100_02.pdf",
       "sha256": "a067f58710ea3ce55532b6a23ce904f1b4e9a87f6478d7c5e489fbec1098ddd6",
-      "retrieved_utc": "2026-11-02T12:36:09.094680+00:00"
+      "retrieved_utc": "2026-11-02T12:36:09.094680+00:00",
+      "evidence_copy": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/arm-102379_0100_02.pdf",
+      "provenance": "docs/specifications/arm/generic-timer/provenance.json"
     },
     {
       "url": "https://documentation-service.arm.com/static/5f8daeb7f86e16515cdb8c4e",
       "document": "Arm DDI 0406C.d",
-      "path": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/arm-ddi0406c-d.pdf",
+      "path": "docs/specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf",
       "bytes": 18635697,
       "sha256": "294668ae6480133b32d85e9567cc77c5eb0e1232decdf42cac7ab480e884f6e0",
       "retrieved_utc": "2026-11-02T13:54:34.950029+00:00",
@@ -65,7 +67,9 @@
             ]
           ]
         }
-      ]
+      ],
+      "evidence_copy": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/arm-ddi0406c-d.pdf",
+      "provenance": "docs/specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.provenance.json"
     }
   ],
   "host_and_encodings": {

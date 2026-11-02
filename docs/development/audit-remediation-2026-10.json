@@ -198240,6 +198240,23 @@
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-system-counter-v1/cleanup-final.json",
       "workflow": "Direct master; exact owned-path git add then red -m --staged --run; no branches/worktrees/push; guarded cleanup of canonical C/T.",
       "full_goal_complete": false
+    },
+    {
+      "id": "aarch64-system-counter-primary-retention-2026-11-02",
+      "status": "documentation_provenance_verified",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "parent": "0e412786ab74a7d69579972765fd3c072ac168ed",
+      "scope": "Retain the already-used Generic Timer primary PDF under repository docs and point existing qualification references at tracked primary copies;no code/test changes.",
+      "primary": [
+        "docs/specifications/arm/generic-timer/arm-102379_0100_02.pdf",
+        "docs/specifications/arm/generic-timer/provenance.json"
+      ],
+      "qualification": "docs/development/a64-system-counter/qualification.json",
+      "workflow": "Exact owned-path git add then red -m --staged --run;direct master;no branches/worktrees/push;no build directories needed.",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

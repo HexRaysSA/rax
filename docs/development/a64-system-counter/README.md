@@ -4,7 +4,7 @@ System-mode software AArch64 VMM CPUs now derive the generic physical counter fr
 
 Previously, each core added 16 counter ticks for every system-step attempt, including zero-retirement WFI attempts, and could privately jump to a timer deadline. The baseline executes two regressions: both fail. The change prevents those attempts from advancing a shared counter. Wall time continues independently; Retired time retains its existing zero-retirement freeze. No idle policy or default-clock change is included.
 
-The architectural basis is Arm Generic Timer, document 102379_0100_02_en, pages 8, 10, 12 and 13: a common system counter, firmware-populated frequency description, per-PE timer outputs and virtual-count offset. The retained primary PDF, digest, LLVM assembly/disassembly and exact validation commands are indexed in qualification.json. Timer comparison remains unsigned; an initial signed-wrap hypothesis was rejected after checking primary definitions.
+The architectural basis is [Arm Generic Timer](../../specifications/arm/generic-timer/arm-102379_0100_02.pdf), document 102379_0100_02_en, pages 8, 10, 12 and 13: a common system counter, firmware-populated frequency description, per-PE timer outputs and virtual-count offset. The retained primary PDF, digest, LLVM assembly/disassembly and exact validation commands are indexed in qualification.json. Timer comparison remains unsigned; an initial signed-wrap hypothesis was rejected after checking primary definitions.
 
 ## Arithmetic and execution
 
