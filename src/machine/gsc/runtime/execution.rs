@@ -38,10 +38,12 @@ impl GscVcpu {
             time: time_cell.clone(),
             crypto_trace: std::env::var("RAX_GSC_CRYPTO_TRACE").is_ok(),
         };
-        let cpu = RiscVCpu::new(RiscVConfig::rv32(Isa::ti50()), Box::new(bridge));
+        let cpu = RiscVCpu::new(RiscVConfig::rv32(Isa::ti50()), Box::new(bridge.clone()));
         GscVcpu {
             id,
             cpu,
+            bridge,
+            checkpoint_publication: None,
             shared,
             cfg,
             halted: false,
@@ -83,7 +85,7 @@ impl GscVcpu {
         if !requested {
             return None;
         }
-        self.reset_count += 1;
+        self.reset_count = self.reset_count.saturating_add(1);
         if self.reset_count > MAX_RESETS {
             self.halted = true;
             return Some(VcpuExit::Unknown(format!(
@@ -369,6 +371,7 @@ impl GscVcpu {
     /// One platform action, completing at most one guest instruction. Host hooks
     /// yield without retirement rather than hiding an unbounded retry loop.
     fn step_platform(&mut self) -> Result<Option<VcpuExit>> {
+        self.finish_publication()?;
         if self.halted {
             return Ok(Some(VcpuExit::Hlt));
         }
@@ -798,6 +801,68 @@ impl GscVcpu {
 }
 
 impl VCpu for GscVcpu {
+    fn required_private_checkpoint_kind(&self) -> Option<u32> {
+        Some(crate::vm::snapshot::GSC_CONTEXT)
+    }
+    fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        self.checkpoint_parts().map(|p| Some(p.0))
+    }
+    fn capture_checkpoint_resources(&self) -> Result<Vec<crate::vm::snapshot::CheckpointResource>> {
+        self.checkpoint_parts().map(|p| p.1)
+    }
+    fn checkpoint_resource_references(
+        &self,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<Vec<crate::vm::snapshot::ResourceKey>> {
+        self.resource_references(context)
+    }
+    fn validate_checkpoint_context(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_state(state, emulator)?;
+        if let Some(raw) = context {
+            self.admit_descriptor(state, emulator, raw)?;
+        }
+        Ok(())
+    }
+    fn prepare_checkpoint_replacement(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+        resources: &crate::vm::snapshot::PreparedResources,
+    ) -> Result<Option<Box<dyn VCpu>>> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        context
+            .map(|raw| {
+                self.prepare_private(state, emulator, raw, resources)
+                    .map(|c| Box::new(c) as Box<dyn VCpu>)
+            })
+            .transpose()
+    }
+    fn prepare_checkpoint_publication<'scope, 'bindings>(
+        &mut self,
+        scope: &'scope crate::vm::memory::checkpoint::CheckpointPublication<'bindings>,
+    ) -> Result<crate::vm::memory::checkpoint::CpuPublication<'scope, 'bindings>> {
+        self.publication(scope)
+    }
+    fn restore_checkpoint_context(
+        &mut self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        if context.is_some() {
+            return Err(Error::InvalidConfig("GSC private restore requires prepared checkpoint resources and matching RAM publication".into()));
+        }
+        self.set_state(state)?;
+        self.set_emulator_state(emulator)
+    }
+
     fn run(&mut self) -> Result<VcpuExit> {
         for _ in 0..MAX_ITERS {
             if let Some(exit) = self.step_platform()? {

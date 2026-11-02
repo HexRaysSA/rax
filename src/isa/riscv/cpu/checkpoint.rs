@@ -4,6 +4,13 @@ use crate::isa::riscv::FlatMemory;
 use crate::vm::vcpu::{CpuState, RiscVRegisters};
 use serde::{Deserialize, Serialize};
 
+fn vector_bytes<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
+    crate::devices::checkpoint_serde::vector::<u8, D, { 32 * VLENB as usize }>(d)
+}
+fn vendor_csrs<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<(u16, u64)>, D::Error> {
+    crate::devices::checkpoint_serde::vector::<(u16, u64), D, 65536>(d)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct CoreContext {
     cfg: RiscVConfig,
@@ -36,7 +43,9 @@ pub(crate) struct CoreContext {
     vstart: u64,
     vxrm: u64,
     vxsat: u64,
+    #[serde(deserialize_with = "vector_bytes")]
     v: Vec<u8>,
+    #[serde(deserialize_with = "vendor_csrs")]
     ext_csr: Vec<(u16, u64)>,
 }
 

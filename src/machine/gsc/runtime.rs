@@ -115,7 +115,7 @@ const DEFAULT_UART_STATE: u32 = 0x0000_0030;
 const MAX_ITERS: u64 = 50_000_000;
 
 /// Tracing verbosity.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 enum Trace {
     Off,
     Mmio,
@@ -123,7 +123,7 @@ enum Trace {
 }
 
 /// Static configuration parsed once from the environment.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 struct GscConfig {
     uart_base: u64,
     uart_state: u32,
@@ -366,6 +366,7 @@ type Shared = Arc<Mutex<GscShared>>;
 
 /// Guest memory bridge for the GSC machine: RAM/flash via [`GuestMemoryMmap`],
 /// with the SoC MMIO aperture intercepted.
+#[derive(Clone)]
 struct GscBridge {
     mem: Arc<GuestMemoryMmap>,
     shared: Shared,
@@ -1756,6 +1757,9 @@ impl Memory for GscBridge {
 pub struct GscVcpu {
     id: u32,
     cpu: RiscVCpu,
+    /// The bridge's immutable profile and shared owner handles, retained for capture.
+    bridge: GscBridge,
+    checkpoint_publication: Option<Arc<std::sync::atomic::AtomicBool>>,
     shared: Shared,
     cfg: GscConfig,
     halted: bool,
@@ -1818,7 +1822,7 @@ pub struct GscVcpu {
 }
 
 /// State of an in-flight synthetic TPM command call.
-#[derive(Default)]
+#[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
 struct TpmInject {
     /// Index of the next command to send.
     next: usize,
@@ -1894,6 +1898,9 @@ const TPM_RAND_NONCE_B: u64 = 0xd5606 + 0x80000;
 
 #[path = "runtime/execution.rs"]
 mod execution;
+
+#[path = "runtime/checkpoint.rs"]
+mod checkpoint;
 
 #[cfg(test)]
 #[path = "runtime/bounded_tests.rs"]

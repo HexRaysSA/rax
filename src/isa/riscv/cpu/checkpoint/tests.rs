@@ -96,3 +96,31 @@ fn native_jit_lr_sc_reservation_continues_after_core_restore_at_each_opt_level()
         );
     }
 }
+
+#[test]
+fn checkpoint_vector_and_vendor_counts_reject_before_elements() {
+    let cpu = RiscVCpu::new(
+        RiscVConfig::rv32(crate::isa::riscv::Isa::ti50()),
+        Box::new(FlatMemory::new(0, 0)),
+    );
+    let image = cpu.checkpoint_state();
+    let bytes = crate::codec::serialize(&image).unwrap();
+    let vector_prefix = bytes.len() - 8 - image.v.len() - 8;
+    for count in [(32 * VLENB as usize + 1) as u64, u64::MAX] {
+        let mut bad = bytes[..vector_prefix + 8].to_vec();
+        bad[vector_prefix..vector_prefix + 8].copy_from_slice(&count.to_le_bytes());
+        let error = crate::codec::deserialize_strict::<CoreContext>(&bad)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("count exceeds bound"), "{error}");
+    }
+    for count in [65537u64, u64::MAX] {
+        let mut bad = bytes.clone();
+        let last = bad.len() - 8;
+        bad[last..].copy_from_slice(&count.to_le_bytes());
+        let error = crate::codec::deserialize_strict::<CoreContext>(&bad)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("count exceeds bound"), "{error}");
+    }
+}

@@ -9,6 +9,9 @@ use std::sync::{Arc, OnceLock};
 
 pub const BOOT_CDROM_RESOURCE: u32 = 1;
 pub(crate) const PC_DEVICE_BYTES_RESOURCE: u32 = 2;
+pub(crate) const GSC_STATE_RESOURCE: u32 = 3;
+pub(crate) const GSC_AP_FLASH_RESOURCE: u32 = 4;
+pub(crate) const MAX_GSC_STATE_BYTES: usize = 64 * 1024 * 1024;
 const TAG: &[u8; 8] = b"RAXRES01";
 const MAX_RESOURCES: usize = 1024;
 // Version1 bounds decoder history to8MiB independently of full media size.
@@ -52,8 +55,16 @@ impl ResourceKey {
         self.digest
     }
     pub(crate) fn validate(self) -> Result<()> {
-        if ![BOOT_CDROM_RESOURCE, PC_DEVICE_BYTES_RESOURCE].contains(&self.kind)
+        if ![
+            BOOT_CDROM_RESOURCE,
+            PC_DEVICE_BYTES_RESOURCE,
+            GSC_STATE_RESOURCE,
+            GSC_AP_FLASH_RESOURCE,
+        ]
+        .contains(&self.kind)
             || self.size > MAX_TOTAL
+            || (self.kind == GSC_STATE_RESOURCE
+                && !(9..=MAX_GSC_STATE_BYTES as u64).contains(&self.size))
         {
             return Err(invalid("unknown resource kind or excessive size"));
         }
@@ -74,6 +85,12 @@ impl CheckpointResource {
     /// Immutable checkpoint bytes copied into a mutable device owner on restore.
     pub(crate) fn pc_device_bytes(bytes: Vec<u8>) -> Result<Self> {
         Self::from_bytes(PC_DEVICE_BYTES_RESOURCE, Arc::new(bytes))
+    }
+    pub(crate) fn gsc_state(bytes: Vec<u8>) -> Result<Self> {
+        Self::from_bytes(GSC_STATE_RESOURCE, Arc::new(bytes))
+    }
+    pub(crate) fn gsc_ap_flash(bytes: Arc<Vec<u8>>) -> Result<Self> {
+        Self::from_bytes(GSC_AP_FLASH_RESOURCE, bytes)
     }
     fn from_bytes(kind: u32, bytes: Arc<Vec<u8>>) -> Result<Self> {
         if bytes.len() as u64 > MAX_TOTAL {

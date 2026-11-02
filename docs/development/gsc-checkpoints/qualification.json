@@ -1,0 +1,1462 @@
+{
+  "schema": 1,
+  "utc": "2026-11-02T02:59:09.449030+00:00",
+  "parent": "fae8b0f88f13a1587b4dff6ebd434f0321069efe",
+  "baseline_parent": "fd85affa6db3d5dbe7da275764eb92feada551dc",
+  "scope": "Complete represented GSC core/platform checkpoint producer with resource-closed, environment-independent new-file restoration and coordinated detached publication. S5L8900 remains a subsequent full-scope requirement.",
+  "status": "locally_validated_with_explicit_scope",
+  "full_goal_complete": false,
+  "source_sha256": {
+    "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+    "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+    "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+    "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+    "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+    "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+    "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+    "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+    "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+    "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+    "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+    "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+    "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+    "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6",
+    "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+    "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82"
+  },
+  "baseline": {
+    "behavioral_failures_verified": 7,
+    "evidence": "baseline-files-v2.json",
+    "producer_source_parent": "fd85affa6db3d5dbe7da275764eb92feada551dc",
+    "production_unchanged_during_baseline": true,
+    "fixture_blocker_corrected": "from_checkpoint_bundle used for absent kernel paths",
+    "observations": [
+      "counter1->0",
+      "mscratch0x1234->0",
+      "PMU scratch42->0",
+      "UART remainingR->0",
+      "vendor ISA continuation fails without selector",
+      "AP flash0xa0->0xff after missing source-file reopen",
+      "timer profile read1->0"
+    ],
+    "full_goal_complete": false
+  },
+  "initial_fixture_assessment": {
+    "initial_run": "baseline-files-v1.json",
+    "behavioral_failures_verified": 5,
+    "fixture_blockers": 2,
+    "verified": [
+      "counter1->0",
+      "mscratch0x1234->0",
+      "PMU scratch42->0",
+      "UART remainingR->0",
+      "timer profile read1->0"
+    ],
+    "not_yet_behavioral": [
+      "AP flash removal",
+      "machine reconstruction without selector"
+    ],
+    "fixture_correction": "Restore through VmConfig::from_checkpoint_bundle, not CLI from_sources; the checkpoint API already supports missing kernel paths. No kernel-reopening defect claim."
+  },
+  "tests": {
+    "green-producer-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "machine::gsc::runtime::checkpoint::image::tests::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.03797674999805167,
+      "test_results": [
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+        "inode": 400377217
+      },
+      "executable_after_sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "green-factory-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "backend::emulator::checkpoint_machine::tests::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.06576520903035998,
+      "test_results": [
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+        "inode": 400377217
+      },
+      "executable_after_sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "green-core-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "isa::riscv::cpu::checkpoint::tests::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.030263167049270123,
+      "test_results": [
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+        "inode": 400377217
+      },
+      "executable_after_sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "green-resources-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "vm::snapshot::resources::tests::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.18252295802813023,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+        "inode": 400377217
+      },
+      "executable_after_sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "green-GSC-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "machine::gsc::runtime::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.041216916986741126,
+      "test_results": [
+        {
+          "passed": 64,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+        "inode": 400377217
+      },
+      "executable_after_sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "green-files-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "vm::runtime::gsc_context_tests::",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 685.3337407500367,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+        "inode": 400377217
+      },
+      "executable_after_sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "owning-root-library-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--nocapture",
+        "--test-threads=8"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 1452.8878267079708,
+      "test_results": [
+        {
+          "passed": 11847,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+        "inode": 400377217
+      },
+      "executable_after_sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "owning-C-API-library-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "--nocapture",
+        "--test-threads=2"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 7.219203291984741,
+      "test_results": [
+        {
+          "passed": 240,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "f4f5d3e79da0a04405e8ad6a7759203d31b37f691762cf2cc3c8a233720cc275",
+        "inode": 400355786
+      },
+      "executable_after_sha256": "f4f5d3e79da0a04405e8ad6a7759203d31b37f691762cf2cc3c8a233720cc275",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "green-transport-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "user::darwin::syscall::bsd::ptrace::transport::tests::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.15515912498813123,
+      "test_results": [
+        {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+        "inode": 400377217
+      },
+      "executable_after_sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "owning-CI-workflow-v4": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-684b758ed82515b1",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.04204437503358349,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/ci_actions_pinned-684b758ed82515b1",
+        "sha256": "7755b57ebba41a973a3abaeb40786dd869a1fccada2e084417b46fbd72d09bba",
+        "inode": 400378426
+      },
+      "executable_after_sha256": "7755b57ebba41a973a3abaeb40786dd869a1fccada2e084417b46fbd72d09bba",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    }
+  },
+  "checks": {
+    "combined-build-v4": {
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 788.3313436250319,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "fmt-workspace-v4": {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 36.89489116700133,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "check-workspace-all-targets-v4": {
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 371.37223020900274,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "build-workspace-all-targets-v4": {
+      "argv": [
+        "cargo",
+        "build",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 191.53204474999802,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "clippy-workspace-all-targets-v4": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 160.6422601249651,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    },
+    "doctests-workspace-v4": {
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 12.7295662080287,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+        "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+        "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+        "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+        "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+        "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+        "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+        "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+        "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82",
+        "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+        "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+        "src/user/darwin/syscall/bsd/ptrace/transport.rs": "bd32fd0fd25c138e5548b1f6b0c3fd1021c472cf594dcc675b5a52896af7df78",
+        "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+        "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+        "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+        "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+        "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6"
+      }
+    }
+  },
+  "root_inventory": {
+    "executable": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+    "sha256": "f278fe386e9f414437d23b61f8d0d0e878288e1947e57240c9889ee3a31c13b1",
+    "total": 11882,
+    "ignored": 35,
+    "parent": "0a29b610adcf2fa45cbb5d08d24c39df29e044a6"
+  },
+  "environment": {
+    "RUSTC_WRAPPER": "",
+    "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+    "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+    "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+    "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+    "CARGO_BUILD_JOBS": "8",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_NET_OFFLINE": "true",
+    "RUSTC_WORKSPACE_WRAPPER": "",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_TEST_LTO": "off",
+    "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+    "CARGO_PROFILE_DEV_LTO": "off",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true"
+  },
+  "field_inventory": {
+    "GscVcpu": [
+      {
+        "name": "id",
+        "type": "u32"
+      },
+      {
+        "name": "cpu",
+        "type": "RiscVCpu"
+      },
+      {
+        "name": "shared",
+        "type": "Shared"
+      },
+      {
+        "name": "cfg",
+        "type": "GscConfig"
+      },
+      {
+        "name": "halted",
+        "type": "bool"
+      },
+      {
+        "name": "reset_entry",
+        "type": "u64"
+      },
+      {
+        "name": "reset_count",
+        "type": "u32"
+      },
+      {
+        "name": "pc_cell",
+        "type": "Arc<AtomicU64>"
+      },
+      {
+        "name": "time_cell",
+        "type": "Arc<AtomicU64>"
+      },
+      {
+        "name": "break_pc",
+        "type": "Option<u64>"
+      },
+      {
+        "name": "break_hit",
+        "type": "u64"
+      },
+      {
+        "name": "break_ra",
+        "type": "Option<u64>"
+      },
+      {
+        "name": "break_saved_ra",
+        "type": "Option<u64>"
+      },
+      {
+        "name": "break_stack_bytes",
+        "type": "u64"
+      },
+      {
+        "name": "break_stop",
+        "type": "bool"
+      },
+      {
+        "name": "syscall_trace",
+        "type": "bool"
+      },
+      {
+        "name": "print_trace",
+        "type": "bool"
+      },
+      {
+        "name": "ap_ro_stub",
+        "type": "bool"
+      },
+      {
+        "name": "ap_ro_crypto_stub",
+        "type": "bool"
+      },
+      {
+        "name": "break_hits_seen",
+        "type": "u64"
+      },
+      {
+        "name": "broke",
+        "type": "bool"
+      },
+      {
+        "name": "tpm_cmds",
+        "type": "Vec<Vec<u8>>"
+      },
+      {
+        "name": "tpm_trigger",
+        "type": "u64"
+      },
+      {
+        "name": "tpm_yield_mode",
+        "type": "bool"
+      },
+      {
+        "name": "tpm_wired",
+        "type": "bool"
+      },
+      {
+        "name": "tpm",
+        "type": "TpmInject"
+      },
+      {
+        "name": "plt_rst_event",
+        "type": "bool"
+      },
+      {
+        "name": "plt_rst_fired",
+        "type": "bool"
+      },
+      {
+        "name": "entropy_hooks",
+        "type": "bool"
+      },
+      {
+        "name": "entropy_state",
+        "type": "u64"
+      }
+    ],
+    "GscShared": [
+      {
+        "name": "console",
+        "type": "Vec<u8>"
+      },
+      {
+        "name": "uart_rx",
+        "type": "VecDeque<u8>"
+      },
+      {
+        "name": "uart_irq_armed",
+        "type": "bool"
+      },
+      {
+        "name": "seen",
+        "type": "BTreeSet<u64>"
+      },
+      {
+        "name": "read_counts",
+        "type": "HashMap<u64, u32>"
+      },
+      {
+        "name": "store",
+        "type": "HashMap<u64, u32>"
+      },
+      {
+        "name": "spin_phase",
+        "type": "HashMap<u64, bool>"
+      },
+      {
+        "name": "reset_requested",
+        "type": "bool"
+      },
+      {
+        "name": "rstsrc",
+        "type": "u32"
+      },
+      {
+        "name": "flash_pe_en",
+        "type": "bool"
+      },
+      {
+        "name": "flash_trans",
+        "type": "u32"
+      },
+      {
+        "name": "flash_read_trans",
+        "type": "u32"
+      },
+      {
+        "name": "flash_wr_data",
+        "type": "[u32; 2]"
+      },
+      {
+        "name": "flash_dout",
+        "type": "[[u32; 2]; 2]"
+      },
+      {
+        "name": "flash_error",
+        "type": "u32"
+      },
+      {
+        "name": "flash_info",
+        "type": "HashMap<u64, u32>"
+      },
+      {
+        "name": "ap_spi_data",
+        "type": "Vec<u8>"
+      },
+      {
+        "name": "trng_state",
+        "type": "u32"
+      },
+      {
+        "name": "timer_compare",
+        "type": "u64"
+      },
+      {
+        "name": "tpm_active",
+        "type": "bool"
+      },
+      {
+        "name": "fifo_ram",
+        "type": "Vec<u8>"
+      }
+    ],
+    "GscBridge": [
+      {
+        "name": "mem",
+        "type": "Arc<GuestMemoryMmap>"
+      },
+      {
+        "name": "shared",
+        "type": "Shared"
+      },
+      {
+        "name": "ap_flash",
+        "type": "Arc<Vec<u8>>"
+      },
+      {
+        "name": "cfg",
+        "type": "GscConfig"
+      },
+      {
+        "name": "ready",
+        "type": "HashMap<u64, u32>"
+      },
+      {
+        "name": "pc",
+        "type": "Arc<AtomicU64>"
+      },
+      {
+        "name": "time",
+        "type": "Arc<AtomicU64>"
+      },
+      {
+        "name": "crypto_trace",
+        "type": "bool"
+      }
+    ],
+    "GscConfig": [
+      {
+        "name": "uart_base",
+        "type": "u64"
+      },
+      {
+        "name": "uart_state",
+        "type": "u32"
+      },
+      {
+        "name": "open_bus",
+        "type": "u32"
+      },
+      {
+        "name": "rstsrc_cold",
+        "type": "u32"
+      },
+      {
+        "name": "rstsrc_warm",
+        "type": "u32"
+      },
+      {
+        "name": "flash_img_base",
+        "type": "u64"
+      },
+      {
+        "name": "trace",
+        "type": "Trace"
+      },
+      {
+        "name": "console_trace",
+        "type": "bool"
+      },
+      {
+        "name": "ap_ro_info_stub",
+        "type": "bool"
+      },
+      {
+        "name": "ap_ro_crypto_stub",
+        "type": "bool"
+      },
+      {
+        "name": "ap_ro_stub",
+        "type": "bool"
+      },
+      {
+        "name": "timer_div",
+        "type": "u64"
+      }
+    ],
+    "TpmInject": [
+      {
+        "name": "next",
+        "type": "usize"
+      },
+      {
+        "name": "in_call",
+        "type": "bool"
+      },
+      {
+        "name": "awaiting",
+        "type": "bool"
+      },
+      {
+        "name": "trace_budget",
+        "type": "u32"
+      },
+      {
+        "name": "call_start_instret",
+        "type": "u64"
+      },
+      {
+        "name": "saved_x",
+        "type": "[u64; 32]"
+      },
+      {
+        "name": "saved_pc",
+        "type": "u64"
+      },
+      {
+        "name": "saved_mstatus",
+        "type": "u64"
+      },
+      {
+        "name": "saved_mie",
+        "type": "u64"
+      },
+      {
+        "name": "cap_slot",
+        "type": "u64"
+      },
+      {
+        "name": "bufptr_slot",
+        "type": "u64"
+      }
+    ]
+  },
+  "static_review": {
+    "utc": "2026-11-02T02:23:05.369968+00:00",
+    "base_commit": "0a29b610adcf2fa45cbb5d08d24c39df29e044a6",
+    "source_sha256": {
+      "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+      "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+      "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+      "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+      "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+      "src/backend/emulator/mod.rs": "2e6a1da8ac56ac27abf5161efb43c2197d53cc3ed87cfc313c7b0f6c0ce9cb5a",
+      "src/backend/mod.rs": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+      "src/backend/emulator/checkpoint_machine.rs": "25e460b229ca4c0f0e98f9cf870820ef18fde2859ce822fa9fa220f7893e0ed7",
+      "src/vm/runtime.rs": "9ff73d77c43b865478fe569c8407f22521c3822424254932b090f9c257d227ec",
+      "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+      "src/vm/snapshot.rs": "e4c7b85b5792685a93ab72c62b10511a69e5e04fc29ba7361d001f7a14e3b425",
+      "src/vm/snapshot/backend_context.rs": "5c72a85ca8ef05415a548291627e0a88ff93c08c3268eb7ab55a15e09d76f4a3",
+      "src/vm/snapshot/resources.rs": "7249161e9492112d835001e8d2b6edfe31fe2fd73586665f916826bcd6381d72",
+      "src/vm/snapshot/resources/tests.rs": "d8232a4137a510dbe688705efbc4501c77709d8deaafb683a7497fd73e1e6ae6",
+      "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+      "src/isa/riscv/cpu/checkpoint/tests.rs": "5ea2020f3931ac92554d1389540d145b540b3b36d69e6996140fc325d465af82"
+    },
+    "line_counts": {
+      "src/machine/gsc/runtime.rs": 1911,
+      "src/machine/gsc/runtime/execution.rs": 928,
+      "src/machine/gsc/runtime/checkpoint.rs": 144,
+      "src/machine/gsc/runtime/checkpoint/image.rs": 514,
+      "src/machine/gsc/runtime/checkpoint/tests.rs": 507,
+      "src/backend/emulator/mod.rs": 250,
+      "src/backend/mod.rs": 220,
+      "src/backend/emulator/checkpoint_machine.rs": 124,
+      "src/vm/runtime.rs": 1038,
+      "src/vm/runtime/gsc_context_tests.rs": 519,
+      "src/vm/snapshot.rs": 563,
+      "src/vm/snapshot/backend_context.rs": 242,
+      "src/vm/snapshot/resources.rs": 434,
+      "src/vm/snapshot/resources/tests.rs": 220,
+      "src/isa/riscv/cpu/checkpoint.rs": 233,
+      "src/isa/riscv/cpu/checkpoint/tests.rs": 126
+    },
+    "checked": [
+      "Exhaustive GscVcpu/GscShared/GscBridge field classification",
+      "Private source owner graph and target-owned RAM/AtomicBool publication control",
+      "Strict limited decode, canonical map order, bounded collection counts, resource kind/hash/size closure",
+      "Ordinary runtime reset counter preservation and saturating restored terminal count",
+      "Fresh-process selectors/profile/missing AP source and legacy absent-section behavior",
+      "Zero-budget no-op and unpublished entry/capture rejection",
+      "C API all3 module declarations and both Darwin regular-file/socket lifetime witnesses retained"
+    ],
+    "limitations": [
+      "Full four original findings remain open",
+      "No physical Intel/GSC claim",
+      "Known independent native streaming-FPSR failure unresolved",
+      "Complete incoming Darwin process suite is not attributed as newly tested"
+    ],
+    "new_worktrees": false,
+    "protected_processes_must_remain": [
+      28735,
+      28737
+    ]
+  },
+  "LLVM": {
+    "commands": [
+      {
+        "argv": [
+          "/Users/int/local/bin/llvm-mc",
+          "--triple=riscv32",
+          "--mattr=+m,+c",
+          "--filetype=obj",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/guest-witnesses.s",
+          "-o",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/guest-witnesses.o"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/Users/int/local/bin/ld.lld",
+          "-m",
+          "elf32lriscv",
+          "--no-relax",
+          "--image-base=0",
+          "-Ttext=0x1000",
+          "-e",
+          "0x1000",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/guest-witnesses.o",
+          "-o",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/guest-witnesses.elf"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/Users/int/local/bin/llvm-objcopy",
+          "-O",
+          "binary",
+          "--only-section=.text",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/guest-witnesses.elf",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/guest-witnesses.bin"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/Users/int/local/bin/llvm-objdump",
+          "-d",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/guest-witnesses.elf"
+        ],
+        "exit_code": 0,
+        "stdout": "\n/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/guest-witnesses.elf:\tfile format elf32-littleriscv\n\nDisassembly of section .text:\n\n00001000 <.text>:\n    1000: 34051073     \tcsrw\tmscratch, a0\n    1004: 340025f3     \tcsrr\ta1, mscratch\n    1008: 40000537     \tlui\ta0, 0x40000\n    100c: 02a00593     \tli\ta1, 0x2a\n    1010: 04b52623     \tsw\ta1, 0x4c(a0)\n    1014: 04c52603     \tlw\ta2, 0x4c(a0)\n    1018: 404d05b7     \tlui\ta1, 0x404d0\n    101c: 10500073     \twfi\n    1020: 0005a503     \tlw\ta0, 0x0(a1)\n    1024: 0005a603     \tlw\ta2, 0x0(a1)\n    1028: 00b52023     \tsw\ta1, 0x0(a0)\n    102c: 00052223     \tsw\tzero, 0x4(a0)\n    1030: 00d62023     \tsw\ta3, 0x0(a2)\n    1034: 00f72023     \tsw\ta5, 0x0(a4)\n    1038: 00d54803     \tlbu\ta6, 0xd(a0)\n",
+        "stderr": ""
+      }
+    ],
+    "tool_versions": {
+      "llvm-mc": "LLVM (http://llvm.org/):",
+      "ld.lld": "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d) (compatible with GNU linkers)",
+      "llvm-objcopy": "llvm-objcopy, compatible with GNU objcopy",
+      "llvm-objdump": "LLVM (http://llvm.org/):"
+    },
+    "expected_words": [
+      "0x34051073",
+      "0x340025f3",
+      "0x40000537",
+      "0x2a00593",
+      "0x4b52623",
+      "0x4c52603",
+      "0x404d05b7",
+      "0x10500073",
+      "0x5a503",
+      "0x5a603",
+      "0xb52023",
+      "0x52223",
+      "0xd62023",
+      "0xf72023",
+      "0xd54803"
+    ],
+    "observed_words": [
+      "0x34051073",
+      "0x340025f3",
+      "0x40000537",
+      "0x2a00593",
+      "0x4b52623",
+      "0x4c52603",
+      "0x404d05b7",
+      "0x10500073",
+      "0x5a503",
+      "0x5a603",
+      "0xb52023",
+      "0x52223",
+      "0xd62023",
+      "0xf72023",
+      "0xd54803"
+    ],
+    "equal": true
+  },
+  "assumption_register": [
+    {
+      "id": "GSC1",
+      "assumption": "Public GSC registers omit core counters/CSRs and modeled peripheral state.",
+      "basis": "GscVcpu::get_state and absent private hooks",
+      "dependent_result": "Capture full represented core, bridge and runtime state.",
+      "stress_test": "Actual files across1/2/4 CPU contexts, guest scratch/CSR/UART continuation.",
+      "falsification_probe": "Parent continuation already matches uninterrupted execution.",
+      "status": "confirmed by seven observed baseline failures and repaired actual-file continuations"
+    },
+    {
+      "id": "GSC2",
+      "assumption": "RAX_MACHINE and external AP flash are not represented by the legacy public snapshot.",
+      "basis": "EmulatorVm factory,CheckpointConfig and GscBridge inputs",
+      "dependent_result": "Select new-file machine from producer and resolve immutable bytes from captured resources, without source-file reopening.",
+      "stress_test": "Fresh process restores with removed/changed selectors and absent AP flash.",
+      "falsification_probe": "Parent can already restore source-specific ISA/resource continuation.",
+      "status": "confirmed by fresh-process missing selector, conflicting selector, changed timer profile and deleted AP flash witnesses"
+    },
+    {
+      "id": "GSC3",
+      "assumption": "Capture occurs at a stopped VMM-owned CPU boundary; GSC shared state has no independently exposed writer.",
+      "basis": "Private GscShared handles and VMM capture boundary",
+      "dependent_result": "Canonical repeated resource discovery and private descriptors refer to the same immutable capture.",
+      "stress_test": "Deterministic resource identity, source preservation, detached publication/cancel and foreign RAM; private-writer exclusion reviewed in source.",
+      "falsification_probe": "An exposed writer can change the GSC resource graph between CPU/resource capture.",
+      "status": "confirmed for safe VMM-owned stopped CPU capture and private represented GSC owners; external raw RAM writers remain caller-quiescence scope"
+    }
+  ],
+  "source_lines": {
+    "src/machine/gsc/runtime.rs": 1911,
+    "src/machine/gsc/runtime/execution.rs": 928,
+    "src/machine/gsc/runtime/checkpoint.rs": 144,
+    "src/machine/gsc/runtime/checkpoint/image.rs": 514,
+    "src/machine/gsc/runtime/checkpoint/tests.rs": 507,
+    "src/backend/emulator/mod.rs": 250,
+    "src/backend/mod.rs": 220,
+    "src/backend/emulator/checkpoint_machine.rs": 124,
+    "src/vm/runtime.rs": 1038,
+    "src/vm/runtime/gsc_context_tests.rs": 519,
+    "src/vm/snapshot.rs": 563,
+    "src/vm/snapshot/backend_context.rs": 242,
+    "src/vm/snapshot/resources.rs": 434,
+    "src/vm/snapshot/resources/tests.rs": 220,
+    "src/isa/riscv/cpu/checkpoint.rs": 233,
+    "src/isa/riscv/cpu/checkpoint/tests.rs": 126
+  },
+  "wire": {
+    "producer_kind": 10,
+    "descriptor_tag": "RAXGSC01",
+    "descriptor_bytes": 100,
+    "state_resource_kind": 3,
+    "state_tag": "RAXGSI01",
+    "state_max_bytes": 67108864,
+    "AP_flash_resource_kind": 4,
+    "resource_framing": "RAXRES01 unchanged; unknown kinds rejected by older readers"
+  },
+  "merge": {
+    "candidate": "0a29b610adcf2fa45cbb5d08d24c39df29e044a6",
+    "master_parent": "4748a6ae8bd285369fe1413787b35587832f4dd3",
+    "master_only_commits": 40,
+    "audit_only_commits": 113,
+    "conflicts": [
+      "C API test module declarations: retain all three modules",
+      "Darwin descriptor tests: retain regular-file early-close and separate socket post-receipt close witnesses"
+    ],
+    "compile_failure": "Auto-merged descendant connection witness contained duplicate drop(offered); removed second close and rebuilt before all gates.",
+    "reference_bytes": "Eight incoming reference/capture whitespace reports were verified byte-identical to master blobs; no normalization."
+  },
+  "change_surface": {
+    "GSC_core_platform_CPU_state": "complete represented producer and detached replacement; source profile/config captured",
+    "RISC_V_private_state_decoder": "core variable-field allocation bounds; wire unchanged; instruction semantics unchanged",
+    "backend_VM": "producer-selected new-file machine; ordinary family cached once per VM; other/native delegates unchanged",
+    "resources": "kind3 state and kind4 immutable AP flash use existing verified identity and aggregate budget",
+    "publication": "candidate cannot enter before matching RAM publication; late CPU record validation precedes mutation",
+    "SMIR_oracle_native_lowering": "unchanged; no new instruction/admission/ABI",
+    "C_API": "no exported layout change; complete library compatibility run",
+    "merge_transport": "test-only duplicate-close repair; both histories retained"
+  },
+  "unrun": [
+    "The 35 ignored root cases remain ignored, including separately signed native HVF integration cases. Native backend/admission behavior is unchanged in this group; the ignored inventory is retained and no native execution coverage is inferred from compilation.",
+    "The primary target/debug/rax-user executable and its active guest fixtures are preserved unchanged; this group qualifies current source and external test builds, not a replacement of that live binary.",
+    "C/C++ consumer execution and direct ISA/SMIR integration targets were not repeated: exported headers/layout, instruction semantics and native lowering are unchanged in this group; the complete C API/root libraries and all-target compilation cover their shared current source.",
+    "Physical Intel HVF/KVM and Windows execution unavailable on this Apple-Silicon host.",
+    "No physical GSC or full real firmware/TPM conformance measurement. Multiple contexts do not establish physical multicore GSC.",
+    "Complete user_darwin process integration was not rerun: merge conflict repair changes a unit-test close only; production incoming master changes are retained, not newly attributed to this group. Owning library includes the entire Darwin unit suite.",
+    "Known independent native streaming-FPSR failure remains unresolved; ignored/native backlog was not reclassified as passing."
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "S5L8900 complete private/platform state,remaining other backend startup/IRQ/clock/replay and physical Intel requirements remain open."
+    },
+    {
+      "impact": "high",
+      "item": "Known independent native streaming-FPSR defect remains unresolved."
+    },
+    {
+      "impact": "low",
+      "item": "The all-target workspace build reports the existing librax.rlib output-name collision between root and C API packages; the same warning exists in the prior group. Hashed test executables are pinned independently; no public crate rename is introduced."
+    }
+  ],
+  "complexity": "For S represented state bytes and E table entries, canonical capture is O(S + E log E) time and O(S + E) auxiliary space; strict decode/install is O(S + E) expected time for hash tables and O(S + E) space within explicit limits. Resource SHA256 is linear in captured bytes. Repeated discovery incurs repeated bounded work. No constant host-time or physical clock claim.",
+  "quality_gates": {
+    "assumptions_reconciled": true,
+    "current_group_coverage": true,
+    "full_goal_complete": false,
+    "source_frozen_through_checks": true,
+    "baseline_fixture_blocker_separated": true,
+    "all_contexts_before_publication": true,
+    "unrun_explicit": true,
+    "master_landing_required": true
+  }
+}

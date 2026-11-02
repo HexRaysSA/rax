@@ -168,3 +168,14 @@ deferred RAM, forwarding and local rights. C engines emit format 10. Matching
 RAM publication guards detached CPUs; legacy absent sections and formats 1/2
 remain projection-only. See [Hexagon checkpoints](hexagon-checkpoints/README.md)
 for admission, exact output-boundary semantics and qualification.
+
+## GSC RV32/Ti50 platform contexts
+
+Producer kind 10 (`RAXGSC01`) references verified kind-3 state and kind-4 AP flash
+resources. The complete represented core/runtime/bridge image is admitted offside
+and remains unable to enter before matching RAM publication. A new checkpoint
+VM selects the saved producer before CPU construction, without GSC environment,
+file reopening or synthetic ROM writes. Generic RISC-V private files override a
+conflicting GSC selector; absent-section files retain legacy projection behavior.
+See [GSC checkpoints](gsc-checkpoints/README.md) for the exact schema, bounds,
+actual 1/2/4-context continuations, assumption probes and remaining full findings.

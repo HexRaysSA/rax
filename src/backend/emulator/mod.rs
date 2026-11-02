@@ -6,6 +6,7 @@
 pub mod aarch32;
 pub mod aarch64;
 pub mod armv6;
+mod checkpoint_machine;
 pub mod cortex_m;
 pub mod ebpf;
 pub mod gsc;
@@ -13,6 +14,7 @@ pub mod hexagon;
 pub mod riscv;
 pub mod s5l8900;
 pub mod x86_64;
+use checkpoint_machine::MachineFamily;
 
 use std::any::Any;
 use std::sync::{Arc, OnceLock};
@@ -37,6 +39,7 @@ pub struct EmulatorBackend {
     hexagon_isa: HexagonIsa,
     hexagon_endian: Endianness,
     riscv_config: Option<RiscVConfig>,
+    checkpoint_machine: Option<MachineFamily>,
 }
 
 impl EmulatorBackend {
@@ -46,6 +49,7 @@ impl EmulatorBackend {
             hexagon_isa,
             hexagon_endian,
             riscv_config: None,
+            checkpoint_machine: None,
         }
     }
 
@@ -60,7 +64,16 @@ impl EmulatorBackend {
             hexagon_isa,
             hexagon_endian,
             riscv_config: Some(riscv_config),
+            checkpoint_machine: None,
         }
+    }
+
+    pub(crate) fn for_checkpoint(
+        mut self,
+        contexts: Option<&crate::vm::snapshot::BackendContexts>,
+    ) -> Result<Self> {
+        self.checkpoint_machine = checkpoint_machine::family(self.arch, contexts)?;
+        Ok(self)
     }
 }
 
@@ -70,17 +83,24 @@ impl Backend for EmulatorBackend {
     }
 
     fn create_vm(&self) -> Result<Box<dyn Vm>> {
-        Ok(Box::new(EmulatorVm::new(
+        let mut vm = EmulatorVm::new(
             self.arch,
             self.hexagon_isa,
             self.hexagon_endian,
             self.riscv_config,
-        )))
+        );
+        if let Some(machine) = self.checkpoint_machine {
+            vm.machine = machine;
+            vm.checkpoint_targets = machine == MachineFamily::Gsc;
+        }
+        Ok(Box::new(vm))
     }
 }
 
 /// Emulated VM instance.
 pub struct EmulatorVm {
+    machine: MachineFamily,
+    checkpoint_targets: bool,
     arm_cluster: OnceLock<Arc<aarch64::cluster::ArmCluster>>,
     created_cpus: std::sync::Mutex<Vec<u32>>,
     irq_pending: std::sync::Mutex<Vec<u32>>,
@@ -98,6 +118,8 @@ impl EmulatorVm {
         riscv_config: Option<RiscVConfig>,
     ) -> Self {
         EmulatorVm {
+            machine: MachineFamily::from_env(arch),
+            checkpoint_targets: false,
             arm_cluster: OnceLock::new(),
             created_cpus: std::sync::Mutex::new(Vec::new()),
             irq_pending: std::sync::Mutex::new(Vec::new()),
@@ -168,8 +190,12 @@ impl Vm for EmulatorVm {
                 self.hexagon_endian,
             ))),
             ArchKind::Riscv64 => {
-                if std::env::var("RAX_MACHINE").as_deref() == Ok("gsc") {
-                    Ok(Box::new(GscVcpu::new(id, mem)))
+                if self.machine == MachineFamily::Gsc {
+                    if self.checkpoint_targets {
+                        Ok(Box::new(GscVcpu::new_checkpoint_target(id, mem)?))
+                    } else {
+                        Ok(Box::new(GscVcpu::new(id, mem)))
+                    }
                 } else {
                     Ok(Box::new(riscv::RiscVVcpu::new_with_config(
                         id,
@@ -188,7 +214,7 @@ impl Vm for EmulatorVm {
             },
             ArchKind::CortexM => Ok(Box::new(cortex_m::CortexMVcpu::new(id, mem))),
             ArchKind::Armv7a => {
-                if std::env::var("RAX_MACHINE").as_deref() == Ok("s5l8900") {
+                if self.machine == MachineFamily::S5l8900 {
                     Ok(Box::new(S5L8900Vcpu::new(id, mem)))
                 } else {
                     Ok(Box::new(Armv6Vcpu::new(id, mem)))

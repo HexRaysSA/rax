@@ -153,6 +153,20 @@ pub trait Backend: Send + Sync {
 }
 
 /// Create a backend based on configuration.
+pub(crate) fn create_for_checkpoint(
+    config: &VmConfig,
+    contexts: Option<&crate::vm::snapshot::BackendContexts>,
+) -> Result<Box<dyn Backend>> {
+    if config.backend == BackendKind::Emulator {
+        return Ok(Box::new(
+            emulator::EmulatorBackend::new(config.arch, config.hexagon_isa, config.hexagon_endian)
+                .for_checkpoint(contexts)?,
+        ));
+    }
+    create(config)
+}
+
+/// Create a backend based on configuration.
 pub fn create(config: &VmConfig) -> Result<Box<dyn Backend>> {
     match config.backend {
         #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]

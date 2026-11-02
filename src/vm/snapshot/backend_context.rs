@@ -25,6 +25,8 @@ pub const HVF_INTEL_CONTEXT: u32 = 7;
 pub const CORTEX_M_CONTEXT: u32 = 8;
 /// Hexagon software packet engine and its represented in-flight transaction.
 pub const HEXAGON_CONTEXT: u32 = 9;
+/// GSC RV32 hart and its represented platform/runtime state, with resource bindings.
+pub const GSC_CONTEXT: u32 = 10;
 
 /// An opaque, bounded backend-owned record. Its kind identifies its producer;
 /// an architectural register projection cannot substitute for this payload.

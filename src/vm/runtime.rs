@@ -367,12 +367,21 @@ impl Vmm {
                 "using captured media; writable disk changes are retained in memory and subsequent checkpoints"
             );
         }
-        let mut vm = Self::build(config, true, true)?;
+        let mut vm = Self::build_with_contexts(config, true, true, bundle.backend_contexts())?;
         vm.restore_snapshot_bundle(bundle)?;
         Ok(vm)
     }
 
     fn build(config: VmConfig, resume: bool, detached_media: bool) -> Result<Self> {
+        Self::build_with_contexts(config, resume, detached_media, None)
+    }
+
+    fn build_with_contexts(
+        config: VmConfig,
+        resume: bool,
+        detached_media: bool,
+        contexts: Option<&crate::vm::snapshot::BackendContexts>,
+    ) -> Result<Self> {
         let timing_context = Arc::new(crate::vm::timing::TimingContext::new());
         let _timing = timing_context.enter();
         info!(
@@ -397,7 +406,7 @@ impl Vmm {
         }
 
         // Create backend
-        let backend = backend::create(&config)?;
+        let backend = backend::create_for_checkpoint(&config, contexts)?;
         info!(backend = backend.name(), "using backend");
 
         // Create VM
@@ -928,6 +937,10 @@ mod hexagon_context_tests;
 #[cfg(test)]
 #[path = "runtime/gsc_bounded_tests.rs"]
 mod gsc_bounded_tests;
+
+#[cfg(test)]
+#[path = "runtime/gsc_context_tests.rs"]
+mod gsc_context_tests;
 
 #[cfg(test)]
 #[path = "runtime/riscv_context_tests.rs"]

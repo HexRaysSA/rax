@@ -2739,7 +2739,8 @@
         "docs/development/s3c-uart-publication/qualification.json",
         "docs/development/private-context-admission/qualification.json",
         "docs/development/cortex-m-checkpoints/qualification.json",
-        "docs/development/hexagon-checkpoints/qualification.json"
+        "docs/development/hexagon-checkpoints/qualification.json",
+        "docs/development/gsc-checkpoints/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2778,7 +2779,8 @@
         "Complete-private S3C CPU/bridge replacement and shared UART capture/admission/publication are locally qualified in s3c-uart-publication/qualification.json. Historical/missing-private and arbitrary native/setter paths retain narrower nontransactional contracts; complete original backend/in-flight/IRQ/clock/replay and physical Intel requirements remain open.",
         "Present private-set completeness for declared software producers is qualified in private-context-admission/qualification.json after four observed omission-acceptance regressions, including actual S3C CPACR loss. Absent-section projection/standalone compatibility remains explicitly limited; complete original native/in-flight/IRQ/clock/replay and physical Intel requirements remain open.",
         "Cortex-M represented core/controllers/adapter phase and C format-9 continuation are locally qualified in cortex-m-checkpoints/qualification.json after six observed VMM/C ABI regressions. This does not implement absent FPE/MPU/SCS wiring, shared-writer Cortex-M monitor coherence, complete other native/private/in-flight/IRQ/clock/replay or physical Intel requirements; all four original full findings remain open.",
-        "Represented Hexagon core/in-flight packet and C format10 continuation are locally qualified after parent VMM and controlled C writer failures. See hexagon-checkpoints/qualification.json. All-writer monitor coherence, unsupported mixed-MMIO packets and complete other backend/native/IRQ/clock/replay/startup and physical Intel requirements remain open; no original finding closure."
+        "Represented Hexagon core/in-flight packet and C format10 continuation are locally qualified after parent VMM and controlled C writer failures. See hexagon-checkpoints/qualification.json. All-writer monitor coherence, unsupported mixed-MMIO packets and complete other backend/native/IRQ/clock/replay/startup and physical Intel requirements remain open; no original finding closure.",
+        "GSC complete represented core/platform resource-backed contexts and matching-RAM publication locally qualified with seven pre-fix actual-file failures and ten repaired file tests. New-file construction is independent of GSC process selectors/profile and deleted AP flash. S5L8900, remaining backend/shared state and full original findings remain open; no full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2835,7 +2837,8 @@
         "s3c-shared-uart-publication-2026-11-01",
         "required-software-private-contexts-2026-11-01",
         "cortex-m-private-checkpoints-2026-11-02",
-        "hexagon-private-checkpoints-2026-11-02"
+        "hexagon-private-checkpoints-2026-11-02",
+        "gsc-private-platform-checkpoint-2026-11-02"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -197982,6 +197985,22 @@
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/commit-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/cleanup-final.json",
       "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+      "full_goal_complete": false
+    },
+    {
+      "id": "gsc-private-platform-checkpoint-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE"
+      ],
+      "qualification": "docs/development/gsc-checkpoints/qualification.json",
+      "scope": "Complete represented GSC core/platform checkpoint producer with resource-closed, environment-independent new-file restoration and coordinated detached publication. S5L8900 remains a subsequent full-scope requirement.",
+      "parent": "fae8b0f88f13a1587b4dff6ebd434f0321069efe",
+      "baseline_parent": "fd85affa6db3d5dbe7da275764eb92feada551dc",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/cleanup-final.json",
+      "master_landing_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/master-landing-final.json",
+      "workflow": "Tested exact owned paths only: git add -- <paths>; red -m --staged --run <same paths>; no push; remove idle canonical C/T after committed group.",
       "full_goal_complete": false
     }
   ],

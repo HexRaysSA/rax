@@ -195,3 +195,26 @@ fn pc_buffer_resources_round_trip_and_keep_interpretation_distinct_from_boot_med
         b"same bytes"
     );
 }
+
+#[test]
+fn gsc_state_bounds_and_ap_flash_identity_are_admitted_before_use() {
+    for size in [0, 8, MAX_GSC_STATE_BYTES as u64 + 1, u64::MAX] {
+        assert!(
+            ResourceKey {
+                kind: GSC_STATE_RESOURCE,
+                size,
+                digest: [0; 32]
+            }
+            .validate()
+            .is_err()
+        );
+    }
+    let a = CheckpointResource::gsc_ap_flash(Arc::new(vec![1, 2, 3])).unwrap();
+    let b = CheckpointResource::gsc_ap_flash(Arc::new(vec![1, 2, 3])).unwrap();
+    let empty = CheckpointResource::gsc_ap_flash(Arc::new(Vec::new())).unwrap();
+    assert_eq!(a.key(), b.key());
+    assert_ne!(a.key(), empty.key());
+    assert_eq!(a.key().kind(), GSC_AP_FLASH_RESOURCE);
+    let prepared = PreparedResources::from_bindings(vec![a, b, empty]).unwrap();
+    assert_eq!(prepared.keys().count(), 2);
+}
