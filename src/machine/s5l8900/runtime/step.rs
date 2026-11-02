@@ -366,7 +366,15 @@ impl S5L8900Vcpu {
         exec.exclusive_monitor = self.excl.clone();
         let result = exec.execute(&insn);
         self.excl = exec.exclusive_monitor.clone();
-        self.insn_count += 1;
+        if !matches!(
+            result,
+            ExecResult::Undefined
+                | ExecResult::MemoryFault(_)
+                | ExecResult::FpAccessTrap { .. }
+                | ExecResult::Exception(ExceptionType::UndefinedInstruction)
+        ) {
+            self.insn_count = self.insn_count.wrapping_add(1);
+        }
 
         // Service any decryption request the just-executed store triggered.
         if self.bridge.inner.borrow().engine_8900_req.is_some() {
@@ -414,7 +422,6 @@ impl S5L8900Vcpu {
                 undefined,
             } => {
                 // Access traps complete no guest instruction or device access.
-                self.insn_count -= 1;
                 if target_el != 2 {
                     return StepOutcome::Fault(Error::InvalidConfig(format!(
                         "AArch32-only machine cannot enter EL{target_el}"

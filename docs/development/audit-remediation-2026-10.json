@@ -3495,7 +3495,8 @@
         "docs/development/arm-native-store-frontier/README.md",
         "docs/development/lapic-selected-clock/qualification.json",
         "docs/development/lapic-selected-clock/README.md",
-        "docs/development/gsc-platform-steps/qualification.json"
+        "docs/development/gsc-platform-steps/qualification.json",
+        "docs/development/s5l-bounded-steps/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3525,7 +3526,8 @@
         "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open.",
         "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open.",
         "Selected-clock LAPIC behavior is qualified separately; retired VMM construction, deterministic default/native retirement, RTC and external-event replay remain open. See lapic-selected-clock/qualification.json.",
-        "GSC platform-aware stepping is locally qualified after five guest-effect and two actual factory/coordinator failures. The original core counter survives warm reset; no duplicate counter was added. Complete GSC/S5L8900 private/platform contexts, full backend startup/IRQ/clock/replay and physical Intel requirements remain open. No full finding closure."
+        "GSC platform-aware stepping is locally qualified after five guest-effect and two actual factory/coordinator failures. The original core counter survives warm reset; no duplicate counter was added. Complete GSC/S5L8900 private/platform contexts, full backend startup/IRQ/clock/replay and physical Intel requirements remain open. No full finding closure.",
+        "S5L platform stepping and completed-retirement accounting qualified after9 baseline failures. Prepared online1/2/4 contexts prove exact quanta/selection; a separate test preserves cold BSP-only policy. No S5L architectural startup or complete private checkpoint producer is claimed; full original findings remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3566,7 +3568,8 @@
         "intel-interrupt-window-ack-2026-11-01",
         "arm-native-host-scheduling-2026-11-01",
         "arm-native-mmio-read-frontier-2026-11-01",
-        "gsc-platform-aware-bounded-steps-2026-11-02"
+        "gsc-platform-aware-bounded-steps-2026-11-02",
+        "s5l-platform-bounded-retirement-2026-11-02"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198018,6 +198021,20 @@
       "scope": "Track the exact archived S3C pre-FHM compatibility fixture required by an existing compile-time include.",
       "parent": "31064030c11f45e6ea1e9fa4914f1194f715c798",
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-bounded-steps-v1/fixture-commit-receipt.json",
+      "full_goal_complete": false
+    },
+    {
+      "id": "s5l-platform-bounded-retirement-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-SMP"
+      ],
+      "qualification": "docs/development/s5l-bounded-steps/qualification.json",
+      "scope": "S5L8900 platform-aware bounded execution and retirement boundaries, prerequisite for complete platform capture and coordinated scheduling.",
+      "parent": "e98812434c181110b769c7bef54d22beef58e057",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-bounded-steps-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-bounded-steps-v1/cleanup-final.json",
+      "workflow": "Work directly in master; git add -- exact owned paths; red -m --staged --run same paths; remove idle owned C/T after the tested commit; no push, branches or new worktrees.",
       "full_goal_complete": false
     }
   ],
