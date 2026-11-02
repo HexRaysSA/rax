@@ -432,3 +432,7 @@ use spi::{CFG_AGD, CTRL_RUN, SPI_CFG, SPI_CTRL, SPI_RX_FIFO_MAX, SPI_RXCNT, SPI_
 
 mod display;
 pub use display::S5lLcd;
+
+#[cfg(test)]
+#[path = "s5l8900/rtc_selected_tests.rs"]
+mod rtc_selected_tests;

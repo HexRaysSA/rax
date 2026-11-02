@@ -6,13 +6,18 @@
 /// behaviour — notably register 0x67, which gates the serial console.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Pcf50633 {
+    #[serde(skip)]
+    calendar: crate::vm::timing::CalendarClock,
     /// Current register index; auto-increments on each read.
     pub(super) cmd: u8,
 }
 
 impl Pcf50633 {
     pub fn new() -> Self {
-        Pcf50633 { cmd: 0 }
+        Pcf50633 {
+            cmd: 0,
+            calendar: crate::vm::timing::CalendarClock::selected(),
+        }
     }
 
     /// I2C write: the first byte selects the register index.
@@ -25,7 +30,7 @@ impl Pcf50633 {
 
     /// I2C read: return the current register's value, then post-increment.
     pub fn recv(&mut self) -> u8 {
-        let rtc = Pcf50633Rtc::now();
+        let rtc = Pcf50633Rtc::from_calendar(&self.calendar);
         let res: u8 = match self.cmd {
             0x4B => 0,          // MBCS1: battery power source
             0x57 => 0,          // ADCC1: battery charge voltage
@@ -60,6 +65,21 @@ pub(super) struct Pcf50633Rtc {
 }
 
 impl Pcf50633Rtc {
+    fn from_calendar(clock: &crate::vm::timing::CalendarClock) -> Self {
+        if !clock.is_retired() {
+            return Self::now();
+        }
+        let date = clock.date();
+        Self {
+            second: int_to_bcd(i32::from(date.second)),
+            minute: int_to_bcd(i32::from(date.minute)),
+            hour: int_to_bcd(i32::from(date.hour)),
+            day: int_to_bcd(i32::from(date.day_of_month)),
+            month: int_to_bcd(i32::from(date.month)),
+            year: int_to_bcd(i32::from(date.year) - 2000),
+        }
+    }
+
     fn now() -> Self {
         #[cfg(unix)]
         {
@@ -168,6 +188,25 @@ pub struct S5lI2c {
 }
 
 impl S5lI2c {
+    pub(crate) fn uses_retired_calendar(&self) -> bool {
+        self.pmu
+            .as_ref()
+            .is_some_and(|pmu| pmu.calendar.is_retired())
+    }
+    /// Restore keeps target clock ownership; no guest byte or command is changed.
+    pub(crate) fn rebind_calendar_from(&mut self, target: &Self) -> crate::error::Result<()> {
+        match (&mut self.pmu, &target.pmu) {
+            (Some(pmu), Some(owner)) => pmu.calendar = owner.calendar.clone(),
+            (None, None) => (),
+            _ => {
+                return Err(crate::error::Error::InvalidConfig(
+                    "PMU clock endpoint differs".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn new(pmu: bool, accel: bool) -> Self {
         S5lI2c {
             control: 0,

@@ -57,6 +57,9 @@ from behavioral regression evidence. No ignored hardware tests are counted as
 executed.
 
 All four original findings remain partially validated. Default/idle clock policy,
-PMU RTC and other board clocks, entropy, architectural secondary startup, native
+Other board clocks, entropy, architectural secondary startup, native
 retirement/full replay and physical Intel validation remain open. The unchanged
 serialized elapsed fields retain the existing S5L image format.
+
+[Selected RTC calendars](../rtc-selected-clock/README.md) now binds PMU calendar
+reads as well; Wall host input and full replay remain separate requirements.

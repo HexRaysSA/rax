@@ -64,6 +64,9 @@ fn child(label: &str, path: &Path, phase: &str, s5l: bool) {
             .env("RAX_S5L_TIMER_SPEEDUP", if s5l { "1" } else { "13" })
             .env("RAX_S5L_TIMER_MUL", if s5l { "1" } else { "11" });
     }
+    if label.starts_with("rtc_clock::") {
+        cmd.env("TZ", if s5l { "UTC0" } else { "JST-9" });
+    }
     let out = cmd.output().unwrap();
     assert!(
         out.status.success(),
@@ -406,3 +409,6 @@ fn actual_vmm_prepares_all_source_media_before_shared_uart_scope() {
 
 #[path = "s5l_retired_clock_tests.rs"]
 mod retired_clock;
+
+#[path = "s5l_rtc_clock_tests.rs"]
+mod rtc_clock;

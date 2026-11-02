@@ -6,11 +6,8 @@ use crate::vm::timing::{ClockMode, TimingContext};
 
 #[test]
 fn retired_file_constructor_must_honor_the_saved_clock_before_device_construction() {
-    let mut fixture = super::execution_tests::Fixture::with_memory(1, 128 << 20);
-    // Reach the already-existing clock-bearing producer on the old engine.
-    // No guest instruction or timer executes through this fixture-only binding.
-    fixture.vm.timing_context = Arc::new(TimingContext::with_mode(ClockMode::Retired));
-    let saved = fixture.vm.take_snapshot_bundle(0).unwrap();
+    let source = Vmm::new_resume_with_clock(configuration(1).0, ClockMode::Retired).unwrap();
+    let saved = source.take_snapshot_bundle(0).unwrap();
     let path = std::env::temp_dir().join(format!(
         "rax-retired-constructor-{}.rxc",
         std::process::id()
@@ -18,7 +15,7 @@ fn retired_file_constructor_must_honor_the_saved_clock_before_device_constructio
     saved.save(&path).unwrap();
     let loaded = SnapshotBundle::load(&path).unwrap();
     std::fs::remove_file(path).unwrap();
-    drop(fixture); // The new machine must not reopen the source kernel.
+    drop(source); // The real selected-clock constructor owns every device binding.
     let config = VmConfig::from_checkpoint_bundle(&loaded, CliConfig::default()).unwrap();
     let target = Vmm::new_resume_bundle(config, &loaded).unwrap();
     assert_eq!(target.timing_context.mode(), ClockMode::Retired);
@@ -39,7 +36,7 @@ impl Drop for RemoveFile {
         let _ = std::fs::remove_file(&self.0);
     }
 }
-fn configuration(count: u8) -> (VmConfig, CpuState) {
+pub(super) fn configuration(count: u8) -> (VmConfig, CpuState) {
     let fixture = super::execution_tests::Fixture::with_memory(count, 128 << 20);
     let config = VmConfig::from_checkpoint(
         fixture.vm.checkpoint_config.clone(),

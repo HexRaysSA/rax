@@ -63,7 +63,7 @@ S5L register setters/getters now preserve FPSCR, S/D registers, SPSR and CP15
 fields through the shared AArch32 projection helpers.
 
 The versioned descriptor is private kind 11, `RAXS5L01`, followed by CPU identity
-and two complete resource keys. State kind 5 begins with `RAXSLI01` and is capped
+and two complete resource keys. New state kind 5 begins with `RAXSLI02` and is capped
 at 64 MiB. NAND kind 6 begins with `RAXNND01`. Resource keys include kind, size and
 SHA-256; existing bundle integrity and aggregate RAM/media admission apply.
 Framing rejects trailing/truncated bytes, noncanonical booleans/options,
@@ -100,7 +100,7 @@ are removed afterward. No branch/worktree is created and no push is performed.
 
 | Impact | Evidence boundary |
 | --- | --- |
-| High | The PMU RTC still reads live host local time; deterministic RTC/timezone input replay remains outside this state transport contract. |
+| High | Wall-mode PMU RTC remains host-local; Retired PMU UTC calendar binding is qualified by the selected-calendar follow-up. General external-input replay remains open. |
 | High | Prepared 1/2/4-context transport and continuation do not establish architectural S5L secondary startup; cold policy remains CPU0 only. |
 | High | Full A32-FP, C-STATE, C-SMP and C-HVF findings remain open, including native streaming-FPSR and physical Intel validation. |
 | High | External NAND media must remain stable throughout source capture. |
@@ -111,3 +111,8 @@ The follow-up [selected-clock qualification](../s5l-selected-clock/README.md)
 binds elapsed clocks to their VM owner and prepares incoming retired publication
 epochs before clock commit. The validation table above describes the original
 private-producer group; current follow-up counts are recorded separately.
+
+The [selected-calendar follow-up](../rtc-selected-clock/README.md) adds retained
+PMU calendar ownership and source-free pre/post guest I2C read continuations.
+Legacy RAXSLI01 imports retain Wall-only admission; selected RAXSLI02 follows
+the complete saved VM clock. The earlier validation table is historical.

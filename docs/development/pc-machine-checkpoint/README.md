@@ -13,7 +13,7 @@ does not qualify that two-call API for concurrent use.
 
 ## Wire and resource admission
 
-RAXEXE04 extends the execution record with a length-prefixed RAXPCD01 control
+RAXEXE04 extends the execution record with a length-prefixed RAXPCD02 control
 image. RAXEXE01/02/03 remain readable. Complete PC execution restoration rejects
 an older execution image without PC state. Historical base-only represented
 state remains a separate API and does not acquire missing device state.
@@ -75,8 +75,9 @@ for commands, counts, feature selections, source hashes and limitations.
 - High: full C-STATE/C-SMP/C-HVF/A32-FP closure remains tracked in the audit ledger.
 - High: uncontrolled raw memory aliases and host mapping changes still require
   external coordination; this group does not supply that exclusion.
-- Medium: RTC reads retain the existing host-wall-time policy. Deterministic
-  scheduling, replay and a guest RTC epoch are separate coordinator requirements.
+- Medium: Wall RTC reads retain host UTC. Retired calendars now follow the owning VM
+  clock from UTC2000; idle/periodic scheduling and full replay remain separate
+  requirements. See the selected-calendar follow-up below.
 - Medium: IOAPIC queue transport is covered; complete interrupt routing,
   delivery-mode semantics and physical Intel execution are not established here.
 - Medium: interrupted and odd-byte ATAPI command behavior is transported as
@@ -86,3 +87,7 @@ The resource-only producer control originally failed the CPU/backend resource
 prerequisite. Its repaired file path rejects missing owners and incorrect
 section order, and retains the explicit absence of opaque CPU payloads. This
 qualifies resource framing; it does not establish any backend private-state completeness.
+
+The [selected-calendar follow-up](../rtc-selected-clock/README.md) qualifies
+CMOS time/UIP/alarm clock binding,actual guest PIO continuation and explicit
+RAXPCD01 Wall-only versus RAXPCD02 selected-calendar admission.

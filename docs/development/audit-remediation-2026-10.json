@@ -2758,7 +2758,8 @@
         "docs/development/a32-short-vectors/qemu-reference.json",
         "docs/development/vmm-selected-clock/README.md",
         "docs/development/vmm-selected-clock/qualification.json",
-        "docs/development/s5l-selected-clock/qualification.json"
+        "docs/development/s5l-selected-clock/qualification.json",
+        "docs/development/rtc-selected-clock/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2803,7 +2804,8 @@
         "Complete represented S5L private producer, source-closed NAND, saved effective profile, common elapsed-clock epoch, UART/RAM publication and source-free 1/2/4 prepared-context continuations are locally qualified in s5l-checkpoints/qualification.json. PMU live RTC/timezone replay, architectural S5L secondary startup, other full private/backend/profile/native requirements and physical Intel remain open; no full finding closure.",
         "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json.",
         "Explicit VMM clock selection before devices, complete retired-file construction and strict timeline/base-loss admission are locally qualified with real1/2/4 prepared x86 files,exact TSC/phase/wrap and retained LAPIC clock identity. Defaults remain wall; independent board clocks, idle advancement, native retirement and complete replay remain open. Armv8a32/CortexR factories remain unsupported and explicitly tested as such. No full original finding closure; see vmm-selected-clock/qualification.json.",
-        "Selected S5L elapsed clocks retain VM identity and incoming restore epochs, with actual source-free 1/2/4 prepared-context guest timer continuation; see s5l-selected-clock/qualification.json. Synthetic profiles, PMU RTC/timezone, other clocks, default/idle/native/replay and full original findings remain open."
+        "Selected S5L elapsed clocks retain VM identity and incoming restore epochs, with actual source-free 1/2/4 prepared-context guest timer continuation; see s5l-selected-clock/qualification.json. Synthetic profiles, PMU RTC/timezone, other clocks, default/idle/native/replay and full original findings remain open.",
+        "PC CMOS and S5L PMU calendars now retain selected VM time in Retired mode with fixed UTC2000 origin,new private tags,strict legacy Wall-only admission and actual1/2/4 prepared-context guest-file continuation. See rtc-selected-clock/qualification.json. Default/idle/periodic IRQ policy,Wall external input,complete replay/native and physical Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2867,7 +2869,8 @@
         "s5l-complete-represented-private-producer-2026-11-02",
         "a32-optional-short-vector-profile-2026-11-02",
         "vmm-selected-clock-construction-2026-11-02",
-        "s5l-selected-elapsed-clock-2026-11-02"
+        "s5l-selected-elapsed-clock-2026-11-02",
+        "pc-s5l-selected-rtc-calendars-2026-11-02"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3530,7 +3533,8 @@
         "docs/development/a32-short-vectors/qemu-reference.json",
         "docs/development/vmm-selected-clock/README.md",
         "docs/development/vmm-selected-clock/qualification.json",
-        "docs/development/s5l-selected-clock/qualification.json"
+        "docs/development/s5l-selected-clock/qualification.json",
+        "docs/development/rtc-selected-clock/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3565,7 +3569,8 @@
         "Complete represented S5L private producer, source-closed NAND, saved effective profile, common elapsed-clock epoch, UART/RAM publication and source-free 1/2/4 prepared-context continuations are locally qualified in s5l-checkpoints/qualification.json. PMU live RTC/timezone replay, architectural S5L secondary startup, other full private/backend/profile/native requirements and physical Intel remain open; no full finding closure.",
         "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json.",
         "Explicit VMM clock selection before devices, complete retired-file construction and strict timeline/base-loss admission are locally qualified with real1/2/4 prepared x86 files,exact TSC/phase/wrap and retained LAPIC clock identity. Defaults remain wall; independent board clocks, idle advancement, native retirement and complete replay remain open. Armv8a32/CortexR factories remain unsupported and explicitly tested as such. No full original finding closure; see vmm-selected-clock/qualification.json.",
-        "Selected S5L elapsed clocks retain VM identity and incoming restore epochs, with actual source-free 1/2/4 prepared-context guest timer continuation; see s5l-selected-clock/qualification.json. Synthetic profiles, PMU RTC/timezone, other clocks, default/idle/native/replay and full original findings remain open."
+        "Selected S5L elapsed clocks retain VM identity and incoming restore epochs, with actual source-free 1/2/4 prepared-context guest timer continuation; see s5l-selected-clock/qualification.json. Synthetic profiles, PMU RTC/timezone, other clocks, default/idle/native/replay and full original findings remain open.",
+        "PC CMOS and S5L PMU calendars now retain selected VM time in Retired mode with fixed UTC2000 origin,new private tags,strict legacy Wall-only admission and actual1/2/4 prepared-context guest-file continuation. See rtc-selected-clock/qualification.json. Default/idle/periodic IRQ policy,Wall external input,complete replay/native and physical Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3611,7 +3616,8 @@
         "s5l-complete-represented-private-producer-2026-11-02",
         "a32-optional-short-vector-profile-2026-11-02",
         "vmm-selected-clock-construction-2026-11-02",
-        "s5l-selected-elapsed-clock-2026-11-02"
+        "s5l-selected-elapsed-clock-2026-11-02",
+        "pc-s5l-selected-rtc-calendars-2026-11-02"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198152,6 +198158,21 @@
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-selected-clock-v1/commit-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-selected-clock-v1/cleanup-final.json",
       "workflow": "Direct master; exact-path git add and red -m --staged --run; no push/new branch/worktree; remove only idle owned canonical C/T after commit",
+      "full_goal_complete": false
+    },
+    {
+      "id": "pc-s5l-selected-rtc-calendars-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "parent": "7d6d6be7b4be892ee9bbe987b077ef3a3de05c13",
+      "scope": "Bind both modeled guest RTC calendar/UIP/alarm reads to their retained selected VM clock; deterministic retired UTC2000 origin, exact saved clock continuation and target rebinding; explicit new private tags with legacy Wall-only admission. No full four-finding closure; idle/default/native/full replay remain open.",
+      "qualification": "docs/development/rtc-selected-clock/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/rtc-selected-clock-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/rtc-selected-clock-v1/cleanup-final.json",
+      "workflow": "Exact owned-path git add then red -m --staged --run; direct master; no push/branch/worktree; cleanup idle canonical C/T and owned bytecode cache",
       "full_goal_complete": false
     }
   ],

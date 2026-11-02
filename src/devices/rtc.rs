@@ -13,7 +13,7 @@
 //! the remaining bytes are general-purpose CMOS RAM, conventionally holding
 //! BIOS configuration such as the equipment word and memory-size fields.
 //!
-//! Time is sourced from the host wall clock (`std::time::SystemTime`). The
+//! Time follows the retained VM calendar (host UTC in Wall mode). The
 //! time/date registers are materialised on demand when read, honouring
 //! Register B's binary/BCD (bit 2) and 24/12-hour (bit 1) formatting bits.
 //!
@@ -30,8 +30,6 @@
 //!
 //! [`has_pending_interrupt`]: Rtc::has_pending_interrupt
 //! [`clear_interrupt`]: Rtc::clear_interrupt
-
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::bus::IoDevice;
 
@@ -113,19 +111,7 @@ const REG_D_VRT: u8 = 0x80;
 /// 12-hour-mode PM indicator (OR'd into the hours register).
 const HOUR_PM_BIT: u8 = 0x80;
 
-/// A broken-down wall-clock time in UTC, as fed to the RTC registers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct DateTime {
-    second: u8,
-    minute: u8,
-    hour: u8,
-    /// Day of week, 1 = Sunday .. 7 = Saturday (MC146818 convention).
-    day_of_week: u8,
-    day_of_month: u8,
-    month: u8,
-    /// Full four-digit year (e.g. 2026).
-    year: u16,
-}
+use crate::vm::timing::{CalendarClock, DateTime};
 
 /// Motorola MC146818 RTC / CMOS device.
 ///
@@ -133,6 +119,7 @@ struct DateTime {
 /// are retained for source compatibility with the device registration in
 /// `arch/x86_64`. [`Rtc`] is provided as a clearer alias.
 pub struct RtcStub {
+    calendar: CalendarClock,
     /// 128 bytes of CMOS RAM, including the control registers at 0x0A-0x0D.
     cmos: [u8; 128],
     /// Currently selected register index (0x00-0x7F).
@@ -174,6 +161,7 @@ impl RtcStub {
         cmos[REG_EXT_MEM_HI_2 as usize] = (ext_kib >> 8) as u8;
 
         RtcStub {
+            calendar: CalendarClock::selected(),
             cmos,
             index: 0,
             nmi_disabled: false,
@@ -243,57 +231,22 @@ impl RtcStub {
         }
     }
 
-    /// Compute the current host wall-clock time, broken down in UTC.
-    fn now() -> DateTime {
-        let secs = crate::host::time::system_now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        Self::from_unix_seconds(secs)
+    /// Calendar sampled from this RTC's retained clock domain.
+    fn now(&self) -> DateTime {
+        self.calendar.date()
     }
-
-    /// Break a Unix timestamp (seconds since 1970-01-01 UTC) into civil time.
-    ///
-    /// Uses Howard Hinnant's `civil_from_days` algorithm for the date part.
+    // Keep the existing direct conversion helper for date-format regressions.
+    #[cfg(test)]
     fn from_unix_seconds(secs: u64) -> DateTime {
-        let days = (secs / 86_400) as i64;
-        let secs_of_day = secs % 86_400;
-
-        let hour = (secs_of_day / 3_600) as u8;
-        let minute = ((secs_of_day % 3_600) / 60) as u8;
-        let second = (secs_of_day % 60) as u8;
-
-        // Day of week: 1970-01-01 was a Thursday. MC146818 uses 1 = Sunday.
-        // (days + 4) mod 7 gives 0 = Sunday .. 6 = Saturday; +1 to map to 1..7.
-        let dow = (((days % 7) + 4) % 7 + 7) % 7; // 0 = Sunday
-        let day_of_week = (dow as u8) + 1;
-
-        // civil_from_days: shift epoch so the year starts on March 1.
-        let z = days + 719_468;
-        let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-        let doe = z - era * 146_097; // [0, 146096]
-        let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
-        let y = yoe + era * 400;
-        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
-        let mp = (5 * doy + 2) / 153; // [0, 11]
-        let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
-        let m = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
-        let year = (y + if m <= 2 { 1 } else { 0 }) as u16;
-
-        DateTime {
-            second,
-            minute,
-            hour,
-            day_of_week,
-            day_of_month: d as u8,
-            month: m as u8,
-            year,
-        }
+        crate::vm::timing::calendar::from_unix_seconds(secs)
+    }
+    pub(crate) fn uses_retired_calendar(&self) -> bool {
+        self.calendar.is_retired()
     }
 
-    /// Materialise a time/date register value from the current host clock.
+    /// Materialise a time/date register value from the retained calendar clock.
     fn read_time_register(&self, index: u8) -> u8 {
-        let now = Self::now();
+        let now = self.now();
         match index {
             REG_SECONDS => self.format_value(now.second),
             REG_MINUTES => self.format_value(now.minute),
@@ -343,7 +296,7 @@ impl RtcStub {
     ///
     /// `elapsed_nanos` is the time since the previous call, used to decide
     /// whether one or more periodic-interrupt ticks have elapsed. Update-ended
-    /// and alarm sources are evaluated against the live wall clock.
+    /// and alarm sources are evaluated against the retained calendar clock.
     ///
     /// Returns `true` if IRQ8 is asserted after this call.
     pub fn tick(&mut self, elapsed_nanos: u64) -> bool {
@@ -352,7 +305,7 @@ impl RtcStub {
         // While the SET bit is asserted, updates are frozen — no update-ended
         // or alarm processing occurs.
         if b & REG_B_SET == 0 {
-            let now = Self::now();
+            let now = self.now();
 
             // Update-ended interrupt: flagged once per second. We approximate
             // "an update ended" by flagging whenever at least one second of
@@ -400,17 +353,14 @@ impl RtcStub {
             REG_SECONDS | REG_MINUTES | REG_HOURS | REG_DAY_OF_WEEK | REG_DAY_OF_MONTH
             | REG_MONTH | REG_YEAR | REG_CENTURY => self.read_time_register(self.index),
             REG_A => {
-                // Derive UIP from the host sub-second: assert it briefly near
+                // Derive UIP from the retained clock sub-second: assert it briefly near
                 // the top of each second, mirroring real hardware so spin-wait
                 // loops on UIP can make progress. Held clear while SET is set.
                 let base = self.cmos[REG_A as usize] & !REG_A_UIP;
                 if self.cmos[REG_B as usize] & REG_B_SET != 0 {
                     base
                 } else {
-                    let nanos = crate::host::time::system_now()
-                        .duration_since(UNIX_EPOCH)
-                        .map(|d| d.subsec_nanos())
-                        .unwrap_or(0);
+                    let nanos = self.calendar.timestamp().subsec_nanos();
                     // UIP true for the last ~244us of each second (per spec the
                     // update cycle takes 1984us; we use a short window).
                     if nanos >= 999_756_000 {
@@ -893,3 +843,7 @@ mod tests {
 #[path = "rtc/checkpoint.rs"]
 mod checkpoint;
 pub(crate) use checkpoint::{PreparedRtcCheckpoint, RtcCheckpoint};
+
+#[cfg(test)]
+#[path = "rtc/selected_tests.rs"]
+mod selected_tests;

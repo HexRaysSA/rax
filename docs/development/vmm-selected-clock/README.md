@@ -84,4 +84,6 @@ audit ledger retains all four original findings as partially validated.
 The follow-up [S5L elapsed-clock group](../s5l-selected-clock/README.md) now
 binds S5L boot/heartbeat elapsed consumers to this selected clock and restores
 them from the incoming logical publication epoch. Synthetic timer profiles,
-PMU RTC, other board consumers, default/idle policy and full replay remain open.
+Other board consumers, default/idle policy and full replay remain open.
+The [selected RTC calendar follow-up](../rtc-selected-clock/README.md) now binds
+PC CMOS and S5L PMU calendars; Wall external input is still not replayed.

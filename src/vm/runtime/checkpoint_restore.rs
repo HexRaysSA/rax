@@ -176,6 +176,9 @@ impl Vmm {
             }
         }
         if let Some(image) = pc_image {
+            image.admit_calendar(
+                self.timing_context.mode() == crate::vm::timing::ClockMode::Retired,
+            )?;
             for key in image.references()? {
                 resources.resolve(key)?;
                 referenced.insert(key);

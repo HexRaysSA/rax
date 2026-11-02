@@ -8,7 +8,8 @@ use crate::vm::snapshot::{CheckpointResource, PreparedResources, ResourceKey};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 const LIMIT: usize = 60 * 1024 * 1024;
-const TAG: &[u8; 8] = b"RAXPCD01";
+const TAG: &[u8; 8] = b"RAXPCD02";
+const LEGACY_TAG: &[u8; 8] = b"RAXPCD01";
 
 /// Retained by the VMM, with the same handles registered in the PIO/MMIO buses.
 pub struct PcDevices {
@@ -28,6 +29,7 @@ pub struct PcDevices {
 #[derive(Clone)]
 pub(crate) struct PcCheckpoint {
     data: Vec<u8>,
+    legacy_calendar: bool,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -47,6 +49,7 @@ struct State {
 }
 
 pub(crate) struct PreparedPcCheckpoint {
+    legacy_calendar: bool,
     rtc: crate::devices::rtc::PreparedRtcCheckpoint,
     ioapic: crate::devices::ioapic::PreparedIoApicCheckpoint,
     sysctl: crate::devices::sysctl::PreparedSystemControlCheckpoint,
@@ -131,7 +134,13 @@ impl PcDevices {
         };
         state.validate()?;
         let data = crate::codec::serialize_limited(&state, LIMIT).map_err(invalid)?;
-        let result = capture(PcCheckpoint { data }, resources);
+        let result = capture(
+            PcCheckpoint {
+                data,
+                legacy_calendar: false,
+            },
+            resources,
+        );
         drop(held);
         result
     }
@@ -141,6 +150,9 @@ impl PcDevices {
         publish: impl FnOnce() -> Result<T>,
     ) -> Result<T> {
         let mut held = self.hold()?;
+        if prepared.legacy_calendar && held.rtc.uses_retired_calendar() {
+            return Err(invalid("legacy PC calendar requires Wall mode"));
+        }
         let result = publish()?;
         // Admission, allocation and all fallible guest/backend work have finished.
         prepared.rtc.commit(&mut held.rtc);
@@ -223,18 +235,30 @@ impl PcCheckpoint {
             .chain(state.buffers)
             .collect())
     }
+    pub(crate) fn admit_calendar(&self, retired: bool) -> Result<()> {
+        if self.legacy_calendar && retired {
+            return Err(invalid("legacy PC calendar requires Wall mode"));
+        }
+        Ok(())
+    }
     pub(crate) fn encoded(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let mut bytes = TAG.to_vec();
+        let mut bytes = if self.legacy_calendar {
+            LEGACY_TAG
+        } else {
+            TAG
+        }
+        .to_vec();
         bytes.extend_from_slice(&self.data);
         Ok(bytes)
     }
     pub(crate) fn decode(raw: &[u8]) -> Result<Self> {
-        if raw.get(..8) != Some(TAG) {
+        if ![Some(TAG.as_slice()), Some(LEGACY_TAG.as_slice())].contains(&raw.get(..8)) {
             return Err(invalid("unsupported control tag"));
         }
         let image = Self {
             data: raw[8..].to_vec(),
+            legacy_calendar: raw.starts_with(LEGACY_TAG),
         };
         image.validate()?;
         Ok(image)
@@ -265,6 +289,7 @@ impl PcCheckpoint {
         ]);
         state.fdc.bind_checkpoint_image(copy(keys[6])?);
         Ok(PreparedPcCheckpoint {
+            legacy_calendar: self.legacy_calendar,
             rtc: state.rtc.prepare()?,
             ioapic: state.ioapic.prepare()?,
             sysctl: state.sysctl.prepare()?,

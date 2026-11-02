@@ -7,7 +7,8 @@ use super::*;
 use crate::devices::s5l8900;
 use crate::isa::arm::instructions::ExclusiveMonitor;
 use serde::{Deserialize, Serialize};
-const IMAGE_TAG: &[u8; 8] = b"RAXSLI01";
+const IMAGE_TAG: &[u8; 8] = b"RAXSLI02";
+const LEGACY_TAG: &[u8; 8] = b"RAXSLI01";
 fn words<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Vec<u32>, D::Error> {
     crate::devices::checkpoint_serde::vector::<u32, D, { MAX_STATE / 4 }>(d)
 }
@@ -212,6 +213,8 @@ struct BridgeImage {
 }
 #[derive(Serialize, Deserialize)]
 pub(super) struct Image {
+    #[serde(skip)]
+    legacy_calendar: bool,
     runtime: RuntimeImage,
     bridge: BridgeImage,
     uart: Option<S3cUart>,
@@ -514,6 +517,7 @@ impl Image {
             })
             .transpose()?;
         let image = Self {
+            legacy_calendar: false,
             runtime,
             bridge,
             uart,
@@ -568,20 +572,32 @@ impl Image {
     }
     pub(super) fn encode(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let mut bytes = IMAGE_TAG.to_vec();
+        let mut bytes = if self.legacy_calendar {
+            LEGACY_TAG
+        } else {
+            IMAGE_TAG
+        }
+        .to_vec();
         bytes.extend_from_slice(
             &crate::codec::serialize_limited(self, MAX_STATE - 8).map_err(invalid)?,
         );
         Ok(bytes)
     }
     pub(super) fn decode(raw: &[u8]) -> Result<Self> {
-        if raw.len() > MAX_STATE || !raw.starts_with(IMAGE_TAG) {
+        if raw.len() > MAX_STATE || !(raw.starts_with(IMAGE_TAG) || raw.starts_with(LEGACY_TAG)) {
             return Err(invalid("state tag/length differs"));
         }
-        let value: Self = crate::codec::deserialize_limited::<_, { MAX_STATE - 8 }>(&raw[8..])
+        let mut value: Self = crate::codec::deserialize_limited::<_, { MAX_STATE - 8 }>(&raw[8..])
             .map_err(invalid)?;
+        value.legacy_calendar = raw.starts_with(LEGACY_TAG);
         value.validate()?;
         Ok(value)
+    }
+    pub(super) fn admit_calendar(&self, retired: bool) -> Result<()> {
+        if self.legacy_calendar && retired {
+            return Err(invalid("legacy S5L calendar requires Wall mode"));
+        }
+        Ok(())
     }
     pub(super) fn into_cpu(
         self,
@@ -591,6 +607,7 @@ impl Image {
     ) -> Result<(S5L8900Vcpu, Option<S3cUart>)> {
         self.validate()?;
         let Self {
+            legacy_calendar: _,
             runtime,
             bridge,
             uart: saved_uart,
@@ -875,6 +892,7 @@ impl Image {
         cpu.cp15.midr = 0x410f_b767;
         cpu.cp15.ctr = 0x1d15_2152;
         Ok(Self {
+            legacy_calendar: false,
             runtime: RuntimeImage {
                 id: id,
                 cpu: cpu,
@@ -1060,5 +1078,19 @@ mod tests {
         let mut bytes = encoded;
         bytes[0] ^= 1;
         assert!(Image::decode(&bytes).is_err());
+    }
+    #[test]
+    fn legacy_calendar_tag_reencodes_exactly_and_requires_wall_mode() {
+        let image = Image::empty(0).unwrap();
+        let bytes = image.encode().unwrap();
+        assert_eq!(&bytes[..8], b"RAXSLI02");
+        let mut legacy = bytes.clone();
+        legacy[..8].copy_from_slice(b"RAXSLI01");
+        let decoded = Image::decode(&legacy).unwrap();
+        assert_eq!(decoded.encode().unwrap(), legacy);
+        assert!(decoded.admit_calendar(false).is_ok());
+        assert!(decoded.admit_calendar(true).is_err());
+        assert!(image.admit_calendar(true).is_ok());
+        assert_eq!(&bytes[8..], &legacy[8..]);
     }
 }

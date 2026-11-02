@@ -1068,3 +1068,7 @@ mod clock_tests;
 
 #[path = "runtime/clock.rs"]
 mod clock;
+
+#[cfg(test)]
+#[path = "runtime/rtc_clock_tests.rs"]
+mod rtc_clock_tests;

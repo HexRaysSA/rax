@@ -187,7 +187,7 @@ fn truncated_unknown_tag_and_trailing_pc_images_reject() {
         assert!(PcCheckpoint::decode(&raw[..end]).is_err(), "prefix {end}");
     }
     let mut unknown = raw.clone();
-    unknown[7] = b'2';
+    unknown[7] = b'3';
     assert!(PcCheckpoint::decode(&unknown).is_err());
     let mut trailing = raw;
     trailing.push(0);
@@ -352,4 +352,45 @@ fn owned_machine_boot_binds_each_iso_to_its_original_device_set() {
         a.ide_primary.lock().unwrap().checkpoint_cdrom().unwrap()[21 * 2048 + 1],
         b.ide_primary.lock().unwrap().checkpoint_cdrom().unwrap()[21 * 2048 + 1]
     );
+}
+
+#[test]
+fn legacy_calendar_tags_reencode_and_wall_restore_but_retired_denies_before_publish() {
+    use crate::vm::timing::{ClockMode, TimingContext};
+    let (source, _, _) = device_set();
+    let (image, resources) = capture(&source);
+    let raw = image.encoded().unwrap();
+    assert_eq!(&raw[..8], b"RAXPCD02");
+    let mut legacy = raw.clone();
+    legacy[..8].copy_from_slice(b"RAXPCD01");
+    let decoded = PcCheckpoint::decode(&legacy).unwrap();
+    assert_eq!(decoded.encoded().unwrap(), legacy);
+    assert!(decoded.admit_calendar(false).is_ok());
+    assert!(decoded.admit_calendar(true).is_err());
+    let resources = PreparedResources::from_bindings(resources).unwrap();
+    let (wall, _, _) = device_set();
+    wall.restore_with(decoded.prepare(&resources).unwrap(), || Ok(()))
+        .unwrap();
+    let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let _scope = clock.enter();
+    let (target, _, _) = device_set();
+    let before = crate::codec::serialize(&target.rtc.lock().unwrap().checkpoint_state()).unwrap();
+    let entered = AtomicBool::new(false);
+    assert!(
+        target
+            .restore_with(decoded.prepare(&resources).unwrap(), || {
+                entered.store(true, Ordering::Relaxed);
+                Ok(())
+            })
+            .is_err()
+    );
+    assert!(!entered.load(Ordering::Relaxed));
+    assert_eq!(
+        crate::codec::serialize(&target.rtc.lock().unwrap().checkpoint_state()).unwrap(),
+        before
+    );
+    target
+        .restore_with(image.prepare(&resources).unwrap(), || Ok(()))
+        .unwrap();
+    assert!(target.rtc.lock().unwrap().uses_retired_calendar());
 }

@@ -182,6 +182,7 @@ impl S5L8900Vcpu {
         self.admit_descriptor(state, emulator, raw)?;
         let d = Descriptor::decode(self.id, raw)?;
         let image = image::Image::decode(resources.resolve(d.state)?.as_slice())?;
+        image.admit_calendar(self.bridge.inner.borrow().i2c1.uses_retired_calendar())?;
         if image.id() != self.id {
             return Err(invalid("resource CPU identity differs"));
         }
@@ -189,6 +190,12 @@ impl S5L8900Vcpu {
         let nand = S5lNand::from_checkpoint(nand_bytes.as_slice(), nand_bytes.len())?;
         let (mut candidate, saved_uart) =
             image.into_cpu(self.bridge.mem.clone(), nand, self.uart.clone())?;
+        {
+            let target = self.bridge.inner.borrow();
+            let mut prepared = candidate.bridge.inner.borrow_mut();
+            prepared.i2c0.rebind_calendar_from(&target.i2c0)?;
+            prepared.i2c1.rebind_calendar_from(&target.i2c1)?;
+        }
         candidate.boot_clock.rebind_suspended_to(&self.boot_clock)?;
         candidate
             .heartbeat_clock

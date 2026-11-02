@@ -445,3 +445,67 @@ fn selected_replacement_retains_target_clock_and_denies_foreign_publication_befo
         std::time::Duration::from_nanos(65)
     );
 }
+
+#[test]
+fn legacy_calendar_private_producer_rejects_retired_target_before_state_change_and_keeps_wall_import()
+ {
+    use crate::vm::timing::{ClockMode, TimingContext};
+    let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let _scope = clock.enter();
+    let source = fixture();
+    let (raw, mut resources) = source.capture_parts(None, None).unwrap();
+    let mut descriptor = Descriptor::decode(0, &raw).unwrap();
+    let old = descriptor.state;
+    let prepared = PreparedResources::from_bindings(resources.clone()).unwrap();
+    let mut image = prepared.resolve(old).unwrap().as_ref().clone();
+    image[..8].copy_from_slice(b"RAXSLI01");
+    let resource = crate::vm::snapshot::CheckpointResource::s5l_state(image).unwrap();
+    descriptor.state = resource.key();
+    resources.retain(|r| r.key() != old);
+    resources.push(resource);
+    let resources = PreparedResources::from_bindings(resources).unwrap();
+    let raw = descriptor.encode().unwrap();
+    let target = fixture();
+    let before = parts(&target).0;
+    let mut ram = vec![0; 0x8000];
+    target
+        .bridge
+        .mem
+        .read_slice(&mut ram, GuestAddress(u64::from(IBOOT_BASE)))
+        .unwrap();
+    let result = target.prepare_private(
+        &source.get_state().unwrap(),
+        &EmulatorState::default(),
+        &raw,
+        &resources,
+    );
+    assert!(
+        result
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("legacy S5L calendar")
+    );
+    assert_eq!(parts(&target).0.data, before.data);
+    let mut after = vec![0; 0x8000];
+    target
+        .bridge
+        .mem
+        .read_slice(&mut after, GuestAddress(u64::from(IBOOT_BASE)))
+        .unwrap();
+    assert_eq!(after, ram);
+    let wall = Arc::new(TimingContext::with_mode(ClockMode::Wall));
+    let _wall = wall.enter();
+    let target = fixture();
+    let mut candidate = target
+        .prepare_private(
+            &source.get_state().unwrap(),
+            &EmulatorState::default(),
+            &raw,
+            &resources,
+        )
+        .unwrap();
+    publish(&mut candidate);
+    candidate.finish_publication().unwrap();
+    assert!(!candidate.bridge.inner.borrow().i2c1.uses_retired_calendar());
+}

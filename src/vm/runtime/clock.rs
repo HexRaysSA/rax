@@ -10,8 +10,9 @@ impl Vmm {
     /// Retired mode is supported by the software backend: each validated
     /// instruction (Hexagon packet) advances one 3 GHz clock unit. Host delay,
     /// diagnostic ticks and zero-retirement waits do not advance that clock.
-    /// Independent board clocks, RTC and entropy sources are not replaced by
-    /// this selection. Whole-machine determinism still requires their wiring.
+    /// PC CMOS and S5L PMU calendars retain this selected clock. Independent
+    /// board clocks and entropy sources still require their own wiring for
+    /// whole-machine determinism.
     /// This is not a physical cycle model or an external-event replay mode.
     /// Native backends reject Retired before host VM/resource construction.
     pub fn new_with_clock(config: VmConfig, mode: ClockMode) -> Result<Self> {
