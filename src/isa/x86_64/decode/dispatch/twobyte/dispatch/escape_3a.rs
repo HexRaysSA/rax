@@ -995,7 +995,7 @@ impl X86_64Vcpu {
     /// Evaluate a packed-string comparison and commit its six defined status
     /// flags. DF and every non-status RFLAGS bit are preserved.
     #[allow(clippy::too_many_arguments)]
-    fn pcmpxstrx(
+    pub(in crate::isa::x86_64) fn pcmpxstrx(
         &mut self,
         first_lo: u64,
         first_hi: u64,

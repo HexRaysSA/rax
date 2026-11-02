@@ -745,6 +745,9 @@ impl X86_64Vcpu {
         // VEX.0F3A encoded instructions (m_mmmm=3)
         if m_mmmm == 0x3 && vex_pp == 1 {
             match opcode {
+                0x60..=0x63 => {
+                    return self.execute_vex_packed_string(ctx, vex_l, vvvv, opcode);
+                }
                 // VPEXTRB r32/m8, xmm1, imm8 (VEX.66.0F3A.W0 14 /r ib)
                 0x14 => {
                     return self.execute_vpextrb(ctx, vex_l, vex_w);
@@ -1090,6 +1093,9 @@ mod gather;
 mod integer;
 mod logical;
 mod misc;
+mod packed_string;
+#[cfg(test)]
+mod packed_string_tests;
 mod r#move;
 mod shift;
 mod shuffle;
