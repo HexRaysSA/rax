@@ -59,6 +59,8 @@ mod native_execution;
 mod psci_entry;
 #[cfg(test)]
 mod sve_profile_tests;
+#[cfg(test)]
+mod timer_output_tests;
 
 #[cfg(test)]
 mod sve_admission_tests;
@@ -754,10 +756,15 @@ impl ArmCpu for AArch64Cpu {
             if let Some(ref gic) = self.gic {
                 if let Ok(mut gic) = gic.lock() {
                     gic.reset();
+                    self.timer_levels = (false, false);
                 }
+            } else {
+                self.timer_levels = (false, false);
             }
         }
-        self.timer_levels = (false, false);
+        // These are the last published levels. A retained controller, or a
+        // failed controller reset, still needs the next timer poll to withdraw
+        // its old outputs before another instruction can observe them.
 
         self.insn_count = 0;
         self.cycle_count = 0;

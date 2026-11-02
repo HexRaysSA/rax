@@ -17,6 +17,8 @@ mod bounded_native;
 mod counter_clock;
 #[path = "aarch64_event_tests.rs"]
 mod events;
+#[path = "aarch64_timer_output_tests.rs"]
+mod timer_outputs;
 #[path = "aarch64_undefined_tests.rs"]
 mod undefined;
 

@@ -15,7 +15,7 @@ physical = floor(((3*n + p) * f) / 3,000,000,000)
 virtual  = physical - CNTVOFF_EL2 (modulo 2^64)
 ```
 
-The widened integer calculation avoids intermediate u64 overflow. One tick is 16 ns, or 48 retirement units at the existing three-units-per-nanosecond scale; downward conversion error is at least zero and less than one tick. This uses the existing u64 nanosecond domain: at this fixed frequency the derived count wraps after a span of 2^60 ticks, rather than modeling a separately continuous full-width physical counter. It does not redefine the existing clock's wrap contract. Counter sampling uses constant time and space. Coordinator refresh uses O(P) time per existing selection/retirement boundary and O(1) additional space, where P is the number of configured CPU slots. No performance qualification is claimed.
+The widened integer calculation avoids intermediate u64 overflow. One tick is 16 ns, or 48 retirement units at the existing three-units-per-nanosecond scale; downward conversion error is at least zero and less than one tick. This uses the existing u64 nanosecond domain: at this fixed frequency the derived count wraps after a span of 2^60 ticks, rather than modeling a separately continuous full-width physical counter. It does not redefine the existing clock's wrap contract. Counter sampling uses constant time and space. An unchanged coordinator refresh costs O(P). Publishing K timer-line transitions adds the existing GIC scan cost O(K * P * (32 + S)), where K <= 2P, P is the configured CPU count and S is the SPI count. Added space is O(1). No performance qualification is claimed.
 
 ## Checkpoint contract
 

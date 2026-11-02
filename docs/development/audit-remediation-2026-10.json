@@ -2769,7 +2769,9 @@
         "docs/development/a32-fp-traps/README.md",
         "docs/development/fork-test-isolation/qualification.json",
         "docs/development/a64-system-counter/qualification.json",
-        "docs/development/a64-system-counter/README.md"
+        "docs/development/a64-system-counter/README.md",
+        "docs/development/a64-timer-output/README.md",
+        "docs/development/a64-timer-output/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2817,7 +2819,8 @@
         "Selected S5L elapsed clocks retain VM identity and incoming restore epochs, with actual source-free 1/2/4 prepared-context guest timer continuation; see s5l-selected-clock/qualification.json. Synthetic profiles, PMU RTC/timezone, other clocks, default/idle/native/replay and full original findings remain open.",
         "PC CMOS and S5L PMU calendars now retain selected VM time in Retired mode with fixed UTC2000 origin,new private tags,strict legacy Wall-only admission and actual1/2/4 prepared-context guest-file continuation. See rtc-selected-clock/qualification.json. Default/idle/periodic IRQ policy,Wall external input,complete replay/native and physical Intel requirements remain open.",
         "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. The historical FP-group full root run retained one separately reproduced ptrace/fork test failure. Its test-only isolation followup qualifies a new root run (11944 passed, 0 failed, 35 ignored); see fork-test-isolation/qualification.json. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json.",
-        "Software AArch64 generic counters now retain selected VM-clock ownership at fixed62500000Hz,per-PE offsets and peer timer PPI refresh,with actual1/2/4 prepared-context files and explicit legacy domains. See a64-system-counter/qualification.json. Other clocks,all-waiting idle/default policy,complete native/private/startup/IRQ/replay and physical Intel remain open;no original finding closure."
+        "Software AArch64 generic counters now retain selected VM-clock ownership at fixed62500000Hz,per-PE offsets and peer timer PPI refresh,with actual1/2/4 prepared-context files and explicit legacy domains. See a64-system-counter/qualification.json. Other clocks,all-waiting idle/default policy,complete native/private/startup/IRQ/replay and physical Intel remain open;no original finding closure.",
+        "AArch64 retained-GIC resets now preserve owed timer publication;only changed PPI inputs are written. Real1/2/4-CPU reset files,guest2/4-CPU PSCI off/on files,poison/repair and failed admission are locally qualified in a64-timer-output/qualification.json. Same-INTID source coalescing,already-lost legacy history,complete IRQ/native/private/replay and physical Intel remain open;no original finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2884,7 +2887,8 @@
         "s5l-selected-elapsed-clock-2026-11-02",
         "pc-s5l-selected-rtc-calendars-2026-11-02",
         "a32-synchronous-fp-traps-2026-11-02",
-        "aarch64-vm-system-counter-2026-11-02"
+        "aarch64-vm-system-counter-2026-11-02",
+        "aarch64-timer-output-frontier-2026-11-02"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3553,7 +3557,9 @@
         "docs/development/a32-fp-traps/README.md",
         "docs/development/fork-test-isolation/qualification.json",
         "docs/development/a64-system-counter/qualification.json",
-        "docs/development/a64-system-counter/README.md"
+        "docs/development/a64-system-counter/README.md",
+        "docs/development/a64-timer-output/README.md",
+        "docs/development/a64-timer-output/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3591,7 +3597,8 @@
         "Selected S5L elapsed clocks retain VM identity and incoming restore epochs, with actual source-free 1/2/4 prepared-context guest timer continuation; see s5l-selected-clock/qualification.json. Synthetic profiles, PMU RTC/timezone, other clocks, default/idle/native/replay and full original findings remain open.",
         "PC CMOS and S5L PMU calendars now retain selected VM time in Retired mode with fixed UTC2000 origin,new private tags,strict legacy Wall-only admission and actual1/2/4 prepared-context guest-file continuation. See rtc-selected-clock/qualification.json. Default/idle/periodic IRQ policy,Wall external input,complete replay/native and physical Intel requirements remain open.",
         "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. The historical FP-group full root run retained one separately reproduced ptrace/fork test failure. Its test-only isolation followup qualifies a new root run (11944 passed, 0 failed, 35 ignored); see fork-test-isolation/qualification.json. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json.",
-        "Software AArch64 generic counters now retain selected VM-clock ownership at fixed62500000Hz,per-PE offsets and peer timer PPI refresh,with actual1/2/4 prepared-context files and explicit legacy domains. See a64-system-counter/qualification.json. Other clocks,all-waiting idle/default policy,complete native/private/startup/IRQ/replay and physical Intel remain open;no original finding closure."
+        "Software AArch64 generic counters now retain selected VM-clock ownership at fixed62500000Hz,per-PE offsets and peer timer PPI refresh,with actual1/2/4 prepared-context files and explicit legacy domains. See a64-system-counter/qualification.json. Other clocks,all-waiting idle/default policy,complete native/private/startup/IRQ/replay and physical Intel remain open;no original finding closure.",
+        "AArch64 retained-GIC resets now preserve owed timer publication;only changed PPI inputs are written. Real1/2/4-CPU reset files,guest2/4-CPU PSCI off/on files,poison/repair and failed admission are locally qualified in a64-timer-output/qualification.json. Same-INTID source coalescing,already-lost legacy history,complete IRQ/native/private/replay and physical Intel remain open;no original finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3640,7 +3647,8 @@
         "s5l-selected-elapsed-clock-2026-11-02",
         "pc-s5l-selected-rtc-calendars-2026-11-02",
         "a32-synchronous-fp-traps-2026-11-02",
-        "aarch64-vm-system-counter-2026-11-02"
+        "aarch64-vm-system-counter-2026-11-02",
+        "aarch64-timer-output-frontier-2026-11-02"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198256,6 +198264,21 @@
       ],
       "qualification": "docs/development/a64-system-counter/qualification.json",
       "workflow": "Exact owned-path git add then red -m --staged --run;direct master;no branches/worktrees/push;no build directories needed.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "aarch64-timer-output-frontier-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "parent": "bb1f17a1718b2d24f229b2edb7458b00d124c723",
+      "scope": "Preserve the last published AArch64 timer outputs across resets that retain the GIC,including failed owned-controller reset;publish only individually changed timer lines. Preserve owed deassertion through private state and actual1/2/4-CPU reset/file/PSCI frontiers;do not reinterpret the cache as current desired levels.",
+      "qualification": "docs/development/a64-timer-output/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-timer-output-frontier-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a64-timer-output-frontier-v1/cleanup-final.json",
+      "workflow": "Direct master;exact owned-path git add then red -m --staged --run;no branches/worktrees/push;guarded cleanup of canonical C/T.",
       "full_goal_complete": false
     }
   ],

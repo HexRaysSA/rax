@@ -1195,11 +1195,14 @@
   "complexity": {
     "counter_sampling_time": "O(1)",
     "counter_sampling_space": "O(1)",
-    "coordinator_refresh_time": "O(P) per existing selection/retirement boundary",
+    "coordinator_refresh_time": "O(P+K*P*(32+S)),K<=2P;the existing GIC scan is included",
     "coordinator_refresh_space": "O(1)",
     "P": "configured CPU slots",
     "arithmetic": "u128 widened,exact integer floor;resolution16ns at62500000Hz;conversion error0<=e<16ns",
-    "domain_boundary": "u64 nanosecond wrap;at62500000Hz physical count spans2^60 ticks over that domain;virtual subtraction modulo2^64"
+    "domain_boundary": "u64 nanosecond wrap;at62500000Hz physical count spans2^60 ticks over that domain;virtual subtraction modulo2^64",
+    "S": "configured SPIs",
+    "K": "published timer-line transitions in a refresh",
+    "documentation_correction": "The prior O(P) annotation omitted per-transition controller CPU/SPI scans;historical executable/source/test evidence is unchanged."
   },
   "limitations": [
     "All four original full findings remain incomplete.",

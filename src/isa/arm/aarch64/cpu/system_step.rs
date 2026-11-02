@@ -162,8 +162,12 @@ impl AArch64Cpu {
                 let mut gic = gic.lock().map_err(|_| {
                     ArmError::Configuration("GIC lock poisoned while polling timers".into())
                 })?;
-                gic.set_ppi_level(self.gic_cpu_id, 27, levels.0);
-                gic.set_ppi_level(self.gic_cpu_id, 30, levels.1);
+                if levels.0 != self.timer_levels.0 {
+                    gic.set_ppi_level(self.gic_cpu_id, 27, levels.0);
+                }
+                if levels.1 != self.timer_levels.1 {
+                    gic.set_ppi_level(self.gic_cpu_id, 30, levels.1);
+                }
             }
             self.timer_levels = levels;
         }
