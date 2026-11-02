@@ -1,0 +1,1477 @@
+{
+  "architecture": "x86_64",
+  "image_sha256": "6ba5d79a3c512b5fe38b4cb3d032cb6d7f845e8e7487effe99dab0158775c0f1",
+  "cases": [
+    {
+      "case": 0,
+      "mode": "positive",
+      "guard_flags": 2,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-0.data",
+        "2",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 1.1019551659701392,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 1,
+      "mode": "positive",
+      "guard_flags": 3,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-1.data",
+        "3",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.013767000054940581,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 2,
+      "mode": "positive",
+      "guard_flags": 6,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-2.data",
+        "6",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.025667417095974088,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 3,
+      "mode": "positive",
+      "guard_flags": 7,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-3.data",
+        "7",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.01825479103717953,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 4,
+      "mode": "positive",
+      "guard_flags": 10,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-4.data",
+        "10",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.009213000070303679,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 5,
+      "mode": "positive",
+      "guard_flags": 11,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-5.data",
+        "11",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.009781667031347752,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 6,
+      "mode": "positive",
+      "guard_flags": 14,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-6.data",
+        "14",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.009996084030717611,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 7,
+      "mode": "positive",
+      "guard_flags": 15,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-7.data",
+        "15",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.008262292016297579,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 8,
+      "mode": "positive",
+      "guard_flags": 18,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-8.data",
+        "18",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.009177958010695875,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 9,
+      "mode": "positive",
+      "guard_flags": 19,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-9.data",
+        "19",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.007917875074781477,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 10,
+      "mode": "positive",
+      "guard_flags": 22,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-10.data",
+        "22",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.008677207981236279,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 11,
+      "mode": "positive",
+      "guard_flags": 23,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-11.data",
+        "23",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.010865084012039006,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 12,
+      "mode": "positive",
+      "guard_flags": 26,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-12.data",
+        "26",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.011580207967199385,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 13,
+      "mode": "positive",
+      "guard_flags": 27,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-13.data",
+        "27",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.010178416967391968,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 14,
+      "mode": "positive",
+      "guard_flags": 30,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-14.data",
+        "30",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.008136541931889951,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 15,
+      "mode": "positive",
+      "guard_flags": 31,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "positive",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-15.data",
+        "31",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.00996412499807775,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "pread",
+          "result": 5,
+          "errno": 0
+        },
+        {
+          "kind": "content",
+          "hex": "615a63213f"
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 5,
+        "sha256": "52f9cdcce8596d784681ea72d06bc5c74e31bdd8ebdbfadd1a82794202c08400"
+      }
+    },
+    {
+      "case": 16,
+      "mode": "open",
+      "guard_flags": 0,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "open",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-16.data",
+        "0",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.011368708102963865,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 17,
+      "mode": "open",
+      "guard_flags": 1,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "open",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-17.data",
+        "1",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.013981375028379261,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 18,
+      "mode": "open",
+      "guard_flags": 4,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "open",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-18.data",
+        "4",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.01775291608646512,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 19,
+      "mode": "open",
+      "guard_flags": 8,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "open",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-19.data",
+        "8",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.019683249993249774,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 20,
+      "mode": "open",
+      "guard_flags": 16,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "open",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-20.data",
+        "16",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.013842083979398012,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 21,
+      "mode": "open",
+      "guard_flags": 32,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "open",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-21.data",
+        "32",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.020487959031015635,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 22,
+      "mode": "open",
+      "guard_flags": 34,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "open",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-22.data",
+        "34",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.01821254100650549,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 23,
+      "mode": "open",
+      "guard_flags": 4294967295,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "open",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-23.data",
+        "4294967295",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.021601875079795718,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 24,
+      "mode": "open",
+      "guard_flags": 31,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "open",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-24.data",
+        "31",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.021898875012993813,
+      "records": [
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "after-close",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": "",
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 25,
+      "mode": "open",
+      "guard_flags": 31,
+      "open_flags": 1538,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "open",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-25.data",
+        "31",
+        "1538"
+      ],
+      "exit_code": 0,
+      "seconds": 0.01188570901285857,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 26,
+      "mode": "zero-guard",
+      "guard_flags": 31,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "zero-guard",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-26.data",
+        "31",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.009254541946575046,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 27,
+      "mode": "zero-guard",
+      "guard_flags": 31,
+      "open_flags": 1538,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "zero-guard",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-27.data",
+        "31",
+        "1538"
+      ],
+      "exit_code": 0,
+      "seconds": 0.01146524993237108,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 28,
+      "mode": "null-guard",
+      "guard_flags": 31,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "null-guard",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-28.data",
+        "31",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.01064658397808671,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 14
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 29,
+      "mode": "null-guard",
+      "guard_flags": 31,
+      "open_flags": 1538,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "null-guard",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-29.data",
+        "31",
+        "1538"
+      ],
+      "exit_code": 0,
+      "seconds": 0.00810016703326255,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 30,
+      "mode": "bad-guard",
+      "guard_flags": 31,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "bad-guard",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-30.data",
+        "31",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.011653541936539114,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 14
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 31,
+      "mode": "bad-guard",
+      "guard_flags": 31,
+      "open_flags": 1538,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "bad-guard",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-31.data",
+        "31",
+        "1538"
+      ],
+      "exit_code": 0,
+      "seconds": 0.008649791940115392,
+      "records": [
+        {
+          "kind": "open",
+          "result": -1,
+          "errno": 22
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "case": 32,
+      "mode": "bad-fd",
+      "guard_flags": 31,
+      "open_flags": 16778754,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64",
+        "bad-fd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/x86_64-32.data",
+        "31",
+        "16778754"
+      ],
+      "exit_code": 0,
+      "seconds": 0.010169917019084096,
+      "records": [
+        {
+          "kind": "close-bad-fd",
+          "result": -1,
+          "errno": 9
+        },
+        {
+          "kind": "write-bad-fd",
+          "result": -1,
+          "errno": 9
+        }
+      ],
+      "stderr": ""
+    }
+  ]
+}

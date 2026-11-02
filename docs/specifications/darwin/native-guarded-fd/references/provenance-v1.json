@@ -1,0 +1,27 @@
+{
+  "scope": "Primary reference inputs for native guarded descriptor behavior; implementation not yet changed.",
+  "sources": [
+    {
+      "name": "guarded.h",
+      "title": "Apple XNU bsd/sys/guarded.h",
+      "issuing_organization": "Apple",
+      "revision": "xnu-12377.121.6",
+      "url": "https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-12377.121.6/bsd/sys/guarded.h",
+      "retrieved_utc": "2026-11-02T20:19:57.349200+00:00",
+      "bytes": 6125,
+      "sha256": "9a61dbd134908ef8fca72a31b26174325a785a2cd3186439c3f6dcab08ec77bd",
+      "license": "Original Apple APSL2.0 notice preserved verbatim in source."
+    },
+    {
+      "name": "kern_guarded.c",
+      "title": "Apple XNU bsd/kern/kern_guarded.c",
+      "issuing_organization": "Apple",
+      "revision": "xnu-12377.121.6",
+      "url": "https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-12377.121.6/bsd/kern/kern_guarded.c",
+      "retrieved_utc": "2026-11-02T20:19:57.828475+00:00",
+      "bytes": 41544,
+      "sha256": "4bdfcb6f23bd47358d0ce80f5f85eb4eb87dfda731d60a4265b3b0ce5d1092b6",
+      "license": "Original Apple APSL2.0 notice preserved verbatim in source."
+    }
+  ]
+}

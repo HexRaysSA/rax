@@ -1,0 +1,36 @@
+{
+  "state": "finished",
+  "host": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "kernel": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "source_sha256": "d359a368e9f6d26c558980e7497452ec8880bd36245c465385e5c380c7871508",
+  "compiler": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+  "sdk": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+  "architectures": [
+    {
+      "architecture": "arm64",
+      "cases": 113,
+      "image_sha256": "67433998888441b9ccf1564691159279b11513bcdaf9c48a4334de2ffc4f11f5",
+      "records_sha256": "10f2f446b586f647f019f5abadac3d2289c4b2bf4870c5bd376276a6aa87c489",
+      "killed_cases": 35,
+      "synchronous_guard_cases": 35
+    },
+    {
+      "architecture": "x86_64",
+      "cases": 113,
+      "image_sha256": "d483bfa0940d1830fc8dbea455fa31be823be1e019ea3f6a68366c1d1932599f",
+      "records_sha256": "f18ce053eacea2a361ae394734919c3e0ae9452a679408c82e8bcf685ee8987e",
+      "killed_cases": 35,
+      "synchronous_guard_cases": 21
+    }
+  ],
+  "exit_code": 0,
+  "scope": "Native descriptor policy and synchronous EXC_GUARD controls; x86-64 executes through Rosetta on this ARM64 host.",
+  "verified_utc": "2026-11-02T20:43:25.366445+00:00",
+  "measurement_boundary": "SIGKILL without a synchronous exception packet does not establish exception code/subcode. Native results are retained unchanged."
+}

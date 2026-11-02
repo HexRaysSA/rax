@@ -1,0 +1,18 @@
+{
+  "state": "finished",
+  "cases": [
+    {
+      "architecture": "arm64",
+      "count": 33,
+      "sha256": "02403428f6d8fb98e6d67e1cda8b321fbfa287de3570e6f221af6fbf9571e2ca"
+    },
+    {
+      "architecture": "x86_64",
+      "count": 33,
+      "sha256": "103fad86ac916fed93038e1ec68007e9ea69408ca4d5f3d514bb79417d27917a"
+    }
+  ],
+  "host": "Darwin ints-MacBook-Pro.local 27.2.0 Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041 arm64",
+  "scope": "Native guarded descriptor happy paths and nonfatal validation errors. Guard violation exception/termination policies and change_fdguard are not covered.",
+  "exit_code": 0
+}

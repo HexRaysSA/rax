@@ -1,0 +1,6016 @@
+{
+  "architecture": "arm64",
+  "image_sha256": "67433998888441b9ccf1564691159279b11513bcdaf9c48a4334de2ffc4f11f5",
+  "cases": [
+    {
+      "case": 0,
+      "operation": "close",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "close",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-0.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.005780957988463342,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 1,
+      "operation": "dup",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-1.data",
+        "2",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.004477374954149127,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 2,
+      "operation": "dev-fd",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "dev-fd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-2.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.005105165997520089,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "dev-fd",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 3,
+      "operation": "write",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "write",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-3.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.007937542046420276,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 1,
+        "sha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "case": 4,
+      "operation": "pwrite",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "pwrite",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-4.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004892250057309866,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 1,
+        "sha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "case": 5,
+      "operation": "writev",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "writev",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-5.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0034698749659582973,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 1,
+        "sha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "case": 6,
+      "operation": "close-wrong",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "close-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-6.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.008635542006231844,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "close-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 7,
+      "operation": "write-wrong",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "write-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-7.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004407832981087267,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 8,
+      "operation": "fork",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fork",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-8.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004928707960061729,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "child-descriptor",
+          "result": -1,
+          "errno": 9
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 9,
+      "operation": "fork-after-clear",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fork-after-clear",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-9.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004300541011616588,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "clear-clofork",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "child-descriptor",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 10,
+      "operation": "exec-after-clear",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "exec-after-clear",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-10.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.007798500009812415,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "clear-clofork",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "exec-descriptor",
+          "result": -1,
+          "errno": 9
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 11,
+      "operation": "fileport",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fileport",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-11.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0032232500379905105,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "fileport",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 12,
+      "operation": "socket-transfer",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "socket-transfer",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-12.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.005494415992870927,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "socket-transfer",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 13,
+      "operation": "kqueue",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "kqueue",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-13.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003585625090636313,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false
+    },
+    {
+      "case": 14,
+      "operation": "change-wrong",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-14.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0048226669896394014,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 15,
+      "operation": "change-replace",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-replace",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-15.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.007905167061835527,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-replace",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 16,
+      "operation": "close",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "close",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-16.data",
+        "3",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.006674957927316427,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000100000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 17,
+      "operation": "dup",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-17.data",
+        "3",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.005029291962273419,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 18,
+      "operation": "dev-fd",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "dev-fd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-18.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003592125023715198,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "dev-fd",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 19,
+      "operation": "write",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "write",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-19.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003907124977558851,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 1,
+        "sha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "case": 20,
+      "operation": "pwrite",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "pwrite",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-20.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0042270420817658305,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "pwrite",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 1,
+        "sha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "case": 21,
+      "operation": "writev",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "writev",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-21.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004313125042244792,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "writev",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 1,
+        "sha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "case": 22,
+      "operation": "close-wrong",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "close-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-22.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.005927667021751404,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "close-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 23,
+      "operation": "write-wrong",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "write-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-23.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0034604999236762524,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 24,
+      "operation": "fork",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fork",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-24.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.00466774997767061,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "child-descriptor",
+          "result": -1,
+          "errno": 9
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 25,
+      "operation": "fork-after-clear",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fork-after-clear",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-25.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004641333012841642,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "clear-clofork",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "child-descriptor",
+          "result": -1,
+          "errno": 9
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 26,
+      "operation": "exec-after-clear",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "exec-after-clear",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-26.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.007080582901835442,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "clear-clofork",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "exec-descriptor",
+          "result": -1,
+          "errno": 9
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 27,
+      "operation": "fileport",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fileport",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-27.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.005908958031795919,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "fileport",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 28,
+      "operation": "socket-transfer",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "socket-transfer",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-28.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003862957935780287,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "socket-transfer",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 29,
+      "operation": "kqueue",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "kqueue",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-29.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004196207970380783,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false
+    },
+    {
+      "case": 30,
+      "operation": "change-wrong",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-30.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003926042001694441,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 31,
+      "operation": "change-replace",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-replace",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-31.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004312708042562008,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-replace",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 32,
+      "operation": "close",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "close",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-32.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004875040962360799,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "close",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 33,
+      "operation": "dup",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-33.data",
+        "18",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.0046519170282408595,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 34,
+      "operation": "dev-fd",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "dev-fd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-34.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.00512808293569833,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "dev-fd",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 35,
+      "operation": "write",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "write",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-35.data",
+        "18",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.003951499937102199,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000004000000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 36,
+      "operation": "pwrite",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "pwrite",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-36.data",
+        "18",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.00402920797932893,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000004000000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 37,
+      "operation": "writev",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "writev",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-37.data",
+        "18",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.0054764579981565475,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000004000000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 38,
+      "operation": "close-wrong",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "close-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-38.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0048651250544935465,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "close-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 39,
+      "operation": "write-wrong",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "write-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-39.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0067052500089630485,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 40,
+      "operation": "fork",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fork",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-40.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.00605037494096905,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "child-descriptor",
+          "result": -1,
+          "errno": 9
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 41,
+      "operation": "fork-after-clear",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fork-after-clear",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-41.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.008378583006560802,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "clear-clofork",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "child-descriptor",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 42,
+      "operation": "exec-after-clear",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "exec-after-clear",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-42.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.007633707951754332,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "clear-clofork",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "exec-descriptor",
+          "result": -1,
+          "errno": 9
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 43,
+      "operation": "fileport",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fileport",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-43.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0034327079774811864,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "fileport",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 44,
+      "operation": "socket-transfer",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "socket-transfer",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-44.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.005118375062011182,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "socket-transfer",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 45,
+      "operation": "kqueue",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "kqueue",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-45.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0036139580188319087,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false
+    },
+    {
+      "case": 46,
+      "operation": "change-wrong",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-46.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.007097833091393113,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 47,
+      "operation": "change-replace",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-replace",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-47.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.00431462493725121,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-replace",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 48,
+      "operation": "close",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "close",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-48.data",
+        "31",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.003620041999965906,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000100000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 49,
+      "operation": "dup",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-49.data",
+        "31",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.0060952919302508235,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 50,
+      "operation": "dev-fd",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "dev-fd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-50.data",
+        "31",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0031533329747617245,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "dev-fd",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 51,
+      "operation": "write",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "write",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-51.data",
+        "31",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.003880165982991457,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000004000000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 52,
+      "operation": "pwrite",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "pwrite",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-52.data",
+        "31",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.0037818329874426126,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000004000000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 53,
+      "operation": "writev",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "writev",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-53.data",
+        "31",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.01045620790682733,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000004000000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 54,
+      "operation": "close-wrong",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "close-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-54.data",
+        "31",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004111625021323562,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "close-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 55,
+      "operation": "write-wrong",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "write-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-55.data",
+        "31",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.007191916927695274,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 56,
+      "operation": "fork",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fork",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-56.data",
+        "31",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004528666962869465,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "child-descriptor",
+          "result": -1,
+          "errno": 9
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 57,
+      "operation": "fork-after-clear",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fork-after-clear",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-57.data",
+        "31",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.005887500010430813,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "clear-clofork",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "child-descriptor",
+          "result": -1,
+          "errno": 9
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 58,
+      "operation": "exec-after-clear",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "exec-after-clear",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-58.data",
+        "31",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.006547749973833561,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "clear-clofork",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "exec-descriptor",
+          "result": -1,
+          "errno": 9
+        },
+        {
+          "kind": "child-wait-status",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 59,
+      "operation": "fileport",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fileport",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-59.data",
+        "31",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.0054079999681562185,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000001000000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 60,
+      "operation": "socket-transfer",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "socket-transfer",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-60.data",
+        "31",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.004231667029671371,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000800000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 61,
+      "operation": "kqueue",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "kqueue",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-61.data",
+        "31",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0053261249559000134,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false
+    },
+    {
+      "case": 62,
+      "operation": "change-wrong",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-wrong",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-62.data",
+        "31",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003381958929821849,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-wrong",
+          "result": -1,
+          "errno": 1
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 63,
+      "operation": "change-replace",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-replace",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-63.data",
+        "31",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003393416991457343,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-replace",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 64,
+      "operation": "fcntl-dup",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-64.data",
+        "2",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.006268874974921346,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 65,
+      "operation": "fcntl-dup",
+      "guard_flags": 2,
+      "argument": 67,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-65.data",
+        "2",
+        "67"
+      ],
+      "exit_code": -9,
+      "seconds": 0.005476582911796868,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 66,
+      "operation": "fcntl-dup",
+      "guard_flags": 2,
+      "argument": 115,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-66.data",
+        "2",
+        "115"
+      ],
+      "exit_code": -9,
+      "seconds": 0.005207416019402444,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 67,
+      "operation": "fcntl-dup",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-67.data",
+        "3",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.009947790997102857,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 68,
+      "operation": "fcntl-dup",
+      "guard_flags": 3,
+      "argument": 67,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-68.data",
+        "3",
+        "67"
+      ],
+      "exit_code": -9,
+      "seconds": 0.005891832988709211,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 69,
+      "operation": "fcntl-dup",
+      "guard_flags": 3,
+      "argument": 115,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-69.data",
+        "3",
+        "115"
+      ],
+      "exit_code": -9,
+      "seconds": 0.007680834038183093,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 70,
+      "operation": "fcntl-dup",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-70.data",
+        "18",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.003933624946512282,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 71,
+      "operation": "fcntl-dup",
+      "guard_flags": 18,
+      "argument": 67,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-71.data",
+        "18",
+        "67"
+      ],
+      "exit_code": -9,
+      "seconds": 0.005380667047575116,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 72,
+      "operation": "fcntl-dup",
+      "guard_flags": 18,
+      "argument": 115,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-72.data",
+        "18",
+        "115"
+      ],
+      "exit_code": -9,
+      "seconds": 0.004797792062163353,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 73,
+      "operation": "fcntl-dup",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-73.data",
+        "31",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.0035900420043617487,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 74,
+      "operation": "fcntl-dup",
+      "guard_flags": 31,
+      "argument": 67,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-74.data",
+        "31",
+        "67"
+      ],
+      "exit_code": -9,
+      "seconds": 0.004187624901533127,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 75,
+      "operation": "fcntl-dup",
+      "guard_flags": 31,
+      "argument": 115,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "fcntl-dup",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-75.data",
+        "31",
+        "115"
+      ],
+      "exit_code": -9,
+      "seconds": 0.006618166924454272,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000200000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 76,
+      "operation": "setfd",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-76.data",
+        "2",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.004198917071335018,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000400000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 77,
+      "operation": "setfd",
+      "guard_flags": 2,
+      "argument": 1,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-77.data",
+        "2",
+        "1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004030624986626208,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "setfd",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 78,
+      "operation": "setfd",
+      "guard_flags": 2,
+      "argument": 2,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-78.data",
+        "2",
+        "2"
+      ],
+      "exit_code": -9,
+      "seconds": 0.005491333082318306,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000400000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 79,
+      "operation": "setfd",
+      "guard_flags": 2,
+      "argument": 3,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-79.data",
+        "2",
+        "3"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003793667070567608,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "setfd",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 80,
+      "operation": "setfd",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-80.data",
+        "3",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.004782999982126057,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000400000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 81,
+      "operation": "setfd",
+      "guard_flags": 3,
+      "argument": 1,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-81.data",
+        "3",
+        "1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.007140417001210153,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "setfd",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 82,
+      "operation": "setfd",
+      "guard_flags": 3,
+      "argument": 2,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-82.data",
+        "3",
+        "2"
+      ],
+      "exit_code": -9,
+      "seconds": 0.004290084005333483,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000400000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 83,
+      "operation": "setfd",
+      "guard_flags": 3,
+      "argument": 3,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-83.data",
+        "3",
+        "3"
+      ],
+      "exit_code": 0,
+      "seconds": 0.00873079092707485,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "setfd",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 84,
+      "operation": "setfd",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-84.data",
+        "18",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.00437166600022465,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000400000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 85,
+      "operation": "setfd",
+      "guard_flags": 18,
+      "argument": 1,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-85.data",
+        "18",
+        "1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0034324160078540444,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "setfd",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 86,
+      "operation": "setfd",
+      "guard_flags": 18,
+      "argument": 2,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-86.data",
+        "18",
+        "2"
+      ],
+      "exit_code": -9,
+      "seconds": 0.007017542026005685,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000400000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 87,
+      "operation": "setfd",
+      "guard_flags": 18,
+      "argument": 3,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-87.data",
+        "18",
+        "3"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004503791918978095,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "setfd",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 88,
+      "operation": "setfd",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-88.data",
+        "31",
+        "0"
+      ],
+      "exit_code": -9,
+      "seconds": 0.006178040988743305,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000400000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 89,
+      "operation": "setfd",
+      "guard_flags": 31,
+      "argument": 1,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-89.data",
+        "31",
+        "1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003879292053170502,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "setfd",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 90,
+      "operation": "setfd",
+      "guard_flags": 31,
+      "argument": 2,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-90.data",
+        "31",
+        "2"
+      ],
+      "exit_code": -9,
+      "seconds": 0.004464083001948893,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000000400000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 91,
+      "operation": "setfd",
+      "guard_flags": 31,
+      "argument": 3,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "setfd",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-91.data",
+        "31",
+        "3"
+      ],
+      "exit_code": 0,
+      "seconds": 0.005910207983106375,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "setfd",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 92,
+      "operation": "change-remove",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-92.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0041498750215396285,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 93,
+      "operation": "change-remove",
+      "guard_flags": 2,
+      "argument": 1,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-93.data",
+        "2",
+        "1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.005313333938829601,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 94,
+      "operation": "change-remove",
+      "guard_flags": 2,
+      "argument": 2,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-94.data",
+        "2",
+        "2"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0028791249496862292,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 95,
+      "operation": "change-remove",
+      "guard_flags": 2,
+      "argument": 3,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-95.data",
+        "2",
+        "3"
+      ],
+      "exit_code": 0,
+      "seconds": 0.006256291992031038,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 96,
+      "operation": "change-remove",
+      "guard_flags": 3,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-96.data",
+        "3",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0034122499637305737,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 97,
+      "operation": "change-remove",
+      "guard_flags": 3,
+      "argument": 1,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-97.data",
+        "3",
+        "1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0050571669125929475,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 98,
+      "operation": "change-remove",
+      "guard_flags": 3,
+      "argument": 2,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-98.data",
+        "3",
+        "2"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0035308750811964273,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 99,
+      "operation": "change-remove",
+      "guard_flags": 3,
+      "argument": 3,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-99.data",
+        "3",
+        "3"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003787832916714251,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 100,
+      "operation": "change-remove",
+      "guard_flags": 18,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-100.data",
+        "18",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004253958933986723,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 101,
+      "operation": "change-remove",
+      "guard_flags": 18,
+      "argument": 1,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-101.data",
+        "18",
+        "1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0034755419474095106,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 102,
+      "operation": "change-remove",
+      "guard_flags": 18,
+      "argument": 2,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-102.data",
+        "18",
+        "2"
+      ],
+      "exit_code": 0,
+      "seconds": 0.00548408308532089,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 103,
+      "operation": "change-remove",
+      "guard_flags": 18,
+      "argument": 3,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-103.data",
+        "18",
+        "3"
+      ],
+      "exit_code": 0,
+      "seconds": 0.008155375020578504,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 104,
+      "operation": "change-remove",
+      "guard_flags": 31,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-104.data",
+        "31",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.005515625001862645,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 105,
+      "operation": "change-remove",
+      "guard_flags": 31,
+      "argument": 1,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-105.data",
+        "31",
+        "1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003835874958895147,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 106,
+      "operation": "change-remove",
+      "guard_flags": 31,
+      "argument": 2,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-106.data",
+        "31",
+        "2"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004038291051983833,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 2,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 107,
+      "operation": "change-remove",
+      "guard_flags": 31,
+      "argument": 3,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "change-remove",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-107.data",
+        "31",
+        "3"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0035020419163629413,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "change-remove",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 108,
+      "operation": "write",
+      "guard_flags": 2,
+      "argument": 1,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "write",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-108.data",
+        "2",
+        "1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.006219458999112248,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "write",
+          "result": -1,
+          "errno": 14
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 109,
+      "operation": "write",
+      "guard_flags": 18,
+      "argument": 1,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "write",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-109.data",
+        "18",
+        "1"
+      ],
+      "exit_code": -9,
+      "seconds": 0.004661916987970471,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "guard-exception",
+          "message_id": 2405,
+          "message_bytes": 84,
+          "descriptors": 2,
+          "exception": 12,
+          "count": 2,
+          "code": "0x4000004000000003",
+          "subcode": "0x1122334455667788"
+        },
+        {
+          "kind": "guard-reply",
+          "status": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": true,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 110,
+      "operation": "plain-guarded-close",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "plain-guarded-close",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-110.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0032880420330911875,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "plain-guarded-close",
+          "result": -1,
+          "errno": 22
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 111,
+      "operation": "plain-guarded-write",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "plain-guarded-write",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-111.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0031299160327762365,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "plain-guarded-write",
+          "result": -1,
+          "errno": 22
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "case": 112,
+      "operation": "plain-change-add",
+      "guard_flags": 2,
+      "argument": 0,
+      "argv": [
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/policy-arm64",
+        "plain-change-add",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/policy-campaign-v3/arm64-112.data",
+        "2",
+        "0"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004762083990499377,
+      "records": [
+        {
+          "kind": "guard-handler",
+          "status": 0
+        },
+        {
+          "kind": "open",
+          "result": 3,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-before",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "plain-change-add",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "change-old-flags",
+          "result": 0,
+          "errno": 0
+        },
+        {
+          "kind": "descriptor-after",
+          "result": 1,
+          "errno": 0
+        },
+        {
+          "kind": "cleanup",
+          "result": 0,
+          "errno": 0
+        }
+      ],
+      "stderr": "",
+      "synchronous_guard_observed": false,
+      "file_after": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  ]
+}

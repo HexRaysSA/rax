@@ -1,0 +1,45 @@
+{
+  "source_sha256": "7dad9d13e00f9159070295d5f926e6413e91fd2187dc56855087395a31a022f9",
+  "compiler": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+  "sdk": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+  "host": "Darwin ints-MacBook-Pro.local 27.2.0 Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041 arm64",
+  "commands": [
+    {
+      "argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-local-settings-20261029/docs/specifications/darwin/native-guarded-fd/probe-v1.c",
+        "-o",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-arm64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.1272013750858605
+    },
+    {
+      "argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-local-settings-20261029/docs/specifications/darwin/native-guarded-fd/probe-v1.c",
+        "-o",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-guarded-fd-v1/guarded-fd-x86_64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.09168658300768584
+    }
+  ],
+  "prior_failure": "Unqualified PATH clang used no macOS SDK; no native program ran."
+}
