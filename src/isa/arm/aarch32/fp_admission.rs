@@ -24,6 +24,9 @@ pub(crate) fn instruction_supported(
     state: &VfpState,
     id_isar6: u32,
 ) -> bool {
+    if !advsimd && super::fp_traps::is_computation(insn) && (state.mvfr0 >> 12) & 15 > 1 {
+        return false;
+    }
     if advsimd {
         // Arm DDI0487B.a G6.2.108: SIMDLS admits structure memory
         // operations; SIMDInt admits integer/register operations and is also
@@ -301,4 +304,22 @@ pub(crate) fn half_supported(
         HalfKind::ScalarData => scalar == 3,
         HalfKind::SimdData => simd == 2,
     }
+}
+
+/// FPRound's output flushing bypasses trapped underflow. FPConvert's half
+/// output ignores FZ16; ordinary half data processing uses FZ16.
+pub(crate) fn output_flushes(insn: &DecodedInsn, state: &VfpState) -> bool {
+    let half = match kind(insn, false) {
+        HalfKind::ScalarConversion { .. } => return false,
+        HalfKind::ScalarData => true,
+        _ => {
+            let raw = if insn.state.is_thumb() {
+                ThumbDecoder::a32_equivalent(insn.raw).unwrap_or(insn.raw)
+            } else {
+                insn.raw
+            };
+            Aarch32Decoder::scalar_fixed_fields(raw).is_some_and(|fields| fields.fp_bits == 16)
+        }
+    };
+    state.fpscr.bits() & (1 << if half { 19 } else { 24 }) != 0
 }

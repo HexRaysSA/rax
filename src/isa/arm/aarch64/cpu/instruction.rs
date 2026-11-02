@@ -35,7 +35,7 @@ impl AArch64Cpu {
         self.btype = 0;
 
         // Execute
-        let result = self.decode_and_execute(insn);
+        let result = self.decode_with_fp_traps(insn);
 
         match result {
             Ok(exit @ CpuExit::Undefined(_)) => {

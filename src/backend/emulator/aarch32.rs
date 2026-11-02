@@ -391,11 +391,13 @@ impl Aarch32Vcpu {
                 self.cpu.is_halted = true;
                 Some(VcpuExit::Hlt)
             }
-            ExecResult::Exception(ExceptionType::UndefinedInstruction) => {
-                // A denied FP access is a guest architectural exception. Restore
+            ExecResult::Exception(
+                exception @ (ExceptionType::UndefinedInstruction | ExceptionType::FloatingPoint(_)),
+            ) => {
+                // An FP access or arithmetic trap is a guest exception. Restore
                 // the instruction boundary before banking the exception frame.
                 (self.cpu.regs, self.cpu.cpsr) = snapshot;
-                self.take_exception(ExceptionType::UndefinedInstruction);
+                self.take_exception(exception);
                 return Ok(None); // The faulting instruction did not retire.
             }
             ExecResult::FpAccessTrap {
@@ -627,3 +629,7 @@ pub(crate) fn public_state(cpu: &Armv7Cpu) -> CpuState {
 #[cfg(test)]
 #[path = "aarch32/short_vector_tests.rs"]
 mod short_vector_tests;
+
+#[cfg(test)]
+#[path = "aarch32/fp_trap_tests.rs"]
+mod fp_trap_tests;

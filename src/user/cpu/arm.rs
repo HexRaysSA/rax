@@ -146,6 +146,8 @@ impl<M: A32AddressSpace> ArmMemory for UserA32Memory<M> {
 /// Why an AArch32 user-mode run ended.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum A32Exit {
+    /// Synchronous scalar FP exception; PC and IT have not retired.
+    FloatingPoint { pc: u64, exceptions: u8 },
     /// `SVC` at `pc`; the PC is past it and a Thumb IT block advanced.
     Svc {
         /// The immediate (24 bits in A32, 8 in T32), which EABI ignores.
@@ -471,6 +473,12 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
                 Some(A32Exit::Svc {
                     imm,
                     pc: u64::from(pc),
+                })
+            }
+            ExecResult::Exception(ExceptionType::FloatingPoint(exceptions)) => {
+                Some(A32Exit::FloatingPoint {
+                    pc: u64::from(pc),
+                    exceptions,
                 })
             }
             ExecResult::Exception(ExceptionType::Breakpoint(imm)) => Some(A32Exit::Bkpt {

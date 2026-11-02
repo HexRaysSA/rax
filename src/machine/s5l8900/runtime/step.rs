@@ -360,7 +360,9 @@ impl S5L8900Vcpu {
             ExecResult::Undefined
                 | ExecResult::MemoryFault(_)
                 | ExecResult::FpAccessTrap { .. }
-                | ExecResult::Exception(ExceptionType::UndefinedInstruction)
+                | ExecResult::Exception(
+                    ExceptionType::UndefinedInstruction | ExceptionType::FloatingPoint(_)
+                )
         ) {
             self.insn_count = self.insn_count.wrapping_add(1);
         }

@@ -74,23 +74,26 @@ impl VfpState {
     /// Guest identity for the selected scalar support-code subarchitecture.
     /// DDI0406C.d B4.1.59 reserves FPSID[22:16]=3 for a complete
     /// hardware implementation. Restricted scalar modes instead use RAX's
-    /// private non-Arm subarchitecture 0x40, with bit22 set as specified.
+    /// private non-Arm subarchitecture 0x40; synchronous trapping uses 0x41.
+    /// Both set bit22 as specified for support-code implementations.
     /// Keep the raw base identity and its serialized representation unchanged.
     pub(crate) fn read_fpsid(&self) -> u32 {
         let restricted =
             self.mvfr0 >> 28 == 0 || (self.mvfr1 >> 4) & 15 == 0 || self.mvfr1 & 15 == 0;
-        if restricted {
+        if self.trapping_profile() {
+            (self.fpsid & !0x007f_0000) | 0x0041_0000
+        } else if restricted {
             (self.fpsid & !0x007f_0000) | 0x0040_0000
         } else {
             self.fpsid
         }
     }
 
-    /// Architectural FPSCR view for the selected non-trapping profile.
+    /// Architectural FPSCR view for the selected profile.
     /// Retains NZCV/QC/AHP/DN/FZ/RMode and cumulative exception status.
     /// FZ16 is retained only when half data processing is implemented.
     /// Len/Stride are writable only for MVFR0.ShortVectors=1; exception
-    /// enables and all remaining reserved fields are RES0.
+    /// enables are writable only for FPTrap=1; remaining reserved fields are RES0.
     pub(crate) fn read_fpscr(&self) -> u32 {
         self.fpscr.bits() & self.fpscr_mask()
     }
@@ -100,6 +103,9 @@ impl VfpState {
         self.fpscr = Fpscr::from_bits(value & self.fpscr_mask());
     }
 
+    pub(crate) fn trapping_profile(&self) -> bool {
+        (self.mvfr0 >> 12) & 15 == 1
+    }
     fn fpscr_mask(&self) -> u32 {
         let half_data = (self.mvfr1 >> 24) & 15 == 3 || (self.mvfr1 >> 20) & 15 == 2;
         // FZ16 is RES0 in the conversion-only profile.
@@ -108,17 +114,35 @@ impl VfpState {
         } else {
             0
         };
-        (0xffc8_009f | vectors) & if half_data { u32::MAX } else { !(1 << 19) }
+        (0xffc8_009f | vectors | if self.trapping_profile() { 0x9f00 } else { 0 })
+            & if half_data { u32::MAX } else { !(1 << 19) }
     }
 
-    /// FPEXC.EN is writable; the selected synchronous profile fixes all other bits.
-    /// Bits10:8 are RES1; EX and bits29:11/7:0 are RES0.
+    /// FPEXC.EN/DEX/exception flags are writable in the selected profile.
+    /// TFV is status/WI, and RAO/WI when short-vector controls are RAZ.
+    /// VECITR is RES1; asynchronous and remaining reserved fields are RES0.
     pub(crate) fn read_fpexc(&self) -> u32 {
-        (self.fpexc & 0x4000_0000) | 0x0000_0700
+        let (mask, fixed) = if self.trapping_profile() {
+            (
+                0x6400_009f,
+                if (self.mvfr0 >> 24) & 15 == 1 {
+                    0
+                } else {
+                    1 << 26
+                },
+            )
+        } else {
+            (0x4000_0000, 0)
+        };
+        (self.fpexc & mask) | fixed | 0x700
     }
 
     pub(crate) fn write_fpexc(&mut self, value: u32) {
-        self.fpexc = (value & 0x4000_0000) | 0x0000_0700;
+        self.fpexc = if self.trapping_profile() {
+            (value & 0x6000_009f) | (self.read_fpexc() & (1 << 26)) | 0x700
+        } else {
+            (value & 0x4000_0000) | 0x700
+        };
     }
 
     /// Create a new VFP state.

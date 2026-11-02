@@ -8,6 +8,7 @@
 
 pub mod aarch64;
 pub mod arm;
+mod fp_exceptions;
 pub mod riscv64;
 pub mod x86_64;
 

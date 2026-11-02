@@ -55,7 +55,16 @@ impl AArch64Cpu {
         for index in 0..32 {
             cpu.vfp.dregs[index] = (self.v[index / 2] >> ((index & 1) * 64)) as u64;
         }
-        cpu.vfp.write_fpscr((self.fpcr & 0x07c8_0000) | self.fpsr);
+        cpu.vfp.write_fpscr(
+            (self.fpcr
+                & (0x07c8_0000
+                    | if cpu.vfp.trapping_profile() {
+                        0x9f00
+                    } else {
+                        0
+                    }))
+                | self.fpsr,
+        );
         let el1_aarch32 = crate::isa::arm::aarch64::exception_return::uses_aarch32(
             self.pauth_controls(),
             self.sysregs.id_aa64pfr0_el1,
@@ -130,7 +139,13 @@ impl AArch64Cpu {
                 | (u128::from(cpu.vfp.dregs[index * 2 + 1]) << 64);
         }
         let fpscr = cpu.vfp.fpscr.bits();
-        self.fpcr = (self.fpcr & !0x07c8_0000) | (fpscr & 0x07c8_0000);
+        let controls = 0x07c8_0000
+            | if cpu.vfp.trapping_profile() {
+                0x9f00
+            } else {
+                0
+            };
+        self.fpcr = (self.fpcr & !controls) | (fpscr & controls);
         self.fpsr = fpscr & 0xf800_009f;
         self.nzcv = ((cpu.cpsr.to_u32() >> 28) & 15) as u8;
         self.daif = (self.daif & 8)

@@ -100,8 +100,9 @@ These are synthetic profile combinations, not a claim that a named physical
 Arm processor implements every combination. Physical restricted AArch32
 execution is unverified. Existing AArch64 native arithmetic checks exercise
 helpers under their recorded controls; they do not validate this A32
-support-code subarchitecture. Optional short-vector and exception-trapping
-profiles, broader security/debug/virtualization admission, complete backend and
+support-code subarchitecture. Selected [short-vector](../a32-short-vectors/README.md)
+and [synchronous-trapping](../a32-fp-traps/README.md) profiles have separate local
+qualifications. Broader security/debug/virtualization admission, complete backend and
 in-flight checkpoints, native scheduling/replay and physical Intel HVF remain
 open under A32-FP, C-STATE, C-SMP and C-HVF. This component does not close those
 findings.

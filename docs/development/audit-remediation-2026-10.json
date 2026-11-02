@@ -1021,7 +1021,9 @@
         "docs/development/arm-fhm/fixture-tracking-recovery-2026-11-02.json",
         "docs/development/a32-short-vectors/README.md",
         "docs/development/a32-short-vectors/qualification.json",
-        "docs/development/a32-short-vectors/qemu-reference.json"
+        "docs/development/a32-short-vectors/qemu-reference.json",
+        "docs/development/a32-fp-traps/qualification.json",
+        "docs/development/a32-fp-traps/README.md"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
@@ -1033,7 +1035,8 @@
         "A64/A32/Thumb MVFR identity, selected half upper bounds and A64 TID3/RO semantics remain locally qualified. EL0 architectural ID denial and Linux personality emulation are qualified by docs/development/a64-el0-id-policy/qualification.json. Defined restricted scalar rounding/NaN/subnormal modes are locally qualified by docs/development/a32-restricted-fp/qualification.json. Synthetic profile and remaining optional-profile/security/debug limits remain open.",
         "Architectural EL0 ID denial, Linux-only CPUID emulation, read-only ID writes, precise guest/diagnostic fault delivery and zero-retirement public/private continuation are locally qualified in docs/development/a64-el0-id-policy/qualification.json. Original optional-profile/security/debug, complete backend/native/startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
         "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open.",
-        "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json."
+        "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json.",
+        "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. Full root run retains one separately reproduced ptrace/fork test failure; no full-suite green claim. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1061,7 +1064,8 @@
         "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01",
         "a32-restricted-scalar-fp-modes-2026-11-01",
         "legacy-s3c-fixture-tracking-2026-11-02",
-        "a32-optional-short-vector-profile-2026-11-02"
+        "a32-optional-short-vector-profile-2026-11-02",
+        "a32-synchronous-fp-traps-2026-11-02"
       ]
     },
     {
@@ -2759,7 +2763,9 @@
         "docs/development/vmm-selected-clock/README.md",
         "docs/development/vmm-selected-clock/qualification.json",
         "docs/development/s5l-selected-clock/qualification.json",
-        "docs/development/rtc-selected-clock/qualification.json"
+        "docs/development/rtc-selected-clock/qualification.json",
+        "docs/development/a32-fp-traps/qualification.json",
+        "docs/development/a32-fp-traps/README.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2805,7 +2811,8 @@
         "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json.",
         "Explicit VMM clock selection before devices, complete retired-file construction and strict timeline/base-loss admission are locally qualified with real1/2/4 prepared x86 files,exact TSC/phase/wrap and retained LAPIC clock identity. Defaults remain wall; independent board clocks, idle advancement, native retirement and complete replay remain open. Armv8a32/CortexR factories remain unsupported and explicitly tested as such. No full original finding closure; see vmm-selected-clock/qualification.json.",
         "Selected S5L elapsed clocks retain VM identity and incoming restore epochs, with actual source-free 1/2/4 prepared-context guest timer continuation; see s5l-selected-clock/qualification.json. Synthetic profiles, PMU RTC/timezone, other clocks, default/idle/native/replay and full original findings remain open.",
-        "PC CMOS and S5L PMU calendars now retain selected VM time in Retired mode with fixed UTC2000 origin,new private tags,strict legacy Wall-only admission and actual1/2/4 prepared-context guest-file continuation. See rtc-selected-clock/qualification.json. Default/idle/periodic IRQ policy,Wall external input,complete replay/native and physical Intel requirements remain open."
+        "PC CMOS and S5L PMU calendars now retain selected VM time in Retired mode with fixed UTC2000 origin,new private tags,strict legacy Wall-only admission and actual1/2/4 prepared-context guest-file continuation. See rtc-selected-clock/qualification.json. Default/idle/periodic IRQ policy,Wall external input,complete replay/native and physical Intel requirements remain open.",
+        "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. Full root run retains one separately reproduced ptrace/fork test failure; no full-suite green claim. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2870,7 +2877,8 @@
         "a32-optional-short-vector-profile-2026-11-02",
         "vmm-selected-clock-construction-2026-11-02",
         "s5l-selected-elapsed-clock-2026-11-02",
-        "pc-s5l-selected-rtc-calendars-2026-11-02"
+        "pc-s5l-selected-rtc-calendars-2026-11-02",
+        "a32-synchronous-fp-traps-2026-11-02"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3534,7 +3542,9 @@
         "docs/development/vmm-selected-clock/README.md",
         "docs/development/vmm-selected-clock/qualification.json",
         "docs/development/s5l-selected-clock/qualification.json",
-        "docs/development/rtc-selected-clock/qualification.json"
+        "docs/development/rtc-selected-clock/qualification.json",
+        "docs/development/a32-fp-traps/qualification.json",
+        "docs/development/a32-fp-traps/README.md"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3570,7 +3580,8 @@
         "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json.",
         "Explicit VMM clock selection before devices, complete retired-file construction and strict timeline/base-loss admission are locally qualified with real1/2/4 prepared x86 files,exact TSC/phase/wrap and retained LAPIC clock identity. Defaults remain wall; independent board clocks, idle advancement, native retirement and complete replay remain open. Armv8a32/CortexR factories remain unsupported and explicitly tested as such. No full original finding closure; see vmm-selected-clock/qualification.json.",
         "Selected S5L elapsed clocks retain VM identity and incoming restore epochs, with actual source-free 1/2/4 prepared-context guest timer continuation; see s5l-selected-clock/qualification.json. Synthetic profiles, PMU RTC/timezone, other clocks, default/idle/native/replay and full original findings remain open.",
-        "PC CMOS and S5L PMU calendars now retain selected VM time in Retired mode with fixed UTC2000 origin,new private tags,strict legacy Wall-only admission and actual1/2/4 prepared-context guest-file continuation. See rtc-selected-clock/qualification.json. Default/idle/periodic IRQ policy,Wall external input,complete replay/native and physical Intel requirements remain open."
+        "PC CMOS and S5L PMU calendars now retain selected VM time in Retired mode with fixed UTC2000 origin,new private tags,strict legacy Wall-only admission and actual1/2/4 prepared-context guest-file continuation. See rtc-selected-clock/qualification.json. Default/idle/periodic IRQ policy,Wall external input,complete replay/native and physical Intel requirements remain open.",
+        "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. Full root run retains one separately reproduced ptrace/fork test failure; no full-suite green claim. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3617,7 +3628,8 @@
         "a32-optional-short-vector-profile-2026-11-02",
         "vmm-selected-clock-construction-2026-11-02",
         "s5l-selected-elapsed-clock-2026-11-02",
-        "pc-s5l-selected-rtc-calendars-2026-11-02"
+        "pc-s5l-selected-rtc-calendars-2026-11-02",
+        "a32-synchronous-fp-traps-2026-11-02"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198173,6 +198185,22 @@
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/rtc-selected-clock-v1/commit-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/rtc-selected-clock-v1/cleanup-final.json",
       "workflow": "Exact owned-path git add then red -m --staged --run; direct master; no push/branch/worktree; cleanup idle canonical C/T and owned bytecode cache",
+      "full_goal_complete": false
+    },
+    {
+      "id": "a32-synchronous-fp-traps-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "A32-FP",
+        "C-STATE",
+        "C-SMP"
+      ],
+      "parent": "9d234a700aa89a144ea477b7938627736d404bf2",
+      "scope": "Classic selected A32/A64 synchronous FP traps,TFV/underflow/control aliases,precise zero-retirement delivery and actual1/2/4 prepared-context files; root gate retains one independently reproduced host-fork/ptrace test failure. Full original findings stay partial.",
+      "qualification": "docs/development/a32-fp-traps/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-synchronous-fp-traps-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/a32-synchronous-fp-traps-v1/cleanup-final.json",
+      "workflow": "Direct master; exact owned-path git add and red -m --staged --run; no branches/worktrees/push; guarded idle C/T cleanup",
       "full_goal_complete": false
     }
   ],

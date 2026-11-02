@@ -67,18 +67,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     /// Execute a single decoded instruction.
-    pub fn execute(&mut self, insn: &DecodedInsn) -> ExecResult {
-        self.cpu.instruction_size = insn.size;
-        if !self.condition_matches(insn) {
-            return ExecResult::Continue;
-        }
-
-        // Failed predicates do not perform FP access checks. Denied accesses
-        // trap before any handler can modify registers or touch guest memory.
-        if let Some(fault) = self.fp_access_fault(insn) {
-            return fault;
-        }
-
+    pub(super) fn execute_admitted(&mut self, insn: &DecodedInsn) -> ExecResult {
         // A 16-bit Thumb data-processing instruction sets the flags only
         // outside an IT block (`setflags = !InITBlock()`); the comparisons
         // always set them.
@@ -587,7 +576,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Take an exception and switch to the appropriate mode.
     pub fn take_exception(&mut self, exception: ExceptionType) {
-        if matches!(exception, ExceptionType::UndefinedInstruction) {
+        if matches!(
+            exception,
+            ExceptionType::UndefinedInstruction | ExceptionType::FloatingPoint(_)
+        ) {
             let context = self.cpu.fp_control_context();
             let own_hyp = context.current_el == 2;
             let route = context.current_el == 0
@@ -644,7 +636,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
         // Calculate return address based on exception type
         let return_addr = match &exception {
-            ExceptionType::UndefinedInstruction => {
+            ExceptionType::UndefinedInstruction | ExceptionType::FloatingPoint(_) => {
                 self.cpu.regs[15].wrapping_add(if self.cpu.cpsr.t { 2 } else { 4 })
             }
             ExceptionType::SupervisorCall(_) => {

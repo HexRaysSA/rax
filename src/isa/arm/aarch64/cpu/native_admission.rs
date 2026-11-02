@@ -28,6 +28,9 @@ impl AArch64Cpu {
         entry: u64,
         bytes: &[u8],
     ) -> Option<(FpAccessRequirements, ArmFeatures)> {
+        if self.fp_traps_enabled() {
+            return None;
+        }
         let mut requirements = FpAccessRequirements::default();
         let mut features = ArmFeatures::empty();
         for op in function.blocks.iter().flat_map(|b| &b.ops) {

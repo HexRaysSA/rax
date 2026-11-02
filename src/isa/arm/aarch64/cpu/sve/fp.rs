@@ -997,7 +997,9 @@ impl AArch64Cpu {
                     let signed_exact = if sgn != 0 { -exact } else { exact };
                     fp_status_from_exact_f64(esz, signed_exact, r)
                 };
-                self.fpsr |= status | fp_fz_input_status(esz, raw_x, self.fpcr);
+                self.fpsr |= crate::isa::arm::aarch64::cpu::fp_traps::collect_underflow(
+                    esz, r, status, self.fpcr,
+                ) | fp_fz_input_status(esz, raw_x, self.fpcr);
                 write_elem(&mut dst, off, esz, r);
             }
             self.v[zd] = u128::from_le_bytes(dst);

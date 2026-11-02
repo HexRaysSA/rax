@@ -305,6 +305,17 @@ impl VCpu for ArmUserVcpu {
                 });
                 Ok(Some(VcpuExit::Exception(0x38)))
             }
+            Some(A32Exit::FloatingPoint { pc, exceptions }) => {
+                self.trap = Some(UserTrap::Exception {
+                    vector: 0x28,
+                    pc,
+                    return_pc: pc,
+                    syndrome: Some((1 << 23) | u64::from(exceptions)),
+                    software: false,
+                    undefined: false,
+                });
+                Ok(Some(VcpuExit::Exception(0x28)))
+            }
             Some(A32Exit::Undefined { pc, reason, .. }) => {
                 self.trap = Some(UserTrap::Exception {
                     vector: 0,
@@ -401,3 +412,7 @@ impl VCpu for ArmUserVcpu {
         self.count
     }
 }
+
+#[cfg(test)]
+#[path = "arm_user/fp_trap_tests.rs"]
+mod fp_trap_tests;

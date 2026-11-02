@@ -16,6 +16,7 @@ impl AArch64Cpu {
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
         {
             let eligible = allow_native
+                && !self.fp_traps_enabled()
                 && self.current_el == 0
                 && self.aarch32.is_none()
                 && !self.halted

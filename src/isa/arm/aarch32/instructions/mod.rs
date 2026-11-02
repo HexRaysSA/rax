@@ -59,6 +59,7 @@ mod decode;
 pub use decode::*;
 mod memory;
 pub use memory::*;
+mod fp_traps;
 mod misc;
 pub use misc::*;
 mod neon;
@@ -146,6 +147,8 @@ pub enum ExceptionType {
     SupervisorCall(u32),
     /// Undefined instruction.
     UndefinedInstruction,
+    /// Synchronous VFP exception flags; FPEXC carries the local guest report.
+    FloatingPoint(u8),
     /// Prefetch abort.
     PrefetchAbort(u32),
     /// Data abort.
@@ -172,7 +175,7 @@ impl ExceptionType {
                 }
             }
             ExceptionType::Reset => 0x00,
-            ExceptionType::UndefinedInstruction => 0x04,
+            ExceptionType::UndefinedInstruction | ExceptionType::FloatingPoint(_) => 0x04,
             ExceptionType::SupervisorCall(_) => 0x08,
             ExceptionType::PrefetchAbort(_) => 0x0C,
             ExceptionType::DataAbort(_) => 0x10,
@@ -187,7 +190,9 @@ impl ExceptionType {
         match self {
             ExceptionType::HypervisorTrap { .. } => ProcessorMode::Hyp,
             ExceptionType::Reset | ExceptionType::SupervisorCall(_) => ProcessorMode::Supervisor,
-            ExceptionType::UndefinedInstruction => ProcessorMode::Undefined,
+            ExceptionType::UndefinedInstruction | ExceptionType::FloatingPoint(_) => {
+                ProcessorMode::Undefined
+            }
             ExceptionType::PrefetchAbort(_) | ExceptionType::Breakpoint(_) => ProcessorMode::Abort,
             ExceptionType::DataAbort(_) => ProcessorMode::Abort,
             ExceptionType::Irq => ProcessorMode::Irq,

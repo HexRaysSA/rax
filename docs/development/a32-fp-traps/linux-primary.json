@@ -1,0 +1,11 @@
+{
+  "title": "Linux arm64 FPSIMD support",
+  "author": "Linux kernel contributors",
+  "revision": "v6.19",
+  "path": "arch/arm64/kernel/fpsimd.c",
+  "git_blob_sha": "9de1d8a604cbf2f7d0147a9322316856202e33c1",
+  "url": "https://github.com/torvalds/linux/blob/v6.19/arch/arm64/kernel/fpsimd.c",
+  "retrieved_utc": "2026-11-02",
+  "used_function": "do_fpsimd_exc",
+  "license": "GPL-2.0-only; retained source SPDX header"
+}

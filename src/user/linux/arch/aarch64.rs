@@ -161,6 +161,11 @@ fn event(cpu: &A64UserCpu, exit: A64Exit) -> CpuEvent {
             FaultUpdate::Arm64 { address: 0, esr: 0 },
         ),
         // Linux arm64 do_el0_fpac injects SIGILL/ILL_ILLOPN with the precise ESR.
+        A64Exit::Exception {
+            pc,
+            ec: 0x28 | 0x2c,
+            iss,
+        } => super::fp_exceptions::event(pc, iss),
         A64Exit::Exception { pc, ec, iss } => CpuEvent::Signal(
             SigInfo::fault(
                 SIGILL,

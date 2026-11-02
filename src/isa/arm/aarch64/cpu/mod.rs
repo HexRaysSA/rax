@@ -45,6 +45,9 @@ mod fp_access;
 #[cfg(test)]
 mod fp_control_tests;
 mod fp_profile;
+#[cfg(test)]
+mod fp_trap_tests;
+mod fp_traps;
 mod identity;
 mod instruction;
 mod interrupt_binding;

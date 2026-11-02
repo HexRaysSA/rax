@@ -48,11 +48,21 @@ impl AArch64Cpu {
     /// Floating-point control register, masked to architecturally modeled bits.
     pub fn fpcr_value(&self) -> u32 {
         mask_fpcr(self.fpcr)
+            | if self.fp_trapping_profile() {
+                self.fpcr & 0x9f00
+            } else {
+                0
+            }
     }
 
     /// Replace the floating-point control register.
     pub fn set_fpcr_value(&mut self, value: u32) {
-        self.fpcr = mask_fpcr(value);
+        self.fpcr = mask_fpcr(value)
+            | if self.fp_trapping_profile() {
+                value & 0x9f00
+            } else {
+                0
+            };
     }
 
     /// Floating-point status register, masked to architecturally modeled bits.
@@ -212,6 +222,12 @@ impl AArch64Cpu {
             encoding.crm,
             encoding.op2,
         ) {
+            (3, 4, 5, 3, 0) if self.fp_trapping_profile() => {
+                if self.current_el < 2 {
+                    return Err(ArmError::InvalidExceptionLevel(self.current_el));
+                }
+                return Ok(self.read_aarch32_fpexc());
+            }
             // NZCV
             (3, 3, 4, 2, 0) => {
                 return Ok((self.nzcv as u64) << 28);
@@ -254,7 +270,7 @@ impl AArch64Cpu {
             }
             // FPCR
             (3, 3, 4, 4, 0) => {
-                return Ok(mask_fpcr(self.fpcr) as u64);
+                return Ok(u64::from(self.fpcr_value()));
             }
             // FPSR
             (3, 3, 4, 4, 1) => {
@@ -406,6 +422,13 @@ impl AArch64Cpu {
             encoding.crm,
             encoding.op2,
         ) {
+            (3, 4, 5, 3, 0) if self.fp_trapping_profile() => {
+                if self.current_el < 2 {
+                    return Err(ArmError::InvalidExceptionLevel(self.current_el));
+                }
+                self.write_aarch32_fpexc(value);
+                return Ok(());
+            }
             // NZCV
             (3, 3, 4, 2, 0) => {
                 self.nzcv = ((value >> 28) & 0xF) as u8;
@@ -453,7 +476,7 @@ impl AArch64Cpu {
             }
             // FPCR
             (3, 3, 4, 4, 0) => {
-                self.fpcr = mask_fpcr(value as u32);
+                self.set_fpcr_value(value as u32);
                 return Ok(());
             }
             // FPSR
@@ -854,7 +877,7 @@ impl AArch64Cpu {
     /// be interpreted. Callers then resume at the unchanged guest PC.
     #[cfg(all(test, feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_run_region(&mut self, region: &JitRegion) -> bool {
-        if self.execution.native_fault.is_some() {
+        if self.execution.native_fault.is_some() || self.fp_traps_enabled() {
             return false;
         }
         if let Some(raw) = region.pauth_instruction {

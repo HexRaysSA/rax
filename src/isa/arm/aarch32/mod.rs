@@ -10,5 +10,6 @@ pub(crate) mod checkpoint;
 pub(crate) mod fp_controls;
 
 pub(crate) mod fp_admission;
+pub(crate) mod fp_traps;
 
 pub(crate) mod short_vectors;

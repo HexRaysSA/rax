@@ -152,6 +152,9 @@ pub fn run(cpu: &mut A32UserCpu, budget: u64) -> CpuEvent {
 
 fn event(cpu: &A32UserCpu, exit: A32Exit) -> CpuEvent {
     match exit {
+        A32Exit::FloatingPoint { pc, exceptions } => {
+            super::fp_exceptions::event(pc, (1 << 23) | u32::from(exceptions))
+        }
         A32Exit::Svc { .. } => {
             let r = &cpu.core().regs;
             CpuEvent::Syscall {

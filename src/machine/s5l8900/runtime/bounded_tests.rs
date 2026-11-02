@@ -59,6 +59,25 @@ fn executed_fp_access_faults_preserve_registers_and_retire_nothing() {
         );
     }
 }
+
+#[test]
+fn selected_synchronous_fp_traps_keep_fpexc_and_do_not_retire() {
+    for thumb in [false, true] {
+        let raw = 0xee810a02u32;
+        let mut cpu = fixture(&[if thumb { raw.rotate_left(16) } else { raw }]);
+        cpu.cpu.cpsr.t = thumb;
+        cpu.cpu.vfp.mvfr0 |= 1 << 12;
+        cpu.cpu.vfp.fpscr = crate::isa::arm::aarch32::vfp::Fpscr::from_bits(0x100);
+        cpu.cpu.vfp.write_s_bits(0, 0xdeadbeef);
+        let before = cpu.cpu.vfp.dregs;
+        assert!(matches!(cpu.step(), StepOutcome::Progress));
+        assert_eq!(cpu.cpu.regs[15], 4);
+        assert_eq!(cpu.cpu.regs[14], CODE + if thumb { 2 } else { 4 });
+        assert_eq!(cpu.cpu.vfp.dregs, before);
+        assert_eq!(cpu.cpu.vfp.fpexc & 0x2400009f, 0x24000001);
+        assert_eq!(cpu.instruction_count(), 0);
+    }
+}
 #[test]
 fn executed_data_abort_does_not_retire_the_faulting_load() {
     let mut cpu = fixture(&[0xe591_0000]); // LDR r0,[r1].

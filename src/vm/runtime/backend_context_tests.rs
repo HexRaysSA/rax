@@ -6,6 +6,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use vm_memory::{Bytes, GuestAddress};
 
+#[path = "a32_fp_trap_tests.rs"]
+mod fp_traps;
 #[path = "a32_restricted_fp_tests.rs"]
 mod restricted_fp;
 
