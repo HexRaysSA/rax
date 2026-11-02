@@ -1,0 +1,813 @@
+{
+  "schema": 1,
+  "utc": "2026-11-02T01:33:57.516544+00:00",
+  "parent": "b07b0aaf81fd80b5913ab1a103b54ee4ae44e293",
+  "status": "locally_validated_with_explicit_scope",
+  "scope": "GSC platform-aware single-step and production retirement-budget execution",
+  "full_goal_complete": false,
+  "source_sha256": {
+    "src/machine/gsc/runtime/bounded_tests.rs": "d4746b2581a8bfe2929a53e8cb505eaf727cd0a8d322342d830aec02f7d49acc",
+    "src/machine/gsc/runtime/execution.rs": "f6641301ce6f4df25b5d543b5f68106bd1fed30f4d7525862febfda8da39b4d7",
+    "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+    "src/vm/runtime/gsc_bounded_tests.rs": "cff3548683bd022b22d141f118205e6894968472632ff4136c912787dc664fea",
+    "src/machine/gsc/runtime.rs": "aef91370d715a52a4bf538f1a7608259044e5f20c423c53d1fb9ec4aac8f611a",
+    "src/vm/runtime.rs": "ebdb7fa0422162844c741638f16356aba945f0ecece6f68dfb12f4fb0311e5d1"
+  },
+  "baseline": {
+    "parent": "b07b0aaf81fd80b5913ab1a103b54ee4ae44e293",
+    "baseline_production_impl_matches_parent": true,
+    "parent_impl_sha256": "b976506cf492e49941c25c450af0c7f2c9252cda5d8adc2dc617161852b8ad70",
+    "baseline_GSC_fixture_only_changes": "cfg(test) module and six actual guest-effect tests; original production implementation byte-equal to parent extraction.",
+    "baseline_actual_VMM_only_changes": "cfg(test) runtime module and two factory/coordinator fixtures.",
+    "source_and_binary_fingerprints": [
+      "baseline-platform-v1.json",
+      "baseline-VMM-v2.json",
+      "baseline-binaries-v1.json",
+      "baseline-binary-v2.json"
+    ],
+    "failed_behavioral_witnesses": 7,
+    "zero_budget_control_passed": true
+  },
+  "tests": {
+    "green-GSC-v2": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "machine::gsc::runtime::",
+        "--nocapture",
+        "--test-threads=2"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.024257374985609204,
+      "test_results": [
+        {
+          "passed": 53,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "7df91a524aee99c0f4ed396d05c6a1c0915bf88aadcc7bff350446afc2a33ca1",
+        "inode": 400219840
+      },
+      "executable_after_sha256": "7df91a524aee99c0f4ed396d05c6a1c0915bf88aadcc7bff350446afc2a33ca1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/machine/gsc/runtime/bounded_tests.rs": "d4746b2581a8bfe2929a53e8cb505eaf727cd0a8d322342d830aec02f7d49acc",
+        "src/machine/gsc/runtime/execution.rs": "f6641301ce6f4df25b5d543b5f68106bd1fed30f4d7525862febfda8da39b4d7",
+        "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+        "src/vm/runtime/gsc_bounded_tests.rs": "cff3548683bd022b22d141f118205e6894968472632ff4136c912787dc664fea",
+        "src/machine/gsc/runtime.rs": "aef91370d715a52a4bf538f1a7608259044e5f20c423c53d1fb9ec4aac8f611a",
+        "src/vm/runtime.rs": "ebdb7fa0422162844c741638f16356aba945f0ecece6f68dfb12f4fb0311e5d1"
+      }
+    },
+    "green-VMM-v2": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "vm::runtime::gsc_bounded_tests::",
+        "--nocapture",
+        "--test-threads=2"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.026950583967845887,
+      "test_results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "7df91a524aee99c0f4ed396d05c6a1c0915bf88aadcc7bff350446afc2a33ca1",
+        "inode": 400219840
+      },
+      "executable_after_sha256": "7df91a524aee99c0f4ed396d05c6a1c0915bf88aadcc7bff350446afc2a33ca1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/machine/gsc/runtime/bounded_tests.rs": "d4746b2581a8bfe2929a53e8cb505eaf727cd0a8d322342d830aec02f7d49acc",
+        "src/machine/gsc/runtime/execution.rs": "f6641301ce6f4df25b5d543b5f68106bd1fed30f4d7525862febfda8da39b4d7",
+        "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+        "src/vm/runtime/gsc_bounded_tests.rs": "cff3548683bd022b22d141f118205e6894968472632ff4136c912787dc664fea",
+        "src/machine/gsc/runtime.rs": "aef91370d715a52a4bf538f1a7608259044e5f20c423c53d1fb9ec4aac8f611a",
+        "src/vm/runtime.rs": "ebdb7fa0422162844c741638f16356aba945f0ecece6f68dfb12f4fb0311e5d1"
+      }
+    },
+    "owning-root-library-v2": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 1017.7775226670201,
+      "test_results": [
+        {
+          "passed": 11658,
+          "failed": 0,
+          "ignored": 35
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+        "sha256": "7df91a524aee99c0f4ed396d05c6a1c0915bf88aadcc7bff350446afc2a33ca1",
+        "inode": 400219840
+      },
+      "executable_after_sha256": "7df91a524aee99c0f4ed396d05c6a1c0915bf88aadcc7bff350446afc2a33ca1",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/machine/gsc/runtime/bounded_tests.rs": "d4746b2581a8bfe2929a53e8cb505eaf727cd0a8d322342d830aec02f7d49acc",
+        "src/machine/gsc/runtime/execution.rs": "f6641301ce6f4df25b5d543b5f68106bd1fed30f4d7525862febfda8da39b4d7",
+        "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+        "src/vm/runtime/gsc_bounded_tests.rs": "cff3548683bd022b22d141f118205e6894968472632ff4136c912787dc664fea",
+        "src/machine/gsc/runtime.rs": "aef91370d715a52a4bf538f1a7608259044e5f20c423c53d1fb9ec4aac8f611a",
+        "src/vm/runtime.rs": "ebdb7fa0422162844c741638f16356aba945f0ecece6f68dfb12f4fb0311e5d1"
+      }
+    },
+    "owning-C-API-library-v2": {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "--test-threads=2"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 2.600991957995575,
+      "test_results": [
+        {
+          "passed": 239,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "b8f09273d232151c49294148cf3d5504ca11e36c4729051058c6675f173bd57d",
+        "inode": 400217627
+      },
+      "executable_after_sha256": "b8f09273d232151c49294148cf3d5504ca11e36c4729051058c6675f173bd57d",
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/machine/gsc/runtime/bounded_tests.rs": "d4746b2581a8bfe2929a53e8cb505eaf727cd0a8d322342d830aec02f7d49acc",
+        "src/machine/gsc/runtime/execution.rs": "f6641301ce6f4df25b5d543b5f68106bd1fed30f4d7525862febfda8da39b4d7",
+        "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+        "src/vm/runtime/gsc_bounded_tests.rs": "cff3548683bd022b22d141f118205e6894968472632ff4136c912787dc664fea",
+        "src/machine/gsc/runtime.rs": "aef91370d715a52a4bf538f1a7608259044e5f20c423c53d1fb9ec4aac8f611a",
+        "src/vm/runtime.rs": "ebdb7fa0422162844c741638f16356aba945f0ecece6f68dfb12f4fb0311e5d1"
+      }
+    }
+  },
+  "checks": {
+    "repair-build-v2": {
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 187.4358312500408,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/machine/gsc/runtime/bounded_tests.rs": "d4746b2581a8bfe2929a53e8cb505eaf727cd0a8d322342d830aec02f7d49acc",
+        "src/machine/gsc/runtime/execution.rs": "f6641301ce6f4df25b5d543b5f68106bd1fed30f4d7525862febfda8da39b4d7",
+        "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+        "src/vm/runtime/gsc_bounded_tests.rs": "cff3548683bd022b22d141f118205e6894968472632ff4136c912787dc664fea",
+        "src/machine/gsc/runtime.rs": "aef91370d715a52a4bf538f1a7608259044e5f20c423c53d1fb9ec4aac8f611a",
+        "src/vm/runtime.rs": "ebdb7fa0422162844c741638f16356aba945f0ecece6f68dfb12f4fb0311e5d1"
+      }
+    },
+    "fmt-workspace-v2": {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 14.699639957980253,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/machine/gsc/runtime/bounded_tests.rs": "d4746b2581a8bfe2929a53e8cb505eaf727cd0a8d322342d830aec02f7d49acc",
+        "src/machine/gsc/runtime/execution.rs": "f6641301ce6f4df25b5d543b5f68106bd1fed30f4d7525862febfda8da39b4d7",
+        "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+        "src/vm/runtime/gsc_bounded_tests.rs": "cff3548683bd022b22d141f118205e6894968472632ff4136c912787dc664fea",
+        "src/machine/gsc/runtime.rs": "aef91370d715a52a4bf538f1a7608259044e5f20c423c53d1fb9ec4aac8f611a",
+        "src/vm/runtime.rs": "ebdb7fa0422162844c741638f16356aba945f0ecece6f68dfb12f4fb0311e5d1"
+      }
+    },
+    "check-workspace-all-targets-v2": {
+      "argv": [
+        "cargo",
+        "check",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 87.60437549999915,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/machine/gsc/runtime/bounded_tests.rs": "d4746b2581a8bfe2929a53e8cb505eaf727cd0a8d322342d830aec02f7d49acc",
+        "src/machine/gsc/runtime/execution.rs": "f6641301ce6f4df25b5d543b5f68106bd1fed30f4d7525862febfda8da39b4d7",
+        "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+        "src/vm/runtime/gsc_bounded_tests.rs": "cff3548683bd022b22d141f118205e6894968472632ff4136c912787dc664fea",
+        "src/machine/gsc/runtime.rs": "aef91370d715a52a4bf538f1a7608259044e5f20c423c53d1fb9ec4aac8f611a",
+        "src/vm/runtime.rs": "ebdb7fa0422162844c741638f16356aba945f0ecece6f68dfb12f4fb0311e5d1"
+      }
+    },
+    "build-workspace-all-targets-v2": {
+      "argv": [
+        "cargo",
+        "build",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 73.42898091598181,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/machine/gsc/runtime/bounded_tests.rs": "d4746b2581a8bfe2929a53e8cb505eaf727cd0a8d322342d830aec02f7d49acc",
+        "src/machine/gsc/runtime/execution.rs": "f6641301ce6f4df25b5d543b5f68106bd1fed30f4d7525862febfda8da39b4d7",
+        "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+        "src/vm/runtime/gsc_bounded_tests.rs": "cff3548683bd022b22d141f118205e6894968472632ff4136c912787dc664fea",
+        "src/machine/gsc/runtime.rs": "aef91370d715a52a4bf538f1a7608259044e5f20c423c53d1fb9ec4aac8f611a",
+        "src/vm/runtime.rs": "ebdb7fa0422162844c741638f16356aba945f0ecece6f68dfb12f4fb0311e5d1"
+      }
+    },
+    "clippy-workspace-all-targets-v2": {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 87.19538820901653,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/machine/gsc/runtime/bounded_tests.rs": "d4746b2581a8bfe2929a53e8cb505eaf727cd0a8d322342d830aec02f7d49acc",
+        "src/machine/gsc/runtime/execution.rs": "f6641301ce6f4df25b5d543b5f68106bd1fed30f4d7525862febfda8da39b4d7",
+        "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+        "src/vm/runtime/gsc_bounded_tests.rs": "cff3548683bd022b22d141f118205e6894968472632ff4136c912787dc664fea",
+        "src/machine/gsc/runtime.rs": "aef91370d715a52a4bf538f1a7608259044e5f20c423c53d1fb9ec4aac8f611a",
+        "src/vm/runtime.rs": "ebdb7fa0422162844c741638f16356aba945f0ecece6f68dfb12f4fb0311e5d1"
+      }
+    },
+    "doctests-workspace-v2": {
+      "argv": [
+        "cargo",
+        "test",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 6.3475379580049776,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true,
+      "source_sha256": {
+        "src/machine/gsc/runtime/bounded_tests.rs": "d4746b2581a8bfe2929a53e8cb505eaf727cd0a8d322342d830aec02f7d49acc",
+        "src/machine/gsc/runtime/execution.rs": "f6641301ce6f4df25b5d543b5f68106bd1fed30f4d7525862febfda8da39b4d7",
+        "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+        "src/vm/runtime/gsc_bounded_tests.rs": "cff3548683bd022b22d141f118205e6894968472632ff4136c912787dc664fea",
+        "src/machine/gsc/runtime.rs": "aef91370d715a52a4bf538f1a7608259044e5f20c423c53d1fb9ec4aac8f611a",
+        "src/vm/runtime.rs": "ebdb7fa0422162844c741638f16356aba945f0ecece6f68dfb12f4fb0311e5d1"
+      }
+    }
+  },
+  "LLVM": {
+    "tool_versions": {
+      "llvm-mc": "LLVM (http://llvm.org/):",
+      "ld.lld": "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d) (compatible with GNU linkers)",
+      "llvm-objcopy": "llvm-objcopy, compatible with GNU objcopy",
+      "llvm-objdump": "LLVM (http://llvm.org/):"
+    },
+    "commands": [
+      {
+        "argv": [
+          "/Users/int/local/bin/llvm-mc",
+          "--triple=riscv32",
+          "--mattr=+m,+c",
+          "--filetype=obj",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/guest-witnesses-v2.s",
+          "-o",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/guest-witnesses-v2.o"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/Users/int/local/bin/ld.lld",
+          "-m",
+          "elf32lriscv",
+          "--no-relax",
+          "--image-base=0",
+          "-Ttext=0x1000",
+          "-e",
+          "0x1000",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/guest-witnesses-v2.o",
+          "-o",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/guest-witnesses-v2.elf"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/Users/int/local/bin/llvm-objcopy",
+          "-O",
+          "binary",
+          "--only-section=.text",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/guest-witnesses-v2.elf",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/guest-witnesses-v2.bin"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/Users/int/local/bin/llvm-objdump",
+          "-d",
+          "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/guest-witnesses-v2.elf"
+        ],
+        "exit_code": 0,
+        "stdout": "\n/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/guest-witnesses-v2.elf:\tfile format elf32-littleriscv\n\nDisassembly of section .text:\n\n00001000 <.text>:\n    1000: 00000013     \tnop\n    1004: 0005a503     \tlw\ta0, 0x0(a1)\n    1008: 400c05b7     \tlui\ta1, 0x400c0\n    100c: 0145a503     \tlw\ta0, 0x14(a1)\n    1010: 40000537     \tlui\ta0, 0x40000\n    1014: 04c52603     \tlw\ta2, 0x4c(a0)\n    1018: 00061c63     \tbnez\ta2, 0x1030 <.text+0x30>\n    101c: 00100613     \tli\ta2, 0x1\n    1020: 04c52623     \tsw\ta2, 0x4c(a0)\n    1024: 070415b7     \tlui\ta1, 0x7041\n    1028: 77658593     \taddi\ta1, a1, 0x776\n    102c: 00b52423     \tsw\ta1, 0x8(a0)\n    1030: 00052683     \tlw\ta3, 0x0(a0)\n    1034: 10500073     \twfi\n    1038: 00100073     \tebreak\n",
+        "stderr": ""
+      }
+    ],
+    "expected_words": [
+      "0x13",
+      "0x5a503",
+      "0x400c05b7",
+      "0x145a503",
+      "0x40000537",
+      "0x4c52603",
+      "0x61c63",
+      "0x100613",
+      "0x4c52623",
+      "0x70415b7",
+      "0x77658593",
+      "0xb52423",
+      "0x52683",
+      "0x10500073",
+      "0x100073"
+    ],
+    "observed_words": [
+      "0x13",
+      "0x5a503",
+      "0x400c05b7",
+      "0x145a503",
+      "0x40000537",
+      "0x4c52603",
+      "0x61c63",
+      "0x100613",
+      "0x4c52623",
+      "0x70415b7",
+      "0x77658593",
+      "0xb52423",
+      "0x52683",
+      "0x10500073",
+      "0x100073"
+    ],
+    "equal": true
+  },
+  "assumption_register": [
+    {
+      "id": "GSCP1",
+      "assumption": "The production coordinator selects the stepping path for GSC because supports_stepping is true.",
+      "basis": "src/vm/runtime/coordinator.rs and GscVcpu VCpu implementation",
+      "dependent_result": "Fix platform semantics at the one-step entry.",
+      "stress_test": "Actual guest timer/IRQ/WFI/reset and bounded host hook fixtures.",
+      "falsification_probe": "Coordinator bypasses this entry, or baseline already preserves the tested effects.",
+      "status": "confirmed by guest unit effects and actual factory/coordinator red-green tests"
+    },
+    {
+      "id": "GSCP2",
+      "assumption": "Warm-reset architectural counters and coordinator retirement accounting have different lifetimes.",
+      "basis": "RiscVCpu::reset and retirement-budget delta contract",
+      "dependent_result": "Maintain an adapter retirement counter independently of resettable core counters.",
+      "stress_test": "Actual reset store, repeated resets and wrap boundary.",
+      "falsification_probe": "Reset creates a huge counter delta or loses a completed store.",
+      "status": "falsified; redundant adapter counter removed before final qualification",
+      "falsification_evidence": {
+        "source": "src/isa/riscv/cpu.rs RiscVCpu::reset explicitly preserves counters",
+        "test": "green-GSC-v1.json: expected0, observed4 after warm reset"
+      }
+    },
+    {
+      "id": "GSCP2R",
+      "assumption": "The represented RISC-V core retains its diagnostic counters through warm reset.",
+      "basis": "RiscVCpu::reset source and observed 4 after reset in the initial repaired fixture",
+      "dependent_result": "Retain the original GSC instruction_count source; no additional counter or serialized field.",
+      "stress_test": "Reset store,33 reset requests,actual coordinator restart,64-bit wrap",
+      "falsification_probe": "A completed instruction is lost/doubled or reset changes the observed counter unexpectedly.",
+      "status": "confirmed within the represented software model"
+    },
+    {
+      "id": "GSCP3",
+      "assumption": "A host-only platform transition can return control without retiring or executing another guest instruction.",
+      "basis": "RetirementStop::StateChange contract",
+      "dependent_result": "Replace outer run-loop retries with one bounded platform action.",
+      "stress_test": "Enabled/disabled entropy hook,PLT reset event,break-stop,zero budget",
+      "falsification_probe": "State-only entry runs the replacement PC,charges retirement,or loops internally.",
+      "status": "confirmed for exercised hooks; complete real firmware/TPM qualification is not claimed"
+    },
+    {
+      "id": "GSCP4",
+      "assumption": "The board selector can be isolated to child test processes.",
+      "basis": "std::process::Command::env and source contains no parent environment mutation",
+      "dependent_result": "Actual GSC factory tests coexist with the unfiltered root suite.",
+      "stress_test": "Both factory witnesses execute inside the unfiltered four-thread suite.",
+      "falsification_probe": "Another architecture is selected,child marker recurses,or parent environment is mutated by this fixture.",
+      "status": "confirmed by source inspection and the complete owning run"
+    }
+  ],
+  "counter_assumption_correction": "The first repaired group had 52 passed and 1 failed because the test assumed reset cleared instret. Both actual VMM witnesses passed. Removed the unnecessary counter and corrected the model assertion; final v2 qualification required. The original reset red stopped at reset_count=0 before the incorrect counter expectation was evaluated; the independent VMM red observed cold RSTSRC=0x01. Neither defect observation depends on that rejected counter assumption.",
+  "environment": {
+    "RUSTC_WRAPPER": "",
+    "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+    "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+    "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+    "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+    "CARGO_BUILD_JOBS": "8",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_NET_OFFLINE": "true",
+    "RUSTC_WORKSPACE_WRAPPER": "",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_TEST_LTO": "off",
+    "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+    "CARGO_PROFILE_DEV_LTO": "off",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true"
+  },
+  "host": {
+    "utc": "2026-11-02T01:14:35.449359+00:00",
+    "machine": "arm64",
+    "system": "Darwin",
+    "macOS": "27.2",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+    "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)\n",
+    "memory_bytes": 137438953472,
+    "cores": 16
+  },
+  "source_split": {
+    "src/machine/gsc/runtime/bounded_tests.rs": 278,
+    "src/machine/gsc/runtime/execution.rs": 863,
+    "src/machine/gsc/runtime/tests.rs": 762,
+    "src/vm/runtime/gsc_bounded_tests.rs": 141,
+    "src/machine/gsc/runtime.rs": 1904,
+    "src/vm/runtime.rs": 1025
+  },
+  "method_coverage": {
+    "original_methods": [
+      "new",
+      "take_reset",
+      "console",
+      "sync_machine_external_irq",
+      "read_guest_u32",
+      "fill_entropy",
+      "maybe_fill_random",
+      "begin_tpm_call",
+      "restore_tpm_state",
+      "finish_tpm_call",
+      "plant_tpm_command",
+      "capture_tpm_response",
+      "trap_exit",
+      "run",
+      "get_state",
+      "set_state",
+      "complete_io_in",
+      "id",
+      "instruction_count",
+      "supports_stepping",
+      "current_pc",
+      "step_insn"
+    ],
+    "final_methods": [
+      "new",
+      "take_reset",
+      "console",
+      "sync_machine_external_irq",
+      "read_guest_u32",
+      "fill_entropy",
+      "maybe_fill_random",
+      "begin_tpm_call",
+      "restore_tpm_state",
+      "finish_tpm_call",
+      "plant_tpm_command",
+      "capture_tpm_response",
+      "trap_exit",
+      "step_platform",
+      "run",
+      "get_state",
+      "set_state",
+      "complete_io_in",
+      "id",
+      "instruction_count",
+      "supports_stepping",
+      "current_pc",
+      "step_insn"
+    ],
+    "only_added_method": "step_platform",
+    "original_test_functions": [
+      "test_cfg",
+      "test_bridge",
+      "rd32",
+      "wr32",
+      "rd8",
+      "wr8",
+      "mem_rd32",
+      "mem_wr32",
+      "ready_map_returns_fixed_status",
+      "timer_counter_advances_with_published_time",
+      "second_timer_counter_advances",
+      "drbg_reports_done_and_nonzero_output",
+      "fifo_ram_window_round_trips",
+      "timer_compare_write_tracks_64bit_deadline",
+      "parse_tpm_cmds_splits_hex_commands",
+      "uart_state_tracks_rx_queue",
+      "core_irq_claim_tracks_armed_uart_rx",
+      "rstsrc_reads_por_then_clears_via_clrrst",
+      "global_reset_preserves_persistent_pmu_scratch",
+      "mmio_registers_remember_writes",
+      "spin_breaker_alternates_polarity",
+      "pmu_reset_magic_is_detected",
+      "pmu_chip_id_and_wake_source_are_fixed",
+      "flash_program_op_uses_payload_registers_and_clears_control",
+      "flash_control1_programs_second_slot",
+      "flash_read_and_erase_family_ops_work",
+      "flash_info_bank_is_separate_from_xip_flash",
+      "ap_ro_stub_supplies_cached_status_info_words",
+      "ap_ro_info_stub_only_supplies_cached_status_info_words",
+      "ap_ro_stub_forces_kernel_verifier_return_to_ok",
+      "ap_ro_crypto_stub_supplies_root_key_digest_compare_result",
+      "ap_ro_crypto_stub_supplies_range_digest_compare_result",
+      "usb_status_and_reset_registers_self_clear",
+      "rbox_interrupt_state_is_write_one_to_clear",
+      "rbox_ready_and_control_status_complete_immediately",
+      "ap_spi_status_registers_are_write_one_to_clear",
+      "ap_spi_transaction_clears_busy_and_returns_status_byte",
+      "ap_spi_fast_read_returns_erased_flash_without_image",
+      "ap_spi_fast_read_uses_backing_ap_flash_image",
+      "gsc_fifo_reset_busy_bits_clear_on_read",
+      "gsc_fifo_interrupt_state_is_write_one_to_clear",
+      "gpio_input_banks_are_stable_status_words",
+      "gpio_interrupt_state_is_write_one_to_clear",
+      "fuse_defaults_and_trng_are_available",
+      "globalsec_active_image_regions_are_available",
+      "synthetic_cryptolib_rom_is_installed",
+      "boot",
+      "end_to_end_rv32_xsoteria_uart_console",
+      "pmu_reset_loop_is_bounded"
+    ],
+    "final_test_functions": [
+      "test_cfg",
+      "test_bridge",
+      "rd32",
+      "wr32",
+      "rd8",
+      "wr8",
+      "mem_rd32",
+      "mem_wr32",
+      "ready_map_returns_fixed_status",
+      "timer_counter_advances_with_published_time",
+      "second_timer_counter_advances",
+      "drbg_reports_done_and_nonzero_output",
+      "fifo_ram_window_round_trips",
+      "timer_compare_write_tracks_64bit_deadline",
+      "parse_tpm_cmds_splits_hex_commands",
+      "uart_state_tracks_rx_queue",
+      "core_irq_claim_tracks_armed_uart_rx",
+      "rstsrc_reads_por_then_clears_via_clrrst",
+      "global_reset_preserves_persistent_pmu_scratch",
+      "mmio_registers_remember_writes",
+      "spin_breaker_alternates_polarity",
+      "pmu_reset_magic_is_detected",
+      "pmu_chip_id_and_wake_source_are_fixed",
+      "flash_program_op_uses_payload_registers_and_clears_control",
+      "flash_control1_programs_second_slot",
+      "flash_read_and_erase_family_ops_work",
+      "flash_info_bank_is_separate_from_xip_flash",
+      "ap_ro_stub_supplies_cached_status_info_words",
+      "ap_ro_info_stub_only_supplies_cached_status_info_words",
+      "ap_ro_stub_forces_kernel_verifier_return_to_ok",
+      "ap_ro_crypto_stub_supplies_root_key_digest_compare_result",
+      "ap_ro_crypto_stub_supplies_range_digest_compare_result",
+      "usb_status_and_reset_registers_self_clear",
+      "rbox_interrupt_state_is_write_one_to_clear",
+      "rbox_ready_and_control_status_complete_immediately",
+      "ap_spi_status_registers_are_write_one_to_clear",
+      "ap_spi_transaction_clears_busy_and_returns_status_byte",
+      "ap_spi_fast_read_returns_erased_flash_without_image",
+      "ap_spi_fast_read_uses_backing_ap_flash_image",
+      "gsc_fifo_reset_busy_bits_clear_on_read",
+      "gsc_fifo_interrupt_state_is_write_one_to_clear",
+      "gpio_input_banks_are_stable_status_words",
+      "gpio_interrupt_state_is_write_one_to_clear",
+      "fuse_defaults_and_trng_are_available",
+      "globalsec_active_image_regions_are_available",
+      "synthetic_cryptolib_rom_is_installed",
+      "boot",
+      "end_to_end_rv32_xsoteria_uart_console",
+      "pmu_reset_loop_is_bounded"
+    ],
+    "test_module_path_unchanged": "machine::gsc::runtime::tests",
+    "all_existing_test_names_preserved": true,
+    "core_reset_source_sha256": "6274842e41c5cf16664ddd01aa62dbd1b6ff83f982efb2af714f04265d06aab9"
+  },
+  "static_review": {
+    "constructor_and_all_existing_non_trait_helpers_byte_unchanged": true,
+    "public_state_IO_identity_count_and_stepping_support_methods_byte_unchanged": true,
+    "changed_methods": [
+      "run",
+      "step_insn"
+    ],
+    "added_method": "step_platform",
+    "intentional_transition_change": "PLT reset host event drains reset without an extra guest instruction before returning a zero-retirement state change.",
+    "new_checkpoint_fields": false,
+    "original_counter_source_retained": true,
+    "new_global_settings": false,
+    "unrelated_source_edits": false
+  },
+  "change_surface": {
+    "GSC_adapter": "affected:run and step share the existing platform path",
+    "CPU_core": "unchanged",
+    "memory_MMIO": "existing GSC bridge unchanged; publication and IRQ synchronization now reached by stepping",
+    "scheduler": "production coordinator unchanged; actual factory/coordinator fixtures prove its call path",
+    "SMIR_IR_interpreter_optimizer_lowering": "unchanged; no instruction semantics or native admission added",
+    "C_ABI": "unchanged; complete C API library is a compatibility check",
+    "native_HVF_KVM": "unchanged; not exercised by this GSC group"
+  },
+  "unrun": [
+    "No native backend or common production coordinator code changes; VMM runtime edits register cfg(test) fixtures only. Physical Intel/native profile execution is not qualified by this group.",
+    "No C/C++ headers, API implementation, context framing, or engine factory code changed. Complete C API library retained as a compatibility gate; no extra C/C++ or native-HVF qualification claim.",
+    "Physical GSC firmware/hardware conformance was not performed.",
+    "Known independent native streaming-FPSR failure remains unresolved."
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "GSC/S5L8900 complete private/platform checkpoint restoration remains unimplemented; do not close C-STATE."
+    },
+    {
+      "impact": "high",
+      "item": "Physical Intel execution and the independent native streaming-FPSR failure remain open."
+    }
+  ],
+  "complexity": "Each platform step performs at most one guest instruction attempt or a state-only action. Retirement-budget iteration is linear in completed attempts and returns immediately on a zero-retirement state change. Existing memory/MMIO, bounded entropy-buffer and optional diagnostic costs remain; no constant host-time or hard-real-time bound is claimed.",
+  "quality_gates": {
+    "assumptions_reconciled": true,
+    "falsified_assumption_removed_from_design": true,
+    "current_group_coverage_complete": true,
+    "full_goal_complete": false,
+    "source_frozen_through_gates": true,
+    "existing_test_names_preserved": true,
+    "unrun_and_bounded_scope_explicit": true
+  }
+}

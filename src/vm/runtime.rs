@@ -926,6 +926,10 @@ mod cortex_m_context_tests;
 mod hexagon_context_tests;
 
 #[cfg(test)]
+#[path = "runtime/gsc_bounded_tests.rs"]
+mod gsc_bounded_tests;
+
+#[cfg(test)]
 #[path = "runtime/riscv_context_tests.rs"]
 mod riscv_context_tests;
 

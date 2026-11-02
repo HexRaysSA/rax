@@ -3487,7 +3487,8 @@
         "docs/development/arm-native-store-frontier/qualification.json",
         "docs/development/arm-native-store-frontier/README.md",
         "docs/development/lapic-selected-clock/qualification.json",
-        "docs/development/lapic-selected-clock/README.md"
+        "docs/development/lapic-selected-clock/README.md",
+        "docs/development/gsc-platform-steps/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3516,7 +3517,8 @@
         "ARM native host cancellation now uses finite host turns and preserves genuine guest exits, locally qualified with complete signed Apple Silicon debug/no-debug state binaries. Manual 2/4-CPU turns do not close VMM AP startup, IRQ, clocks/replay, complete backend/private checkpoint or Intel requirements. Independent early-PC MMIO defect remains open; see arm-native-host-scheduling/qualification.json.",
         "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open.",
         "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open.",
-        "Selected-clock LAPIC behavior is qualified separately; retired VMM construction, deterministic default/native retirement, RTC and external-event replay remain open. See lapic-selected-clock/qualification.json."
+        "Selected-clock LAPIC behavior is qualified separately; retired VMM construction, deterministic default/native retirement, RTC and external-event replay remain open. See lapic-selected-clock/qualification.json.",
+        "GSC platform-aware stepping is locally qualified after five guest-effect and two actual factory/coordinator failures. The original core counter survives warm reset; no duplicate counter was added. Complete GSC/S5L8900 private/platform contexts, full backend startup/IRQ/clock/replay and physical Intel requirements remain open. No full finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3556,7 +3558,8 @@
         "intel-native-host-scheduling-2026-11-01",
         "intel-interrupt-window-ack-2026-11-01",
         "arm-native-host-scheduling-2026-11-01",
-        "arm-native-mmio-read-frontier-2026-11-01"
+        "arm-native-mmio-read-frontier-2026-11-01",
+        "gsc-platform-aware-bounded-steps-2026-11-02"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -197964,6 +197967,20 @@
       "parent": "c6e29408c7795167b9d77758bc171456df0847fd",
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/commit-receipt.json",
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/hexagon-private-checkpoint-v1/cleanup-final.json",
+      "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
+      "full_goal_complete": false
+    },
+    {
+      "id": "gsc-platform-aware-bounded-steps-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-SMP"
+      ],
+      "qualification": "docs/development/gsc-platform-steps/qualification.json",
+      "scope": "GSC platform-aware single-step and production retirement-budget execution",
+      "parent": "b07b0aaf81fd80b5913ab1a103b54ee4ae44e293",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/commit-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-platform-steps-v1/cleanup-final.json",
       "workflow": "git add -- <exact owned paths>; red -m --staged --run <same paths>",
       "full_goal_complete": false
     }
