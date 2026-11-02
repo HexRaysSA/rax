@@ -2,7 +2,26 @@
 use super::*;
 use crate::isa::arm::common::fp_access::{FpAccessClass, FpAccessControls};
 
+pub(super) fn is_fpexc32_instruction(word: u32) -> bool {
+    word & 0xffdf_ffe0 == 0xd51c_5300
+}
+
 impl AArch64Cpu {
+    pub(super) fn check_aarch32_fpexc_instruction(&self, insn: u32) -> Result<(), ArmError> {
+        if !is_fpexc32_instruction(insn) {
+            return Ok(());
+        }
+        if self.current_el < 2 {
+            return Err(ArmError::InvalidExceptionLevel(self.current_el));
+        }
+        // DDI0487B.a D7.2.32: the alias exists only when EL1 supports
+        // AArch32. Check implementation before the FP access controls.
+        if (self.sysregs.id_aa64pfr0_el1 >> 4) & 15 != 2 {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+        self.check_fp_access(FpAccessClass::System)
+    }
+
     pub(super) fn fp_access_controls(&self) -> FpAccessControls {
         let controls = self.pauth_controls();
         let cptr = |op1| {

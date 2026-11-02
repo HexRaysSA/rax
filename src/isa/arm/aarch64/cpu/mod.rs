@@ -50,6 +50,8 @@ mod fp_profile;
 #[cfg(test)]
 mod fp_trap_tests;
 mod fp_traps;
+#[cfg(test)]
+mod fpexc32_tests;
 mod identity;
 mod instruction;
 mod interrupt_binding;

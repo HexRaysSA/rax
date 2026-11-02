@@ -7,6 +7,11 @@ use crate::isa::arm::decoder::{Mnemonic, aarch64::Aarch64Decoder};
 // generic native register file does not represent. A NOP-shaped lift must not
 // erase their interpreter exit, event consumption, or local monitor effects.
 fn native_control_requires_interpretation(word: u32) -> bool {
+    // The native register image has no AArch32 FPEXC bank. Preserve its
+    // privilege/profile/trap checks even when a dead result is optimized out.
+    if super::fp_access::is_fpexc32_instruction(word) {
+        return true;
+    }
     Aarch64Decoder::decode(word).is_ok_and(|instruction| {
         matches!(
             instruction.mnemonic,

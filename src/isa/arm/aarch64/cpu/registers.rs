@@ -225,7 +225,7 @@ impl AArch64Cpu {
             encoding.crm,
             encoding.op2,
         ) {
-            (3, 4, 5, 3, 0) if self.fp_trapping_profile() => {
+            (3, 4, 5, 3, 0) => {
                 if self.current_el < 2 {
                     return Err(ArmError::InvalidExceptionLevel(self.current_el));
                 }
@@ -428,7 +428,7 @@ impl AArch64Cpu {
             encoding.crm,
             encoding.op2,
         ) {
-            (3, 4, 5, 3, 0) if self.fp_trapping_profile() => {
+            (3, 4, 5, 3, 0) => {
                 if self.current_el < 2 {
                     return Err(ArmError::InvalidExceptionLevel(self.current_el));
                 }
@@ -726,6 +726,7 @@ impl AArch64Cpu {
             return Err(ArmError::UndefinedInstruction(insn));
         }
         self.check_aarch32_fp_id_instruction(insn, encoding, l != 0, rt)?;
+        self.check_aarch32_fpexc_instruction(insn)?;
         if crate::isa::arm::common::fp_access::is_fp_system_instruction(insn) {
             self.check_fp_access(crate::isa::arm::common::fp_access::FpAccessClass::System)?;
         }
