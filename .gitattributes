@@ -33,3 +33,6 @@ tests/fixtures/user/windows/native_mapped_filename/** -text whitespace=cr-at-eol
 
 # Preserve the executed AppModel acquisition inputs and native evidence bytes.
 docs/specifications/windows/native-appmodel-registry/* -text whitespace=cr-at-eol
+
+# Preserve the recorded pre-FHM S3C private-state compatibility fixture.
+docs/development/arm-fhm/legacy-s3c-v1.bin binary

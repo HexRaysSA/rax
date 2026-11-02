@@ -1,0 +1,222 @@
+{
+  "schema": 1,
+  "utc": "2026-11-02T03:42:51.200296+00:00",
+  "parent": "31064030c11f45e6ea1e9fa4914f1194f715c798",
+  "scope": "Track the exact archived S3C pre-FHM compatibility fixture required by an existing compile-time include.",
+  "baseline_compile_failure": {
+    "argv": [
+      "cargo",
+      "test",
+      "--config",
+      "profile.dev.package.sha2.opt-level=3",
+      "--config",
+      "profile.dev.package.zstd.opt-level=3",
+      "--config",
+      "profile.dev.package.zstd-safe.opt-level=3",
+      "--config",
+      "profile.dev.package.zstd-sys.opt-level=3",
+      "--config",
+      "profile.test.package.sha2.opt-level=3",
+      "--config",
+      "profile.test.package.zstd.opt-level=3",
+      "--config",
+      "profile.test.package.zstd-safe.opt-level=3",
+      "--config",
+      "profile.test.package.zstd-sys.opt-level=3",
+      "--workspace",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+      "--lib",
+      "--no-run",
+      "--message-format=json"
+    ],
+    "exit_code": 101,
+    "expected_exit_code": 0,
+    "elapsed_seconds": 262.51009291695664,
+    "test_results": [],
+    "executable_before": null,
+    "executable_after_sha256": null,
+    "source_unchanged": true,
+    "source_sha256": {
+      "src/machine/s5l8900/runtime.rs": "934cb64d5e803986d1ccab411a1d26ef632e161cd25d93bdf5cf0bb2c8e011e0",
+      "src/machine/s5l8900/runtime/step.rs": "a71c896c727f54c77c8342b273e16d8c0764f635d6133b51953b383f98f995c3",
+      "src/machine/s5l8900/runtime/bounded_tests.rs": "1d46e934f5485c0ee81d3694c38573dcc4b12e64e904e89a5a13b43e142b07c3",
+      "src/vm/runtime.rs": "d0b2858f61996200137216369d05115b6d06683d32d3609f752e197d29198bf3",
+      "src/vm/runtime/s5l_bounded_tests.rs": "329299f453b1ae45d189ace8a93a42c483f4fbb6aea276347cfabd854cbe47c8",
+      "docs/development/audit-remediation-2026-10.json": "4c97151ef3c6e656cb538a34ee320ac2eac753f703a9d438eb9282c676f6ffcb",
+      "__HEAD__": "31064030c11f45e6ea1e9fa4914f1194f715c798",
+      "__tracked_changes__": "6383192e3028cf622c1eafb526662c216afd6e5db7379de12947ce66b047b072"
+    }
+  },
+  "recovery": {
+    "utc": "2026-11-02T03:11:33.777721+00:00",
+    "source": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/legacy-s3c-v1.bin",
+    "destination": "docs/development/arm-fhm/legacy-s3c-v1.bin",
+    "bytes": 5160,
+    "sha256": "e5ef1f9020641f9a5116e7c8d0bd3e729cc053dbc39a82548506f0937d1087bf",
+    "tracked_provenance": {
+      "record": {
+        "producer_commit": "457c02a74412bcf1f782ddedca25b77e3b81d92e",
+        "engine_rlib_sha256": "994ea40dbcd4047f139810b9ac50060ec3345d567e8511d2d6e91bf23a3411e6",
+        "bytes": 5160,
+        "sha256": "e5ef1f9020641f9a5116e7c8d0bd3e729cc053dbc39a82548506f0937d1087bf",
+        "expected": {
+          "count": 0,
+          "pc": 1342177280,
+          "r0": 291
+        },
+        "time": "2026-10-28T18:54:50.162154+00:00"
+      },
+      "fixture_sha256": "e5ef1f9020641f9a5116e7c8d0bd3e729cc053dbc39a82548506f0937d1087bf"
+    },
+    "source_bytes_unchanged": true,
+    "regenerated": false,
+    "only_untracked_literal_Rust_include": true,
+    "baseline_compile_failure": "baseline-build-v1.json"
+  },
+  "literal_include_audit": [
+    {
+      "source": "src/machine/s3c64xx/context_compat_tests.rs",
+      "path": "docs/development/arm-fhm/legacy-s3c-v1.bin",
+      "exists": false
+    }
+  ],
+  "compiled_input_audit": {
+    "utc": "2026-11-02T03:42:51.137543+00:00",
+    "dependency_files": 509,
+    "project_compiler_inputs": 5871,
+    "untracked_unowned": [],
+    "missing": [],
+    "planned_exact_owned_inputs": [
+      "docs/development/arm-fhm/legacy-s3c-v1.bin",
+      "src/machine/s5l8900/runtime/bounded_tests.rs",
+      "src/machine/s5l8900/runtime/bridge.rs",
+      "src/machine/s5l8900/runtime/diagnostics.rs",
+      "src/machine/s5l8900/runtime/execution_support.rs",
+      "src/machine/s5l8900/runtime/interrupts.rs",
+      "src/machine/s5l8900/runtime/kernel_trace.rs",
+      "src/machine/s5l8900/runtime/storage_trace.rs",
+      "src/machine/s5l8900/runtime/tests.rs",
+      "src/machine/s5l8900/runtime/vcpu.rs",
+      "src/vm/runtime/s5l_bounded_tests.rs"
+    ],
+    "policy": "Every currently compiled project input must exist and be tracked or explicitly owned for the two authorized semantic commits; verify all tracked after commit. Registry/toolchain/build-generated inputs outside the project are excluded."
+  },
+  "focused_legacy_test": {
+    "argv": [
+      "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "machine::s3c64xx::runtime::context::compat_tests::",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "elapsed_seconds": 0.022095291991718113,
+    "test_results": [
+      {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "executable_before": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "sha256": "0e11bde76af867395f21e0e86fd941faaf56602c1fbcc740dd19ef102803b58c",
+      "inode": 400599024
+    },
+    "executable_after_sha256": "0e11bde76af867395f21e0e86fd941faaf56602c1fbcc740dd19ef102803b58c",
+    "source_unchanged": true,
+    "source_sha256": {
+      "src/machine/s5l8900/runtime.rs": "f8c96f5d5717efe965ed73c0409bfe2403dfe188b35c7e92a32f9a9c64e44fc7",
+      "src/machine/s5l8900/runtime/step.rs": "8d1f7d8be894d1fbd3617a576112366759506ae3ee0924e7dc1be785769b1230",
+      "src/machine/s5l8900/runtime/vcpu.rs": "3076340eb7eca505e3f386e3b2b41c13368c34bf1a96d0e451457730bf0e880d",
+      "src/machine/s5l8900/runtime/bridge.rs": "b03f4dfcf84f9411753d74ee251354b81965d0ec05dd4f9997ddb0c336ed6229",
+      "src/machine/s5l8900/runtime/interrupts.rs": "2e88abb23db5e63a85708e6f8849d840f4d725cb91f8d950a159b58fa70803c6",
+      "src/machine/s5l8900/runtime/execution_support.rs": "dd0ad9a9f826c49320142346dfdd372fa4e5505361eabdba03266a3c2ba613a8",
+      "src/machine/s5l8900/runtime/storage_trace.rs": "31ba04606a6dc63aea9064169d35190c28af183e3b8bcb748134e6fc8657d788",
+      "src/machine/s5l8900/runtime/kernel_trace.rs": "bcb58c8cd9e284b40974b5b1e352219c70eba4ec0d14334a0c443f75ad6013b1",
+      "src/machine/s5l8900/runtime/diagnostics.rs": "c1c05fcca98c79791bead0da6d49fe18cfcbf9f8d1bb64d0513b8a5d2faab493",
+      "src/machine/s5l8900/runtime/tests.rs": "f96273d1da2e0aed4748b76c4938779457786503cfaab82b88ab85130a79271e",
+      "src/machine/s5l8900/runtime/bounded_tests.rs": "2effc523f917ed15498aed1c31d75a9e0c068da727fbe1a4dc5741d31dc2ea6a",
+      "src/vm/runtime.rs": "d0b2858f61996200137216369d05115b6d06683d32d3609f752e197d29198bf3",
+      "src/vm/runtime/s5l_bounded_tests.rs": "e186bffaf3afa93bf78f737310f560c3ea602b0268f9594047e70a6e4d78b68e",
+      "docs/development/audit-remediation-2026-10.json": "4c97151ef3c6e656cb538a34ee320ac2eac753f703a9d438eb9282c676f6ffcb",
+      ".gitignore": "9cf342298560cbc6ef1ef9474a005d8848ea29cf30bc4b577fbac10cabd341d3",
+      ".gitattributes": "7eaa715093b40ba5e09c513b40ff4809a8c39faa6f40d92994a52fd6c94a4032",
+      "docs/development/arm-fhm/legacy-s3c-v1.bin": "e5ef1f9020641f9a5116e7c8d0bd3e729cc053dbc39a82548506f0937d1087bf",
+      "__HEAD__": "31064030c11f45e6ea1e9fa4914f1194f715c798",
+      "__tracked_changes__": "b678eaba7c7d8399468183a32b499bac4a04e4e9903ae3c0f6854a2ccd607991"
+    }
+  },
+  "combined_root_test": {
+    "argv": [
+      "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "--nocapture",
+      "--test-threads=8"
+    ],
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "elapsed_seconds": 805.9529833749984,
+    "test_results": [
+      {
+        "passed": 11859,
+        "failed": 0,
+        "ignored": 35
+      }
+    ],
+    "executable_before": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "sha256": "0e11bde76af867395f21e0e86fd941faaf56602c1fbcc740dd19ef102803b58c",
+      "inode": 400599024
+    },
+    "executable_after_sha256": "0e11bde76af867395f21e0e86fd941faaf56602c1fbcc740dd19ef102803b58c",
+    "source_unchanged": true,
+    "source_sha256": {
+      "src/machine/s5l8900/runtime.rs": "f8c96f5d5717efe965ed73c0409bfe2403dfe188b35c7e92a32f9a9c64e44fc7",
+      "src/machine/s5l8900/runtime/step.rs": "8d1f7d8be894d1fbd3617a576112366759506ae3ee0924e7dc1be785769b1230",
+      "src/machine/s5l8900/runtime/vcpu.rs": "3076340eb7eca505e3f386e3b2b41c13368c34bf1a96d0e451457730bf0e880d",
+      "src/machine/s5l8900/runtime/bridge.rs": "b03f4dfcf84f9411753d74ee251354b81965d0ec05dd4f9997ddb0c336ed6229",
+      "src/machine/s5l8900/runtime/interrupts.rs": "2e88abb23db5e63a85708e6f8849d840f4d725cb91f8d950a159b58fa70803c6",
+      "src/machine/s5l8900/runtime/execution_support.rs": "dd0ad9a9f826c49320142346dfdd372fa4e5505361eabdba03266a3c2ba613a8",
+      "src/machine/s5l8900/runtime/storage_trace.rs": "31ba04606a6dc63aea9064169d35190c28af183e3b8bcb748134e6fc8657d788",
+      "src/machine/s5l8900/runtime/kernel_trace.rs": "bcb58c8cd9e284b40974b5b1e352219c70eba4ec0d14334a0c443f75ad6013b1",
+      "src/machine/s5l8900/runtime/diagnostics.rs": "c1c05fcca98c79791bead0da6d49fe18cfcbf9f8d1bb64d0513b8a5d2faab493",
+      "src/machine/s5l8900/runtime/tests.rs": "f96273d1da2e0aed4748b76c4938779457786503cfaab82b88ab85130a79271e",
+      "src/machine/s5l8900/runtime/bounded_tests.rs": "2effc523f917ed15498aed1c31d75a9e0c068da727fbe1a4dc5741d31dc2ea6a",
+      "src/vm/runtime.rs": "d0b2858f61996200137216369d05115b6d06683d32d3609f752e197d29198bf3",
+      "src/vm/runtime/s5l_bounded_tests.rs": "e186bffaf3afa93bf78f737310f560c3ea602b0268f9594047e70a6e4d78b68e",
+      "docs/development/audit-remediation-2026-10.json": "4c97151ef3c6e656cb538a34ee320ac2eac753f703a9d438eb9282c676f6ffcb",
+      ".gitignore": "9cf342298560cbc6ef1ef9474a005d8848ea29cf30bc4b577fbac10cabd341d3",
+      ".gitattributes": "7eaa715093b40ba5e09c513b40ff4809a8c39faa6f40d92994a52fd6c94a4032",
+      "docs/development/arm-fhm/legacy-s3c-v1.bin": "e5ef1f9020641f9a5116e7c8d0bd3e729cc053dbc39a82548506f0937d1087bf",
+      "__HEAD__": "31064030c11f45e6ea1e9fa4914f1194f715c798",
+      "__tracked_changes__": "b678eaba7c7d8399468183a32b499bac4a04e4e9903ae3c0f6854a2ccd607991"
+    }
+  },
+  "qualification_note": "Combined tree includes the separately owned S5L fixes, qualified below; the S3C producer/reader implementation is unchanged.",
+  "assumption_register": [
+    {
+      "id": "FX1",
+      "assumption": "The required 5,160-byte legacy input must be present as its recorded byte identity in a fresh source checkout.",
+      "basis": "Existing include_bytes!, tracked legacy-provenance.json and actual archived producer output.",
+      "dependent_result": "Restore exact bytes, add one ignore exception and binary attributes, no regeneration.",
+      "stress_test": "Observed absent-input compile error, exact SHA256/length, actual old/new reader roundtrip and complete owning library.",
+      "falsification_probe": "Archived bytes differ from recorded hash or actual compatibility test rejects.",
+      "status": "confirmed"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Original four findings remain open; this repair proves source-input availability, not architectural conformance."
+    },
+    {
+      "impact": "low",
+      "item": "Dependency audit covers this host/feature build and literal Rust includes; other cfg/platform generated inputs require their own build gates."
+    }
+  ],
+  "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-bounded-steps-v1/fixture-commit-receipt.json",
+  "full_goal_complete": false
+}

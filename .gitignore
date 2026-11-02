@@ -23,6 +23,7 @@ target/
 !tests/fixtures/hvf/mmio-rmw-v1/records.bin
 !tests/fixtures/devices/lapic/wall-v1.bin
 !docs/development/x86-context-integration/user-v1.bin
+!docs/development/arm-fhm/legacy-s3c-v1.bin
 *.elf
 
 .DS_Store

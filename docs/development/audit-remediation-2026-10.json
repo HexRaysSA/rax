@@ -1017,7 +1017,8 @@
         "src/isa/arm/aarch32/fp_modes.rs",
         "docs/development/a32-restricted-fp/README.md",
         "docs/development/a32-restricted-fp/qualification.json",
-        "src/vm/runtime/a32_restricted_fp_tests.rs"
+        "src/vm/runtime/a32_restricted_fp_tests.rs",
+        "docs/development/arm-fhm/fixture-tracking-recovery-2026-11-02.json"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
@@ -1054,7 +1055,8 @@
           "evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-misc-and-fma-admission/qualification-final-v1.json"
         },
         "aarch64-el0-id-policy-and-guest-privilege-faults-2026-11-01",
-        "a32-restricted-scalar-fp-modes-2026-11-01"
+        "a32-restricted-scalar-fp-modes-2026-11-01",
+        "legacy-s3c-fixture-tracking-2026-11-02"
       ]
     },
     {
@@ -2740,7 +2742,8 @@
         "docs/development/private-context-admission/qualification.json",
         "docs/development/cortex-m-checkpoints/qualification.json",
         "docs/development/hexagon-checkpoints/qualification.json",
-        "docs/development/gsc-checkpoints/qualification.json"
+        "docs/development/gsc-checkpoints/qualification.json",
+        "docs/development/arm-fhm/fixture-tracking-recovery-2026-11-02.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2838,7 +2841,8 @@
         "required-software-private-contexts-2026-11-01",
         "cortex-m-private-checkpoints-2026-11-02",
         "hexagon-private-checkpoints-2026-11-02",
-        "gsc-private-platform-checkpoint-2026-11-02"
+        "gsc-private-platform-checkpoint-2026-11-02",
+        "legacy-s3c-fixture-tracking-2026-11-02"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -198001,6 +198005,19 @@
       "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/cleanup-final.json",
       "master_landing_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/gsc-private-checkpoint-v1/master-landing-final.json",
       "workflow": "Tested exact owned paths only: git add -- <paths>; red -m --staged --run <same paths>; no push; remove idle canonical C/T after committed group.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "legacy-s3c-fixture-tracking-2026-11-02",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "A32-FP",
+        "C-STATE"
+      ],
+      "qualification": "docs/development/arm-fhm/fixture-tracking-recovery-2026-11-02.json",
+      "scope": "Track the exact archived S3C pre-FHM compatibility fixture required by an existing compile-time include.",
+      "parent": "31064030c11f45e6ea1e9fa4914f1194f715c798",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/s5l-bounded-steps-v1/fixture-commit-receipt.json",
       "full_goal_complete": false
     }
   ],
