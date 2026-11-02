@@ -1,0 +1,69 @@
+{
+  "schema": "rax-native-code-integrity-policy-v1",
+  "state": "complete",
+  "source_hashes": {
+    "native-code-integrity-policy/CMakeLists.txt": "dd9831c5c36e03aec66e75cb0a0ea15d49a7328b20a67f523d43a1ff3767fd5f",
+    "native-code-integrity-policy/probe-v1.c": "b33400f3512a4a91b4e6d478d036101400644b22b016ad90e92f6275e35d7504"
+  },
+  "normalized_source_hashes": {
+    "native-code-integrity-policy/CMakeLists.txt": "0cfe28f4615dceeac5063c17b19934912c45c6a5fd9234a49fc5b8da7fa16ca0",
+    "native-code-integrity-policy/probe-v1.c": "cbe0694181109e7886e6b85c0370c7a15a8024d819fb9308b8a17ebee6dfdd86"
+  },
+  "host": {
+    "system": "Windows",
+    "release": "2022Server",
+    "machine": "AMD64"
+  },
+  "reports": [
+    {
+      "architecture": "x64",
+      "file": "x64.jsonl",
+      "machine": 34404,
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        20348
+      ],
+      "records": 2916,
+      "exit_code": 0,
+      "image": {
+        "bytes": 15360,
+        "sha256": "b948c7a492d62574afdd06031ac29b89c508c86f9a29e727d1787ca0a85286cd"
+      },
+      "stdout_sha256": "2b10295527d360536eb69bb6e3fda3e37e852b9fd55c80489c270ff446be2eeb",
+      "provider": {
+        "path": "C:\\Windows\\System32\\ntdll.dll",
+        "logical_path": "C:\\Windows\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume4\\Windows\\System32\\ntdll.dll",
+        "before_sha256": "bcfe8a70a371a7d2fbcb429ab0a9e170aeebe4d73ae08d03a2da8fedec2efc78",
+        "after_sha256": "bcfe8a70a371a7d2fbcb429ab0a9e170aeebe4d73ae08d03a2da8fedec2efc78"
+      }
+    },
+    {
+      "architecture": "x86",
+      "file": "x86.jsonl",
+      "machine": 332,
+      "pointer_bytes": 4,
+      "kernel": [
+        10,
+        0,
+        20348
+      ],
+      "records": 2916,
+      "exit_code": 0,
+      "image": {
+        "bytes": 12800,
+        "sha256": "b43fe296352decb1da7f609ecaf27a27ad9ea79ae94b4106a1370e25097c0f7e"
+      },
+      "stdout_sha256": "4830c175cb9197bde753453e8430dd3aee864b081807fb74ff11caa5950b49fc",
+      "provider": {
+        "path": "C:\\Windows\\SysWOW64\\ntdll.dll",
+        "logical_path": "C:\\Windows\\SYSTEM32\\ntdll.dll",
+        "mapped_native_path": "\\Device\\HarddiskVolume4\\Windows\\SysWOW64\\ntdll.dll",
+        "before_sha256": "1e78588dcb44d47c1656f9f6eab8ab5beb5279959bcebf74c0f869d8d1c73322",
+        "after_sha256": "1e78588dcb44d47c1656f9f6eab8ab5beb5279959bcebf74c0f869d8d1c73322"
+      }
+    }
+  ]
+}

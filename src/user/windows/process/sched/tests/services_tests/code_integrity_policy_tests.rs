@@ -107,68 +107,128 @@ fn prepare(p: &mut Proc, base: u64, case: &Case) -> (u64, u64, u64, u64) {
     )
 }
 
-fn corpus(label: &str) -> String {
-    if let Some(directory) = std::env::var_os("RAX_CODE_INTEGRITY_POLICY_CORPUS") {
-        return std::fs::read_to_string(
-            std::path::PathBuf::from(directory).join(format!("{label}.jsonl")),
-        )
-        .expect("explicit fresh native observations");
-    }
-    match label {
-        "arm64" => include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/docs/specifications/windows/native-code-integrity-policy/arm64.jsonl"
-        )),
-        "x64" => include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/docs/specifications/windows/native-code-integrity-policy/x64.jsonl"
-        )),
-        "x86" => include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/docs/specifications/windows/native-code-integrity-policy/x86.jsonl"
-        )),
-        _ => unreachable!(),
-    }
-    .into()
+struct Corpus {
+    build: u32,
+    native_machine: u16,
+    label: String,
+    contents: String,
 }
 
-#[test]
-fn code_integrity_policy_replays_native_queries() {
-    let labels: Vec<String> = if let Some(directory) =
-        std::env::var_os("RAX_CODE_INTEGRITY_POLICY_CORPUS")
-    {
+fn corpora() -> Vec<Corpus> {
+    if let Some(directory) = std::env::var_os("RAX_CODE_INTEGRITY_POLICY_CORPUS") {
+        let directory = std::path::PathBuf::from(directory);
         let manifest: serde_json::Value = serde_json::from_str(
-            &std::fs::read_to_string(std::path::PathBuf::from(directory).join("observations.json"))
-                .unwrap(),
+            &std::fs::read_to_string(directory.join("observations.json")).unwrap(),
         )
         .unwrap();
         assert_eq!(manifest["schema"], "rax-native-code-integrity-policy-v1");
         assert_eq!(manifest["state"], "complete");
-        manifest["reports"]
-            .as_array()
-            .unwrap()
+        assert_eq!(manifest["host"]["identity_source"], "IsWow64Process2");
+        let native_machine =
+            u16::try_from(manifest["host"]["native_machine"].as_u64().unwrap()).unwrap();
+        assert!(matches!(native_machine, 0x8664 | 0xAA64));
+        let reports = manifest["reports"].as_array().unwrap();
+        let labels: std::collections::BTreeSet<_> = reports
             .iter()
-            .map(|r| r["architecture"].as_str().unwrap().to_owned())
-            .collect()
-    } else {
-        ["arm64", "x64", "x86"]
-            .into_iter()
-            .map(str::to_owned)
-            .collect()
-    };
-    let unique: std::collections::BTreeSet<_> = labels.iter().map(String::as_str).collect();
-    assert_eq!(unique.len(), labels.len());
-    assert!(unique.contains("x64") && unique.contains("x86") && unique.len() <= 3);
-    let expected_count = labels.len() * 2916;
+            .map(|r| r["architecture"].as_str().unwrap())
+            .collect();
+        assert_eq!(labels.len(), reports.len());
+        assert!(labels.contains("x64") && labels.contains("x86") && labels.len() <= 3);
+        return reports
+            .iter()
+            .map(|report| {
+                let label = report["architecture"].as_str().unwrap();
+                assert!(matches!(label, "arm64" | "x64" | "x86"));
+                assert_eq!(report["file"], format!("{label}.jsonl"));
+                let kernel = report["kernel"].as_array().unwrap();
+                assert_eq!(kernel.len(), 3);
+                assert_eq!(kernel[0], 10);
+                assert_eq!(kernel[1], 0);
+                Corpus {
+                    build: u32::try_from(kernel[2].as_u64().unwrap()).unwrap(),
+                    native_machine,
+                    label: label.into(),
+                    contents: std::fs::read_to_string(directory.join(format!("{label}.jsonl")))
+                        .expect("explicit fresh native observations"),
+                }
+            })
+            .collect();
+    }
+    [
+        (
+            29695,
+            0xAA64,
+            "arm64",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-code-integrity-policy/arm64.jsonl"
+            )),
+        ),
+        (
+            29695,
+            0xAA64,
+            "x64",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-code-integrity-policy/x64.jsonl"
+            )),
+        ),
+        (
+            29695,
+            0xAA64,
+            "x86",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-code-integrity-policy/x86.jsonl"
+            )),
+        ),
+        (
+            20348,
+            0x8664,
+            "x64",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-code-integrity-policy/amd64-20348/x64.jsonl"
+            )),
+        ),
+        (
+            20348,
+            0x8664,
+            "x86",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-code-integrity-policy/amd64-20348/x86.jsonl"
+            )),
+        ),
+    ]
+    .into_iter()
+    .map(|(build, native_machine, label, contents)| Corpus {
+        build,
+        native_machine,
+        label: label.into(),
+        contents: contents.into(),
+    })
+    .collect()
+}
+
+#[test]
+fn code_integrity_policy_replays_native_queries() {
+    let corpora = corpora();
+    let expected_count = corpora.len() * 2916;
     let mut count = 0;
-    for label in labels {
+    for corpus in corpora {
+        let label = corpus.label;
         let arch = match label.as_str() {
             "arm64" => WinArch::Arm64,
             "x64" => WinArch::X64,
             "x86" => WinArch::X86,
             _ => panic!("unknown native process ABI"),
         };
-        let contents = corpus(&label);
+        let contents = corpus.contents;
+        let header: serde_json::Value =
+            serde_json::from_str(contents.lines().next().unwrap()).unwrap();
+        assert_eq!(header["kind"], "host");
+        assert_eq!(header["kernel"], serde_json::json!([10, 0, corpus.build]));
         let rows: Vec<Case> = contents
             .lines()
             .filter_map(|line| {
@@ -184,7 +244,7 @@ fn code_integrity_policy_replays_native_queries() {
         let record: [u8; 32] = decode(&source.bytes)[..32].try_into().unwrap();
         let (mut process, mut t, _) = query_fixture(arch);
         let p = process.state_mut();
-        native_profile::kernel_profile(p, 29695, 0xAA64);
+        native_profile::kernel_profile(p, corpus.build, corpus.native_machine);
         p.native.as_mut().unwrap().code_integrity_policy = Ok(record);
         let base =
             p.vm.allocate(None, 65536, mem::RESERVE | mem::COMMIT, prot::READWRITE)
@@ -272,17 +332,79 @@ fn code_integrity_policy_requires_selected_snapshot_and_bounds_wow64_workspace()
 #[test]
 fn code_integrity_policy_preserves_arbitrary_record_bits_and_process_snapshot() {
     for arch in WinArch::ALL {
-        for record in [[0; 32], [0xFF; 32], std::array::from_fn(|i| i as u8)] {
+        for (build, machine) in [(20348, 0x8664), (29695, 0xAA64), (29698, 0xAA64)] {
+            for record in [[0; 32], [0xFF; 32], std::array::from_fn(|i| i as u8)] {
+                for length in [32, 64] {
+                    let (mut process, mut t, scratch) = query_fixture(arch);
+                    let p = process.state_mut();
+                    native_profile::kernel_profile(p, build, machine);
+                    p.native.as_mut().unwrap().code_integrity_policy = Ok(record);
+                    // Advertising the opposite measured behavior must not
+                    // change the selected kernel's copy contract.
+                    std::sync::Arc::make_mut(&mut p.cfg).version.build =
+                        if build == 20348 { 29695 } else { 20348 };
+                    query_arguments(p, &mut t, 164, scratch, length, scratch + 96);
+                    assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+                    let rejected = build == 20348 && length != 32;
+                    assert_eq!(
+                        t.cpu.gpr(0),
+                        if rejected {
+                            u64::from(STATUS_INFO_LENGTH_MISMATCH)
+                        } else {
+                            0
+                        }
+                    );
+                    assert_eq!(
+                        p.space.bytes(scratch, 32).unwrap(),
+                        if rejected { [0xA5; 32] } else { record }
+                    );
+                    assert_eq!(p.space.bytes(scratch + 32, 64).unwrap(), [0xA5; 64]);
+                    assert_eq!(p.space.u32(scratch + 96).unwrap(), 32);
+                    assert_eq!(p.space.bytes(scratch + 100, 28).unwrap(), [0xA5; 28]);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn code_integrity_policy_unclassified_kernel_uses_exact_snapshot_and_rejects_unknown_sizes() {
+    for arch in WinArch::ALL {
+        for (major, minor, build, machine) in [
+            (10, 0, 20348, Some(0xAA64)),
+            (10, 0, 20349, Some(0x8664)),
+            (10, 0, 26100, Some(0x8664)),
+            (10, 0, 29695, Some(0x8664)),
+            (10, 0, 29694, Some(0xAA64)),
+            (10, 0, 29696, Some(0xAA64)),
+            (10, 0, 29697, Some(0xAA64)),
+            (10, 0, 29699, Some(0xAA64)),
+            (10, 0, 29695, Some(0x14C)),
+            (10, 0, 29695, None),
+            (11, 0, 29695, Some(0xAA64)),
+            (10, 1, 29695, Some(0xAA64)),
+        ] {
             let (mut process, mut t, scratch) = query_fixture(arch);
             let p = process.state_mut();
-            native_profile::kernel_profile(p, 29695, 0xAA64);
-            p.native.as_mut().unwrap().code_integrity_policy = Ok(record);
-            std::sync::Arc::make_mut(&mut p.cfg).version.build = 1;
-            query_arguments(p, &mut t, 164, scratch, 64, 0);
+            native_profile::kernel_profile(p, build, machine.unwrap_or(0));
+            let native = p.native.as_mut().unwrap();
+            native.version.major = major;
+            native.version.minor = minor;
+            native.object_namespace.native_machine = machine;
+            native.code_integrity_policy = Ok([0x5A; 32]);
+            std::sync::Arc::make_mut(&mut p.cfg).version.build = 29695;
+            query_arguments(p, &mut t, 164, scratch, 64, scratch + 96);
+            assert!(matches!(dispatch_query(p, &mut t), Outcome::Fail(reason)
+                if reason.contains("copy profile is unmeasured")));
+            assert_eq!(p.space.bytes(scratch, 128).unwrap(), [0xA5; 128]);
+            assert!(t.frames.is_empty());
+            query_arguments(p, &mut t, 164, scratch, 32, scratch + 96);
             assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
             assert_eq!(t.cpu.gpr(0), 0);
-            assert_eq!(p.space.bytes(scratch, 32).unwrap(), record);
-            assert_eq!(p.space.bytes(scratch + 32, 96).unwrap(), [0xA5; 96]);
+            assert_eq!(p.space.bytes(scratch, 32).unwrap(), [0x5A; 32]);
+            assert_eq!(p.space.bytes(scratch + 32, 64).unwrap(), [0xA5; 64]);
+            assert_eq!(p.space.u32(scratch + 96).unwrap(), 32);
+            assert_eq!(p.space.bytes(scratch + 100, 28).unwrap(), [0xA5; 28]);
         }
     }
 }

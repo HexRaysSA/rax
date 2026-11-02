@@ -5,6 +5,33 @@ use super::{STATUS_ACCESS_VIOLATION, return_length};
 
 const BYTES: u32 = 32;
 
+fn accepts_length(c: &Ctx, length: u32) -> Result<bool, ApiErr> {
+    let Some(runtime) = c.p.native.as_ref() else {
+        return Err(
+            c.unsupported("SystemCodeIntegrityPolicyInformation requires selected native inputs")
+        );
+    };
+    // Runtime selection already checked this exact call, its returned size,
+    // and every record byte. It does not require an inferred kernel profile.
+    if length == BYTES {
+        return Ok(true);
+    }
+    // The guest may override its advertised version. Copy rules belong to
+    // the immutable selected kernel, including its native machine identity.
+    match (
+        runtime.version.major,
+        runtime.version.minor,
+        runtime.version.build,
+        runtime.object_namespace.native_machine,
+    ) {
+        (10, 0, 20348, Some(0x8664)) => Ok(length == BYTES),
+        (10, 0, 29695 | 29698, Some(0xAA64)) => Ok(length >= BYTES),
+        _ => Err(c.unsupported(
+            "SystemCodeIntegrityPolicyInformation copy profile is unmeasured for selected kernel",
+        )),
+    }
+}
+
 fn record(c: &Ctx) -> Result<[u8; 32], ApiErr> {
     let Some(runtime) = c.p.native.as_ref() else {
         return Err(
@@ -24,8 +51,9 @@ fn record(c: &Ctx) -> Result<[u8; 32], ApiErr> {
 
 pub(super) fn query(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult {
     // Native64 probes the entire declared output span and optional ULONG
-    // before dispatch. Larger buffers retain every byte after this record.
-    if length < BYTES {
+    // before dispatch. The selected kernel decides whether oversized
+    // buffers are admitted; a successful call copies only this record.
+    if !accepts_length(c, length)? {
         return_length(c, returned, BYTES)?;
         return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
     }
@@ -49,7 +77,7 @@ fn wow64_copy(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult
     if u64::from(length) > c.p.cfg.arena_bytes.min(c.p.vm.high()) {
         return Flow::ret(STATUS_NO_MEMORY.into());
     }
-    if length < BYTES {
+    if !accepts_length(c, length)? {
         return_length(c, returned, BYTES)?;
         return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
     }

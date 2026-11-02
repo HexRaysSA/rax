@@ -67,6 +67,59 @@ def validate(raw, width):
     return head, end
 
 
+def native_host_identity():
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.GetCurrentProcess.argtypes = []
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel.IsWow64Process2.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.USHORT),
+                                     ctypes.POINTER(wintypes.USHORT)]
+    kernel.IsWow64Process2.restype = wintypes.BOOL
+    process = wintypes.USHORT()
+    native = wintypes.USHORT()
+    if not kernel.IsWow64Process2(kernel.GetCurrentProcess(), ctypes.byref(process),
+                                 ctypes.byref(native)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    require(native.value in (0x8664, 0xAA64), "native controls require 64-bit Windows")
+    return {"identity_source": "IsWow64Process2", "native_machine": native.value,
+            "process_machine": process.value}
+
+
+def verify_20348(normalized_sources):
+    directory = SOURCE / "amd64-20348"
+    provenance = json.loads((directory / "provenance-v1.json").read_text(encoding="utf-8"))
+    require(provenance["schema"] == "rax-code-integrity-policy-20348-provenance-v1" and
+            provenance["profile"]["kernel"] == [10, 0, 20348] and
+            provenance["profile"]["native_machine"] == 0x8664 and
+            provenance["records"] == 5832, "retained AMD64 kernel profile")
+    require(set(provenance["files"]) == {"observations.json", "x64.jsonl", "x86.jsonl"},
+            "retained AMD64 fixture set")
+    for name, expected in provenance["files"].items():
+        raw = (directory / name).read_bytes()
+        require(len(raw) == expected["bytes"] and sha(raw) == expected["sha256"],
+                "retained AMD64 artifact changed: " + name)
+    manifest = json.loads((directory / "observations.json").read_text(encoding="utf-8"))
+    require(manifest["schema"] == SCHEMA and manifest["state"] == "complete" and
+            manifest["normalized_source_hashes"] == normalized_sources and
+            manifest["host"]["machine"] == "AMD64", "retained AMD64 producer identity")
+    reports = manifest["reports"]
+    require(len(reports) == 2 and {r["architecture"] for r in reports} == {"x64", "x86"},
+            "retained AMD64 process ABI coverage")
+    for report in reports:
+        label = report["architecture"]
+        machine, width = MACHINES[label]
+        require(report["file"] == label + ".jsonl" and report["machine"] == machine and
+                report["pointer_bytes"] == width and report["records"] == 2916 and
+                report["exit_code"] == 0, "retained AMD64 process identity")
+        raw = (directory / report["file"]).read_bytes()
+        require(sha(raw) == report["stdout_sha256"], "retained AMD64 stdout identity")
+        head, end = validate(raw, width)
+        provider = report["provider"]
+        require(head["kernel"] == report["kernel"] == [10, 0, 20348] and
+                provider["before_sha256"] == provider["after_sha256"] and
+                bytes.fromhex(head["mapped_provider_utf16"]).decode("utf-16-le") ==
+                provider["mapped_native_path"], "retained AMD64 provider binding")
+
+
 def verify_sources():
     manifest = json.loads((SOURCE / "controls-v1.json").read_text(encoding="utf-8"))
     require(manifest["schema"] == SCHEMA and manifest["state"] == "complete",
@@ -98,6 +151,7 @@ def verify_sources():
         raw = (SOURCE / source["file"]).read_bytes()
         require(len(raw) == source["bytes"] and sha(raw) == source["sha256"],
                 "retained primary source changed: " + source["file"])
+    verify_20348(hashes)
     return hashes
 
 
@@ -128,7 +182,7 @@ def main():
     normalized = verify_sources()
     if args.verify_corpus:
         print(json.dumps({"verified_inputs": len(normalized), "process_abis": 3,
-                          "native_records": 8748}))
+                          "native_records": 14580, "kernel_profiles": 2}))
         return 0
     require(sys.platform == "win32", "native Windows is required")
     output = (ROOT / args.output).resolve()
@@ -153,10 +207,9 @@ def main():
     hashes = {name: sha((SOURCE.parent / name).read_bytes()) for name in normalized}
     native.run(["cargo", "test", "--locked", "--no-default-features", "--lib", "--no-run"],
                ROOT, env, output / "replay-build.log")
-    require(platform.machine().lower() in ("amd64", "x86_64", "arm64", "aarch64"),
-            "native controls require a 64-bit Windows host")
+    host_identity = native_host_identity()
     architectures = [("x64", "x64"), ("x86", "Win32")]
-    if platform.machine().lower() in ("arm64", "aarch64"):
+    if host_identity["native_machine"] == 0xAA64:
         architectures.insert(0, ("arm64", "ARM64"))
     records = []
     native.run(["cargo", "test", "--locked", "--no-default-features", "--lib",
@@ -164,7 +217,7 @@ def main():
                ROOT, env, output / "retained-replay.log")
     retained = re.findall(r"test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;",
                           (output / "retained-replay.log").read_text(encoding="utf-8", errors="replace"))
-    require(retained and tuple(map(int, retained[-1])) == (4, 0, 0),
+    require(retained and tuple(map(int, retained[-1])) == (5, 0, 0),
             "incomplete retained policy replay selection")
     for label, arch in architectures:
         machine, width = MACHINES[label]
@@ -226,7 +279,7 @@ def main():
     corpus.write_text(json.dumps({"schema": SCHEMA, "state": "complete",
         "source_hashes": hashes, "normalized_source_hashes": normalized,
         "host": {"system": platform.system(), "release": platform.release(),
-                 "machine": platform.machine()}, "reports": records}, indent=2) + "\n",
+                 "machine": platform.machine(), **host_identity}, "reports": records}, indent=2) + "\n",
         encoding="utf-8")
     env["RAX_CODE_INTEGRITY_POLICY_CORPUS"] = str(output)
     log = output / "replay.log"
@@ -236,7 +289,7 @@ def main():
                    ROOT, env, log)
         summaries = re.findall(r"test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;",
                                log.read_text(encoding="utf-8", errors="replace"))
-        require(summaries and tuple(map(int, summaries[-1])) == (4, 0, 0),
+        require(summaries and tuple(map(int, summaries[-1])) == (5, 0, 0),
                 "incomplete native policy replay selection")
     finally:
         if log.exists():

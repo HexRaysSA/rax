@@ -22,7 +22,7 @@ names class 103; its enum associates this record with class 164. Independent
 native calls establish the selector used here. Microsoft's shared reference
 documents the four-argument API, without specifying this private layout.
 
-Native ARM64 and x64 entries probe the entire declared output span, with
+On the measured ARM64 kernel, native ARM64 and x64 entries probe the entire declared output span, with
 4-byte alignment when length is nonzero, and then the optional 4-byte
 `ReturnLength`. They reject lengths below 32 after probing, return the required
 length, and otherwise copy 32 bytes before the final length store. Bytes beyond
@@ -39,13 +39,51 @@ lengths fail with `STATUS_NO_MEMORY` without allocating proportional host space.
 
 `probe-v1.c` executes 2,916 cases per process ABI: 16 lengths times 14 output
 roles times 13 `ReturnLength` roles, plus four opposite-poison controls.
-The retained 8,748 cases cover ARM64, x64 and x86 processes on one Windows
+The original retained 8,748 cases cover ARM64, x64 and x86 processes on one Windows
 10.0.29695 ARM64 kernel. They are not evidence of three physical kernel
 architectures. ARM64 and x64 case rows agree exactly; WoW64 differs as described
 above. Every retained status, observed byte and four-page protection transition
 in this 8,748-case corpus is replayed through the actual RAX dispatcher on
 Windows, macOS and Linux.
-Kernel-private behavior on other builds remains subject to fresh native controls.
+A second retained campaign adds all 5,832 x64 and x86 cases from Windows
+10.0.20348 AMD64. Its complete stdout and original manifest are preserved in
+[amd64-20348](amd64-20348/provenance-v1.json), bound to the CI job, producer
+hashes, image hashes, and actual mapped providers. The legacy collector reported
+`host.machine=AMD64` on the `windows-2022` runner; it did not call
+`IsWow64Process2`. That attribution is explicit in the provenance record.
+
+The selected native kernel owns the length contract:
+
+| Captured kernel | Native machine | Accepted output length |
+|---|---|---|
+| 10.0.20348 | AMD64 (`0x8664`) | Exactly 32 bytes |
+| 10.0.29695 | ARM64 (`0xAA64`) | At least 32 bytes |
+| 10.0.29698 | ARM64 (`0xAA64`) | At least 32 bytes |
+
+The 20348 matrix changes 77 native64 and 510 WoW64 status/protection decisions
+relative to 29695. Twelve WoW64 differences change only which guard remains;
+checking status alone misses them. Native64 still probes the declared span and
+optional length pointer before rejecting a mismatched length. WoW64 retains its
+null-output and bounded-workspace checks, rejects the size before copying output,
+and writes the required length through the caller's optional pointer. A failed
+length store retains its observed guard and aliasing behavior.
+
+The dispatcher reads `NativeRuntime.version` and the captured namespace's
+`native_machine`; changing the guest-advertised version cannot choose a copy
+profile for non-exact lengths. A successfully captured 32-byte record is served
+for an exact-size request on any selected kernel: acquisition already validated
+that native call, its returned size, and every byte. Unknown build/machine
+combinations reject other sizes explicitly before record or length stores.
+They do not inherit a nearby build. The fixed 32-byte host acquisition and
+public C ABI are unchanged.
+
+The portable retained replay now checks all 14,580 cases, including exact bytes,
+output/length aliases, last-error sentinels, and all four page protections.
+Additional cases cover arbitrary policy bits, both measured size rules, spoofed
+guest versions, adjacent builds, wrong machines, and absent native identity.
+Fresh manifests require `IsWow64Process2`'s actual native machine, independently
+of the Python or probe executable ABI. Kernel-private behavior on other builds
+remains subject to fresh native controls.
 
 Two additional independent campaigns resolve specific review questions.
 [WoW64 entry controls](wow64-entry/provenance-v1.json) show that
@@ -80,16 +118,16 @@ python tools/ci/windows_code_integrity_policy.py
 ```
 
 This captures x64 and x86 processes on AMD64 Windows, plus ARM64 on ARM64
-Windows. Both retained and fresh replay tests run; missing declared observations
+Windows, selected using `IsWow64Process2` rather than `platform.machine()`. Both retained and fresh replay tests run; missing declared observations
 are failures. CI invokes this within its existing C API job and preserves the
 native artifacts even on failure. No additional runner lane is required.
 
 This feature addresses class 164 only. Subsequent startup services and protected
 ordinary-token IFEO acquisition remain separate process-emulation boundaries.
-Installed ARM64 CMD now advances from class 164 to an explicit unimplemented
-`NtQuerySystemInformation` class 189 boundary; the command has not completed.
+At the time of the original class-164 campaign, installed ARM64 CMD advanced to
+class 189. That historical stop is not a current full-process qualification.
 
-The frozen implementation passed complete, unfiltered owning-library tests,
+The original 29695 implementation passed complete, unfiltered owning-library tests,
 C API tests, Windows CLI integration tests and all-target builds on each host:
 
 | Host | Library passed | C API passed | CLI passed |
@@ -119,3 +157,30 @@ The Linux container results are not physical x86 execution evidence.
 High-impact scope finding: this service alone does not complete full installed
 process startup. The existing ordinary-token IFEO acquisition failure and any
 subsequent unimplemented service remain explicit blockers to that broader goal.
+
+The profile correction reproduces the 20348 baseline mismatch
+`x64/1638/0/0/33`: the old dispatcher returns success while the native observation
+returns `STATUS_INFO_LENGTH_MISMATCH` (`0xC0000004`). The corrected dispatcher
+passes all 14,580 retained cases and replays the current 29698 campaign's 8,748
+cases on each of the three host systems. Complete, unfiltered owning-library
+runs, C API tests, Windows CLI integration tests and all-target builds pass:
+
+| Host | Library passed | C API passed | CLI passed |
+|---|---:|---:|---:|
+| macOS ARM64 | 8,934 | 192 | 8 |
+| Linux x86-64 container on ARM64 macOS | 8,924 | 192 | 8 |
+| Windows ARM64 VM | 8,251 | 191 | 10 |
+
+Each library run has zero failures, the same two existing ignored microkernel
+tests listed above, and zero filtered tests. The retained selection runs four
+tests on macOS and Linux and five on Windows, where it also executes installed
+NTDLL leaves; the fresh-corpus selection runs one exact replay test per host.
+macOS passes Clippy with warnings denied and all 12 workflow-pin checks.
+Archived executables, compiler dependency records and 7,438 frozen input hashes
+bind these results to the corrected source. This qualification text was updated
+after execution; it changes no compiled input. The Linux container results do
+not establish physical x86 execution.
+
+| ID | Assumption and dependent result | Stress test and falsification probe | Status |
+|---|---|---|---|
+| P5 | The legacy 20348 CI observations belong to AMD64, as attributed by its `windows-2022` runner and `host.machine`. This selects the retained exact-size profile. | x64 Python on ARM64 could confuse executable and native identity; the updated fresh collector requires `IsWow64Process2` and rejects a mismatched profile during replay. | Retained for legacy provenance; fresh captures use the direct native API. |

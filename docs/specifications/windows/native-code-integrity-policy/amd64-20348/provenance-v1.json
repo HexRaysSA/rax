@@ -1,0 +1,34 @@
+{
+  "schema": "rax-code-integrity-policy-20348-provenance-v1",
+  "capture_commit": "b8f73852f5792a5d5567a104a6cc4212c7d29eef",
+  "workflow": ".github/workflows/ci.yml",
+  "runner": "windows-2022",
+  "run": "https://github.com/19h/rax/actions/runs/41376290250",
+  "job": "https://github.com/19h/rax/actions/runs/41376290250/job/125057125849",
+  "artifact_sha256": "696756d546bb0deb235fa4eaf31dd91d6e5198b19977e784af064fd7f0fa7671",
+  "profile": {
+    "kernel": [
+      10,
+      0,
+      20348
+    ],
+    "native_machine": 34404,
+    "native_machine_basis": "Legacy CI runner windows-2022 and collector host.machine=AMD64; legacy collector did not call IsWow64Process2. Fresh collector now requires it."
+  },
+  "files": {
+    "observations.json": {
+      "bytes": 2520,
+      "sha256": "16ce1c8f3286a98f71fad765c7c839fbc988a915fce842c6e20239b490249b59"
+    },
+    "x64.jsonl": {
+      "bytes": 1099961,
+      "sha256": "2b10295527d360536eb69bb6e3fda3e37e852b9fd55c80489c270ff446be2eeb"
+    },
+    "x86.jsonl": {
+      "bytes": 1100535,
+      "sha256": "4830c175cb9197bde753453e8430dd3aee864b081807fb74ff11caa5950b49fc"
+    }
+  },
+  "records": 5832,
+  "reproduction": "Fresh controls: python tools/ci/windows_code_integrity_policy.py. Portable retained replay: cargo test --locked --no-default-features --lib code_integrity_policy_ -- --test-threads=1."
+}
