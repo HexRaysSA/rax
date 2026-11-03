@@ -40,12 +40,10 @@ pub(super) fn collect_underflow(esize: usize, result: u64, status: u32, fpcr: u3
     if status & 8 == 0 && !super::fp_is_tiny_bits(esize, result) {
         return status;
     }
-    UNDERFLOW.update(|state| {
-        state.map(|mut state| {
-            state.trapped = true;
-            state
-        })
-    });
+    UNDERFLOW.set(UNDERFLOW.get().map(|mut state| {
+        state.trapped = true;
+        state
+    }));
     status | 8
 }
 

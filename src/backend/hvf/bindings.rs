@@ -276,7 +276,7 @@ pub const RFLAGS_RESERVED_1: u64 = 1 << 1; // Always 1
 
 // External function declarations from Hypervisor.framework
 #[link(name = "Hypervisor", kind = "framework")]
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
 unsafe extern "C" {
     /// Create a VM instance.
     pub fn hv_vm_create(flags: u64) -> hv_return_t;
@@ -380,7 +380,7 @@ pub fn hv_error_string(ret: hv_return_t) -> &'static str {
 }
 
 /// Check if Hypervisor.framework is available and we have permission to use it.
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
 pub fn hv_check_available() -> Result<(), &'static str> {
     // Try to create and immediately destroy a VM to check availability
     let ret = unsafe { hv_vm_create(0) };
