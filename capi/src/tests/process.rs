@@ -162,10 +162,9 @@ fn process_open_inspect_context_memory_run_and_repeat_all_abis() {
         assert_eq!(result.reason, RAX_PROCESS_BUDGET);
         assert_eq!(result.turns_started, 0);
         assert_eq!(context(&p, tid), original);
-        assert_eq!(
-            rax_process_run(p.0, 100_000, 5_000_000, &mut result),
-            RaxStatus::Ok
-        );
+        // The turn budget bounds completion work independently of host load.
+        // Timeout and cancellation behavior have their own resumability test.
+        assert_eq!(rax_process_run(p.0, 100_000, 0, &mut result), RaxStatus::Ok);
         assert_eq!(result.reason, RAX_PROCESS_EXITED, "{}", info(&p));
         assert_eq!(result.exit_code, 0);
         assert_eq!(info(&p)["status"], "exited");
@@ -404,10 +403,7 @@ fn process_supplied_dll_array_loads_real_imports_all_abis() {
         );
         let p = Owned(raw);
         let mut result = RaxProcessResult::default();
-        assert_eq!(
-            rax_process_run(p.0, 100_000, 5_000_000, &mut result),
-            RaxStatus::Ok
-        );
+        assert_eq!(rax_process_run(p.0, 100_000, 0, &mut result), RaxStatus::Ok);
         assert_eq!(
             (result.reason, result.exit_code),
             (RAX_PROCESS_EXITED, 0),
@@ -431,10 +427,7 @@ fn process_captures_real_crt_stdout_and_stderr_after_exit_all_abis() {
                 r#"{"memory_bytes":67108864,"console_capacity":64}"#,
             );
             let mut result = RaxProcessResult::default();
-            assert_eq!(
-                rax_process_run(p.0, 100_000, 5_000_000, &mut result),
-                RaxStatus::Ok
-            );
+            assert_eq!(rax_process_run(p.0, 100_000, 0, &mut result), RaxStatus::Ok);
             assert_eq!(
                 (result.reason, result.exit_code),
                 (RAX_PROCESS_EXITED, 0),
