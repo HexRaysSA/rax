@@ -64,3 +64,6 @@ docs/specifications/darwin/native-timed-record-locks/* -text whitespace=cr-at-eo
 
 # Preserve native FIFO filesystem control source and receipt identities.
 docs/specifications/darwin/native-fifo-filesystem/* -text whitespace=cr-at-eol
+
+# Native pipe-close controls are bound byte for byte.
+docs/specifications/darwin/native-pipe-close-write/** -text

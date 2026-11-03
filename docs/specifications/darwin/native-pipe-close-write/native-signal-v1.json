@@ -1,0 +1,382 @@
+{
+  "state": "qualified",
+  "pid": 29342,
+  "host": [
+    "Darwin",
+    "ints-macbook-pro-1.mau-ule.ts.net",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64",
+    "arm"
+  ],
+  "builds": [
+    {
+      "architecture": "arm64",
+      "argv": [
+        "/usr/bin/clang",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "-I",
+        "/Users/int/.rax-fifo-pub-20261103/docs/specifications/darwin/native-guarded-fd",
+        "/Users/int/.rax-fifo-pub-20261103/.task-evidence/darwin-pipe-close-write-v1/native-pipe-close-signal-v1.c",
+        "-o",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-arm64-v1"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "image_sha256": "833495eba50a6bf796e4cbc2d44f737c44eb4517666b0339f8f700f6d6f7d98a"
+    },
+    {
+      "architecture": "x86_64",
+      "argv": [
+        "/usr/bin/clang",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "-I",
+        "/Users/int/.rax-fifo-pub-20261103/docs/specifications/darwin/native-guarded-fd",
+        "/Users/int/.rax-fifo-pub-20261103/.task-evidence/darwin-pipe-close-write-v1/native-pipe-close-signal-v1.c",
+        "-o",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-x86_64-v1"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "image_sha256": "3fc160caebf0c2423d6cb8313b2867f379b401df0cba3b707e0aeb9722b3d965"
+    }
+  ],
+  "cases": [
+    {
+      "architecture": "arm64",
+      "vector": false,
+      "kind": "pipe",
+      "suppress_sigpipe": false,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-arm64-v1",
+        "0",
+        "1",
+        "0",
+        "pipe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/arm64-0-pipe-0.fifo",
+        "0"
+      ],
+      "image_sha256": "833495eba50a6bf796e4cbc2d44f737c44eb4517666b0339f8f700f6d6f7d98a",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":0,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":4,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":-1,\"errno\":32}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":46,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":1,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 0.0086005839984864
+    },
+    {
+      "architecture": "arm64",
+      "vector": false,
+      "kind": "pipe",
+      "suppress_sigpipe": true,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-arm64-v1",
+        "0",
+        "1",
+        "0",
+        "pipe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/arm64-0-pipe-1.fifo",
+        "1"
+      ],
+      "image_sha256": "833495eba50a6bf796e4cbc2d44f737c44eb4517666b0339f8f700f6d6f7d98a",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":0,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":4,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":-1,\"errno\":32}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":46,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 0.01024949993006885
+    },
+    {
+      "architecture": "arm64",
+      "vector": false,
+      "kind": "fifo",
+      "suppress_sigpipe": false,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-arm64-v1",
+        "0",
+        "1",
+        "0",
+        "fifo",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/arm64-0-fifo-0.fifo",
+        "0"
+      ],
+      "image_sha256": "833495eba50a6bf796e4cbc2d44f737c44eb4517666b0339f8f700f6d6f7d98a",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":-1,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":5,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":1,\"errno\":0}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":8193,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":8192,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":65,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 8.257129665929824
+    },
+    {
+      "architecture": "arm64",
+      "vector": false,
+      "kind": "fifo",
+      "suppress_sigpipe": true,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-arm64-v1",
+        "0",
+        "1",
+        "0",
+        "fifo",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/arm64-0-fifo-1.fifo",
+        "1"
+      ],
+      "image_sha256": "833495eba50a6bf796e4cbc2d44f737c44eb4517666b0339f8f700f6d6f7d98a",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":-1,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":5,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":1,\"errno\":0}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":8193,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":8192,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":65,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 7.980779999983497
+    },
+    {
+      "architecture": "arm64",
+      "vector": true,
+      "kind": "pipe",
+      "suppress_sigpipe": false,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-arm64-v1",
+        "1",
+        "1",
+        "0",
+        "pipe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/arm64-1-pipe-0.fifo",
+        "0"
+      ],
+      "image_sha256": "833495eba50a6bf796e4cbc2d44f737c44eb4517666b0339f8f700f6d6f7d98a",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":0,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":4,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":-1,\"errno\":32}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":46,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":1,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 0.010157249984331429
+    },
+    {
+      "architecture": "arm64",
+      "vector": true,
+      "kind": "pipe",
+      "suppress_sigpipe": true,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-arm64-v1",
+        "1",
+        "1",
+        "0",
+        "pipe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/arm64-1-pipe-1.fifo",
+        "1"
+      ],
+      "image_sha256": "833495eba50a6bf796e4cbc2d44f737c44eb4517666b0339f8f700f6d6f7d98a",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":0,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":4,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":-1,\"errno\":32}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":46,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 0.006170333013869822
+    },
+    {
+      "architecture": "arm64",
+      "vector": true,
+      "kind": "fifo",
+      "suppress_sigpipe": false,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-arm64-v1",
+        "1",
+        "1",
+        "0",
+        "fifo",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/arm64-1-fifo-0.fifo",
+        "0"
+      ],
+      "image_sha256": "833495eba50a6bf796e4cbc2d44f737c44eb4517666b0339f8f700f6d6f7d98a",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":-1,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":5,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":1,\"errno\":0}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":8193,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":8192,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":65,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 7.868635250022635
+    },
+    {
+      "architecture": "arm64",
+      "vector": true,
+      "kind": "fifo",
+      "suppress_sigpipe": true,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-arm64-v1",
+        "1",
+        "1",
+        "0",
+        "fifo",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/arm64-1-fifo-1.fifo",
+        "1"
+      ],
+      "image_sha256": "833495eba50a6bf796e4cbc2d44f737c44eb4517666b0339f8f700f6d6f7d98a",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":-1,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":5,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":1,\"errno\":0}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":8193,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":8192,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":65,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 11.296626457944512
+    },
+    {
+      "architecture": "x86_64",
+      "vector": false,
+      "kind": "pipe",
+      "suppress_sigpipe": false,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-x86_64-v1",
+        "0",
+        "1",
+        "0",
+        "pipe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/x86_64-0-pipe-0.fifo",
+        "0"
+      ],
+      "image_sha256": "3fc160caebf0c2423d6cb8313b2867f379b401df0cba3b707e0aeb9722b3d965",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":0,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":4,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":-1,\"errno\":32}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":46,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":1,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 0.2870266670361161
+    },
+    {
+      "architecture": "x86_64",
+      "vector": false,
+      "kind": "pipe",
+      "suppress_sigpipe": true,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-x86_64-v1",
+        "0",
+        "1",
+        "0",
+        "pipe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/x86_64-0-pipe-1.fifo",
+        "1"
+      ],
+      "image_sha256": "3fc160caebf0c2423d6cb8313b2867f379b401df0cba3b707e0aeb9722b3d965",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":0,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":4,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":-1,\"errno\":32}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":46,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 0.018884625053033233
+    },
+    {
+      "architecture": "x86_64",
+      "vector": false,
+      "kind": "fifo",
+      "suppress_sigpipe": false,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-x86_64-v1",
+        "0",
+        "1",
+        "0",
+        "fifo",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/x86_64-0-fifo-0.fifo",
+        "0"
+      ],
+      "image_sha256": "3fc160caebf0c2423d6cb8313b2867f379b401df0cba3b707e0aeb9722b3d965",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":-1,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":5,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":1,\"errno\":0}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":8193,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":8192,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":65,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 7.823664374998771
+    },
+    {
+      "architecture": "x86_64",
+      "vector": false,
+      "kind": "fifo",
+      "suppress_sigpipe": true,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-x86_64-v1",
+        "0",
+        "1",
+        "0",
+        "fifo",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/x86_64-0-fifo-1.fifo",
+        "1"
+      ],
+      "image_sha256": "3fc160caebf0c2423d6cb8313b2867f379b401df0cba3b707e0aeb9722b3d965",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":-1,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":5,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":1,\"errno\":0}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":8193,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":8192,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":65,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 8.529211374931037
+    },
+    {
+      "architecture": "x86_64",
+      "vector": true,
+      "kind": "pipe",
+      "suppress_sigpipe": false,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-x86_64-v1",
+        "1",
+        "1",
+        "0",
+        "pipe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/x86_64-1-pipe-0.fifo",
+        "0"
+      ],
+      "image_sha256": "3fc160caebf0c2423d6cb8313b2867f379b401df0cba3b707e0aeb9722b3d965",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":0,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":4,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":-1,\"errno\":32}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":46,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":1,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 0.015366041916422546
+    },
+    {
+      "architecture": "x86_64",
+      "vector": true,
+      "kind": "pipe",
+      "suppress_sigpipe": true,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-x86_64-v1",
+        "1",
+        "1",
+        "0",
+        "pipe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/x86_64-1-pipe-1.fifo",
+        "1"
+      ],
+      "image_sha256": "3fc160caebf0c2423d6cb8313b2867f379b401df0cba3b707e0aeb9722b3d965",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":0,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":4,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":-1,\"errno\":32}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":65536,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":46,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 0.014780000085011125
+    },
+    {
+      "architecture": "x86_64",
+      "vector": true,
+      "kind": "fifo",
+      "suppress_sigpipe": false,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-x86_64-v1",
+        "1",
+        "1",
+        "0",
+        "fifo",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/x86_64-1-fifo-0.fifo",
+        "0"
+      ],
+      "image_sha256": "3fc160caebf0c2423d6cb8313b2867f379b401df0cba3b707e0aeb9722b3d965",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":-1,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":5,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":1,\"errno\":0}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":8193,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":8192,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":65,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 8.339876124984585
+    },
+    {
+      "architecture": "x86_64",
+      "vector": true,
+      "kind": "fifo",
+      "suppress_sigpipe": true,
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/native-pipe-close-signal-x86_64-v1",
+        "1",
+        "1",
+        "0",
+        "fifo",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1/x86_64-1-fifo-1.fifo",
+        "1"
+      ],
+      "image_sha256": "3fc160caebf0c2423d6cb8313b2867f379b401df0cba3b707e0aeb9722b3d965",
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"initial-fd-flags\",\"result\":3,\"errno\":0}\n{\"kind\":\"writer-was-blocked\",\"result\":1,\"errno\":0}\n{\"kind\":\"closer-was-blocked\",\"result\":-1,\"errno\":0}\n{\"kind\":\"during-close-fd-flags\",\"result\":-1,\"errno\":9}\n{\"kind\":\"during-close-duplicate\",\"result\":5,\"errno\":0}\n{\"kind\":\"write-result\",\"result\":1,\"errno\":0}\n{\"kind\":\"close-result\",\"result\":0,\"errno\":0}\n{\"kind\":\"received-bytes\",\"result\":8193,\"errno\":0}\n{\"kind\":\"filled-bytes\",\"result\":8192,\"errno\":0}\n{\"kind\":\"last-byte\",\"result\":65,\"errno\":0}\n{\"kind\":\"observed-sigpipe\",\"result\":0,\"errno\":0}\n",
+      "stderr": "",
+      "seconds": 8.24619525007438
+    }
+  ],
+  "original_jobs_restarted": false,
+  "source_sha256": "c0df6586427eecd19d533e62fa9a120bb61d4ebfd4bcb5b8e13aa12d5a668ae6",
+  "exit_code": 0,
+  "case_count": 16
+}

@@ -1,0 +1,16 @@
+{
+  "schema": "rax-native-pipe-close-write-v1",
+  "inputs": {
+    "docs/specifications/darwin/native-pipe-close-write/native-pipe-close-signal-v1.c": "c0df6586427eecd19d533e62fa9a120bb61d4ebfd4bcb5b8e13aa12d5a668ae6",
+    "docs/specifications/darwin/native-pipe-close-write/native-signal-v1.json": "6e64d81e69402115a55b13f700be9501028b78b2d6beb86fd48d8cf11b127748",
+    "docs/specifications/darwin/native-pipe-close-write/native-producer-derivation-v1.json": "455eebc3cb081ec7c0b49109eab95a0d6c6206e56b763302a9951d3df7d5f1e8",
+    "docs/specifications/darwin/native-guarded-fd/blocked-write-probe-v12.c": "11c2182c8add697da01c9e40e1b1056e93fa1549e6b4c38449856df58e531146",
+    "docs/specifications/darwin/native-guarded-fd/policy-probe-v2.c": "d359a368e9f6d26c558980e7497452ec8880bd36245c465385e5c380c7871508",
+    "docs/specifications/darwin/native-guarded-fd/references/guarded.h": "9a61dbd134908ef8fca72a31b26174325a785a2cd3186439c3f6dcab08ec77bd",
+    "docs/specifications/darwin/native-guarded-fd/blocked-write-records-arm64-v12.json": "c5e62244c49b4e6dda68d451c542115e108197fd9029c5dee561fcf9a3847e54",
+    "docs/specifications/darwin/native-guarded-fd/blocked-write-records-x86_64-v12.json": "4c84956170a7070f17a1b809b51a80cfbf5dedd7584edb3ffe8faa9e963ee192",
+    "docs/specifications/darwin/native-guarded-fd/blocked-write-receipt-v12.json": "ec95cf3ac62da9a4c88dcd5872b0b20844312e062554506410bae11c8cfe82c5"
+  },
+  "native_scope": "Darwin27.2 ARM64 host; arm64 native and x86-64 through Rosetta. Original ignored-SIGPIPE64case producer plus new16 caught/suppressed controls.",
+  "physical_intel": false
+}

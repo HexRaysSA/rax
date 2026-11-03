@@ -1,0 +1,739 @@
+{
+  "schema": "rax-native-pipe-close-write-qualification-v1",
+  "utc": "2026-11-03T16:13:13.758021+00:00",
+  "state": "qualified",
+  "integration_base": "6be02460582826e8ec6ca63e4a0d27260754d15d",
+  "counterfactual": {
+    "old_close_path": "fails native immediate-close reservation assertion",
+    "evidence": "baseline-v1.json",
+    "test_exit_code": 101
+  },
+  "native_ignored_sigpipe_cases": 64,
+  "native_signal_cases": 16,
+  "macos_owning_passed": 28,
+  "linux_owning_passed": 27,
+  "macos_capi_passed": 244,
+  "ignored": 0,
+  "failures": 0,
+  "workspace_checks": [
+    "macOS ARM64",
+    "Windows ARM64",
+    "Windows x86-64",
+    "Linux x86-64"
+  ],
+  "clippy": {
+    "library": "passed with -D warnings",
+    "workspace_all_targets": "passed"
+  },
+  "linux_execution": "Docker amd64 translation on ARM64, native in-worktree tmpfs FIFO fixtures; not physical Intel qualification",
+  "windows_scope": "Compile qualification; native Darwin pipe adapter availability unchanged",
+  "source_frame": {
+    ".gitattributes": "e58fb7aa8253b1f91f680eb87cfe97ce96afcaf80937a766c5ab15bfbb4a6ece",
+    "src/user/darwin/syscall/bsd/file/pipe_drain.rs": "a4c8bb575027bb5d17c280641a8d61ef422592e5ffe211c1091a4bf43f74a051",
+    "src/user/darwin/process/fifo_lifetime_tests.rs": "1e7b2cf6dadcf7f738649ae0d00f65832e585b4d9cd57e22fc53a52502c610a7",
+    "src/user/darwin/process/fifo_lifetime_tests/blocked_write_tests.rs": "4bc8f8f759965f88e7934732c3fbcfbb9abe53b2c8b1b5d92922703729b26663",
+    "docs/specifications/darwin/native-pipe-close-write/README.md": "2d3d0e5eb04bf4f3a8727f9f0bd4e31bfe131ad5089f4bc61a41d41167f8f4da",
+    "docs/specifications/darwin/native-pipe-close-write/bindings-v1.json": "a718a8b4febe9a5357b42042793b46508fe8fee4de73d3e7a830ccd1f4f61e7d",
+    "docs/specifications/darwin/native-pipe-close-write/collect.py": "33473c62df8c070cf439d606f17afe75561908a6e366f88e2db3025cc0cd1ae1",
+    "docs/specifications/darwin/native-pipe-close-write/native-pipe-close-signal-v1.c": "c0df6586427eecd19d533e62fa9a120bb61d4ebfd4bcb5b8e13aa12d5a668ae6",
+    "docs/specifications/darwin/native-pipe-close-write/native-producer-derivation-v1.json": "455eebc3cb081ec7c0b49109eab95a0d6c6206e56b763302a9951d3df7d5f1e8",
+    "docs/specifications/darwin/native-pipe-close-write/native-signal-v1.json": "6e64d81e69402115a55b13f700be9501028b78b2d6beb86fd48d8cf11b127748",
+    "docs/specifications/darwin/native-pipe-close-write/verify.py": "7415765e0eebc9544693bbf94215ed7bc3ad7c85bb8a4791e81c53dd9f9793dc"
+  },
+  "images": {
+    "macos": {
+      "path": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+      "sha256": "2893ebcd04d65b71393552158c8b940feab660b74a366fbb2e20d13c00a76065",
+      "bytes": 761312032
+    },
+    "linux": {
+      "path": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/x86_64-unknown-linux-gnu/debug/deps/rax-9af1d7ee0e3bc159",
+      "sha256": "4d8da9a2e2a12d96edff4536df6e7e8ec99323d8e666118e0f0685a16f74c18e",
+      "bytes": 741482232
+    }
+  },
+  "commands": [
+    {
+      "name": "v2-evidence-v1",
+      "argv": [
+        "python3",
+        "docs/specifications/darwin/native-pipe-close-write/verify.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.2001056669978425,
+      "stdout_sha256": "b52001c5feb08bc1e2316eb8152f75248ead1bea2f1a096a70c68af17a2b73b4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-format-v1",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 15.716599042061716,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-diff-check-v1",
+      "argv": [
+        "git",
+        "diff",
+        "--no-ext-diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.05504479201044887,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-tests-build-v1",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--features",
+        "x86_64-suite",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "seconds": 133.7238720000023,
+      "stdout_sha256": "62c5e350ec1c12f3046e6ec77f77ab1eace094deba53a906bf4d23b0756f5d25",
+      "stderr_sha256": "6060ee56d325d47ea3f8413ac9c76c603f79f6d68058ba3cdc9e18b3e3a856e1"
+    },
+    {
+      "name": "v2-macos-owning-0",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::continuation_tests::completed_bsd_return_preserves_only_successful_general_state_writes",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04931187501642853,
+      "stdout_sha256": "1c97f54fa342bee3cb4d20cc91f17dbc927e8d0a193febe569f641c086c5b2f1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-1",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::continuation_tests::entered_arm_bsd_call_keeps_arguments_number_and_return_pc_without_refetching_svc",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.03263791697099805,
+      "stdout_sha256": "6b6c7c422a301f28842d6b5e9b53eb2b4a9933b9f894b00d1399d4e62890be4c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-2",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::continuation_tests::entered_arm_bsd_indirect_number_and_shifted_arguments_survive_user_state_writes",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.03324399993289262,
+      "stdout_sha256": "524fc575bcfff1e2d0832930361eccf3c391bf5143e125c21934426ce34778b9",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-3",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::continuation_tests::entered_arm_bsd_service_obeys_task_and_thread_holds",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.03190266597084701,
+      "stdout_sha256": "736b47b21862d328c51d3e401b9c8c49146905157048a9d1289d73f1393e418c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-4",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::continuation_tests::entered_arm_bsd_signal_return_retires_entry_and_restarts_from_current_saved_pc",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0315415000077337,
+      "stdout_sha256": "48decfa2288a4f2815eb2b7c3150431668558cba2876f480778f136604b79764",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-5",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::continuation_tests::entered_arm_bsd_spurious_wakes_keep_progress_and_one_entry_count",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.028054666938260198,
+      "stdout_sha256": "7cc0997ee03a3373329682ad9ec4924e8e3883325adbc1caea91a1a0ad334cbf",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-6",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::continuation_tests::entered_x86_bsd_call_keeps_decoded_arguments_and_independent_return_state",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.032648082938976586,
+      "stdout_sha256": "2d4ab001c5d5ba8c54b1aafbccdb319d12dc77ac7b590d69f1aceb5f72b3e814",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-7",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::a_dup2_source_close_waits_and_invalidates_installation_after_target_drain",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.029557375004515052,
+      "stdout_sha256": "553ff42d04b22309121dadd61af6b8035cbebe6c1ef931a95e1cbb358e0c0542",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-8",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::a_signal_completes_a_held_fifo_read_and_releases_its_close_drain",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.061467875028029084,
+      "stdout_sha256": "f52d8c4fcd43e3f4a452ae26272d48b5a7e8645558e68efc87ca090bd843cc14",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-9",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::an_empty_fifo_zero_byte_read_returns_without_waiting_for_its_writer",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.05953295901417732,
+      "stdout_sha256": "7c9997e1e22939712237aafe2b625bcb466f26c6775ba0a0276a99cec3cebdfd",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-10",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::blocked_write_tests::entered_pipe_close_queues_the_native_sigpipe_outcome",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04767425009049475,
+      "stdout_sha256": "89fb3ffd81bde0d94118ca2aea25ee78042fcd2b7be667adb576cbf2a15ad563",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-11",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::blocked_write_tests::entered_pipe_close_respects_native_nosigpipe",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04612695798277855,
+      "stdout_sha256": "ca514503c62f4ced2ac850673ddf90a09f91ce42a1e87f9fa7b63b6206a798bb",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-12",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::blocked_write_tests::guarded_fd_replays_64_native_blocked_writes_cookie_vectors_and_close",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.09611912502441555,
+      "stdout_sha256": "0925ca0e1d332a3a12a3af6e3bb36aca46e81d5c23c58ea2c9d367b48f5df5c4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-13",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::draining_close_reports_native_uninterruptible_state_until_kernel_completion",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.031648333999328315,
+      "stdout_sha256": "aeea1741279e104671f1ad731884ec20e1b2e76e6383a48ecdc6ece49d155d3a",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-14",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::entered_fifo_close_waits_for_read_and_keeps_the_descriptor_reserved",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.030070959008298814,
+      "stdout_sha256": "b0a4e65219d3bca085ffeb445e206a735550774ab098c60377a556f1df2f705e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-15",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::entered_fifo_readv_keeps_the_vector_copied_before_sleep",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.03896049992181361,
+      "stdout_sha256": "884aae7ef162824af2456f19cf1bbbe0c783fe8082bc83aa4b96a42d589ccbf3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-16",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::fifo_eof_reads_and_a_reopened_writer_follow_native_state_on_both_abis",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.03915533400140703,
+      "stdout_sha256": "d05c3a05ed4253ed3e6ee08a211892f4ec6424f0da5b43ad8f73281d2d03a284",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-17",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::fifo_kernel_completion_releases_close_when_reader_or_closer_is_held",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04803545796312392,
+      "stdout_sha256": "ade1f8062fabd6a5f8033cc61b94fe4873f6f0c9aa0c8577220ab61ec2a8dddd",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-18",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::guest_exit_joins_a_native_read_while_the_library_object_remains_inspectable",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.03302570793312043,
+      "stdout_sha256": "683b2eda4c45bcda11bd7ddfb14c18b75406448fc7ab887a0376d2cb3e706433",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-19",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::fifo_lifetime_tests::terminating_an_entered_reader_releases_its_file_reference_and_close_barrier",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.03353762498591095,
+      "stdout_sha256": "21494c384c0d4e9ae0fbf28ec409edef53e69079e7225dfd27ca85eaa4244d91",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-20",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::pipe_drain_tests::entered_bsd_pipe_close_and_replacement_keep_eof_separate_from_other_aliases",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.06959629198536277,
+      "stdout_sha256": "4ffe8bf78d6e18210552b54d128e1305f06127c03e545fbfc931b4ea84a6efd3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-21",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::timed_lock_tests::timed_lock_deadline_survives_wakes_and_expires_before_late_unlock",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.07485162501689047,
+      "stdout_sha256": "a9b9a7670a7fb53740fc45320e2f58d6b5e684c5cb9b10fda8047992eff23804",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-22",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::timed_lock_tests::timed_lock_replays_16_native_request_mutation_and_close_lifetimes",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.08374624990392476,
+      "stdout_sha256": "c1d9e7282da81bb079557b92ee5741b464c8c7e8b75dc65a8533c449ff7de08b",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-23",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::timed_lock_tests::timed_lock_replays_272_native_unconfined_results_on_both_guest_abis",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.13989274995401502,
+      "stdout_sha256": "7624ac4de7fb747d10ff3b11807b06dfd0dc9326986cb30f7e8f79bf3e863a2f",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-24",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::timed_lock_tests::timed_lock_replays_32_native_relative_range_boundaries",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04591116704978049,
+      "stdout_sha256": "babe57907285051877956a3768df8f874add7364eb4f4d9f9bbfd93871a15b24",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-25",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::timed_lock_tests::timed_lock_replays_36_native_pid_and_error_precedence_results",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.06866983301006258,
+      "stdout_sha256": "a0b36b6b07c3533cceb4159a10e28d2f4108927447c5d3bed57779a8fe99f7ff",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-26",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::timed_lock_tests::timed_lock_retains_entry_offset_and_eof_after_host_changes",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04291125002782792,
+      "stdout_sha256": "e742d822e332690daa8bfe13f89e8995929394304999f07f731e55a4d80e91c9",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-owning-27",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/debug/deps/rax-f14cd5ca139937b8",
+        "--exact",
+        "user::darwin::process::timed_lock_tests::timed_lock_signal_interruption_retires_entry_and_releases_fileproc",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.03200191690120846,
+      "stdout_sha256": "9d07d4ab0d37bf38a497e9237da6025e86027b315232ad293d3daf6e00ecf40d",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "v2-macos-library-clippy-v1",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 32.75367929204367,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "9b61bdd18e138806b812cf433459eca8323f8263ab3606d401e668893f439540"
+    },
+    {
+      "name": "v2-macos-all-targets-v1",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "seconds": 153.42750529106706,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "a8e704cdef984c4ad7aa92425689eb92a54751dd90c46bc8fe95de9656f6f057"
+    },
+    {
+      "name": "v2-macos-all-targets-clippy-v1",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "seconds": 173.85008320899215,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "97a2f3b479299159b66fdfa2fc541a8cf0e1308730128d3e2d60724af75718bc"
+    },
+    {
+      "name": "v2-macos-capi-v1",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax-capi",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "exit_code": 0,
+      "seconds": 84.98320962500293,
+      "stdout_sha256": "bfea4d9b23890e1d298b214379ae3874b2038823463baad898936a83d219e656",
+      "stderr_sha256": "89c816065bdedfbe987c7b34998f40254026920a22404fb18b6a22c33234bc69"
+    },
+    {
+      "name": "v2-windows-arm64-all-targets-v1",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--target",
+        "aarch64-pc-windows-msvc"
+      ],
+      "exit_code": 0,
+      "seconds": 126.46016825002152,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "b83d94262b4b710af596dcc26e60e700d1d624b5359fba34122f5144166c9864"
+    },
+    {
+      "name": "v2-windows-x64-all-targets-v1",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "exit_code": 0,
+      "seconds": 129.8779161249986,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "c36b64ababf21f3dde4e557acbd4590acc2a213882458115f410f2c3127850e6"
+    },
+    {
+      "name": "v2-linux-all-targets-v1",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--target",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "exit_code": 0,
+      "seconds": 137.98788862500805,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "fbe9972775cb16176daddc64a3f121aee82a7cefb1498f76695258c96caf3a89"
+    },
+    {
+      "name": "v2-linux-tests-build-v1",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--features",
+        "x86_64-suite",
+        "--no-run",
+        "--target",
+        "x86_64-unknown-linux-gnu",
+        "--message-format=json"
+      ],
+      "exit_code": 0,
+      "seconds": 117.70134299993515,
+      "stdout_sha256": "9cd4a440b884f5b9efe8451a0e7ca7436386cf88327f7d6514061266c58ecab9",
+      "stderr_sha256": "de779cbd638daf6cb6c4eb893a42708ed20a7f92bc434d571fe39652577ad952"
+    },
+    {
+      "name": "v2-linux-runtime-v1",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--pull=never",
+        "--network=none",
+        "--platform=linux/amd64",
+        "--user",
+        "501:20",
+        "-v",
+        "/Users/int/.rax-fifo-pub-20261103:/work",
+        "-w",
+        "/work",
+        "--tmpfs",
+        "/work/target/qualified-v1/tmp/darwin-pipe-close-write-linux-v2:rw,size=64m,mode=0700,uid=501,gid=20",
+        "--entrypoint",
+        "python3",
+        "sha256:2bd0f059787fbcc378752ea4898b0ddb77c6ccdf240ac3e550f366f3987e7da9",
+        "-c",
+        "from pathlib import Path\nimport hashlib,json,os,platform,subprocess\nroot=Path('/work');out=root/'.task-evidence/darwin-pipe-close-write-v1';image=root/'target/qualified-v1/x86_64-unknown-linux-gnu/debug/deps/rax-9af1d7ee0e3bc159'\nassert hashlib.sha256(image.read_bytes()).hexdigest()=='4d8da9a2e2a12d96edff4536df6e7e8ec99323d8e666118e0f0685a16f74c18e'\ntmp=root/'target/qualified-v1/tmp/darwin-pipe-close-write-linux-v2';assert tmp.is_dir();(tmp/'.owner').write_text('darwin-pipe-close-write-linux-v2\\n')\nenv=dict(os.environ,TMPDIR=str(tmp),TMP=str(tmp),TEMP=str(tmp));rows=[]\nfor name,count in [('timed_lock_tests::',7),('fifo_lifetime_tests::',12),('pipe_drain_tests::',1),('continuation_tests::',7)]:\n p=subprocess.run([str(image),'user::darwin::process::'+name,'--test-threads=1','--nocapture'],env=env,cwd=root,text=True,capture_output=True)\n row={'filter':name,'exit_code':p.returncode,'stdout':p.stdout,'stderr':p.stderr};rows.append(row)\n assert p.returncode==0 and f'{count} passed; 0 failed; 0 ignored;' in p.stdout,row\nassert hashlib.sha256(image.read_bytes()).hexdigest()=='4d8da9a2e2a12d96edff4536df6e7e8ec99323d8e666118e0f0685a16f74c18e'\n(out/'linux-runtime-v2.json').write_text(json.dumps({'results':rows,'image_sha256':'4d8da9a2e2a12d96edff4536df6e7e8ec99323d8e666118e0f0685a16f74c18e','machine':platform.machine(),'system':platform.system(),'container_architecture':'amd64','docker_daemon_architecture':'aarch64','cpu_execution':'Docker x86-64 translation on AArch64; not physical x86 qualification'},indent=2)+'\\n')\nprint('Linux owning checks passed',sum([7,12,1,7]))\n"
+      ],
+      "exit_code": 0,
+      "seconds": 5.063803499913774,
+      "stdout_sha256": "93cb8621e2d877d8d86cccc4ccb0a9edd91319099f444cbb309c1232429718f5",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "semantic_negative_controls": [
+    {
+      "case": "signal-count",
+      "rejected": true
+    },
+    {
+      "case": "entry-not-blocked",
+      "rejected": true
+    },
+    {
+      "case": "descriptor-reservation",
+      "rejected": true
+    },
+    {
+      "case": "wrong-completion",
+      "rejected": true
+    },
+    {
+      "case": "payload-loss",
+      "rejected": true
+    },
+    {
+      "case": "duplicate-case",
+      "rejected": true
+    }
+  ],
+  "assumption_register": [
+    {
+      "id": "C1",
+      "assumption": "The existing native v12 corpus identifies anonymous pipe close as an EPIPE completion and immediate descriptor release.",
+      "basis": "Both arm64 and Rosetta x86-64 records: writer blocked, concurrent close returns, writer result -1/errno32. SIGPIPE disposition was SIG_IGN.",
+      "dependent_result": "Extend anonymous-pipe close continuation to entered writes; replay corpus.",
+      "stress_test": "Scalar/vector, cookie/iovec mutation after entry, pipe versus FIFO, close/no close.",
+      "falsification_probe": "Native corpus bytes/bindings fail, or model with original code already reproduces all native outcomes.",
+      "status": "confirmed",
+      "evidence": "Native v12 corpus, counterfactual baseline failure, current macOS/Linux replays."
+    },
+    {
+      "id": "C2",
+      "assumption": "Closing a parked pipe writer uses the existing dofilewrite SIGPIPE policy.",
+      "basis": "Existing immediate EPIPE adapter; additional native handler and F_SETNOSIGPIPE controls required.",
+      "dependent_result": "Queue guest SIGPIPE unless no-sigpipe is set.",
+      "stress_test": "Caught/ignored signals, no-sigpipe, scalar/vector and guarded writes.",
+      "falsification_probe": "Native close returns EPIPE with different signal generation/suppression.",
+      "status": "confirmed",
+      "evidence": "Sixteen new native controls; caught/ignored signal replays and macOS no-sigpipe adapter cases."
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Windows SystemPolicyInformation input/output execution remains unmodeled; native observer response currently unknown.",
+      "blocks_this_group": false
+    }
+  ],
+  "quality_gates": "Passed for this entered-write close contract; full Linux/macOS/Windows process-emulation goal remains incomplete",
+  "native_build_cleanup": {
+    "utc": "2026-11-03T16:03:16.983731+00:00",
+    "removed_directory": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-pipe-close-signal-v1",
+    "completed_native_controls": 16,
+    "image_hashes_rechecked": true,
+    "lsof_open_handles": 0,
+    "python_bytecode_cache_removed": true,
+    "retained_builds": {
+      "target/qualified-v1": "Warm cross-target tree for current gates and next Windows policy implementation.",
+      ".t-pmu": "In-tree compiler scratch."
+    },
+    "linux_tmpfs_fixture_mountpoint_removed": "target/qualified-v1/tmp/darwin-pipe-close-write-linux-v2",
+    "linux_container_terminal": true
+  },
+  "retained_builds": {
+    "target/qualified-v1": "Reuse current cross-target qualification and native probe outputs.",
+    ".t-pmu": "in-tree compiler scratch"
+  }
+}

@@ -489,3 +489,6 @@ fn terminating_an_entered_reader_releases_its_file_reference_and_close_barrier()
         assert_eq!(process.proc.threads[&(tid + 1)].cpu.reg(0), 0);
     }
 }
+
+#[path = "fifo_lifetime_tests/blocked_write_tests.rs"]
+mod blocked_write_tests;

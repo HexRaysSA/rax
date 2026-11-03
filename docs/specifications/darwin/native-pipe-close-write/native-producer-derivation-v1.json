@@ -1,0 +1,12 @@
+{
+  "base_source": "docs/specifications/darwin/native-guarded-fd/blocked-write-probe-v12.c",
+  "base_sha256": "11c2182c8add697da01c9e40e1b1056e93fa1549e6b4c38449856df58e531146",
+  "new_source": ".task-evidence/darwin-pipe-close-write-v1/native-pipe-close-signal-v1.c",
+  "new_sha256": "c0df6586427eecd19d533e62fa9a120bb61d4ebfd4bcb5b8e13aa12d5a668ae6",
+  "changes": [
+    "Replace SIG_IGN with counting SIGPIPE handler.",
+    "Set native F_SETNOSIGPIPE from bounded0/1 argument before guarded write entry.",
+    "Append signal-count observation after joined writer/closer."
+  ],
+  "original_source_unchanged": true
+}
