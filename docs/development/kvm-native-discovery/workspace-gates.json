@@ -1,0 +1,648 @@
+{
+  "utc": "2026-11-03T16:26:36.009047+00:00",
+  "status": "component_qualified",
+  "commands": [
+    {
+      "label": "discovery-fmt-v1",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": null,
+      "results": [],
+      "utc": "2026-11-03T15:37:56.670219+00:00",
+      "log": ""
+    },
+    {
+      "label": "discovery-clippy-v1",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": null,
+      "results": [],
+      "utc": "2026-11-03T15:42:20.087052+00:00",
+      "log": "   Compiling rax-capi v0.1.2 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/source/capi)\n    Checking rax v0.1.0 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/source)\n    Finished `dev` profile [optimized] target(s) in 4m 15s\n"
+    },
+    {
+      "label": "discovery-build-v1",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": null,
+      "results": [],
+      "utc": "2026-11-03T15:57:31.908432+00:00",
+      "log": "warning: output filename collision at /tmp/rax-kvm-native-entry-ixif9sv1/target/debug/librax.rlib\n  |\n  = note: the lib target `rax` in package `rax-capi v0.1.2 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/source/capi)` has the same output filename as the lib target `rax` in package `rax v0.1.0 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/source)`\n  = note: this may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>\n  = help: consider changing their names to be unique or compiling them separately\n   Compiling rax v0.1.0 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/source)\n   Compiling rax-capi v0.1.2 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/source/capi)\n    Finished `dev` profile [optimized] target(s) in 15m 03s\n"
+    },
+    {
+      "label": "discovery-no-jit-v2",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,kvm"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": null,
+      "results": [],
+      "utc": "2026-11-03T16:13:28.128473+00:00",
+      "log": "    Checking rax v0.1.0 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/source)\n    Checking rax-capi v0.1.2 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/source/capi)\n    Finished `dev` profile [optimized] target(s) in 3m 57s\n"
+    },
+    {
+      "label": "discovery-doc-v2",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 2,
+      "results": [
+        [
+          "0",
+          "0",
+          "5",
+          "0",
+          "0"
+        ],
+        [
+          "2",
+          "0",
+          "0",
+          "0",
+          "0"
+        ],
+        [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      ],
+      "utc": "2026-11-03T16:13:57.381376+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 5.97s\n   Doc-tests rax\n\nrunning 5 tests\ntest src/isa/arm/aarch64/mod.rs - isa::arm::aarch64 (line 17) ... ignored\ntest src/isa/arm/cortex_m/mod.rs - isa::arm::cortex_m (line 35) ... ignored\ntest src/isa/arm/decoder/mod.rs - isa::arm::decoder (line 16) ... ignored\ntest src/isa/arm/mod.rs - isa::arm (line 28) ... ignored\ntest src/smir/mod.rs - smir (line 44) ... ignored\n\ntest result: ok. 0 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 2 tests\ntest src/backend/kvm/owned_vcpu.rs - backend::kvm::owned_vcpu::OwnedVcpuFd (line 13) - compile fail ... ok\ntest src/backend/kvm/mod.rs - backend::kvm::KvmVm::vm_fd (line 93) - compile fail ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s\n\nall doctests ran in 1.06s; merged doctests compilation took 0.41s\n   Doc-tests rax\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+    },
+    {
+      "label": "discovery-pc-unit-v2",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "machine::pc::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": null,
+      "results": [
+        [
+          "31",
+          "0",
+          "0",
+          "0",
+          "13146"
+        ]
+      ],
+      "utc": "2026-11-03T16:14:04.272531+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 0.22s\n     Running unittests src/lib.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d)\n\nrunning 31 tests\ntest machine::pc::acpi::tests::dsdt_has_valid_header_and_body ... ok\ntest machine::pc::acpi::tests::facs_has_no_sdt_checksum_but_valid_length ... ok\ntest machine::pc::acpi::tests::fadt_references_facs_and_dsdt ... ok\ntest machine::pc::acpi::tests::hpet_fields_are_correct ... ok\ntest machine::pc::acpi::tests::madt_has_expected_entries ... ok\ntest machine::pc::acpi::tests::madt_io_apic_address_is_correct ... ok\ntest machine::pc::acpi::tests::mcfg_allocation_entry_is_correct ... ok\ntest machine::pc::acpi::tests::orchestrator_places_tables_and_pointers_resolve ... ok\ntest machine::pc::acpi::tests::orchestrator_struct_wrapper_is_consistent ... ok\ntest machine::pc::acpi::tests::rsdp_signature_and_checksums ... ok\ntest machine::pc::acpi::tests::rsdt_length_matches_entry_count ... ok\ntest machine::pc::acpi::tests::sdt_header_checksums_sum_to_zero ... ok\ntest machine::pc::acpi::tests::signatures_are_correct ... ok\ntest machine::pc::acpi::tests::xsdt_length_matches_entry_count ... ok\ntest machine::pc::bios_boot::tests::parse_no_emulation_boot_image ... ok\ntest machine::pc::bios_boot::tests::real_mode_setup_loads_image_and_state ... ok\ntest machine::pc::bios_boot::tests::rejects_non_boot_iso ... ok\ntest machine::pc::devices::tests::absent_and_empty_cd_media_remain_distinct ... ok\ntest machine::pc::devices::tests::aliases_keep_target_owners_and_partial_dma_keyboard_and_floppy_commands ... ok\ntest machine::pc::devices::tests::atapi_data_cursor_and_mutable_disk_bytes_resume_in_independent_owners ... ok\ntest machine::pc::devices::tests::failed_publication_callback_preserves_the_entire_device_inventory ... ok\ntest machine::pc::devices::tests::immutable_cd_resources_deduplicate_and_rebind_both_channels ... ok\ntest machine::pc::devices::tests::legacy_calendar_tags_reencode_and_wall_restore_but_retired_denies_before_publish ... ok\ntest machine::pc::devices::tests::owned_machine_boot_binds_each_iso_to_its_original_device_set ... ok\ntest machine::pc::devices::tests::poisoned_last_device_lock_rejects_before_callback_and_prefix_mutation ... \nthread '<unnamed>' (2747173) panicked at src/machine/pc/devices/tests.rs:91:13:\nintentional last-lock poison\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nok\ntest machine::pc::devices::tests::truncated_unknown_tag_and_trailing_pc_images_reject ... ok\ntest machine::pc::multiprocessor::tests::configured_cpu_count_and_bsp_survive_every_supported_count ... ok\ntest machine::pc::multiprocessor::tests::publication_has_independent_pointer_and_configuration_checksums ... ok\ntest machine::pc::multiprocessor::tests::zero_cpus_and_missing_firmware_backing_reject_before_writing ... ok\ntest machine::pc::tests::build_e820_layout ... ok\ntest machine::pc::tests::iso_boot_uses_kvm_setup_addresses ... ok\n\ntest result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 13146 filtered out; finished in 0.15s\n\n"
+    },
+    {
+      "label": "discovery-public-state-v2",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::state_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 16,
+      "results": [
+        [
+          "16",
+          "0",
+          "0",
+          "0",
+          "13161"
+        ]
+      ],
+      "utc": "2026-11-03T16:14:11.222997+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 0.18s\n     Running unittests src/lib.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d)\n\nrunning 16 tests\ntest backend::kvm::state_tests::changed_nonpaging_public_controls_preserve_cached_pae_pdptrs ... ok\ntest backend::kvm::state_tests::changed_public_cr3_loads_the_requested_new_pae_table ... ok\ntest backend::kvm::state_tests::inactive_legacy_backing_does_not_override_architectural_initial_state ... ok\ntest backend::kvm::state_tests::managed_native_cpu_retains_registered_ram_after_vm_owner_drop ... ok\ntest backend::kvm::state_tests::native_guest_consumes_the_overlaid_mmx_and_xmm_banks ... ok\ntest backend::kvm::state_tests::native_init_waits_for_owned_input_completion_before_eligibility_changes ... ok\ntest backend::kvm::state_tests::native_special_backup_restores_cache_when_public_controls_already_match ... ok\ntest backend::kvm::state_tests::public_overlay_preserves_native_halted_and_startup_mp_states ... ok\ntest backend::kvm::state_tests::public_overlay_rejection_keeps_the_uncompleted_native_input ... ok\ntest backend::kvm::state_tests::public_overlay_updates_all_represented_banks_and_retains_x87_controls ... KVM_PUBLIC_XSAVE mask=0x7 size=4096 mxcsr_mask=0xffff\nok\ntest backend::kvm::state_tests::public_state_reads_native_xmm_and_debug_registers ... ok\ntest backend::kvm::state_tests::public_state_roundtrip_preserves_native_apic_base_and_pending_vector ... ok\ntest backend::kvm::state_tests::registered_native_ram_outlives_the_registration_borrow ... ok\ntest backend::kvm::state_tests::rejected_control_register_rolls_back_prior_vector_msr_and_debug_writes ... ok\ntest backend::kvm::state_tests::unchanged_public_paging_controls_preserve_cached_pae_pdptrs ... ok\ntest backend::kvm::state_tests::unsupported_public_bank_rejects_before_native_register_mutation ... ok\n\ntest result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 13161 filtered out; finished in 0.30s\n\n"
+    },
+    {
+      "label": "discovery-io-unit-v3",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::io::tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 8,
+      "results": [
+        [
+          "8",
+          "0",
+          "0",
+          "0",
+          "13169"
+        ]
+      ],
+      "utc": "2026-11-03T16:18:37.677386+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 5.83s\n     Running unittests src/lib.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d)\n\nrunning 8 tests\ntest backend::kvm::io::tests::all_native_mmio_chunk_lengths_are_preserved ... ok\ntest backend::kvm::io::tests::duplicate_input_completion_retains_the_first_complete_reply ... ok\ntest backend::kvm::io::tests::duplicate_output_acknowledgment_is_terminal_and_cannot_repeat_device_output ... ok\ntest backend::kvm::io::tests::malformed_native_metadata_rejects_before_replacing_the_owned_transfer ... ok\ntest backend::kvm::io::tests::native_rep_input_retains_element_width_count_and_exact_reply ... ok\ntest backend::kvm::io::tests::output_elements_keep_the_port_width_and_unacknowledged_payload ... ok\ntest backend::kvm::io::tests::retained_partial_output_progress_resumes_at_the_next_unacknowledged_element ... ok\ntest backend::kvm::io::tests::short_and_long_input_replies_poison_without_dropping_the_request ... ok\n\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 13169 filtered out; finished in 0.00s\n\n"
+    },
+    {
+      "label": "discovery-port-unit-v3",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "vm::runtime::port_io::tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 3,
+      "results": [
+        [
+          "3",
+          "0",
+          "0",
+          "0",
+          "13174"
+        ]
+      ],
+      "utc": "2026-11-03T16:18:38.967471+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 0.67s\n     Running unittests src/lib.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d)\n\nrunning 3 tests\ntest vm::runtime::port_io::tests::each_generic_element_uses_its_own_scalar_byte_lanes ... ok\ntest vm::runtime::port_io::tests::ide_data_register_uses_the_same_fifo_port_for_every_byte ... ok\ntest vm::runtime::port_io::tests::invalid_geometry_has_no_port_side_effects ... ok\n\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 13174 filtered out; finished in 0.00s\n\n"
+    },
+    {
+      "label": "discovery-native-xsave-v3",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::xsave::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 2,
+      "results": [
+        [
+          "2",
+          "0",
+          "0",
+          "0",
+          "13175"
+        ]
+      ],
+      "utc": "2026-11-03T16:18:39.677052+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 0.20s\n     Running unittests src/lib.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d)\n\nrunning 2 tests\ntest backend::kvm::xsave::tests::allocation_bounds_cover_fixed_and_dynamic_images_without_rounding_down ... ok\ntest backend::kvm::xsave::tests::only_zero_capability_selects_the_legacy_image ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 13175 filtered out; finished in 0.00s\n\n"
+    },
+    {
+      "label": "discovery-portable-xsave-v3",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::intel_hvf_xsave::tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 15,
+      "results": [
+        [
+          "15",
+          "0",
+          "0",
+          "0",
+          "13162"
+        ]
+      ],
+      "utc": "2026-11-03T16:18:40.374748+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 0.19s\n     Running unittests src/lib.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d)\n\nrunning 15 tests\ntest backend::intel_hvf_xsave::tests::amd_misaligned_exception_mask_roundtrips_only_when_the_host_supports_it ... ok\ntest backend::intel_hvf_xsave::tests::compacted_images_keep_opaque_components_when_normalized ... ok\ntest backend::intel_hvf_xsave::tests::emulator_overlay_materializes_initial_xmm_and_compacted_mxcsr ... ok\ntest backend::intel_hvf_xsave::tests::emulator_overlay_rejects_unrepresentable_tags_and_controls_without_source_changes ... ok\ntest backend::intel_hvf_xsave::tests::emulator_overlay_round_trips_exact_x87_state_at_every_top ... ok\ntest backend::intel_hvf_xsave::tests::init_components_ignore_stale_bytes ... ok\ntest backend::intel_hvf_xsave::tests::mxcsr_mask_still_rejects_reserved_bits_outside_the_amd_extension ... ok\ntest backend::intel_hvf_xsave::tests::pkru_overlay_preserves_other_extended_components ... ok\ntest backend::intel_hvf_xsave::tests::preserves_unprojected_host_component_during_register_overlay ... ok\ntest backend::intel_hvf_xsave::tests::projects_first_and_last_xmm_and_ymm_lanes ... ok\ntest backend::intel_hvf_xsave::tests::rejects_malformed_headers_and_reserved_mxcsr_bits ... ok\ntest backend::intel_hvf_xsave::tests::rejects_overlapping_or_unsupported_component_tables ... ok\ntest backend::intel_hvf_xsave::tests::standard_mxcsr_is_independent_of_the_sse_in_use_bit ... ok\ntest backend::intel_hvf_xsave::tests::unsupported_public_banks_are_rejected_without_changing_the_source ... ok\ntest backend::intel_hvf_xsave::tests::x87_logical_slots_recover_physical_registers_and_full_tags ... ok\n\ntest result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 13162 filtered out; finished in 0.00s\n\n"
+    },
+    {
+      "label": "discovery-coordinator-v3",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "vm::runtime::execution_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 20,
+      "results": [
+        [
+          "20",
+          "0",
+          "0",
+          "0",
+          "13157"
+        ]
+      ],
+      "utc": "2026-11-03T16:25:00.645536+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 0.20s\n     Running unittests src/lib.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d)\n\nrunning 20 tests\ntest vm::runtime::execution_tests::actual_saved_two_and_four_cpu_guests_resume_the_same_interleaving ... ok\ntest vm::runtime::execution_tests::actual_vmm_fixed_ipi_wakes_halted_aps_and_eoi_clears_each_controller ... ok\ntest vm::runtime::execution_tests::actual_vmm_run_executes_four_cpus_after_init_sipi ... ok\ntest vm::runtime::execution_tests::actual_vmm_run_executes_one_cpu ... ok\ntest vm::runtime::execution_tests::actual_vmm_run_executes_two_cpus_after_init_sipi ... ok\ntest vm::runtime::execution_tests::ap_startup_wait_prevents_execution_before_any_sipi ... ok\ntest vm::runtime::execution_tests::automatic_checkpoint_after_input_contains_the_completed_value_and_resumes_it ... ok\ntest vm::runtime::execution_tests::checkpoint_keeps_an_unprocessed_init_sipi_and_fixed_ipi_fifo ... ok\ntest vm::runtime::execution_tests::gdb_boundary_halted_cpu_does_not_hit_the_following_breakpoint_until_woken ... ok\ntest vm::runtime::execution_tests::gdb_boundary_stopped_cpu_retains_registers_stack_and_pending_interrupt ... ok\ntest vm::runtime::execution_tests::gdb_breakpoint_stops_before_the_instruction_has_any_effect ... ok\ntest vm::runtime::execution_tests::gdb_io_single_step_completes_input_and_stops_before_the_next_instruction ... ok\ntest vm::runtime::execution_tests::gdb_single_step_reports_one_bsp_instruction_with_other_cpus_online ... ok\ntest vm::runtime::execution_tests::gdb_single_step_stops_after_output_or_halt_before_the_following_store ... ok\ntest vm::runtime::execution_tests::gdb_single_step_waits_for_retirement_after_a_delivered_fault ... ok\ntest vm::runtime::execution_tests::illegal_fixed_ipi_vectors_set_sender_error_without_queueing_an_interrupt ... ok\ntest vm::runtime::execution_tests::lowest_priority_ipi_selects_one_online_enabled_target ... ok\ntest vm::runtime::execution_tests::physical_flat_cluster_and_broadcast_ipis_select_the_expected_controllers ... ok\ntest vm::runtime::execution_tests::retirement_distinguishes_inline_faults_debug_traps_and_faulted_software_interrupts ... ok\ntest vm::runtime::execution_tests::second_sipi_does_not_restart_an_online_application_cpu ... ok\n\ntest result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 13157 filtered out; finished in 379.55s\n\n"
+    },
+    {
+      "label": "discovery-native-smp-v3",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "kvm_smp",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 6,
+      "results": [
+        [
+          "1",
+          "0",
+          "0",
+          "0",
+          "5"
+        ],
+        [
+          "1",
+          "0",
+          "0",
+          "0",
+          "5"
+        ],
+        [
+          "1",
+          "0",
+          "0",
+          "0",
+          "5"
+        ],
+        [
+          "1",
+          "0",
+          "0",
+          "0",
+          "5"
+        ],
+        [
+          "1",
+          "0",
+          "0",
+          "0",
+          "5"
+        ],
+        [
+          "1",
+          "0",
+          "0",
+          "0",
+          "5"
+        ],
+        [
+          "6",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      ],
+      "utc": "2026-11-03T16:25:02.740295+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 1.03s\n     Running tests/suites/backend/kvm/smp.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/kvm_smp-4cde795e7c156e37)\n\nrunning 6 tests\ntest discovery::four_native_cpus_have_firmware_discovery_matching_native_registers ... \nrunning 1 test\ntest discovery::four_native_cpus_have_firmware_discovery_matching_native_registers ... native_discovery_cpus=4 guest_signature=0x306f2 features=0xf8bfbff lapic_version=0x50014 ioapic_version=0x170011 ioapic_id=0x0\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.02s\n\nok\ntest discovery::one_native_cpu_has_firmware_discovery_matching_native_registers ... \nrunning 1 test\ntest discovery::one_native_cpu_has_firmware_discovery_matching_native_registers ... native_discovery_cpus=1 guest_signature=0x306f2 features=0xf8bfbff lapic_version=0x50014 ioapic_version=0x170011 ioapic_id=0x0\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.02s\n\nok\ntest discovery::two_native_cpus_have_firmware_discovery_matching_native_registers ... \nrunning 1 test\ntest discovery::two_native_cpus_have_firmware_discovery_matching_native_registers ... native_discovery_cpus=2 guest_signature=0x306f2 features=0xf8bfbff lapic_version=0x50014 ioapic_version=0x170011 ioapic_id=0x0\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.02s\n\nok\ntest four_native_cpus_start_and_wake_twice_with_distinct_ids ... \nrunning 1 test\ntest four_native_cpus_start_and_wake_twice_with_distinct_ids ... native_vmm_cpus=4 marker=0x600d600d flags=[a5a55a5a, a5a55a5a, a5a55a5a, a5a55a5a] ipi_counts=[0, 2, 2, 2] cpuid_ids=[0, 1, 2, 3]\nnative_cpu=0 topology_words=[f, 0, 0, 0, 0]\nnative_cpu=1 topology_words=[f, 1, 0, 0, 0]\nnative_cpu=2 topology_words=[f, 2, 0, 0, 0]\nnative_cpu=3 topology_words=[f, 3, 0, 0, 0]\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.26s\n\nok\ntest one_native_cpu_executes_the_actual_vmm_boot_control ... \nrunning 1 test\ntest one_native_cpu_executes_the_actual_vmm_boot_control ... native_vmm_cpus=1 marker=0x600d600d flags=[a5a55a5a] ipi_counts=[0] cpuid_ids=[0]\nnative_cpu=0 topology_words=[f, 0, 0, 0, 0]\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.07s\n\nok\ntest two_native_cpus_start_and_wake_twice_with_distinct_ids ... \nrunning 1 test\ntest two_native_cpus_start_and_wake_twice_with_distinct_ids ... native_vmm_cpus=2 marker=0x600d600d flags=[a5a55a5a, a5a55a5a] ipi_counts=[0, 2] cpuid_ids=[0, 1]\nnative_cpu=0 topology_words=[f, 0, 0, 0, 0]\nnative_cpu=1 topology_words=[f, 1, 0, 0, 0]\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.16s\n\nok\n\ntest result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s\n\n"
+    },
+    {
+      "label": "discovery-native-io-v3",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "kvm_host_slices",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 10,
+      "results": [
+        [
+          "10",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      ],
+      "utc": "2026-11-03T16:25:17.022075+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 0.33s\n     Running tests/suites/backend/kvm/host_slices.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/kvm_host_slices-a9832a04d1fe2b74)\n\nrunning 10 tests\ntest finite_turns_preserve_caller_mask_handlers_and_timer_ownership ... ok\ntest input_output_and_halt_survive_worker_returns_and_rejected_reentry ... ok\ntest io_completion::duplicate_output_acknowledgment_is_terminal_before_the_following_instruction ... ok\ntest io_completion::malformed_input_replies_poison_without_a_native_reentry ... ok\ntest io_completion::mmio_read_modify_write_retains_the_followon_output_until_acknowledgment ... ok\ntest io_completion::rep_inputs_preserve_width_count_and_direction_in_the_managed_cpu ... ok\ntest io_completion::rep_outputs_reemit_one_fixed_port_element_until_acknowledged ... ok\ntest io_completion::vmm::rep_input_uses_scalar_uart_register_lanes_in_the_actual_vmm_loop ... ok\ntest mmio_input_and_output_retain_the_exact_native_frontier ... ok\ntest raw_owner::raw_fd_retains_registered_ram_after_public_vm_handles_drop ... ok\n\ntest result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.34s\n\n"
+    },
+    {
+      "label": "discovery-minimal-v3",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "kvm_minimal",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 2,
+      "results": [
+        [
+          "2",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      ],
+      "utc": "2026-11-03T16:25:17.749542+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 0.20s\n     Running tests/suites/backend/kvm/minimal.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/kvm_minimal-a1466b683c3e49af)\n\nrunning 2 tests\ntest test_kvm_vcpu_creation_simple ... Opening KVM...\nCreating VM...\nRegistering memory region (64MB at 0x0)...\n  Memory registered: slot=0, guest=[0x0, 0x4000000)\nCreating IRQ chip...\nCreating PIT2...\nSetting TSS address at 0xfffbd000...\nSetting identity map address at 0xffffc000...\nCreating vCPU 0...\nvCPU 0 created successfully: fd=5\nTest passed!\nok\ntest test_kvm_vcpu_creation_with_gap ... Opening KVM...\nCreating VM...\nAllocating 6GB of backing memory...\nRegistering slot 0: [0x0, 0x40000000)\nRegistering slot 1: [0x40000000, 0x80000000)\nCreating IRQ chip...\nCreating PIT2...\nSetting TSS address at 0xc0001000...\nSetting identity map address at 0xc0000000...\nCreating vCPU 0...\nvCPU 0 created successfully: fd=5\nTest passed!\nok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s\n\n"
+    },
+    {
+      "label": "discovery-realmode-v3",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "realmode_boot",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 10,
+      "results": [
+        [
+          "10",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      ],
+      "utc": "2026-11-03T16:25:18.432631+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 0.20s\n     Running tests/suites/machine/pc/real_mode_boot.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/realmode_boot-c0b4edbf9c144409)\n\nrunning 10 tests\ntest rm_bios_cd_activation_is_per_vcpu ... ok\ntest rm_bios_int13_extended_read ... ok\ntest rm_far_jmp_sets_cs_base ... ok\ntest rm_fetch_uses_cs_base ... ok\ntest rm_modrm_uses_ds_base ... ok\ntest rm_moffs_uses_ds_base ... ok\ntest rm_movs_uses_segment_bases ... ok\ntest rm_segment_load_sets_base ... ok\ntest rm_stack_uses_ss_base ... ok\ntest rm_templeos_prologue_relocates_and_far_jumps ... ok\n\ntest result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+    },
+    {
+      "label": "discovery-workflow-v3",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "ci_actions_pinned",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 12,
+      "results": [
+        [
+          "12",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      ],
+      "utc": "2026-11-03T16:25:19.462032+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 0.19s\n     Running tests/suites/tooling/ci_actions_pinned.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/ci_actions_pinned-1646ac01b4b4b08e)\n\nrunning 12 tests\ntest ebpf_validation_runs_every_oracle_and_partitions_the_formal_tier ... ok\ntest experimental_cross_builds_report_failures_without_red_checks ... ok\ntest external_github_actions_are_pinned_to_full_commit_shas ... ok\ntest licensing_resolves_locked_dependencies_for_fresh_runners ... ok\ntest push_ci_runs_darwin_fixtures_against_a_required_native_oracle ... ok\ntest push_ci_runs_host_specific_scalar_and_evex_jit_regressions ... ok\ntest scheduled_differential_separates_oracles_diagnostics_and_assembler_capabilities ... ok\ntest scheduled_full_suite_runs_every_host_specific_jit_regression_binary ... ok\ntest scheduled_full_suite_serializes_native_jit_shards_and_preserves_diagnostics ... ok\ntest scheduled_kvm_keeps_host_dependent_differentials_informational ... ok\ntest windows_process_suite_is_registered_and_reachable_in_ci_commands ... ok\ntest workflow_test_selection_excludes_comments_harness_arguments_and_name_prefixes ... ok\n\ntest result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s\n\n"
+    }
+  ],
+  "command_count": 17,
+  "final_status": {
+    "utc": "2026-11-03T16:26:15.495439+00:00",
+    "stage": "terminal",
+    "completed": [
+      "discovery-io-unit-v3",
+      "discovery-port-unit-v3",
+      "discovery-native-xsave-v3",
+      "discovery-portable-xsave-v3",
+      "discovery-coordinator-v3",
+      "discovery-native-smp-v3",
+      "discovery-native-io-v3",
+      "discovery-minimal-v3",
+      "discovery-realmode-v3",
+      "discovery-workflow-v3"
+    ],
+    "exit_code": 0,
+    "final_content_verified": true,
+    "verification_method": "Full content digests at batch boundaries; per-command stat checks and digest verification for changed files."
+  },
+  "source_sha256": {
+    "src/backend/kvm/mod.rs": "4a8628e0355f8e3c7f1cf23b2f3ac2d8bcf261e783000d74c70a44dff06ae0ad",
+    "src/backend/kvm/firmware.rs": "0c6ea6a20c9850eb0b248796294577b929de6498736aefadd8533582c82f6ae0",
+    "src/machine/pc/mod.rs": "a5a1761fd8634c8b737edf65b9bd538b6e51f838545bf5a929f1cbacb72f4ae8",
+    "src/machine/pc/multiprocessor.rs": "c817a80b854f5795a4680954832a06bc6bbce5e6890cf4b1a013fc884e4c6c33",
+    "src/machine/pc/multiprocessor_tests.rs": "3d0aa88d76803ee04fdcc7a12be17b14690561b249f23ce4e598e2f450fc93e1",
+    "src/vm/runtime.rs": "a377712c5fdd2d93177d3b8986a7fc30f67a4a36a9803fcded40776f12eb7bd2",
+    "tests/suites/backend/kvm/smp.rs": "384ab33392d3304e79bc4c020ad7fba15fb428b12d436ddff2dce06fd73f5479",
+    "tests/suites/backend/kvm/smp/discovery.rs": "d3b1b34e1f0f3a79863a630bccd2ddaec187a4a75c641b0533b847977fcf520f"
+  },
+  "rejected_invocations": [
+    {
+      "label": "discovery-io-unit-v2",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::io_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": false,
+      "expected_pass_count": 8,
+      "results": [
+        [
+          "0",
+          "0",
+          "0",
+          "0",
+          "13177"
+        ]
+      ],
+      "utc": "2026-11-03T16:14:17.928936+00:00",
+      "log": "    Finished `test` profile [optimized] target(s) in 0.18s\n     Running unittests src/lib.rs (/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13177 filtered out; finished in 0.00s\n\n"
+    }
+  ],
+  "harness_correction": {
+    "identified_before_publication": true,
+    "wrong_zero_test_invocation": "backend::kvm::io_tests::",
+    "actual_exit_code": 0,
+    "actual_passed": 0,
+    "coverage_guard_exit": 121,
+    "correct_filters": {
+      "io": "backend::kvm::io::tests::",
+      "port": "vm::runtime::port_io::tests::",
+      "native_xsave": "backend::kvm::xsave::",
+      "portable_xsave": "backend::intel_hvf_xsave::tests::",
+      "coordinator": "vm::runtime::execution_tests::"
+    },
+    "handling": "Preserve seven completed canonical gates. Continue ten remaining gates in v3; the zero-test invocation is retained as rejected evidence and is not counted as qualification. The PIT queue stopped before any Cargo gate and will be replaced with a v3 queue. Source remains unchanged.",
+    "prior_streamed_controller_exit_cause": "unknown; exited after three completed gates, before incorrect XSAVE/coordinator selections ran."
+  },
+  "scope": "Frozen native MPS source; excludes the separately owned PIT repair and later independent upstream Darwin changes. Seven passed gates are retained; only ten unfinished gates ran in v3. Filtered root selections are not a full library test run."
+}

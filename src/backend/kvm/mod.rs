@@ -2,6 +2,7 @@
 
 mod convert;
 mod deadline;
+mod firmware;
 mod io;
 mod owned_vcpu;
 mod run;

@@ -1,0 +1,13 @@
+{
+  "title": "MultiProcessor Specification",
+  "issuer": "Intel Corporation",
+  "version": "1.4",
+  "order_number": "242016-006",
+  "date": "May 1997",
+  "retrieval_utc": "2026-11-03T15:20:21.674550+00:00",
+  "source_url": "https://pdos.csail.mit.edu/6.828/2018/readings/ia32/MPspec.pdf",
+  "source_note": "Intel-authored specification hosted by MIT CSAIL.",
+  "sha256": "2d030e6045895b3e1fb0fee5775a8025a1f76d7c97b29437fe4783d9ef4981cc",
+  "bytes": 390852,
+  "license_notice": "PDF notice permits copying for internal use only; local PDF is excluded from Git."
+}

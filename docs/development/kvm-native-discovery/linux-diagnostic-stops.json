@@ -1,0 +1,26 @@
+[
+  {
+    "utc": "2026-11-03T15:18:55.752945+00:00",
+    "count": 1,
+    "pid": 2370046,
+    "parent": 2370045,
+    "action": "Owned guest console Ctrl-A x; no signal or restart",
+    "reason": "Linux independently reports no ACPI MADT or MP tables; requested OS discovery is absent. Stop this diagnostic after that conclusive result, retaining its console and return status."
+  },
+  {
+    "utc": "2026-11-03T15:20:40.182008+00:00",
+    "count": 2,
+    "pid": 2398320,
+    "parent": 2370045,
+    "action": "Owned guest console Ctrl-A x; no signal or restart",
+    "reason": "Linux independently reports no ACPI MADT or MP tables; requested OS discovery is absent. Stop this diagnostic after that conclusive result, retaining its console and return status."
+  },
+  {
+    "utc": "2026-11-03T15:22:20.548202+00:00",
+    "count": 4,
+    "pid": 2415470,
+    "parent": 2370045,
+    "action": "Owned guest console Ctrl-A x; no signal or restart",
+    "reason": "Linux independently reports no ACPI MADT or MP tables; requested OS discovery is absent. Stop this diagnostic after that conclusive result, retaining its console and return status."
+  }
+]

@@ -1,0 +1,129 @@
+{
+  "identity": {
+    "utc": "2026-11-03T15:36:42.303983+00:00",
+    "binary_sha256": "512cbd9b147cbe9c9a98492e217d6d1e72468456a496139048770eb549aa0e9a",
+    "original_binary": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/rax-cli-v1",
+    "original_binary_stat": {
+      "inode": 128975208,
+      "bytes": 72978888,
+      "mtime_ns": 1793720074386406168
+    },
+    "kernel": "/boot/vmlinuz-6.8.0-138-generic",
+    "kernel_sha256": "d74be574189057a036866309fd5546724a92390a4f6ba086e93ddab2f6e0e01d",
+    "kernel_bytes": 15055240,
+    "source_scope": "Pinned standalone CLI from the complete changed native-discovery production library; immutable source identity is in ../production-v1.json and ../inputs-v1.json. This is an OS startup observation, not full native checkpoint validation."
+  },
+  "runs": [
+    {
+      "utc": "2026-11-03T15:52:20.565882+00:00",
+      "count": 4,
+      "exit_code": 0,
+      "elapsed_s": 937.862,
+      "quit_reason": null,
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/linux-v1/rax",
+        "--config",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/linux-v1/empty.toml",
+        "--arch",
+        "x86-64",
+        "--backend",
+        "kvm",
+        "--memory",
+        "512M",
+        "--vcpus",
+        "4",
+        "--kernel",
+        "/boot/vmlinuz-6.8.0-138-generic",
+        "--cmdline",
+        "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc panic=-1 loglevel=7"
+      ],
+      "log_sha256": "da03099174f7fc5e2cb2cfa6b18ee836987d77e484ae47a2e1d3043eb604bc72",
+      "relevant_lines": [
+        "[    0.000000] Command line: console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc panic=-1 loglevel=7",
+        "[    0.000000] APIC: Static calls initialized",
+        "[    0.000000] MPTABLE: APIC at: 0xFEE00000",
+        "[    0.000000] Processor #0 (Bootup-CPU)",
+        "[    0.000000] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23",
+        "[    0.000000] smpboot: Allowing 4 CPUs, 0 hotplug CPUs",
+        "[    0.000000] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:4 nr_cpu_ids:4 nr_node_ids:1",
+        "[    0.000000] Kernel command line: console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc panic=-1 loglevel=7",
+        "[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1",
+        "[    0.000000] rcu: \tRCU restricting CPUs from NR_CPUS=8192 to nr_cpu_ids=4.",
+        "[    0.001000] APIC: Switch to symmetric I/O mode setup",
+        "[    0.005000] x2apic: IRQ remapping doesn't support X2APIC mode"
+      ],
+      "log": "\r\n\r\nKASLR disabled: 'nokaslr' on cmdline.\r\n\r\n[    0.000000] Linux version 6.8.0-138-generic (buildd@lcy02-amd64-023) (x86_64-linux-gnu-gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, GNU ld (GNU Binutils for Ubuntu) 2.42) #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 (Ubuntu 6.8.0-138.138-generic 6.8.12)\r\n[    0.000000] Command line: console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc panic=-1 loglevel=7\r\n[    0.000000] KERNEL supported cpus:\r\n[    0.000000]   Intel GenuineIntel\r\n[    0.000000]   AMD AuthenticAMD\r\n[    0.000000]   Hygon HygonGenuine\r\n[    0.000000]   Centaur CentaurHauls\r\n[    0.000000]   zhaoxin   Shanghai  \r\n[    0.000000] Intel Spectre v2 broken microcode detected; disabling Speculation Control\r\n[    0.000000] Disabled fast string operations\r\n[    0.000000] BIOS-provided physical RAM map:\r\n[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff] usable\r\n[    0.000000] BIOS-e820: [mem 0x000000000009fc00-0x00000000000fffff] reserved\r\n[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x000000001fffbfff] usable\r\n[    0.000000] BIOS-e820: [mem 0x000000001fffc000-0x000000001fffffff] reserved\r\n[    0.000000] printk: legacy bootconsole [earlyser0] enabled\r\n[    0.000000] NX (Execute Disable) protection: active\r\n[    0.000000] APIC: Static calls initialized\r\n[    0.000000] DMI not present or invalid.\r\n[    0.000000] tsc: Fast TSC calibration failed\r\n[    0.000000] last_pfn = 0x1fffc max_arch_pfn = 0x400000000\r\n[    0.000000] MTRRs disabled by BIOS\r\n[    0.000000] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  \r\n[    0.000000] found SMP MP-table at [mem 0x000f0000-0x000f000f]\r\n[    0.000000] Using GB pages for direct mapping\r\n[    0.000000] ACPI: Early table checksum verification disabled\r\n[    0.000000] ACPI BIOS Error (bug): A valid RSDP was not found (20230628/tbxfroot-222)\r\n[    0.000000] No NUMA configuration found\r\n[    0.000000] Faking a node at [mem 0x0000000000000000-0x000000001fffbfff]\r\n[    0.000000] NODE_DATA(0) allocated [mem 0x1ffd1000-0x1fffbfff]\r\n[    0.000000] Zone ranges:\r\n[    0.000000]   DMA      [mem 0x0000000000001000-0x0000000000ffffff]\r\n[    0.000000]   DMA32    [mem 0x0000000001000000-0x000000001fffbfff]\r\n[    0.000000]   Normal   empty\r\n[    0.000000]   Device   empty\r\n[    0.000000] Movable zone start for each node\r\n[    0.000000] Early memory node ranges\r\n[    0.000000]   node   0: [mem 0x0000000000001000-0x000000000009efff]\r\n[    0.000000]   node   0: [mem 0x0000000000100000-0x000000001fffbfff]\r\n[    0.000000] Initmem setup node 0 [mem 0x0000000000001000-0x000000001fffbfff]\r\n[    0.000000] On node 0, zone DMA: 1 pages in unavailable ranges\r\n[    0.000000] On node 0, zone DMA: 97 pages in unavailable ranges\r\n[    0.000000] On node 0, zone DMA32: 4 pages in unavailable ranges\r\n[    0.000000] Intel MultiProcessor Specification v1.4\r\n[    0.000000] MPTABLE: OEM ID: RAXVMM  \r\n[    0.000000] MPTABLE: Product ID: RAX PC      \r\n[    0.000000] MPTABLE: APIC at: 0xFEE00000\r\n[    0.000000] Processor #0 (Bootup-CPU)\r\n[    0.000000] Processor #1\r\n[    0.000000] Processor #2\r\n[    0.000000] Processor #3\r\n[    0.000000] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23\r\n[    0.000000] Processors: 4\r\n[    0.000000] smpboot: Allowing 4 CPUs, 0 hotplug CPUs\r\n[    0.000000] PM: hibernation: Registered nosave memory: [mem 0x00000000-0x00000fff]\r\n[    0.000000] PM: hibernation: Registered nosave memory: [mem 0x0009f000-0x000fffff]\r\n[    0.000000] [mem 0x20000000-0xffffffff] available for PCI devices\r\n[    0.000000] Booting paravirtualized kernel on bare hardware\r\n[    0.000000] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1910969940391419 ns\r\n[    0.000000] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:4 nr_cpu_ids:4 nr_node_ids:1\r\n[    0.000000] percpu: Embedded 86 pages/cpu s229376 r8192 d114688 u524288\r\n[    0.000000] Kernel command line: console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc panic=-1 loglevel=7\r\n[    0.000000] Unknown kernel command line parameters \"nokaslr\", will be passed to user space.\r\n[    0.000000] random: crng init done\r\n[    0.000000] Dentry cache hash table entries: 65536 (order: 7, 524288 bytes, linear)\r\n[    0.000000] Inode-cache hash table entries: 32768 (order: 6, 262144 bytes, linear)\r\n[    0.000000] Fallback order for Node 0: 0 \r\n[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 128764\r\n[    0.000000] Policy zone: DMA32\r\n[    0.000000] mem auto-init: stack:all(zero), heap alloc:on, heap free:off\r\n[    0.000000] Memory: 459120K/523880K available (22528K kernel code, 4441K rwdata, 14428K rodata, 4932K init, 4776K bss, 64504K reserved, 0K cma-reserved)\r\n[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1\r\n[    0.000000] Kernel/User page tables isolation: enabled\r\nPoking KASLR using RDRAND RDTSC...\r\n[    0.000000] ftrace: allocating 58334 entries in 228 pages\r\n[    0.000000] ftrace: allocated 228 pages with 4 groups\r\n[    0.000000] Dynamic Preempt: voluntary\r\n[    0.000000] rcu: Preemptible hierarchical RCU implementation.\r\n[    0.000000] rcu: \tRCU restricting CPUs from NR_CPUS=8192 to nr_cpu_ids=4.\r\n[    0.000000] \tTrampoline variant of Tasks RCU enabled.\r\n[    0.000000] \tRude variant of Tasks RCU enabled.\r\n[    0.000000] \tTracing variant of Tasks RCU enabled.\r\n[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 100 jiffies.\r\n[    0.000000] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=4\r\n[    0.000000] RCU Tasks: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.\r\n[    0.000000] RCU Tasks Rude: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.\r\n[    0.000000] RCU Tasks Trace: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.\r\n[    0.000000] NR_IRQS: 524544, nr_irqs: 456, preallocated irqs: 16\r\n[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.\r\n[    0.000000] Console: colour VGA+ 80x25\r\n[    0.000000] printk: legacy console [ttyS0] enabled\r\n[    0.000000] printk: legacy console [ttyS0] enabled\r\n[    0.000000] printk: legacy bootconsole [earlyser0] disabled\r\n[    0.000000] printk: legacy bootconsole [earlyser0] disabled\r\n[    0.001000] APIC: Switch to symmetric I/O mode setup\r\n[    0.005000] x2apic: IRQ remapping doesn't support X2APIC mode\r\n[    0.006000] ..TIMER: vector=0x30 apic1=0 pin1=0 apic2=-1 pin2=-1\r\n"
+    },
+    {
+      "utc": "2026-11-03T15:53:40.827915+00:00",
+      "count": 2,
+      "exit_code": 0,
+      "elapsed_s": 80.152,
+      "quit_reason": null,
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/linux-v1/rax",
+        "--config",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/linux-v1/empty.toml",
+        "--arch",
+        "x86-64",
+        "--backend",
+        "kvm",
+        "--memory",
+        "512M",
+        "--vcpus",
+        "2",
+        "--kernel",
+        "/boot/vmlinuz-6.8.0-138-generic",
+        "--cmdline",
+        "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc panic=-1 loglevel=7"
+      ],
+      "log_sha256": "a689cc6570b80da5e47c59b07d8b37ca358658c50890df068f3f6f19e0f26caa",
+      "relevant_lines": [
+        "[    0.000000] Command line: console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc panic=-1 loglevel=7",
+        "[    0.000000] APIC: Static calls initialized",
+        "[    0.000000] MPTABLE: APIC at: 0xFEE00000",
+        "[    0.000000] Processor #0 (Bootup-CPU)",
+        "[    0.000000] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23",
+        "[    0.000000] smpboot: Allowing 2 CPUs, 0 hotplug CPUs",
+        "[    0.000000] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:2 nr_cpu_ids:2 nr_node_ids:1"
+      ],
+      "log": "\r\n\r\nKASLR disabled: 'nokaslr' on cmdline.\r\n\r\n[    0.000000] Linux version 6.8.0-138-generic (buildd@lcy02-amd64-023) (x86_64-linux-gnu-gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, GNU ld (GNU Binutils for Ubuntu) 2.42) #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 (Ubuntu 6.8.0-138.138-generic 6.8.12)\r\n[    0.000000] Command line: console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc panic=-1 loglevel=7\r\n[    0.000000] KERNEL supported cpus:\r\n[    0.000000]   Intel GenuineIntel\r\n[    0.000000]   AMD AuthenticAMD\r\n[    0.000000]   Hygon HygonGenuine\r\n[    0.000000]   Centaur CentaurHauls\r\n[    0.000000]   zhaoxin   Shanghai  \r\n[    0.000000] Intel Spectre v2 broken microcode detected; disabling Speculation Control\r\n[    0.000000] Disabled fast string operations\r\n[    0.000000] BIOS-provided physical RAM map:\r\n[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff] usable\r\n[    0.000000] BIOS-e820: [mem 0x000000000009fc00-0x00000000000fffff] reserved\r\n[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x000000001fffbfff] usable\r\n[    0.000000] BIOS-e820: [mem 0x000000001fffc000-0x000000001fffffff] reserved\r\n[    0.000000] printk: legacy bootconsole [earlyser0] enabled\r\n[    0.000000] NX (Execute Disable) protection: active\r\n[    0.000000] APIC: Static calls initialized\r\n[    0.000000] DMI not present or invalid.\r\n[    0.000000] tsc: Fast TSC calibration failed\r\n[    0.000000] last_pfn = 0x1fffc max_arch_pfn = 0x400000000\r\n[    0.000000] MTRRs disabled by BIOS\r\n[    0.000000] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  \r\n[    0.000000] found SMP MP-table at [mem 0x000f0000-0x000f000f]\r\n[    0.000000] Using GB pages for direct mapping\r\n[    0.000000] ACPI: Early table checksum verification disabled\r\n[    0.000000] ACPI BIOS Error (bug): A valid RSDP was not found (20230628/tbxfroot-222)\r\n[    0.000000] No NUMA configuration found\r\n[    0.000000] Faking a node at [mem 0x0000000000000000-0x000000001fffbfff]\r\n[    0.000000] NODE_DATA(0) allocated [mem 0x1ffd1000-0x1fffbfff]\r\n[    0.000000] Zone ranges:\r\n[    0.000000]   DMA      [mem 0x0000000000001000-0x0000000000ffffff]\r\n[    0.000000]   DMA32    [mem 0x0000000001000000-0x000000001fffbfff]\r\n[    0.000000]   Normal   empty\r\n[    0.000000]   Device   empty\r\n[    0.000000] Movable zone start for each node\r\n[    0.000000] Early memory node ranges\r\n[    0.000000]   node   0: [mem 0x0000000000001000-0x000000000009efff]\r\n[    0.000000]   node   0: [mem 0x0000000000100000-0x000000001fffbfff]\r\n[    0.000000] Initmem setup node 0 [mem 0x0000000000001000-0x000000001fffbfff]\r\n[    0.000000] On node 0, zone DMA: 1 pages in unavailable ranges\r\n[    0.000000] On node 0, zone DMA: 97 pages in unavailable ranges\r\n[    0.000000] On node 0, zone DMA32: 4 pages in unavailable ranges\r\n[    0.000000] Intel MultiProcessor Specification v1.4\r\n[    0.000000] MPTABLE: OEM ID: RAXVMM  \r\n[    0.000000] MPTABLE: Product ID: RAX PC      \r\n[    0.000000] MPTABLE: APIC at: 0xFEE00000\r\n[    0.000000] Processor #0 (Bootup-CPU)\r\n[    0.000000] Processor #1\r\n[    0.000000] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23\r\n[    0.000000] Processors: 2\r\n[    0.000000] smpboot: Allowing 2 CPUs, 0 hotplug CPUs\r\n[    0.000000] PM: hibernation: Registered nosave memory: [mem 0x00000000-0x00000fff]\r\n[    0.000000] PM: hibernation: Registered nosave memory: [mem 0x0009f000-0x000fffff]\r\n[    0.000000] [mem 0x20000000-0xffffffff] available for PCI devices\r\n[    0.000000] Booting paravirtualized kernel on bare hardware\r\n[    0.000000] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1910969940391419 ns\r\n[    0.000000] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:2 nr_cpu_ids:2 nr_node_ids:1\r\n[    0.000000] percpu: Embedded 86 pages/cpu s229376 r8192 d114688 u1048576\r\n[    "
+    },
+    {
+      "utc": "2026-11-03T15:54:48.636718+00:00",
+      "count": 1,
+      "exit_code": 0,
+      "elapsed_s": 67.807,
+      "quit_reason": null,
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/linux-v1/rax",
+        "--config",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/linux-v1/empty.toml",
+        "--arch",
+        "x86-64",
+        "--backend",
+        "kvm",
+        "--memory",
+        "512M",
+        "--vcpus",
+        "1",
+        "--kernel",
+        "/boot/vmlinuz-6.8.0-138-generic",
+        "--cmdline",
+        "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc panic=-1 loglevel=7"
+      ],
+      "log_sha256": "7a7a17f32680ee6ad6241d470f4f011e2ea19fcb67390e7627ef48b3285845b8",
+      "relevant_lines": [
+        "[    0.000000] Command line: console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc panic=-1 loglevel=7",
+        "[    0.000000] APIC: Static calls initialized",
+        "[    0.000000] MPTABLE: APIC at: 0xFEE00000",
+        "[    0.000000] Processor #0 (Bootup-CPU)",
+        "[    0.000000] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23",
+        "[    0.000000] smpboot: Allowing 1 CPUs, 0 hotplug CPUs",
+        "[    0.000000] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:1 nr_cpu_ids:1 nr_node_ids:1"
+      ],
+      "log": "\r\n\r\nKASLR disabled: 'nokaslr' on cmdline.\r\n\r\n[    0.000000] Linux version 6.8.0-138-generic (buildd@lcy02-amd64-023) (x86_64-linux-gnu-gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, GNU ld (GNU Binutils for Ubuntu) 2.42) #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 (Ubuntu 6.8.0-138.138-generic 6.8.12)\r\n[    0.000000] Command line: console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc panic=-1 loglevel=7\r\n[    0.000000] KERNEL supported cpus:\r\n[    0.000000]   Intel GenuineIntel\r\n[    0.000000]   AMD AuthenticAMD\r\n[    0.000000]   Hygon HygonGenuine\r\n[    0.000000]   Centaur CentaurHauls\r\n[    0.000000]   zhaoxin   Shanghai  \r\n[    0.000000] Intel Spectre v2 broken microcode detected; disabling Speculation Control\r\n[    0.000000] Disabled fast string operations\r\n[    0.000000] BIOS-provided physical RAM map:\r\n[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff] usable\r\n[    0.000000] BIOS-e820: [mem 0x000000000009fc00-0x00000000000fffff] reserved\r\n[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x000000001fffbfff] usable\r\n[    0.000000] BIOS-e820: [mem 0x000000001fffc000-0x000000001fffffff] reserved\r\n[    0.000000] printk: legacy bootconsole [earlyser0] enabled\r\n[    0.000000] NX (Execute Disable) protection: active\r\n[    0.000000] APIC: Static calls initialized\r\n[    0.000000] DMI not present or invalid.\r\n[    0.000000] last_pfn = 0x1fffc max_arch_pfn = 0x400000000\r\n[    0.000000] MTRRs disabled by BIOS\r\n[    0.000000] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  \r\n[    0.000000] found SMP MP-table at [mem 0x000f0000-0x000f000f]\r\n[    0.000000] Using GB pages for direct mapping\r\n[    0.000000] ACPI: Early table checksum verification disabled\r\n[    0.000000] ACPI BIOS Error (bug): A valid RSDP was not found (20230628/tbxfroot-222)\r\n[    0.000000] No NUMA configuration found\r\n[    0.000000] Faking a node at [mem 0x0000000000000000-0x000000001fffbfff]\r\n[    0.000000] NODE_DATA(0) allocated [mem 0x1ffd1000-0x1fffbfff]\r\n[    0.000000] Zone ranges:\r\n[    0.000000]   DMA      [mem 0x0000000000001000-0x0000000000ffffff]\r\n[    0.000000]   DMA32    [mem 0x0000000001000000-0x000000001fffbfff]\r\n[    0.000000]   Normal   empty\r\n[    0.000000]   Device   empty\r\n[    0.000000] Movable zone start for each node\r\n[    0.000000] Early memory node ranges\r\n[    0.000000]   node   0: [mem 0x0000000000001000-0x000000000009efff]\r\n[    0.000000]   node   0: [mem 0x0000000000100000-0x000000001fffbfff]\r\n[    0.000000] Initmem setup node 0 [mem 0x0000000000001000-0x000000001fffbfff]\r\n[    0.000000] On node 0, zone DMA: 1 pages in unavailable ranges\r\n[    0.000000] On node 0, zone DMA: 97 pages in unavailable ranges\r\n[    0.000000] On node 0, zone DMA32: 4 pages in unavailable ranges\r\n[    0.000000] Intel MultiProcessor Specification v1.4\r\n[    0.000000] MPTABLE: OEM ID: RAXVMM  \r\n[    0.000000] MPTABLE: Product ID: RAX PC      \r\n[    0.000000] MPTABLE: APIC at: 0xFEE00000\r\n[    0.000000] Processor #0 (Bootup-CPU)\r\n[    0.000000] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23\r\n[    0.000000] Processors: 1\r\n[    0.000000] smpboot: Allowing 1 CPUs, 0 hotplug CPUs\r\n[    0.000000] PM: hibernation: Registered nosave memory: [mem 0x00000000-0x00000fff]\r\n[    0.000000] PM: hibernation: Registered nosave memory: [mem 0x0009f000-0x000fffff]\r\n[    0.000000] [mem 0x20000000-0xffffffff] available for PCI devices\r\n[    0.000000] Booting paravirtualized kernel on bare hardware\r\n[    0.000000] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1910969940391419 ns\r\n[    0.000000] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:1 nr_cpu_ids:1 nr_node_ids:1\r\n"
+    }
+  ],
+  "interpretation": "All requested1/2/4 CPU IDs are discovered. These diagnostic runs were stopped through their own console after discovery; exit0 is cleanup. No completed OS SMP activation is claimed for the MPS-only source. The independent speaker-port repair is required to pass the demonstrated timer check."
+}

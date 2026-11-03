@@ -609,6 +609,12 @@ impl Vmm {
                 .downcast_ref::<KvmVm>()
                 .ok_or_else(|| Error::InvalidConfig("expected KVM VM".to_string()))?;
             machine.init_vm(kvm_vm, &boot_info)?;
+            if boot_info
+                .as_x86_64()
+                .is_some_and(|boot| boot.real_mode.is_none())
+            {
+                kvm_vm.publish_pc_multiprocessor_tables(guest_mem.memory(), config.vcpus)?;
+            }
         }
         // Emulator doesn't need VM-level initialization
 

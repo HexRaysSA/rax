@@ -1,0 +1,146 @@
+{
+  "status": "component_qualified",
+  "full_goal_complete": false,
+  "utc": "2026-11-03T16:26:36.009047+00:00",
+  "source_sha256": {
+    "src/backend/kvm/mod.rs": "4a8628e0355f8e3c7f1cf23b2f3ac2d8bcf261e783000d74c70a44dff06ae0ad",
+    "src/backend/kvm/firmware.rs": "0c6ea6a20c9850eb0b248796294577b929de6498736aefadd8533582c82f6ae0",
+    "src/machine/pc/mod.rs": "a5a1761fd8634c8b737edf65b9bd538b6e51f838545bf5a929f1cbacb72f4ae8",
+    "src/machine/pc/multiprocessor.rs": "c817a80b854f5795a4680954832a06bc6bbce5e6890cf4b1a013fc884e4c6c33",
+    "src/machine/pc/multiprocessor_tests.rs": "3d0aa88d76803ee04fdcc7a12be17b14690561b249f23ce4e598e2f450fc93e1",
+    "src/vm/runtime.rs": "a377712c5fdd2d93177d3b8986a7fc30f67a4a36a9803fcded40776f12eb7bd2",
+    "tests/suites/backend/kvm/smp.rs": "384ab33392d3304e79bc4c020ad7fba15fb428b12d436ddff2dce06fd73f5479",
+    "tests/suites/backend/kvm/smp/discovery.rs": "d3b1b34e1f0f3a79863a630bccd2ddaec187a4a75c641b0533b847977fcf520f"
+  },
+  "baseline": {
+    "receipt": "baseline-owning.json",
+    "passed": 3,
+    "failed": 3,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "component": {
+    "receipt": "component.json",
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "linux_baseline": {
+    "receipt": "linux-baseline.json",
+    "counts": [
+      1,
+      2,
+      4
+    ],
+    "all_selected_one_cpu": true,
+    "cleanup": "Each diagnostic used its own console Ctrl-A x after Linux reported no MP/MADT. No guest signal or restart; exit0 is cleanup, not test success."
+  },
+  "assumptions": [
+    {
+      "id": "M1",
+      "assumption": "Configured native CPU identities and CPUID signature/features match the MP CPU records.",
+      "basis": "Production native CPUID projection and Intel MP1.4 section4.3.1.",
+      "dependent_result": "The OS discovers each actual configured CPU with its matching native identity.",
+      "stress_test": "Actual1/2/4 Vmm.new table walk and native guest CPUID/LAPIC reads; independent Linux OS discovery and subsequent all-CPU startup.",
+      "falsification_probe": "Any missing/duplicate CPU record, wrong BSP/identity/signature/features or OS CPU count smaller than configured.",
+      "status": "All6 actual native VMM discovery/startup cases pass. Linux discovers exactly the requested1/2/4 CPU IDs. Complete OS activation requires the separate PIT speaker correction."
+    },
+    {
+      "id": "M2",
+      "assumption": "Firmware interrupt records must describe the actual default KVM routing and controller profile.",
+      "basis": "Retained Linux6.8 irq_comm.c default_routing, ioapic.c/h and lapic.c; native UAPI image.",
+      "dependent_result": "Explicit IRQ0->input0 and same-numbered remaining ISA routing; actual controller ID/base/version.",
+      "stress_test": "Independent native guest MMIO version/ID reads and Linux IRQ/timer/all-CPU boot.",
+      "falsification_probe": "Native values differ, firmware advertises an unconnected input, or native Linux fails configured IRQ/timer startup.",
+      "status": "Native guest MMIO comparisons, table checks and actual Linux discovery pass. The independently reproduced PIT speaker defect prevents MPS-only Linux timer/startup qualification; complete IRQ/clock correctness is not claimed."
+    },
+    {
+      "id": "M3",
+      "assumption": "Only cold native direct-kernel boot publishes these reserved firmware bytes.",
+      "basis": "Constructor excludes resume; boot.real_mode distinguishes ISO BIOS boot.",
+      "dependent_result": "Captured RAM and ISO BIOS code remain authoritative in their existing paths.",
+      "stress_test": "Owning ISO boot and checkpoint controls, direct native publication, capacity and rejected-publication memory tests.",
+      "falsification_probe": "Resume regenerates firmware, BIOS code is overwritten or a rejected publish changes memory.",
+      "status": "All3 publication component tests pass, including255 data-layout counts and rejected writes. The canonical PC module and all10 real-mode boot cases pass; source limits publication to cold direct-kernel construction."
+    }
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "Native CPUID topology/cache geometry, complete native CPU/shared/in-flight checkpoint producer, clocks/replay and physical Intel validation remain open.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "The existing ACPI builders advertise unwired power/timer devices and are not published by this native discovery path.",
+      "blocks_full_goal": false
+    },
+    {
+      "impact": "medium",
+      "finding": "All255 CPU counts are data-layout component coverage; only1/2/4 native execution is selected for system qualification.",
+      "blocks_component": false
+    }
+  ],
+  "remaining_required": [
+    "Publish the independently qualified native PIT speaker repair and verify complete Linux1/2/4 CPU activation.",
+    "Reconcile native CPUID topology/cache geometry and demonstrated LAPIC/TSC calibration failures.",
+    "Complete the native CPU/shared/private/in-flight checkpoint producer, coordinated restore, clocks/replay and remaining A32/HVF profiles with physical Intel execution.",
+    "Remove owned native source/build artifacts after their last compiler/test/controller is terminal; preserve active shared target and unrelated user files."
+  ],
+  "production": {
+    "receipt": "production-native.json",
+    "library_sha256": "567260849ec3dfe8ca822a817f132bc44bcab595ffb9a726ceb7c777dadc6163",
+    "cli_sha256": "512cbd9b147cbe9c9a98492e217d6d1e72468456a496139048770eb549aa0e9a",
+    "whole_smp_passed": 6,
+    "whole_io_passed": 10,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "source_unchanged": true
+  },
+  "source_scope": "Exact MPS source versions retained at evidence_root/qualified-source-v1. Current main also contains a separate PIT speaker regression/fix; frozen native MPS qualification excludes it.",
+  "evidence_root": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-discovery-v1",
+  "cargo_filter_correction": {
+    "identified_before_publication": true,
+    "wrong_zero_test_invocation": "backend::kvm::io_tests::",
+    "actual_exit_code": 0,
+    "actual_passed": 0,
+    "coverage_guard_exit": 121,
+    "correct_filters": {
+      "io": "backend::kvm::io::tests::",
+      "port": "vm::runtime::port_io::tests::",
+      "native_xsave": "backend::kvm::xsave::",
+      "portable_xsave": "backend::intel_hvf_xsave::tests::",
+      "coordinator": "vm::runtime::execution_tests::"
+    },
+    "handling": "Preserve seven completed canonical gates. Continue ten remaining gates in v3; the zero-test invocation is retained as rejected evidence and is not counted as qualification. The PIT queue stopped before any Cargo gate and will be replaced with a v3 queue. Source remains unchanged.",
+    "prior_streamed_controller_exit_cause": "unknown; exited after three completed gates, before incorrect XSAVE/coordinator selections ran."
+  },
+  "workspace_gates": {
+    "receipt": "workspace-gates.json",
+    "command_count": 17,
+    "all_exit_zero": true,
+    "coverage_verified": true,
+    "full_original_finding_closed": false,
+    "doctests": {
+      "passed": 2,
+      "ignored": 5
+    },
+    "final_source_content_verified": true
+  },
+  "linux_discovery": {
+    "receipt": "linux-discovery-native.json",
+    "requested": [
+      1,
+      2,
+      4
+    ],
+    "discovered": [
+      1,
+      2,
+      4
+    ],
+    "complete_os_smp_startup": false
+  }
+}

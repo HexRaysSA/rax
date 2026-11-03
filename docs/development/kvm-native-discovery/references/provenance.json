@@ -1,0 +1,41 @@
+{
+  "retrieval_utc": "2026-11-03T15:23:54.047185+00:00",
+  "sources": [
+    {
+      "file": "linux-ioapic-v6.8.c",
+      "title": "Linux arch/x86/kvm/ioapic.c",
+      "issuer": "Linux kernel contributors",
+      "revision": "v6.8",
+      "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/ioapic.c",
+      "sha256": "430e267cc903e01369c4b4e1d3b61d2e05e12c0c50f8d243238b09296354e76a",
+      "bytes": 21685
+    },
+    {
+      "file": "linux-ioapic-v6.8.h",
+      "title": "Linux arch/x86/kvm/ioapic.h",
+      "issuer": "Linux kernel contributors",
+      "revision": "v6.8",
+      "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/ioapic.h",
+      "sha256": "9b84b87ad7322aa0e6e44459720fc966927348642ec314cc9caa2c48f7a0797b",
+      "bytes": 2973
+    },
+    {
+      "file": "linux-lapic-v6.8.c",
+      "title": "Linux arch/x86/kvm/lapic.c",
+      "issuer": "Linux kernel contributors",
+      "revision": "v6.8",
+      "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/lapic.c",
+      "sha256": "cbf1b0e870868c8e81b8fc9c6ae242ddf75d2efbddf7cbfe4dc8b17cc535c3e2",
+      "bytes": 87849
+    },
+    {
+      "file": "linux-irq-comm-v6.8.c",
+      "title": "Linux arch/x86/kvm/irq_comm.c",
+      "issuer": "Linux kernel contributors",
+      "revision": "v6.8",
+      "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/irq_comm.c",
+      "sha256": "a544a2d7e9a0be8894ef8a3fb1e1797350fae8f38a5eac3c06909cf7f3ba5185",
+      "bytes": 11607
+    }
+  ]
+}

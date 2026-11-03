@@ -7,6 +7,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 
+#[path = "smp/discovery.rs"]
+mod discovery;
+
 const CHILD: &str = "RAX_KVM_SMP_TEST_CHILD";
 // GNU as2.42; 64-bit BSP, real-mode AP trampoline then protected-mode payload.
 // INIT/SIPI vector0x20 selects0x20000, away from the PC loader's page tables.

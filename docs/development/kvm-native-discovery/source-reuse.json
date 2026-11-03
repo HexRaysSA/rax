@@ -1,0 +1,20 @@
+{
+  "utc": "2026-11-03T15:31:28.797379+00:00",
+  "retired_source": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-block-production-v1/source",
+  "current_source": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/source",
+  "old_driver_terminal": true,
+  "old_compiler_process_absent": true,
+  "active_references": [],
+  "old_manifest_verified": true,
+  "updated_paths": [
+    "src/backend/kvm/mod.rs",
+    "src/backend/kvm/firmware.rs",
+    "src/machine/pc/mod.rs",
+    "src/machine/pc/multiprocessor.rs",
+    "src/machine/pc/multiprocessor_tests.rs",
+    "src/vm/runtime.rs",
+    "tests/suites/backend/kvm/smp.rs",
+    "tests/suites/backend/kvm/smp/discovery.rs"
+  ],
+  "method": "Moved the single terminal owned export and applied only the next semantic group; retained all A32 manifests/receipts. No additional source tree or Git worktree."
+}
