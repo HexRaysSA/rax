@@ -10,6 +10,9 @@ mod invalid_classes;
 #[path = "registry_key_information_tests.rs"]
 mod information;
 
+#[path = "registry_nls_tree_tests.rs"]
+mod nls_tree;
+
 #[cfg(windows)]
 #[path = "registry_key_query_installed_tests.rs"]
 mod installed;

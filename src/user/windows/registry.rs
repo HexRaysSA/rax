@@ -74,6 +74,9 @@ pub(crate) use key_information::tests::nls_tree_fixture;
 pub(crate) use key_information::{
     InformationTree, KeyInformation, NLS_CUSTOM_LOCALE_KEY, NameTail,
 };
+#[path = "registry/nls.rs"]
+mod nls;
+pub(crate) use nls::NLS_ROOT_KEY;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Value {
@@ -276,6 +279,8 @@ fn invalid(message: &str) -> io::Error {
 mod installed;
 #[cfg(all(windows, test))]
 pub(crate) use installed::nls_custom_locale_subject;
+#[cfg(all(windows, test))]
+pub(crate) use installed::nls_subject;
 #[cfg(windows)]
 pub(crate) use installed::wnf_values;
 #[cfg(windows)]
@@ -351,3 +356,7 @@ mod mui_system_tests;
 #[cfg(test)]
 #[path = "registry/language_overlay_packages_tests.rs"]
 mod language_overlay_packages_tests;
+
+#[cfg(test)]
+#[path = "registry/nls_tests.rs"]
+pub(crate) mod nls_tests;

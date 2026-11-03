@@ -327,7 +327,7 @@ fn segment_heap_with(
 pub(crate) fn snapshot() -> io::Result<Registry> {
     // Fixed shared SYSTEM keys and the complete IFEO subtree. Handles close in capture,
     // including error/retry paths; no native operation survives selection.
-    let selected = [NLS_KEY, SESSION_MANAGER_KEY]
+    let selected = [SESSION_MANAGER_KEY]
         .into_iter()
         .map(capture)
         .collect::<io::Result<Vec<_>>>()?;
@@ -358,9 +358,6 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let root = super::TreeRoot::FileSystem;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;
-    let root = super::TreeRoot::NlsSortingVersions;
-    let selected = tree::capture_root(&registry, root)?;
-    let registry = registry.with_tree(root, selected)?;
     let root = super::TreeRoot::ErrorMessageInstrument;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;
@@ -382,8 +379,9 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let root = super::TreeRoot::LanguageOverlayPackages;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;
-    let selected = key_information::capture(&registry)?;
-    let registry = registry.with_information_tree(super::TreeRoot::NlsCustomLocale, selected)?;
+    let selected = key_information::capture(&registry, super::TreeRoot::Nls)?
+        .ok_or_else(|| io::Error::from_raw_os_error(2))?;
+    let registry = registry.with_nls_information_tree(selected)?;
     machine_hive::capture(command_processor::capture_ole(
         command_processor::capture_system(command_processor::capture_machine(appmodel::capture(
             registry,
@@ -472,6 +470,19 @@ pub(crate) fn nls_custom_locale_subject() -> io::Result<Registry> {
         .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
         .collect();
     let registry = Registry::selected(upcase, vec![])?;
-    let selected = key_information::capture(&registry)?;
+    let selected = key_information::capture(&registry, super::TreeRoot::NlsCustomLocale)?;
     registry.with_information_tree(super::TreeRoot::NlsCustomLocale, selected)
+}
+
+/// Complete fixed NLS acquisition without unrelated startup roots.
+#[cfg(test)]
+pub(crate) fn nls_subject() -> io::Result<Registry> {
+    // SAFETY: pure one-WCHAR lookup; the immutable table owns all results.
+    let upcase = (0..=u16::MAX)
+        .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
+        .collect();
+    let registry = Registry::selected(upcase, vec![])?;
+    let selected = key_information::capture(&registry, super::TreeRoot::Nls)?
+        .ok_or_else(|| io::Error::from_raw_os_error(2))?;
+    registry.with_nls_information_tree(selected)
 }

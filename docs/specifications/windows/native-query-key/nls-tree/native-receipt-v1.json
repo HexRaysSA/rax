@@ -1,0 +1,5423 @@
+{
+  "pid": 7024,
+  "state": "finished",
+  "commands": [
+    {
+      "name": "arm64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-arm64",
+        "-A",
+        "ARM64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.7736356250097742
+    },
+    {
+      "name": "arm64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-arm64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false",
+        "/m:1"
+      ],
+      "exit_code": 0,
+      "seconds": 5.337133166991407
+    },
+    {
+      "name": "arm64-identity-before",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-nls-tree-v3-arm64.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.23059770799591206
+    },
+    {
+      "name": "arm64-cases",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-nls-tree-v3-arm64.exe"
+      ],
+      "exit_code": 0,
+      "seconds": 0.8127537090040278
+    },
+    {
+      "name": "arm64-identity-after",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-nls-tree-v3-arm64.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.15152379199571442
+    },
+    {
+      "name": "x64-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x64",
+        "-A",
+        "x64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.9853227499988861
+    },
+    {
+      "name": "x64-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x64",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false",
+        "/m:1"
+      ],
+      "exit_code": 0,
+      "seconds": 5.595637624996016
+    },
+    {
+      "name": "x64-identity-before",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-nls-tree-v3-x64.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.4127070829999866
+    },
+    {
+      "name": "x64-cases",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-nls-tree-v3-x64.exe"
+      ],
+      "exit_code": 0,
+      "seconds": 0.9512520830030553
+    },
+    {
+      "name": "x64-identity-after",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-nls-tree-v3-x64.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.623059582998394
+    },
+    {
+      "name": "x86-configure",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\source",
+        "-B",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x86",
+        "-A",
+        "Win32"
+      ],
+      "exit_code": 0,
+      "seconds": 1.0944850420055445
+    },
+    {
+      "name": "x86-build",
+      "argv": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\build-x86",
+        "--config",
+        "Release",
+        "--",
+        "/nr:false",
+        "/m:1"
+      ],
+      "exit_code": 0,
+      "seconds": 7.2314245410088915
+    },
+    {
+      "name": "x86-identity-before",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-nls-tree-v3-x86.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.38013274999684654
+    },
+    {
+      "name": "x86-cases",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-nls-tree-v3-x86.exe"
+      ],
+      "exit_code": 0,
+      "seconds": 1.854990292005823
+    },
+    {
+      "name": "x86-identity-after",
+      "argv": [
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\artifacts\\native-key-nls-tree-v3-x86.exe",
+        "--identity"
+      ],
+      "exit_code": 0,
+      "seconds": 0.21198041700699832
+    }
+  ],
+  "reports": [
+    {
+      "architecture": "arm64",
+      "pe_machine": 43620,
+      "image_bytes": 154624,
+      "image_sha256": "2fd1aa25305dee237df8e98d854e8290f62d6f9337009ba168100d84d01505fe",
+      "provider_before": {
+        "kind": "identity",
+        "schema": "rax-native-nls-tree-v1",
+        "pointer_bytes": 8,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "process_machine": 0,
+        "native_machine": 43620,
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "provider_bytes": 4609280,
+        "provider_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "provider_pe_machine": 43620,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "provider_after": {
+        "kind": "identity",
+        "schema": "rax-native-nls-tree-v1",
+        "pointer_bytes": 8,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "process_machine": 0,
+        "native_machine": 43620,
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "provider_bytes": 4609280,
+        "provider_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "provider_pe_machine": 43620,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "keys": 48,
+      "cases": 33000,
+      "row_counts": {
+        "host": 1,
+        "handle_snapshot": 3,
+        "key": 48,
+        "child": 45,
+        "record": 384,
+        "case": 33000,
+        "end_key": 48,
+        "value": 1752,
+        "view_finished": 3,
+        "finished": 1
+      },
+      "stdout_path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\nls-tree-v3-arm64-cases.stdout",
+      "stdout_sha256": "6bd82f9dbff6d866a1b4d61616e17ad86e1a60c97ad1e24944a2ed16f1a6c8b1",
+      "handles_before": 51,
+      "handles_after": 51,
+      "stable_full_records": true,
+      "handle_snapshots": [
+        {
+          "kind": "handle_snapshot",
+          "phase": "initial",
+          "status": 0,
+          "public_count": 50,
+          "returned": 2016,
+          "count": 50,
+          "entries": [
+            {
+              "handle": "4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "8",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "c",
+              "access": 9,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "10",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "14",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "18",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "1c",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "20",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "24",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "28",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "2c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "30",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "34",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "38",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "3c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "40",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "44",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "48",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "4c",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "50",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "54",
+              "access": 1,
+              "type_index": 17,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5300630068006500640075006c00650072005300680061007200650064004400610074006100"
+            },
+            {
+              "handle": "58",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "5c",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "60",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "64",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "68",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "6c",
+              "access": 2031617,
+              "type_index": 22,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4d007500740061006e007400"
+            },
+            {
+              "handle": "70",
+              "access": 15,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "74",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "78",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "7c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "80",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "84",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "88",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "8c",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "90",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "94",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "98",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "9c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "a0",
+              "access": 131097,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "a4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "a8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ac",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "bc",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "114",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1c4",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1c8",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            }
+          ]
+        },
+        {
+          "kind": "handle_snapshot",
+          "phase": "before",
+          "status": 0,
+          "public_count": 51,
+          "returned": 2056,
+          "count": 51,
+          "entries": [
+            {
+              "handle": "4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "8",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "c",
+              "access": 9,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "10",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "14",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "18",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "1c",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "20",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "24",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "28",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "2c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "30",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "34",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "38",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "3c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "40",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "44",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "48",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "4c",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "50",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "54",
+              "access": 1,
+              "type_index": 17,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5300630068006500640075006c00650072005300680061007200650064004400610074006100"
+            },
+            {
+              "handle": "58",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "5c",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "60",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "64",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "68",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "6c",
+              "access": 2031617,
+              "type_index": 22,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4d007500740061006e007400"
+            },
+            {
+              "handle": "70",
+              "access": 15,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "74",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "78",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "7c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "80",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "84",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "88",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "8c",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "90",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "94",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "98",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "9c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "a0",
+              "access": 131097,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "a4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "a8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ac",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "bc",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "c0",
+              "access": 983103,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "114",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1c4",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1c8",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            }
+          ]
+        },
+        {
+          "kind": "handle_snapshot",
+          "phase": "after",
+          "status": 0,
+          "public_count": 51,
+          "returned": 2056,
+          "count": 51,
+          "entries": [
+            {
+              "handle": "4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "8",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "c",
+              "access": 9,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "10",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "14",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "18",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "1c",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "20",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "24",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "28",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "2c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "30",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "34",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "38",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "3c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "40",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "44",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "48",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "4c",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "50",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "54",
+              "access": 1,
+              "type_index": 17,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5300630068006500640075006c00650072005300680061007200650064004400610074006100"
+            },
+            {
+              "handle": "58",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "5c",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "60",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "64",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "68",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "6c",
+              "access": 2031617,
+              "type_index": 22,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4d007500740061006e007400"
+            },
+            {
+              "handle": "70",
+              "access": 15,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "74",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "78",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "7c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "80",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "84",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "88",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "8c",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "90",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "94",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "98",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "9c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "a0",
+              "access": 131097,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "a4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "a8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ac",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "bc",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "c0",
+              "access": 983103,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "114",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1c4",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1c8",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            }
+          ]
+        }
+      ],
+      "strict_handle_equality": true
+    },
+    {
+      "architecture": "x64",
+      "pe_machine": 34404,
+      "image_bytes": 152576,
+      "image_sha256": "327e5fe697410f0f937220f862fd70178b6d623656ce77d27a6fe1d1f1036662",
+      "provider_before": {
+        "kind": "identity",
+        "schema": "rax-native-nls-tree-v1",
+        "pointer_bytes": 8,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "process_machine": 0,
+        "native_machine": 43620,
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "provider_bytes": 4609280,
+        "provider_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "provider_pe_machine": 43620,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "provider_after": {
+        "kind": "identity",
+        "schema": "rax-native-nls-tree-v1",
+        "pointer_bytes": 8,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "process_machine": 0,
+        "native_machine": 43620,
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\System32\\ntdll.dll",
+        "provider_bytes": 4609280,
+        "provider_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "provider_pe_machine": 43620,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "keys": 48,
+      "cases": 33000,
+      "row_counts": {
+        "host": 1,
+        "handle_snapshot": 3,
+        "key": 48,
+        "child": 45,
+        "record": 384,
+        "case": 33000,
+        "end_key": 48,
+        "value": 1752,
+        "view_finished": 3,
+        "finished": 1
+      },
+      "stdout_path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\nls-tree-v3-x64-cases.stdout",
+      "stdout_sha256": "886a9162c4df493882c6acd45745f383c56511b9e73d45e0fda911df0555ec6f",
+      "handles_before": 73,
+      "handles_after": 73,
+      "stable_full_records": true,
+      "handle_snapshots": [
+        {
+          "kind": "handle_snapshot",
+          "phase": "initial",
+          "status": 0,
+          "public_count": 66,
+          "returned": 2656,
+          "count": 66,
+          "entries": [
+            {
+              "handle": "4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "8",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "c",
+              "access": 9,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "10",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "14",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "18",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "1c",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "20",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "24",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "28",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "2c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "30",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "34",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "38",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "3c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "40",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "44",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "48",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "4c",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "50",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "54",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "58",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "5c",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "60",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "64",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "68",
+              "access": 1048577,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "6c",
+              "access": 983071,
+              "type_index": 49,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006300740069006f006e00"
+            },
+            {
+              "handle": "70",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "74",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "78",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "7c",
+              "access": 1,
+              "type_index": 17,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5300630068006500640075006c00650072005300680061007200650064004400610074006100"
+            },
+            {
+              "handle": "80",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "84",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "88",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "8c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "90",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "94",
+              "access": 2031617,
+              "type_index": 22,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4d007500740061006e007400"
+            },
+            {
+              "handle": "98",
+              "access": 15,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "9c",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "a0",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "a4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "a8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ac",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "c0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "c4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "c8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "cc",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "d0",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "d4",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "d8",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "dc",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "e0",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "e4",
+              "access": 131097,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "e8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ec",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "fc",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "100",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "1c8",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1e8",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1f4",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            }
+          ]
+        },
+        {
+          "kind": "handle_snapshot",
+          "phase": "before",
+          "status": 0,
+          "public_count": 73,
+          "returned": 2936,
+          "count": 73,
+          "entries": [
+            {
+              "handle": "4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "8",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "c",
+              "access": 9,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "10",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "14",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "18",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "1c",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "20",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "24",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "28",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "2c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "30",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "34",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "38",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "3c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "40",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "44",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "48",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "4c",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "50",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "54",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "58",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "5c",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "60",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "64",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "68",
+              "access": 1048577,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "6c",
+              "access": 983071,
+              "type_index": 49,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006300740069006f006e00"
+            },
+            {
+              "handle": "70",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "74",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "78",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "7c",
+              "access": 1,
+              "type_index": 17,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5300630068006500640075006c00650072005300680061007200650064004400610074006100"
+            },
+            {
+              "handle": "80",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "84",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "88",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "8c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "90",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "94",
+              "access": 2031617,
+              "type_index": 22,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4d007500740061006e007400"
+            },
+            {
+              "handle": "98",
+              "access": 15,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "9c",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "a0",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "a4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "a8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ac",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "bc",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "c0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "c4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "c8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "cc",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "d0",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "d4",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "d8",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "dc",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "e0",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "e4",
+              "access": 131097,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "e8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ec",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "fc",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "100",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "104",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "108",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "10c",
+              "access": 983103,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "114",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "118",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "11c",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "1c8",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1e8",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1f4",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            }
+          ]
+        },
+        {
+          "kind": "handle_snapshot",
+          "phase": "after",
+          "status": 0,
+          "public_count": 73,
+          "returned": 2936,
+          "count": 73,
+          "entries": [
+            {
+              "handle": "4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "8",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "c",
+              "access": 9,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "10",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "14",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "18",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "1c",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "20",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "24",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "28",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "2c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "30",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "34",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "38",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "3c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "40",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "44",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "48",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "4c",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "50",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "54",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "58",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "5c",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "60",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "64",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "68",
+              "access": 1048577,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "6c",
+              "access": 983071,
+              "type_index": 49,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006300740069006f006e00"
+            },
+            {
+              "handle": "70",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "74",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "78",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "7c",
+              "access": 1,
+              "type_index": 17,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5300630068006500640075006c00650072005300680061007200650064004400610074006100"
+            },
+            {
+              "handle": "80",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "84",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "88",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "8c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "90",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "94",
+              "access": 2031617,
+              "type_index": 22,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4d007500740061006e007400"
+            },
+            {
+              "handle": "98",
+              "access": 15,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "9c",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "a0",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "a4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "a8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ac",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "bc",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "c0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "c4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "c8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "cc",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "d0",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "d4",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "d8",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "dc",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "e0",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "e4",
+              "access": 131097,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "e8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ec",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f4",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "fc",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "100",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "104",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "108",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "10c",
+              "access": 983103,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "114",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "118",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "11c",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "1c8",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1e8",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "1f4",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            }
+          ]
+        }
+      ],
+      "strict_handle_equality": true
+    },
+    {
+      "architecture": "x86",
+      "pe_machine": 332,
+      "image_bytes": 126464,
+      "image_sha256": "d488ae30f01e1883095143e9b093588b4a963569076d2ac2bc09daf4fa2d576d",
+      "provider_before": {
+        "kind": "identity",
+        "schema": "rax-native-nls-tree-v1",
+        "pointer_bytes": 4,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "process_machine": 332,
+        "native_machine": 43620,
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "provider_bytes": 2536928,
+        "provider_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+        "provider_pe_machine": 332,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "provider_after": {
+        "kind": "identity",
+        "schema": "rax-native-nls-tree-v1",
+        "pointer_bytes": 4,
+        "kernel": [
+          10,
+          0,
+          29698
+        ],
+        "process_machine": 332,
+        "native_machine": 43620,
+        "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00",
+        "backing_file": "C:\\Windows\\SyChpe32\\ntdll.dll",
+        "provider_bytes": 2536928,
+        "provider_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+        "provider_pe_machine": 332,
+        "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+      },
+      "keys": 48,
+      "cases": 33000,
+      "row_counts": {
+        "host": 1,
+        "handle_snapshot": 3,
+        "key": 48,
+        "child": 45,
+        "record": 384,
+        "case": 33000,
+        "end_key": 48,
+        "value": 1752,
+        "view_finished": 3,
+        "finished": 1
+      },
+      "stdout_path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\nls-custom-locale-query-native-c-v1\\nls-tree-v3-x86-cases.stdout",
+      "stdout_sha256": "adb8b483546348506be6af795af2c5682270cce15498992f163237f0ae76c652",
+      "handles_before": 88,
+      "handles_after": 88,
+      "stable_full_records": true,
+      "handle_snapshots": [
+        {
+          "kind": "handle_snapshot",
+          "phase": "initial",
+          "status": 0,
+          "public_count": 77,
+          "returned": 2164,
+          "count": 77,
+          "entries": [
+            {
+              "handle": "4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "8",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "c",
+              "access": 9,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "10",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "14",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "18",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "1c",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "20",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "24",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "28",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "2c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "30",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "34",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "38",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "3c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "40",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "44",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "48",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "4c",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "50",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "54",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "58",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "5c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "60",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "64",
+              "access": 1048577,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "68",
+              "access": 983071,
+              "type_index": 49,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006300740069006f006e00"
+            },
+            {
+              "handle": "6c",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "70",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "74",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "78",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "7c",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "80",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "84",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "88",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "8c",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "90",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "94",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "98",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "9c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "a0",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "a4",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "a8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ac",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b4",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "b8",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "bc",
+              "access": 1,
+              "type_index": 17,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5300630068006500640075006c00650072005300680061007200650064004400610074006100"
+            },
+            {
+              "handle": "c0",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "c4",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "c8",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "cc",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "d0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "d4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "d8",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "dc",
+              "access": 2031617,
+              "type_index": 22,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4d007500740061006e007400"
+            },
+            {
+              "handle": "e0",
+              "access": 15,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "e4",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "e8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ec",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f4",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "f8",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "fc",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "100",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "104",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "108",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "10c",
+              "access": 131097,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "110",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "114",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "118",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "11c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "120",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "124",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "128",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "200",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "204",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "208",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            }
+          ]
+        },
+        {
+          "kind": "handle_snapshot",
+          "phase": "before",
+          "status": 0,
+          "public_count": 88,
+          "returned": 2472,
+          "count": 88,
+          "entries": [
+            {
+              "handle": "4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "8",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "c",
+              "access": 9,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "10",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "14",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "18",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "1c",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "20",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "24",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "28",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "2c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "30",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "34",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "38",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "3c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "40",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "44",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "48",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "4c",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "50",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "54",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "58",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "5c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "60",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "64",
+              "access": 1048577,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "68",
+              "access": 983071,
+              "type_index": 49,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006300740069006f006e00"
+            },
+            {
+              "handle": "6c",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "70",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "74",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "78",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "7c",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "80",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "84",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "88",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "8c",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "90",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "94",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "98",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "9c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "a0",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "a4",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "a8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ac",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b4",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "b8",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "bc",
+              "access": 1,
+              "type_index": 17,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5300630068006500640075006c00650072005300680061007200650064004400610074006100"
+            },
+            {
+              "handle": "c0",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "c4",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "c8",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "cc",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "d0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "d4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "d8",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "dc",
+              "access": 2031617,
+              "type_index": 22,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4d007500740061006e007400"
+            },
+            {
+              "handle": "e0",
+              "access": 15,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "e4",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "e8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ec",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f4",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "f8",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "fc",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "100",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "104",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "108",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "10c",
+              "access": 131097,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "110",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "114",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "118",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "11c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "120",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "124",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "128",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "12c",
+              "access": 983103,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "134",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "138",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "13c",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "140",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "144",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "148",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "14c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "150",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "154",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "158",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "200",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "204",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "208",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            }
+          ]
+        },
+        {
+          "kind": "handle_snapshot",
+          "phase": "after",
+          "status": 0,
+          "public_count": 88,
+          "returned": 2472,
+          "count": 88,
+          "entries": [
+            {
+              "handle": "4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "8",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "c",
+              "access": 9,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "10",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "14",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "18",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "1c",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "20",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "24",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "28",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "2c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "30",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "34",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "38",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "3c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "40",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "44",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "48",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "4c",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "50",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "54",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "58",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "5c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "60",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "64",
+              "access": 1048577,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "68",
+              "access": 983071,
+              "type_index": 49,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006300740069006f006e00"
+            },
+            {
+              "handle": "6c",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "70",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "74",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "78",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "7c",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "80",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "84",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "88",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "8c",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "90",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "94",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "98",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "9c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "a0",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "a4",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "a8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ac",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "b4",
+              "access": 3,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "b8",
+              "access": 1048608,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "bc",
+              "access": 1,
+              "type_index": 17,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5300630068006500640075006c00650072005300680061007200650064004400610074006100"
+            },
+            {
+              "handle": "c0",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "c4",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "c8",
+              "access": 2031617,
+              "type_index": 48,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "41004c0050004300200050006f0072007400"
+            },
+            {
+              "handle": "cc",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "d0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "d4",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "d8",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "dc",
+              "access": 2031617,
+              "type_index": 22,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4d007500740061006e007400"
+            },
+            {
+              "handle": "e0",
+              "access": 15,
+              "type_index": 3,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4400690072006500630074006f0072007900"
+            },
+            {
+              "handle": "e4",
+              "access": 2031619,
+              "type_index": 24,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "530065006d006100700068006f0072006500"
+            },
+            {
+              "handle": "e8",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "ec",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f0",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "f4",
+              "access": 2031619,
+              "type_index": 40,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49006f0043006f006d0070006c006500740069006f006e00"
+            },
+            {
+              "handle": "f8",
+              "access": 983295,
+              "type_index": 35,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "5400700057006f0072006b006500720046006100630074006f0072007900"
+            },
+            {
+              "handle": "fc",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "100",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "104",
+              "access": 1048578,
+              "type_index": 26,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "49005200540069006d0065007200"
+            },
+            {
+              "handle": "108",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "10c",
+              "access": 131097,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "110",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "114",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "118",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "11c",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "120",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "124",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "128",
+              "access": 2052,
+              "type_index": 56,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "45007400770052006500670069007300740072006100740069006f006e00"
+            },
+            {
+              "handle": "12c",
+              "access": 983103,
+              "type_index": 50,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4b0065007900"
+            },
+            {
+              "handle": "134",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "138",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "13c",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "140",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "144",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "148",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "14c",
+              "access": 1,
+              "type_index": 41,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "570061006900740043006f006d0070006c006500740069006f006e005000610063006b0065007400"
+            },
+            {
+              "handle": "150",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "154",
+              "access": 2031619,
+              "type_index": 21,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "4500760065006e007400"
+            },
+            {
+              "handle": "158",
+              "access": 6218,
+              "type_index": 9,
+              "attributes": 0,
+              "type_status": 0,
+              "type_utf16": "540068007200650061006400"
+            },
+            {
+              "handle": "200",
+              "access": 1180063,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "204",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            },
+            {
+              "handle": "208",
+              "access": 1180054,
+              "type_index": 42,
+              "attributes": 2,
+              "type_status": 0,
+              "type_utf16": "460069006c006500"
+            }
+          ]
+        }
+      ],
+      "strict_handle_equality": true
+    }
+  ],
+  "failures": [],
+  "kernel": [
+    10,
+    0,
+    29698
+  ],
+  "child_pid": 2252,
+  "child_creation_filetime": "134381146400254043",
+  "active_identity": {
+    "architecture": "x86",
+    "provider_before": {
+      "kind": "identity",
+      "schema": "rax-native-nls-tree-v1",
+      "pointer_bytes": 4,
+      "kernel": [
+        10,
+        0,
+        29698
+      ],
+      "process_machine": 332,
+      "native_machine": 43620,
+      "mapped_provider_utf16": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079004300680070006500330032005c006e00740064006c006c002e0064006c006c00",
+      "backing_file": "C:\\Windows\\SyChpe32\\ntdll.dll",
+      "provider_bytes": 2536928,
+      "provider_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+      "provider_pe_machine": 332,
+      "provider_identity_source": "GetMappedFileNameW at the actual NtQueryKey address"
+    },
+    "image_sha256": "d488ae30f01e1883095143e9b093588b4a963569076d2ac2bc09daf4fa2d576d"
+  },
+  "exit_code": 0,
+  "inputs_unchanged": true
+}

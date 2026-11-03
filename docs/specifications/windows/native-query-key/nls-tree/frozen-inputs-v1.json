@@ -1,0 +1,57 @@
+{
+  "source_archive_sha256": "714de11a095fde6b2408952d4d02f83bb007f08305e6452f72cadd94712c9992",
+  "files": {
+    "x64-v1.jsonl.zst": {
+      "bytes": 253997,
+      "sha256": "2f641c2496ed3d26376fea4acb03cabb94ac7af34b03d9d27b3871933720d5c2"
+    },
+    "native-nls-tree-v1-x86.exe": {
+      "bytes": 126464,
+      "sha256": "d488ae30f01e1883095143e9b093588b4a963569076d2ac2bc09daf4fa2d576d"
+    },
+    "CMakeLists.txt": {
+      "bytes": 596,
+      "sha256": "6f18780feb34423522ac233ce76a71a74ec3be6f7f7e589313ed1ffc92bdae66"
+    },
+    "arm64-v1.jsonl.zst": {
+      "bytes": 253882,
+      "sha256": "43cd73761c5f23a0ecefc7e5710fb960c08e72f93bc702b972f2360335c587c1"
+    },
+    "capture-v1.py": {
+      "bytes": 12531,
+      "sha256": "cc5764f63c4e1baca83939eba6f255c98aa30b67cfcd1b189fdf0a68fcc157ca"
+    },
+    "native-receipt-v1.json": {
+      "bytes": 183010,
+      "sha256": "129371e5f24be2d5493851f6ccb6eb4c1ae3d46e6502b5b799bd7feef44a5f54"
+    },
+    "handle-snapshot-v3.h": {
+      "bytes": 3460,
+      "sha256": "c658bb4689814bc7a508da661c14bdea9cad45013c1e06173cde340526c0fcab"
+    },
+    "native-nls-tree-v1-arm64.exe": {
+      "bytes": 154624,
+      "sha256": "2fd1aa25305dee237df8e98d854e8290f62d6f9337009ba168100d84d01505fe"
+    },
+    "x86-v1.jsonl.zst": {
+      "bytes": 253992,
+      "sha256": "bf1ceec23425350c25e8240ea0ec8143f16ff6e6d47b2723c494c0b0dd36dcb2"
+    },
+    ".gitattributes": {
+      "bytes": 98,
+      "sha256": "c926182a04f76c456a763cda6d881ba07ec3f903b2983301d61fee8b60acbcbc"
+    },
+    "probe-v1.c": {
+      "bytes": 11553,
+      "sha256": "5e4c0ac8412eb2d0baf264b1acadbc3a7f250c124d92179c591acf26095a8a33"
+    },
+    "records-v1.json": {
+      "bytes": 1663863,
+      "sha256": "09273996447ad195ca2c615a74d629497bc2afce1d60c2181ca8d17c0af06764"
+    },
+    "native-nls-tree-v1-x64.exe": {
+      "bytes": 152576,
+      "sha256": "327e5fe697410f0f937220f862fd70178b6d623656ce77d27a6fe1d1f1036662"
+    }
+  }
+}

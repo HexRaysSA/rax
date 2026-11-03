@@ -1,0 +1,7 @@
+*.zst -text
+*.exe -text
+*.json -text
+*.c -text
+*.h -text
+capture-v1.py -text
+CMakeLists.txt -text

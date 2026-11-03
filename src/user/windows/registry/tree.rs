@@ -55,6 +55,7 @@ pub(crate) enum TreeRoot {
     MuiSystem,
     LanguageOverlayPackages,
     NlsCustomLocale,
+    Nls,
 }
 impl TreeRoot {
     pub(crate) fn path(self) -> &'static str {
@@ -74,7 +75,20 @@ impl TreeRoot {
             Self::MuiSystem => MUI_SYSTEM_KEY,
             Self::LanguageOverlayPackages => LANGUAGE_OVERLAY_PACKAGES_KEY,
             Self::NlsCustomLocale => NLS_CUSTOM_LOCALE_KEY,
+            Self::Nls => NLS_ROOT_KEY,
         }
+    }
+
+    fn overlaps(self, other: Self) -> bool {
+        let left = self.path();
+        let right = other.path();
+        left == right
+            || left
+                .strip_prefix(right)
+                .is_some_and(|tail| tail.starts_with('\\'))
+            || right
+                .strip_prefix(left)
+                .is_some_and(|tail| tail.starts_with('\\'))
     }
 }
 pub(crate) enum Lookup {
@@ -209,6 +223,13 @@ impl Registry {
     ) -> io::Result<Self> {
         if self.upcase.len() != 65_536 || self.selected_trees.contains(&root) {
             return Err(invalid("invalid or duplicate runtime subtree selection"));
+        }
+        if self
+            .selected_trees
+            .iter()
+            .any(|selected| root.overlaps(*selected))
+        {
+            return Err(invalid("overlapping runtime subtree selection"));
         }
         if let Some(tree) = tree {
             let path: Vec<_> = root.path().encode_utf16().collect();

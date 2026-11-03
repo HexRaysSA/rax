@@ -251,7 +251,10 @@ SHA256 verification before their generated trees were removed. Compatible warm
 Cargo trees remain assigned to immediate `NtOpenKeyEx` and remaining key metadata
 work. The root embedded-owner check tree was removed after its log was preserved.
 
-The current [CustomLocale metadata extension](metadata/README.md) captures key
-records for classes 0 through 6 and 8, canonical aliases and ordered descendants.
-Other selected roots still require their own metadata acquisition. Class 7
-continues to follow the separately tested mutable key-body tag contract.
+The [complete fixed NLS selection](nls-tree/README.md) extends the
+[CustomLocale metadata acquisition](metadata/README.md) to the whole installed
+NLS subtree, including CodePage, Sorting Versions, and ExtendedLocale. It captures
+values, records for classes 0 through 6 and 8, canonical aliases, and ordered
+descendants in one snapshot. Other selected roots still require their own
+metadata acquisition. Class 7 continues to follow the separately tested mutable
+key-body tag contract.

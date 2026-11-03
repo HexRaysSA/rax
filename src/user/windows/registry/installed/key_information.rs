@@ -1,4 +1,4 @@
-//! Selection-only capture of complete records for the fixed CustomLocale tree.
+//! Selection-only capture of complete records for a fixed runtime tree.
 //! All output buffers are private/aligned; no guest argument reaches NTDLL.
 use super::super::key_information::MAX_RECORD_BYTES;
 use super::super::tree::{MAX_TREE_KEYS, TreeBudget, child_path};
@@ -101,22 +101,24 @@ fn records(key: &OwnedKey) -> io::Result<KeyInformation> {
     KeyInformation::new(records, tails)
 }
 
-pub(super) fn capture(registry: &Registry) -> io::Result<Option<InformationTree>> {
-    capture_with(registry, |path| tree::open(TreeRoot::NlsCustomLocale, path))
+pub(super) fn capture(registry: &Registry, root: TreeRoot) -> io::Result<Option<InformationTree>> {
+    capture_with(registry, root, |path| tree::open(root, path))
 }
 
 pub(super) fn capture_with(
     registry: &Registry,
+    root: TreeRoot,
     mut opener: impl FnMut(&[u16]) -> io::Result<OwnedKey>,
 ) -> io::Result<Option<InformationTree>> {
-    let path: Vec<_> = TreeRoot::NlsCustomLocale.path().encode_utf16().collect();
+    let path: Vec<_> = root.path().encode_utf16().collect();
+    let mut paths = TreeBudget::default();
+    paths.charge(&path, 0)?;
     let key = match opener(&path) {
         Ok(key) => key,
         Err(error) if error.raw_os_error() == Some(2) => return Ok(None),
         Err(error) => return Err(error),
     };
     let mut values = registry.value_budget()?;
-    let mut paths = TreeBudget::default();
     let mut information = BTreeMap::new();
     let mut reserved = 1;
     let tree = node(
@@ -143,7 +145,6 @@ fn node(
     information: &mut BTreeMap<Vec<u16>, KeyInformation>,
     opener: &mut impl FnMut(&[u16]) -> io::Result<OwnedKey>,
 ) -> io::Result<super::super::KeyTree> {
-    paths.charge(&path, depth)?;
     let mut selected = None;
     for _ in 0..3 {
         let before = info(&key)?;
@@ -178,6 +179,8 @@ fn node(
     let mut children = Vec::with_capacity(names.len());
     for name in names {
         let next = child_path(&path, &name)?;
+        // Validate and charge the next path before acquiring its native HKEY.
+        paths.charge(&next, depth + 1)?;
         let key = opener(&next)?;
         children.push((
             name,
