@@ -1,0 +1,27 @@
+2026-11-03T11:48:26.1125313Z   stable-x86_64-unknown-linux-gnu unchanged - rustc 1.99.1 (58cf8f9c3 2026-10-13)
+2026-11-03T11:48:26.2450106Z   stable-x86_64-unknown-linux-gnu unchanged - rustc 1.99.1 (58cf8f9c3 2026-10-13)
+2026-11-03T11:48:26.4317272Z rustc 1.99.1 (58cf8f9c3 2026-10-13)
+2026-11-03T11:48:26.4318615Z LLVM version: 23.1.1
+2026-11-03T11:48:31.9897881Z rustc 1.99.1 (58cf8f9c3 2026-10-13)
+2026-11-03T11:48:31.9899348Z LLVM version: 23.1.1
+2026-11-03T11:48:39.4705709Z xsave_host_mask=00000000000000e7 enabled_bytes=2432 maximum_bytes=2432 intrinsic_mxcsr_mask=0002ffff assembly_mxcsr_mask=0002ffff
+2026-11-03T11:49:41.4061994Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+2026-11-03T11:49:41.4220979Z [36;1mcargo test --features x86_64-suite --lib backend::kvm::state_tests:: -- --include-ignored --test-threads=1 --nocapture[0m
+2026-11-03T11:52:25.0229219Z test backend::intel_hvf_xsave::tests::amd_misaligned_exception_mask_roundtrips_only_when_the_host_supports_it ... ok
+2026-11-03T11:52:25.0281164Z test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 13065 filtered out; finished in 0.00s
+2026-11-03T11:52:25.3565893Z test backend::kvm::state_tests::changed_nonpaging_public_controls_preserve_cached_pae_pdptrs ... ok
+2026-11-03T11:52:25.3644342Z test backend::kvm::state_tests::changed_public_cr3_loads_the_requested_new_pae_table ... ok
+2026-11-03T11:52:25.3702080Z test backend::kvm::state_tests::inactive_legacy_backing_does_not_override_architectural_initial_state ... ok
+2026-11-03T11:52:25.3772231Z test backend::kvm::state_tests::managed_native_cpu_retains_registered_ram_after_vm_owner_drop ... ok
+2026-11-03T11:52:25.3852269Z test backend::kvm::state_tests::native_guest_consumes_the_overlaid_mmx_and_xmm_banks ... ok
+2026-11-03T11:52:25.3934216Z test backend::kvm::state_tests::native_special_backup_restores_cache_when_public_controls_already_match ... ok
+2026-11-03T11:52:25.4004576Z test backend::kvm::state_tests::public_overlay_rejection_keeps_the_uncompleted_native_input ... ok
+2026-11-03T11:52:25.4093584Z test backend::kvm::state_tests::public_overlay_updates_all_represented_banks_and_retains_x87_controls ... ok
+2026-11-03T11:52:25.4174706Z test backend::kvm::state_tests::public_state_reads_native_xmm_and_debug_registers ... ok
+2026-11-03T11:52:25.4292372Z test backend::kvm::state_tests::public_state_roundtrip_preserves_native_apic_base_and_pending_vector ... ok
+2026-11-03T11:52:25.4361909Z test backend::kvm::state_tests::registered_native_ram_outlives_the_registration_borrow ... ok
+2026-11-03T11:52:25.4444709Z test backend::kvm::state_tests::rejected_control_register_rolls_back_prior_vector_msr_and_debug_writes ... ok
+2026-11-03T11:52:25.4554367Z test backend::kvm::state_tests::unchanged_public_paging_controls_preserve_cached_pae_pdptrs ... ok
+2026-11-03T11:52:25.4725434Z test backend::kvm::state_tests::unsupported_public_bank_rejects_before_native_register_mutation ... ok
+2026-11-03T11:52:25.4726150Z test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 13066 filtered out; finished in 0.13s
+2026-11-03T11:57:47.4035735Z [1m[92m    Finished[0m `release` profile [optimized] target(s) in 5m 21s

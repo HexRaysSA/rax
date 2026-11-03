@@ -29,7 +29,12 @@ overlays, rejection under an Intel-style host mask, and reserved-bit controls.
 The first harness attempt omitted the codec import and did not compile; it is
 excluded from the red/green counts. `qualification.json` records that limit.
 These type-seam runs are not native KVM/HVF guest execution. Production native
-CI remains a separate required check; its result must be recorded after push.
+CI is separately confirmed by run41630404578: the same `0x0002ffff` mask
+profile passes 15 portable tests, all 14 selected native public-state tests and
+2 minimal native tests, with no failures or ignored cases in those selections.
+The release build also succeeds. `github-success.log` retains the actual
+counts and raw masks; this does not qualify complete unfiltered library or
+physical Intel HVF behavior.
 
 The existing KVM job also runs the complete portable XSAVE test module and
 triggers on changes to its shared implementation/tests. Reproduce those checks
@@ -43,7 +48,7 @@ cargo test --locked --features x86_64-suite --lib backend::kvm::state_tests:: --
 | ID | Assumption | Basis | Dependent result | Stress/falsification probe | Status |
 |---|---|---|---|---|---|
 | M1 | The host may advertise AMD MM in MXCSR_MASK | Native intrinsic and assembly both report `0x0002ffff`; AMD section 4.2.2 defines bit 17 | Admit the shared native layout | Reject bit 17 under a host mask lacking it; reject bits 16/18/31 under either profile | Confirmed by native observation and portable controls |
-| M2 | The shared parser must retain the full supported MXCSR value | RAX stores MXCSR as u32; native images carry the complete field | Preserve MM through projection and overlays | Compare `0x00021f80` before/after standard XSAVE projection and both overlays, with SSE active and inactive | Portable whole-module tests pass; native guest confirmation remains separate |
+| M2 | The shared parser must retain the full supported MXCSR value | RAX stores MXCSR as u32; native images carry the complete field | Preserve MM through projection and overlays | Compare `0x00021f80` before/after standard XSAVE projection and both overlays, with SSE active and inactive | Portable whole-module tests pass; production native public-state suite also passes on the formerly rejected mask profile |
 
 High impact: complete KVM private/shared/in-flight checkpointing, native VMM AP
 startup and the original A32/HVF requirements remain open. Physical Intel HVF

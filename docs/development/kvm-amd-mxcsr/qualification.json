@@ -1,7 +1,7 @@
 {
-  "status": "portable_red_green_qualified_native_ci_pending",
+  "status": "portable_red_green_and_production_native_ci_qualified",
   "full_goal_complete": false,
-  "utc": "2026-11-03T11:46:33.621304+00:00",
+  "utc": "2026-11-03T12:01:47.345688+00:00",
   "base": "fb6eb3f067663de8d1dad2652563a99f8a068cef",
   "source_sha256": "cd625dc0a8e4e1d31e6c88a412018b25b83bd78452eaf0a10d5056fc5f915df7",
   "tests_sha256": "fbb7f6a81cf9f608ec7b9fe5ccd5e2ebbd4ada3b9fc385d18ab35cfbb5b67d9f",
@@ -80,7 +80,7 @@
     "scope": "Complete exact portable XSAVE module and its entire test source, linked against actual frozen RAX public register/snapshot/error types. This is a type seam, not a production native KVM/HVF guest execution."
   },
   "invalid_attempt": "red-v1 did not compile because the standalone test-type seam omitted crate::codec; no architectural red result claimed for it.",
-  "remaining": "Actual production native CI after push, complete original four-finding goal and physical Intel HVF validation.",
+  "remaining": "Full original four-finding goal, final combined source qualification of separately pending entry/ownership changes and physical Intel HVF validation remain open.",
   "native_build_reuse": "The existing owned native directory remains allocated for the separately pending entry/ownership group. All ten earlier native gates are terminal; no frozen source has yet been changed for this correction.",
   "workflow_owner": {
     "counts": "12passed0failed0ignored0filtered",
@@ -88,5 +88,22 @@
     "source_unchanged": true
   },
   "formatting": "cargo +stable fmt --all --check and git diff --check passed",
-  "yaml": "Ruby Psych parsed all13 workflow YAML files"
+  "yaml": "Ruby Psych parsed all13 workflow YAML files",
+  "native_success": {
+    "run": "https://github.com/HexRaysSA/rax/actions/runs/41630404578",
+    "commit": "4ddd5ef91c32e7b4d7c75a026f2195c23ba4c5ce",
+    "job_id": 125898201156,
+    "conclusion": "success",
+    "host_xsave_mask": "0xe7",
+    "host_maximum_bytes": 2432,
+    "intrinsic_mxcsr_mask": "0x0002ffff",
+    "assembly_mxcsr_mask": "0x0002ffff",
+    "portable_tests": "15passed0failed0ignored13065filtered",
+    "native_public_state": "14passed0failed0ignored13066filtered",
+    "native_minimal": "2passed0failed0ignored0filtered",
+    "release_build": "success",
+    "log": "github-success.log",
+    "rustc": "1.99.1(58cf8f9c3,2026-10-13),LLVM23.1.1",
+    "scope": "Complete production native state filter and full portable XSAVE module, both nonempty, on the formerly rejected mask profile; not complete unfiltered library or physical Intel HVF qualification."
+  }
 }
