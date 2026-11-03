@@ -1,0 +1,130 @@
+{
+  "status": "component_qualified",
+  "full_goal_complete": false,
+  "utc": "2026-11-03T16:55:16.924967+00:00",
+  "evidence_root": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-pit-speaker-v1",
+  "baseline": {
+    "receipt": "baseline-native.json",
+    "passed": 6,
+    "failed": 3,
+    "ignored": 0,
+    "filtered": 0,
+    "markers": "All three native port61 widths produced0xbad00061; the six native discovery/startup controls passed."
+  },
+  "source_rule": "Frozen next-group export with independently replaced changed inodes; active firmware qualification source remains unchanged.",
+  "remaining_required": [
+    "Reconcile actual native CPUID topology/cache geometry and demonstrated LAPIC/TSC calibration failures.",
+    "Complete native private/shared/in-flight checkpoint production and coordinated timer/IRQ/RAM/clock/replay restoration.",
+    "Complete remaining A32/HVF profiles and physical Intel HVF execution.",
+    "Remove owned native source/build artifacts after all dependent compilers/tests/controllers terminate."
+  ],
+  "assumptions": [
+    {
+      "id": "P1",
+      "assumption": "The in-kernel PIT must own port61 gate/readback with its channel2 counters.",
+      "basis": "KVM API4.71 flag and retained Linux6.8 speaker_ioport_read/write.",
+      "dependent_result": "Gate, speaker-data and OUT readback use the same native timer state.",
+      "stress_test": "Actual Vmm guest mode0,count16,gate transition,byte/word/dword IN61 and bounded native-TSC wait; six prior native controls and complete IO target. One additional native generic-constructor compatibility control must leave port0x61 in userspace.",
+      "falsification_probe": "Any native width fails0x600d0061, sees wrong gate/data/upper bits, or duplicates user-space device effects.",
+      "status": "All three baseline widths failed. Final complete production library passes all10 native SMP/discovery/PIT/generic-API controls and10 native IO cases."
+    },
+    {
+      "id": "P2",
+      "assumption": "Repairing this timer connection is necessary for native OS boot, but a component pass alone does not establish complete SMP startup.",
+      "basis": "Linux MPS discovery succeeds while the old PIT profile stops at timer checks.",
+      "dependent_result": "Require actual Linux1/2/4 startup after the flag change.",
+      "stress_test": "Same kernel and command line; require actual SMP activation count and timer progress.",
+      "falsification_probe": "Linux still stalls, selects fewer CPUs or fails any AP startup after the repair.",
+      "status": "Final complete production CLI activates exactly1/2/4 native CPUs with the same kernel and command line. Independent LAPIC timer verification, TSC calibration and topology diagnostics remain unresolved; no complete clock or OS boot qualification is claimed."
+    }
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "Complete native PIT/controller/CPU/in-flight checkpoint state and common clocks/replay remain open.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Other advertised A32/HVF profiles and physical Intel HVF execution remain open.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "The final four-CPU Linux guest activates all4 CPUs, but disables the LAPIC timer after verification failure and reports inconsistent die topology. Those observations remain unresolved clock/topology requirements.",
+      "blocks_full_goal": true
+    }
+  ],
+  "intermediate_production": {
+    "receipt": "production-native.json",
+    "whole_smp_pit_passed": 9,
+    "whole_io_passed": 10,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "library_sha256": "8cb12c22f015ba40839ff7589f0cb19a0a30605b1dd09e6ffea428d0eed124e9",
+    "cli_sha256": "31b69b4496ad010fef4d9a5688e5f6310b959bf55fdda655abe79ee58fa42f97",
+    "source_unchanged": true,
+    "active_base_source_unchanged": true,
+    "scope": "First complete flag repair passes9 SMP/PIT and10 IO cases, but its generic PIT API configuration change fails the added compatibility control; not final qualification."
+  },
+  "compatibility_counterexample": {
+    "receipt": "compatibility-counterexample.json",
+    "passed": 9,
+    "failed": 1,
+    "ignored": 0,
+    "filtered": 0,
+    "result": "First global-flag implementation consumes0x61 through the generic constructor. Final implementation keeps that constructor unchanged and selects the flag only at native PC initialization."
+  },
+  "source_scope": "Final qualified PIT source versions are retained in evidence_root/qualified-source-v2. Subsequent native CPU profile changes in the current working tree are excluded from this qualification and publication.",
+  "source_sha256": {
+    "src/backend/kvm/mod.rs": "ef0d13cb936541a5b18cc429b684ef1e8ad52d5d55d46e6832f527c21a00915b",
+    "tests/suites/backend/kvm/smp.rs": "6239b967f653271cb5360751162def4e935f0b484fa0810767369315c1da60bf",
+    "tests/suites/backend/kvm/smp/pit_speaker.rs": "1c5ebc655c9e98c786c7c1b918926adced2e4599b77d9954df3320f0d64e9fea",
+    "src/machine/pc/mod.rs": "728b7e039043230d4601646c41b535bb364f7e68c18fb38e4fc9c291d125863a"
+  },
+  "production": {
+    "receipt": "production-native-v2.json",
+    "whole_smp_discovery_pit_api_passed": 10,
+    "whole_io_passed": 10,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "library_sha256": "945362e89a752ba6e9aea3f7ebacbb0091440f196b17de953e58ebbcbe14c6e7",
+    "cli_sha256": "469b770289bf15e796b473e545ce97e96c321e49a9c7a6303109b2874ca69983",
+    "source_unchanged": true,
+    "active_base_source_unchanged": true
+  },
+  "workspace_gates": {
+    "receipt": "workspace-gates.json",
+    "command_count": 17,
+    "all_exit_zero": true,
+    "coverage_verified": true,
+    "final_source_content_verified": true,
+    "doctests": {
+      "passed": 2,
+      "ignored": 5
+    }
+  },
+  "linux_startup": {
+    "receipt": "linux-startup-native.json",
+    "requested": [
+      1,
+      2,
+      4
+    ],
+    "observed": [
+      1,
+      2,
+      4
+    ],
+    "complete_numeric_lines_verified": true,
+    "full_os_boot": false,
+    "clock_topology_correctness": false
+  },
+  "linux_observer_correction": {
+    "original_observer_missed": "singular 1 CPU line",
+    "handling": "Independent observer verified the complete line and log-prefix digest, then sent the same owned console quit. Original per-run fields remain retained; no rerun or signal.",
+    "receipt": "linux-startup-native.json"
+  }
+}

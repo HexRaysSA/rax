@@ -1,0 +1,9 @@
+{
+  "retrieval_utc": "2026-11-03T15:58:47.614011+00:00",
+  "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/i8254.c",
+  "title": "Linux arch/x86/kvm/i8254.c",
+  "revision": "v6.8",
+  "issuer": "Linux kernel contributors",
+  "file": "linux-pit-v6.8.c",
+  "sha256": "5b3d1c43ffee47998ba39996699e35ef7c84fcfdeb656b2c4677f4a29e65cd92"
+}

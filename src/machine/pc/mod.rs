@@ -674,7 +674,7 @@ impl Machine for PcMachine {
         debug!("creating IRQ chip");
         vm.create_irq_chip()?;
         debug!("creating PIT2");
-        vm.create_pit2()?;
+        vm.create_pit2_with_speaker()?;
         debug!(
             tss_addr = format!("{:#x}", boot.tss_addr),
             "setting TSS address"

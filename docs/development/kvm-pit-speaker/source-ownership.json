@@ -1,0 +1,22 @@
+{
+  "utc": "2026-11-03T15:52:46.258151+00:00",
+  "base_source": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-discovery-v1/source",
+  "current_source": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-pit-speaker-v1/source",
+  "method": "One temporary next-group export shares immutable input inodes. Every changed path was atomically replaced with its own inode; active MPS source files were never written.",
+  "base_complete_manifest_verified": true,
+  "replaced_paths": [
+    "src/backend/kvm/mod.rs",
+    "tests/suites/backend/kvm/smp.rs",
+    "tests/suites/backend/kvm/smp/pit_speaker.rs"
+  ],
+  "old_selected": {
+    "src/backend/kvm/mod.rs": [
+      "4a8628e0355f8e3c7f1cf23b2f3ac2d8bcf261e783000d74c70a44dff06ae0ad",
+      129243392
+    ],
+    "tests/suites/backend/kvm/smp.rs": [
+      "384ab33392d3304e79bc4c020ad7fba15fb428b12d436ddff2dce06fd73f5479",
+      129249458
+    ]
+  }
+}
