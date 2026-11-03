@@ -1,0 +1,19 @@
+{
+  "utc": "2026-11-03T17:01:00.164875+00:00",
+  "retired_source": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-pit-speaker-v1/source",
+  "current_source": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-topology-v1/source",
+  "prior_seventeen_gates_terminal": true,
+  "old_controllers_absent": true,
+  "active_source_references": [],
+  "old_manifest_verified": true,
+  "updated_paths": [
+    "src/backend/kvm/mod.rs",
+    "src/backend/kvm/cpuid.rs",
+    "src/backend/kvm/cpuid_tests.rs",
+    "src/backend/kvm/firmware.rs",
+    "tests/suites/backend/kvm/smp.rs",
+    "tests/suites/backend/kvm/smp/topology.rs",
+    "src/backend/kvm/cpuid_native_tests.rs"
+  ],
+  "method": "Move the completed owned PIT export, then atomically replace only seven changed source files. No second full export or Git worktree; active/shared target is retained."
+}

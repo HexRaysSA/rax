@@ -11,6 +11,8 @@ use std::process::Command;
 mod discovery;
 #[path = "smp/pit_speaker.rs"]
 mod pit_speaker;
+#[path = "smp/topology.rs"]
+mod topology;
 
 const CHILD: &str = "RAX_KVM_SMP_TEST_CHILD";
 // GNU as2.42; 64-bit BSP, real-mode AP trampoline then protected-mode payload.

@@ -1,0 +1,52 @@
+{
+  "verified_utc": "2026-11-03T17:20:57.990646+00:00",
+  "references": [
+    {
+      "file": "linux-kvm-cpuid-v6.8.rst",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/Documentation/virt/kvm/x86/cpuid.rst",
+      "bytes": 5472,
+      "sha256": "f314b6c30e0457cdc3ac895058fd4854b8b4ce875f0b19ff038bd245b50bd279",
+      "scope": "Unmodified primary Linux source/documentation; original notices retained."
+    },
+    {
+      "file": "linux-kvmclock-v6.8.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kernel/kvmclock.c",
+      "bytes": 8838,
+      "sha256": "06f199d8d40d1ff1c6ea2986ec87234b3158c9361c6151655382a5b7c67fb770",
+      "scope": "Unmodified primary Linux source/documentation; original notices retained."
+    },
+    {
+      "file": "linux-pvclock-abi-v6.8.h",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/include/asm/pvclock-abi.h",
+      "bytes": 1530,
+      "sha256": "51fef82919dd981eaaaca747597c4b44a3ce1138d264ecec9ce1f5bc2f388e8e",
+      "scope": "Unmodified primary Linux source/documentation; original notices retained."
+    },
+    {
+      "file": "linux-hypervisor-v6.8.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kernel/cpu/hypervisor.c",
+      "bytes": 2617,
+      "sha256": "a83cc15ca5b9dea1cbfd4b35a889bd8657bbf3de318db8b9f49fd73e704d69f0",
+      "scope": "Unmodified primary Linux source/documentation; original notices retained."
+    },
+    {
+      "document": "Intel SDM086",
+      "local_archive": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+      "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+      "sections": "Volume2A, CPUID Table3-17: leaves1/4/B/1F; Volume3A, topology enumeration.",
+      "scope": "Primary Intel archive already retained in this repository."
+    },
+    {
+      "document": "AMD APM Volume3,24594,revision3.36,March2024",
+      "file": "amd-apm-volume3-24594-r3.36.pdf",
+      "url": "https://www.scs.stanford.edu/~zyedidia/docs/x86/amd-manual-v3.pdf",
+      "canonical_url": "https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/programmer-references/24594.pdf",
+      "sections": "AppendixE.4.7,E.4.15,E.4.16,E.4.24,E.5; printed pages627-629,636-639,645-648.",
+      "local_archive_sha256": "4d8eff047a237895dfa4433111511088a80b40dde9e2012f9b652113ee58a00e",
+      "bytes": 16745121,
+      "retrieved_utc": "2026-11-03T17:49:55.259851+00:00",
+      "scope": "Unmodified AMD-authored public manual mirrored by Stanford; original title, revision and notices retained. Final field review against the archived revision confirms APIC-width/count, reserved cache bits, node uniqueness, Core/Socket domains and core-property bit positions. Earlier3.34 web-only research was corroborated by this locally archived3.36 revision. No physical AMD/Hygon runtime qualification is claimed.",
+      "size_justification": "Complete primary architecture reference required by repository instructions; contains the exact topology field definitions used by the code and synthetic matrices."
+    }
+  ]
+}

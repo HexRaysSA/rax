@@ -1,6 +1,7 @@
 //! KVM backend implementation.
 
 mod convert;
+mod cpuid;
 mod deadline;
 mod firmware;
 mod io;
@@ -14,6 +15,8 @@ pub use owned_vcpu::OwnedVcpuFd;
 
 #[cfg(test)]
 mod checkpoint_backlog_tests;
+#[cfg(test)]
+mod cpuid_native_tests;
 #[cfg(test)]
 mod state_tests;
 
@@ -56,6 +59,7 @@ impl Backend for KvmBackend {
         let vm_fd = self.kvm.create_vm()?;
         // Create a new Kvm instance for the VM (Kvm doesn't implement Clone)
         let kvm = Kvm::new()?;
+        let cpuid = kvm.get_supported_cpuid(kvm_bindings::KVM_MAX_CPUID_ENTRIES)?;
         Ok(Box::new(KvmVm {
             memory: Arc::new(MemoryOwner {
                 vm_fd,
@@ -63,6 +67,8 @@ impl Backend for KvmBackend {
                 irqchip_created: AtomicBool::new(false),
             }),
             kvm,
+            cpuid,
+            profile: Mutex::new(cpuid::Configuration::default()),
         }))
     }
 }
@@ -71,6 +77,8 @@ impl Backend for KvmBackend {
 pub struct KvmVm {
     memory: Arc<MemoryOwner>,
     kvm: Kvm,
+    cpuid: kvm_bindings::CpuId,
+    profile: Mutex<cpuid::Configuration>,
 }
 
 /// Close the VM before releasing any RAM retained by its memory slots. Managed
@@ -159,32 +167,51 @@ impl KvmVm {
     /// Native immutable ioctls and explicit mutable operations remain available
     /// on the returned owner; no safe operation extracts an unowned VcpuFd.
     pub fn create_vcpu_fd(&self, id: u64) -> Result<OwnedVcpuFd> {
-        Ok(OwnedVcpuFd::new(
-            self.memory.vm_fd.create_vcpu(id)?,
-            self.memory.clone(),
-        ))
+        let mut profile = self
+            .profile
+            .lock()
+            .map_err(|_| Error::Emulator("native CPU profile lock poisoned".into()))?;
+        let fd = self.memory.vm_fd.create_vcpu(id)?;
+        profile.created = true;
+        Ok(OwnedVcpuFd::new(fd, self.memory.clone()))
     }
 }
 
 impl Vm for KvmVm {
+    fn configure_cpu_topology(&self, count: u8, _ram_end: u64) -> Result<()> {
+        cpuid::Topology::new(count)?;
+        let mut profile = self
+            .profile
+            .lock()
+            .map_err(|_| Error::Emulator("native CPU profile lock poisoned".into()))?;
+        if profile.created || profile.count.is_some() {
+            return Err(Error::InvalidConfig(
+                "native CPU topology must be configured once, before CPU creation".into(),
+            ));
+        }
+        profile.count = Some(count);
+        Ok(())
+    }
+
     fn create_vcpu(&self, id: u32, mem: Arc<GuestMemoryMmap>) -> Result<Box<dyn VCpu>> {
-        use kvm_bindings::KVM_MAX_CPUID_ENTRIES;
         use tracing::debug;
 
+        let mut profile = self
+            .profile
+            .lock()
+            .map_err(|_| Error::Emulator("native CPU profile lock poisoned".into()))?;
+        // Validate the complete pure record before consuming a native CPU ID.
+        let cpuid = match profile.count {
+            Some(count) => cpuid::Topology::new(count)?.project(&self.cpuid, id)?,
+            None => cpuid::sdk_profile(&self.cpuid, id)?,
+        };
         debug!(id, "KvmVm::create_vcpu: calling create_vcpu");
         let vcpu_fd = self.memory.vm_fd.create_vcpu(id as u64)?;
-        debug!(id, "KvmVm::create_vcpu: vcpu created, getting CPUID");
+        // Native allocation consumes this ID even if subsequent setup fails.
+        // Closing the new CPU FD does not make the VM topology mutable again.
+        profile.created = true;
+        debug!(id, "KvmVm::create_vcpu: vcpu created, projecting CPUID");
 
-        // Set CPUID for the vCPU
-        let mut cpuid = self.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?;
-        for entry in cpuid.as_mut_slice() {
-            (entry.eax, entry.ebx, entry.ecx, entry.edx) =
-                crate::isa::x86_64::identity::project_cpuid(
-                    entry.function,
-                    (entry.eax, entry.ebx, entry.ecx, entry.edx),
-                    id,
-                );
-        }
         debug!(id, "KvmVm::create_vcpu: setting CPUID");
         vcpu_fd.set_cpuid2(&cpuid)?;
         debug!(id, "KvmVm::create_vcpu: done");

@@ -1,0 +1,15 @@
+{
+  "utc": "2026-11-03T17:08:55.669681+00:00",
+  "prior_controller_absent": true,
+  "prior_nine_production_commands_passed": true,
+  "prior_source_manifest_verified": true,
+  "active_source_references": [],
+  "changed_paths": [
+    "src/backend/kvm/mod.rs",
+    "src/backend/kvm/cpuid.rs",
+    "src/backend/kvm/cpuid_tests.rs",
+    "tests/suites/backend/kvm/smp/topology.rs",
+    "src/backend/kvm/cpuid_native_tests.rs"
+  ],
+  "reason": "Preserve unconfigured native SDK CPU IDs and native geometry. Explicit VMM counts retain corrected virtual geometry and native KVM clock discovery. Add the public SDK compatibility control."
+}

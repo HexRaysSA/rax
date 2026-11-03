@@ -1,0 +1,127 @@
+{
+  "utc": "2026-11-03T17:51:37.634823+00:00",
+  "status": "component_qualified",
+  "full_goal_complete": false,
+  "published_pit_commit": "1abf38674b089864dc26f741fe671d6e1155eafe",
+  "final_baseline": {
+    "receipt": "baseline-owning.json",
+    "whole_owning_passed": 10,
+    "failed": 6,
+    "ignored": 0,
+    "filtered": 0,
+    "scope": "Geometry and functional native clock discovery; unchanged final PIT library."
+  },
+  "intermediate_production": {
+    "whole_owning_passed": 16,
+    "whole_io_passed": 10,
+    "receipts": [
+      "intermediate-production-native.json"
+    ],
+    "scope": "First complete profile library passed16 owning and10 IO cases, but fails the separate SDK compatibility control. It is retained only as intermediate evidence; final qualification uses source-v2."
+  },
+  "sdk_counterexample": {
+    "receipt": "sdk-compatibility-counterexample.json",
+    "prior_pit_passed": 1,
+    "intermediate_profile_failed": 1,
+    "scope": "Unconfigured managed native CPU IDs1and7; same public-API usage on both immutable complete libraries."
+  },
+  "controllers": {
+    "canonical": 2912298,
+    "linux": 2912299
+  },
+  "required_next": [
+    "Keep the full four-finding objective open; complete native private/shared/in-flight capture/restore, clocks/replay and remaining A32/HVF/physical Intel requirements.",
+    "Remove/reuse the completed source export after actual compiler/test/controller/reference checks; retain active shared target only while needed."
+  ],
+  "assumptions": [
+    {
+      "id": "N1",
+      "assumption": "The supplied native KVM vendor/features require the CPUID hypervisor bit for OS detection.",
+      "dependent_result": "Expose existing in-kernel clock interfaces without inventing a crystal-ratio clock.",
+      "stress_test": "Actual1/2/4 guest clock pages, SDK-derived frequency comparison, unchanged KVM feature mask, and independent Linux clock/startup diagnostics.",
+      "falsification_probe": "Any absent/invalid native clock page, rate mismatch, lost feature, or missing independent Linux KVM-clock detection.",
+      "status": "Confirmed within the recorded component scope: final production and all18 canonical gates pass; independent Linux1/2/4 startup and KVM clock discovery pass. Periodic LAPIC verification remains open."
+    },
+    {
+      "id": "N2",
+      "assumption": "Configured virtual cores use one thread/core and at most64 cores/package; remaining configured CPUs populate additional packages.",
+      "dependent_result": "Legacy cache fields, extended topology and global CPU identities agree for all representable configured IDs.",
+      "stress_test": "All255-count pure matrix and actual1/2/4 VMM guest metadata, plus four native configuration/allocation controls.",
+      "falsification_probe": "Duplicate identity, wrong package/core/cache capacity, mutable configuration after allocation or admission consuming an ID.",
+      "status": "Confirmed within the recorded component scope: final production and all18 canonical gates pass; independent Linux1/2/4 startup and KVM clock discovery pass. Periodic LAPIC verification remains open."
+    },
+    {
+      "id": "N3",
+      "assumption": "Unconfigured SDK callers retain their native geometry/ID API, while VMM callers select explicit immutable virtual topology.",
+      "dependent_result": "Fix VMM topology without restricting existing managed SDK CPU IDs.",
+      "stress_test": "Public SDK control passes prior PIT library and fails first profile library; require final source to pass it and all configured VMM cases.",
+      "falsification_probe": "Any previously accepted SDK ID is rejected or any explicit VMM geometry regresses.",
+      "status": "Confirmed within the recorded component scope: final production and all18 canonical gates pass; independent Linux1/2/4 startup and KVM clock discovery pass. Periodic LAPIC verification remains open."
+    }
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "Full native CPU/shared/private/in-flight producer, coordinated restore, clocks/replay, remaining A32/HVF profiles and physical Intel remain incomplete."
+    },
+    {
+      "impact": "medium",
+      "finding": "AMD/Hygon matrices are synthetic primary-field coverage; no physical AMD/Hygon runtime qualification is claimed."
+    },
+    {
+      "impact": "high",
+      "finding": "Independent final Linux1/2/4 runs still disable the LAPIC periodic timer after verification. KVM explicitly reports TSC-deadline support through a separate capability, confirmed present on this host, while GET_SUPPORTED_CPUID deliberately clears its bit; conditional APIC feature admission remains required. Periodic verification cause and full timer/IRQ/restore semantics remain open."
+    }
+  ],
+  "discarded_clock_experiment": "baseline-v3 records a CPUID15-mandatory probe. Primary Linux source couples its crystal frequency to LAPIC timing; it is not counted as the required clock defect/fix. Final regressions use documented native KVM clock pages. No synthetic crystal ratio is in either exported production version.",
+  "evidence_root": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-topology-v1",
+  "production": {
+    "receipt": "production-native.json",
+    "library_sha256": "1f5e25ce1f48ae401bc34c9fecc3b3d96dfbefcbe5d7907a75f2509402067241",
+    "cli_sha256": "e1d6282d2f52604b910f38f8b6589933c5ba1164cc06fb5b95e99fc55c94c029",
+    "whole_owning_passed": 17,
+    "whole_io_passed": 10,
+    "profile_unit_passed": 10,
+    "public_state_passed": 16,
+    "failed": 0,
+    "ignored": 0,
+    "source_unchanged": true,
+    "scope": "Complete final SDK-compatible production/backend and CLI; root selections are filtered, owning targets are complete."
+  },
+  "source_sha256": {
+    "src/backend/kvm/mod.rs": "3beae7a1b5c3d49731594805782f5169c01e30dff116f39f0d5b839cec983589",
+    "src/backend/kvm/cpuid.rs": "9f7b3f06b3d26b76e2e039666a37ebe13319179a688a883adb0b30c04c5b6e59",
+    "src/backend/kvm/cpuid_tests.rs": "a3571f3096cd7a04abcc5c62c7ef0ca04796d9df1550fa08d71e0426e7a13af1",
+    "src/backend/kvm/firmware.rs": "00c99936bf55abd50894c0aa9b8829a843b3f7354809b26e93a20edf1fd0dc1b",
+    "tests/suites/backend/kvm/smp.rs": "0df5110b3f21eaee2ae17dc5e945004554bfcb80ed45f45397076b522221628a",
+    "tests/suites/backend/kvm/smp/topology.rs": "7ff4f583f0555222c94468d2747a2a46a450be2841f72a1027933cc5d4e5d705",
+    "src/backend/kvm/cpuid_native_tests.rs": "c3ad4332dd49c4c299d55274164eb4bff11490cc344878735b04962445633618"
+  },
+  "source_scope": "Exact seven source versions in source-sha256-v2.json and the complete native inputs-v2.json. The reused frozen export excludes later independent upstream Darwin changes; owning native and selected workspace results apply to that recorded snapshot, not an unfiltered current-master library run.",
+  "linux": {
+    "receipt": "linux-startup-native.json",
+    "requested": [
+      1,
+      2,
+      4
+    ],
+    "activated": [
+      1,
+      2,
+      4
+    ],
+    "kvm_clock_detected": true,
+    "tsc_mhz": 3491.912,
+    "die_conversion_warnings": false,
+    "lapic_periodic_verification_passed": false,
+    "full_os_boot": false
+  },
+  "canonical": {
+    "receipt": "workspace-gates-native.json",
+    "commands": 18,
+    "failed": 0,
+    "final_source_manifest_verified": true,
+    "source_manifest_sha256": "f3ec98ece0877a3aef4e92fdf36a23beb32ea10825075d5e5254c6bdce61a066",
+    "scope": "Eighteen canonical commands on the frozen final topology source snapshot. Whole owning SMP/IO and focused native targets ran; root library selections are filtered. The snapshot excludes later unrelated upstream Darwin changes. This does not claim an unfiltered current-master library pass or complete native checkpoint/clock/IRQ validation."
+  }
+}

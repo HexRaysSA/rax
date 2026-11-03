@@ -2955,9 +2955,11 @@
         "kvm-owned-io-and-mp-preservation-2026-11-03",
         "kvm-native-startup-eligibility-and-identities-2026-11-03",
         "kvm-native-mp-firmware-discovery-2026-11-03",
-        "kvm-native-pc-pit-speaker-ownership-2026-11-03"
+        "kvm-native-pc-pit-speaker-ownership-2026-11-03",
+        "kvm-native-topology-and-clock-discovery-2026-11-03"
       ],
-      "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
+      "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
+      "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json"
     },
     {
       "id": "C-SMP",
@@ -3764,9 +3766,11 @@
         "kvm-owned-io-and-mp-preservation-2026-11-03",
         "kvm-native-startup-eligibility-and-identities-2026-11-03",
         "kvm-native-mp-firmware-discovery-2026-11-03",
-        "kvm-native-pc-pit-speaker-ownership-2026-11-03"
+        "kvm-native-pc-pit-speaker-ownership-2026-11-03",
+        "kvm-native-topology-and-clock-discovery-2026-11-03"
       ],
-      "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
+      "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
+      "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json"
     },
     {
       "id": "C-HVF",
@@ -198723,6 +198727,19 @@
       "status": "locally_validated",
       "full_goal_complete": false,
       "validation": "Actual baseline native4pass6fail; corrected whole native10pass; four native MP values preserved; public observation baselineRIP1000->fff0 and corrected1000->1000 then completed input/INIT wait. All14 final combined Cargo gates pass."
+    },
+    {
+      "id": "kvm-native-topology-and-clock-discovery-2026-11-03",
+      "findings": [
+        "C-SMP",
+        "C-STATE"
+      ],
+      "scope": "Immutable configured native CPU geometry and firmware identity, retained unconfigured SDK CPU IDs, and detection of existing KVM paravirtual clock interfaces. No synthetic CPUID15 crystal ratio.",
+      "qualification": "docs/development/kvm-native-topology/qualification.json",
+      "status": "locally_validated",
+      "full_goal_complete": false,
+      "validation": "Unchanged complete production baseline10pass6fail. Intermediate16case implementation fails an independent prior-SDK usage control. Final complete production17 SMP+10 IO,10 selected profile/lifecycle and16 selected public-state cases pass. All18 canonical commands pass. Independent final-CLI Linux activates1/2/4 CPUs and detects KVM clock/TSC; periodic LAPIC verification still fails.",
+      "remaining": "Complete native private/shared/in-flight producer, coordinated restore, clocks/replay and full timer/IRQ behavior remain open. AMD/Hygon field matrices are synthetic. Remaining A32/HVF and physical Intel requirements remain open."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -198799,6 +198816,7 @@
     "kvm-native-startup-eligibility-and-identities-2026-11-03",
     "a32-vfp-block-operand-admission-2026-11-03",
     "kvm-native-mp-firmware-discovery-2026-11-03",
-    "kvm-native-pc-pit-speaker-ownership-2026-11-03"
+    "kvm-native-pc-pit-speaker-ownership-2026-11-03",
+    "kvm-native-topology-and-clock-discovery-2026-11-03"
   ]
 }

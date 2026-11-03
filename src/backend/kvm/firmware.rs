@@ -2,7 +2,7 @@
 use super::KvmVm;
 use crate::error::{Error, Result};
 use crate::machine::pc::multiprocessor::{self, Profile};
-use kvm_bindings::{KVM_IRQCHIP_IOAPIC, KVM_MAX_CPUID_ENTRIES, kvm_irqchip};
+use kvm_bindings::{KVM_IRQCHIP_IOAPIC, kvm_irqchip};
 use vm_memory::GuestMemoryMmap;
 
 impl KvmVm {
@@ -12,7 +12,18 @@ impl KvmVm {
         memory: &GuestMemoryMmap,
         count: u8,
     ) -> Result<()> {
-        let cpuid = self.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?;
+        let configured = self
+            .profile
+            .lock()
+            .map_err(|_| Error::Emulator("native CPU profile lock poisoned".into()))?
+            .count
+            .unwrap_or(1);
+        if count != configured {
+            return Err(Error::InvalidConfig(
+                "MP CPU count differs from the immutable native topology".into(),
+            ));
+        }
+        let cpuid = super::cpuid::Topology::new(count)?.project(&self.cpuid, 0)?;
         let identity = cpuid
             .as_slice()
             .iter()
