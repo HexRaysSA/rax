@@ -51,6 +51,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `hexagon_smir_lift` | `suites/smir/lift/hexagon.rs` |
 | `isa_oracle` | `suites/api/isa_oracle.rs` |
 | `kvm_minimal` | `suites/backend/kvm/minimal.rs` |
+| `kvm_host_slices` | `suites/backend/kvm/host_slices.rs` |
 | `microkernel_multiarch` | `suites/machine/microkernel/multiarch.rs` |
 | `pgo_build_script` | `suites/tooling/pgo/build.rs` |
 | `pgo_script_safe` | `suites/tooling/pgo/safety.rs` |

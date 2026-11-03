@@ -1,0 +1,1019 @@
+'\" t
+.\" Copyright (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
+.\" and Copyright (c) 2002, 2006, 2020 by Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (c) 2008 Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
+.\"
+.\" SPDX-License-Identifier: Linux-man-pages-copyleft
+.\"
+.\" Modified Sat Jul 24 17:34:08 1993 by Rik Faith (faith@cs.unc.edu)
+.\" Modified Sun Jan  7 01:41:27 1996 by Andries Brouwer (aeb@cwi.nl)
+.\" Modified Sun Apr 14 12:02:29 1996 by Andries Brouwer (aeb@cwi.nl)
+.\" Modified Sat Nov 13 16:28:23 1999 by Andries Brouwer (aeb@cwi.nl)
+.\" Modified 10 Apr 2002, by Michael Kerrisk <mtk.manpages@gmail.com>
+.\" Modified  7 Jun 2002, by Michael Kerrisk <mtk.manpages@gmail.com>
+.\"	Added information on real-time signals
+.\" Modified 13 Jun 2002, by Michael Kerrisk <mtk.manpages@gmail.com>
+.\"	Noted that SIGSTKFLT is in fact unused
+.\" 2004-12-03, Modified mtk, added notes on RLIMIT_SIGPENDING
+.\" 2006-04-24, mtk, Added text on changing signal dispositions,
+.\"		signal mask, and pending signals.
+.\" 2008-07-04, mtk:
+.\"     Added section on system call restarting (SA_RESTART)
+.\"     Added section on stop/cont signals interrupting syscalls.
+.\" 2008-10-05, mtk: various additions
+.\"
+.TH signal 7 2023-10-31 "Linux man-pages 6.7"
+.SH NAME
+signal \- overview of signals
+.SH DESCRIPTION
+Linux supports both POSIX reliable signals (hereinafter
+"standard signals") and POSIX real-time signals.
+.SS Signal dispositions
+Each signal has a current
+.IR disposition ,
+which determines how the process behaves when it is delivered
+the signal.
+.P
+The entries in the "Action" column of the table below specify
+the default disposition for each signal, as follows:
+.TP
+Term
+Default action is to terminate the process.
+.TP
+Ign
+Default action is to ignore the signal.
+.TP
+Core
+Default action is to terminate the process and dump core (see
+.BR core (5)).
+.TP
+Stop
+Default action is to stop the process.
+.TP
+Cont
+Default action is to continue the process if it is currently stopped.
+.P
+A process can change the disposition of a signal using
+.BR sigaction (2)
+or
+.BR signal (2).
+(The latter is less portable when establishing a signal handler;
+see
+.BR signal (2)
+for details.)
+Using these system calls, a process can elect one of the
+following behaviors to occur on delivery of the signal:
+perform the default action; ignore the signal;
+or catch the signal with a
+.IR "signal handler" ,
+a programmer-defined function that is automatically invoked
+when the signal is delivered.
+.P
+By default, a signal handler is invoked on the
+normal process stack.
+It is possible to arrange that the signal handler
+uses an alternate stack; see
+.BR sigaltstack (2)
+for a discussion of how to do this and when it might be useful.
+.P
+The signal disposition is a per-process attribute:
+in a multithreaded application, the disposition of a
+particular signal is the same for all threads.
+.P
+A child created via
+.BR fork (2)
+inherits a copy of its parent's signal dispositions.
+During an
+.BR execve (2),
+the dispositions of handled signals are reset to the default;
+the dispositions of ignored signals are left unchanged.
+.SS Sending a signal
+The following system calls and library functions allow
+the caller to send a signal:
+.TP
+.BR raise (3)
+Sends a signal to the calling thread.
+.TP
+.BR kill (2)
+Sends a signal to a specified process,
+to all members of a specified process group,
+or to all processes on the system.
+.TP
+.BR pidfd_send_signal (2)
+Sends a signal to a process identified by a PID file descriptor.
+.TP
+.BR killpg (3)
+Sends a signal to all of the members of a specified process group.
+.TP
+.BR pthread_kill (3)
+Sends a signal to a specified POSIX thread in the same process as
+the caller.
+.TP
+.BR tgkill (2)
+Sends a signal to a specified thread within a specific process.
+(This is the system call used to implement
+.BR pthread_kill (3).)
+.TP
+.BR sigqueue (3)
+Sends a real-time signal with accompanying data to a specified process.
+.SS Waiting for a signal to be caught
+The following system calls suspend execution of the calling
+thread until a signal is caught
+(or an unhandled signal terminates the process):
+.TP
+.BR pause (2)
+Suspends execution until any signal is caught.
+.TP
+.BR sigsuspend (2)
+Temporarily changes the signal mask (see below) and suspends
+execution until one of the unmasked signals is caught.
+.\"
+.SS Synchronously accepting a signal
+Rather than asynchronously catching a signal via a signal handler,
+it is possible to synchronously accept the signal, that is,
+to block execution until the signal is delivered,
+at which point the kernel returns information about the
+signal to the caller.
+There are two general ways to do this:
+.IP \[bu] 3
+.BR sigwaitinfo (2),
+.BR sigtimedwait (2),
+and
+.BR sigwait (3)
+suspend execution until one of the signals in a specified
+set is delivered.
+Each of these calls returns information about the delivered signal.
+.IP \[bu]
+.BR signalfd (2)
+returns a file descriptor that can be used to read information
+about signals that are delivered to the caller.
+Each
+.BR read (2)
+from this file descriptor blocks until one of the signals
+in the set specified in the
+.BR signalfd (2)
+call is delivered to the caller.
+The buffer returned by
+.BR read (2)
+contains a structure describing the signal.
+.SS Signal mask and pending signals
+A signal may be
+.IR blocked ,
+which means that it will not be delivered until it is later unblocked.
+Between the time when it is generated and when it is delivered
+a signal is said to be
+.IR pending .
+.P
+Each thread in a process has an independent
+.IR "signal mask" ,
+which indicates the set of signals that the thread is currently blocking.
+A thread can manipulate its signal mask using
+.BR pthread_sigmask (3).
+In a traditional single-threaded application,
+.BR sigprocmask (2)
+can be used to manipulate the signal mask.
+.P
+A child created via
+.BR fork (2)
+inherits a copy of its parent's signal mask;
+the signal mask is preserved across
+.BR execve (2).
+.P
+A signal may be process-directed or thread-directed.
+A process-directed signal is one that is targeted at (and thus pending for)
+the process as a whole.
+A signal may be process-directed
+because it was generated by the kernel for reasons
+other than a hardware exception, or because it was sent using
+.BR kill (2)
+or
+.BR sigqueue (3).
+A thread-directed signal is one that is targeted at a specific thread.
+A signal may be thread-directed because it was generated as a consequence
+of executing a specific machine-language instruction
+that triggered a hardware exception (e.g.,
+.B SIGSEGV
+for an invalid memory access, or
+.B SIGFPE
+for a math error), or because it was
+targeted at a specific thread using
+interfaces such as
+.BR tgkill (2)
+or
+.BR pthread_kill (3).
+.P
+A process-directed signal may be delivered to any one of the
+threads that does not currently have the signal blocked.
+.\" Joseph C. Sible notes:
+.\" On Linux, if the main thread has the signal unblocked, then the kernel
+.\" will always deliver the signal there, citing this kernel code
+.\"
+.\"     Per this comment in kernel/signal.c since time immemorial:
+.\"
+.\"     /*
+.\"     * Now find a thread we can wake up to take the signal off the queue.
+.\"     *
+.\"     * If the main thread wants the signal, it gets first crack.
+.\"     * Probably the least surprising to the average bear.
+.\"     */
+.\"
+.\" But this does not mean the signal will be delivered only in the
+.\" main thread, since if a handler is already executing in the main thread
+.\" (and thus the signal is blocked in that thread), then a further
+.\" might be delivered in a different thread.
+.\"
+If more than one of the threads has the signal unblocked, then the
+kernel chooses an arbitrary thread to which to deliver the signal.
+.P
+A thread can obtain the set of signals that it currently has pending
+using
+.BR sigpending (2).
+This set will consist of the union of the set of pending
+process-directed signals and the set of signals pending for
+the calling thread.
+.P
+A child created via
+.BR fork (2)
+initially has an empty pending signal set;
+the pending signal set is preserved across an
+.BR execve (2).
+.\"
+.SS Execution of signal handlers
+Whenever there is a transition from kernel-mode to user-mode execution
+(e.g., on return from a system call or scheduling of a thread onto the CPU),
+the kernel checks whether there is a pending unblocked signal
+for which the process has established a signal handler.
+If there is such a pending signal, the following steps occur:
+.IP (1) 5
+The kernel performs the necessary preparatory steps for execution of
+the signal handler:
+.RS
+.IP (1.1) 7
+The signal is removed from the set of pending signals.
+.IP (1.2)
+If the signal handler was installed by a call to
+.BR sigaction (2)
+that specified the
+.B SA_ONSTACK
+flag and the thread has defined an alternate signal stack (using
+.BR sigaltstack (2)),
+then that stack is installed.
+.IP (1.3)
+Various pieces of signal-related context are saved
+into a special frame that is created on the stack.
+The saved information includes:
+.RS
+.IP \[bu] 3
+the program counter register
+(i.e., the address of the next instruction in the main program that
+should be executed when the signal handler returns);
+.IP \[bu]
+architecture-specific register state required for resuming the
+interrupted program;
+.IP \[bu]
+the thread's current signal mask;
+.IP \[bu]
+the thread's alternate signal stack settings.
+.RE
+.IP
+(If the signal handler was installed using the
+.BR sigaction (2)
+.B SA_SIGINFO
+flag, then the above information is accessible via the
+.I ucontext_t
+object that is pointed to by the third argument of the signal handler.)
+.IP (1.4)
+Any signals specified in
+.I act\->sa_mask
+when registering the handler with
+.BR sigprocmask (2)
+are added to the thread's signal mask.
+The signal being delivered is also
+added to the signal mask, unless
+.B SA_NODEFER
+was specified when registering the handler.
+These signals are thus blocked while the handler executes.
+.RE
+.IP (2)
+The kernel constructs a frame for the signal handler on the stack.
+The kernel sets the program counter for the thread to point to the first
+instruction of the signal handler function,
+and configures the return address for that function to point to a piece
+of user-space code known as the signal trampoline (described in
+.BR sigreturn (2)).
+.IP (3)
+The kernel passes control back to user-space, where execution
+commences at the start of the signal handler function.
+.IP (4)
+When the signal handler returns, control passes to the signal trampoline code.
+.IP (5)
+The signal trampoline calls
+.BR sigreturn (2),
+a system call that uses the information in the stack frame created in step 1
+to restore the thread to its state before the signal handler was
+called.
+The thread's signal mask and alternate signal stack settings
+are restored as part of this procedure.
+Upon completion of the call to
+.BR sigreturn (2),
+the kernel transfers control back to user space,
+and the thread recommences execution at the point where it was
+interrupted by the signal handler.
+.P
+Note that if the signal handler does not return
+(e.g., control is transferred out of the handler using
+.BR siglongjmp (3),
+or the handler executes a new program with
+.BR execve (2)),
+then the final step is not performed.
+In particular, in such scenarios it is the programmer's responsibility
+to restore the state of the signal mask (using
+.BR sigprocmask (2)),
+if it is desired to unblock the signals that were blocked on entry
+to the signal handler.
+(Note that
+.BR siglongjmp (3)
+may or may not restore the signal mask, depending on the
+.I savesigs
+value that was specified in the corresponding call to
+.BR sigsetjmp (3).)
+.P
+From the kernel's point of view,
+execution of the signal handler code is exactly the same as the execution
+of any other user-space code.
+That is to say, the kernel does not record any special state information
+indicating that the thread is currently executing inside a signal handler.
+All necessary state information is maintained in user-space registers
+and the user-space stack.
+The depth to which nested signal handlers may be invoked is thus
+limited only by the user-space stack (and sensible software design!).
+.\"
+.SS Standard signals
+Linux supports the standard signals listed below.
+The second column of the table indicates which standard (if any)
+specified the signal: "P1990" indicates that the signal is described
+in the original POSIX.1-1990 standard;
+"P2001" indicates that the signal was added in SUSv2 and POSIX.1-2001.
+.TS
+l c c l
+____
+lB c c l.
+Signal	Standard	Action	Comment
+SIGABRT	P1990	Core	Abort signal from \fBabort\fP(3)
+SIGALRM	P1990	Term	Timer signal from \fBalarm\fP(2)
+SIGBUS	P2001	Core	Bus error (bad memory access)
+SIGCHLD	P1990	Ign	Child stopped or terminated
+SIGCLD	\-	Ign	A synonym for \fBSIGCHLD\fP
+SIGCONT	P1990	Cont	Continue if stopped
+SIGEMT	\-	Term	Emulator trap
+SIGFPE	P1990	Core	Floating-point exception
+SIGHUP	P1990	Term	Hangup detected on controlling terminal
+			or death of controlling process
+SIGILL	P1990	Core	Illegal Instruction
+SIGINFO	\-		A synonym for \fBSIGPWR\fP
+SIGINT	P1990	Term	Interrupt from keyboard
+SIGIO	\-	Term	I/O now possible (4.2BSD)
+SIGIOT	\-	Core	IOT trap. A synonym for \fBSIGABRT\fP
+SIGKILL	P1990	Term	Kill signal
+SIGLOST	\-	Term	File lock lost (unused)
+SIGPIPE	P1990	Term	Broken pipe: write to pipe with no
+			readers; see \fBpipe\fP(7)
+SIGPOLL	P2001	Term	Pollable event (Sys V);
+			synonym for \fBSIGIO\fP
+SIGPROF	P2001	Term	Profiling timer expired
+SIGPWR	\-	Term	Power failure (System V)
+SIGQUIT	P1990	Core	Quit from keyboard
+SIGSEGV	P1990	Core	Invalid memory reference
+SIGSTKFLT	\-	Term	Stack fault on coprocessor (unused)
+SIGSTOP	P1990	Stop	Stop process
+SIGTSTP	P1990	Stop	Stop typed at terminal
+SIGSYS	P2001	Core	Bad system call (SVr4);
+			see also \fBseccomp\fP(2)
+SIGTERM	P1990	Term	Termination signal
+SIGTRAP	P2001	Core	Trace/breakpoint trap
+SIGTTIN	P1990	Stop	Terminal input for background process
+SIGTTOU	P1990	Stop	Terminal output for background process
+SIGUNUSED	\-	Core	Synonymous with \fBSIGSYS\fP
+SIGURG	P2001	Ign	Urgent condition on socket (4.2BSD)
+SIGUSR1	P1990	Term	User-defined signal 1
+SIGUSR2	P1990	Term	User-defined signal 2
+SIGVTALRM	P2001	Term	Virtual alarm clock (4.2BSD)
+SIGXCPU	P2001	Core	CPU time limit exceeded (4.2BSD);
+			see \fBsetrlimit\fP(2)
+SIGXFSZ	P2001	Core	File size limit exceeded (4.2BSD);
+			see \fBsetrlimit\fP(2)
+SIGWINCH	\-	Ign	Window resize signal (4.3BSD, Sun)
+.TE
+.P
+The signals
+.B SIGKILL
+and
+.B SIGSTOP
+cannot be caught, blocked, or ignored.
+.P
+Up to and including Linux 2.2, the default behavior for
+.BR SIGSYS ", " SIGXCPU ", " SIGXFSZ ,
+and (on architectures other than SPARC and MIPS)
+.B SIGBUS
+was to terminate the process (without a core dump).
+(On some other UNIX systems the default action for
+.BR SIGXCPU " and " SIGXFSZ
+is to terminate the process without a core dump.)
+Linux 2.4 conforms to the POSIX.1-2001 requirements for these signals,
+terminating the process with a core dump.
+.P
+.B SIGEMT
+is not specified in POSIX.1-2001, but nevertheless appears
+on most other UNIX systems,
+where its default action is typically to terminate
+the process with a core dump.
+.P
+.B SIGPWR
+(which is not specified in POSIX.1-2001) is typically ignored
+by default on those other UNIX systems where it appears.
+.P
+.B SIGIO
+(which is not specified in POSIX.1-2001) is ignored by default
+on several other UNIX systems.
+.\"
+.SS Queueing and delivery semantics for standard signals
+If multiple standard signals are pending for a process,
+the order in which the signals are delivered is unspecified.
+.P
+Standard signals do not queue.
+If multiple instances of a standard signal are generated while
+that signal is blocked,
+then only one instance of the signal is marked as pending
+(and the signal will be delivered just once when it is unblocked).
+In the case where a standard signal is already pending, the
+.I siginfo_t
+structure (see
+.BR sigaction (2))
+associated with that signal is not overwritten
+on arrival of subsequent instances of the same signal.
+Thus, the process will receive the information
+associated with the first instance of the signal.
+.\"
+.SS Signal numbering for standard signals
+The numeric value for each signal is given in the table below.
+As shown in the table, many signals have different numeric values
+on different architectures.
+The first numeric value in each table row shows the signal number
+on x86, ARM, and most other architectures;
+the second value is for Alpha and SPARC; the third is for MIPS;
+and the last is for PARISC.
+A dash (\-) denotes that a signal is absent on the corresponding architecture.
+.TS
+l c c c c l
+l c c c c l
+______
+lB c c c c l.
+Signal	x86/ARM	Alpha/	MIPS	PARISC	Notes
+	most others	SPARC
+SIGHUP	\01	\01	\01	\01
+SIGINT	\02	\02	\02	\02
+SIGQUIT	\03	\03	\03	\03
+SIGILL	\04	\04	\04	\04
+SIGTRAP	\05	\05	\05	\05
+SIGABRT	\06	\06	\06	\06
+SIGIOT	\06	\06	\06	\06
+SIGBUS	\07	10	10	10
+SIGEMT	\-	\07	\07	-
+SIGFPE	\08	\08	\08	\08
+SIGKILL	\09	\09	\09	\09
+SIGUSR1	10	30	16	16
+SIGSEGV	11	11	11	11
+SIGUSR2	12	31	17	17
+SIGPIPE	13	13	13	13
+SIGALRM	14	14	14	14
+SIGTERM	15	15	15	15
+SIGSTKFLT	16	\-	\-	\07
+SIGCHLD	17	20	18	18
+SIGCLD	\-	\-	18	\-
+SIGCONT	18	19	25	26
+SIGSTOP	19	17	23	24
+SIGTSTP	20	18	24	25
+SIGTTIN	21	21	26	27
+SIGTTOU	22	22	27	28
+SIGURG	23	16	21	29
+SIGXCPU	24	24	30	12
+SIGXFSZ	25	25	31	30
+SIGVTALRM	26	26	28	20
+SIGPROF	27	27	29	21
+SIGWINCH	28	28	20	23
+SIGIO	29	23	22	22
+SIGPOLL					Same as SIGIO
+SIGPWR	30	29/\-	19	19
+SIGINFO	\-	29/\-	\-	\-
+SIGLOST	\-	\-/29	\-	\-
+SIGSYS	31	12	12	31
+SIGUNUSED	31	\-	\-	31
+.TE
+.P
+Note the following:
+.IP \[bu] 3
+Where defined,
+.B SIGUNUSED
+is synonymous with
+.BR SIGSYS .
+Since glibc 2.26,
+.B SIGUNUSED
+is no longer defined on any architecture.
+.IP \[bu]
+Signal 29 is
+.BR SIGINFO / SIGPWR
+(synonyms for the same value) on Alpha but
+.B SIGLOST
+on SPARC.
+.\"
+.SS Real-time signals
+Starting with Linux 2.2,
+Linux supports real-time signals as originally defined in the POSIX.1b
+real-time extensions (and now included in POSIX.1-2001).
+The range of supported real-time signals is defined by the macros
+.B SIGRTMIN
+and
+.BR SIGRTMAX .
+POSIX.1-2001 requires that an implementation support at least
+.B _POSIX_RTSIG_MAX
+(8) real-time signals.
+.P
+The Linux kernel supports a range of 33 different real-time
+signals, numbered 32 to 64.
+However, the glibc POSIX threads implementation internally uses
+two (for NPTL) or three (for LinuxThreads) real-time signals
+(see
+.BR pthreads (7)),
+and adjusts the value of
+.B SIGRTMIN
+suitably (to 34 or 35).
+Because the range of available real-time signals varies according
+to the glibc threading implementation (and this variation can occur
+at run time according to the available kernel and glibc),
+and indeed the range of real-time signals varies across UNIX systems,
+programs should
+.IR "never refer to real-time signals using hard-coded numbers" ,
+but instead should always refer to real-time signals using the notation
+.BR SIGRTMIN +n,
+and include suitable (run-time) checks that
+.BR SIGRTMIN +n
+does not exceed
+.BR SIGRTMAX .
+.P
+Unlike standard signals, real-time signals have no predefined meanings:
+the entire set of real-time signals can be used for application-defined
+purposes.
+.P
+The default action for an unhandled real-time signal is to terminate the
+receiving process.
+.P
+Real-time signals are distinguished by the following:
+.IP \[bu] 3
+Multiple instances of real-time signals can be queued.
+By contrast, if multiple instances of a standard signal are delivered
+while that signal is currently blocked, then only one instance is queued.
+.IP \[bu]
+If the signal is sent using
+.BR sigqueue (3),
+an accompanying value (either an integer or a pointer) can be sent
+with the signal.
+If the receiving process establishes a handler for this signal using the
+.B SA_SIGINFO
+flag to
+.BR sigaction (2),
+then it can obtain this data via the
+.I si_value
+field of the
+.I siginfo_t
+structure passed as the second argument to the handler.
+Furthermore, the
+.I si_pid
+and
+.I si_uid
+fields of this structure can be used to obtain the PID
+and real user ID of the process sending the signal.
+.IP \[bu]
+Real-time signals are delivered in a guaranteed order.
+Multiple real-time signals of the same type are delivered in the order
+they were sent.
+If different real-time signals are sent to a process, they are delivered
+starting with the lowest-numbered signal.
+(I.e., low-numbered signals have highest priority.)
+By contrast, if multiple standard signals are pending for a process,
+the order in which they are delivered is unspecified.
+.P
+If both standard and real-time signals are pending for a process,
+POSIX leaves it unspecified which is delivered first.
+Linux, like many other implementations, gives priority
+to standard signals in this case.
+.P
+According to POSIX, an implementation should permit at least
+.B _POSIX_SIGQUEUE_MAX
+(32) real-time signals to be queued to
+a process.
+However, Linux does things differently.
+Up to and including Linux 2.6.7, Linux imposes
+a system-wide limit on the number of queued real-time signals
+for all processes.
+This limit can be viewed and (with privilege) changed via the
+.I /proc/sys/kernel/rtsig\-max
+file.
+A related file,
+.IR /proc/sys/kernel/rtsig\-nr ,
+can be used to find out how many real-time signals are currently queued.
+In Linux 2.6.8, these
+.I /proc
+interfaces were replaced by the
+.B RLIMIT_SIGPENDING
+resource limit, which specifies a per-user limit for queued
+signals; see
+.BR setrlimit (2)
+for further details.
+.P
+The addition of real-time signals required the widening
+of the signal set structure
+.RI ( sigset_t )
+from 32 to 64 bits.
+Consequently, various system calls were superseded by new system calls
+that supported the larger signal sets.
+The old and new system calls are as follows:
+.TS
+lb lb
+l l.
+Linux 2.0 and earlier	Linux 2.2 and later
+\fBsigaction\fP(2)	\fBrt_sigaction\fP(2)
+\fBsigpending\fP(2)	\fBrt_sigpending\fP(2)
+\fBsigprocmask\fP(2)	\fBrt_sigprocmask\fP(2)
+\fBsigreturn\fP(2)	\fBrt_sigreturn\fP(2)
+\fBsigsuspend\fP(2)	\fBrt_sigsuspend\fP(2)
+\fBsigtimedwait\fP(2)	\fBrt_sigtimedwait\fP(2)
+.TE
+.\"
+.SS Interruption of system calls and library functions by signal handlers
+If a signal handler is invoked while a system call or library
+function call is blocked, then either:
+.IP \[bu] 3
+the call is automatically restarted after the signal handler returns; or
+.IP \[bu]
+the call fails with the error
+.BR EINTR .
+.P
+Which of these two behaviors occurs depends on the interface and
+whether or not the signal handler was established using the
+.B SA_RESTART
+flag (see
+.BR sigaction (2)).
+The details vary across UNIX systems;
+below, the details for Linux.
+.P
+If a blocked call to one of the following interfaces is interrupted
+by a signal handler, then the call is automatically restarted
+after the signal handler returns if the
+.B SA_RESTART
+flag was used; otherwise the call fails with the error
+.BR EINTR :
+.\" The following system calls use ERESTARTSYS,
+.\" so that they are restartable
+.IP \[bu] 3
+.BR read (2),
+.BR readv (2),
+.BR write (2),
+.BR writev (2),
+and
+.BR ioctl (2)
+calls on "slow" devices.
+A "slow" device is one where the I/O call may block for an
+indefinite time, for example, a terminal, pipe, or socket.
+If an I/O call on a slow device has already transferred some
+data by the time it is interrupted by a signal handler,
+then the call will return a success status
+(normally, the number of bytes transferred).
+Note that a (local) disk is not a slow device according to this definition;
+I/O operations on disk devices are not interrupted by signals.
+.IP \[bu]
+.BR open (2),
+if it can block (e.g., when opening a FIFO; see
+.BR fifo (7)).
+.IP \[bu]
+.BR wait (2),
+.BR wait3 (2),
+.BR wait4 (2),
+.BR waitid (2),
+and
+.BR waitpid (2).
+.IP \[bu]
+Socket interfaces:
+.\" If a timeout (setsockopt()) is in effect on the socket, then these
+.\" system calls switch to using EINTR.  Consequently, they and are not
+.\" automatically restarted, and they show the stop/cont behavior
+.\" described below.  (Verified from Linux 2.6.26 source, and by experiment; mtk)
+.BR accept (2),
+.BR connect (2),
+.BR recv (2),
+.BR recvfrom (2),
+.BR recvmmsg (2),
+.BR recvmsg (2),
+.BR send (2),
+.BR sendto (2),
+and
+.BR sendmsg (2),
+.\" FIXME What about sendmmsg()?
+unless a timeout has been set on the socket (see below).
+.IP \[bu]
+File locking interfaces:
+.BR flock (2)
+and
+the
+.B F_SETLKW
+and
+.B F_OFD_SETLKW
+operations of
+.BR fcntl (2)
+.IP \[bu]
+POSIX message queue interfaces:
+.BR mq_receive (3),
+.BR mq_timedreceive (3),
+.BR mq_send (3),
+and
+.BR mq_timedsend (3).
+.IP \[bu]
+.BR futex (2)
+.B FUTEX_WAIT
+(since Linux 2.6.22;
+.\" commit 72c1bbf308c75a136803d2d76d0e18258be14c7a
+beforehand, always failed with
+.BR EINTR ).
+.IP \[bu]
+.BR getrandom (2).
+.IP \[bu]
+.BR pthread_mutex_lock (3),
+.BR pthread_cond_wait (3),
+and related APIs.
+.IP \[bu]
+.BR futex (2)
+.BR FUTEX_WAIT_BITSET .
+.IP \[bu]
+POSIX semaphore interfaces:
+.BR sem_wait (3)
+and
+.BR sem_timedwait (3)
+(since Linux 2.6.22;
+.\" as a consequence of the 2.6.22 changes in the futex() implementation
+beforehand, always failed with
+.BR EINTR ).
+.IP \[bu]
+.BR read (2)
+from an
+.BR inotify (7)
+file descriptor
+(since Linux 3.8;
+.\" commit 1ca39ab9d21ac93f94b9e3eb364ea9a5cf2aba06
+beforehand, always failed with
+.BR EINTR ).
+.P
+The following interfaces are never restarted after
+being interrupted by a signal handler,
+regardless of the use of
+.BR SA_RESTART ;
+they always fail with the error
+.B EINTR
+when interrupted by a signal handler:
+.\" These are the system calls that give EINTR or ERESTARTNOHAND
+.\" on interruption by a signal handler.
+.IP \[bu] 3
+"Input" socket interfaces, when a timeout
+.RB ( SO_RCVTIMEO )
+has been set on the socket using
+.BR setsockopt (2):
+.BR accept (2),
+.BR recv (2),
+.BR recvfrom (2),
+.BR recvmmsg (2)
+(also with a non-NULL
+.I timeout
+argument),
+and
+.BR recvmsg (2).
+.IP \[bu]
+"Output" socket interfaces, when a timeout
+.RB ( SO_RCVTIMEO )
+has been set on the socket using
+.BR setsockopt (2):
+.BR connect (2),
+.BR send (2),
+.BR sendto (2),
+and
+.BR sendmsg (2).
+.\" FIXME What about sendmmsg()?
+.IP \[bu]
+Interfaces used to wait for signals:
+.BR pause (2),
+.BR sigsuspend (2),
+.BR sigtimedwait (2),
+and
+.BR sigwaitinfo (2).
+.IP \[bu]
+File descriptor multiplexing interfaces:
+.BR epoll_wait (2),
+.BR epoll_pwait (2),
+.BR poll (2),
+.BR ppoll (2),
+.BR select (2),
+and
+.BR pselect (2).
+.IP \[bu]
+System V IPC interfaces:
+.\" On some other systems, SA_RESTART does restart these system calls
+.BR msgrcv (2),
+.BR msgsnd (2),
+.BR semop (2),
+and
+.BR semtimedop (2).
+.IP \[bu]
+Sleep interfaces:
+.BR clock_nanosleep (2),
+.BR nanosleep (2),
+and
+.BR usleep (3).
+.IP \[bu]
+.BR io_getevents (2).
+.P
+The
+.BR sleep (3)
+function is also never restarted if interrupted by a handler,
+but gives a success return: the number of seconds remaining to sleep.
+.P
+In certain circumstances, the
+.BR seccomp (2)
+user-space notification feature can lead to restarting of system calls
+that would otherwise never be restarted by
+.BR SA_RESTART ;
+for details, see
+.BR seccomp_unotify (2).
+.\"
+.SS Interruption of system calls and library functions by stop signals
+On Linux, even in the absence of signal handlers,
+certain blocking interfaces can fail with the error
+.B EINTR
+after the process is stopped by one of the stop signals
+and then resumed via
+.BR SIGCONT .
+This behavior is not sanctioned by POSIX.1, and doesn't occur
+on other systems.
+.P
+The Linux interfaces that display this behavior are:
+.IP \[bu] 3
+"Input" socket interfaces, when a timeout
+.RB ( SO_RCVTIMEO )
+has been set on the socket using
+.BR setsockopt (2):
+.BR accept (2),
+.BR recv (2),
+.BR recvfrom (2),
+.BR recvmmsg (2)
+(also with a non-NULL
+.I timeout
+argument),
+and
+.BR recvmsg (2).
+.IP \[bu]
+"Output" socket interfaces, when a timeout
+.RB ( SO_RCVTIMEO )
+has been set on the socket using
+.BR setsockopt (2):
+.BR connect (2),
+.BR send (2),
+.BR sendto (2),
+and
+.\" FIXME What about sendmmsg()?
+.BR sendmsg (2),
+if a send timeout
+.RB ( SO_SNDTIMEO )
+has been set.
+.IP \[bu]
+.BR epoll_wait (2),
+.BR epoll_pwait (2).
+.IP \[bu]
+.BR semop (2),
+.BR semtimedop (2).
+.IP \[bu]
+.BR sigtimedwait (2),
+.BR sigwaitinfo (2).
+.IP \[bu]
+Linux 3.7 and earlier:
+.BR read (2)
+from an
+.BR inotify (7)
+file descriptor
+.\" commit 1ca39ab9d21ac93f94b9e3eb364ea9a5cf2aba06
+.IP \[bu]
+Linux 2.6.21 and earlier:
+.BR futex (2)
+.BR FUTEX_WAIT ,
+.BR sem_timedwait (3),
+.BR sem_wait (3).
+.IP \[bu]
+Linux 2.6.8 and earlier:
+.BR msgrcv (2),
+.BR msgsnd (2).
+.IP \[bu]
+Linux 2.4 and earlier:
+.BR nanosleep (2).
+.SH STANDARDS
+POSIX.1, except as noted.
+.SH NOTES
+For a discussion of async-signal-safe functions, see
+.BR signal\-safety (7).
+.P
+The
+.IR /proc/ pid /task/ tid /status
+file contains various fields that show the signals
+that a thread is blocking
+.RI ( SigBlk ),
+catching
+.RI ( SigCgt ),
+or ignoring
+.RI ( SigIgn ).
+(The set of signals that are caught or ignored will be the same
+across all threads in a process.)
+Other fields show the set of pending signals that are directed to the thread
+.RI ( SigPnd )
+as well as the set of pending signals that are directed
+to the process as a whole
+.RI ( ShdPnd ).
+The corresponding fields in
+.IR /proc/ pid /status
+show the information for the main thread.
+See
+.BR proc (5)
+for further details.
+.SH BUGS
+There are six signals that can be delivered
+as a consequence of a hardware exception:
+.BR SIGBUS ,
+.BR SIGEMT ,
+.BR SIGFPE ,
+.BR SIGILL ,
+.BR SIGSEGV ,
+and
+.BR SIGTRAP .
+Which of these signals is delivered,
+for any given hardware exception,
+is not documented and does not always make sense.
+.P
+For example, an invalid memory access that causes delivery of
+.B SIGSEGV
+on one CPU architecture may cause delivery of
+.B SIGBUS
+on another architecture, or vice versa.
+.P
+For another example, using the x86
+.I int
+instruction with a forbidden argument
+(any number other than 3 or 128)
+causes delivery of
+.BR SIGSEGV ,
+even though
+.B SIGILL
+would make more sense,
+because of how the CPU reports the forbidden operation to the kernel.
+.SH SEE ALSO
+.BR kill (1),
+.BR clone (2),
+.BR getrlimit (2),
+.BR kill (2),
+.BR pidfd_send_signal (2),
+.BR restart_syscall (2),
+.BR rt_sigqueueinfo (2),
+.BR setitimer (2),
+.BR setrlimit (2),
+.BR sgetmask (2),
+.BR sigaction (2),
+.BR sigaltstack (2),
+.BR signal (2),
+.BR signalfd (2),
+.BR sigpending (2),
+.BR sigprocmask (2),
+.BR sigreturn (2),
+.BR sigsuspend (2),
+.BR sigwaitinfo (2),
+.BR abort (3),
+.BR bsd_signal (3),
+.BR killpg (3),
+.BR longjmp (3),
+.BR pthread_sigqueue (3),
+.BR raise (3),
+.BR sigqueue (3),
+.BR sigset (3),
+.BR sigsetops (3),
+.BR sigvec (3),
+.BR sigwait (3),
+.BR strsignal (3),
+.BR swapcontext (3),
+.BR sysv_signal (3),
+.BR core (5),
+.BR proc (5),
+.BR nptl (7),
+.BR pthreads (7),
+.BR sigevent (3type)

@@ -1,0 +1,9 @@
+{
+  "source": "probe.c",
+  "source_sha256": "80c0a5d5d8dd38a7c6b7d90c01d2fe5beff7a7d432e1015e8cc13eda6ab22523",
+  "result": "native-result.json",
+  "result_sha256": "c1b715fa4e24cbf4463d50a8e8948ddb5ab7ddf91d6a68cab65e10b3e71102b1",
+  "host_and_header_provenance": "Linux 6.8.0-138-generic #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 x86_64\ncc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\nd8a78f6d925507350cf545ea1d82961f87143896d4db672db7e878e6af3fc847  /usr/include/linux/kvm.h\n2600204930ed2279aa82513d022781d86a7cb4b5cd5dfdf1345dfcb652604d36  /usr/include/x86_64-linux-gnu/asm/kvm.h\n",
+  "scope": "Independent Linux KVM UAPI probe on abyss, no RAX engine linkage. The installed UAPI headers are identified by SHA-256; matching upstream v6.8 KVM definitions and KVM API are retained in ../../kvm-public-state/references/. Compiler/artifact paths identify the original owned observation directory, not a retained build tree.",
+  "preservation": "Verbatim historical probe and original terminal receipt; not production RAX source."
+}

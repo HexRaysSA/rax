@@ -140,6 +140,10 @@ name = "kvm_minimal"
 path = "tests/suites/backend/kvm/minimal.rs"
 
 [[test]]
+name = "kvm_host_slices"
+path = "tests/suites/backend/kvm/host_slices.rs"
+
+[[test]]
 name = "microkernel_multiarch"
 path = "tests/suites/machine/microkernel/multiarch.rs"
 

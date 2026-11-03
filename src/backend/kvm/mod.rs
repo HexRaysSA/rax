@@ -1,9 +1,13 @@
 //! KVM backend implementation.
 
 mod convert;
+mod deadline;
+mod owned_vcpu;
 mod special;
 mod state;
 mod xsave;
+
+pub use owned_vcpu::OwnedVcpuFd;
 
 #[cfg(test)]
 mod checkpoint_backlog_tests;
@@ -72,8 +76,20 @@ struct MemoryOwner {
 }
 
 impl KvmVm {
-    /// Get reference to the VmFd.
-    pub fn vm_fd(&self) -> &VmFd {
+    /// Access the native VM without the managed ownership boundary.
+    ///
+    /// # Safety
+    /// Every native object derived from this FD must be destroyed before the
+    /// public VM and its registered backing owners can be dropped. The caller
+    /// must also exclude native entry while changing memory slots or state.
+    /// Prefer register_memory/create_vcpu_fd for managed lifetime retention.
+    ///
+    /// ```compile_fail
+    /// fn bypass(vm: &rax::backend::kvm::KvmVm) {
+    ///     let _ = vm.vm_fd();
+    /// }
+    /// ```
+    pub unsafe fn vm_fd(&self) -> &VmFd {
         &self.memory.vm_fd
     }
 
@@ -123,10 +139,14 @@ impl KvmVm {
         Ok(())
     }
 
-    /// Create a raw VcpuFd (for setup_vcpu compatibility during transition).
-    /// Raw users must retain the VM and its registered memory for the FD's life.
-    pub fn create_vcpu_fd(&self, id: u64) -> Result<VcpuFd> {
-        Ok(self.memory.vm_fd.create_vcpu(id)?)
+    /// Create a native vCPU that retains this VM and its registered backing.
+    /// Native immutable ioctls and explicit mutable operations remain available
+    /// on the returned owner; no safe operation extracts an unowned VcpuFd.
+    pub fn create_vcpu_fd(&self, id: u64) -> Result<OwnedVcpuFd> {
+        Ok(OwnedVcpuFd::new(
+            self.memory.vm_fd.create_vcpu(id)?,
+            self.memory.clone(),
+        ))
     }
 }
 
@@ -189,12 +209,21 @@ unsafe impl Send for KvmVcpu {}
 
 impl KvmVcpu {
     /// Get reference to the VcpuFd.
+    /// Bounded managed entry owns the native KVM signal-mask policy.
     pub fn vcpu_fd(&self) -> &VcpuFd {
         &self.vcpu_fd
     }
 }
 
 impl VCpu for KvmVcpu {
+    fn supports_host_slices(&self) -> bool {
+        true
+    }
+
+    fn run_host_slice(&mut self, limit: std::time::Duration) -> Result<Option<VcpuExit>> {
+        deadline::run(self, limit)
+    }
+
     fn run(&mut self) -> Result<VcpuExit> {
         self.state_ready()?;
         // Clear any previous pending I/O

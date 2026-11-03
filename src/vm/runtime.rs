@@ -434,7 +434,7 @@ impl Vmm {
                 .as_any()
                 .downcast_ref::<KvmVm>()
                 .ok_or_else(|| Error::InvalidConfig("expected KVM VM".to_string()))?;
-            guest_mem.register(kvm_vm.vm_fd())?;
+            kvm_vm.register_memory(&guest_mem)?;
         }
         // Emulator accesses memory directly, no registration needed
 

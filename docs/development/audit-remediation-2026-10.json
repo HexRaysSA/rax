@@ -198612,6 +198612,51 @@
       },
       "validation": "/Users/int/dev/rax/docs/development/kvm-public-state/qualification.json",
       "packaging": "28 exact owned paths; verbatim Linux reference bytes and frozen counterexamples retained; narrow per-path Git whitespace exception for4 upstream space-before-tab patterns, without changing RAX source checks."
+    },
+    {
+      "id": "kvm-native-entry-ownership-2026-11-03",
+      "status": "native_target_passed_broad_gates_in_progress",
+      "findings": [
+        "C-SMP",
+        "C-STATE"
+      ],
+      "parent": "364f7baaf5d2bcbe8ad5e915e6378676e0f6c6d3",
+      "scope": "Finite native entry using worker-local monotonic deadlines without process-global signal handlers; retained raw-vCPU ownership; managed VMM memory registration; explicit Rust API ownership boundary. Complete native private/shared/in-flight state and VMM AP startup remain required.",
+      "qualification": "docs/development/kvm-host-slices/qualification.json",
+      "full_goal_complete": false,
+      "validation": {
+        "initial_native_target": "4 passed;0 failed;0 ignored;0 filtered, DEBUG/JIT enabled",
+        "workspace_all_target_build": "passed",
+        "workspace_all_target_clippy": "passed",
+        "remaining_gates": "Default native target, public-state/minimal regression targets, no-JIT/no-debug all-target check, doctests, late Windows namespace regressions and corrected-workflow tooling.",
+        "default_native_target": "4 passed;0 failed;0 ignored;0 filtered",
+        "public_state_debug": "14 passed on abyss; GitHub public-state suite separately failed12 with common host-profile admission error",
+        "ci_regression": "Corrected run41630404578 completed onrawmask2ffff:15portable+14native+2minimal pass,releasebuildsuccess. Proofpublished364f7baaf.",
+        "initial_ten_gate_sequence": "All ten initial gates passed; shared AMD validator was subsequently corrected in a separately published group, so final combined-source gates are running.",
+        "final_combined": "Final fmt/build/Clippy,15 shared XSAVE,14 public-state,4 host-slice,2 compile-fail doctests,alternate workspace check,12 tooling and2 minimal passed. Complete immutable unfiltered library finished:13132 passed,4 prior independently reproduced host-specific failures,20 ignored,0 filtered;6020.27s. Source/executable unchanged; no all-green claim. Root-only feature command error corrected without restarting completed suites. AMD GitHub15+14+2 and release passed."
+      },
+      "production_input_identity": "Initial seven production Rust/manifest inputs qualified unchanged. After all initial gates terminated, four explicit metadata/shared-parser paths were refreshed; final native manifest11242files,SHAe6070439e8e95dbeaa6247a1ca21342b258ee0d84ddb9435042ceeeb3f09ae1c is frozen for final gates.",
+      "remaining_required": [
+        "Complete KVM private/shared/in-flight producer, multi-phase native I/O completion and coordinated RAM/controller/clock restoration.",
+        "Native VMM1/2/4CPU INIT/SIPI/topology, scheduling, interrupts, halt/wake and source-free file continuation.",
+        "Remaining advertised A32 profiles and Intel HVF MMIO/IRQ/control profiles, with physical Intel validation."
+      ],
+      "commit_workflow": "git add -- exact owned paths; red -m --staged --run same paths; immediate normal master push and verified remote readback; cleanup owned native build directory after terminal validation."
+    },
+    {
+      "id": "amd-mxcsr-mask-2026-11-03",
+      "commit": "4ddd5ef91c32e7b4d7c75a026f2195c23ba4c5ce",
+      "findings": [
+        "C-STATE",
+        "C-HVF"
+      ],
+      "scope": "Shared native XSAVE parser admits AMD-defined MXCSR.MM bit17 only when the native host mask supports it; actualMXCSR remains constrained to the exact host mask and all otherreservedupperbits reject.",
+      "qualification": "docs/development/kvm-amd-mxcsr/qualification.json",
+      "status": "portable_red_green_and_production_native_ci_qualified",
+      "full_goal_complete": false,
+      "counts": "Portableexactmodule red14pass1fail,green15pass; correctednativeGitHub15portable+14native+2minimal pass,zero failures/ignoresinselectedcases,releasebuildsuccess onmask2ffff.",
+      "publication": "Exacttenownedpath gitadd/redcommit/immediatenormalpush verified. Retainednativebuildtree serves the separatelypendingentry/ownership finalgates and remains live.",
+      "proof_commit": "364f7baaf5d2bcbe8ad5e915e6378676e0f6c6d3"
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -55,3 +55,6 @@ docs/development/kvm-public-state/references/kvm-api-v6.8.rst whitespace=-space-
 
 # Preserve the measured BASE NLS source and receipt byte identities.
 docs/specifications/windows/native-base-csr-nls/* -text whitespace=cr-at-eol
+
+# Preserve the archived native timer/signal primary-source identities.
+docs/development/kvm-host-slices/references/* -text

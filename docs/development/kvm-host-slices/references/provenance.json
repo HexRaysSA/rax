@@ -1,0 +1,96 @@
+{
+  "documents": [
+    {
+      "file": "timer_create.2",
+      "bytes": 13153,
+      "sha256": "d47c86928544ea50469c9d34215943e26b29a40176a262cdf19fd1e030bacc7d",
+      "source": "/usr/share/man/man2/timer_create.2.gz",
+      "canonical_project": "https://git.kernel.org/pub/scm/docs/man-pages/man-pages.git/",
+      "issuing_project": "Linux man-pages project",
+      "installed_package_version": "6.7-2",
+      "retrieved_utc": "2026-11-03T10:06:08.405279+00:00",
+      "host": "abyss",
+      "preservation": "Verbatim decompressed installed man page, including copyright/license notices"
+    },
+    {
+      "file": "timer_delete.2",
+      "bytes": 1207,
+      "sha256": "9995477fbfba2ba8792d8b0eacd466504c1b6de90a42835d95a6776364fee6c6",
+      "source": "/usr/share/man/man2/timer_delete.2.gz",
+      "canonical_project": "https://git.kernel.org/pub/scm/docs/man-pages/man-pages.git/",
+      "issuing_project": "Linux man-pages project",
+      "installed_package_version": "6.7-2",
+      "retrieved_utc": "2026-11-03T10:06:08.405627+00:00",
+      "host": "abyss",
+      "preservation": "Verbatim decompressed installed man page, including copyright/license notices"
+    },
+    {
+      "file": "timer_settime.2",
+      "bytes": 4998,
+      "sha256": "0e0bcf1173dcea435cef97a8aa6577b88593af0b7b5231fd3632fffb787ab3f1",
+      "source": "/usr/share/man/man2/timer_settime.2.gz",
+      "canonical_project": "https://git.kernel.org/pub/scm/docs/man-pages/man-pages.git/",
+      "issuing_project": "Linux man-pages project",
+      "installed_package_version": "6.7-2",
+      "retrieved_utc": "2026-11-03T10:06:08.405737+00:00",
+      "host": "abyss",
+      "preservation": "Verbatim decompressed installed man page, including copyright/license notices"
+    },
+    {
+      "file": "pthread_sigmask.3",
+      "bytes": 3598,
+      "sha256": "5eb81187501c3f9824ead9ecb6bfbc58d811cc9c77111442f289f5b30085aa0c",
+      "source": "/usr/share/man/man3/pthread_sigmask.3.gz",
+      "canonical_project": "https://git.kernel.org/pub/scm/docs/man-pages/man-pages.git/",
+      "issuing_project": "Linux man-pages project",
+      "installed_package_version": "6.7-2",
+      "retrieved_utc": "2026-11-03T10:06:08.405816+00:00",
+      "host": "abyss",
+      "preservation": "Verbatim decompressed installed man page, including copyright/license notices"
+    },
+    {
+      "file": "signal.7",
+      "bytes": 30592,
+      "sha256": "f4b12d47d0fc10298a7977dd4d01a6f301b75ec3b1e5f7de5f61bd70bf9e2cfe",
+      "source": "/usr/share/man/man7/signal.7.gz",
+      "canonical_project": "https://git.kernel.org/pub/scm/docs/man-pages/man-pages.git/",
+      "issuing_project": "Linux man-pages project",
+      "installed_package_version": "6.7-2",
+      "retrieved_utc": "2026-11-03T10:06:08.405940+00:00",
+      "host": "abyss",
+      "preservation": "Verbatim decompressed installed man page, including copyright/license notices"
+    },
+    {
+      "file": "kernel-ktime-v6.8.h",
+      "bytes": 5453,
+      "sha256": "993dd44567bda1f370d6c846524d9385fd151f7843e784040226a9a231b4e63b",
+      "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/include/linux/ktime.h",
+      "canonical_project": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/",
+      "revision": "v6.8",
+      "issuing_project": "Linux kernel project",
+      "retrieved_utc": "2026-11-03T10:18:48.943720+00:00",
+      "preservation": "Verbatim primary header, including original SPDX/license notices"
+    },
+    {
+      "file": "kernel-time64-v6.8.h",
+      "bytes": 4675,
+      "sha256": "a446306ae55b4ede8ca6ae72a0ee80f6a202e9058402214414975ebdd71763f3",
+      "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/include/linux/time64.h",
+      "revision": "v6.8",
+      "issuing_project": "Linux kernel project",
+      "retrieved_utc": "2026-11-03T10:19:20.609756+00:00",
+      "preservation": "Verbatim primary header including original license notices"
+    },
+    {
+      "file": "kernel-types-v6.8.h",
+      "bytes": 6137,
+      "sha256": "e1e0dfa0244ec1e1bf906fde8b15f2a4385330eca40bde281004cd9b0899f5c3",
+      "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/include/linux/types.h",
+      "revision": "v6.8",
+      "issuing_project": "Linux kernel project",
+      "retrieved_utc": "2026-11-03T10:19:21.213813+00:00",
+      "preservation": "Verbatim primary header including original license notices"
+    }
+  ],
+  "qualification": "Installed primary manual revision; no claim these bytes equal current upstream HEAD."
+}

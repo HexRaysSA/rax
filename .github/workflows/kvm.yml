@@ -18,7 +18,7 @@ on:
       - "src/backend/kvm/**"
       - "src/backend/hvf/intel_xsave*.rs"
       - "src/vm/**"
-      - "tests/suites/backend/kvm/minimal.rs"
+      - "tests/suites/backend/kvm/**"
       - ".github/workflows/kvm.yml"
   schedule:
     - cron: "0 5 * * *"
@@ -73,6 +73,9 @@ jobs:
         run: |
           cargo test --features x86_64-suite --lib backend::intel_hvf_xsave::tests:: -- --test-threads=1 --nocapture
           cargo test --features x86_64-suite --lib backend::kvm::state_tests:: -- --include-ignored --test-threads=1 --nocapture
+
+      - name: Native finite entry, signal ownership, and PIO/MMIO continuation
+        run: cargo test --features x86_64-suite --test kvm_host_slices -- --include-ignored --test-threads=1 --nocapture
 
       - name: cargo build --release (default features, fat LTO)
         run: cargo build --release

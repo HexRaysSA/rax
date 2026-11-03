@@ -1,0 +1,595 @@
+{
+  "status": "component_qualified_with_reproduced_host_baseline_failures",
+  "full_goal_complete": false,
+  "source_sha256": "2a36f272a138c0ce6299d4d3279b8cb216a5e6d736e73a92dba26342ccff641e",
+  "test_source_sha256": "a325ecf3b6049d3f57661b621186c954e93b81cb5a109c18d6ef9dc7e1702821",
+  "evidence_root": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-state-v1",
+  "baseline": "host-slices-parent-red-final-v3.json (before extra absolute-saturation boundary assertion)",
+  "exact_module": "deadline-exact-module-absolute-v3.json",
+  "scope": "Production KvmVcpu finite native entry, retained raw-vCPU ownership, managed VMM registration and the complete four-case Cargo target. Full native private/shared/in-flight checkpointing and VMM AP startup remain required.",
+  "pending": [
+    "Stage exactly the 26 owned entry/ownership paths, run the authorized red command, push master and verify the remote.",
+    "Remove the owned native build root only after all its compiler/test processes are terminal; preserve protected local artifacts and unrelated untracked files."
+  ],
+  "utc": "2026-11-03T13:55:46.486924+00:00",
+  "whole_planned_target_seam": "deadline-owning-seam-saturation-v6.json",
+  "whole_target_seam_counts": {
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0
+  },
+  "fixture_correction": "Initial MMIO guest used reset64KiB DSlimit; full32-bit cached DSlimit reaches the same expected MMIO address and retains expected bytea5. Initial failures retained in deadline-owning-seam-v1.json and deadline-owning-seam-diagnostic-v2.json.",
+  "ktime_primary": [
+    "references/kernel-types-v6.8.h",
+    "references/kernel-time64-v6.8.h",
+    "references/kernel-ktime-v6.8.h"
+  ],
+  "raw_ownership": {
+    "source": "src/backend/kvm/owned_vcpu.rs",
+    "source_sha256": "93e391d71ac86ef3339ccd72fb00c5e6ba423c20a44c5ce3b54ee9cb58405662",
+    "test": "tests/suites/backend/kvm/raw_owner.rs",
+    "test_sha256": "4d4b21d75089ea6fa0a46195c8632e4fdcf9b4a4db05ed022dca47022e917587",
+    "baseline": "raw-owner-parent-red-v1.json",
+    "green_exact_module": "raw-owner-exact-module-green-final-v2.json",
+    "mutable_escape_rejected": "raw-owner-mutable-escape-negative-v1.json",
+    "limitations": "Exact-wrapper historical seam plus current complete production Cargo target passed. Broader Rust API, feature and workspace gates remain in progress.",
+    "api_changes": "create_vcpu_fd returns OwnedVcpuFd; vm_fd becomes unsafe; ten mutable operations forward without DerefMut; ordinary VMM registration retains backing",
+    "debug_compatibility": "Owned wrapper implements Debug; same retained-RAM witness also formats the native handle.",
+    "baseline_scope": "raw-owner-parent-red-v1.json predates only the added diagnostic formatting line; ownership assertion failed before guest entry.",
+    "negative_scope": "Historical negative v1 predates Debug only; both final production compile-fail doctests passed."
+  },
+  "production_evidence_root": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-entry-ownership-v1",
+  "production_native_initial": {
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)\nbinary: rustc\ncommit-hash: 88d9e12ae178fab0fb5cc050a94da85685d449ea\ncommit-date: 2026-08-18\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.0\nLLVM version: 22.1.8\n",
+    "source_files": 11241,
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,kvm,debug",
+      "--test",
+      "kvm_host_slices",
+      "--",
+      "--include-ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T11:07:50.075956+00:00",
+    "build_directory_retained_for_controlled_followup": true,
+    "test_results": [
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s"
+    ]
+  },
+  "metadata_hotfix": {
+    "commit": "d4d640fbae45b75fc193dd24db7f1ccaf89dd2a1",
+    "parent": "4b755f2600d5dee4bf6f9acbf0b18ec47b038591",
+    "reason": "The unquoted backend::kvm::state_tests:: filter ended with colon-space in a plain YAML scalar. Ruby Psych rejected the published workflow; run now uses a block scalar.",
+    "parser": "Ruby Psych parsed all 13 workflow YAML files after correction.",
+    "github_run": "https://github.com/HexRaysSA/rax/actions/runs/41626011002",
+    "github_observation": "Workflow accepted: native KVM job started; minimal test step succeeded; public-state step running as of 2026-11-03T11:18:39Z.",
+    "frozen_native_source": "Current native export predates this workflow-only correction. Do not modify it while compilation/tests are live. Reconcile and verify metadata after the gate driver is terminal; compiled Rust inputs remain unchanged."
+  },
+  "historical_three_case_test_source_sha256": "28d35e798ce19586d879d81c64558a7cd12c342a25d9c92fbb90da2341b33d74",
+  "production_inputs": {
+    "src/backend/kvm/deadline.rs": "2a36f272a138c0ce6299d4d3279b8cb216a5e6d736e73a92dba26342ccff641e",
+    "src/backend/kvm/owned_vcpu.rs": "93e391d71ac86ef3339ccd72fb00c5e6ba423c20a44c5ce3b54ee9cb58405662",
+    "src/backend/kvm/mod.rs": "2122cfb5f42b5e7239c1c89bf5c43b854c43b4ba141402470dd3918ae2f01209",
+    "src/vm/runtime.rs": "ee1f325c53c37313c56afbca616f856067bf949be8091d63a5be9e446dfb5dc3",
+    "tests/suites/backend/kvm/host_slices.rs": "a325ecf3b6049d3f57661b621186c954e93b81cb5a109c18d6ef9dc7e1702821",
+    "tests/suites/backend/kvm/raw_owner.rs": "4d4b21d75089ea6fa0a46195c8632e4fdcf9b4a4db05ed022dca47022e917587",
+    "Cargo.toml": "85732c5837483bd7a8e27f9e7463c3a5c1afa457108d0a6965d9ebebb05b8e1b"
+  },
+  "production_inputs_scope": "These seven compiled/manifest inputs match the frozen native export, independently rechecked on2026-11-03. Only the workflow scalar changed after export; its correction is separately recorded.",
+  "mutable_api_inventory": {
+    "receipt": "mutable-api-inventory.json",
+    "count": 10,
+    "dependency": "kvm-ioctls0.25.1/src/ioctls/vcpu.rs",
+    "scope": "All ten public &mut self native methods are forwarded; managed wrapper deliberately omits DerefMut."
+  },
+  "workspace_build": {
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T11:23:09.667495+00:00"
+  },
+  "workspace_clippy": {
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T11:28:49.486527+00:00"
+  },
+  "additional_original_goal_regressions": {
+    "a32_fp_controls": {
+      "target": "a32_fp_controls",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/qualification-a32_fp_controls",
+        "--test-threads=4",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "executable_sha256": "ce3e125184b4790e460a5e4de211cc963ad3e11fdef338bb1e813a4108141949",
+      "executable_unchanged": true,
+      "source_unchanged": true,
+      "utc": "2026-11-03T11:29:56.073486+00:00",
+      "results": [
+        "test result: ok. 79 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.62s"
+      ]
+    },
+    "a32_fp_pairs": {
+      "target": "a32_fp_pairs",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/qualification-a32_fp_pairs",
+        "--test-threads=4",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "executable_sha256": "e0dcb5b519023f3f610065821279f8beac4f9e42b96ba5e6dd7340aa1cdcc097",
+      "executable_unchanged": true,
+      "source_unchanged": true,
+      "utc": "2026-11-03T11:29:59.963574+00:00",
+      "results": [
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s"
+      ]
+    },
+    "arm_vfp_a32": {
+      "target": "arm_vfp_a32",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/qualification-arm_vfp_a32",
+        "--test-threads=4",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "executable_sha256": "077cdde483d7041420c4a38deb985da22c5d7590c5572c9c30b7a465681ff95b",
+      "executable_unchanged": true,
+      "source_unchanged": true,
+      "utc": "2026-11-03T11:30:05.582138+00:00",
+      "results": [
+        "test result: ok. 487 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.37s"
+      ]
+    }
+  },
+  "additional_original_goal_regressions_scope": "Complete unfiltered software binaries from the same frozen workspace build, copied before execution and hashed before/after. Linux x86-64 excludes AArch64-host oracle cases at compile time; these passes do not prove native A32 execution or close A32-FP.",
+  "ci_host_profile_regression": {
+    "run": "https://github.com/HexRaysSA/rax/actions/runs/41626011002",
+    "job_id": 125883407339,
+    "result": "2 passed;12 failed;0 ignored;13064 filtered",
+    "common_error": "native Intel XSAVE: invalid host image size or MXCSR mask",
+    "scope": "Published public-state regressions failed on GitHub; current abyss native suite passes14. Exact invalid mask/layout value is unknown until numeric host diagnostics are available. This remains a real unresolved host-profile issue.",
+    "diagnostic_commit": "fb6eb3f067663de8d1dad2652563a99f8a068cef",
+    "diagnostic_run": "https://github.com/HexRaysSA/rax/actions/runs/41628940533",
+    "diagnostic_validation": "Standalone read-only CPUID/FXSAVE tool passed native optimization0/1/3 under installed stable1.98 and nightly1.100, plus complete12-case workflow owner and real YAML parser. This does not fix the CI failure.",
+    "resolution": "AMDcorrection4ddd5ef91 productionconfirmed on2ffff with15portable+14native+2minimal passesandreleasebuildsuccess; terminalproofpublished364f7baaf.",
+    "diagnostic_run_state": "Terminal failure,2pass12fail; both paths report2ffff, matching AMD primary definition.",
+    "corrected_run": "https://github.com/HexRaysSA/rax/actions/runs/41630404578",
+    "corrected_step_observation": {
+      "utc": "2026-11-03T11:52:55Z",
+      "run_id": 41630404578,
+      "job_id": 125898201156,
+      "public_state_step": "success",
+      "release_build": "in_progress",
+      "counts": "Exact15+14 log counts stillawait terminaljoblog; do not substitute step summaries for direct counts."
+    }
+  },
+  "default_host_slices_v1": {
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--features",
+      "x86_64-suite",
+      "--test",
+      "kvm_host_slices",
+      "--",
+      "--include-ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T11:34:26.627731+00:00",
+    "results": [
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s"
+    ]
+  },
+  "public_state_debug_v1": {
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,kvm,debug",
+      "--lib",
+      "backend::kvm::state_tests::",
+      "--",
+      "--include-ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T11:36:18.553160+00:00",
+    "results": [
+      "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 13140 filtered out; finished in 0.15s"
+    ]
+  },
+  "final_source_refresh": {
+    "utc": "2026-11-03T11:49:34.065454+00:00",
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+    "source": "/tmp/rax-kvm-native-entry-ixif9sv1/source",
+    "active_owned_processes_before": [],
+    "changes": {
+      ".github/workflows/kvm.yml": {
+        "before": "e7a968b561c13a357fd027b5ce4ae7b820791145880c6392e4d39d637223c3b3",
+        "after": "4f9955224e293397f96b4ab747c263facc62c5b8c23afcbeb7f0659045c65ac2"
+      },
+      "tools/kvm/host_profile.rs": {
+        "before": null,
+        "after": "4d55baee7790e164883c9cf9e45543f79721ed9310dfd3e3245b71d32dc60b6c"
+      },
+      "src/backend/hvf/intel_xsave.rs": {
+        "before": "898f64ceacb7db062b27d9420c3bd483037b54ce38b239bd7f953ff1cbfaed7e",
+        "after": "cd625dc0a8e4e1d31e6c88a412018b25b83bd78452eaf0a10d5056fc5f915df7"
+      },
+      "src/backend/hvf/intel_xsave_tests.rs": {
+        "before": "6db1b4a746ce5a26de24c20104ce57627af281df28516cc5eb15f2d88ed433db",
+        "after": "fbb7f6a81cf9f608ec7b9fe5ccd5e2ebbd4ada3b9fc385d18ab35cfbb5b67d9f"
+      }
+    },
+    "files": 11242,
+    "bytes": 860034587,
+    "input_manifest_sha256": "e6070439e8e95dbeaa6247a1ca21342b258ee0d84ddb9435042ceeeb3f09ae1c",
+    "source_unchanged_except_explicit_paths": true
+  },
+  "final_validation": {
+    "status": "terminal_reviewed",
+    "driver": "remaining-gates-v3.py",
+    "status_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-entry-ownership-v1/remaining-gates-v3-status.json",
+    "owning_library": "Complete unfiltered immutable owning library:13132 passed,4 failed,20 ignored,0 filtered;6020.27s. All four failures match the separately reproduced unchanged native host baseline.",
+    "state": "All ten final focused/feature/build/lint/doc gates passed. Full owning library terminated and every failure was reviewed; no full-library green claim.",
+    "unfiltered": {
+      "driver": "start-unfiltered-library-v2.py",
+      "meta": "final-unfiltered-library-v2-prestarted.json",
+      "executable_sha256": "4839c2bbdef4037c9665bc5cd86f3a8a98ea8a0a3d6879ec611368d0e2f5521b",
+      "state": "Terminal, independently confirmed native test process and sole remaining calendar child have exited.",
+      "result": "final-unfiltered-library-v2.json",
+      "coordination": "native-command.py now adopts this existing suite at its final label and waits for receipt; native-command-before-parallel-library.py retains previoushelper. No duplicate fullsuite/Cargolock. Fullsuite source and executable must stay frozen.",
+      "observed_failures_before_terminal": [
+        "user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link",
+        "user::linux::tests::netlink::addresses_dump_by_family",
+        "user::linux::tests::netlink::options_follow_netlink_setsockopt",
+        "user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer"
+      ],
+      "failure_scope": "Exactly the four prior native baseline failures: socket-buffer assumptions versus actual32MiB buffers, and Linux6.19 netlink fixture expectations versus native Linux6.8 behavior. Full suite is not all green.",
+      "terminal_receipt": {
+        "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+        "argv": [
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/final-unfiltered-library-v2.exe",
+          "--test-threads=8",
+          "--nocapture"
+        ],
+        "exit_code": 101,
+        "source_unchanged": true,
+        "executable_unchanged": true,
+        "utc": "2026-11-03T13:53:51.404685+00:00",
+        "provenance": {
+          "executable_sha256": "4839c2bbdef4037c9665bc5cd86f3a8a98ea8a0a3d6879ec611368d0e2f5521b",
+          "executable_bytes": 716025936,
+          "input_manifest_sha256": "e6070439e8e95dbeaa6247a1ca21342b258ee0d84ddb9435042ceeeb3f09ae1c",
+          "source_files": 11242,
+          "listing_sha256": "fd0e93ed358a41c3894076c2b59211e83d058b305f3d6bad014b4d70c617997f",
+          "scope": "Complete unfiltered owning library binary compiled by final all-target build, immutable copy; AMD correction included. Prepared future IO modules are unregistered and excluded."
+        }
+      },
+      "counts": {
+        "passed": 13132,
+        "failed": 4,
+        "ignored": 20,
+        "filtered": 0,
+        "duration_seconds": 6020.27
+      },
+      "failure_evidence": {
+        "independent_host_probe": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-state-v1/native-host-socket-netlink-probe.json",
+        "SO_SNDBUF_bytes": 33554432,
+        "SO_RCVBUF_bytes": 33554432,
+        "eight_MiB_send_accepted_bytes": 8388608,
+        "netlink_group39_errno": -22,
+        "IPv6_dump_terminal_datagram": "standalone NLMSG_DONE",
+        "current_failure_sites": [
+          "remote_mach_backpressure_tests.rs:47",
+          "netlink.rs:490",
+          "netlink.rs:538",
+          "readiness.rs:518"
+        ]
+      }
+    },
+    "completed": {
+      "final-fmt-v2": {
+        "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "fmt",
+          "--all",
+          "--check"
+        ],
+        "exit_code": 0,
+        "source_unchanged": true,
+        "utc": "2026-11-03T11:52:00.380487+00:00",
+        "test_results": []
+      },
+      "final-build-v2": {
+        "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "build",
+          "--locked",
+          "--offline",
+          "--workspace",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+        ],
+        "exit_code": 0,
+        "source_unchanged": true,
+        "utc": "2026-11-03T12:09:46.841520+00:00",
+        "test_results": []
+      },
+      "final-clippy-v2": {
+        "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "clippy",
+          "--locked",
+          "--offline",
+          "--workspace",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+        ],
+        "exit_code": 0,
+        "source_unchanged": true,
+        "utc": "2026-11-03T12:15:03.600872+00:00",
+        "test_results": []
+      },
+      "final-xsave-root-v3": {
+        "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug",
+          "--lib",
+          "backend::intel_hvf_xsave::tests::",
+          "--",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "source_unchanged": true,
+        "utc": "2026-11-03T12:23:16.173337+00:00",
+        "test_results": [
+          "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 13141 filtered out; finished in 0.01s"
+        ]
+      },
+      "final-public-state-root-v3": {
+        "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug",
+          "--lib",
+          "backend::kvm::state_tests::",
+          "--",
+          "--include-ignored",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "source_unchanged": true,
+        "utc": "2026-11-03T12:23:27.846013+00:00",
+        "test_results": [
+          "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 13142 filtered out; finished in 0.20s"
+        ]
+      },
+      "final-host-slices-v2": {
+        "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--features",
+          "x86_64-suite",
+          "--test",
+          "kvm_host_slices",
+          "--",
+          "--include-ignored",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "source_unchanged": true,
+        "utc": "2026-11-03T12:29:24.357020+00:00",
+        "test_results": [
+          "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s"
+        ]
+      },
+      "final-doctests-v2": {
+        "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--workspace",
+          "--doc",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+        ],
+        "exit_code": 0,
+        "source_unchanged": true,
+        "utc": "2026-11-03T12:30:41.359242+00:00",
+        "test_results": [
+          "test result: ok. 0 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.79s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+        ]
+      },
+      "final-no-jit-v2": {
+        "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "--workspace",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,kvm"
+        ],
+        "exit_code": 0,
+        "source_unchanged": true,
+        "utc": "2026-11-03T12:35:10.771154+00:00",
+        "test_results": []
+      },
+      "final-tooling-root-v3": {
+        "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug",
+          "--test",
+          "ci_actions_pinned",
+          "--",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "source_unchanged": true,
+        "utc": "2026-11-03T12:35:24.830190+00:00",
+        "test_results": [
+          "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s"
+        ]
+      },
+      "final-minimal-v2": {
+        "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--features",
+          "x86_64-suite",
+          "--test",
+          "kvm_minimal",
+          "--",
+          "--include-ignored",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "source_unchanged": true,
+        "utc": "2026-11-03T12:35:59.542708+00:00",
+        "test_results": [
+          "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s"
+        ]
+      }
+    },
+    "command_correction": {
+      "failed_label": "final-xsave-v2",
+      "exit_code": 101,
+      "tests_ran": false,
+      "reason": "The root-only test incorrectly received workspace-only feature rax-capi/jit. Corrected root feature selection in final-xsave-root-v3 passed all15 shared XSAVE tests. No completed build/Clippy or full suite was restarted."
+    }
+  },
+  "final_build": {
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T12:09:46.841520+00:00"
+  },
+  "final_clippy": {
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T12:15:03.600872+00:00"
+  },
+  "amd_profile_ci": {
+    "run": 41630404578,
+    "job": 125898201156,
+    "conclusion": "success",
+    "shared_xsave_passed": 15,
+    "public_state_passed": 14,
+    "minimal_passed": 2,
+    "release_build": "passed",
+    "proof": "../kvm-amd-mxcsr/github-success.log"
+  }
+}
