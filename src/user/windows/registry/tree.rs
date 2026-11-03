@@ -202,7 +202,18 @@ impl Registry {
         self.with_tree(TreeRoot::Ifeo, None)
     }
     pub(crate) fn with_tree(self, root: TreeRoot, tree: Option<KeyTree>) -> io::Result<Self> {
-        self.with_tree_records(root, tree, None)
+        self.with_tree_records(root, tree, None, None)
+    }
+    pub(crate) fn with_captured_tree(
+        self,
+        root: TreeRoot,
+        tree: Option<CapturedTree>,
+    ) -> io::Result<Self> {
+        let (tree, nodes) = match tree {
+            Some(tree) => (Some(tree.tree), Some(tree.nodes)),
+            None => (None, None),
+        };
+        self.with_tree_records(root, tree, None, nodes)
     }
     pub(crate) fn with_information_tree(
         self,
@@ -213,13 +224,14 @@ impl Registry {
             Some(tree) => (Some(tree.tree), Some(tree.information)),
             None => (None, None),
         };
-        self.with_tree_records(root, tree, information)
+        self.with_tree_records(root, tree, information, None)
     }
     fn with_tree_records(
         mut self,
         root: TreeRoot,
         tree: Option<KeyTree>,
         information: Option<BTreeMap<Vec<u16>, KeyInformation>>,
+        captured: Option<BTreeMap<Vec<u16>, CapturedTreeNode>>,
     ) -> io::Result<Self> {
         if self.upcase.len() != 65_536 || self.selected_trees.contains(&root) {
             return Err(invalid("invalid or duplicate runtime subtree selection"));
@@ -249,6 +261,12 @@ impl Registry {
                 key_information::attach(&mut key, &mut information, &mut values, &mut paths, None)?;
                 if !information.is_empty() {
                     return Err(invalid("captured key metadata contains unselected records"));
+                }
+            }
+            if let Some(mut captured) = captured {
+                captured_tree::attach(&mut key, &mut captured, &mut values, true)?;
+                if !captured.is_empty() {
+                    return Err(invalid("captured tree metadata contains unselected nodes"));
                 }
             }
             self.keys.insert(folded, key);
@@ -415,6 +433,7 @@ pub(super) fn build(
         selected_child: None,
         selected_paths: BTreeMap::new(),
         command_access: None,
+        open_denial: None,
         logical_path: None,
         root_views: None,
         machine: None,

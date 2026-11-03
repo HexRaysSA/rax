@@ -3,6 +3,9 @@ use super::*;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::registry::{NLS_KEY, Registry, Value};
 
+#[path = "registry_denial_tests.rs"]
+mod denials;
+
 #[path = "command_processor_registry_tests.rs"]
 mod command_processor;
 

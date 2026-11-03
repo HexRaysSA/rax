@@ -5,6 +5,8 @@
 mod appmodel;
 #[path = "installed/command_processor.rs"]
 mod command_processor;
+#[path = "installed/ifeo.rs"]
+mod ifeo;
 #[path = "installed/key_enumeration.rs"]
 mod key_enumeration;
 #[path = "installed/key_information.rs"]
@@ -339,10 +341,8 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let registry = Registry::selected(upcase, selected)?;
     let segment = segment_heap(&registry)?;
     let registry = registry.with_segment_heap(segment)?;
-    let registry = match tree::capture(&registry)? {
-        Some(tree) => registry.with_ifeo(tree),
-        None => registry.with_absent_ifeo(),
-    }?;
+    let captured_ifeo = ifeo::capture(&registry)?;
+    let registry = registry.with_captured_tree(super::TreeRoot::Ifeo, captured_ifeo)?;
     let root = super::TreeRoot::RedirectionKeys;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;

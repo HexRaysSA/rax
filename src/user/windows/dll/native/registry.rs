@@ -205,6 +205,9 @@ fn open_grant(c: &Ctx, access: u32, options: u32, selected: &Key) -> Checked<u32
         return status(STATUS_INVALID_PARAMETER);
     }
     if options & 4 == 0 {
+        if let Some(code) = selected.open_denial() {
+            return status(code);
+        }
         if let Some(profile) = selected.captured_access() {
             return match profile.grant(access) {
                 Ok(granted) => Ok(granted),
@@ -229,6 +232,10 @@ fn open_grant(c: &Ctx, access: u32, options: u32, selected: &Key) -> Checked<u32
         if enabled(17) { 0x0102_0019 } else { 0 } | if enabled(18) { 0x010F_0006 } else { 0 };
     if granted == 0 {
         status(STATUS_ACCESS_DENIED)
+    } else if selected.open_denial().is_some() {
+        Err(c
+            .unsupported("backup/restore body of access-denied registry key is not captured")
+            .into())
     } else {
         Ok(granted)
     }

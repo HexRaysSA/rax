@@ -7,12 +7,10 @@ use super::super::{
 use super::{Hkey, Info, OwnedKey, RegEnumKeyExW, RegOpenKeyExW, info, null_mut, values};
 use std::io;
 
-pub(super) fn capture(registry: &Registry) -> io::Result<Option<KeyTree>> {
-    capture_root(registry, TreeRoot::Ifeo)
-}
 pub(super) fn capture_root(registry: &Registry, root: TreeRoot) -> io::Result<Option<KeyTree>> {
     capture_root_with(registry, root, |path| open(root, path))
 }
+#[cfg(test)]
 pub(super) fn capture_with(
     registry: &Registry,
     opener: impl FnMut(&[u16]) -> io::Result<OwnedKey>,

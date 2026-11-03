@@ -60,8 +60,11 @@ pub(crate) use fixed::SEGMENT_HEAP_KEY;
 mod machine_hive;
 use machine_hive::MachineKey;
 pub(crate) use machine_hive::{MACHINE_HIVE_KEY, MachineHeader};
+#[path = "registry/captured_tree.rs"]
+mod captured_tree;
 #[path = "registry/key_enumeration.rs"]
 mod key_enumeration;
+pub(crate) use captured_tree::{CapturedTree, CapturedTreeNode};
 pub(crate) use key_enumeration::BasicChild;
 #[path = "registry/access.rs"]
 mod access;
@@ -106,6 +109,7 @@ pub struct Key {
     selected_child: Option<(Vec<u16>, Option<Arc<Key>>)>,
     selected_paths: BTreeMap<Vec<u16>, Option<Arc<Key>>>,
     command_access: Option<KeyAccess>,
+    open_denial: Option<u32>,
     logical_path: Option<Arc<[u16]>>,
     root_views: Option<Arc<RegistryViews>>,
     machine: Option<MachineKey>,
@@ -179,6 +183,7 @@ impl Registry {
                 selected_child: None,
                 selected_paths: BTreeMap::new(),
                 command_access: None,
+                open_denial: None,
                 logical_path: None,
                 root_views: None,
                 machine: None,

@@ -344,7 +344,7 @@ fn installed_runtime_snapshot_includes_session_manager_raw_values() {
 }
 
 #[test]
-fn installed_ifeo_snapshot_matches_independent_complete_tree_and_raw_queries() {
+fn installed_ifeo_snapshot_matches_independent_accessible_values_and_denied_nodes() {
     let registry = snapshot().unwrap();
     let path: Vec<_> = super::super::IFEO_KEY.encode_utf16().collect();
     let host: Vec<_> =
@@ -482,10 +482,24 @@ pub(super) fn check_ifeo(
         let mut handle = null_mut();
         // SAFETY: exclusively owned parent HKEY, terminated enumerated native
         // component, query/enumerate-only open and exclusive child HKEY output.
-        assert_eq!(
-            unsafe { RegOpenKeyExW(host.0, name.as_ptr(), 0, 9, &mut handle) },
-            0
-        );
+        let status = unsafe { RegOpenKeyExW(host.0, name.as_ptr(), 0, 9, &mut handle) };
+        if status == 5 {
+            let selected = registry.key(&child_path).expect("retained denied child");
+            assert_eq!(selected.open_denial(), Some(0xC000_0022));
+            let mut maximum = null_mut();
+            // SAFETY: the independently enumerated child and owned parent,
+            // maximum-access probe only; any successful output is closed.
+            let status =
+                unsafe { RegOpenKeyExW(host.0, name.as_ptr(), 0, 0x0200_0000, &mut maximum) };
+            if !maximum.is_null() {
+                drop(OwnedKey(maximum));
+            }
+            assert_eq!(status, 5, "partial grants must not become denied snapshots");
+            assert!(selected.child_metadata().is_none());
+            totals.0 += 1;
+            continue;
+        }
+        assert_eq!(status, 0);
         let child = check_ifeo(registry, &OwnedKey(handle), &child_path, depth + 1);
         totals.0 += child.0;
         totals.1 += child.1;

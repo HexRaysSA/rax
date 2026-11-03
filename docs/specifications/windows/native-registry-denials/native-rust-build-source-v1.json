@@ -1,0 +1,28 @@
+{
+  "baseline_head": "061f6e13925abf26e2b9bc705639d6cd1985ffe6",
+  "artifact": {
+    "path": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/aarch64-pc-windows-msvc/debug/deps/rax-1feea8b362391aff.exe",
+    "bytes": 713466368,
+    "sha256": "473d93b21df3c26fd21c791b8233e8d8a253713a184c6695a1d497dde988485c"
+  },
+  "source_frame_sha256": "565084f7156f4a0e16b4bdb2ecf3b48c86a1a2b6eee9cebfa564fc626a9e5581",
+  "owned_sources": {
+    "src/user/windows/registry.rs": "126f07b0e474f16e61a6c88ebce6b04b38ba9fba159df789eba48374b05e25f5",
+    "src/user/windows/registry/tree.rs": "88afc9dde373aba169980c11865b8f1204e4e873bd78044047be1fe3cee52d34",
+    "src/user/windows/registry/captured_tree.rs": "81fec1c1732ef3c5a34a2a8921191d7825c6af800df105b9ccd2d936ce026b3e",
+    "src/user/windows/registry/captured_tree_tests.rs": "84410398e89961e274482c6dd8888c6bd4925ee600aa26f703eb6b23434075d4",
+    "src/user/windows/registry/installed.rs": "805e174537cab93863e963a2244f26b61498aa31170c09e18d80c9f305cdbb09",
+    "src/user/windows/registry/installed/ifeo.rs": "947afc9e05587f3bd809a64acb6e86d4223b4c397820f60fe22e0d92f6659898",
+    "src/user/windows/registry/fixed.rs": "ae3a6b44e7006b1df4acb485d2697f7937a0a6eeaf817d03b383f1bf2cf73fcd",
+    "src/user/windows/registry/machine_hive.rs": "ae1abcd47828f1c2e754d7df1e8137f80c3e6af5407528f60da1b7134c0ef71d",
+    "src/user/windows/registry/primary_hive.rs": "45d805750c910ecb7d9763332ae296416ceb1f4f80dc0e36eb41f136cc9de92c",
+    "src/user/windows/registry/command_processor_tree.rs": "d2fca5007474523506c9b226f4ec580c7a5297a86b267baf4c8dadf03f4727ad",
+    "src/user/windows/dll/native/registry.rs": "057c434d5c0d7722c81e4a17955a1314e876aa5165429542cbbc7b71532c1b64",
+    "src/user/windows/process/sched/tests/services_tests/registry_tests.rs": "7edb09cedaa5a9466026d1dbd75e2b563a6b1455de90204b0d8eb652d846a03e",
+    "src/user/windows/process/sched/tests/services_tests/registry_denial_tests.rs": "dd7218131af717d6b3d6dad172052a39f13bea9be53afaf82a988460425ecd2a",
+    "src/user/windows/registry/installed/tree.rs": "c376d9d233d7fbb0e4024fd00fe10f11378cf703be598774d124eae021007e9c",
+    "src/user/windows/registry/installed_tests.rs": "6b7da3f76e29f8050535e1e2a6ca496d2c122daf2f6d56d6e170978e9449cece",
+    "src/user/windows/registry/installed/ifeo_tests.rs": "1f584e0b237f2f759be92160104b14e78b0768f9e5048c3d2760e3fc88e2ed23"
+  },
+  "note": "Host build source/hash manifest; not a native rebuild."
+}

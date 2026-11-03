@@ -1,0 +1,35 @@
+{
+  "source_manifest_sha256": "4a4ef586392ab94a744f025103f023c872896030989091aa250435ee4002e9a4",
+  "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+  "original_native_jobs_restarted": false,
+  "image_sha256": "473d93b21df3c26fd21c791b8233e8d8a253713a184c6695a1d497dde988485c",
+  "tests": [
+    {
+      "creation": "134381706003025162",
+      "stdout": "\nrunning 4 tests\ntest user::windows::registry::installed::ifeo::tests::installed_ifeo_denial_capture_rejects_partial_grants_or_changed_maximum_access ... ok\ntest user::windows::registry::installed::ifeo::tests::installed_ifeo_denial_capture_retains_parent_metadata_and_does_not_read_denied_body ... ok\ntest user::windows::registry::installed::ifeo::tests::installed_ifeo_denial_does_not_replace_a_distinct_system_security_failure ... ok\ntest user::windows::registry::installed::ifeo::tests::installed_ifeo_denial_root_absence_and_unrelated_errors_keep_original_meaning ... ok\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 9168 filtered out; finished in 0.37s\n\n",
+      "stderr": "",
+      "arguments": "registry::installed::ifeo::tests --test-threads=1 --nocapture",
+      "pid": 9932,
+      "exit_code": 0
+    },
+    {
+      "creation": "134381706016654447",
+      "stdout": "\nrunning 3 tests\ntest user::windows::registry::captured_tree::tests::captured_tree_does_not_invent_descendant_absence_below_an_unreadable_nonleaf ... ok\ntest user::windows::registry::captured_tree::tests::captured_tree_rejects_missing_extra_or_invented_metadata ... ok\ntest user::windows::registry::captured_tree::tests::captured_tree_retains_denial_parent_order_and_accessible_sibling_after_drop ... ok\n\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 9169 filtered out; finished in 0.21s\n\n",
+      "stderr": "",
+      "arguments": "registry::captured_tree::tests --test-threads=1 --nocapture",
+      "pid": 6788,
+      "exit_code": 0
+    },
+    {
+      "creation": "134381706021459874",
+      "stdout": "\nrunning 2 tests\ntest user::windows::process::sched::tests::services_tests::registry_tests::denials::native_registry_denial_distinguishes_final_key_missing_descendants_and_output_fault_all_abis ... ok\ntest user::windows::process::sched::tests::services_tests::registry_tests::denials::native_registry_denial_keeps_parent_enumeration_and_accessible_sibling_after_catalog_drop_all_abis ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 9170 filtered out; finished in 1.44s\n\n",
+      "stderr": "",
+      "arguments": "registry_tests::denials --test-threads=1 --nocapture",
+      "pid": 5092,
+      "exit_code": 0
+    }
+  ],
+  "subject": "S-1-5-21-432357189-4232641918-3742464398-1000",
+  "repo": "C:\\Users\\int\\AppData\\Local\\Temp\\assist-native-rax-current-user-20261103\\registry-denials-tests-repo-v1",
+  "schema": "rax-registry-denials-tests-v1"
+}

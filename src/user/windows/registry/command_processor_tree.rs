@@ -84,6 +84,7 @@ impl Builder {
             selected_child: None,
             selected_paths: BTreeMap::new(),
             command_access: Some(header.access),
+            open_denial: None,
             logical_path: Some(logical.clone().into()),
             root_views: None,
             machine: None,
