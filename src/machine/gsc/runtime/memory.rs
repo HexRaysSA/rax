@@ -2,6 +2,27 @@
 use super::*;
 
 impl Memory for GscBridge {
+    fn atomic(
+        &mut self,
+        address: u64,
+        size: u8,
+        operation: crate::isa::riscv::memory::AtomicOp,
+    ) -> MemResult<u128> {
+        operation.validate(address, size)?;
+        self.reservation_ram(address, usize::from(size))?;
+        let old = crate::isa::riscv::memory::shared::atomic(
+            &self.mem,
+            &self.exclusive,
+            address,
+            size,
+            operation,
+        )?;
+        if let Some(new) = operation.replacement(old, size) {
+            self.trace_ram_write(address, &new.to_le_bytes()[..usize::from(size)]);
+        }
+        Ok(old)
+    }
+
     fn load_reserved(&mut self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
         self.reservation_ram(addr, buf.len())?;
         crate::isa::riscv::memory::shared::load(&self.mem, &self.exclusive, addr, buf)
@@ -567,6 +588,18 @@ impl Memory for GscBridge {
             }
             return Ok(());
         }
+        self.trace_ram_write(addr, data);
+        crate::vm::memory::reservations::write(&self.mem, addr, data).map_err(|_| {
+            MemError::OutOfBounds {
+                addr,
+                size: data.len(),
+            }
+        })
+    }
+}
+
+impl GscBridge {
+    fn trace_ram_write(&self, addr: u64, data: &[u8]) {
         if self.cfg.trace != Trace::Off
             && (self.cfg.flash_img_base..self.cfg.flash_img_base + 0x10_0000).contains(&addr)
         {
@@ -582,16 +615,8 @@ impl Memory for GscBridge {
                 value
             );
         }
-        crate::vm::memory::reservations::write(&self.mem, addr, data).map_err(|_| {
-            MemError::OutOfBounds {
-                addr,
-                size: data.len(),
-            }
-        })
     }
-}
 
-impl GscBridge {
     fn reservation_ram(&self, addr: u64, size: usize) -> MemResult<()> {
         let end = u128::from(addr) + size as u128;
         let overlaps = |start: u64, limit: u64| {

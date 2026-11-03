@@ -9,6 +9,9 @@ use vm_memory::{
     Bytes, GuestAddress, GuestMemory, GuestMemoryError, GuestMemoryMmap, GuestMemoryRegion,
 };
 
+#[path = "reservation_atomic.rs"]
+mod atomic;
+
 /// Matches AArch64 CTR_EL0.ERG=4; RISC-V uses the same 64-byte reservation set.
 const GRANULE: usize = 64;
 type Identity = Vec<(u64, u64, usize)>;
@@ -415,6 +418,23 @@ pub(crate) fn preflight_write(
     address: u64,
     size: usize,
 ) -> Result<(), GuestMemoryError> {
+    preflight_access(memory, address, size, true)
+}
+
+pub(crate) fn preflight_read(
+    memory: &GuestMemoryMmap,
+    address: u64,
+    size: usize,
+) -> Result<(), GuestMemoryError> {
+    preflight_access(memory, address, size, false)
+}
+
+fn preflight_access(
+    memory: &GuestMemoryMmap,
+    address: u64,
+    size: usize,
+    _write: bool,
+) -> Result<(), GuestMemoryError> {
     let mut done = 0;
     while done < size {
         let current = address
@@ -424,8 +444,15 @@ pub(crate) fn preflight_write(
             .find_region(GuestAddress(current))
             .ok_or(GuestMemoryError::InvalidGuestAddress(GuestAddress(current)))?;
         #[cfg(unix)]
-        if region.prot() & libc::PROT_WRITE == 0 {
-            return Err(GuestMemoryError::InvalidGuestAddress(GuestAddress(current)));
+        {
+            let required = if _write {
+                libc::PROT_WRITE
+            } else {
+                libc::PROT_READ
+            };
+            if region.prot() & required == 0 {
+                return Err(GuestMemoryError::InvalidGuestAddress(GuestAddress(current)));
+            }
         }
         done += ((region.len() - (current - region.start_addr().0)) as usize).min(size - done);
     }

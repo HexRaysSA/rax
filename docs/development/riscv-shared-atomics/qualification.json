@@ -1,0 +1,372 @@
+{
+  "observed_utc": "2026-11-03T03:05:25.713124+00:00",
+  "scope": "RISC-V shared RAM AMOs/Zacas, mandatory CAS write admission, RV32 register pairs and consistent atomic admission; no complete platform SMP claim.",
+  "full_goal_complete": false,
+  "baseline_head": "d2e7bae4298bb6f945dd2b648396ef5fbd3aa0c9",
+  "findings_status": {
+    "A32-FP": "partially_validated",
+    "C-STATE": "partially_validated",
+    "C-SMP": "partially_validated",
+    "C-HVF": "partially_validated"
+  },
+  "primary": [
+    {
+      "path": "docs/specifications/riscv/riscv/riscv-unprivileged.txt",
+      "revision": "20250508",
+      "sections": [
+        "13.2 Zalrsc",
+        "13.4 Zaamo",
+        "15.1 Zacas"
+      ],
+      "sha256": "15cf782ec980195c28fc3085b88bf5eb5c408b366f77ead536f10151e71f467f"
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "A1",
+      "assumption": "Naturally aligned4/8/16-byte operands fit a4096-byte translation page",
+      "basis": "Widths divide4096; max aligned page offset is4096-N",
+      "dependent_result": "Single physical operand admission before writer lock",
+      "stress_test": "Last aligned W/D/Q operands and read/write protection",
+      "falsification_probe": "Translation maps sub-page spans or does not preserve valid contiguous operand",
+      "status": "confirmed within the stopped-mapping/private-provider contract"
+    },
+    {
+      "id": "A2",
+      "assumption": "Translation may populate a page or charge a private copy before returning physical RAM",
+      "basis": "AddressSpace.translate implementation; Read and Write have distinct permission/invalidation duties",
+      "dependent_result": "Read/write admission and final physical identity checked outside RAM locks",
+      "stress_test": "Demand population/private mapping, code invalidation, virtual aliases and asymmetric permissions",
+      "falsification_probe": "A valid mapping faults or reads/writes different backing after admission",
+      "status": "confirmed within the stopped-mapping/private-provider contract"
+    },
+    {
+      "id": "A3",
+      "assumption": "Zacas permits an unsuccessful comparison to omit a write or write back its old value",
+      "basis": "Retained Unprivileged20250508 section15.1",
+      "dependent_result": "Private default may use permitted old-value writeback to enforce write access; shared RAM can preflight then omit a failed comparison store",
+      "stress_test": "Read-only custom memory with/without accurate probe and no peripheral callback on failure",
+      "falsification_probe": "Primary rule prohibits old-value writeback or private callback contract requires no write",
+      "status": "confirmed within the stopped-mapping/private-provider contract"
+    }
+  ],
+  "surface": {
+    "decode": "RISC-V atomic admission split and RV32 pair geometry",
+    "direct": "Typed AMO/CAS memory operation",
+    "native": "Same hooks via stable existing ABI; split atomic helpers from oversized JIT owner",
+    "smir": "RV32 packed64-bit pair CAS using existing scalar IR; no new opcode",
+    "memory": "Physical RAM transactions and translation/protection before locks",
+    "state": "No new guest/private serialized fields",
+    "ABI": "Rust Memory default hook; C declarations/layout unchanged"
+  },
+  "red_receipts": {
+    "baseline-atomic-regressions": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/baseline-atomic-regressions.json",
+    "raw-smir-profile-regression-red": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/raw-smir-profile-regression-red.json",
+    "raw-smir-zacas-only-red": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/raw-smir-zacas-only-red.json"
+  },
+  "actual_baseline_failures": 6,
+  "deliberate_validation_stops": [
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/validation-v3-intentional-stop.json",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/validation-v3-remaining-stop.json"
+  ],
+  "corrected_fixture": "Existing LR/SC ordering fixture encoded LR with rs2=x2. It now uses required x0 for LR and x2 for SC; the original broad failure and corrected focused/full runs are retained.",
+  "root": {
+    "counts": [
+      {
+        "passed": 12125,
+        "failed": 0,
+        "ignored": 35
+      }
+    ],
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-root-v4.json",
+    "executable": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "sha256": "4cf365f230b04da6940197291a5e3928165dfd5fde3b3ef6107013bcd1e4dbef",
+      "inode": 403893255
+    }
+  },
+  "independent": {
+    "targets": 43,
+    "counts": {
+      "passed": 803,
+      "failed": 0,
+      "ignored": 8
+    },
+    "compile_only": [
+      "riscv_diff",
+      "riscv_smir_x86_jit",
+      "riscv_vector",
+      "hvf_intel_owner"
+    ],
+    "selection": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/owning-selection-v4.json",
+    "receipts": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-capi-library-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-riscv_boot-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-riscv_diff-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-riscv_smir_lift-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-riscv_smir_x86_jit-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-riscv_smir_aarch64_jit-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-riscv_vector-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-riscv_hartid-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-user_linux-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-checkpoint_config-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-controller_checkpoint-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-pci_checkpoint-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-pci_endpoint_checkpoint-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-runtime_pci_checkpoint-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-checkpoint_pci-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-restore_admission-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-checkpoint_physical_memory-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-runtime_checkpoint_bundle-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-checkpoint_resume-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-checkpoint_cpus-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-retirement_budget-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-retired_clock-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-checkpoint_clock-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-retirement_clock-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-aarch64_cluster-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_sdk_abi-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_xsetbv-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_run_loop-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_native_debug-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_intel_owner-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_owner-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_cr8-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_apic_identity-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_sync_exits-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_event_injection-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_interrupt_shadow-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_port_io-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_guest_translation-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_mmio-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_memory-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_controls-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_arm64_state-v4.json",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/complete-hvf_arm64_mmio-v4.json"
+    ]
+  },
+  "focused": {
+    "strategic-root-library": {
+      "counts": [
+        {
+          "passed": 29,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/strategic-root-library-v4.json"
+    },
+    "strategic-riscv_smir_lift": {
+      "counts": [
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/strategic-riscv_smir_lift-v4.json"
+    },
+    "strategic-capi-library": {
+      "counts": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/strategic-capi-library-v4.json"
+    },
+    "raw-smir-zacas-only-green": {
+      "counts": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/raw-smir-zacas-only-green-v4.json"
+    },
+    "four-hart-exact-program-mirror": {
+      "counts": [
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/four-hart-exact-program-mirror-v4.json"
+    },
+    "process-demand-atomics": {
+      "counts": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/process-demand-atomics-v4.json"
+    },
+    "zacas-execution-profiles": {
+      "counts": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/zacas-execution-profiles-v4.json"
+    }
+  },
+  "encoding_oracle": {
+    "cases": 128,
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/llvm-atomic-encodings.json",
+    "zacas_without_a": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/llvm-zacas-without-a-observation.json"
+  },
+  "qemu": {
+    "common_receipts": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/qemu-atomics-common-observations.json",
+    "initial_failure": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/qemu-atomics-initial-observations.json",
+    "failure_trace": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/qemu-rv64-initial-failure-tail.txt",
+    "limitation": "Installed RV64 QEMU disagrees after an x0-pair CAS within a translated block; the common RV64 comparison excludes those x0 cases. Original failure is not reclassified as a pass. Source implementation unknown."
+  },
+  "zacas_execution_profiles": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/zacas-execution-profiles-v4.json",
+    "source": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/zacas-execution-profile-witness.rs",
+    "provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/zacas-execution-compiler-v4.json"
+  },
+  "process_first_touch": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/process-demand-atomics-v4.json",
+    "source": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/process-demand-atomic-witness.rs",
+    "provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/process-demand-compiler-v4.json"
+  },
+  "exact_program_mirrors": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/four-hart-exact-program-mirror-v4.json",
+    "source": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/rax-four-hart-oracle-mirror.rs",
+    "provenance": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/supplemental-compiler-provenance-v4.json",
+    "limitation": "Host interleaves four actual backend harts; this is not VMM secondary startup."
+  },
+  "quality": {
+    "fmt-workspace": {
+      "exit_code": 0,
+      "counts": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/fmt-workspace-v4.json"
+    },
+    "check-workspace-all-targets": {
+      "exit_code": 0,
+      "counts": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/check-workspace-all-targets-v4.json"
+    },
+    "clippy-workspace-all-targets": {
+      "exit_code": 0,
+      "counts": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/clippy-workspace-all-targets-v4.json"
+    },
+    "check-without-debug": {
+      "exit_code": 0,
+      "counts": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/check-without-debug-v4.json"
+    },
+    "check-without-jit": {
+      "exit_code": 0,
+      "counts": [],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/check-without-jit-v4.json"
+    },
+    "doctests-workspace": {
+      "exit_code": 0,
+      "counts": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/doctests-workspace-v4.json"
+    }
+  },
+  "c_consumers": {
+    "programs": 19,
+    "abi_translation_units": 7,
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/capi-consumer-completion-v4.json"
+  },
+  "compiler_inputs": {
+    "count": 6000,
+    "manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/compiled-project-source-sha256-build-v4.json",
+    "sha256": "678b68a65b79ce7b8687f3a2b0e2537010bc3d4fd123accc69c616283bb9079c",
+    "all_current_bytes_equal": true,
+    "untracked_unowned": []
+  },
+  "all_profile_compiler_inputs": {
+    "initial_inputs": 6000,
+    "all_profile_inputs": 6001,
+    "added_inputs": [
+      "Cargo.toml"
+    ],
+    "common_inputs_unchanged": true,
+    "manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/compiled-project-source-sha256-final-v4.json",
+    "sha256": "1702ef404ee777c1628401682364b40ed832fb6299502d87889e5fcdbd14ca36"
+  },
+  "build_config_sha256": {
+    "Cargo.toml": "4f2b9a2908632075dd59d13550ecb24b2dad6c7378f0e7c8032fdea7d23fa133",
+    "Cargo.lock": "6b2cf5633f0f9f2e6dd80d42049ca0fdba2414d76f78cd96f138968ce17971ba",
+    ".cargo/config.toml": "a198c84574684e95de13dbb1bdb7b6c918f90fdb490c649937f697fc9621f3cd",
+    "capi/Cargo.toml": "39cedac27ee82892940416ccfc84302e4711adb918a2abacc114b3805352ee06"
+  },
+  "environment": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/environment.json",
+  "tool_identities": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/tool-identities.json",
+  "abi": "No C declarations/layout, SMIR opcode or private checkpoint wire changes; existing native helper signatures remain.",
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "item": "Actual RISC-V VMM secondary startup/controller/clock/replay, A32-FP, remaining native/backend/private profiles and real Intel HVF still required",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "item": "Large fragmented physical map performance and raw alternate-host-address aliases remain separately coordinated",
+      "blocks_full_goal": false
+    },
+    {
+      "impact": "medium",
+      "item": "Installed QEMU x0-pair discrepancy; primary semantics and RAX full-program witness retained.",
+      "blocks_full_goal": false
+    }
+  ],
+  "remaining_scope": "Actual VMM RISC-V startup/controllers/clocks/replay, remaining A32-FP/private/native/MMIO/IRQ profiles and actual native Intel validation remain required.",
+  "owned_paths": [
+    "src/isa/riscv/memory.rs",
+    "src/isa/riscv/memory/atomic.rs",
+    "src/isa/riscv/memory/shared.rs",
+    "src/isa/riscv/cpu/atomics.rs",
+    "src/isa/riscv/cpu/atomics/tests.rs",
+    "src/isa/riscv/cpu/jit.rs",
+    "src/isa/riscv/cpu/jit/atomic.rs",
+    "src/isa/riscv/decode.rs",
+    "src/isa/riscv/decode/atomic.rs",
+    "src/backend/emulator/riscv/cpu.rs",
+    "src/backend/emulator/riscv/cpu_reservations.rs",
+    "src/backend/emulator/riscv/cpu_atomic_tests.rs",
+    "src/user/cpu/riscv64.rs",
+    "src/vm/memory/reservations.rs",
+    "src/vm/memory/reservation_atomic.rs",
+    "src/machine/gsc/runtime/memory.rs",
+    "src/machine/gsc/runtime/checkpoint/tests.rs",
+    "src/smir/lift/riscv/memory.rs",
+    "tests/suites/smir/lift/riscv.rs",
+    "tests/suites/smir/lift/riscv_atomic_pairs.rs",
+    "capi/src/tests.rs",
+    "capi/src/tests/riscv_atomics.rs",
+    "docs/development/riscv-shared-atomics/README.md",
+    "docs/development/riscv-shared-atomics/qualification.json",
+    "docs/development/riscv-shared-reservations/README.md",
+    "docs/development/audit-remediation-2026-10.json",
+    "src/smir/lift/riscv/misc.rs",
+    "src/smir/lift/riscv/mod.rs"
+  ],
+  "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/commit-receipt.json",
+  "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/push-receipt.json",
+  "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-atomics-v1/cleanup-final.json"
+}

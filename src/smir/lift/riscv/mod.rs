@@ -1335,10 +1335,12 @@ mod tests {
     #[test]
     fn lr_sc_ordering_bits_emit_fences_at_the_memory_boundary() {
         let encode = |funct5: u32, aq: bool, rl: bool| {
+            // LR reserves rs2=x0; SC reads its store value from x2.
+            let rs2 = if funct5 == 0b00010 { 0 } else { 2 };
             (funct5 << 27)
                 | (u32::from(aq) << 26)
                 | (u32::from(rl) << 25)
-                | (2 << 20)
+                | (rs2 << 20)
                 | (1 << 15)
                 | (0b010 << 12)
                 | (3 << 7)

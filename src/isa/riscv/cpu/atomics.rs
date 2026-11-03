@@ -1,6 +1,7 @@
 //! A-extension and Zacas execution, including architectural fault classification.
 
 use super::*;
+use crate::isa::riscv::memory::AtomicOp as MemoryAtomicOp;
 
 impl RiscVCpu {
     // ---------------------------------------------------------------
@@ -22,6 +23,7 @@ impl RiscVCpu {
                 tval: addr,
             });
         }
+        atomic_fence(insn, true);
         match insn.op {
             Op::LrW => {
                 let mut bytes = [0; 4];
@@ -52,149 +54,136 @@ impl RiscVCpu {
             }
             _ => unreachable!(),
         }
+        atomic_fence(insn, false);
         Ok(())
     }
 
-    // An AMO read is part of a store/AMO access for architectural traps.
-    // RISC-V Privileged Architecture 1.13, Machine Cause table.
+    // RISC-V Privileged 1.13 Machine Cause: read-phase AMO failures are stores.
     pub(super) fn exec_amo(&mut self, insn: &Insn) -> Result<(), Trap> {
-        let addr = self.x(insn.rs1) & self.xmask();
-        let src = self.x(insn.rs2);
-        let is_d = matches!(
-            insn.op,
+        let address = self.x(insn.rs1) & self.xmask();
+        let size = match insn.op {
             Op::AmoswapD
-                | Op::AmoaddD
-                | Op::AmoxorD
-                | Op::AmoandD
-                | Op::AmoorD
-                | Op::AmominD
-                | Op::AmomaxD
-                | Op::AmominuD
-                | Op::AmomaxuD
-        );
-        let size: u64 = if is_d { 8 } else { 4 };
-        if addr % size != 0 {
+            | Op::AmoaddD
+            | Op::AmoxorD
+            | Op::AmoandD
+            | Op::AmoorD
+            | Op::AmominD
+            | Op::AmomaxD
+            | Op::AmominuD
+            | Op::AmomaxuD => 8,
+            _ => 4,
+        };
+        if address & (u64::from(size) - 1) != 0 {
             return Err(Trap {
                 cause: cause::STORE_MISALIGNED,
-                tval: addr,
+                tval: address,
             });
         }
-        if is_d {
-            let old = self.mem.read_u64(addr).map_err(|_| acc_fault(true, addr))?;
-            let new = amo_compute64(insn.op, old, src);
-            self.mem
-                .write_u64(addr, new)
-                .map_err(|_| acc_fault(true, addr))?;
-            self.set_x(insn.rd, old);
-        } else {
-            let old = self.mem.read_u32(addr).map_err(|_| acc_fault(true, addr))?;
-            let new = amo_compute32(insn.op, old, src as u32);
-            self.mem
-                .write_u32(addr, new)
-                .map_err(|_| acc_fault(true, addr))?;
-            self.set_x(insn.rd, old as i32 as i64 as u64);
-        }
+        let operation = amo_operation(insn.op, self.x(insn.rs2));
+        atomic_fence(insn, true);
+        let old = self
+            .mem
+            .atomic(address, size, operation)
+            .map_err(|_| acc_fault(true, address))?;
+        atomic_fence(insn, false);
+        self.set_x(
+            insn.rd,
+            if size == 4 {
+                old as u32 as i32 as i64 as u64
+            } else {
+                old as u64
+            },
+        );
         Ok(())
     }
 
     pub(super) fn exec_amocas(&mut self, insn: &Insn) -> Result<(), Trap> {
-        let addr = self.x(insn.rs1) & self.xmask();
-        match insn.op {
-            Op::AmocasW => {
-                if addr % 4 != 0 {
-                    return Err(Trap {
-                        cause: cause::STORE_MISALIGNED,
-                        tval: addr,
-                    });
-                }
-                let old = self.mem.read_u32(addr).map_err(|_| acc_fault(true, addr))?;
-                if old == self.x(insn.rd) as u32 {
-                    self.mem
-                        .write_u32(addr, self.x(insn.rs2) as u32)
-                        .map_err(|_| acc_fault(true, addr))?;
-                }
-                self.set_x(insn.rd, old as i32 as i64 as u64);
-            }
-            Op::AmocasD => {
-                if addr % 8 != 0 {
-                    return Err(Trap {
-                        cause: cause::STORE_MISALIGNED,
-                        tval: addr,
-                    });
-                }
-                let old = self.mem.read_u64(addr).map_err(|_| acc_fault(true, addr))?;
-                if old == self.x(insn.rd) {
-                    self.mem
-                        .write_u64(addr, self.x(insn.rs2))
-                        .map_err(|_| acc_fault(true, addr))?;
-                }
-                self.set_x(insn.rd, old);
-            }
-            Op::AmocasQ => {
-                if addr % 16 != 0 {
-                    return Err(Trap {
-                        cause: cause::STORE_MISALIGNED,
-                        tval: addr,
-                    });
-                }
-                let cmp = if insn.rd == 0 {
-                    0
-                } else {
-                    (self.x(insn.rd) as u128) | ((self.x(insn.rd.wrapping_add(1)) as u128) << 64)
-                };
-                let new = if insn.rs2 == 0 {
-                    0
-                } else {
-                    (self.x(insn.rs2) as u128) | ((self.x(insn.rs2.wrapping_add(1)) as u128) << 64)
-                };
-                let mut old_bytes = [0u8; 16];
-                self.mem
-                    .read(addr, &mut old_bytes)
-                    .map_err(|_| acc_fault(true, addr))?;
-                let old = u128::from_le_bytes(old_bytes);
-                if old == cmp {
-                    self.mem
-                        .write(addr, &new.to_le_bytes())
-                        .map_err(|_| acc_fault(true, addr))?;
-                }
-                if insn.rd != 0 {
-                    self.set_x(insn.rd, old as u64);
-                    self.set_x(insn.rd.wrapping_add(1), (old >> 64) as u64);
-                }
-            }
+        let address = self.x(insn.rs1) & self.xmask();
+        let size = match insn.op {
+            Op::AmocasW => 4,
+            Op::AmocasD => 8,
+            Op::AmocasQ => 16,
             _ => unreachable!(),
+        };
+        if address & (u64::from(size) - 1) != 0 {
+            return Err(Trap {
+                cause: cause::STORE_MISALIGNED,
+                tval: address,
+            });
+        }
+        let pair = insn.op == Op::AmocasQ || (insn.op == Op::AmocasD && self.rv32());
+        let expected = self.cas_operand(insn.rd, pair);
+        let replacement = self.cas_operand(insn.rs2, pair);
+        atomic_fence(insn, true);
+        let old = self
+            .mem
+            .atomic(
+                address,
+                size,
+                MemoryAtomicOp::CompareExchange {
+                    expected,
+                    replacement,
+                },
+            )
+            .map_err(|_| acc_fault(true, address))?;
+        atomic_fence(insn, false);
+        if pair {
+            if insn.rd != 0 {
+                self.set_x(insn.rd, old as u64);
+                self.set_x(insn.rd + 1, (old >> self.cfg.xlen.bits()) as u64);
+            }
+        } else {
+            self.set_x(
+                insn.rd,
+                if size == 4 {
+                    old as u32 as i32 as i64 as u64
+                } else {
+                    old as u64
+                },
+            );
         }
         Ok(())
     }
+
+    fn cas_operand(&self, register: u8, pair: bool) -> u128 {
+        if pair && register == 0 {
+            return 0;
+        }
+        let low = u128::from(self.x(register));
+        if pair {
+            low | (u128::from(self.x(register + 1)) << self.cfg.xlen.bits())
+        } else {
+            low
+        }
+    }
 }
 
-fn amo_compute32(op: Op, old: u32, src: u32) -> u32 {
+fn amo_operation(op: Op, source: u64) -> MemoryAtomicOp {
     match op {
-        Op::AmoswapW => src,
-        Op::AmoaddW => old.wrapping_add(src),
-        Op::AmoxorW => old ^ src,
-        Op::AmoandW => old & src,
-        Op::AmoorW => old | src,
-        Op::AmominW => (old as i32).min(src as i32) as u32,
-        Op::AmomaxW => (old as i32).max(src as i32) as u32,
-        Op::AmominuW => old.min(src),
-        Op::AmomaxuW => old.max(src),
+        Op::AmoswapW | Op::AmoswapD => MemoryAtomicOp::Exchange(source),
+        Op::AmoaddW | Op::AmoaddD => MemoryAtomicOp::Add(source),
+        Op::AmoxorW | Op::AmoxorD => MemoryAtomicOp::Xor(source),
+        Op::AmoandW | Op::AmoandD => MemoryAtomicOp::And(source),
+        Op::AmoorW | Op::AmoorD => MemoryAtomicOp::Or(source),
+        Op::AmominW | Op::AmominD => MemoryAtomicOp::SignedMin(source),
+        Op::AmomaxW | Op::AmomaxD => MemoryAtomicOp::SignedMax(source),
+        Op::AmominuW | Op::AmominuD => MemoryAtomicOp::UnsignedMin(source),
+        Op::AmomaxuW | Op::AmomaxuD => MemoryAtomicOp::UnsignedMax(source),
         _ => unreachable!(),
     }
 }
 
-fn amo_compute64(op: Op, old: u64, src: u64) -> u64 {
-    match op {
-        Op::AmoswapD => src,
-        Op::AmoaddD => old.wrapping_add(src),
-        Op::AmoxorD => old ^ src,
-        Op::AmoandD => old & src,
-        Op::AmoorD => old | src,
-        Op::AmominD => (old as i64).min(src as i64) as u64,
-        Op::AmomaxD => (old as i64).max(src as i64) as u64,
-        Op::AmominuD => old.min(src),
-        Op::AmomaxuD => old.max(src),
-        _ => unreachable!(),
+// A stronger host ordering is permitted by RVWMO; both bits retain SC ordering.
+fn atomic_fence(insn: &Insn, before: bool) {
+    use std::sync::atomic::{Ordering, fence};
+    let acquire = insn.raw & (1 << 26) != 0;
+    let release = insn.raw & (1 << 25) != 0;
+    if acquire && release {
+        fence(Ordering::SeqCst);
+    } else if before && release {
+        fence(Ordering::Release);
+    } else if !before && acquire {
+        fence(Ordering::Acquire);
     }
 }
 

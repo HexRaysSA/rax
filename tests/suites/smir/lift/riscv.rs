@@ -14,6 +14,9 @@
 
 #![cfg(any(target_os = "linux", target_os = "macos"))]
 
+#[path = "riscv_atomic_pairs.rs"]
+mod atomic_pairs;
+
 use std::collections::BTreeMap;
 #[cfg(all(
     feature = "smir-jit",

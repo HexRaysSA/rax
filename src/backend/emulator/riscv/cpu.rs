@@ -31,6 +31,9 @@ use crate::isa::riscv::cpu::{Priv, cause};
 use crate::isa::riscv::{MemError, MemResult, Memory, RiscVConfig, RiscVCpu, RiscVExit};
 use crate::vm::memory::FlatTranslation;
 use crate::vm::memory::reservations::{MemoryDomain, Monitor};
+#[cfg(test)]
+#[path = "cpu_atomic_tests.rs"]
+mod atomic_tests;
 #[path = "cpu_reservations.rs"]
 mod reservations;
 use crate::vm::vcpu::{CpuState, MemAccess, VCpu, VcpuExit};
@@ -144,6 +147,29 @@ impl UserBridge {
 }
 
 impl Memory for UserBridge {
+    fn atomic(
+        &mut self,
+        address: u64,
+        size: u8,
+        operation: crate::isa::riscv::memory::AtomicOp,
+    ) -> MemResult<u128> {
+        operation.validate(address, size)?;
+        let physical = self.atomic_address(address, usize::from(size))?;
+        crate::isa::riscv::memory::shared::atomic(
+            &self.mem,
+            &self.exclusive,
+            physical,
+            size,
+            operation,
+        )
+        .map_err(|_| {
+            self.fail(
+                GuestMemoryFault::unmapped(address, usize::from(size), MemoryAccessKind::Write),
+                usize::from(size),
+            )
+        })
+    }
+
     fn load_reserved(&mut self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
         let result = self
             .reserved_address(addr, buf.len(), MemoryAccessKind::Read)
@@ -292,6 +318,33 @@ impl GuestBridge {
 }
 
 impl Memory for GuestBridge {
+    fn atomic(
+        &mut self,
+        address: u64,
+        size: u8,
+        operation: crate::isa::riscv::memory::AtomicOp,
+    ) -> MemResult<u128> {
+        operation.validate(address, size)?;
+        if self.devices_enabled && overlaps_uart(address, usize::from(size)) {
+            return Err(MemError::OutOfBounds {
+                addr: address,
+                size: usize::from(size),
+            });
+        }
+        let old = crate::isa::riscv::memory::shared::atomic(
+            &self.mem,
+            &self.exclusive,
+            address,
+            size,
+            operation,
+        )?;
+        if let Some(new) = operation.replacement(old, size) {
+            // The event describes this committed transaction, outside RAM locks.
+            self.publish_tohost(address, &new.to_le_bytes()[..usize::from(size)]);
+        }
+        Ok(old)
+    }
+
     fn load_reserved(&mut self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
         if self.devices_enabled && overlaps_uart(addr, buf.len()) {
             self.exclusive.clear();

@@ -105,16 +105,14 @@ cases cover differing complete map views, partial host allocation views,
 replaced backing, source-witness invalidation, writer exclusion during frozen
 publication and a 16-byte reservation across sixteen separate allocations.
 
-The test scope does not establish VMM secondary startup, platform interrupt or
-timer delivery, shared AMO/Zacas indivisibility, physical RISC-V execution, native
-Intel Hypervisor.framework execution, or all four audit findings' completion.
-The separate two-hart AMOADD.W probe still loses an increment and remains a
-required follow-up under C-SMP. Two additional current Zacas controls fail:
-compare-miss on read-only memory omits mandatory write admission, and RV32
-even-pair AMOCAS.D is rejected despite enabled Zacas. Both retained-primary
-section 15.1 requirements belong to the next atomic transaction/profile group.
-The A32-FP and remaining backend/native profile
-requirements remain open.
+This LR/SC group's test scope does not establish VMM secondary startup,
+platform interrupt/timer delivery, physical RISC-V execution, native Intel
+Hypervisor.framework execution, or all four audit findings' completion. Its
+then-failing shared AMO/Zacas indivisibility, CAS write-admission and RV32 pair
+controls are addressed by the subsequent
+[shared atomics group](../riscv-shared-atomics/README.md). That group's separate
+qualification retains actual red/green and independent observations. Remaining
+A32-FP, backend/native profiles and complete platform SMP remain open.
 
 The lock acquisition and read cost is O(R) for R physical ranges in a view; the
 common one-range path allocates no guard vector. Invalidation additionally scans
@@ -134,5 +132,5 @@ record encoding retains its existing byte and collection limits.
 
 | Impact | Remaining scope |
 | --- | --- |
-| High | Shared AMO/Zacas indivisibility, complete RISC-V VMM startup/controller/clock/replay, remaining A32-FP/C-STATE/C-HVF profiles and actual Intel HVF execution |
+| High | Complete RISC-V VMM startup/controller/clock/replay, remaining A32-FP/C-STATE/C-HVF profiles and actual Intel HVF execution |
 | Medium | Fragmented-view performance and external raw/alternate-host-address aliases require separate qualification |

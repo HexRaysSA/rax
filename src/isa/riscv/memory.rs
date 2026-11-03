@@ -7,6 +7,8 @@
 
 use std::fmt::Debug;
 
+mod atomic;
+pub use atomic::AtomicOp;
 pub(crate) mod shared;
 
 /// Result of a memory access.
@@ -55,6 +57,24 @@ pub trait Memory: Debug + Send {
     fn probe(&self, addr: u64, size: usize, _write: bool) -> MemResult<()> {
         let mut discarded = vec![0; size];
         self.read(addr, &mut discarded)
+    }
+
+    /// Perform one AMO/CAS transaction and return its old operand.
+    /// The default is for private memory. It checks store admission and writes
+    /// back the old value on a failed CAS (permitted by Zacas 15.1), ensuring a
+    /// write-rejecting private implementation still faults without a custom
+    /// probe. Shared RAM/device providers must override this with their owner
+    /// transaction and permission boundary.
+    fn atomic(&mut self, addr: u64, size: u8, operation: AtomicOp) -> MemResult<u128> {
+        operation.validate(addr, size)?;
+        let length = usize::from(size);
+        self.probe(addr, length, true)?;
+        let mut bytes = [0; 16];
+        self.read(addr, &mut bytes[..length])?;
+        let old = u128::from_le_bytes(bytes);
+        let new = operation.replacement(old, size).unwrap_or(old);
+        self.write(addr, &new.to_le_bytes()[..length])?;
+        Ok(old)
     }
 
     /// Read an LR operand and establish its reservation as one transaction.

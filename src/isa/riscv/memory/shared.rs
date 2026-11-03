@@ -1,8 +1,18 @@
 //! Physical RISC-V reservation transactions. Translation and MMIO admission
 //! must finish before these functions acquire the shared RAM writer domain.
-use super::{MemError, MemResult};
+use super::{AtomicOp, MemError, MemResult};
 use crate::vm::memory::reservations::{Monitor, preflight_write};
 use vm_memory::{GuestAddress, GuestMemory, GuestMemoryMmap, GuestMemoryRegion};
+
+pub(crate) fn atomic(
+    memory: &GuestMemoryMmap,
+    monitor: &Monitor,
+    address: u64,
+    size: u8,
+    operation: AtomicOp,
+) -> MemResult<u128> {
+    monitor.atomic(memory, address, size, operation)
+}
 
 fn validate(address: u64, size: usize) -> MemResult<()> {
     if !matches!(size, 4 | 8) {

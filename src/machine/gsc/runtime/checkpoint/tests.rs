@@ -16,6 +16,53 @@ fn source() -> GscVcpu {
         .unwrap();
     c
 }
+
+#[test]
+fn gsc_ram_atomics_share_exclusive_rights_and_reject_device_effects() {
+    use crate::isa::riscv::memory::AtomicOp;
+    let mut c = source();
+    let memory = c.bridge.mem.clone();
+    let observer = crate::vm::memory::reservations::MemoryDomain::for_memory(&memory).register();
+    for size in [4u8, 8, 16] {
+        observer.read_exclusive(&memory, 0x2000, 4).unwrap();
+        assert_eq!(
+            c.cpu
+                .memory_mut()
+                .atomic(
+                    0x2000,
+                    size,
+                    AtomicOp::CompareExchange {
+                        expected: 0,
+                        replacement: 7
+                    }
+                )
+                .unwrap(),
+            0
+        );
+        assert!(!observer.write_exclusive(&memory, 0x2000, &[0; 4]).unwrap());
+        memory.write_obj(0u128, GuestAddress(0x2000)).unwrap();
+    }
+    let before = Image::capture(&c).unwrap().encode().unwrap();
+    for address in [MMIO_LO, CORE_LOCAL_BASE, CORE_IRQ_CLAIM, CORE_IRQ_EPOCH] {
+        for size in [4u8, 8, 16] {
+            let address = address & !(u64::from(size) - 1);
+            assert!(
+                c.cpu
+                    .memory_mut()
+                    .atomic(
+                        address,
+                        size,
+                        AtomicOp::CompareExchange {
+                            expected: 0,
+                            replacement: 1
+                        }
+                    )
+                    .is_err()
+            );
+        }
+    }
+    assert_eq!(Image::capture(&c).unwrap().encode().unwrap(), before);
+}
 fn prepared(source: &GscVcpu, target: &GscVcpu) -> GscVcpu {
     let (raw, r) = source.checkpoint_parts().unwrap();
     let r = PreparedResources::from_bindings(r).unwrap();

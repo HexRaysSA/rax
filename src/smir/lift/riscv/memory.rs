@@ -295,6 +295,141 @@ impl RiscVLifter {
         Ok((ops, ControlFlow::NextInsn))
     }
 
+    /// Pack before defining either destination: source/address pairs may alias.
+    fn pack_atomic_word_pair(
+        &self,
+        register: u8,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        ops: &mut Vec<SmirOp>,
+    ) -> VReg {
+        if register == 0 {
+            return VReg::Imm(0);
+        }
+        let low = ctx.alloc_vreg();
+        let high = ctx.alloc_vreg();
+        let shifted = ctx.alloc_vreg();
+        let packed = ctx.alloc_vreg();
+        for (dst, source) in [(low, register), (high, register + 1)] {
+            ops.push(SmirOp::new(
+                ctx.next_op_id(),
+                addr,
+                OpKind::ZeroExtend {
+                    dst,
+                    src: self.get_x_reg(source, ctx),
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                },
+            ));
+        }
+        ops.push(SmirOp::new(
+            ctx.next_op_id(),
+            addr,
+            OpKind::Shl {
+                dst: shifted,
+                src: high,
+                amount: SrcOperand::Imm(32),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ));
+        ops.push(SmirOp::new(
+            ctx.next_op_id(),
+            addr,
+            OpKind::Or {
+                dst: packed,
+                src1: shifted,
+                src2: SrcOperand::Reg(low),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ));
+        packed
+    }
+
+    fn lift_rv32_cas_pair(
+        &mut self,
+        insn: u32,
+        addr: GuestAddr,
+        order: MemoryOrder,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let rd = Self::rd(insn);
+        let rs1 = Self::rs1(insn);
+        let rs2 = Self::rs2(insn);
+        if rd & 1 != 0 || rs2 & 1 != 0 {
+            return Err(LiftError::InvalidEncoding {
+                addr,
+                bytes: insn.to_le_bytes().to_vec(),
+            });
+        }
+        let mut ops = Vec::new();
+        let address = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            ctx.next_op_id(),
+            addr,
+            OpKind::ZeroExtend {
+                dst: address,
+                src: self.get_x_reg(rs1, ctx),
+                from_width: OpWidth::W32,
+                to_width: OpWidth::W64,
+            },
+        ));
+        let expected = self.pack_atomic_word_pair(rd, addr, ctx, &mut ops);
+        let new_val = self.pack_atomic_word_pair(rs2, addr, ctx, &mut ops);
+        let packed = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            ctx.next_op_id(),
+            addr,
+            OpKind::Cas {
+                dst: packed,
+                success: ctx.alloc_vreg(),
+                addr: Address::Direct(address),
+                expected,
+                new_val,
+                width: MemWidth::B8,
+                order,
+            },
+        ));
+        if rd != 0 {
+            let shifted = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                ctx.next_op_id(),
+                addr,
+                OpKind::ZeroExtend {
+                    dst: self.def_x_reg(rd, ctx).expect("nonzero pair low result"),
+                    src: packed,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                },
+            ));
+            ops.push(SmirOp::new(
+                ctx.next_op_id(),
+                addr,
+                OpKind::Shr {
+                    dst: shifted,
+                    src: packed,
+                    amount: SrcOperand::Imm(32),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+            ));
+            ops.push(SmirOp::new(
+                ctx.next_op_id(),
+                addr,
+                OpKind::ZeroExtend {
+                    dst: self
+                        .def_x_reg(rd + 1, ctx)
+                        .expect("nonzero pair high result"),
+                    src: shifted,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                },
+            ));
+        }
+        Ok((ops, ControlFlow::NextInsn))
+    }
+
     /// Atomic instructions (A extension)
     pub(crate) fn lift_atomic(
         &mut self,
@@ -302,6 +437,15 @@ impl RiscVLifter {
         addr: GuestAddr,
         ctx: &mut LiftContext,
     ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        // The public lifter must enforce the same XLEN, extension and reserved
+        // fields as direct execution. Zacas supplies Zaamo, never Zalrsc.
+        let decoded = crate::isa::riscv::decode(insn, self.rv_xlen(), &self.decoder_isa());
+        if decoded.is_illegal() {
+            return Err(LiftError::InvalidEncoding {
+                addr,
+                bytes: insn.to_le_bytes().to_vec(),
+            });
+        }
         let rd = Self::rd(insn);
         let rs1_reg = Self::rs1(insn);
         let rs2_reg = Self::rs2(insn);
@@ -333,8 +477,26 @@ impl RiscVLifter {
             (true, true) => MemoryOrder::SeqCst,
         };
 
+        if self.xlen == 32 && width == MemWidth::B8 && funct5 == 0b00101 && self.extensions.zacas {
+            return self.lift_rv32_cas_pair(insn, addr, order, ctx);
+        }
         let mut ops = Vec::new();
-        let address = Address::Direct(rs1);
+        let address = if self.xlen == 32 {
+            let normalized = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                ctx.next_op_id(),
+                addr,
+                OpKind::ZeroExtend {
+                    dst: normalized,
+                    src: rs1,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                },
+            ));
+            Address::Direct(normalized)
+        } else {
+            Address::Direct(rs1)
+        };
 
         if width == MemWidth::B16 {
             if rd & 1 != 0 || rs2_reg & 1 != 0 {
@@ -391,7 +553,7 @@ impl RiscVLifter {
             let dst = self.def_x_reg(rd, ctx).unwrap_or_else(|| ctx.alloc_vreg());
             // Word LR/AMO results are sign-extended into rd (SC writes a 0/1
             // status, so it is excluded).
-            let needs_sext = width == MemWidth::B4 && funct5 != 0b00011;
+            let needs_sext = self.xlen == 64 && width == MemWidth::B4 && funct5 != 0b00011;
             let result = if needs_sext { ctx.alloc_vreg() } else { dst };
             let kind = match funct5 {
                 0b00010 => {

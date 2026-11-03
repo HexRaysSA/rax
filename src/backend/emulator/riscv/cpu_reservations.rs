@@ -10,6 +10,31 @@ pub(super) fn overlaps_uart(address: u64, size: usize) -> bool {
 }
 
 impl UserBridge {
+    pub(super) fn atomic_address(&self, address: u64, size: usize) -> MemResult<u64> {
+        let read = self
+            .translation
+            .translate(address, MemoryAccessKind::Read)
+            .map_err(|mut fault| {
+                fault.access = MemoryAccessKind::Write;
+                fault.size = size.min(u32::MAX as usize) as u32;
+                self.fail(fault, size)
+            })?;
+        let write = self
+            .translation
+            .translate(address, MemoryAccessKind::Write)
+            .map_err(|mut fault| {
+                fault.size = size.min(u32::MAX as usize) as u32;
+                self.fail(fault, size)
+            })?;
+        if read != write || !self.mem.check_range(GuestAddress(write), size) {
+            return Err(self.fail(
+                GuestMemoryFault::unmapped(address, size, MemoryAccessKind::Write),
+                size,
+            ));
+        }
+        Ok(write)
+    }
+
     pub(super) fn reserved_address(
         &self,
         address: u64,

@@ -72,6 +72,51 @@ impl UserRiscVMemory {
 }
 
 impl Memory for UserRiscVMemory {
+    fn atomic(
+        &mut self,
+        address: u64,
+        size: u8,
+        operation: crate::isa::riscv::memory::AtomicOp,
+    ) -> MemResult<u128> {
+        operation.validate(address, size)?;
+        let length = usize::from(size);
+        let read = self
+            .space
+            .translate(address, MemoryAccessKind::Read)
+            .map_err(|mut fault| {
+                fault.access = MemoryAccessKind::Write;
+                fault.size = u32::from(size);
+                self.fail(fault, length)
+            })?;
+        // Write translation also charges private-copy and code invalidation.
+        let write = self
+            .space
+            .translate(address, MemoryAccessKind::Write)
+            .map_err(|mut fault| {
+                fault.size = u32::from(size);
+                self.fail(fault, length)
+            })?;
+        if read != write {
+            return Err(self.fail(
+                GuestMemoryFault::unmapped(address, length, MemoryAccessKind::Write),
+                length,
+            ));
+        }
+        crate::isa::riscv::memory::shared::atomic(
+            self.space.physical_memory(),
+            &self.exclusive,
+            write,
+            size,
+            operation,
+        )
+        .map_err(|_| {
+            self.fail(
+                GuestMemoryFault::unmapped(address, length, MemoryAccessKind::Write),
+                length,
+            )
+        })
+    }
+
     fn load_reserved(&mut self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
         let result = self
             .space
@@ -468,5 +513,64 @@ mod reservation_tests {
         assert!(mem.store_conditional(0x2000, &bytes, false).is_err());
         assert_eq!(mem.last_fault.lock().unwrap().unwrap().address, 0x2000);
         assert!(!mem.store_conditional(0x1000, &bytes, true).unwrap());
+    }
+
+    #[test]
+    fn atomic_write_admission_charges_private_copy_and_invalidates_code_on_compare_miss() {
+        use crate::isa::riscv::memory::AtomicOp;
+        let mut mem = memory();
+        mem.space
+            .protect(0x1000, 4096, Perms::READ | Perms::WRITE | Perms::EXEC)
+            .unwrap();
+        mem.space.track_private_copies(0x1000, 4096).unwrap();
+        assert_eq!(mem.space.acquired_private_bytes(0x1000, 4096), 0);
+        let epoch = mem.space.code_epoch();
+        assert_eq!(
+            mem.atomic(
+                0x1000,
+                8,
+                AtomicOp::CompareExchange {
+                    expected: 0,
+                    replacement: 1
+                }
+            )
+            .unwrap(),
+            0x1234_5678
+        );
+        assert_eq!(mem.space.acquired_private_bytes(0x1000, 4096), 4096);
+        assert!(mem.space.code_epoch() > epoch);
+        assert_eq!(mem.read_u64(0x1000).unwrap(), 0x1234_5678);
+    }
+
+    #[test]
+    fn process_atomic_compare_miss_checks_asymmetric_permissions_at_all_widths() {
+        use crate::isa::riscv::memory::AtomicOp;
+        for size in [4, 8, 16] {
+            for perms in [Perms::READ, Perms::WRITE] {
+                let mut mem = memory();
+                mem.space.protect(0x1000, 4096, perms).unwrap();
+                assert!(
+                    mem.atomic(
+                        0x1000,
+                        size,
+                        AtomicOp::CompareExchange {
+                            expected: 0,
+                            replacement: 1
+                        }
+                    )
+                    .is_err()
+                );
+                let fault = mem.last_fault.lock().unwrap().unwrap();
+                assert_eq!(
+                    (fault.address, fault.size, fault.access),
+                    (0x1000, u32::from(size), MemoryAccessKind::Write)
+                );
+                assert_eq!(fault.kind, crate::error::MemoryFaultKind::Permission);
+                mem.space
+                    .protect(0x1000, 4096, Perms::READ | Perms::WRITE)
+                    .unwrap();
+                assert_eq!(mem.read_u64(0x1000).unwrap(), 0x1234_5678);
+            }
+        }
     }
 }

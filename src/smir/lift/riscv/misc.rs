@@ -226,7 +226,7 @@ impl RiscVLifter {
             0x3B if self.xlen == 64 => self.lift_op32(insn, addr, ctx),
             0x0F => self.lift_fence(insn, addr, ctx),
             0x73 => self.lift_system(insn, addr, ctx),
-            0x2F if self.extensions.a => self.lift_atomic(insn, addr, ctx),
+            0x2F if self.extensions.a || self.extensions.zacas => self.lift_atomic(insn, addr, ctx),
             // FP load/store and OP-FP. Only the fflags/rounding-free ops (moves,
             // sign-inject, load/store) are lifted; arithmetic/convert/compare are
             // gaps until SMIR FP tracks fflags + NaN-boxing + frm.
