@@ -39,6 +39,20 @@ fn compare_function() -> io::Result<Compare> {
     Ok(unsafe { std::mem::transmute::<*mut c_void, Compare>(address) })
 }
 
+pub(super) fn same_identity(left: &Owned, right: &Owned) -> io::Result<()> {
+    let compare = compare_function()?;
+    // SAFETY: both handles are live owned native opens. The comparison retains
+    // neither handle and no guest pointer or handle reaches the native API.
+    let status = unsafe { compare(left.0, right.0) };
+    if status != 0 {
+        return Err(invalid(&format!(
+            "fixed session child identity differs: {:#010x}",
+            status as u32
+        )));
+    }
+    Ok(())
+}
+
 pub(super) fn verified(
     selected: &[SelectedDirectory],
     handles: &[(Vec<u16>, Owned)],

@@ -9,6 +9,7 @@ pub(super) mod file_image;
 pub(super) mod gui;
 pub(super) mod image;
 mod section;
+mod session_parent;
 type Handle = *mut c_void;
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -384,29 +385,37 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
                 )));
             }
         };
-        let mut entries = None;
-        let mut last = None;
-        for _ in 0..3 {
-            let first = enumerate(&h)?;
-            let second = enumerate(&h)?;
-            if entries_coherent(&upcase, &first, &second) {
-                entries = Some(first);
-                break;
+        let mut entries = if units == session_parent && maximum_access & 1 == 0 {
+            // The current session parent may grant traversal without query.
+            // Its independently selected children remain observable through
+            // typed relative opens; all other membership stays uncaptured.
+            incomplete.push(units.clone());
+            session_parent::capture(&upcase, &h, &units, session)?
+        } else {
+            let mut entries = None;
+            let mut last = None;
+            for _ in 0..3 {
+                let first = enumerate(&h)?;
+                let second = enumerate(&h)?;
+                if entries_coherent(&upcase, &first, &second) {
+                    entries = Some(first);
+                    break;
+                }
+                last = Some((first, second));
             }
-            last = Some((first, second));
-        }
-        let mut entries = match entries {
-            Some(entries) => entries,
-            None if !image_directory(&units) => {
-                let (first, second) = last.expect("three bounded captures were attempted");
-                incomplete.push(units.clone());
-                stable_volatile_entries(&upcase, &first, &second)
-                    .ok_or_else(|| invalid("partial NT directory capture exceeds bounds"))?
-            }
-            None => {
-                return Err(invalid(&format!(
-                    "selected image directory changed during bounded capture: {path}"
-                )));
+            match entries {
+                Some(entries) => entries,
+                None if !image_directory(&units) => {
+                    let (first, second) = last.expect("three bounded captures were attempted");
+                    incomplete.push(units.clone());
+                    stable_volatile_entries(&upcase, &first, &second)
+                        .ok_or_else(|| invalid("partial NT directory capture exceeds bounds"))?
+                }
+                None => {
+                    return Err(invalid(&format!(
+                        "selected image directory changed during bounded capture: {path}"
+                    )));
+                }
             }
         };
         let force_case_insensitive = forced_case(&units, &h, &entries)?;

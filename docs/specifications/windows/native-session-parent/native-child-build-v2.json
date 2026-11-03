@@ -1,0 +1,48 @@
+{
+  "state": "built",
+  "source": "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-namespace-access-v1/native-session-children-v2.cpp",
+  "source_sha256": "81fd211bcaaa386420f78b733de8feab791971ebaaa6443cf379e1382b15226f",
+  "image": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-session-children-arm64-v2.exe",
+  "image_bytes": 122368,
+  "image_sha256": "765bdab1a58c725a124180a2c64b6454bda596d8ebd9e132f6f05bd299428726",
+  "commands": [
+    {
+      "argv": [
+        "/Users/int/local/bin/clang-cl",
+        "--target=aarch64-pc-windows-msvc",
+        "/nologo",
+        "/O2",
+        "/W4",
+        "/utf-8",
+        "/MT",
+        "/std:c++17",
+        "/c",
+        "/Fo/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-session-children-v2.obj",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/crt/include",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/ucrt",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/shared",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/um",
+        "--",
+        "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-namespace-access-v1/native-session-children-v2.cpp"
+      ],
+      "exit_code": 0,
+      "seconds": 0.6105688330717385
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/lld-link",
+        "/subsystem:console",
+        "/machine:arm64",
+        "/out:/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-session-children-arm64-v2.exe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-session-children-v2.obj",
+        "kernel32.lib",
+        "advapi32.lib",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/crt/lib/aarch64",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/um/aarch64",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/ucrt/aarch64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.018900333088822663
+    }
+  ]
+}

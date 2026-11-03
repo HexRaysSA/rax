@@ -759,3 +759,6 @@ pub(crate) mod reparse_tests;
 
 #[cfg(test)]
 mod session_windows_tests;
+
+#[cfg(test)]
+pub(crate) mod traverse_only_tests;

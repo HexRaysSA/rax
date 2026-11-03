@@ -1,0 +1,35 @@
+{
+  "source_manifest_sha256": "e97844761fd698e98ea440a7e9ed154e23863abc25ccaf2388a0fdd4ca8e6f41",
+  "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+  "original_native_jobs_restarted": false,
+  "image_sha256": "c91734e71cae8300bbf4fc9e4ba7c8b5a0013a5e53c45ff2cf3f3a48153d4a0b",
+  "tests": [
+    {
+      "creation": "134381759081465275",
+      "stdout": "\nrunning 3 tests\ntest user::windows::object_namespace::installed::session_parent::tests::fixed_session_capture_rejects_other_subjects_before_native_calls ... ok\ntest user::windows::object_namespace::installed::session_parent::tests::fixed_session_child_canonical_names_preserve_type_and_reject_escape ... ok\ntest user::windows::object_namespace::installed::session_parent::tests::installed_fixed_session_children_capture_from_current_native_parent ... ok\n\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 9175 filtered out; finished in 0.12s\n\n",
+      "stderr": "",
+      "arguments": "object_namespace::installed::session_parent::tests --test-threads=1 --nocapture",
+      "pid": 6160,
+      "exit_code": 0
+    },
+    {
+      "creation": "134381759085503711",
+      "stdout": "\nrunning 2 tests\ntest user::windows::object_namespace::traverse_only_tests::traverse_only_session_keeps_native_grants_and_unknown_membership ... ok\ntest user::windows::object_namespace::traverse_only_tests::traverse_only_session_routes_keep_identity_after_catalog_drop ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 9176 filtered out; finished in 0.23s\n\n",
+      "stderr": "",
+      "arguments": "object_namespace::traverse_only_tests:: --test-threads=1 --nocapture",
+      "pid": 5204,
+      "exit_code": 0
+    },
+    {
+      "creation": "134381759088978129",
+      "stdout": "\nrunning 1 test\ntest user::windows::process::sched::tests::services_tests::directory_open_tests::partial_session::native_directory_partial_session_preserves_access_and_retained_routes_all_abis ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9177 filtered out; finished in 0.32s\n\n",
+      "stderr": "",
+      "arguments": "directory_open_tests::partial_session:: --test-threads=1 --nocapture",
+      "pid": 5796,
+      "exit_code": 0
+    }
+  ],
+  "subject": "S-1-5-21-432357189-4232641918-3742464398-1000",
+  "repo": "C:\\Users\\int\\AppData\\Local\\Temp\\assist-native-rax-current-user-20261103\\namespace-snapshot-tests-repo-v1",
+  "schema": "rax-namespace-tests-v1"
+}

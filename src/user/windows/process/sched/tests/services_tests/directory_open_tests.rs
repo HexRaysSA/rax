@@ -11,6 +11,8 @@ mod boundary;
 mod leaf;
 #[path = "directory_open_name_probe_tests.rs"]
 mod name_probe;
+#[path = "directory_session_partial_tests.rs"]
+mod partial_session;
 #[path = "directory_open_reference_tests.rs"]
 mod reference;
 #[path = "directory_session_tests.rs"]

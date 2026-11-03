@@ -1,0 +1,33 @@
+{
+  "baseline_head": "b80e2954dba8df8ccb6dbb31242440e292546005",
+  "artifact": {
+    "path": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/windows-counter-native-v1/windows-post-session-context-arm64-v1.exe",
+    "bytes": 7874560,
+    "sha256": "f7e72958ee99f826bda4cec238a0e3c0a0f543d9d855e6938d3480e538bcf76b",
+    "source": "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-namespace-access-v1/windows-post-session-context-v1.rs",
+    "source_sha256": "9de01d80384df4b2c66dae3e691c67dc0975c69a36114a90d47e58eb2800b62f",
+    "library_sha256": "96468ebd519e5c1795958c5ef8a45db26c61ae69145a5ea612831f6414d45e70"
+  },
+  "source_frame_sha256": "e6f1d3214169423547c39b422ed8c29f04c5bb3ac7fedee6261116b9c7b7f1e2",
+  "owned_sources": {
+    "src/user/windows/object_namespace/installed.rs": "4c6540a2c336d2087694cdcab2598f1ec2541dbbc11dae79981da4086daf0b88",
+    "src/user/windows/object_namespace/installed/session_parent.rs": "b26c4f5bd6c0b0c36ff357a8ced01e43f7757b15a2e11e1f9df678b609d10ad3",
+    "src/user/windows/object_namespace/installed/session_parent_tests.rs": "edbd6693f21508602f89ea49f9308c152e4d7569d94902d10d24620873417410",
+    "src/user/windows/object_namespace/installed/directory_alias.rs": "b5f22c0567063360d8b121b6c35f0ef9fc0a804360b584924f82a1c30f5846bb",
+    "src/user/windows/object_namespace.rs": "75e582d77c9b75074f0b75f705c58a98efd87bf37fbaf78a92ce083a946003ae",
+    "src/user/windows/object_namespace/traverse_only_tests.rs": "3f119b4c4c445a3504f19463f37e48b9cd4ff1a9c48a36244e7f2bb504fef858",
+    "src/user/windows/process/sched/tests/services_tests/directory_open_tests.rs": "e4bb6395479fa310c63649c95a6e94125e3c2e65f58fd6303c8a6eb0f70f4ff8",
+    "src/user/windows/process/sched/tests/services_tests/directory_session_partial_tests.rs": "381605c9b1507ee6cc81adc2281ba4f36a93f6c68dfa80c414135fac0efd13cf",
+    "docs/specifications/windows/native-session-parent/native-build-v1.json": "1b68002a0468537448161c3faca2105efa3c8450b96a6a37170c3ea038cbc09e",
+    "docs/specifications/windows/native-session-parent/native-child-build-v2.json": "7f69cc6bc989d72314a7931a1287769a9924c5e1c69b8d3b1be75b1cb923ad95",
+    "docs/specifications/windows/native-session-parent/native-directory-access-v1.cpp": "046261ae6a3ad8b54203be5bca9706e3bc5bc30dd4f52b186769efd2070d04a9",
+    "docs/specifications/windows/native-session-parent/native-receipt-v1.json": "8102afc5a6484b4f7b13ed6ee2fe5d66ea7bc462c2137aaf972978fe843b1bd8",
+    "docs/specifications/windows/native-session-parent/native-receipt-v2.json": "5c9c72593a09439335cebc41fc7dcbaa92062654ffc21584a114dd3447452781",
+    "docs/specifications/windows/native-session-parent/native-session-children-v2.cpp": "81fd211bcaaa386420f78b733de8feab791971ebaaa6443cf379e1382b15226f",
+    "docs/specifications/windows/native-session-parent/verify-evidence.py": "f0f74512a236adedb7ba95b4f62f69647168d6ee32b0efa55fa30f152f2f78d9",
+    "docs/specifications/windows/native-session-parent/README.md": "b556aaa721876724c15f287784eba062c0aeb43c4d8927d7fb60436c7d3096b8",
+    "docs/specifications/windows/native-session-parent/native-rust-arm64-v1.json": "542bddbc1c2fd60ea6c3e1c72a8c5542c5783b000ec486b578a23da9a437f89a",
+    "docs/specifications/windows/native-session-parent/native-rust-source-v1.json": "e97844761fd698e98ea440a7e9ed154e23863abc25ccaf2388a0fdd4ca8e6f41"
+  },
+  "note": "Host build source/hash manifest; not a native rebuild."
+}
