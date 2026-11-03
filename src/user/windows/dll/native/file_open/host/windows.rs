@@ -40,6 +40,19 @@ unsafe extern "system" {
         share: u32,
         options: u32,
     ) -> i32;
+    fn NtCreateFile(
+        out: *mut *mut c_void,
+        access: u32,
+        attrs: *const Attributes,
+        io: *mut Io,
+        allocation: *const i64,
+        file_attributes: u32,
+        share: u32,
+        disposition: u32,
+        options: u32,
+        ea: *const u8,
+        ea_bytes: u32,
+    ) -> i32;
     fn NtQueryInformationFile(
         file: *mut c_void,
         io: *mut Io,
@@ -63,6 +76,30 @@ pub(super) fn open(
     share: u32,
     options: u32,
     flags: u32,
+) -> Checked<Acquired> {
+    acquire(c, path, access, share, options, flags, None)
+}
+
+pub(super) fn create(
+    c: &Ctx,
+    path: &Resolved,
+    access: u32,
+    share: u32,
+    options: u32,
+    flags: u32,
+    request: super::Creation,
+) -> Checked<Acquired> {
+    acquire(c, path, access, share, options, flags, Some(request))
+}
+
+fn acquire(
+    c: &Ctx,
+    path: &Resolved,
+    access: u32,
+    share: u32,
+    options: u32,
+    flags: u32,
+    creation: Option<super::Creation>,
 ) -> Checked<Acquired> {
     let retained = path
         .root
@@ -115,10 +152,44 @@ pub(super) fn open(
         status: 0,
         information: 0,
     };
+    // The host NT entry probes EA input with ULONG alignment. Vec<u8>'s type
+    // does not promise that alignment, even when the guest address was aligned.
+    let ea: Vec<u32> = creation.as_ref().map_or_else(Vec::new, |request| {
+        request
+            .ea
+            .chunks(4)
+            .map(|chunk| {
+                let mut bytes = [0; 4];
+                bytes[..chunk.len()].copy_from_slice(chunk);
+                u32::from_le_bytes(bytes)
+            })
+            .collect()
+    });
     // SAFETY: all pointer arguments reference exclusive live host buffers of the
     // declared ABI layouts. The optional root is borrowed from an owned File.
     // Masks are validated; host inheritance/security/QoS are never delegated.
-    let code = unsafe { NtOpenFile(&mut handle, access, &attrs, &mut io, share, options) };
+    let code = unsafe {
+        match &creation {
+            Some(request) => NtCreateFile(
+                &mut handle,
+                access,
+                &attrs,
+                &mut io,
+                request.allocation.as_ref().map_or(std::ptr::null(), |v| v),
+                request.attributes,
+                share,
+                request.disposition,
+                options,
+                if ea.is_empty() {
+                    std::ptr::null()
+                } else {
+                    ea.as_ptr().cast()
+                },
+                request.ea.len() as u32,
+            ),
+            None => NtOpenFile(&mut handle, access, &attrs, &mut io, share, options),
+        }
+    };
     if code != 0 {
         if !handle.is_null() && handle != (-1isize as *mut c_void) {
             // SAFETY: only this call can populate the private, initially NULL
@@ -139,6 +210,7 @@ pub(super) fn open(
     }
     // SAFETY: the successful call transferred a fresh handle, owned exactly once.
     let file = unsafe { File::from_raw_handle(handle) };
+    let information = io.information as u64;
     let mut basic = Buffer([0u8; 56]);
     let mut standard = Buffer([0u8; 24]);
     let mut returned = 0;
@@ -177,5 +249,6 @@ pub(super) fn open(
         identity,
         directory: standard.0[21] != 0,
         access: granted,
+        information,
     })
 }

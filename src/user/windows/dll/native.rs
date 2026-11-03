@@ -12,6 +12,7 @@ mod apphelp;
 mod directory;
 mod events;
 mod file_attributes;
+mod file_create;
 mod file_open;
 mod file_write;
 mod hotpatch;
@@ -57,6 +58,12 @@ mod worker_factory;
 mod wow64_csr;
 
 pub(super) static EXPORTS: &[Export] = &[
+    Export::func(
+        "NtCreateFile",
+        Stdcall,
+        &[Ptr, I32, Ptr, Ptr, Ptr, I32, I32, I32, I32, Ptr, I32],
+        file_create::create,
+    ),
     Export::func(
         "NtWriteFile",
         Stdcall,

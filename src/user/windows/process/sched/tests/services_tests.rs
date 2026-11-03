@@ -14,6 +14,8 @@ mod alpc_tests;
 #[path = "services_tests/file_write_tests.rs"]
 mod file_write_tests;
 
+#[path = "services_tests/file_create_tests.rs"]
+mod file_create_tests;
 #[path = "services_tests/file_open_tests.rs"]
 mod file_open_tests;
 

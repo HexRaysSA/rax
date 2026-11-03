@@ -88,7 +88,7 @@ pub(super) fn effective_access(mut access: u32) -> u32 {
 }
 
 fn share_access(access: u32) -> u32 {
-    u32::from(can_read(access)) * SHARE_READ
+    u32::from(can_read(access) || access & 0x20 != 0) * SHARE_READ
         | u32::from(can_write(access)) * SHARE_WRITE
         | u32::from(access & DELETE != 0) * SHARE_DELETE
 }

@@ -1,0 +1,61 @@
+{
+  "schema": "rax-native-file-create-qualification-v1",
+  "baseline": "93b0467bbd6cf1a930706d00d161d0b74f7a642d",
+  "rust_toolchain": "1.95.0",
+  "source_sha256": {
+    "src/user/windows/dll/files/mod.rs": "f90c26486571e4e60c025d3dec6b0742a89cb972b8c51cec04e18305b3de00e5",
+    "src/user/windows/dll/files/open.rs": "28a6d2f55339d1afb4efb25b9acee627d778eda54bd1f57f8ee86d8713ee055d",
+    "src/user/windows/dll/files/tests.rs": "bcd97e15ecbd058d19587004d1517b36e5ba84ff636421a1c01197afd6a734e0",
+    "src/user/windows/dll/native.rs": "f085f53bf6100f934d7058a9b152ed53c7d223d6fd83e431c615c8bf4f9d6784",
+    "src/user/windows/dll/native/file_attributes.rs": "2a73e747391176b6127e89552063a071cdf7093c9a9744742acb4dd7bbf6ac17",
+    "src/user/windows/dll/native/file_attributes/attributes.rs": "d69c23e30bbf35a2fa41e6da1e17b5eb30266f4f176156a4870b0afb68cada06",
+    "src/user/windows/dll/native/file_attributes/metadata/unix.rs": "c38d9e97d2c360f1997632b2a5b70dc18134de6043e0e74c7566b15e0bfed00e",
+    "src/user/windows/dll/native/file_attributes/path/unix.rs": "1bccd4f2475574db7d4d171a6a2e4ed3dfea3c8387dd387e3ce6b8a0f925e18d",
+    "src/user/windows/dll/native/file_attributes/posix.rs": "ab0e3de6e1c8a9c4d02e923cb150804f2b7bf858e2fa83dabc84e18ed3ccacf1",
+    "src/user/windows/dll/native/file_create.rs": "d2f6597e871602022dc05180558fd7925b1fa973c682e9e296d2d0b9fcfea094",
+    "src/user/windows/dll/native/file_create/capture.rs": "afba5a5b50e700d1ee7ded84dc797dfd9b1878be563ae31f96a6bea9a7cfb283",
+    "src/user/windows/dll/native/file_open.rs": "7f9bd3d7c830933f9c83719e57a4004a55219f1c927ca35671f3a7998cdfedca",
+    "src/user/windows/dll/native/file_open/host.rs": "1b0bebdff2fbf5d5eb17de4dbe62e4e00a6f0a51d9bb3eedd1d4b738b1791826",
+    "src/user/windows/dll/native/file_open/host/unix.rs": "7bab271f8ad3e11169b5e89f57bad25699260b80625a042e9a14683775141a08",
+    "src/user/windows/dll/native/file_open/host/unix/create.rs": "615d842e63f11091a2fd0761d5f9472ca6a1e0fe812a9d4966fb7cee950dd317",
+    "src/user/windows/dll/native/file_open/host/windows.rs": "59b2df6ff6444c42d0c3bc2a0fb7346f506837856ff1199d667f5e37c7ebbc5c",
+    "src/user/windows/fs.rs": "4942a1901d579e6742b2de9353f466149328b780f6bc34709d15b655218d8862",
+    "src/user/windows/process/sched/tests/services_tests.rs": "5f749590c3ea82a0b416fa799ec4fcb76e0742a6c5557f6ec65329ee7e8a0eee",
+    "src/user/windows/process/sched/tests/services_tests/file_create_tests.rs": "2677916be1ab0e9ce71e171bfe860f1663e3df8013ba3d7fdfc46175021a0a6b",
+    "src/user/windows/process/sched/tests/services_tests/file_create_tests/metadata_share.rs": "1e1ad9d0e8bd07294e2c8cd6d01cf72a8f32b6dce4415d490f51bed5bcf51059",
+    "src/user/windows/process/sched/tests/services_tests/file_create_tests/pointers.rs": "d256eec47c974f17e615f27d0acc98209c80abaddb9ab47e4af1253330f7bc22",
+    "src/user/windows/process/sched/tests/services_tests/file_create_tests/scalars.rs": "6d8c885ae6b0ce446d33e9dfd8e5c70745e6d24295e18552bf64b9f5353b055e",
+    "src/user/windows/process/sched/tests/services_tests/file_create_tests/storage.rs": "c8e3a220a0da45df5c9863b8357d24aa1ff24a6391c627d0c313f7238cbdbc9d",
+    "src/user/windows/process/sched/tests/services_tests/file_open_tests.rs": "b997628e179dbec168e2ec19a1746ed9c96b19d1fdd850bc9ad6891175c8a6d4"
+  },
+  "native_calls": 6948,
+  "owning_corpus_cases": 5988,
+  "related_tests": {
+    "macos_arm64": 33,
+    "windows_arm64": 33,
+    "linux_x64": 33
+  },
+  "c_api_tests_macos": 244,
+  "workspace_all_targets": [
+    "aarch64-apple-darwin",
+    "aarch64-pc-windows-msvc",
+    "x86_64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu"
+  ],
+  "windows_test_image": {
+    "sha256": "8b144e6ff9aa915f995a9788d70869d2bad53847a61ad7aaf2532dd82f079214",
+    "bytes": 717878784
+  },
+  "linux_test_image": {
+    "sha256": "877e8f98a692b370f01be408430d67e81da890924843784c400a9182c431f7de",
+    "bytes": 745621496
+  },
+  "native_controls_kernel": "Windows ARM64 10.0.29698.1000; ARM64/x64/WoW64 process ABIs",
+  "linux_cpu_execution": "Docker amd64 translation on ARM64; not physical x86",
+  "windows_execution_reused_after_linux_only_fix": true,
+  "cmd_guest_success": false,
+  "cmd_next_frontier": "NtCreateSection read-only file-backed SEC_COMMIT",
+  "full_process_emulation_complete": false,
+  "linux_O_PATH_attributes_require_proc_fd": true,
+  "qualification_is_observation_not_independent_authentication": true
+}

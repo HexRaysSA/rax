@@ -74,3 +74,4 @@ docs/specifications/windows/native-system-policy/** -text
 
 # Preserve the archived native APIC primary source byte for byte.
 docs/development/kvm-native-apic/references/*.c -text
+docs/specifications/windows/native-file-create/** -text

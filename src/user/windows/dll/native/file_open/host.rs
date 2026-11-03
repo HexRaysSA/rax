@@ -15,6 +15,41 @@ pub(super) struct Acquired {
     pub identity: FileIdentity,
     pub directory: bool,
     pub access: u32,
+    pub information: u64,
+}
+
+/// Captured values only. No guest address may reach a host system call.
+pub(in super::super) struct Creation {
+    pub disposition: u32,
+    pub attributes: u32,
+    pub allocation: Option<i64>,
+    pub ea: Vec<u8>,
+}
+
+pub(super) fn create(
+    c: &Ctx,
+    path: &Resolved,
+    access: u32,
+    share: u32,
+    options: u32,
+    flags: u32,
+    request: Creation,
+) -> Checked<Acquired> {
+    #[cfg(windows)]
+    {
+        windows::create(c, path, access, share, options, flags, request)
+    }
+    #[cfg(unix)]
+    {
+        unix::create(c, path, access, share, options, flags, request)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (path, access, share, options, flags, request);
+        Err(c
+            .unsupported("host file creation has no platform adapter")
+            .into())
+    }
 }
 
 pub(super) fn open(

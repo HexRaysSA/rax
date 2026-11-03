@@ -1,7 +1,7 @@
 //! NT opens capture guest arguments before publishing owned file handles.
 //! Native IO_STATUS_BLOCK probing and WoW64 copyback have distinct failure effects.
 
-mod host;
+pub(super) mod host;
 
 use super::file_attributes::{attributes, path};
 use super::named_object::{Checked, Failure, finish_with, status};
@@ -18,13 +18,13 @@ const ATTRIBUTES: u32 = 0x11ec2;
 const LIBRARY_READ: u32 = 0x0012_00a9;
 
 #[derive(Clone, Copy)]
-struct Request {
-    output: u64,
-    access: u32,
-    attributes: u64,
-    io: u64,
-    share: u32,
-    options: u32,
+pub(super) struct Request {
+    pub output: u64,
+    pub access: u32,
+    pub attributes: u64,
+    pub io: u64,
+    pub share: u32,
+    pub options: u32,
 }
 
 pub(super) fn open(c: &mut Ctx) -> ApiResult {
@@ -87,7 +87,7 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
     let core = match parameters(r) {
         Err(error) => Err(error),
         Ok(()) if wow && (r.output == 0 || r.io == 0) => status(STATUS_ACCESS_VIOLATION),
-        Ok(()) => kernel(c, r, captured),
+        Ok(()) => kernel(c, r, captured, None).map(|(handle, _)| handle),
     };
     let (code, handle) = match core {
         Ok(handle) => (STATUS_SUCCESS, handle),
@@ -138,11 +138,46 @@ fn sharing(access: u32) -> u32 {
         | (u32::from(access & 0x10000 != 0) << 2)
 }
 
-fn kernel(
+pub(in super::super) fn shared_lifetime(
+    c: &Ctx,
+    identity: &crate::user::windows::fs::FileIdentity,
+    access: u32,
+    share: u32,
+) -> Checked<Option<Arc<FileLifetime>>> {
+    let mut lifetime = None;
+    for (_, object) in c.p.objects.iter() {
+        let Object::File(file) = object else {
+            continue;
+        };
+        if &file.lifetime.identity != identity {
+            continue;
+        }
+        if file.lifetime.blocks_opens() {
+            return status(0xc000_0056);
+        }
+        let requested = sharing(access);
+        let existing = sharing(mapped_access(file.access));
+        // Attribute/EA-only references do not participate in data sharing.
+        // They still retain the same object lifetime and deletion identity.
+        if requested != 0
+            && existing != 0
+            && (requested & !file.share != 0
+                || existing & !share != 0
+                || file.lifetime.delete_requested() && share & 4 == 0)
+        {
+            return status(0xc000_0043);
+        }
+        lifetime = Some(file.lifetime.clone());
+    }
+    Ok(lifetime)
+}
+
+pub(super) fn kernel(
     c: &mut Ctx,
     r: Request,
     converted: Option<Option<attributes::Attributes>>,
-) -> Checked<u64> {
+    mut creation: Option<host::Creation>,
+) -> Checked<(u64, u64)> {
     if r.options & 0x2000 != 0 {
         return Err(c
             .unsupported("NT file-ID opens require a captured file-ID namespace")
@@ -172,29 +207,33 @@ fn kernel(
     if resolved.runtime_library && (access & !LIBRARY_READ != 0 || r.options & 0x1000 != 0) {
         return status(STATUS_ACCESS_DENIED);
     }
-    let acquired = host::open(c, &resolved, access, r.share, r.options, attrs.flags)?;
+    if resolved.runtime_library
+        && let Some(request) = &mut creation
+    {
+        if !matches!(request.disposition, 1 | 3) {
+            // The disposition can overwrite even when DesiredAccess is read-only.
+            return status(STATUS_ACCESS_DENIED);
+        }
+        // A selected DLL is an existing read-only capability. OPEN_IF must not
+        // create a replacement if another host process removes it during lookup.
+        request.disposition = 1;
+    }
+    let acquired = match creation {
+        Some(request) => host::create(
+            c,
+            &resolved,
+            access,
+            r.share,
+            r.options,
+            attrs.flags,
+            request,
+        )?,
+        None => host::open(c, &resolved, access, r.share, r.options, attrs.flags)?,
+    };
     if resolved.runtime_library && acquired.directory {
         return status(STATUS_ACCESS_DENIED);
     }
-    let mut lifetime = None;
-    for (_, object) in c.p.objects.iter() {
-        let Object::File(file) = object else {
-            continue;
-        };
-        if file.lifetime.identity != acquired.identity {
-            continue;
-        }
-        if file.lifetime.blocks_opens() {
-            return status(0xc000_0056);
-        }
-        if sharing(acquired.access) & !file.share != 0
-            || sharing(mapped_access(file.access)) & !r.share != 0
-            || file.lifetime.delete_requested() && r.share & 4 == 0
-        {
-            return status(0xc000_0043);
-        }
-        lifetime = Some(file.lifetime.clone());
-    }
+    let lifetime = shared_lifetime(c, &acquired.identity, acquired.access, r.share)?;
     let lifetime = lifetime.unwrap_or_else(|| Arc::new(FileLifetime::new(acquired.identity)));
     #[cfg(unix)]
     if r.options & 0x1000 != 0 {
@@ -229,7 +268,7 @@ fn kernel(
         c.p.objects
             .open_access(id, attrs.flags & 2 != 0, acquired.access);
     match handle {
-        Some(handle) => Ok(u64::from(handle)),
+        Some(handle) => Ok((u64::from(handle), acquired.information)),
         None => {
             c.p.objects.release(id);
             status(STATUS_INSUFFICIENT_RESOURCES)

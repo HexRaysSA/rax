@@ -301,13 +301,23 @@ fn access_grants_metadata_and_both_sharing_directions_all_abis() {
         assert_ne!(exclusive, h.invalid(), "ASCII case-insensitive lookup");
         assert_eq!(h.open("share.bin", GENERIC_READ, 7, 3, 0), h.invalid());
         assert_eq!(h.error(), ERROR_SHARING_VIOLATION);
-        let metadata = h.open("share.bin", 0, SHARE_READ, 3, 0);
+        let metadata = h.open("share.bin", 0, 0, 3, 0);
         assert_ne!(metadata, h.invalid());
         assert_eq!(h.size(metadata), 3);
         assert_eq!(h.write(metadata, b"z"), 0);
         assert_eq!(h.error(), ERROR_ACCESS_DENIED);
         h.close(metadata);
         h.close(exclusive);
+        let metadata = h.open("share.bin", 0, 0, 3, 0);
+        assert_ne!(metadata, h.invalid());
+        let data = h.open("share.bin", GENERIC_READ | GENERIC_WRITE, 0, 3, 0);
+        assert_ne!(
+            data,
+            h.invalid(),
+            "metadata-only handle must not reserve data sharing"
+        );
+        h.close(data);
+        h.close(metadata);
         let reader = h.open("share.bin", GENERIC_READ, SHARE_READ, 3, 0);
         assert_eq!(h.open("share.bin", GENERIC_WRITE, 7, 3, 0), h.invalid());
         assert_eq!(h.error(), ERROR_SHARING_VIOLATION);

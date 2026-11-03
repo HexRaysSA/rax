@@ -169,7 +169,11 @@ impl FileLifetime {
                             "deferred-delete pathname was replaced",
                         ));
                     }
-                    std::fs::remove_file(path)
+                    if metadata.is_dir() {
+                        std::fs::remove_dir(path)
+                    } else {
+                        std::fs::remove_file(path)
+                    }
                 })();
                 if let Err(error) = result {
                     d.error = Some((error.kind(), error.to_string()));

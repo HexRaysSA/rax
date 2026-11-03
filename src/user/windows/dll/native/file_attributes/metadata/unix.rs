@@ -2,6 +2,7 @@
 //! read from host metadata. Missing birth time is explicit, never synthesized.
 
 use super::super::super::named_object::Checked;
+use super::super::posix;
 use super::{Information, io_error};
 use crate::user::windows::hle::Ctx;
 use std::fs::File;
@@ -58,8 +59,14 @@ pub(super) fn query(c: &Ctx, path: &Path, file: Option<&File>) -> Checked<Inform
         .created()
         .map_err(|error| c.unsupported(format!("host birth timestamp unavailable: {error}")))?;
     let directory = metadata.is_dir();
-    let attributes =
-        u32::from(metadata.permissions().readonly()) | if directory { 0x10 } else { 0 };
+    let stored = match file {
+        Some(file) => posix::attributes(file),
+        None => posix::attributes_path(path),
+    }
+    .map_err(|e| c.unsupported(format!("NT file extended attributes: {e}")))?;
+    let attributes = (stored.unwrap_or(0) & !0x11)
+        | u32::from(metadata.permissions().readonly())
+        | if directory { 0x10 } else { 0 };
     let allocation = metadata
         .blocks()
         .checked_mul(512)

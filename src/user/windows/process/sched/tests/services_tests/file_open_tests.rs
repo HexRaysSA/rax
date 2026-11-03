@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-struct Directory(PathBuf);
+pub(super) struct Directory(pub(super) PathBuf);
 
 impl Directory {
     fn new() -> Self {
@@ -45,15 +45,15 @@ impl Drop for Directory {
     }
 }
 
-struct Harness {
-    process: WindowsProcess,
+pub(super) struct Harness {
+    pub(super) process: WindowsProcess,
     thread: Thread,
-    base: u64,
-    directory: Directory,
+    pub(super) base: u64,
+    pub(super) directory: Directory,
 }
 
 impl Harness {
-    fn new(arch: WinArch) -> Self {
+    pub(super) fn new(arch: WinArch) -> Self {
         let directory = Directory::new();
         std::fs::write(directory.0.join("fixture.bin"), b"fixture").unwrap();
         let (mut process, thread) = fixture(arch, "NtOpenFile", 0x33);
@@ -84,11 +84,11 @@ impl Harness {
         h
     }
 
-    fn attrs(&self) -> u64 {
+    pub(super) fn attrs(&self) -> u64 {
         self.base + 2 * PAGE_SIZE
     }
 
-    fn name(&mut self, name: &str) {
+    pub(super) fn name(&mut self, name: &str) {
         let at = self.attrs();
         let p = self.process.state_mut();
         let width = p.arch.ptr_size();
@@ -123,7 +123,7 @@ impl Harness {
         self.invoke_api("NtOpenFile", args)
     }
 
-    fn invoke_api(&mut self, name: &str, args: &[u64]) -> u32 {
+    pub(super) fn invoke_api(&mut self, name: &str, args: &[u64]) -> u32 {
         let p = self.process.state_mut();
         let module = p.modules.nt_services.as_ref().unwrap().0;
         p.modules.nt_services = Some((module, table(p.arch, name, 0x33)));
@@ -146,7 +146,7 @@ impl Harness {
     }
 }
 
-fn selection(h: &mut Harness) -> PathBuf {
+pub(super) fn selection(h: &mut Harness) -> PathBuf {
     let directory = h.directory.0.join("runtime");
     std::fs::create_dir(&directory).unwrap();
     std::fs::write(directory.join("fixture.dll"), b"native").unwrap();
@@ -314,7 +314,11 @@ fn arguments(p: &Proc, thread: &mut Thread, args: &[u64]) {
         }
         WinArch::Arm64 => {
             for (index, value) in args.iter().enumerate() {
-                thread.cpu.set_gpr(index, *value);
+                if index < 8 {
+                    thread.cpu.set_gpr(index, *value);
+                } else {
+                    p.space.w64(sp + (index as u64 - 8) * 8, *value).unwrap();
+                }
             }
         }
     }

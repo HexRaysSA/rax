@@ -110,7 +110,7 @@ fn validate_qos(qos: &[u8]) -> Checked<()> {
 }
 
 pub(in super::super) fn capture(c: &Ctx, address: u64, wow: bool) -> Checked<Option<Attributes>> {
-    capture_with(c, address, wow, 0x11ff2, false)
+    capture_with(c, address, wow, 0x11ff2, false, false)
 }
 
 pub(in super::super) fn capture_open(
@@ -118,7 +118,15 @@ pub(in super::super) fn capture_open(
     address: u64,
     wow: bool,
 ) -> Checked<Option<Attributes>> {
-    capture_with(c, address, wow, 0x11ec2, true)
+    capture_with(c, address, wow, 0x11ec2, true, false)
+}
+
+pub(in super::super) fn capture_create(
+    c: &Ctx,
+    address: u64,
+    wow: bool,
+) -> Checked<Option<Attributes>> {
+    capture_with(c, address, wow, 0x11ec2, true, true)
 }
 
 fn capture_with(
@@ -127,6 +135,7 @@ fn capture_with(
     wow: bool,
     allowed: u32,
     opening: bool,
+    capture_null_name: bool,
 ) -> Checked<Option<Attributes>> {
     if address == 0 {
         return Ok(None);
@@ -166,7 +175,7 @@ fn capture_with(
         let deferred_root = opening && root != 0 && c.p.objects.get(root).is_none();
         if let Some(name) = &mut name
             && !deferred_root
-            && name.buffer != 0
+            && (name.buffer != 0 || capture_null_name)
             && name.length % 2 == 0
             && name.length < 65534
         {

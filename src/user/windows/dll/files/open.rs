@@ -100,9 +100,13 @@ fn shared_lifetime(
             return Err(ERROR_ACCESS_DENIED);
         }
         let existing_access = file.access | if file.delete_on_close { DELETE } else { 0 };
-        if share_access(access) & !file.share != 0
-            || share_access(existing_access) & !share != 0
-            || (file.lifetime.delete_requested() && share & SHARE_DELETE == 0)
+        let requested = share_access(access);
+        let existing = share_access(existing_access);
+        if requested != 0
+            && existing != 0
+            && (requested & !file.share != 0
+                || existing & !share != 0
+                || (file.lifetime.delete_requested() && share & SHARE_DELETE == 0))
         {
             return Err(ERROR_SHARING_VIOLATION);
         }

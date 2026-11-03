@@ -4,6 +4,8 @@
 pub(super) mod attributes;
 mod metadata;
 pub(super) mod path;
+#[cfg(unix)]
+pub(super) mod posix;
 
 use super::named_object::{Checked, finish, status};
 use super::query::probe_write;

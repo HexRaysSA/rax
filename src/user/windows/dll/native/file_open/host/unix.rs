@@ -4,6 +4,9 @@ use crate::user::windows::dll::native::file_attributes::path::unix as relative;
 use std::fs::OpenOptions;
 use std::os::unix::fs::OpenOptionsExt;
 
+mod create;
+pub(super) use create::create;
+
 pub(super) fn open(
     c: &Ctx,
     path: &Resolved,
@@ -94,5 +97,6 @@ pub(super) fn open(
         identity,
         directory,
         access,
+        information: 1,
     })
 }

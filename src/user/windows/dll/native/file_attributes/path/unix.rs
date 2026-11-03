@@ -166,6 +166,85 @@ fn current(file: &File) -> io::Result<PathBuf> {
     }
 }
 
+/// Pins the parent directory before any create/overwrite. The returned path is
+/// bookkeeping; all namespace effects must use the returned directory and name.
+pub(in crate::user::windows::dll::native) fn parent(
+    c: &Ctx,
+    path: &Resolved,
+    attributes: u32,
+) -> io::Result<(File, CString, PathBuf)> {
+    let Some(relative) = &path.relative else {
+        if attributes & 0x1000 != 0 {
+            let mut part = Some(path.host.as_path());
+            while let Some(p) = part {
+                if p == path.base {
+                    break;
+                }
+                if std::fs::symlink_metadata(p).is_ok_and(|m| m.is_symlink()) {
+                    return Err(failed(
+                        0xc000_050b,
+                        io::Error::from_raw_os_error(libc::ELOOP),
+                    ));
+                }
+                part = p.parent();
+            }
+        }
+        let parent = path
+            .host
+            .parent()
+            .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))?;
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_CLOEXEC | libc::O_DIRECTORY)
+            .open(parent)?;
+        let name = CString::new(
+            path.host
+                .file_name()
+                .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))?
+                .as_bytes(),
+        )
+        .map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))?;
+        return Ok((file, name, path.host.clone()));
+    };
+    let root = path
+        .root
+        .and_then(|h| c.p.objects.get(h))
+        .and_then(|o| match o {
+            Object::File(f) => f.host.as_ref(),
+            _ => None,
+        })
+        .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))?;
+    let mut actual = current(root).or_else(|error| {
+        if root.metadata()?.is_dir() {
+            Ok(path.base.clone())
+        } else {
+            Err(error)
+        }
+    })?;
+    let parts: Vec<_> = relative.components().collect();
+    let mut directory = root.try_clone()?;
+    for (i, part) in parts.iter().enumerate() {
+        let name = spelling(c, &directory, part.as_os_str())?;
+        actual.push(OsStr::from_bytes(name.to_bytes()));
+        if i + 1 == parts.len() {
+            return Ok((directory, name, actual));
+        }
+        let flags = libc::O_RDONLY
+            | libc::O_DIRECTORY
+            | libc::O_CLOEXEC
+            | if attributes & 0x1000 != 0 {
+                libc::O_NOFOLLOW
+            } else {
+                0
+            };
+        directory = at(&directory, &name, flags).map_err(|e| match e.kind() {
+            io::ErrorKind::NotFound | io::ErrorKind::NotADirectory => failed(0xc000_003a, e),
+            _ => e,
+        })?;
+    }
+    Ok((directory, c".".to_owned(), actual))
+}
+
 pub(in crate::user::windows::dll::native) fn open(
     c: &Ctx,
     path: &Resolved,
