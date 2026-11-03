@@ -121,7 +121,16 @@ Thirteen focused cases pass on Linux under x86-64 translation on AArch64. All
 workspace targets compile for macOS, Windows ARM64, Windows x64 and Linux x64;
 strict library lint passes on macOS and Windows ARM64.
 
-The Windows CAPI executable built and linked. Its runtime collection remains
-pending after Parallels RPC failures; no native CAPI pass is claimed. The optional
-`--capi` receipt verification requires both complete subject-specific receipt
-files and fails if they are absent. It does not execute or replace those tests.
+The Windows CAPI executable built and linked on the host and then ran natively
+under both SYSTEM and the ordinary-user identity. Each run passed 243 tests,
+with no failures or ignored tests. The recovered receipts retain the exact
+image, source-manifest and native NTDLL hashes; all manifest-owned source bytes
+still match. They qualify the compiled BASE NLS snapshot recorded in that
+manifest, rather than later unrelated source changes. Original native
+validation jobs were preserved.
+
+Run `python3 -B docs/specifications/windows/native-base-csr-nls/verify_runtime.py --capi`
+to check both complete subject-specific receipts and their source bindings.
+Missing or mismatched receipts fail this check. It validates retained evidence;
+it does not execute or replace native tests. Full file-backed CMD execution
+still stops at class134 and is not claimed successful.

@@ -36,7 +36,23 @@
   },
   "native_windows_capi": {
     "build_and_link": 0,
-    "runtime": "not collected; RPC errors and pending transport; no native CAPI pass claimed"
+    "runtime": "collected;243 passed,0 failed,0 ignored in each subject",
+    "collected_utc": "2026-11-03T14:47:21.287282+00:00",
+    "subjects": {
+      "ordinary_user": {
+        "passed": 243,
+        "failed": 0,
+        "ignored": 0
+      },
+      "system": {
+        "passed": 243,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    "source_manifest_sha256": "cecd0af01c2a1f43d37dbd3bb04631bd146d9f1bc416a37bf56e79593df1afe4",
+    "image_sha256": "c01820f37db64be4f5f0b92ff79c0eaff36d20fbeac75fd470f7e70af79ff742",
+    "original_native_jobs_restarted": false
   },
   "actual_cmd": {
     "base_nls_exchange": "passed",

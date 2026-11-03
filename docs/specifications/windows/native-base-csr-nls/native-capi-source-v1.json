@@ -1,0 +1,40 @@
+{
+  "baseline_head": "06f9bdd42dcae7c06e4c4cede4db03e30e5077b3",
+  "artifact": {
+    "path": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/aarch64-pc-windows-msvc/debug/deps/rax-8d03a81860e9a69e.exe",
+    "bytes": 49204736,
+    "sha256": "c01820f37db64be4f5f0b92ff79c0eaff36d20fbeac75fd470f7e70af79ff742"
+  },
+  "source_frame_sha256": "00ec11df5475e63cb4c3cee4608d7395d9e390e37af9a164169b8f7778ffb7a9",
+  "owned_sources": {
+    "docs/specifications/windows/native-base-csr-nls/native-base-csr-info-v1.cpp": "2eb481ce5b7ec24b7fd4a50d4d5b256625a79c5e6db77bcdbb27b56b43d24799",
+    "docs/specifications/windows/native-base-csr-nls/native-base-csr-info-v2.cpp": "942e25c0015323999874f836cda169d7d0371a36d4ece411b6d7b842ebd22e89",
+    "docs/specifications/windows/native-base-csr-nls/native-base-csr-info-v3.cpp": "597d0be2527d672606a63998ff46fc2d1718a6f42a0b3c81d36d89dac92d3786",
+    "docs/specifications/windows/native-base-csr-nls/native-base-csr-info-v4.cpp": "a45b4a5dd40cfb6f00c95753ddd2ac22f148835dd0c8b56da1f63aaab7da0b82",
+    "docs/specifications/windows/native-base-csr-nls/native-base-csr-info-v5.cpp": "4d14a762dc6a470c8e37c4c5f545389a8996fd7ae77df14a1d793866e8cf90d2",
+    "docs/specifications/windows/native-base-csr-nls/native-build-v1.json": "f7dc59c9f093eb069e13f8c8f4c08b42cf7ed41fd25f9b035d8b2df44cbb6b5b",
+    "docs/specifications/windows/native-base-csr-nls/native-build-v2.json": "b50f52f4ffbe04b3cf1c2482a995f28a14c13746a07ac8be7f2dab4a339001fe",
+    "docs/specifications/windows/native-base-csr-nls/native-build-v3.json": "59a807ba90a4063e055f1474f4641be49e2a5956df812266a37df40ffcc90e9e",
+    "docs/specifications/windows/native-base-csr-nls/native-build-v4.json": "06399825ec8ad76636724bb6a7146758a12e8740d89d2a61a0df0c728e6e94c0",
+    "docs/specifications/windows/native-base-csr-nls/native-build-v5.json": "a34040f53e875a4bc8739df987988a79ed15695dc56c7c07287001a545a2811f",
+    "docs/specifications/windows/native-base-csr-nls/native-receipt-v1.json": "ab82ff5089cbe820fba890d680e4dba052aa16dd3ca37b0007f974d97a83386c",
+    "docs/specifications/windows/native-base-csr-nls/native-receipt-v2.json": "021bf063721968a8fbce773ab8ba2779a49b432bf6918204c0b28a10983c40e6",
+    "docs/specifications/windows/native-base-csr-nls/native-receipt-v3-system.json": "495076cb49832623ef24cf3e4fc78bc8f8df726165f9f0dc221b1d76469f15db",
+    "docs/specifications/windows/native-base-csr-nls/native-receipt-v3.json": "16a9a61fbc40fc07dfbd40e27642d5152d80d1c8dd70f3770f1b4252f02dff11",
+    "docs/specifications/windows/native-base-csr-nls/native-receipt-v4-system.json": "8203e1dd5167f16376e7f72c7ceee9d7855d61d00a2f3c1a322a86c8e555f5db",
+    "docs/specifications/windows/native-base-csr-nls/native-receipt-v5-system.json": "9af71f1105769b573b80c1c01ec100fecc2124b85aff3cafd4cf2ae98a33caca",
+    "docs/specifications/windows/native-base-csr-nls/native-system-information-v1.bin": "44e54919c88c6d9da76ad0162356a9870be9c065e632f2b3eb567500aef21572",
+    "docs/specifications/windows/native-base-csr-nls/native-user-information-v1.bin": "546d2a642b259fe1c14fda0b4618cbc92ec95485b8f4eb4f9576c1ea7dfa79f7",
+    "docs/specifications/windows/native-base-csr-nls/profile-v1.json": "92a3c5c72e2eb6b8e0fb30b1b46812927479677bb63a3aad7e1065019c743296",
+    "docs/specifications/windows/native-base-csr-nls/verify.py": "d2496bef7a6db7c378a77fcf53f13214e90d6a997198bf985cc339f228e58dbc",
+    "src/user/windows/dll/native/alpc/csr.rs": "0c14423a495464c3e55b2f9dc060479ddd2b55efb9c364b06bd820287e96b071",
+    "src/user/windows/object_namespace/csr.rs": "8d395df30a420e0e3082d7581f7ed7c461cca94a44099eb9fb501a564194de08",
+    "src/user/windows/object_namespace/installed.rs": "411ec6c760fabc381f35f5a7282895c38b3eb8a4279412b94c615a40ca5b404c",
+    "src/user/windows/object_namespace/installed/csr.rs": "00e64a815ce1f5fa9f5c2b0bb7d5d0bd825a47fb105d8b7b077b94e0a0de0382",
+    "src/user/windows/object_namespace/installed/csr/base_nls.rs": "b43741a95a463eea0b3a200c1c63e1afad9cc859e9b88ee6c05111643d108fc4",
+    "src/user/windows/process/sched/tests/services_tests/alpc_tests.rs": "2b96e272a39882fc576d966768692bdb15b74bc3622a5c099cd78953aa14b7fd",
+    "src/user/windows/process/sched/tests/services_tests/alpc_tests/base_nls.rs": "a2ccc8d213d9b99ac36d7328b830a423a9f8941c2b122ab953c646bf113c4eb9",
+    "src/user/windows/process/sched/tests/services_tests/secure_connect_csr_leaf_tests.rs": "f6fc93af58d83247114eb88f3f63d2c506bb928692af4da288c578e20f4d6b2c"
+  },
+  "note": "Host build source/hash manifest; not a native rebuild."
+}
