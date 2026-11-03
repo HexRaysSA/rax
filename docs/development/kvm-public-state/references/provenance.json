@@ -1,0 +1,65 @@
+{
+  "kernel_release": "v6.8",
+  "references": [
+    {
+      "file": "kvm-api-v6.8.rst",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/Documentation/virt/kvm/api.rst",
+      "sha256": "efba2788716266a451103fabfd1f9edfe390b76d07a464e71f840cc278936155",
+      "bytes": 313138,
+      "trailing_whitespace_lines": 0,
+      "canonical_title": "Linux v6.8 Documentation/virt/kvm/api.rst",
+      "license_notice": "Original SPDX and copyright notices retained verbatim at the beginning of the archived file"
+    },
+    {
+      "file": "kvm-x86-uapi-v6.8.h",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/include/uapi/asm/kvm.h",
+      "sha256": "e894c2f5b06d1c897f3e02f11247ef6508cc2d6bc2ffa81e0c7b706678b7b1b6",
+      "bytes": 13100,
+      "trailing_whitespace_lines": 0,
+      "canonical_title": "Linux v6.8 arch/x86/include/uapi/asm/kvm.h",
+      "license_notice": "Original SPDX and copyright notices retained verbatim at the beginning of the archived file"
+    },
+    {
+      "file": "kvm-uapi-v6.8.h",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/include/uapi/linux/kvm.h",
+      "sha256": "7a3c4cd1b9fe2e24110f91f0cacbd52a549d1701147531b0f554637f26f90ee2",
+      "bytes": 63736,
+      "trailing_whitespace_lines": 0,
+      "canonical_title": "Linux v6.8 include/uapi/linux/kvm.h",
+      "license_notice": "Original SPDX and copyright notices retained verbatim at the beginning of the archived file"
+    },
+    {
+      "file": "kernel-x86-v6.8.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/x86.c",
+      "sha256": "3898fb303a2a8eb5c8ee9b02d03425dd9ac9475457f22deedbfe2c77081b8498",
+      "bytes": 380072,
+      "trailing_whitespace_lines": 0,
+      "canonical_title": "Linux v6.8 arch/x86/kvm/x86.c",
+      "license_notice": "Original SPDX and copyright notices retained verbatim at the beginning of the archived file"
+    },
+    {
+      "file": "kernel-fpu-core-v6.8.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kernel/fpu/core.c",
+      "sha256": "a5d72471fb7c501764213f62bf0f3db3814db50dbda86e225207ee61d4be8353",
+      "bytes": 25315,
+      "trailing_whitespace_lines": 0,
+      "canonical_title": "Linux v6.8 arch/x86/kernel/fpu/core.c",
+      "license_notice": "Original SPDX and copyright notices retained verbatim at the beginning of the archived file"
+    },
+    {
+      "file": "kernel-fpu-xstate-v6.8.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kernel/fpu/xstate.c",
+      "sha256": "032531b3cd5b8ee3027869defd7bd00139de0ce767e0e27c5d323f40fad4162e",
+      "bytes": 52201,
+      "trailing_whitespace_lines": 0,
+      "canonical_title": "Linux v6.8 arch/x86/kernel/fpu/xstate.c",
+      "license_notice": "Original SPDX and copyright notices retained verbatim at the beginning of the archived file"
+    }
+  ],
+  "local_architecture_reference": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+  "architectural_sections": "Intel SDM Volume 1 Chapter13; FXSAVE/FXRSTOR and XSAVE/XRSTOR instruction descriptions",
+  "compiled_bindings": "kvm-bindings0.14.2; kvm-ioctls0.25.1; locked repository dependencies",
+  "issuing_project": "Linux kernel project",
+  "retrieved_utc": "2026-11-03",
+  "revision": "v6.8"
+}

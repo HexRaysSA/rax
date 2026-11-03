@@ -62,6 +62,9 @@ jobs:
       - name: cargo test (KVM-gated, default features)
         run: cargo test --features x86_64-suite --test kvm_minimal -- --include-ignored --nocapture
 
+      - name: Native RAX public-state, rollback, and RAM lifetime regressions
+        run: cargo test --features x86_64-suite --lib backend::kvm::state_tests:: -- --include-ignored --test-threads=1 --nocapture
+
       - name: cargo build --release (default features, fat LTO)
         run: cargo build --release
 

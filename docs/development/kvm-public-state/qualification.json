@@ -1,0 +1,780 @@
+{
+  "status": "native_public_regressions_passed_with_explicit_unrelated_owning_failures",
+  "scope": "Native KVM public architectural projection/overlay and managed RAM ownership prerequisite",
+  "full_goal_complete": false,
+  "base": "9a3222f171e0110e79e29f05d4e271f26b15a0dc",
+  "native_host": "abyss; Linux x86_64; kernel6.8.0-138-generic",
+  "baseline": {
+    "three_witness_run": "native-baseline-v2.json",
+    "active_guest_xmm_original_module": "parent-projection-probe.json",
+    "inactive_legacy_seed_correction": "fpu-seeding-correction.json",
+    "io_completion_uapi_experiment": "pending-io-probe.json"
+  },
+  "intermediate": {
+    "native_v4": {
+      "passed": 8,
+      "failed": 2,
+      "ignored": 0,
+      "receipt": "public-state-native-v4.json",
+      "failure_classification": "Two invalid legacy-FPU seed assumptions; expected values retained in corrected active XSAVE fixtures"
+    },
+    "complete-root-v5": {
+      "receipt": "complete-root-public-state-v5.json",
+      "exit_code": 101,
+      "source_unchanged": true,
+      "complete": false,
+      "cancelled": "superseded-v5-run-cancellation.json",
+      "known_failures": 11,
+      "limitations": "Six missing runtime fixture cases; two native Linux6.19 netlink assumptions on6.8; two oversized socket-buffer assumptions; one concurrent FIFO EOF failure (cause unknown). No full-library completion claim."
+    }
+  },
+  "verification_pending": [
+    "publication-and-cleanup"
+  ],
+  "assumption_register": [
+    {
+      "id": "K1",
+      "assumption": "The existing abyss host provides native Linux KVM",
+      "basis": "Live SSH and actual C/KVM guest execution",
+      "dependent_result": "Native backend qualification",
+      "stress_test": "Fail rather than silently skip absent kernel access",
+      "falsification_probe": "open /dev/kvm or mandatory guest execution fails",
+      "status": "confirmed"
+    },
+    {
+      "id": "K2",
+      "assumption": "Legacy SET_FPU seeds operative guest x87/SSE state",
+      "basis": "Initial fixture construction",
+      "dependent_result": "Initial XMM/control expectations",
+      "stress_test": "Independent guest stores and FNSTCW with inactive XSAVE bits",
+      "falsification_probe": "legacy-fpu-probe.json observes initialized guest values",
+      "status": "falsified; fixtures revised to explicit active XSAVE state"
+    },
+    {
+      "id": "K3",
+      "assumption": "The host provides the repository x86-64-v3 x87/SSE/AVX baseline",
+      "basis": "Current x86-64 build configuration and architectural component discovery",
+      "dependent_result": "Native XSAVE projection",
+      "stress_test": "Unsupported bank rejects; allocation bounds and query errors reject",
+      "falsification_probe": "Missing baseline component or image outside bounded layout",
+      "status": "confirmed for x87/SSE/AVX; no native AVX-512/opmask qualification"
+    },
+    {
+      "id": "K4",
+      "assumption": "The caller quiesces that CPU and does not bypass its mutable borrow with raw native mutation",
+      "basis": "Public VCpu &mut execution/overlay contract",
+      "dependent_result": "Per-CPU backup and rollback",
+      "stress_test": "Late kernel setter failure and uncompleted-input overlay",
+      "falsification_probe": "A supported managed mutation bypasses this boundary",
+      "status": "retained; whole-VM/private exclusion remains open"
+    },
+    {
+      "id": "K5",
+      "assumption": "A CR8-only public overlay preserves the existing native PAE pointer cache",
+      "basis": "Public overlay retains unrepresented private state; independent complete-crate native probe",
+      "dependent_result": "Special-register publication and rollback",
+      "stress_test": "Cached PDPTR[0]=0x3001 while physical table entry=0; CR8/CR2/OSFXSR/segment/GDTR edits, intentional CR3 reload, cache-only rollback",
+      "falsification_probe": "public-pae-overlay-red-v5.json observes cache replaced by zeros",
+      "status": "v5 assumption falsified; revised SREGS2 preservation/reload/cache-only rollback cases passed in the14-case v6 native module"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Complete KVM private/shared/in-flight producer and coordinated file restore remain required",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "Raw FD escape can outlive managed backing; complete raw ownership closure remains required",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "KVM finite entry and actual VMM AP startup remain required",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "Physical/native Intel macOS HVF validation is not established by Linux KVM",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "low",
+      "item": "Repeated registration conservatively retains old backing until the native owner is destroyed",
+      "blocks_this_group": false
+    }
+  ],
+  "evidence_root": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-state-v1",
+  "native_profile": {
+    "xsave_mask": "0x7",
+    "xsave_size_bytes": 4096,
+    "mxcsr_mask": "0xffff",
+    "qualified_banks": [
+      "x87",
+      "SSE",
+      "AVX"
+    ],
+    "not_runtime_qualified": [
+      "AVX-512",
+      "opmask"
+    ]
+  },
+  "verification": {
+    "public-state-native-v5": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::state_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T07:58:19.633416+00:00",
+      "test_result": "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 13119 filtered out; finished in 0.12s"
+    },
+    "workspace-fmt-v5": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T08:10:56.247671+00:00"
+    },
+    "workspace-check-v5": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T08:14:45.538732+00:00"
+    },
+    "ci-actions-pinned-v6": {
+      "compile_exit": 0,
+      "compile_stderr": "",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+        "--edition=2024",
+        "-L",
+        "dependency=/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps",
+        "--extern",
+        "toml=/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/libtoml-0f645ea9f94972e5.rlib",
+        "--test",
+        "/tmp/rax-kvm-native-state-czfmaujf/source/tests/suites/tooling/ci_actions_pinned.rs",
+        "-o",
+        "/tmp/rax-kvm-native-state-czfmaujf/observations/ci-actions-pinned-v6"
+      ],
+      "exit_code": 0,
+      "stdout": "\nrunning 12 tests\ntest ebpf_validation_runs_every_oracle_and_partitions_the_formal_tier ... ok\ntest experimental_cross_builds_report_failures_without_red_checks ... ok\ntest external_github_actions_are_pinned_to_full_commit_shas ... ok\ntest licensing_resolves_locked_dependencies_for_fresh_runners ... ok\ntest push_ci_runs_darwin_fixtures_against_a_required_native_oracle ... ok\ntest push_ci_runs_host_specific_scalar_and_evex_jit_regressions ... ok\ntest scheduled_differential_separates_oracles_diagnostics_and_assembler_capabilities ... ok\ntest scheduled_full_suite_runs_every_host_specific_jit_regression_binary ... ok\ntest scheduled_full_suite_serializes_native_jit_shards_and_preserves_diagnostics ... ok\ntest scheduled_kvm_keeps_host_dependent_differentials_informational ... ok\ntest windows_process_suite_is_registered_and_reachable_in_ci_commands ... ok\ntest workflow_test_selection_excludes_comments_harness_arguments_and_name_prefixes ... ok\n\ntest result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s\n\n",
+      "stderr": "",
+      "executable_sha256": "898ed85c7246f72d596a1fa1fa44341f9045cff3c5dc236988f2680fa9acb774",
+      "source_unchanged": true,
+      "scope": "Complete declared ci_actions_pinned source, compiled directly with its Cargo manifest directory; std/toml tooling owner, no RAX engine link"
+    },
+    "workspace-fmt-stable-v5": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T08:19:31.673021+00:00"
+    },
+    "native-kvm-minimal-v5": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "kvm_minimal",
+        "--",
+        "--include-ignored",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T08:21:33.215757+00:00",
+      "test_results": [
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s"
+      ]
+    },
+    "workspace-clippy-stable-v5": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T08:26:58.209720+00:00"
+    },
+    "workspace-fmt-stable-v6": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T08:32:38.389194+00:00"
+    },
+    "public-state-native-v6": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::state_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T08:43:21.790398+00:00",
+      "test_result": "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 13132 filtered out; finished in 0.15s"
+    },
+    "workspace-build-v6": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T08:56:47.289560+00:00"
+    },
+    "workspace-clippy-stable-v6": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T09:02:07.176095+00:00"
+    },
+    "default-ci-native-v6": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "x86_64-suite",
+        "--lib",
+        "backend::kvm::state_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T09:16:14.018962+00:00",
+      "test_result": "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 13056 filtered out; finished in 0.21s"
+    },
+    "workspace-no-jit-no-debug-check-v6": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,kvm"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T09:20:53.359505+00:00",
+      "test_results": []
+    },
+    "workspace-doctests-v6": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--doc",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T09:21:31.033659+00:00",
+      "test_results": [
+        "test result: ok. 0 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "native-kvm-minimal-v6": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "x86_64-suite",
+        "--test",
+        "kvm_minimal",
+        "--",
+        "--include-ignored",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T09:27:42.976568+00:00",
+      "test_results": [
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s"
+      ]
+    },
+    "complete-root-public-state-v6": {
+      "argv": [
+        "/tmp/rax-kvm-native-state-czfmaujf/observations/complete-root-public-state-v6.exe",
+        "--test-threads=8",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "source_unchanged": true,
+      "executable_unchanged": true,
+      "utc": "2026-11-03T10:21:36.523724+00:00",
+      "provenance": {
+        "executable": "/tmp/rax-kvm-native-state-czfmaujf/observations/complete-root-public-state-v6.exe",
+        "sha256": "05bc9e7ccde39b833b4b4ebe59317eeb125e4e87e261a39ca86a926340747835",
+        "bytes": 716429400,
+        "compiler_inputs": 4797,
+        "manifest_sha256": "b3dd4369b975902ab1c8daeb4e93ef03054bbd3688001608f9bc2dccb1b47122",
+        "source_files": 11220,
+        "all_compiler_inputs_match": true,
+        "scope": "Complete unfiltered owning library binary, copied immutably before concurrent build gates; unchanged source export before/after"
+      },
+      "test_result": "test result: FAILED. 13122 passed; 4 failed; 20 ignored; 0 measured; 0 filtered out; finished in 5768.24s",
+      "failures": [
+        "user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link",
+        "user::linux::tests::netlink::addresses_dump_by_family",
+        "user::linux::tests::netlink::options_follow_netlink_setsockopt",
+        "user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer"
+      ],
+      "scope": "Complete unfiltered v6 library on061f6 upstream base; final executable Rust plus two-line calibrated state.rs comment. Later Windows IFEO and Unix socket-test fast-forwards are separately integrated/checked by v7, not covered by this earlier full run."
+    },
+    "workspace-fmt-linear-v7": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T10:24:07.918606+00:00"
+    },
+    "workspace-build-linear-v7": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T10:41:10.539789+00:00"
+    },
+    "workspace-clippy-linear-v7": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T10:46:19.204914+00:00"
+    },
+    "native-public-state-linear-v7": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::state_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T10:46:34.340068+00:00",
+      "test_results": [
+        "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 13137 filtered out; finished in 0.16s"
+      ]
+    },
+    "upstream-registry-linear-v7": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "user::windows::registry::",
+        "--",
+        "--test-threads=4",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T10:46:47.737572+00:00",
+      "test_results": [
+        "test result: ok. 114 passed; 0 failed; 0 ignored; 0 measured; 13037 filtered out; finished in 4.13s"
+      ]
+    },
+    "upstream-registry-services-linear-v7": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "services_tests::registry",
+        "--",
+        "--test-threads=4",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T10:47:47.314685+00:00",
+      "test_results": [
+        "test result: ok. 107 passed; 0 failed; 0 ignored; 0 measured; 13044 filtered out; finished in 50.32s"
+      ]
+    },
+    "upstream-sockets-linear-v7": {
+      "root": "/tmp/rax-kvm-native-state-czfmaujf",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "user::linux::tests::sockets::",
+        "--",
+        "--test-threads=4",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T10:48:02.858629+00:00",
+      "test_results": [
+        "test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 13135 filtered out; finished in 0.26s"
+      ]
+    }
+  },
+  "compiler_input_provenance": {
+    "utc": "2026-11-03T08:15:30.585875+00:00",
+    "normalized_compiler_input_count": 4793,
+    "missing": [],
+    "changed": [],
+    "external": []
+  },
+  "executable_provenance": {
+    "exe": "/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/rax-db63e49658e0a06d",
+    "size": 715446944,
+    "sha256": "dedce341c6ec79d437a375a2eeb5ca2ab838d141c4438fb8778a4eedff0fa961",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)\nbinary: rustc\ncommit-hash: 88d9e12ae178fab0fb5cc050a94da85685d449ea\ncommit-date: 2026-08-18\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.0\nLLVM version: 22.1.8\n"
+  },
+  "toolchain_correction": {
+    "receipt": "clippy-toolchain-correction-command.json",
+    "cause": "Cargo selected the default nightly cargo-clippy wrapper despite explicit stable RUSTC; canceled its still-waiting owned Cargo child before any compiler started",
+    "resolution": "Pin RUSTUP_TOOLCHAIN=stable-x86_64-unknown-linux-gnu in the validation driver; repeat stable formatting and Clippy",
+    "production_compilation": "Native library/hardware tests use explicit stable RUSTC; no correction/restart of those tests"
+  },
+  "full_root_limitations_investigation": "native-suite-failures-v5.json",
+  "pae_counterexample": {
+    "label": "public-pae-overlay-red-v5",
+    "compile_exit": 0,
+    "compile_stderr": "",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+      "--edition=2024",
+      "-C",
+      "target-cpu=x86-64-v3",
+      "-L",
+      "dependency=/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps",
+      "/tmp/rax-kvm-native-state-czfmaujf/observations/public-pae-overlay-red-v5.rs",
+      "-o",
+      "/tmp/rax-kvm-native-state-czfmaujf/observations/public-pae-overlay-red-v5",
+      "--extern",
+      "rax=/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/librax-a705b0592dd6c999.rlib",
+      "--extern",
+      "libc=/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/liblibc-719d6783d8fd2b30.rlib",
+      "--extern",
+      "kvm_bindings=/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/libkvm_bindings-330f2ce9add16da9.rlib"
+    ],
+    "source_sha256": "90b5cd14b1518cdcafb525dae8f1d3a5f8a1aef611ab6a2523626ff81dcceb32",
+    "deps": {
+      "rax": {
+        "path": "/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/librax-a705b0592dd6c999.rlib",
+        "sha256": "030a06d28fcb1a1ec3863bc35cc73c1fa5c7f44177f9c73261b9beec11b451bb"
+      },
+      "libc": {
+        "path": "/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/liblibc-719d6783d8fd2b30.rlib",
+        "sha256": "ddc068a0dc0b91e9316034995fbc43504054d5cc602836e7e57021d5ca8e66db"
+      },
+      "kvm_bindings": {
+        "path": "/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/libkvm_bindings-330f2ce9add16da9.rlib",
+        "sha256": "2a53ab4f2f0e7ec4897b2eac63cc157702458d1b666b9d896f136756aa30d3fa"
+      }
+    },
+    "run": {
+      "exit_code": 101,
+      "stdout": "before_pdptrs=[12289, 0, 0, 0] after_pdptrs=[0, 0, 0, 0] cr8=1\n",
+      "stderr": "\nthread 'main' (1753833) panicked at /tmp/rax-kvm-native-state-czfmaujf/observations/public-pae-overlay-red-v5.rs:41:5:\nassertion `left == right` failed: public CR8 overlay changed cached PAE pointers\n  left: [0, 0, 0, 0]\n right: [12289, 0, 0, 0]\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+      "executable_sha256": "04f9524b267199ed0424ebdc972f211fcf436f36fe869277c1fcd67d5e54f824"
+    },
+    "utc": "2026-11-03T08:25:24.389500+00:00",
+    "scope": "Actual complete RAX crate and public KVM adapter; independent native SREGS2 setup/observation through the process-owned vCPU FD"
+  },
+  "verification_scope": "Existing v5 native/gate receipts do not qualify subsequent SREGS2 production/test changes; final-source validation remains pending",
+  "final_source_export": {
+    "receipt": "public-state-v6-source-update.json",
+    "files": 11220,
+    "payload_paths": 489,
+    "runtime_fixture_paths": 70,
+    "base": "061f6e13925abf26e2b9bc705639d6cd1985ffe6",
+    "code_hashes": "public-state-source-v6-local.json"
+  },
+  "validation_driver": "post-native-v6-gates.py waits for existing14-case hardware run, then seals complete owning binary and runs final gates; no publication without final review",
+  "remaining_native_private_scope": {
+    "mp_state": "public-mp-overlay-red-v6.json reproduces MP_HALTED3->RUNNABLE0 through the public KVM adapter from the complete RAX crate; MP preservation belongs to the still-required full private-state publication. The14-case bank module does not qualify it.",
+    "full_msr_bank": "private-profile-probe.json reads and writes95 listed MSRs on the native default CPUID profile; current public group projects7.",
+    "input_candidate": "The proposed generic corruption after acknowledged input is not established: unchanged-RIP unrelated RBX edit preservesinput5a; explicitRIPchange retains requestedRAXbb. Opaque kernel IO completion remains required private-producer work."
+  },
+  "pae_direct_red_green": {
+    "red": "public-pae-overlay-red-v5.json",
+    "green": "public-pae-overlay-green-v6.json",
+    "same_probe_source_sha256": "90b5cd14b1518cdcafb525dae8f1d3a5f8a1aef611ab6a2523626ff81dcceb32",
+    "red_result": "before_pdptrs=[12289, 0, 0, 0] after_pdptrs=[0, 0, 0, 0] cr8=1",
+    "green_result": "before_pdptrs=[12289, 0, 0, 0] after_pdptrs=[12289, 0, 0, 0] cr8=1",
+    "scope": "Same standalone probe using the public KVM adapter from the complete compiled RAX crate; native SREGS2 setup/observation, no test expectation changes"
+  },
+  "comment_only_packaging": {
+    "utc": "2026-11-03T09:34:25.305351+00:00",
+    "path": "src/backend/kvm/state.rs",
+    "change": "Module documentation narrows its claim to captured fields; MP state remains open",
+    "before_sha256": "4b6c45957c744c215e79e576051282c501d6d8cc2b7cb5eb7e6dc29831ff3003",
+    "after_sha256": "3e34d0675c39b346f5ef685c13361f151d3690886495203b92c24a88aa7ad5be",
+    "executable_rust_suffix_identical": true,
+    "compiled_export_unchanged": true,
+    "scope": "Two leading module-comment lines only; v6 build/runtime results qualify the unchanged executable Rust, not an identical final source-file hash"
+  },
+  "additional_native_groundwork": {
+    "bounded_actual_rax_entry": {
+      "receipt": "rax-native-deadline-v1.json",
+      "turns": 40,
+      "requested_interval_ns": 2000000,
+      "observed_minimum_ns": 3064776,
+      "observed_maximum_ns": 20101714,
+      "actual_guest_exits": "IN5a/OUT5a/HLT across private worker returns",
+      "caller_signal_mask_and_existing_handler_preserved": true,
+      "scope": "External scoped-deadline prototype entering the complete RAX KVM adapter; production run_host_slice integration remains required. Scheduling observations are not hard real-time bounds."
+    },
+    "high_ram": {
+      "receipt": "rax-high-ram-v2.json",
+      "scope": "Actual RAX managed VM and memory registration; independent raw UAPI high-slot counterfactual",
+      "address": "0x100000000",
+      "before": "Guest RAM read returns MmioRead instead of reading backing",
+      "counterfactual": "Adding the exact aligned high-RAM slot makes the same guest output backing byte0xa5 and HLT",
+      "production_fix": false,
+      "remaining": "Correct native slot/layout ownership, RAM vs fixed/dynamic device holes and PC boot memory-map consistency; source-free full producer files must preserve this association.",
+      "initial_probe_limit": "v1 exhausted50 nominal2ms entries without reaching an exit. Cause unknown. v2 uses100ms entries plus diagnostic logging; both phases completed. Do not infer a hard deadline bound or native fixed result from v1."
+    },
+    "original_a32_audit": {
+      "receipt": "a32-original-audit-current-v1.json",
+      "passed": 6,
+      "failed": 0,
+      "scope": "Actual complete RAX AArch32 software decoder/executor, exact raw result and FPSCR comparisons from original audit. Not physical A32 hardware or remaining-profile closure."
+    },
+    "rep_input_metadata": {
+      "receipt": "rax-rep-input-metadata-red-v1.json",
+      "scope": "Actual RAX KVM native REP INS byte/word/dword, DF0/1, independent native run descriptor",
+      "result": "Six cases lose element width/count; forward256-byte/512-byte/1024-byte native batches project publicsize0, reversebyte firstbatch255 projects255 instead of size1/count255.",
+      "completion": "All native requests explicitly completed using independent native byte counts; all destination RAM verified before the final diagnostic assertion.",
+      "remaining": "Full native I/O phase/width/count handling and coordinated checkpoint completion remain required. Current public-state group does not fix this pre-existing run-path defect."
+    }
+  },
+  "final_source_hashes": {
+    "src/backend/kvm/mod.rs": "bded857a2f9419e162fa8d9141486983d13475548e03145d382777b42a0ebaa1",
+    "src/backend/kvm/convert.rs": "6f1fa37e0fa892b6ee6391416610b5898eb7f2cf4dda02d7cddfbf2b55ce7b07",
+    "src/backend/kvm/state.rs": "3e34d0675c39b346f5ef685c13361f151d3690886495203b92c24a88aa7ad5be",
+    "src/backend/kvm/special.rs": "b30b0faba2cdbc7d05e0beea3be932add7d52fc826383313521655477bdfbcf7",
+    "src/backend/kvm/xsave.rs": "61c890c8a2058b9c82d59d3d757e67ee04e473d18788cfe56011b7e9b9b108e1",
+    "src/backend/kvm/state_tests.rs": "c3ead3ff1685be46664659df23ad803097e3f2ce1412b2754520ccdaa22de5e3",
+    "src/backend/kvm/checkpoint_backlog_tests.rs": "0ce69630b0145d1e4f771c5990223640fcbdee104fbd168ec77fc33cdc7845f6",
+    ".github/workflows/kvm.yml": "d34835b925f8ab48e81d3f3d41dd58f552ddb463efee3294b394d11dec2e4c5d"
+  },
+  "linear_upstream_integration": {
+    "head": "b80e2954dba8df8ccb6dbb31242440e292546005",
+    "receipts": [
+      "fast-forward-before.json",
+      "fast-forward-after.json",
+      "second-fast-forward.json",
+      "third-fast-forward.json"
+    ],
+    "no_merge_created": true,
+    "export": "linear-integration-v7-source-update.json",
+    "owning_full_library_base": "061f6e13925abf26e2b9bc705639d6cd1985ffe6",
+    "later_upstream_scope": "Windows IFEO registry additions and3-line Unix socket umask fix, preserved exact owned inputs; scoped native v7 tests qualify integration."
+  },
+  "owning_failures": {
+    "count": 4,
+    "tests": [
+      "user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link",
+      "user::linux::tests::netlink::addresses_dump_by_family",
+      "user::linux::tests::netlink::options_follow_netlink_setsockopt",
+      "user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer"
+    ],
+    "evidence": [
+      "native-host-socket-netlink-probe.json",
+      "native-suite-failures-v5.json"
+    ],
+    "cause_boundary": "Native Linux6.8 netlink behavior differs from the test target6.19; host socket buffers exceed both harness bounds. These unrelated failures remain visible; no all-tests-green claim."
+  },
+  "packaging_whitespace": {
+    "reason": "Four space-before-tab indentation patterns are retained verbatim in two upstream Linux references.",
+    "attribute_file": ".gitattributes",
+    "paths": [
+      "docs/development/kvm-public-state/references/kernel-x86-v6.8.c",
+      "docs/development/kvm-public-state/references/kvm-api-v6.8.rst"
+    ],
+    "only_disabled_rule": "space-before-tab",
+    "primary_source_bytes_unchanged": true,
+    "frozen_archive_and_source_line_endings": "-text prevents checkout normalization from invalidating recorded SHA256 identities"
+  },
+  "post_qualification_fast_forward": {
+    "parent": "d548e62fbab063a49181a50c001ff02f94314357",
+    "qualified_head": "b80e2954dba8df8ccb6dbb31242440e292546005",
+    "receipt": "fourth-fast-forward.json",
+    "paths": [
+      "docs/specifications/windows/native-session-parent/README.md",
+      "docs/specifications/windows/native-session-parent/native-build-v1.json",
+      "docs/specifications/windows/native-session-parent/native-child-build-v2.json",
+      "docs/specifications/windows/native-session-parent/native-directory-access-v1.cpp",
+      "docs/specifications/windows/native-session-parent/native-receipt-v1.json",
+      "docs/specifications/windows/native-session-parent/native-receipt-v2.json",
+      "docs/specifications/windows/native-session-parent/native-rust-arm64-v1.json",
+      "docs/specifications/windows/native-session-parent/native-rust-source-v1.json",
+      "docs/specifications/windows/native-session-parent/native-session-children-v2.cpp",
+      "docs/specifications/windows/native-session-parent/native-startup-arm64-v1.json",
+      "docs/specifications/windows/native-session-parent/native-startup-source-v1.json",
+      "docs/specifications/windows/native-session-parent/startup-control.rs",
+      "docs/specifications/windows/native-session-parent/verify-evidence.py",
+      "src/user/windows/object_namespace.rs",
+      "src/user/windows/object_namespace/installed.rs",
+      "src/user/windows/object_namespace/installed/directory_alias.rs",
+      "src/user/windows/object_namespace/installed/session_parent.rs",
+      "src/user/windows/object_namespace/installed/session_parent_tests.rs",
+      "src/user/windows/object_namespace/traverse_only_tests.rs",
+      "src/user/windows/process/sched/tests/services_tests/directory_open_tests.rs",
+      "src/user/windows/process/sched/tests/services_tests/directory_session_partial_tests.rs"
+    ],
+    "kvm_staged_and_next_group_hashes_preserved": true,
+    "retested": false,
+    "scope": "No native export or tests repeated for these disjoint Windows namespace changes; all8 KVM code/workflow inputs and Cargo manifests unchanged from qualified b80."
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "label": "public-pae-overlay-green-v6",
+  "compile_exit": 0,
+  "compile_stderr": "",
+  "argv": [
+    "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+    "--edition=2024",
+    "-C",
+    "target-cpu=x86-64-v3",
+    "-L",
+    "dependency=/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps",
+    "/tmp/rax-kvm-native-state-czfmaujf/observations/public-pae-overlay-green-v6.rs",
+    "-o",
+    "/tmp/rax-kvm-native-state-czfmaujf/observations/public-pae-overlay-green-v6",
+    "--extern",
+    "rax=/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/librax-a705b0592dd6c999.rlib",
+    "--extern",
+    "libc=/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/liblibc-719d6783d8fd2b30.rlib",
+    "--extern",
+    "kvm_bindings=/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/libkvm_bindings-330f2ce9add16da9.rlib"
+  ],
+  "source_sha256": "90b5cd14b1518cdcafb525dae8f1d3a5f8a1aef611ab6a2523626ff81dcceb32",
+  "deps": {
+    "rax": {
+      "path": "/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/librax-a705b0592dd6c999.rlib",
+      "sha256": "e6f11ae78d96bba7201547205bb3428420e678e2bf5831e086d9bdc2f6b2d932"
+    },
+    "libc": {
+      "path": "/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/liblibc-719d6783d8fd2b30.rlib",
+      "sha256": "ddc068a0dc0b91e9316034995fbc43504054d5cc602836e7e57021d5ca8e66db"
+    },
+    "kvm_bindings": {
+      "path": "/tmp/rax-kvm-native-state-czfmaujf/target/debug/deps/libkvm_bindings-330f2ce9add16da9.rlib",
+      "sha256": "2a53ab4f2f0e7ec4897b2eac63cc157702458d1b666b9d896f136756aa30d3fa"
+    }
+  },
+  "run": {
+    "exit_code": 0,
+    "stdout": "before_pdptrs=[12289, 0, 0, 0] after_pdptrs=[12289, 0, 0, 0] cr8=1\n",
+    "stderr": "",
+    "executable_sha256": "3de161e07463e21c1a58f48f2e2ef206b09978d6adabae4d786d94bb99913148"
+  },
+  "utc": "2026-11-03T08:58:57.318925+00:00",
+  "scope": "Actual complete RAX crate and public KVM adapter; independent native SREGS2 setup/observation through the process-owned vCPU FD"
+}

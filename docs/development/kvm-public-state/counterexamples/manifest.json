@@ -1,0 +1,56 @@
+{
+  "classification": "Frozen executed-input fixtures; preserve exact bytes rather than formatting archived source",
+  "scope": "Non-test complete RAX library and unchanged public KVM probe; not a full checkpoint producer",
+  "baseline_tracked_revision": "9a3222f171e0110e79e29f05d4e271f26b15a0dc",
+  "baseline_overlays": "Four prior non-test KVM module files. state_tests/checkpoint_backlog_tests are cfg(test) and not compiler inputs for this normal-library probe.",
+  "reconstruction": "Archived prior files were reconstructed from the final implementation and verified byte-for-byte against all four SHA256 identities captured before native compilation. No expectation or probe source changes.",
+  "toolchain": "rustc1.98.0(88d9e12ae),LLVM22.1.8,x86_64-unknown-linux-gnu",
+  "features": [
+    "x86_64-suite",
+    "smir-jit",
+    "kvm",
+    "debug"
+  ],
+  "profile": "test/dev opt-level1,debug0,LTOoff; x86-64-v3; Cargo locked repository dependencies",
+  "files": [
+    {
+      "file": "prior-non-test-kvm/convert.rs",
+      "original": "src/backend/kvm/convert.rs",
+      "sha256": "6f1fa37e0fa892b6ee6391416610b5898eb7f2cf4dda02d7cddfbf2b55ce7b07",
+      "bytes": 5215
+    },
+    {
+      "file": "prior-non-test-kvm/mod.rs",
+      "original": "src/backend/kvm/mod.rs",
+      "sha256": "ba42c1c66073ecbe2278404deafdcbe87191017220d074216349ff28e8fd9953",
+      "bytes": 8131
+    },
+    {
+      "file": "prior-non-test-kvm/state.rs",
+      "original": "src/backend/kvm/state.rs",
+      "sha256": "9ebfdd1dfa8f7ee8646e799f0049fbd1af04bde288213e4b5fd51c1d73685869",
+      "bytes": 7028
+    },
+    {
+      "file": "prior-non-test-kvm/xsave.rs",
+      "original": "src/backend/kvm/xsave.rs",
+      "sha256": "61c890c8a2058b9c82d59d3d757e67ee04e473d18788cfe56011b7e9b9b108e1",
+      "bytes": 7512
+    },
+    {
+      "file": "pae-overlay.rs",
+      "sha256": "90b5cd14b1518cdcafb525dae8f1d3a5f8a1aef611ab6a2523626ff81dcceb32",
+      "bytes": 2126
+    },
+    {
+      "file": "red-v5.json",
+      "sha256": "5aa412d8fd1955902de6d1746e831d041725df140eb4fc807ab74429f2be0fb5",
+      "bytes": 2318
+    },
+    {
+      "file": "green-v6.json",
+      "sha256": "58a537154eb51451c3afc6dedb960cfad4702cc398356421bd2925163e00bfde",
+      "bytes": 1995
+    }
+  ]
+}

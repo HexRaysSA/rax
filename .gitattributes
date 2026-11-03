@@ -43,3 +43,12 @@ docs/development/riscv-vmm-startup/references/*.log.gz binary
 docs/development/riscv-clint/references/*.adoc -text -whitespace
 docs/development/riscv-clint/references/*.c -text
 docs/development/riscv-clint/references/*.h -text
+
+# Keep frozen native witnesses and Linux primary sources byte-identical.
+docs/development/kvm-public-state/counterexamples/** -text
+docs/development/kvm-public-state/references/*.c -text
+docs/development/kvm-public-state/references/*.h -text
+docs/development/kvm-public-state/references/*.rst -text
+# Retain upstream indentation; all other whitespace checks still apply.
+docs/development/kvm-public-state/references/kernel-x86-v6.8.c whitespace=-space-before-tab
+docs/development/kvm-public-state/references/kvm-api-v6.8.rst whitespace=-space-before-tab

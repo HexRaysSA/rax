@@ -167,7 +167,7 @@ pub fn sregs_from_kvm(kvm: &kvm_sregs) -> SystemRegisters {
 }
 
 /// Convert our SystemRegisters type to KVM system registers.
-pub fn sregs_to_kvm(sregs: &SystemRegisters) -> kvm_sregs {
+pub fn sregs_to_kvm(sregs: &SystemRegisters, current: &kvm_sregs) -> kvm_sregs {
     kvm_sregs {
         cs: segment_to_kvm(&sregs.cs),
         ds: segment_to_kvm(&sregs.ds),
@@ -185,7 +185,9 @@ pub fn sregs_to_kvm(sregs: &SystemRegisters) -> kvm_sregs {
         cr4: sregs.cr4,
         cr8: sregs.cr8,
         efer: sregs.efer,
-        apic_base: 0,
-        interrupt_bitmap: [0; 4],
+        // These native fields have no public SystemRegisters representation.
+        // A public register overlay must retain the current controller state.
+        apic_base: current.apic_base,
+        interrupt_bitmap: current.interrupt_bitmap,
     }
 }

@@ -1,16 +1,24 @@
 //! KVM backend implementation.
 
 mod convert;
+mod special;
+mod state;
+mod xsave;
+
+#[cfg(test)]
+mod checkpoint_backlog_tests;
+#[cfg(test)]
+mod state_tests;
 
 use std::any::Any;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
 use vm_memory::GuestMemoryMmap;
 
 use crate::error::{Error, Result};
 use crate::vm::memory::GuestMemoryWrapper;
-use crate::vm::vcpu::{CpuState, VCpu, VcpuExit, X86_64CpuState};
+use crate::vm::vcpu::{CpuState, VCpu, VcpuExit};
 
 use super::{Backend, Vm};
 
@@ -40,20 +48,33 @@ impl Backend for KvmBackend {
         let vm_fd = self.kvm.create_vm()?;
         // Create a new Kvm instance for the VM (Kvm doesn't implement Clone)
         let kvm = Kvm::new()?;
-        Ok(Box::new(KvmVm { vm_fd, kvm }))
+        Ok(Box::new(KvmVm {
+            memory: Arc::new(MemoryOwner {
+                vm_fd,
+                registered: Mutex::new(Vec::new()),
+            }),
+            kvm,
+        }))
     }
 }
 
 /// KVM VM instance.
 pub struct KvmVm {
-    vm_fd: VmFd,
+    memory: Arc<MemoryOwner>,
     kvm: Kvm,
+}
+
+/// Close the VM before releasing any RAM retained by its memory slots. Managed
+/// vCPUs share this owner, including after their public VM object is dropped.
+struct MemoryOwner {
+    vm_fd: VmFd,
+    registered: Mutex<Vec<GuestMemoryMmap>>,
 }
 
 impl KvmVm {
     /// Get reference to the VmFd.
     pub fn vm_fd(&self) -> &VmFd {
-        &self.vm_fd
+        &self.memory.vm_fd
     }
 
     /// Get reference to the Kvm instance.
@@ -63,19 +84,27 @@ impl KvmVm {
 
     /// Register guest memory with the VM.
     pub fn register_memory(&self, mem: &GuestMemoryWrapper) -> Result<()> {
-        mem.register(&self.vm_fd)
+        let mut registered = self
+            .memory
+            .registered
+            .lock()
+            .map_err(|_| Error::Emulator("KVM memory ownership lock poisoned".into()))?;
+        // A failed registration may already have changed a prefix of slots.
+        // Retain every submitted backing until the native VM is destroyed.
+        registered.push(mem.memory().clone());
+        mem.register(&self.memory.vm_fd)
     }
 
     /// Create IRQ chip.
     pub fn create_irq_chip(&self) -> Result<()> {
-        self.vm_fd.create_irq_chip()?;
+        self.memory.vm_fd.create_irq_chip()?;
         Ok(())
     }
 
     /// Create PIT2.
     pub fn create_pit2(&self) -> Result<()> {
         use kvm_bindings::kvm_pit_config;
-        self.vm_fd.create_pit2(kvm_pit_config {
+        self.memory.vm_fd.create_pit2(kvm_pit_config {
             flags: 0,
             pad: [0; 15],
         })?;
@@ -84,29 +113,30 @@ impl KvmVm {
 
     /// Set TSS address.
     pub fn set_tss_address(&self, addr: u64) -> Result<()> {
-        self.vm_fd.set_tss_address(addr as usize)?;
+        self.memory.vm_fd.set_tss_address(addr as usize)?;
         Ok(())
     }
 
     /// Set identity map address.
     pub fn set_identity_map_address(&self, addr: u64) -> Result<()> {
-        self.vm_fd.set_identity_map_address(addr)?;
+        self.memory.vm_fd.set_identity_map_address(addr)?;
         Ok(())
     }
 
     /// Create a raw VcpuFd (for setup_vcpu compatibility during transition).
+    /// Raw users must retain the VM and its registered memory for the FD's life.
     pub fn create_vcpu_fd(&self, id: u64) -> Result<VcpuFd> {
-        Ok(self.vm_fd.create_vcpu(id)?)
+        Ok(self.memory.vm_fd.create_vcpu(id)?)
     }
 }
 
 impl Vm for KvmVm {
-    fn create_vcpu(&self, id: u32, _mem: Arc<GuestMemoryMmap>) -> Result<Box<dyn VCpu>> {
+    fn create_vcpu(&self, id: u32, mem: Arc<GuestMemoryMmap>) -> Result<Box<dyn VCpu>> {
         use kvm_bindings::KVM_MAX_CPUID_ENTRIES;
         use tracing::debug;
 
         debug!(id, "KvmVm::create_vcpu: calling create_vcpu");
-        let vcpu_fd = self.vm_fd.create_vcpu(id as u64)?;
+        let vcpu_fd = self.memory.vm_fd.create_vcpu(id as u64)?;
         debug!(id, "KvmVm::create_vcpu: vcpu created, getting CPUID");
 
         // Set CPUID for the vCPU
@@ -119,11 +149,14 @@ impl Vm for KvmVm {
             vcpu_fd,
             id,
             pending_io_in: None,
+            memory_owner: self.memory.clone(),
+            _memory: mem,
+            state_failure: None,
         }))
     }
 
     fn set_irq_line(&self, irq: u32, level: bool) -> Result<()> {
-        self.vm_fd.set_irq_line(irq, level)?;
+        self.memory.vm_fd.set_irq_line(irq, level)?;
         Ok(())
     }
 
@@ -142,6 +175,9 @@ pub struct KvmVcpu {
     /// Safety: The pointer is valid between run() calls as it points
     /// to the mmap'd kvm_run structure owned by vcpu_fd.
     pending_io_in: Option<(*mut u8, usize)>,
+    memory_owner: Arc<MemoryOwner>,
+    _memory: Arc<GuestMemoryMmap>,
+    state_failure: Option<String>,
 }
 
 // Safety: KvmVcpu is Send because:
@@ -160,6 +196,7 @@ impl KvmVcpu {
 
 impl VCpu for KvmVcpu {
     fn run(&mut self) -> Result<VcpuExit> {
+        self.state_ready()?;
         // Clear any previous pending I/O
         self.pending_io_in = None;
 
@@ -201,27 +238,18 @@ impl VCpu for KvmVcpu {
     }
 
     fn get_state(&self) -> Result<CpuState> {
-        let kvm_regs = self.vcpu_fd.get_regs()?;
-        let kvm_sregs = self.vcpu_fd.get_sregs()?;
-        let regs = convert::regs_from_kvm(&kvm_regs);
-        let sregs = convert::sregs_from_kvm(&kvm_sregs);
-        Ok(CpuState::X86_64(X86_64CpuState { regs, sregs }))
+        self.public_state()
     }
 
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
-        let state = match state {
-            CpuState::X86_64(state) => state,
-            _ => {
-                return Err(Error::InvalidConfig(
-                    "KVM backend only supports x86_64 state".to_string(),
-                ));
-            }
-        };
-        let kvm_regs = convert::regs_to_kvm(&state.regs);
-        let kvm_sregs = convert::sregs_to_kvm(&state.sregs);
-        self.vcpu_fd.set_regs(&kvm_regs)?;
-        self.vcpu_fd.set_sregs(&kvm_sregs)?;
-        Ok(())
+        self.set_public_state(state)
+    }
+
+    fn current_pc(&self) -> u64 {
+        self.state_ready()
+            .ok()
+            .and_then(|()| self.vcpu_fd.get_regs().ok())
+            .map_or(0, |regs| regs.rip)
     }
 
     fn complete_io_in(&mut self, data: &[u8]) {

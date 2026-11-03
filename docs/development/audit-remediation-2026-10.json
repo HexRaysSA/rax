@@ -2926,7 +2926,13 @@
         "aarch64-gic-discovery-routing-2026-11-02",
         "riscv-shared-reservations-2026-11-03",
         "riscv-shared-atomics-2026-11-03",
-        "riscv-shared-clint-2026-11-03"
+        "riscv-shared-clint-2026-11-03",
+        {
+          "id": "kvm-public-register-state-2026-11-03",
+          "status": "locally_validated_with_explicit_unrelated_owning_failures",
+          "scope": "Native KVM public register banks, retained APIC/event/XSAVE fields, rollback and managed VM/RAM lifetime; SREGS2 preserves cached PAE pointers while intentional CR3 changes reload the new table. This is a prerequisite for the complete private/shared/in-flight producer.",
+          "qualification": "docs/development/kvm-public-state/qualification.json"
+        }
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -198536,6 +198542,76 @@
         },
         "full_root_baseline": "31d4c36c566d372280f88dfc6c26fe9239a08a0e"
       }
+    },
+    {
+      "id": "kvm-public-register-state-2026-11-03",
+      "status": "locally_validated_with_explicit_unrelated_owning_failures",
+      "findings": [
+        "C-STATE"
+      ],
+      "parent": "d548e62fbab063a49181a50c001ff02f94314357",
+      "base_before_linear_upstream": "9a3222f171e0110e79e29f05d4e271f26b15a0dc",
+      "scope": "Native KVM public register banks, retained APIC/event/XSAVE fields, rollback and managed VM/RAM lifetime; SREGS2 preserves cached PAE pointers while intentional CR3 changes reload the new table. This is a prerequisite for the complete private/shared/in-flight producer.",
+      "qualification": "docs/development/kvm-public-state/qualification.json",
+      "full_goal_complete": false,
+      "native_evidence": {
+        "bank_tests_debug": 14,
+        "bank_tests_default_features": 14,
+        "direct_pae_probe": "Identical probe source observes red cache3001->0 on v5, green cache3001->3001 on final v6 through complete RAX crate",
+        "host_profile": "x87/SSE/AVX; mask7;4096-byte XSAVE; MXCSR_MASKffff; no native AVX512/opmask qualification",
+        "owning_library": {
+          "argv": [
+            "/tmp/rax-kvm-native-state-czfmaujf/observations/complete-root-public-state-v6.exe",
+            "--test-threads=8",
+            "--nocapture"
+          ],
+          "exit_code": 101,
+          "source_unchanged": true,
+          "executable_unchanged": true,
+          "utc": "2026-11-03T10:21:36.523724+00:00",
+          "provenance": {
+            "executable": "/tmp/rax-kvm-native-state-czfmaujf/observations/complete-root-public-state-v6.exe",
+            "sha256": "05bc9e7ccde39b833b4b4ebe59317eeb125e4e87e261a39ca86a926340747835",
+            "bytes": 716429400,
+            "compiler_inputs": 4797,
+            "manifest_sha256": "b3dd4369b975902ab1c8daeb4e93ef03054bbd3688001608f9bc2dccb1b47122",
+            "source_files": 11220,
+            "all_compiler_inputs_match": true,
+            "scope": "Complete unfiltered owning library binary, copied immutably before concurrent build gates; unchanged source export before/after"
+          },
+          "test_result": "test result: FAILED. 13122 passed; 4 failed; 20 ignored; 0 measured; 0 filtered out; finished in 5768.24s",
+          "failures": [
+            "user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link",
+            "user::linux::tests::netlink::addresses_dump_by_family",
+            "user::linux::tests::netlink::options_follow_netlink_setsockopt",
+            "user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer"
+          ],
+          "scope": "Complete unfiltered v6 library on061f6 upstream base; final executable Rust plus two-line calibrated state.rs comment. Later Windows IFEO and Unix socket-test fast-forwards are separately integrated/checked by v7, not covered by this earlier full run."
+        }
+      },
+      "remaining_required": "Full KVM private/shared/in-flight records, MP preservation, RAM/controller/clock association, native entry/startup and coordinated file restore. The observed MP_HALTED3->RUNNABLE0 counterexample and95-MSR native profile remain explicit followup evidence. All four original findings stay partially_validated.",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-state-v1/commit-receipt.json",
+      "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-state-v1/push-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-state-v1/cleanup-final.json",
+      "linear_upstream_integration": {
+        "receipt": "second-fast-forward.json",
+        "full_library_baseline": "061f6e13925abf26e2b9bc705639d6cd1985ffe6",
+        "post_integration_checks": [
+          "workspace-fmt-linear-v7",
+          "workspace-build-linear-v7",
+          "workspace-clippy-linear-v7",
+          "native-public-state-linear-v7",
+          "upstream-registry-linear-v7",
+          "upstream-registry-services-linear-v7",
+          "upstream-sockets-linear-v7"
+        ],
+        "third_fast_forward": "third-fast-forward.json",
+        "fourth_fast_forward": "fourth-fast-forward.json",
+        "post_qualification_scope": "No native export or tests repeated for these disjoint Windows namespace changes; all8 KVM code/workflow inputs and Cargo manifests unchanged from qualified b80.",
+        "extra_socket_gate": "upstream-sockets-linear-v7:16passed0failed0ignored"
+      },
+      "validation": "/Users/int/dev/rax/docs/development/kvm-public-state/qualification.json",
+      "packaging": "28 exact owned paths; verbatim Linux reference bytes and frozen counterexamples retained; narrow per-path Git whitespace exception for4 upstream space-before-tab patterns, without changing RAX source checks."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
