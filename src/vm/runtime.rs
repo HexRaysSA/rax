@@ -1019,6 +1019,7 @@ mod coordinator;
 mod execution;
 #[path = "runtime/mmio.rs"]
 mod mmio;
+mod port_io;
 
 #[cfg(test)]
 #[path = "runtime/mmio_rmw_tests.rs"]

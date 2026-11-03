@@ -1,0 +1,56 @@
+{
+  "kind": "io",
+  "exit_code": 0,
+  "utc": "2026-11-03T14:27:53.586441+00:00",
+  "source_unchanged": true,
+  "manifest_sha256": "7ff15a7d41b396a9c334a75e7c2c5a1f8df044bfbbe061b098768908382f93d8",
+  "library_sha256": "5c354c5797c27b0e4e4e1c3b9424bf9f791cda24f7ff76899e0ee4ccf7244d43",
+  "probe_sha256": "a451616248a5600c5133998fda6a9421f761553b56b98991c312e879cf074119",
+  "results": [
+    {
+      "label": "io-library-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "io-probe-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "io-probe-run-v2",
+      "exit_code": 0,
+      "results": [
+        "public_observation_before_rip=0x1000 after_rip=0x1000",
+        "native_input_completed_then_init_wait=true"
+      ]
+    },
+    {
+      "label": "io-mp-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "io-mp-run-v2",
+      "exit_code": 0,
+      "results": [
+        "wanted_mp=0 actual_mp=0",
+        "wanted_mp=1 actual_mp=1",
+        "wanted_mp=2 actual_mp=2",
+        "wanted_mp=3 actual_mp=3"
+      ]
+    },
+    {
+      "label": "io-io-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "io-io-run-v2",
+      "exit_code": 0,
+      "results": [
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.14s"
+      ]
+    }
+  ]
+}

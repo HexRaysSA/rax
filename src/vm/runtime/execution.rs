@@ -279,38 +279,12 @@ impl Vmm {
                 }
                 VcpuExit::IoIn { port, size } => {
                     debug!(port = port, size = size, "PIO read");
-                    let is_serial = port >= SERIAL_BASE && port < SERIAL_BASE + 8;
-                    let mut data = vec![0u8; size as usize];
-                    if is_serial {
-                        if let Ok(mut serial) = self.serial.lock() {
-                            for (i, byte) in data.iter_mut().enumerate() {
-                                *byte = IoDevice::read(&mut *serial, port + i as u16);
-                            }
-                        }
-                    } else if port == 0x1F0 || port == 0x170 {
-                        // IDE/ATAPI data register: a single fixed port carries the
-                        // whole PIO word/dword (insw/insd). Read every byte from the
-                        // SAME port — unlike the byte-lane model the bus uses for
-                        // multi-byte ports — so consecutive reads drain the device's
-                        // PIO buffer in order.
-                        for i in 0..data.len() {
-                            self.io_bus.read(port, &mut data[i..i + 1])?;
-                        }
-                    } else {
-                        self.io_bus.read(port, &mut data)?;
-                    }
+                    let data = port_io::read(&mut self.io_bus, &self.serial, port, size, 1)?;
                     vcpu.complete_io_in(&data);
                     vcpu.io_completion_result()?;
                 }
                 VcpuExit::IoInString { port, size, count } => {
-                    // Batched `rep ins`: read count*size bytes, all from the same
-                    // fixed port (the `rep` reads DX repeatedly), in one exit. The
-                    // vCPU writes the whole destination block via complete_io_in.
-                    let total = (count as usize).saturating_mul(size as usize);
-                    let mut data = vec![0u8; total];
-                    for i in 0..total {
-                        self.io_bus.read(port, &mut data[i..i + 1])?;
-                    }
+                    let data = port_io::read(&mut self.io_bus, &self.serial, port, size, count)?;
                     vcpu.complete_io_in(&data);
                     vcpu.io_completion_result()?;
                 }

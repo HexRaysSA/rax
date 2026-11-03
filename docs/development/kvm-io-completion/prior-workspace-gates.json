@@ -1,0 +1,222 @@
+{
+  "scope": "All11 IO Cargo gates passed before the subsequently discovered public-observation INIT defect; these receipts do not qualify its correction. Corrected combined-source gates remain running.",
+  "gates": {
+    "io-public-state-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::state_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:11:53.527272+00:00",
+      "results": [
+        "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 13158 filtered out; finished in 0.18s"
+      ]
+    },
+    "io-fmt-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T13:47:07.283574+00:00",
+      "results": []
+    },
+    "io-no-jit-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,kvm"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:11:05.120538+00:00",
+      "results": []
+    },
+    "io-build-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:07:03.862931+00:00",
+      "results": []
+    },
+    "io-minimal-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "x86_64-suite",
+        "--test",
+        "kvm_minimal",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:16:56.976671+00:00",
+      "results": [
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s"
+      ]
+    },
+    "io-doc-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:11:31.511735+00:00",
+      "results": [
+        "test result: ok. 0 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "io-xsave-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::intel_hvf_xsave::tests::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:12:00.798142+00:00",
+      "results": [
+        "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 13158 filtered out; finished in 0.01s"
+      ]
+    },
+    "io-native-owning-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "x86_64-suite",
+        "--test",
+        "kvm_host_slices",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:16:47.979852+00:00",
+      "results": [
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.91s"
+      ]
+    },
+    "io-record-unit-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::io::tests::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:11:38.698158+00:00",
+      "results": [
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 13165 filtered out; finished in 0.00s"
+      ]
+    },
+    "io-clippy-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T13:51:42.936545+00:00",
+      "results": []
+    },
+    "io-port-unit-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "vm::runtime::port_io::tests::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:11:45.980611+00:00",
+      "results": [
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 13170 filtered out; finished in 0.00s"
+      ]
+    }
+  }
+}

@@ -4,7 +4,7 @@ use super::{KvmVcpu, convert, special, xsave};
 use crate::error::{Error, Result};
 use crate::vm::vcpu::CpuState;
 use crate::vm::vcpu::X86_64CpuState;
-use kvm_bindings::{Msrs, kvm_debugregs, kvm_msr_entry, kvm_regs, kvm_vcpu_events};
+use kvm_bindings::{Msrs, kvm_debugregs, kvm_mp_state, kvm_msr_entry, kvm_regs, kvm_vcpu_events};
 use kvm_ioctls::VcpuFd;
 
 const MSRS: [u32; 7] = [
@@ -38,6 +38,7 @@ fn stage(name: &str, error: impl std::fmt::Display) -> Error {
 }
 
 struct Image {
+    mp: Option<kvm_mp_state>,
     regs: kvm_regs,
     special: special::Image,
     debug: kvm_debugregs,
@@ -48,6 +49,13 @@ struct Image {
 
 impl Image {
     fn read(cpu: &KvmVcpu) -> Result<Self> {
+        // GET_MP_STATE accepts pending INIT/SIPI events. Sample it before
+        // the register/event banks so they describe the resulting CPU state.
+        let mp = cpu.vcpu_fd.get_mp_state()?;
+        Self::read_banks(cpu, Some(mp))
+    }
+
+    fn read_banks(cpu: &KvmVcpu, mp: Option<kvm_mp_state>) -> Result<Self> {
         let entries: Vec<_> = MSRS
             .iter()
             .map(|&index| kvm_msr_entry {
@@ -64,6 +72,7 @@ impl Image {
             )));
         }
         Ok(Self {
+            mp,
             regs: cpu.vcpu_fd.get_regs()?,
             special: special::Image::read(&cpu.memory_owner.vm_fd, &cpu.vcpu_fd)?,
             debug: cpu.vcpu_fd.get_debug_regs()?,
@@ -94,6 +103,9 @@ impl Image {
     }
 
     fn write(&self, cpu: &KvmVcpu) -> Result<()> {
+        let mp = self.mp.ok_or_else(|| {
+            Error::InvalidConfig("KVM register projection has no native MP rollback state".into())
+        })?;
         self.xsave
             .write(&cpu.memory_owner.vm_fd, &cpu.vcpu_fd)
             .map_err(|error| stage("SET_XSAVE", error))?;
@@ -108,6 +120,12 @@ impl Image {
         cpu.vcpu_fd
             .set_vcpu_events(&self.events)
             .map_err(|error| stage("SET_VCPU_EVENTS", error))?;
+        // SET_SREGS[2] can make a reset-vector CPU runnable. A public register
+        // overlay must retain its original halted/startup state. Restore MP
+        // last, after its matching registers and pending-event state.
+        cpu.vcpu_fd
+            .set_mp_state(mp)
+            .map_err(|error| stage("SET_MP_STATE", error))?;
         Ok(())
     }
 
@@ -147,6 +165,7 @@ impl Image {
             entry.data = value;
         }
         Ok(Self {
+            mp: self.mp,
             regs: convert::regs_to_kvm(&state.regs),
             special: self.special.overlay(&state.sregs)?,
             debug,
@@ -167,7 +186,10 @@ impl KvmVcpu {
 
     pub(super) fn public_state(&self) -> Result<CpuState> {
         self.state_ready()?;
-        Ok(CpuState::X86_64(Image::read(self)?.public()?))
+        // A public observation must not accept a queued INIT/SIPI. In
+        // particular, pending native I/O still owns the current instruction
+        // and mapped reply buffer. Only an admitted overlay needs MP backup.
+        Ok(CpuState::X86_64(Image::read_banks(self, None)?.public()?))
     }
 
     pub(super) fn set_public_state(&mut self, state: &CpuState) -> Result<()> {
@@ -177,9 +199,9 @@ impl KvmVcpu {
                 "KVM backend only supports x86_64 state".into(),
             ));
         };
-        if self.pending_io_in.is_some() {
+        if self.io.has_native_completion() {
             return Err(Error::InvalidConfig(
-                "KVM public state overlay requires completed input".into(),
+                "KVM public state overlay requires native I/O completion".into(),
             ));
         }
         let backup = Image::read(self)?;

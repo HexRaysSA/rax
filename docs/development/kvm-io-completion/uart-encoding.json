@@ -1,0 +1,24 @@
+{
+  "commands": [
+    [
+      "as",
+      "--64",
+      "-o",
+      "/tmp/rax-kvm-native-entry-ixif9sv1/observations/production-io-encoding-v1/guest.o",
+      "/tmp/rax-kvm-native-entry-ixif9sv1/observations/production-io-encoding-v1/uart-rep.S"
+    ],
+    [
+      "objcopy",
+      "-O",
+      "binary",
+      "--only-section=.text",
+      "/tmp/rax-kvm-native-entry-ixif9sv1/observations/production-io-encoding-v1/guest.o",
+      "/tmp/rax-kvm-native-entry-ixif9sv1/observations/production-io-encoding-v1/guest.bin"
+    ]
+  ],
+  "assembler": "GNU assembler (GNU Binutils for Ubuntu) 2.42",
+  "source_sha256": "275705f1caee587a16f2435373417161f33aff9df9d34e038358f3434b83c858",
+  "code_sha256": "917b70a5a31fbad17e412157f35cffa77add23695961251cb47b64ce809a8989",
+  "code_hex": "baff030000b05aeebafc030000bf00001100b900010000f36dbe03001100b900010000803e5a75134883c604e2f5c70425000411005a5a5a5aeb0bc7042500041100d0bad0baba04060000b80020000066eff4",
+  "disassembly": "\n/tmp/rax-kvm-native-entry-ixif9sv1/observations/production-io-encoding-v1/guest.o:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000000000 <_start>:\n   0:\tba ff 03 00 00       \tmov    $0x3ff,%edx\n   5:\tb0 5a                \tmov    $0x5a,%al\n   7:\tee                   \tout    %al,(%dx)\n   8:\tba fc 03 00 00       \tmov    $0x3fc,%edx\n   d:\tbf 00 00 11 00       \tmov    $0x110000,%edi\n  12:\tb9 00 01 00 00       \tmov    $0x100,%ecx\n  17:\tf3 6d                \trep insl (%dx),%es:(%rdi)\n  19:\tbe 03 00 11 00       \tmov    $0x110003,%esi\n  1e:\tb9 00 01 00 00       \tmov    $0x100,%ecx\n\n0000000000000023 <check>:\n  23:\t80 3e 5a             \tcmpb   $0x5a,(%rsi)\n  26:\t75 13                \tjne    3b <bad>\n  28:\t48 83 c6 04          \tadd    $0x4,%rsi\n  2c:\te2 f5                \tloop   23 <check>\n  2e:\tc7 04 25 00 04 11 00 \tmovl   $0x5a5a5a5a,0x110400\n  35:\t5a 5a 5a 5a \n  39:\teb 0b                \tjmp    46 <done>\n\n000000000000003b <bad>:\n  3b:\tc7 04 25 00 04 11 00 \tmovl   $0xbad0bad0,0x110400\n  42:\td0 ba d0 ba \n\n0000000000000046 <done>:\n  46:\tba 04 06 00 00       \tmov    $0x604,%edx\n  4b:\tb8 00 20 00 00       \tmov    $0x2000,%eax\n  50:\t66 ef                \tout    %ax,(%dx)\n  52:\tf4                   \thlt\n"
+}

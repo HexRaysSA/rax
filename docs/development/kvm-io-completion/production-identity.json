@@ -1,0 +1,9 @@
+{
+  "utc": "2026-11-03T13:16:46.769142+00:00",
+  "root": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/production-io-green-v1",
+  "exit_code": 0,
+  "source_unchanged": true,
+  "original_live_source_unchanged": true,
+  "source_files": 11303,
+  "scope": "Complete production IO-wired library compiled by stable rustc and actual whole native owning target. No replacement adapter/class seam; Cargo broader checks and full checkpoint/native SMP remain separate."
+}

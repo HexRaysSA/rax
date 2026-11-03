@@ -1,0 +1,15 @@
+{
+  "references": {
+    "docs/development/kvm-public-state/references/kvm-api-v6.8.rst": "efba2788716266a451103fabfd1f9edfe390b76d07a464e71f840cc278936155",
+    "docs/development/kvm-public-state/references/kvm-uapi-v6.8.h": "7a3c4cd1b9fe2e24110f91f0cacbd52a549d1701147531b0f554637f26f90ee2",
+    "docs/development/kvm-public-state/references/kvm-x86-uapi-v6.8.h": "e894c2f5b06d1c897f3e02f11247ef6508cc2d6bc2ffa81e0c7b706678b7b1b6",
+    "docs/development/kvm-public-state/references/kernel-x86-v6.8.c": "3898fb303a2a8eb5c8ee9b02d03425dd9ac9475457f22deedbfe2c77081b8498"
+  },
+  "sections": [
+    "KVM API section5: userspace I/O is completed by the following KVM_RUN; immediate_exit may be used to drain completion.",
+    "KVM_GET_MP_STATE section4.38 and KVM_SET_MP_STATE section4.39.",
+    "Linuxv6.8 kvm_arch_vcpu_ioctl_get_mpstate, kvm_arch_vcpu_ioctl_set_mpstate and SREGS/SREGS2 reset-vector MP-state changes."
+  ],
+  "origin": "Existing repository primary references and their retained provenance.json; no new external document downloaded.",
+  "guest": "GNU as2.42 is an encoding tool. Actual managed KVM guest execution and the actual Vmm loop establish the behavioral results."
+}

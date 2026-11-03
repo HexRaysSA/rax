@@ -2799,7 +2799,8 @@
         "docs/development/riscv-shared-atomics/qualification.json",
         "docs/development/riscv-vmm-startup/README.md",
         "docs/development/riscv-vmm-startup/qualification.json",
-        "src/vm/runtime/riscv_startup_tests.rs"
+        "src/vm/runtime/riscv_startup_tests.rs",
+        "docs/development/kvm-io-completion/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2937,7 +2938,8 @@
           "status": "locally_validated_with_explicit_unrelated_owning_failures",
           "scope": "Native KVM public register banks, retained APIC/event/XSAVE fields, rollback and managed VM/RAM lifetime; SREGS2 preserves cached PAE pointers while intentional CR3 changes reload the new table. This is a prerequisite for the complete private/shared/in-flight producer.",
           "qualification": "docs/development/kvm-public-state/qualification.json"
-        }
+        },
+        "kvm-owned-io-and-mp-preservation-2026-11-03"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3627,7 +3629,8 @@
         "docs/development/riscv-shared-atomics/qualification.json",
         "docs/development/riscv-vmm-startup/README.md",
         "docs/development/riscv-vmm-startup/qualification.json",
-        "src/vm/runtime/riscv_startup_tests.rs"
+        "src/vm/runtime/riscv_startup_tests.rs",
+        "docs/development/kvm-io-completion/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3731,7 +3734,8 @@
         "aarch64-gic-discovery-routing-2026-11-02",
         "riscv-shared-reservations-2026-11-03",
         "riscv-shared-atomics-2026-11-03",
-        "riscv-shared-clint-2026-11-03"
+        "riscv-shared-clint-2026-11-03",
+        "kvm-owned-io-and-mp-preservation-2026-11-03"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198678,6 +198682,18 @@
       "counts": "Baseline original production probe1pass4fail; owning baseline2pass3fail. Changed full production owning binaries84+5+487=576pass,0fail,0ignored,0filtered, both direct pinned artifacts and canonical Cargo. Workspace fmt/Clippy/all-target build/no-JIT check/doctests passed;2compile-fail pass,5pre-existing doc examples ignored.",
       "publication": "Exact14 paths committed via authorized git add/red, immediately pushed to master, committed blobs/signature/remote verified. Upstream Windows commit015dbaf retained without a merge commit.",
       "remaining": "Broader advertised profiles, optional security/debug controls, complete backend/private/in-flight/native startup/clock/replay and physical Intel requirements remain open."
+    },
+    {
+      "id": "kvm-owned-io-and-mp-preservation-2026-11-03",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "scope": "Owned native PIO/MMIO completion, exact REP element width/count, ACK/reply validation, scalar VMM input dispatch, MP-preserving public overlays and side-effect-free public register observation during pending INIT. No complete native checkpoint producer.",
+      "qualification": "docs/development/kvm-io-completion/qualification.json",
+      "status": "locally_validated",
+      "full_goal_complete": false,
+      "validation": "Actual baseline native4pass6fail; corrected whole native10pass; four native MP values preserved; public observation baselineRIP1000->fff0 and corrected1000->1000 then completed input/INIT wait. All14 final combined Cargo gates pass."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -221,7 +221,10 @@ fn worker(cpu: &mut KvmVcpu, value: libc::timespec) -> Result<Option<VcpuExit>> 
 pub(super) fn run(cpu: &mut KvmVcpu, limit: Duration) -> Result<Option<VcpuExit>> {
     cpu.state_ready()?;
     let value = interval(limit)?;
-    if cpu.pending_io_in.is_some() {
+    if matches!(
+        cpu.io.event().map_err(Error::Emulator)?,
+        Some(super::io::Event::Input(_))
+    ) {
         return Err(Error::InvalidConfig(
             "KVM host entry requires completion of the pending input".into(),
         ));

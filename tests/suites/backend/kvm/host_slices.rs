@@ -232,6 +232,7 @@ fn input_output_and_halt_survive_worker_returns_and_rejected_reentry() {
             assert!(
                 matches!(next_exit(&mut *cpu), VcpuExit::IoOut { port: 0x71, data } if data == [0x5a])
             );
+            cpu.complete_io_out().unwrap();
             assert!(matches!(next_exit(&mut *cpu), VcpuExit::Hlt));
         },
     );
@@ -273,6 +274,7 @@ fn mmio_input_and_output_retain_the_exact_native_frontier() {
             assert!(
                 matches!(next_exit(&mut *cpu), VcpuExit::MmioWrite { addr: 0xfee00001, data } if data == [0xa5])
             );
+            cpu.complete_io_out().unwrap();
             assert!(matches!(next_exit(&mut *cpu), VcpuExit::Hlt));
         },
     );
@@ -280,3 +282,6 @@ fn mmio_input_and_output_retain_the_exact_native_frontier() {
 
 #[path = "raw_owner.rs"]
 mod raw_owner;
+
+#[path = "io_completion.rs"]
+mod io_completion;

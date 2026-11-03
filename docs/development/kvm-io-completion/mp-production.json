@@ -1,0 +1,55 @@
+{
+  "utc": "2026-11-03T13:36:47.886284+00:00",
+  "exit_code": 0,
+  "source_unchanged": true,
+  "old_library_unchanged": true,
+  "library_sha256": "30731d1200513f034760e35ea83073da4579d784758849da433c8c8196809123",
+  "results": [
+    {
+      "label": "mp-old-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "mp-old-run-v2",
+      "exit_code": 101,
+      "results": [
+        "wanted_mp=0 actual_mp=0",
+        "wanted_mp=1 actual_mp=0"
+      ]
+    },
+    {
+      "label": "mp-library-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "mp-new-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "mp-new-run-v2",
+      "exit_code": 0,
+      "results": [
+        "wanted_mp=0 actual_mp=0",
+        "wanted_mp=1 actual_mp=1",
+        "wanted_mp=2 actual_mp=2",
+        "wanted_mp=3 actual_mp=3"
+      ]
+    },
+    {
+      "label": "mp-io-suite-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "mp-io-suite-run-v2",
+      "exit_code": 0,
+      "results": [
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.12s"
+      ]
+    }
+  ],
+  "scope": "Actual production managedCPU MP overlay: independent kernel-state baseline, whole changed production compile, all4 MP values and complete10-case native IO/VMM target. Broader Cargo/private/SMP qualification remains separate."
+}

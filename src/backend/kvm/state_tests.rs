@@ -52,8 +52,15 @@ fn seed_legacy_registers(cpu: &KvmVcpu, fpu: &kvm_bindings::kvm_fpu) {
 }
 
 fn cpu() -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
+    cpu_with_irqchip(false)
+}
+
+fn cpu_with_irqchip(irqchip: bool) -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
     let kvm = Kvm::new().expect("native KVM tests require /dev/kvm");
     let vm = kvm.create_vm().unwrap();
+    if irqchip {
+        vm.create_irq_chip().unwrap();
+    }
     let memory = GuestMemoryWrapper::new(2 * 1024 * 1024).unwrap();
     memory.register(&vm).unwrap();
     let vcpu_fd = vm.create_vcpu(0).unwrap();
@@ -71,6 +78,7 @@ fn cpu() -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
         vcpu_fd,
         id: 0,
         pending_io_in: None,
+        io: super::io::State::default(),
         memory_owner: memory_owner.clone(),
         _memory: Arc::new(memory.memory().clone()),
         state_failure: None,
@@ -417,12 +425,44 @@ fn public_overlay_rejection_keeps_the_uncompleted_native_input() {
     desired.regs.rax = 0x1234;
     desired.regs.xmm[0] = [0x1234, 0x5678];
     let error = cpu.set_state(&CpuState::X86_64(desired)).unwrap_err();
-    assert!(error.to_string().contains("completed input"), "{error}");
+    assert!(
+        error.to_string().contains("native I/O completion"),
+        "{error}"
+    );
     assert_eq!(cpu.vcpu_fd.get_regs().unwrap(), before);
     assert!(cpu.pending_io_in.is_some());
     cpu.complete_io_in(&[0x5a]);
     assert!(matches!(cpu.run().unwrap(), VcpuExit::Hlt));
     assert_eq!(cpu.vcpu_fd.get_regs().unwrap().rax & 255, 0x5a);
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; executed by the KVM CI job"]
+fn public_overlay_preserves_native_halted_and_startup_mp_states() {
+    let (_kvm, _vm, mut cpu) = cpu_with_irqchip(true);
+    for mp_state in [
+        kvm_bindings::KVM_MP_STATE_RUNNABLE,
+        kvm_bindings::KVM_MP_STATE_UNINITIALIZED,
+        kvm_bindings::KVM_MP_STATE_INIT_RECEIVED,
+        kvm_bindings::KVM_MP_STATE_HALTED,
+    ] {
+        cpu.vcpu_fd
+            .set_mp_state(kvm_bindings::kvm_mp_state { mp_state })
+            .unwrap();
+        let before = cpu.vcpu_fd.get_regs().unwrap();
+        let CpuState::X86_64(mut state) = cpu.get_state().unwrap() else {
+            panic!()
+        };
+        state.sregs.cr8 = (state.sregs.cr8 + 1) & 15;
+        let tpr = state.sregs.cr8;
+        cpu.set_state(&CpuState::X86_64(state)).unwrap();
+        assert_eq!(cpu.vcpu_fd.get_mp_state().unwrap().mp_state, mp_state);
+        assert_eq!(cpu.vcpu_fd.get_regs().unwrap(), before);
+        let CpuState::X86_64(after) = cpu.get_state().unwrap() else {
+            panic!()
+        };
+        assert_eq!(after.sregs.cr8, tpr);
+    }
 }
 
 fn native_special(cpu: &KvmVcpu) -> kvm_bindings::kvm_sregs2 {

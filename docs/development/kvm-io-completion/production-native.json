@@ -1,0 +1,6 @@
+{
+  "label": "owning-suite",
+  "exit_code": 0,
+  "log": "\nrunning 10 tests\ntest finite_turns_preserve_caller_mask_handlers_and_timer_ownership ... ok\ntest input_output_and_halt_survive_worker_returns_and_rejected_reentry ... ok\ntest io_completion::duplicate_output_acknowledgment_is_terminal_before_the_following_instruction ... ok\ntest io_completion::malformed_input_replies_poison_without_a_native_reentry ... ok\ntest io_completion::mmio_read_modify_write_retains_the_followon_output_until_acknowledgment ... ok\ntest io_completion::rep_inputs_preserve_width_count_and_direction_in_the_managed_cpu ... ok\ntest io_completion::rep_outputs_reemit_one_fixed_port_element_until_acknowledged ... ok\ntest io_completion::vmm::rep_input_uses_scalar_uart_register_lanes_in_the_actual_vmm_loop ... ok\ntest mmio_input_and_output_retain_the_exact_native_frontier ... ok\ntest raw_owner::raw_fd_retains_registered_ram_after_public_vm_handles_drop ... ok\n\ntest result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.18s\n\n",
+  "utc": "2026-11-03T13:16:46.768798+00:00"
+}

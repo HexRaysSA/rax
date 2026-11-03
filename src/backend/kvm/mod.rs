@@ -2,7 +2,9 @@
 
 mod convert;
 mod deadline;
+mod io;
 mod owned_vcpu;
+mod run;
 mod special;
 mod state;
 mod xsave;
@@ -169,6 +171,7 @@ impl Vm for KvmVm {
             vcpu_fd,
             id,
             pending_io_in: None,
+            io: io::State::default(),
             memory_owner: self.memory.clone(),
             _memory: mem,
             state_failure: None,
@@ -189,12 +192,15 @@ impl Vm for KvmVm {
 pub struct KvmVcpu {
     vcpu_fd: VcpuFd,
     id: u32,
-    /// Pointer and length to pending IoIn/MmioRead data buffer.
-    /// This is set during run() when we get an IoIn/MmioRead exit,
-    /// and written to in complete_io_in().
-    /// Safety: The pointer is valid between run() calls as it points
-    /// to the mmap'd kvm_run structure owned by vcpu_fd.
+    /// Pointer and length of the outstanding native input buffer. The owned
+    /// reply is copied immediately before native entry; neither accepting the
+    /// reply nor rejecting an entry drops this pointer before kernel completion.
+    /// Its lifetime is the run mapping owned by vcpu_fd, with exclusive access
+    /// through this CPU's mutable borrow.
     pending_io_in: Option<(*mut u8, usize)>,
+    /// Owned transfer metadata, replies and acknowledged output progress.
+    /// The native pointer is retained separately until kernel completion.
+    io: io::State,
     memory_owner: Arc<MemoryOwner>,
     _memory: Arc<GuestMemoryMmap>,
     state_failure: Option<String>,
@@ -225,45 +231,7 @@ impl VCpu for KvmVcpu {
     }
 
     fn run(&mut self) -> Result<VcpuExit> {
-        self.state_ready()?;
-        // Clear any previous pending I/O
-        self.pending_io_in = None;
-
-        match self.vcpu_fd.run()? {
-            kvm_ioctls::VcpuExit::Hlt => Ok(VcpuExit::Hlt),
-            kvm_ioctls::VcpuExit::Shutdown => Ok(VcpuExit::Shutdown),
-            kvm_ioctls::VcpuExit::IoIn(port, data) => {
-                // Store pointer to the data buffer so complete_io_in() can write to it
-                self.pending_io_in = Some((data.as_mut_ptr(), data.len()));
-                Ok(VcpuExit::IoIn {
-                    port,
-                    size: data.len() as u8,
-                })
-            }
-            kvm_ioctls::VcpuExit::IoOut(port, data) => Ok(VcpuExit::IoOut {
-                port,
-                data: data.to_vec(),
-            }),
-            kvm_ioctls::VcpuExit::MmioRead(addr, data) => {
-                // Store pointer to the data buffer so complete_io_in() can write to it
-                self.pending_io_in = Some((data.as_mut_ptr(), data.len()));
-                Ok(VcpuExit::MmioRead {
-                    addr,
-                    size: data.len() as u8,
-                })
-            }
-            kvm_ioctls::VcpuExit::MmioWrite(addr, data) => Ok(VcpuExit::MmioWrite {
-                addr,
-                data: data.to_vec(),
-            }),
-            kvm_ioctls::VcpuExit::SystemEvent(type_, flags) => Ok(VcpuExit::SystemEvent {
-                type_,
-                flags: flags.first().copied().unwrap_or(0),
-            }),
-            kvm_ioctls::VcpuExit::FailEntry(reason, _) => Ok(VcpuExit::FailEntry { reason }),
-            kvm_ioctls::VcpuExit::InternalError => Ok(VcpuExit::InternalError),
-            exit => Ok(VcpuExit::Unknown(format!("{:?}", exit))),
-        }
+        self.run_native()
     }
 
     fn get_state(&self) -> Result<CpuState> {
@@ -282,16 +250,15 @@ impl VCpu for KvmVcpu {
     }
 
     fn complete_io_in(&mut self, data: &[u8]) {
-        // Write the response data to the KVM I/O buffer
-        if let Some((ptr, len)) = self.pending_io_in.take() {
-            let to_copy = data.len().min(len);
-            // Safety: The pointer is valid as it points to the mmap'd kvm_run
-            // structure which stays valid between run() calls. We only write
-            // up to the buffer length that KVM told us.
-            unsafe {
-                std::ptr::copy_nonoverlapping(data.as_ptr(), ptr, to_copy);
-            }
-        }
+        self.complete_native_input(data);
+    }
+
+    fn complete_io_out(&mut self) -> Result<()> {
+        self.acknowledge_native_output()
+    }
+
+    fn io_completion_result(&self) -> Result<()> {
+        self.native_completion_status()
     }
 
     fn id(&self) -> u32 {

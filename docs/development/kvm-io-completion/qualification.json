@@ -1,0 +1,156 @@
+{
+  "status": "component_qualified",
+  "full_goal_complete": false,
+  "utc": "2026-11-03T15:08:57.310733+00:00",
+  "evidence_root": "/Users/int/dev/rax-audit-work/four-findings-kvm/production-io-v1",
+  "baseline": {
+    "receipt": "baseline-native.json",
+    "passed": 4,
+    "failed": 6,
+    "ignored": 0,
+    "filtered": 0,
+    "actual_vmm_failure_marker": "0xbad0bad0"
+  },
+  "io_green": {
+    "receipt": "production-native.json",
+    "passed": 10,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "actual_vmm_success_marker": "0x5a5a5a5a",
+    "source_identity": "production-identity.json",
+    "source_sha256_before_mp_followup": {
+      "src/backend/kvm/io.rs": "eb44c5b4fa9c99d2a34e04284be27c45dc5835ac0fc8d2d46b97743363705358",
+      "src/backend/kvm/io_tests.rs": "edf6ddc7183052f21d0ae750bfcacf4e43359bc9fa2c5229e03c14e87e1298f0",
+      "src/backend/kvm/run.rs": "4183aa24ff86e5a152e7a2971308b40b3a007d854d7005f41baec7d7f06f485e",
+      "src/backend/kvm/mod.rs": "eb47594e85c1f6496d1072ed181c43d7195ff2aae2f6247659d5c1db2ac86deb",
+      "src/backend/kvm/deadline.rs": "c38bf36bdd81b920b67b12888b88b3f6b55c1bbc9594900718d2b7b6392bdfac",
+      "src/backend/kvm/state.rs": "5ef64889d0f37a5b7b477066c9647cf95fc8a4909b9ab7f4ec052c0ea921e967",
+      "src/backend/kvm/state_tests.rs": "856f3f5e599837463b7b388cd8b859168ccc6cd080b1b6937ce14849176434f2",
+      "src/vm/runtime.rs": "a0d41fd88b36b57b6fa3a9d43cdbb8bf2afa69a87f653e8b50eb4b954c5eae0b",
+      "src/vm/runtime/execution.rs": "008c985eeaa3e0b4926d6df69a1613593116bae56dfae83e5b137166b23f9de0",
+      "src/vm/runtime/port_io.rs": "2fd462d986712f4778e44c8ee3d134c97da49f94339b4fbfcbbebefc38e4d44e",
+      "src/vm/runtime/port_io_tests.rs": "8aa238d7b1b37736750d22a8a9d5df81f8f69c2642eb2172c79aaaee9cb4a685",
+      "tests/suites/backend/kvm/host_slices.rs": "0831b6c8d3c4dfe542457e318e662d4e1f9d35d81ac2fe1b6ede02d38b7b30bb",
+      "tests/suites/backend/kvm/io_completion.rs": "f68606fbff4e9d3dc5114d8a1beef8221435dbae1acc17c9b46cfd90fa5f5d04",
+      "tests/suites/backend/kvm/io_vmm.rs": "6f86aa7d86ef69463498d44396ef73976175b4abbb751175d844eb8551337ec5"
+    }
+  },
+  "mp_followup": {
+    "state": "Complete changed production library compiled; independently observed kernel MP values RUNNABLE0, UNINITIALIZED1, INIT_RECEIVED2 and HALTED3 preserved across CR8 overlays. All10 native IO/VMM cases passed again.",
+    "driver": "/Users/int/dev/rax-audit-work/four-findings-kvm/production-io-v1/run-mp-production-v2.py",
+    "excluded_setup": "Version1 external probe failed to compile because Registers has no PartialEq. No behavioral result or source mutation occurred in that attempt.",
+    "receipt": "mp-production.json",
+    "baseline_receipt": "mp-baseline.json",
+    "corrected_receipt": "mp-corrected.json",
+    "probe": "mp-overlay.rs",
+    "library_sha256": "30731d1200513f034760e35ea83073da4579d784758849da433c8c8196809123",
+    "counts_note": "Four values in one independent probe, not four harness tests. Registered native unit case remains pending its actual Cargo run."
+  },
+  "assumptions": [
+    {
+      "id": "I1",
+      "assumption": "A device reply/acknowledgment is distinct from completing the native instruction in KVM.",
+      "basis": "Retained KVM API section5 and independent native completion probes.",
+      "dependent_result": "Owned transfer persists until subsequent native KVM_RUN completes or returns the documented completion EINTR.",
+      "stress_test": "PIO/MMIO scalar and REP, incomplete reply, unacknowledged output, read-modify-write followon output and kernel EINTR.",
+      "falsification_probe": "A device-only completion makes a public overlay admissible, drops a payload, repeats an acknowledged device effect or lets the following instruction run early.",
+      "status": "Production ten-case target passed; historical independent EINTR/type-seam results retained separately."
+    },
+    {
+      "id": "I2",
+      "assumption": "Each REP element repeats the scalar port transaction at the original port.",
+      "basis": "VcpuExit element-width/count contract and port-I/O instruction semantics; selected UART model register map.",
+      "dependent_result": "Generic/serial byte lanes advance within one element; each next element restarts at the same port; IDE data FIFO bytes retain the fixed port.",
+      "stress_test": "Widths1/2/4, count256, DF0/1, nonuniform data, generic lanes, serial scratch register and IDE FIFO.",
+      "falsification_probe": "The actual Vmm guest fails to see UART.SCR=0x5a in the fourth byte of any input dword.",
+      "status": "Observed actual Vmm baseline0xbad0bad0 and corrected0x5a5a5a5a; all256 dwords verified."
+    },
+    {
+      "id": "I3",
+      "assumption": "A public register overlay preserves kernel MP startup/halt state; register setters can otherwise mark a CPU runnable.",
+      "basis": "Primary GET/SET_MP_STATE UAPI and retained Linux x86 KVM implementation.",
+      "dependent_result": "Capture MP before reading/applying public banks and restore it last, including rollback.",
+      "stress_test": "Actual managed CPU CR8 overlay; independently GET/SET kernel MP states0/1/2/3 through the sole stopped process-owned CPU FD; verify unchanged GPRs and intended CR8.",
+      "falsification_probe": "Overlay changes a seeded native MP state, alters unrelated GPRs, or fails to apply CR8.",
+      "status": "Baseline UNINITIALIZED1 became RUNNABLE0; corrected complete production library preserved all four tested values. SMM/blocked INIT/SIPI and coordinated controller restore remain unqualified."
+    },
+    {
+      "id": "I4",
+      "assumption": "A public register observation must not consume queued INIT while native IO owns the current instruction.",
+      "basis": "GET_MP_STATE accepts APIC events, while public register projection requires no MP backup.",
+      "dependent_result": "Read banks directly for observation; only an admitted overlay captures MP before banks and restores it last.",
+      "stress_test": "Actual AP1 input, BSP0 ICR INIT, independent GET_REGS before/after managed get_state, exact input reply and subsequent native INIT wait.",
+      "falsification_probe": "Public observation changes RIP/GPRs or loses the pending native completion.",
+      "status": "Exact paired production probe: baseline RIP1000->fff0, corrected1000->1000 followed by completed input and INIT wait; all10 owning native cases and4 MP values passed."
+    }
+  ],
+  "remaining_required": [
+    "Complete native private/shared/in-flight checkpoint producer, coordinated cut/rollback, RAM/controller/clock association and source-free file continuation.",
+    "Actual native1/2/4 VMM AP startup, CPUID/APIC identity/topology, IPI/halt/wakeup and scheduler/kernel state coherence.",
+    "Full current Cargo/owning unit/feature/Clippy/docs qualification and exact-group commit/push after terminal checks; source exports remain frozen while live.",
+    "Remaining advertised A32/HVF profiles and physical Intel Mac HVF execution."
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "Owned IO metadata and rejecting public overlays do not implement a complete native checkpoint. Kernel completion/coordinated capture remain required.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "Direct embedding clients must acknowledge dispatched output and inspect input completion errors; the Vmm loop already follows this trait contract.",
+      "blocks_component": false
+    }
+  ],
+  "broader_cargo": {
+    "state": "all14 final combined gates passed",
+    "driver": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-smp-v1/cargo-gates-v2.py",
+    "immutable_manifest": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-smp-v1/green-v2/inputs-observation-v2.json",
+    "scope": "Contains exact corrected IO source and separately pending native SMP work; gates do not include the separately pending scalar A32 block group."
+  },
+  "qualified_source_sha256": {
+    "src/backend/kvm/io.rs": "eb44c5b4fa9c99d2a34e04284be27c45dc5835ac0fc8d2d46b97743363705358",
+    "src/backend/kvm/io_tests.rs": "edf6ddc7183052f21d0ae750bfcacf4e43359bc9fa2c5229e03c14e87e1298f0",
+    "src/backend/kvm/run.rs": "4183aa24ff86e5a152e7a2971308b40b3a007d854d7005f41baec7d7f06f485e",
+    "src/backend/kvm/mod.rs": "eb47594e85c1f6496d1072ed181c43d7195ff2aae2f6247659d5c1db2ac86deb",
+    "src/backend/kvm/deadline.rs": "c38bf36bdd81b920b67b12888b88b3f6b55c1bbc9594900718d2b7b6392bdfac",
+    "src/backend/kvm/state.rs": "0a26a359dc5ef32bed4e5ed92411d69bf0b62a8fa8dbdff55a323269cf300680",
+    "src/backend/kvm/state_tests.rs": "9c4457e4233809bafae53e2a71842d699706740f997a81dd0c9f122b3ff388a1",
+    "src/vm/runtime.rs": "a0d41fd88b36b57b6fa3a9d43cdbb8bf2afa69a87f653e8b50eb4b954c5eae0b",
+    "src/vm/runtime/execution.rs": "008c985eeaa3e0b4926d6df69a1613593116bae56dfae83e5b137166b23f9de0",
+    "src/vm/runtime/port_io.rs": "2fd462d986712f4778e44c8ee3d134c97da49f94339b4fbfcbbebefc38e4d44e",
+    "src/vm/runtime/port_io_tests.rs": "8aa238d7b1b37736750d22a8a9d5df81f8f69c2642eb2172c79aaaee9cb4a685",
+    "tests/suites/backend/kvm/host_slices.rs": "0831b6c8d3c4dfe542457e318e662d4e1f9d35d81ac2fe1b6ede02d38b7b30bb",
+    "tests/suites/backend/kvm/io_completion.rs": "f68606fbff4e9d3dc5114d8a1beef8221435dbae1acc17c9b46cfd90fa5f5d04",
+    "tests/suites/backend/kvm/io_vmm.rs": "6f86aa7d86ef69463498d44396ef73976175b4abbb751175d844eb8551337ec5"
+  },
+  "source_scope": "Exact IO-only source versions retained under pre-smp-v1; current working files also contain separately pending SMP changes. The public observation correction changes state.rs only in this group.",
+  "public_observation": {
+    "baseline": "public-observation-baseline.json",
+    "corrected": "public-observation-corrected.json",
+    "probe": "public-observation.rs",
+    "baseline_result": "Actual managed public get_state changed pending-input AP RIP0x1000->0xfff0 by accepting queued INIT.",
+    "corrected_result": "RIP remains0x1000; input then completes before INIT wait. All4 MP values and the whole native10-case IO target pass again.",
+    "excluded_setup": "Refined probe v2 failed compilation because local mp shadowed a function. No behavioral test ran; fixed v3 is the exact paired baseline/corrected probe.",
+    "private_shape": "MP backup is optional in the internal image. Public register reads do not query MP state; write requires an MP backup before any setter. No C ABI or checkpoint wire change."
+  },
+  "prior_io_cargo": {
+    "status": "all11 passed before observation correction",
+    "receipt": "prior-workspace-gates.json"
+  },
+  "final_combined_cargo": {
+    "receipt": "final-gates.json",
+    "all14_passed": true,
+    "scope": "Final combined IO/SMP source. Scalar A32 block work is separately pending and excluded. Root unit groups are selections; this does not rerun the complete unfiltered library."
+  },
+  "publication": "Exact owned-path git add/red, immediate normal master push and remote/blob/signature receipt are recorded at the evidence root after publication.",
+  "upstream_integration": {
+    "utc": "2026-11-03T15:11:18.898206+00:00",
+    "old_head": "ff44ff56252b98fd98d5251d2f53976bc2c95b2b",
+    "new_head": "ffff9f71ae629410f4093bb814a6a7a89f6bf210",
+    "method": "fast-forward only; no merge commit",
+    "dirty_tracked_preserved": true,
+    "upstream_scope": "Independent Darwin timed record-lock implementation and native Windows CAPI receipts; not qualified by the already-frozen native IO/SMP gates."
+  }
+}

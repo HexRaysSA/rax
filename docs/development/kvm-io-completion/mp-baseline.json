@@ -1,0 +1,9 @@
+{
+  "label": "mp-old-run-v2",
+  "argv": [
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/production-io-green-v1/mp-old-v2"
+  ],
+  "exit_code": 101,
+  "log": "wanted_mp=0 actual_mp=0\nwanted_mp=1 actual_mp=0\n\nthread 'main' (2206838) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/production-io-green-v1/mp-overlay-v2.rs:76:9:\nassertion `left == right` failed: public overlay changed native MP state\n  left: 0\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+  "utc": "2026-11-03T13:33:46.025703+00:00"
+}
