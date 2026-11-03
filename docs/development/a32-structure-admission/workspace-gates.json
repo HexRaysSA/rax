@@ -1,0 +1,103 @@
+{
+  "a32-fmt-v1": {
+    "label": "a32-fmt-v1",
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-production-v2",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T13:00:38.412438+00:00",
+    "results": []
+  },
+  "a32-clippy-v1": {
+    "label": "a32-clippy-v1",
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-production-v2",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T13:06:09.426943+00:00",
+    "results": [
+      "    Finished `dev` profile [optimized] target(s) in 5m 20s"
+    ]
+  },
+  "a32-build-v1": {
+    "label": "a32-build-v1",
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-production-v2",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T13:27:06.194934+00:00",
+    "results": [
+      "    Finished `dev` profile [optimized] target(s) in 20m 46s"
+    ]
+  },
+  "a32-no-jit-v1": {
+    "label": "a32-no-jit-v1",
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-production-v2",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "check",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,kvm"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T13:31:06.826585+00:00",
+    "results": [
+      "    Finished `dev` profile [optimized] target(s) in 3m 50s"
+    ]
+  },
+  "a32-doc-v1": {
+    "label": "a32-doc-v1",
+    "root": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-production-v2",
+    "argv": [
+      "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit",
+      "--doc"
+    ],
+    "exit_code": 0,
+    "source_unchanged": true,
+    "utc": "2026-11-03T13:31:35.341112+00:00",
+    "results": [
+      "    Finished `test` profile [optimized] target(s) in 0.22s",
+      "test result: ok. 0 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  }
+}

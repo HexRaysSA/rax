@@ -686,3 +686,6 @@ mod id_views;
 
 #[path = "a32_fp_controls/restricted_modes.rs"]
 mod restricted_modes;
+
+#[path = "a32_fp_controls/structure_memory.rs"]
+mod structure_memory;

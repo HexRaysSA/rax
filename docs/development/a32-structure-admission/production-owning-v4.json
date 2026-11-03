@@ -1,0 +1,47 @@
+{
+  "utc": "2026-11-03T12:56:49.123858+00:00",
+  "root": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-production-v2",
+  "exit_code": 0,
+  "source_unchanged": true,
+  "production_library_unchanged": true,
+  "production_library_sha256": "ad74d15ca276cf0e044063457d26a49fbc093163bd87db0dac73b38e04dda324",
+  "commands": [
+    {
+      "label": "a32_fp_controls-compile-v4",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "a32_fp_controls-run-v4",
+      "exit_code": 0,
+      "results": [
+        "test result: ok. 84 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.03s"
+      ]
+    },
+    {
+      "label": "a32_fp_pairs-compile-v4",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "a32_fp_pairs-run-v4",
+      "exit_code": 0,
+      "results": [
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s"
+      ]
+    },
+    {
+      "label": "arm_vfp_a32-compile-v4",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "arm_vfp_a32-run-v4",
+      "exit_code": 0,
+      "results": [
+        "test result: ok. 487 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.89s"
+      ]
+    }
+  ],
+  "scope": "Complete expanded owning FP controls, pair and VFP test binaries linked against the complete changed production library. No Cargo/native-Arm/Intel-HVF proof is inferred."
+}

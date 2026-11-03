@@ -1,0 +1,151 @@
+{
+  "status": "component_qualified",
+  "full_finding_complete": false,
+  "utc": "2026-11-03T13:44:03.258043+00:00",
+  "paths": [
+    "src/isa/arm/decoder/aarch32/neon/load_store.rs",
+    "tests/suites/backend/a32_fp_controls.rs",
+    "tests/suites/backend/a32_fp_controls/structure_memory.rs"
+  ],
+  "source_sha256": {
+    "src/isa/arm/decoder/aarch32/neon/load_store.rs": "521defe9ccbb4159f771de461fa23bf0dd7bb81a15e6588998fd7af002fabbef",
+    "tests/suites/backend/a32_fp_controls.rs": "d86e928174095db121ab9a23b34c8c788e47c66071e96ce929ab10fc2cd8db6f",
+    "tests/suites/backend/a32_fp_controls/structure_memory.rs": "ebd05fd64aa5040792c05d18d1156de651b204d8217d2046e9d5daa3764564b9"
+  },
+  "baseline_probe": {
+    "passed": 1,
+    "failed": 4,
+    "ignored": 0,
+    "filtered": 0,
+    "receipt": "baseline-probe.json"
+  },
+  "baseline_owning_cases": {
+    "passed": 2,
+    "failed": 3,
+    "ignored": 0,
+    "filtered": 79,
+    "receipt": "baseline-owning-cases.json"
+  },
+  "excluded_setup_attempt": "matrix-red-v1 omitted direct extern dependencies and failed compilation; no behavioral test ran in that attempt.",
+  "green": "Complete production library and all576 owning cases passed both direct pinned-artifact and canonical Cargo runs. Workspace fmt, Clippy, all-target build, alternate-feature check and doctests passed; two compile-fail examples passed and five pre-existing doc examples remain ignored.",
+  "evidence_root": "/Users/int/dev/rax-audit-work/four-findings-a32-structure-admission",
+  "assumptions": [
+    {
+      "id": "S1",
+      "assumption": "Keep the existing RAX Undefined policy for unpredictable R15 bases and extension-register list overflow.",
+      "basis": "Existing handlers reject these operands; Arm DDI0597 permits the Undefined outcome and places operand checks in decode before CheckAdvSIMDEnabled.",
+      "dependent_result": "The same operand policy applies independently of current FP-access denial.",
+      "stress_test": "Every represented structure form at its last valid and first invalid register, legal/PC bases, ARM/Thumb, direct/mixed execution and competing FP denial controls.",
+      "falsification_probe": "A valid register group is rejected, a failed Thumb IT instruction raises a fault, or an invalid group selects an FP trap instead of the chosen Undefined outcome.",
+      "status": "Confirmed by baseline counterexamples, 576 complete production-linked owning tests and canonical Cargo runs; all five workspace gates passed."
+    }
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "This component does not prove all advertised A32 profiles/controls or complete backend/private/SMP/HVF restoration.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "Different permitted unpredictable choices on QEMU or physical hardware are not automatically architecture defects; this change preserves the selected RAX choice.",
+      "blocks_component": false
+    }
+  ],
+  "excluded_compile_attempt": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-a32-structure-admission/green-production-v2.json",
+    "exit_code": 1,
+    "tests_ran": false,
+    "reason": "Span metadata is u32; Immediate::new requires i64. Corrected by explicit lossless i64::from(regs). The same owned native source export was updated only after compiler and driver termination, with prior hashes verified."
+  },
+  "test_expansion_pending": {
+    "cases": "Added allocated64-bit VLD1/VST1 elements and offset, immediate-writeback and register-writeback forms.",
+    "protocol": "The earlier compiler/driver terminated before the expanded test data was installed; complete expanded suites subsequently ran against unchanged production library bytes.",
+    "frozen_green_test_source": "Earlier84-case target in green-build-v3.py predates this test-data expansion.",
+    "state": "Completed: expanded whole suites and terminal source/library identity verification passed."
+  },
+  "production_original_owning_green": {
+    "result": {
+      "utc": "2026-11-03T12:50:55.449389+00:00",
+      "root": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-production-v2",
+      "exit_code": 0,
+      "source_unchanged": true,
+      "original_live_source_unchanged": true,
+      "source_files": 11287,
+      "scope": "Production library compiled directly by stable rustc with pinned Cargo dependency artifacts; the complete affected integration target runs only after successful compilation. Actual command receipts determine coverage. Cargo all-target/Clippy/doc qualification remains separate."
+    },
+    "commands": {
+      "production-library-v3": {
+        "label": "production-library-v3",
+        "exit_code": 0,
+        "utc": "2026-11-03T12:50:22.020801+00:00"
+      },
+      "owning-suite-compile-v3": {
+        "label": "owning-suite-compile-v3",
+        "exit_code": 0,
+        "utc": "2026-11-03T12:50:26.312605+00:00"
+      },
+      "owning-suite-v3": {
+        "label": "owning-suite-v3",
+        "exit_code": 0,
+        "utc": "2026-11-03T12:50:55.448799+00:00",
+        "results": [
+          "test result: ok. 84 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.13s"
+        ]
+      }
+    },
+    "scope": "All84 cases before the additional64-bit/writeback test-data expansion. Changed production code is identical. Completed expanded whole suites are recorded separately below."
+  },
+  "production_expanded_summary": "production-owning-v4.json",
+  "expanded_owning_tests": {
+    "a32_fp_controls": {
+      "passed": 84,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0,
+      "receipt": "a32_fp_controls-run-v4.json"
+    },
+    "a32_fp_pairs": {
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0,
+      "receipt": "a32_fp_pairs-run-v4.json"
+    },
+    "arm_vfp_a32": {
+      "passed": 487,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0,
+      "receipt": "arm_vfp_a32-run-v4.json"
+    }
+  },
+  "expanded_owning_total_passed": 576,
+  "workspace_gates": {
+    "status": "all5 passed",
+    "receipt": "workspace-gates.json",
+    "scope": "Complete frozen source includes the separately pending native entry/ownership group. These gates validate that combined source; A32 source/test hashes are independently checked and disjoint from the pending native changes. No all-four-finding completion claim."
+  },
+  "canonical_cargo_owning": {
+    "receipt": "cargo-owning.json",
+    "passed": 576,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "results": [
+      "test result: ok. 84 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.52s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s",
+      "test result: ok. 487 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.87s"
+    ]
+  },
+  "unrun_scope": [
+    "Physical A32 and physical Intel HVF execution were not performed; native Linux x86-64 hosts execute software A32 semantics.",
+    "The earlier complete unfiltered library suite covers its independently frozen pre-A32 source and remains live; it is not counted as new A32 proof.",
+    "The change adds no implementation of these structure instructions to the currently unsupported A32/Thumb SMIR memory families and makes no native lowering support claim."
+  ],
+  "publication": "Publish this component using its exact owned paths; audit-ledger integration remains in the separate pending native group. Publication receipt is retained at the evidence root.",
+  "upstream_integration": {
+    "commit": "015dbaf26d8799ff4ee41cf0cdd709109a8d4217",
+    "method": "Fast-forward; upstream Windows changes preserved. Combined source gates preceded this independent Windows commit and do not qualify its new behavior."
+  }
+}

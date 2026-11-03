@@ -1,0 +1,21 @@
+{
+  "utc": "2026-11-03T12:31:23.442131+00:00",
+  "compile_argv": [
+    "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+    "--edition=2024",
+    "--test",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-red-v1/probe.rs",
+    "-L",
+    "dependency=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps",
+    "--extern",
+    "rax=/tmp/rax-kvm-native-entry-ixif9sv1/observations/next-io-native-v1/librax_io_owner.rlib",
+    "-o",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-red-v1/probe"
+  ],
+  "compile_exit": 0,
+  "compile_stderr": "",
+  "exit_code": 101,
+  "stdout": "\nrunning 5 tests\ntest invalid_all_lanes_register_end ... FAILED\ntest invalid_multiple_register_end ... FAILED\ntest invalid_pc_base ... FAILED\ntest valid_register_group_still_traps ... ok\ntest invalid_lane_register_end ... FAILED\n\nfailures:\n\nfailures:\n    invalid_all_lanes_register_end\n    invalid_lane_register_end\n    invalid_multiple_register_end\n    invalid_pc_base\n\ntest result: FAILED. 1 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\n",
+  "stderr": "word=f4e0fe0f, mnemonic=VLD3\n\nthread 'invalid_all_lanes_register_end' (2123333) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-red-v1/probe.rs:16:70:\nFpAccessTrap { target_el: 2, syndrome: 534773792, undefined: true }\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nword=f460fa0f, mnemonic=VLD1\nword=\nthread 'invalid_multiple_register_end' (2123335) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-red-v1/probe.rs:14:69:\nFpAccessTrap { target_el: 2, syndrome: 534773792, undefined: true }\nf42f070f, mnemonic=VLD1\n\nthread 'invalid_pc_base' (2123336) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-red-v1/probe.rs:17:55:\nFpAccessTrap { target_el: 2, syndrome: 534773792, undefined: true }\nword=f4200a0f, mnemonic=VLD1\nword=f4e0f10f, mnemonic=VLD2\n\nthread 'invalid_lane_register_end' (2123334) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-structure-red-v1/probe.rs:15:65:\nFpAccessTrap { target_el: 2, syndrome: 534773792, undefined: true }\n",
+  "scope": "Actual unchanged RAX decoder and AArch32 executor from hash-verified production owning library; no replacement module."
+}

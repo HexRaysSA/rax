@@ -1,0 +1,179 @@
+{
+  "path": "docs/architecture/arm/asl/arm_instrs.asl",
+  "sha256": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+  "symbols": [
+    {
+      "symbol": "__instruction aarch32_VLD1_m_A",
+      "line": 71973
+    },
+    {
+      "symbol": "__instruction aarch32_VLD2_m_A",
+      "line": 65449
+    },
+    {
+      "symbol": "__instruction aarch32_VLD3_m_A",
+      "line": 70139
+    },
+    {
+      "symbol": "__instruction aarch32_VLD4_m_A",
+      "line": 68388
+    },
+    {
+      "symbol": "__instruction aarch32_VST1_m_A",
+      "line": 75213
+    },
+    {
+      "symbol": "__instruction aarch32_VST2_m_A",
+      "line": 68894
+    },
+    {
+      "symbol": "__instruction aarch32_VST3_m_A",
+      "line": 72316
+    },
+    {
+      "symbol": "__instruction aarch32_VST4_m_A",
+      "line": 65041
+    },
+    {
+      "symbol": "__instruction aarch32_VLD1_1_A",
+      "line": 76604
+    },
+    {
+      "symbol": "__instruction aarch32_VLD2_1_A",
+      "line": 81803
+    },
+    {
+      "symbol": "__instruction aarch32_VLD3_1_A",
+      "line": 77048
+    },
+    {
+      "symbol": "__instruction aarch32_VLD4_1_A",
+      "line": 84873
+    },
+    {
+      "symbol": "__instruction aarch32_VST1_1_A",
+      "line": 79477
+    },
+    {
+      "symbol": "__instruction aarch32_VST2_1_A",
+      "line": 85394
+    },
+    {
+      "symbol": "__instruction aarch32_VST3_1_A",
+      "line": 79841
+    },
+    {
+      "symbol": "__instruction aarch32_VST4_1_A",
+      "line": 81232
+    },
+    {
+      "symbol": "__instruction aarch32_VLD1_a_A",
+      "line": 79425
+    },
+    {
+      "symbol": "__instruction aarch32_VLD2_a_A",
+      "line": 85591
+    },
+    {
+      "symbol": "__instruction aarch32_VLD3_a_A",
+      "line": 79966
+    },
+    {
+      "symbol": "__instruction aarch32_VLD4_a_A",
+      "line": 81140
+    }
+  ],
+  "policy": "The existing handler chooses Undefined for unpredictable base/register operands. Decode-stage operand checks precede execute-stage CheckAdvSIMDEnabled; this change makes that selected policy consistent before access traps. No claim that every physical A32 implementation must choose the same unpredictable outcome.",
+  "manufacturer_pdf": {
+    "path": "docs/specifications/arm/aarch32-isa-2025-03.pdf",
+    "title": "Arm A32/T32 Instruction Set for A-profile architecture",
+    "document": "DDI 0597 (ID032025)",
+    "revision": "2025-03",
+    "sha256": "29b5436067ef93655c2a62b3886ba45ca6772f4b4ad30e9d28b33b00bf2a9dda",
+    "verified_sections": "All20 named VLD1-VLD4/VST1-VST4 structure sections; exact first printed/PDF pages retained.",
+    "instruction_first_pages": {
+      "VLD1 (multiple single elements)": {
+        "printed_first_page": 972,
+        "pdf_first_page": 975
+      },
+      "VLD1 (single element to all lanes)": {
+        "printed_first_page": 981,
+        "pdf_first_page": 984
+      },
+      "VLD1 (single element to one lane)": {
+        "printed_first_page": 984,
+        "pdf_first_page": 987
+      },
+      "VLD2 (multiple 2-element structures)": {
+        "printed_first_page": 990,
+        "pdf_first_page": 993
+      },
+      "VLD2 (single 2-element structure to all lanes)": {
+        "printed_first_page": 995,
+        "pdf_first_page": 998
+      },
+      "VLD2 (single 2-element structure to one lane)": {
+        "printed_first_page": 998,
+        "pdf_first_page": 1001
+      },
+      "VLD3 (multiple 3-element structures)": {
+        "printed_first_page": 1006,
+        "pdf_first_page": 1009
+      },
+      "VLD3 (single 3-element structure to all lanes)": {
+        "printed_first_page": 1009,
+        "pdf_first_page": 1012
+      },
+      "VLD3 (single 3-element structure to one lane)": {
+        "printed_first_page": 1012,
+        "pdf_first_page": 1015
+      },
+      "VLD4 (multiple 4-element structures)": {
+        "printed_first_page": 1019,
+        "pdf_first_page": 1022
+      },
+      "VLD4 (single 4-element structure to all lanes)": {
+        "printed_first_page": 1022,
+        "pdf_first_page": 1025
+      },
+      "VLD4 (single 4-element structure to one lane)": {
+        "printed_first_page": 1026,
+        "pdf_first_page": 1029
+      },
+      "VST1 (multiple single elements)": {
+        "printed_first_page": 1365,
+        "pdf_first_page": 1368
+      },
+      "VST1 (single element from one lane)": {
+        "printed_first_page": 1374,
+        "pdf_first_page": 1377
+      },
+      "VST2 (multiple 2-element structures)": {
+        "printed_first_page": 1380,
+        "pdf_first_page": 1383
+      },
+      "VST2 (single 2-element structure from one lane)": {
+        "printed_first_page": 1385,
+        "pdf_first_page": 1388
+      },
+      "VST3 (multiple 3-element structures)": {
+        "printed_first_page": 1393,
+        "pdf_first_page": 1396
+      },
+      "VST3 (single 3-element structure from one lane)": {
+        "printed_first_page": 1396,
+        "pdf_first_page": 1399
+      },
+      "VST4 (multiple 4-element structures)": {
+        "printed_first_page": 1403,
+        "pdf_first_page": 1406
+      },
+      "VST4 (single 4-element structure from one lane)": {
+        "printed_first_page": 1406,
+        "pdf_first_page": 1409
+      }
+    }
+  },
+  "asl_revision": "unknown; exact existing source digest and all20 instruction symbols pinned",
+  "retrieval": "Existing repository primary references; inspected2026-11-03. No new external download."
+}

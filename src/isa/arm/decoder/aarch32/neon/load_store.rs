@@ -32,7 +32,11 @@ impl Aarch32Decoder {
             Mnemonic::VLD4 => size == 0b11 && a == 0,
             _ => false,
         };
-        if undefined {
+        let streams = ty - 0b1011;
+        let t = (raw >> 5) & 1;
+        let regs = if streams == 1 { 1 + t } else { 1 };
+        let inc = if streams == 1 { 1 } else { 1 + t };
+        if undefined || !Self::neon_memory_operands_valid(raw, streams, regs, inc) {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
@@ -74,7 +78,15 @@ impl Aarch32Decoder {
         };
 
         let index_align = (raw >> 4) & 0xF;
-        if size == 0b11 || !Self::neon_single_lane_index_valid(streams, size, index_align) {
+        let inc = match size {
+            1 => 1 + ((index_align >> 1) & 1),
+            2 => 1 + ((index_align >> 2) & 1),
+            _ => 1,
+        };
+        if size == 0b11
+            || !Self::neon_single_lane_index_valid(streams, size, index_align)
+            || !Self::neon_memory_operands_valid(raw, streams, 1, inc)
+        {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
@@ -115,25 +127,40 @@ impl Aarch32Decoder {
         let l = (raw >> 21) & 1;
         let ty = (raw >> 8) & 0xF;
         let size = (raw >> 6) & 0x3;
-        let (mnemonic, regs) = match (l, ty) {
-            (1, 0b0111) => (Mnemonic::VLD1, 1),
-            (1, 0b1010) => (Mnemonic::VLD1, 2),
-            (1, 0b0110) => (Mnemonic::VLD1, 3),
-            (1, 0b0010) => (Mnemonic::VLD1, 4),
-            (0, 0b0111) => (Mnemonic::VST1, 1),
-            (0, 0b1010) => (Mnemonic::VST1, 2),
-            (0, 0b0110) => (Mnemonic::VST1, 3),
-            (0, 0b0010) => (Mnemonic::VST1, 4),
-            (1, 0b1000 | 0b1001) => (Mnemonic::VLD2, 1),
-            (1, 0b0011) => (Mnemonic::VLD2, 2),
-            (0, 0b1000 | 0b1001) => (Mnemonic::VST2, 1),
-            (0, 0b0011) => (Mnemonic::VST2, 2),
-            (1, 0b0100 | 0b0101) => (Mnemonic::VLD3, 1),
-            (0, 0b0100 | 0b0101) => (Mnemonic::VST3, 1),
-            (1, 0b0000 | 0b0001) => (Mnemonic::VLD4, 1),
-            (0, 0b0000 | 0b0001) => (Mnemonic::VST4, 1),
+        let (streams, regs, inc) = match ty {
+            0b0111 => (1, 1, 1),
+            0b1010 => (1, 2, 1),
+            0b0110 => (1, 3, 1),
+            0b0010 => (1, 4, 1),
+            0b1000 => (2, 1, 1),
+            0b1001 => (2, 1, 2),
+            0b0011 => (2, 2, 2),
+            0b0100 => (3, 1, 1),
+            0b0101 => (3, 1, 2),
+            0b0000 => (4, 1, 1),
+            0b0001 => (4, 1, 2),
             _ => return None,
         };
+        let mnemonic = match (l, streams) {
+            (1, 1) => Mnemonic::VLD1,
+            (1, 2) => Mnemonic::VLD2,
+            (1, 3) => Mnemonic::VLD3,
+            (1, 4) => Mnemonic::VLD4,
+            (0, 1) => Mnemonic::VST1,
+            (0, 2) => Mnemonic::VST2,
+            (0, 3) => Mnemonic::VST3,
+            (0, 4) => Mnemonic::VST4,
+            _ => return None,
+        };
+
+        if !Self::neon_memory_operands_valid(raw, streams, regs, inc) {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
 
         let align = (raw >> 4) & 0x3;
         if matches!(mnemonic, Mnemonic::VLD2 | Mnemonic::VST2) && size == 0b11 {
@@ -197,7 +224,16 @@ impl Aarch32Decoder {
                     Register::raw(rn, false, rn == 13),
                     0,
                 )))
-                .with_operand(Operand::Imm(Immediate::new(regs))),
+                .with_operand(Operand::Imm(Immediate::new(i64::from(regs)))),
         )
+    }
+
+    /// Preserve the executor's Undefined policy for unpredictable base/register
+    /// operands at decode time, before CheckAdvSIMDEnabled and memory effects.
+    /// Arm VLD1-VLD4/VST1-VST4 decode checks use the final register in each list.
+    fn neon_memory_operands_valid(raw: u32, streams: u32, regs: u32, inc: u32) -> bool {
+        let first = ((raw >> 18) & 16) | ((raw >> 12) & 15);
+        let last = first + (streams - 1) * inc + regs - 1;
+        (raw >> 16) & 15 != 15 && last < 32
     }
 }
