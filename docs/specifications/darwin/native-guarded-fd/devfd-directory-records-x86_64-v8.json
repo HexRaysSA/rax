@@ -1,0 +1,104 @@
+[
+  {
+    "guarded": false,
+    "flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/devfd-dir-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/x86_64-0",
+      "0",
+      "0"
+    ],
+    "record": {
+      "kind": "open-directory-devfd",
+      "result": 4,
+      "errno": 0
+    },
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/devfd-dir-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/x86_64-1",
+      "0",
+      "1048576"
+    ],
+    "record": {
+      "kind": "open-directory-devfd",
+      "result": -1,
+      "errno": 20
+    },
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/devfd-dir-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/x86_64-2",
+      "0",
+      "2097152"
+    ],
+    "record": {
+      "kind": "open-directory-devfd",
+      "result": 4,
+      "errno": 0
+    },
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/devfd-dir-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/x86_64-3",
+      "1",
+      "0"
+    ],
+    "record": {
+      "kind": "open-directory-devfd",
+      "result": -1,
+      "errno": 1
+    },
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/devfd-dir-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/x86_64-4",
+      "1",
+      "1048576"
+    ],
+    "record": {
+      "kind": "open-directory-devfd",
+      "result": -1,
+      "errno": 20
+    },
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/devfd-dir-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/x86_64-5",
+      "1",
+      "2097152"
+    ],
+    "record": {
+      "kind": "open-directory-devfd",
+      "result": -1,
+      "errno": 1
+    },
+    "exit_code": 0,
+    "stderr": ""
+  }
+]

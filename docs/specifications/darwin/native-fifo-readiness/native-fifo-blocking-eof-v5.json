@@ -1,0 +1,8 @@
+{
+  "select_before": true,
+  "first_read": [],
+  "select_after": false,
+  "second_read": [],
+  "second_read_blocked": false,
+  "second_read_seconds": 2.0541949197649956e-05
+}

@@ -1,0 +1,88 @@
+{
+  "architecture": "x86_64",
+  "source_sha256": "7392ac4a856c0e62ec34a99e5134471706096802be96aa8fc576c49ffca8144e",
+  "base_source_sha256": "11c2182c8add697da01c9e40e1b1056e93fa1549e6b4c38449856df58e531146",
+  "image_sha256": "fbb3492cad9afdfa87d83293ff9bb49b2b86b2b5e7b3f423f1a8bd3a48f0efca",
+  "compile_argv": [
+    "xcrun",
+    "clang",
+    "-arch",
+    "x86_64",
+    "-std=c11",
+    "-O0",
+    "-Wall",
+    "-Wextra",
+    "-I",
+    "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd",
+    "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-fifo-readiness/close-thread-state-v1.c",
+    "-o",
+    "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/close-thread-state-x86_64"
+  ],
+  "exit_code": 0,
+  "seconds": 10.890683625009842,
+  "records": [
+    {
+      "kind": "initial-fd-flags",
+      "result": 3,
+      "errno": 0
+    },
+    {
+      "kind": "writer-was-blocked",
+      "result": 1,
+      "errno": 0
+    },
+    {
+      "kind": "close-thread-run-state",
+      "result": 4,
+      "errno": 0
+    },
+    {
+      "kind": "closer-was-blocked",
+      "result": -1,
+      "errno": 0
+    },
+    {
+      "kind": "during-close-fd-flags",
+      "result": -1,
+      "errno": 9
+    },
+    {
+      "kind": "during-close-duplicate",
+      "result": 5,
+      "errno": 0
+    },
+    {
+      "kind": "write-result",
+      "result": 1,
+      "errno": 0
+    },
+    {
+      "kind": "close-result",
+      "result": 0,
+      "errno": 0
+    },
+    {
+      "kind": "received-bytes",
+      "result": 8193,
+      "errno": 0
+    },
+    {
+      "kind": "filled-bytes",
+      "result": 8192,
+      "errno": 0
+    },
+    {
+      "kind": "last-byte",
+      "result": 65,
+      "errno": 0
+    }
+  ],
+  "stderr": "",
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ]
+}

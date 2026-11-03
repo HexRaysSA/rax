@@ -1,0 +1,642 @@
+[
+  {
+    "kind": "file",
+    "guard_attributes": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-2.data",
+      "2"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 2,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-3.data",
+      "3"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 3,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 6,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-6.data",
+      "6"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 6,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 7,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-7.data",
+      "7"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 7,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 10,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-10.data",
+      "10"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 10,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 11,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-11.data",
+      "11"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 11,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 14,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-14.data",
+      "14"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 14,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 15,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-15.data",
+      "15"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 15,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 18,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-18.data",
+      "18"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 2,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 19,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-19.data",
+      "19"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 3,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 22,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-22.data",
+      "22"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 6,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 23,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-23.data",
+      "23"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 7,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 26,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-26.data",
+      "26"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 10,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 27,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-27.data",
+      "27"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 11,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 30,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-30.data",
+      "30"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 14,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "file",
+    "guard_attributes": 31,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "file",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-file-31.data",
+      "31"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 176,
+      "status": 14,
+      "guard_flags": 15,
+      "type": 1,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-2.data",
+      "2"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 2,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-3.data",
+      "3"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 3,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 6,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-6.data",
+      "6"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 6,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 7,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-7.data",
+      "7"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 7,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 10,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-10.data",
+      "10"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 10,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 11,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-11.data",
+      "11"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 11,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 14,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-14.data",
+      "14"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 14,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 15,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-15.data",
+      "15"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 15,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 18,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-18.data",
+      "18"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 2,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 19,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-19.data",
+      "19"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 3,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 22,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-22.data",
+      "22"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 6,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 23,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-23.data",
+      "23"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 7,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 26,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-26.data",
+      "26"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 10,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 27,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-27.data",
+      "27"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 11,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 30,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-30.data",
+      "30"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 14,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  },
+  {
+    "kind": "kqueue",
+    "guard_attributes": 31,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64",
+      "kqueue",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/arm64-kqueue-31.data",
+      "31"
+    ],
+    "exit_code": 0,
+    "record": {
+      "kind": "fileinfo",
+      "bytes": 168,
+      "status": 14,
+      "guard_flags": 15,
+      "type": 5,
+      "open_flags": 3
+    },
+    "stderr": ""
+  }
+]

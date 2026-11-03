@@ -29,7 +29,7 @@ pub(crate) fn process(abi: DarwinAbi) -> DarwinProcess {
     process_with_profile(abi, true)
 }
 
-fn process_with_profile(abi: DarwinAbi, embedded: bool) -> DarwinProcess {
+pub(crate) fn process_with_profile(abi: DarwinAbi, embedded: bool) -> DarwinProcess {
     let (kind, subtype, flavor, count, pc_index) = match abi {
         DarwinAbi::X86_64 => (
             CPU_TYPE_X86_64,
@@ -389,7 +389,8 @@ fn embedded_vectored_io_preserves_offsets_limits_and_partial_prefixes() {
             Err(Errno::EINVAL)
         );
         assert_eq!(file::readv(&mut ctx, 1, 0, 0, None), Err(Errno::EBADF));
-        assert_eq!(file::writev(&mut ctx, 0, 0, 0, None), Err(Errno::EBADF));
+        // Native writev rejects an empty array before descriptor lookup.
+        assert_eq!(file::writev(&mut ctx, 0, 0, 0, None), Err(Errno::EINVAL));
         assert_eq!(
             file::readv(&mut ctx, 0, iov, 2, Some(0)),
             Err(Errno::ESPIPE)

@@ -21,7 +21,9 @@ use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK};
 use crate::user::darwin::io::{O_EXLOCK, O_SHLOCK};
 use crate::user::darwin::syscall::Ctx;
 
+mod dev_fd;
 mod embedded;
+pub(crate) use dev_fd::open_descriptor;
 
 #[cfg(unix)]
 fn guest_path(ctx: &Ctx<'_>, addr: u64) -> Result<(Vec<u8>, CString), Errno> {
@@ -166,6 +168,20 @@ fn open_by(
             };
         }
     };
+    if let Some(descriptor) = dev_fd::number(&cpath, hdir, flags) {
+        // Retain open1's generic flag validation before the descriptor lookup.
+        // SAFETY: FAULT_PATH is deliberately unreadable; the host only reads it.
+        match check(open(libc::AT_FDCWD, FAULT_PATH, hflags)) {
+            Err(Errno::EFAULT) => {}
+            Err(early) => return Err(early),
+            Ok(unexpected) => {
+                // SAFETY: a newly returned descriptor, owned solely here.
+                unsafe { libc::close(unexpected) };
+                return Err(Errno::EIO);
+            }
+        }
+        return open_descriptor(ctx, descriptor, flags);
+    }
     let fd = check(open(hdir, cpath.as_ptr(), hflags))?;
     // SAFETY: `fd` was just returned by the host and is owned here.
     let owned = unsafe { <std::os::fd::OwnedFd as std::os::fd::FromRawFd>::from_raw_fd(fd) };

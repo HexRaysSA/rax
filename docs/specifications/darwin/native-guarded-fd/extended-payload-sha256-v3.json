@@ -1,0 +1,126 @@
+{
+  "EXTENDED.md": {
+    "bytes": 4359,
+    "sha256": "54f9c5416a276825de5fb17860cf82e68739100df3f42fc0eb98c027314f5b90"
+  },
+  "capture-extended-v3.py": {
+    "bytes": 7824,
+    "sha256": "4594f1e21746e46a3c2df18e9b69046fa72adfd1b276b665a93f2f77b67d6804"
+  },
+  "verify-extended-v3.py": {
+    "bytes": 3078,
+    "sha256": "dd1cb6cc6a164e5bb16fda45f59c29f2c695229f47173db2e6e072bc339802f1"
+  },
+  "edge-probe-v3.c": {
+    "bytes": 2681,
+    "sha256": "82f3a8756c3a81c760f86430af43f4d22c7c874c6c244c6f70101a76a94e3df8"
+  },
+  "edge-receipt-v3.json": {
+    "bytes": 672,
+    "sha256": "18fd73387db5397eaf2492bb2c699e25d1814541a52a5c99983db9b53a1fc5dc"
+  },
+  "edge-records-arm64-v3.json": {
+    "bytes": 203122,
+    "sha256": "75ac925b8977d7c345b1c8a64885e3b04ac6f8ced4bc16aae885bfc20086c4dd"
+  },
+  "edge-records-x86_64-v3.json": {
+    "bytes": 203481,
+    "sha256": "2165d5394b111000d5c0675f8b072b64d59e4ef2dfd049ea6cff3e5e23023f2f"
+  },
+  "fdinfo-probe-v4.c": {
+    "bytes": 1505,
+    "sha256": "f8d29d3dc34f146e81aa066e98e23dbd43fc67179e6d5ba567be3670333ac96c"
+  },
+  "fdinfo-receipt-v4.json": {
+    "bytes": 2660,
+    "sha256": "1804543614b8e6c253146ec5d70de447b0b9cea486132f4f40012fabbd38f1bd"
+  },
+  "fdinfo-records-arm64-v4.json": {
+    "bytes": 16091,
+    "sha256": "a70f496bd609b573be468b51428c228a5995e9474337a79dfec6d18b47c418e4"
+  },
+  "fdinfo-records-x86_64-v4.json": {
+    "bytes": 16155,
+    "sha256": "6f100bfdda5ca8a51c503f2d19a74823f3230f3b7b980077284b447904a055c2"
+  },
+  "spawn-probe-v5.c": {
+    "bytes": 2595,
+    "sha256": "1726a14b6778e5eeeab29c0cd233c8ee3ae6291c57cd5dd1f77031aee9e6b8b4"
+  },
+  "spawn-receipt-v5.json": {
+    "bytes": 2400,
+    "sha256": "42ec2b0e6d253c8fbe38d6f83e83d14dbbaad68d1ee26c0048d792294d6c0c66"
+  },
+  "spawn-records-arm64-v5.json": {
+    "bytes": 28461,
+    "sha256": "6261c0679209408a236cede8edc2f552b24f13d2fda2f8dc98592cfdbf59358b"
+  },
+  "spawn-records-x86_64-v5.json": {
+    "bytes": 28525,
+    "sha256": "a2ea362d4e8839336e97da4ab5af13a6f77e94ad77198dfab705fe7be62a9680"
+  },
+  "inherit-probe-v6.c": {
+    "bytes": 1787,
+    "sha256": "a402131246a8af90fbcc4c99209926fba573ab85a0d6dea26c169017d71687e0"
+  },
+  "inherit-receipt-v6.json": {
+    "bytes": 2448,
+    "sha256": "5e7ac68449fe92dda6cf99ffd7a133755d2ea4fb2c12c435891c9db7fc387b69"
+  },
+  "inherit-records-arm64-v6.json": {
+    "bytes": 4755,
+    "sha256": "c0ba784a761b39b7fe225364d8c6ba5f50536c2e3455f1fa5904de9a132d87b2"
+  },
+  "inherit-records-x86_64-v6.json": {
+    "bytes": 4771,
+    "sha256": "8b5037cfa4fda68d7f7acd7d32ee47f8fa2350a196fa511e7cf43fd22659e6bb"
+  },
+  "devfd-probe-v7.c": {
+    "bytes": 1800,
+    "sha256": "a573d4e738645d44df509d4c9cda16763ea4b8df1ee3e5fc9b93fafd223f00cd"
+  },
+  "devfd-receipt-v7.json": {
+    "bytes": 2402,
+    "sha256": "9f907824143d564e001090e37a8d335c49de3c846cec19912d6408edd057c76c"
+  },
+  "devfd-records-arm64-v7.json": {
+    "bytes": 141015,
+    "sha256": "604363a4ebc82d03bd1ca6347e9325e6368a18a5f2a193bc24bde4dde02e4d5c"
+  },
+  "devfd-records-x86_64-v7.json": {
+    "bytes": 141411,
+    "sha256": "8e7f2a74a7fa7571ad9a0b32fb3e4bb46a77faac3b28f80c770c69f5ae333d61"
+  },
+  "devfd-directory-probe-v8.c": {
+    "bytes": 927,
+    "sha256": "45abd85baf40137b25b119971289f5aba8193c9c11a07ab58bed5b6b5d541c6c"
+  },
+  "devfd-directory-receipt-v8.json": {
+    "bytes": 2456,
+    "sha256": "3247d05dc1d5f26f53d419c9a666edc85b209b2ec592945fd1789fbc76adc3ac"
+  },
+  "devfd-directory-records-arm64-v8.json": {
+    "bytes": 2700,
+    "sha256": "c0fce8e9d6137e7651d5a510a797c6aba69a856d54b8598bd6e8df8e584e94d7"
+  },
+  "devfd-directory-records-x86_64-v8.json": {
+    "bytes": 2712,
+    "sha256": "b831b4a20efc947e6e20e88d9337c127578524aa5e5d2e0d17a9dfe0a5705772"
+  },
+  "devfd-alias-probe-v9.c": {
+    "bytes": 1663,
+    "sha256": "2a0ca7e087f81a94917c09a0c1fa720735297695c2c65917374423f5ca9f28c0"
+  },
+  "devfd-alias-receipt-v9.json": {
+    "bytes": 2470,
+    "sha256": "4488d739c30cdd5c27e3d6374ccbcd14568e0cf38c3226009273403e70833892"
+  },
+  "devfd-alias-records-arm64-v9.json": {
+    "bytes": 26683,
+    "sha256": "8a65ca5664eeb13f1681848d4112e5e44f62562b5b5bfc38d707edc0f299e048"
+  },
+  "devfd-alias-records-x86_64-v9.json": {
+    "bytes": 26764,
+    "sha256": "4783ee753fdd50333e1516794499fac4bab8d6b95a1eea51c66e77c2f637e4c4"
+  }
+}

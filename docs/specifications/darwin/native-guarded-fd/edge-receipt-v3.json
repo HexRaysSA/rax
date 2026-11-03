@@ -1,0 +1,20 @@
+{
+  "source_sha256": "82f3a8756c3a81c760f86430af43f4d22c7c874c6c244c6f70101a76a94e3df8",
+  "cases_per_arch": 296,
+  "architectures": [
+    {
+      "architecture": "arm64",
+      "cases": 296,
+      "image_sha256": "9c2d54a5552f1c122137c8e61830a5037bb5d9ad3f91a089ee20348a0f0a3846",
+      "records_sha256": "75ac925b8977d7c345b1c8a64885e3b04ac6f8ced4bc16aae885bfc20086c4dd"
+    },
+    {
+      "architecture": "x86_64",
+      "cases": 296,
+      "image_sha256": "e0baff6d3df13d304b9febc4446780321963c031372da699536011644075c1ba",
+      "records_sha256": "2165d5394b111000d5c0675f8b072b64d59e4ef2dfd049ea6cff3e5e23023f2f"
+    }
+  ],
+  "state": "finished",
+  "exit_code": 0
+}

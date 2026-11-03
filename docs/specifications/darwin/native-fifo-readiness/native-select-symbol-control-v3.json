@@ -1,0 +1,28 @@
+[
+  {
+    "symbol": "select",
+    "available": true,
+    "fd": 3,
+    "count": 1,
+    "errno": 0,
+    "bit": true
+  },
+  {
+    "symbol": "select$1050",
+    "available": false
+  },
+  {
+    "symbol": "select$DARWIN_EXTSN",
+    "available": true,
+    "fd": 3,
+    "count": 1,
+    "errno": 0,
+    "bit": true
+  },
+  {
+    "proc_pidfdinfo": 0,
+    "fstat_mode": "0o10600",
+    "python_select_readable": true,
+    "native_eof": []
+  }
+]

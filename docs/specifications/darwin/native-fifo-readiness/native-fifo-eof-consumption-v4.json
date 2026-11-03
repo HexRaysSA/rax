@@ -1,0 +1,20 @@
+[
+  {
+    "iteration": 0,
+    "select_before_eof_read": true,
+    "read_result": [],
+    "select_after_eof_read": false
+  },
+  {
+    "iteration": 1,
+    "select_before_eof_read": false,
+    "read_result": [],
+    "select_after_eof_read": false
+  },
+  {
+    "iteration": 2,
+    "select_before_eof_read": false,
+    "read_result": [],
+    "select_after_eof_read": false
+  }
+]

@@ -279,7 +279,7 @@ pub fn sendmsg_x(ctx: &mut Ctx<'_>, fd: i32, msgp: u64, cnt: u32, flags: i32) ->
                 Ok(mut b) => {
                     let mut k = None;
                     if local {
-                        control::internalize(ctx, &mut b, &mut k);
+                        control::internalize(ctx, &mut b, &mut k)?;
                     }
                     keep.push(k);
                     s.ctl = b;

@@ -1,0 +1,24 @@
+{
+  "inputs": {
+    "docs/specifications/darwin/native-guarded-fd/blocked-write-probe-v11.c": "c253797844efefac3ebda6718203cc88c681df237ea012f750049ab7f49494e1",
+    "docs/specifications/darwin/native-guarded-fd/policy-probe-v2.c": "d359a368e9f6d26c558980e7497452ec8880bd36245c465385e5c380c7871508",
+    "docs/specifications/darwin/native-guarded-fd/references/guarded.h": "9a61dbd134908ef8fca72a31b26174325a785a2cd3186439c3f6dcab08ec77bd"
+  },
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "architectures": [],
+  "state": "failed",
+  "exit_code": 1,
+  "failed_case": {
+    "vector": false,
+    "concurrent_close": true,
+    "mutation": 0,
+    "exit_code": -13
+  },
+  "boundary": "SIGPIPE terminated the native control; buffered stdout did not identify the emitting operation. Follow-up v12 ignores SIGPIPE and observes both anonymous pipes and named FIFOs."
+}

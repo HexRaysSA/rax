@@ -1,0 +1,60 @@
+{
+  "inputs": {
+    "docs/specifications/darwin/native-guarded-fd/inherit-probe-v6.c": "a402131246a8af90fbcc4c99209926fba573ab85a0d6dea26c169017d71687e0",
+    "docs/specifications/darwin/native-guarded-fd/policy-probe-v2.c": "d359a368e9f6d26c558980e7497452ec8880bd36245c465385e5c380c7871508",
+    "docs/specifications/darwin/native-guarded-fd/references/guarded.h": "9a61dbd134908ef8fca72a31b26174325a785a2cd3186439c3f6dcab08ec77bd"
+  },
+  "architectures": [
+    {
+      "architecture": "arm64",
+      "cases": 8,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/inherit-probe-v6.c",
+        "-lproc",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/inherit-arm64"
+      ],
+      "image_sha256": "119a3398837d561e035d0f45d532433032339cdb474aff95ad9fac05a28e894b",
+      "records_sha256": "c0ba784a761b39b7fe225364d8c6ba5f50536c2e3455f1fa5904de9a132d87b2"
+    },
+    {
+      "architecture": "x86_64",
+      "cases": 8,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/inherit-probe-v6.c",
+        "-lproc",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/inherit-x86_64"
+      ],
+      "image_sha256": "6ad4932b50d0a46c774f8b98cef59d5b1334380968b2ed28e26da783459a0773",
+      "records_sha256": "8b5037cfa4fda68d7f7acd7d32ee47f8fa2350a196fa511e7cf43fd22659e6bb"
+    }
+  ],
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "state": "finished",
+  "exit_code": 0
+}

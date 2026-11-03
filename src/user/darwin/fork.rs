@@ -47,7 +47,7 @@ pub fn fork(ctx: &mut Ctx<'_>) -> SysResult {
     links.set_parent_credentials((ctx.proc.creds.0, ctx.proc.creds.1));
     let inherited =
         super::syscall::bsd::ptrace::InheritedHandlers::capture(&ctx.proc.tracing, &ctx.proc.task);
-    match signal::host::fork_host()? {
+    match super::syscall::bsd::file::lifetime::fork_host(ctx.proc)? {
         Some(pid) => {
             links.parent(&mut ctx.proc.tracing, pid, ctx.proc.pid);
             inherited.parent(ctx.proc, pid);

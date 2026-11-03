@@ -157,17 +157,30 @@ fn build_errno(e: &SpawnError) -> Errno {
 /// fork, or a spawn's child) or image (`in_exec`: an exec, or a spawn that
 /// sets it) starts from. Kqueues are never inherited (`FG_CONFINED`);
 /// close-on-fork descriptors are not by a new process, whose descriptors
-/// keep only their close-on-exec flag.
+/// keep only their close-on-exec flag and lose their fileproc guards.
+/// The exec copy excludes close-on-exec descriptors before spawn file actions.
 pub fn fdt_fork(fds: &FdTable, in_exec: bool) -> FdTable {
     let mut t = fds.clone();
     t.clear_reservations();
     let dropped: Vec<i32> = t
         .iter()
-        .filter(|(_, f)| matches!(f.file.kind, FileKind::Kqueue(_)) || (f.clofork && !in_exec))
+        .filter(|(_, f)| {
+            matches!(f.file.kind, FileKind::Kqueue(_))
+                || (f.clofork && !in_exec)
+                || (f.cloexec && in_exec)
+        })
         .map(|(fd, _)| fd)
         .collect();
     for fd in dropped {
         let _ = t.remove(fd);
+    }
+    if !in_exec {
+        let kept: Vec<_> = t.iter().map(|(fd, _)| fd).collect();
+        for fd in kept {
+            let slot = t.get_mut(fd).expect("listed inherited descriptor");
+            slot.clofork = false;
+            slot.guard = None;
+        }
     }
     t
 }
@@ -333,11 +346,11 @@ mod tests {
         });
         t.install(kqueue, false, 0, 256).unwrap();
         let fds = |t: &FdTable| t.iter().map(|(fd, _)| fd).collect::<Vec<_>>();
-        // A fork (or a spawn's child) keeps neither; an exec keeps the
-        // close-on-fork ones, flags and all.
+        // A new process excludes close-on-fork; the exec copy excludes
+        // close-on-exec before any SETEXEC spawn file actions.
         assert_eq!(fds(&fdt_fork(&t, false)), [0, 1]);
         let exec = fdt_fork(&t, true);
-        assert_eq!(fds(&exec), [0, 1, 2, 3]);
-        assert!(exec.get(3).unwrap().clofork && exec.get(3).unwrap().cloexec);
+        assert_eq!(fds(&exec), [0, 2]);
+        assert!(exec.get(2).unwrap().clofork && !exec.get(2).unwrap().cloexec);
     }
 }

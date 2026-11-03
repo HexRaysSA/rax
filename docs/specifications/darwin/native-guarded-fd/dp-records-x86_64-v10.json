@@ -1,0 +1,5922 @@
+[
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": -1,
+      "dpflags": -1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-0.data",
+      "0",
+      "2",
+      "16777216",
+      "-1",
+      "-1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 1.3373912919778377
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": -1,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-1.data",
+      "0",
+      "2",
+      "16777216",
+      "-1",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013803375069983304
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": -1,
+      "dpflags": 1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-2.data",
+      "0",
+      "2",
+      "16777216",
+      "-1",
+      "1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011481791036203504
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": -1,
+      "dpflags": 2,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-3.data",
+      "0",
+      "2",
+      "16777216",
+      "-1",
+      "2",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014580875053070486
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": -1,
+      "dpflags": 3,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-4.data",
+      "0",
+      "2",
+      "16777216",
+      "-1",
+      "3",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015665082959458232
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": -1,
+      "dpflags": 4,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-5.data",
+      "0",
+      "2",
+      "16777216",
+      "-1",
+      "4",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012349667027592659
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": -1,
+      "dpflags": 7,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-6.data",
+      "0",
+      "2",
+      "16777216",
+      "-1",
+      "7",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014440292026847601
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": -1,
+      "dpflags": 8,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-7.data",
+      "0",
+      "2",
+      "16777216",
+      "-1",
+      "8",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010517084039747715
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": -1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-8.data",
+      "0",
+      "2",
+      "16777216",
+      "0",
+      "-1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013884125044569373
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-9.data",
+      "0",
+      "2",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013589665992185473
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-10.data",
+      "0",
+      "2",
+      "16777216",
+      "0",
+      "1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01732295798137784
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 2,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-11.data",
+      "0",
+      "2",
+      "16777216",
+      "0",
+      "2",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013988208957016468
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 3,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-12.data",
+      "0",
+      "2",
+      "16777216",
+      "0",
+      "3",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012446209089830518
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 4,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-13.data",
+      "0",
+      "2",
+      "16777216",
+      "0",
+      "4",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012744416017085314
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 7,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-14.data",
+      "0",
+      "2",
+      "16777216",
+      "0",
+      "7",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013520083972252905
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 8,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-15.data",
+      "0",
+      "2",
+      "16777216",
+      "0",
+      "8",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014054749975912273
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 7,
+      "dpflags": -1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-16.data",
+      "0",
+      "2",
+      "16777216",
+      "7",
+      "-1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01373620901722461
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 7,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-17.data",
+      "0",
+      "2",
+      "16777216",
+      "7",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013205791939981282
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 7,
+      "dpflags": 1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-18.data",
+      "0",
+      "2",
+      "16777216",
+      "7",
+      "1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014535457943566144
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 7,
+      "dpflags": 2,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-19.data",
+      "0",
+      "2",
+      "16777216",
+      "7",
+      "2",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015379625023342669
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 7,
+      "dpflags": 3,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-20.data",
+      "0",
+      "2",
+      "16777216",
+      "7",
+      "3",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013177665998227894
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 7,
+      "dpflags": 4,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-21.data",
+      "0",
+      "2",
+      "16777216",
+      "7",
+      "4",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0122198750032112
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 7,
+      "dpflags": 7,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-22.data",
+      "0",
+      "2",
+      "16777216",
+      "7",
+      "7",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011748207965865731
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 7,
+      "dpflags": 8,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-23.data",
+      "0",
+      "2",
+      "16777216",
+      "7",
+      "8",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012986875022761524
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": -1,
+      "dpflags": -1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-24.data",
+      "0",
+      "2",
+      "16777218",
+      "-1",
+      "-1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013870875001884997
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": -1,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-25.data",
+      "0",
+      "2",
+      "16777218",
+      "-1",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01058895792812109
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": -1,
+      "dpflags": 1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-26.data",
+      "0",
+      "2",
+      "16777218",
+      "-1",
+      "1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012315707979723811
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": -1,
+      "dpflags": 2,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-27.data",
+      "0",
+      "2",
+      "16777218",
+      "-1",
+      "2",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014651375007815659
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": -1,
+      "dpflags": 3,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-28.data",
+      "0",
+      "2",
+      "16777218",
+      "-1",
+      "3",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014730333001352847
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": -1,
+      "dpflags": 4,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-29.data",
+      "0",
+      "2",
+      "16777218",
+      "-1",
+      "4",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011199292028322816
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": -1,
+      "dpflags": 7,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-30.data",
+      "0",
+      "2",
+      "16777218",
+      "-1",
+      "7",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011192250065505505
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": -1,
+      "dpflags": 8,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-31.data",
+      "0",
+      "2",
+      "16777218",
+      "-1",
+      "8",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010564584052190185
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 0,
+      "dpflags": -1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-32.data",
+      "0",
+      "2",
+      "16777218",
+      "0",
+      "-1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012538916082121432
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-33.data",
+      "0",
+      "2",
+      "16777218",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013325833017006516
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 0,
+      "dpflags": 1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-34.data",
+      "0",
+      "2",
+      "16777218",
+      "0",
+      "1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013399417046457529
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 0,
+      "dpflags": 2,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-35.data",
+      "0",
+      "2",
+      "16777218",
+      "0",
+      "2",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014037625049240887
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 0,
+      "dpflags": 3,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-36.data",
+      "0",
+      "2",
+      "16777218",
+      "0",
+      "3",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012693542055785656
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 0,
+      "dpflags": 4,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-37.data",
+      "0",
+      "2",
+      "16777218",
+      "0",
+      "4",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014255541958846152
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 0,
+      "dpflags": 7,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-38.data",
+      "0",
+      "2",
+      "16777218",
+      "0",
+      "7",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013005166896618903
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 0,
+      "dpflags": 8,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-39.data",
+      "0",
+      "2",
+      "16777218",
+      "0",
+      "8",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013128916965797544
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 7,
+      "dpflags": -1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-40.data",
+      "0",
+      "2",
+      "16777218",
+      "7",
+      "-1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014445625012740493
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 7,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-41.data",
+      "0",
+      "2",
+      "16777218",
+      "7",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014925000024959445
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 7,
+      "dpflags": 1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-42.data",
+      "0",
+      "2",
+      "16777218",
+      "7",
+      "1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015203749993816018
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 7,
+      "dpflags": 2,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-43.data",
+      "0",
+      "2",
+      "16777218",
+      "7",
+      "2",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01597437495365739
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 7,
+      "dpflags": 3,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-44.data",
+      "0",
+      "2",
+      "16777218",
+      "7",
+      "3",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014166709035634995
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 7,
+      "dpflags": 4,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-45.data",
+      "0",
+      "2",
+      "16777218",
+      "7",
+      "4",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011117042042315006
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 7,
+      "dpflags": 7,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-46.data",
+      "0",
+      "2",
+      "16777218",
+      "7",
+      "7",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012986375018954277
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777218,
+      "class": 7,
+      "dpflags": 8,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-47.data",
+      "0",
+      "2",
+      "16777218",
+      "7",
+      "8",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013588542002253234
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": -1,
+      "dpflags": -1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-48.data",
+      "0",
+      "2",
+      "16777730",
+      "-1",
+      "-1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012193083995953202
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": -1,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-49.data",
+      "0",
+      "2",
+      "16777730",
+      "-1",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010675415978766978
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": -1,
+      "dpflags": 1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-50.data",
+      "0",
+      "2",
+      "16777730",
+      "-1",
+      "1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01323183299973607
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": -1,
+      "dpflags": 2,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-51.data",
+      "0",
+      "2",
+      "16777730",
+      "-1",
+      "2",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012656250037252903
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": -1,
+      "dpflags": 3,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-52.data",
+      "0",
+      "2",
+      "16777730",
+      "-1",
+      "3",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012618249980732799
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": -1,
+      "dpflags": 4,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-53.data",
+      "0",
+      "2",
+      "16777730",
+      "-1",
+      "4",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01314229192212224
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": -1,
+      "dpflags": 7,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-54.data",
+      "0",
+      "2",
+      "16777730",
+      "-1",
+      "7",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011825958034023643
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": -1,
+      "dpflags": 8,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-55.data",
+      "0",
+      "2",
+      "16777730",
+      "-1",
+      "8",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010216374997980893
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 0,
+      "dpflags": -1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-56.data",
+      "0",
+      "2",
+      "16777730",
+      "0",
+      "-1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012693374999798834
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-57.data",
+      "0",
+      "2",
+      "16777730",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012985458015464246
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 0,
+      "dpflags": 1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-58.data",
+      "0",
+      "2",
+      "16777730",
+      "0",
+      "1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015778041910380125
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 0,
+      "dpflags": 2,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-59.data",
+      "0",
+      "2",
+      "16777730",
+      "0",
+      "2",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013954791938886046
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 0,
+      "dpflags": 3,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-60.data",
+      "0",
+      "2",
+      "16777730",
+      "0",
+      "3",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014623792027123272
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 0,
+      "dpflags": 4,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-61.data",
+      "0",
+      "2",
+      "16777730",
+      "0",
+      "4",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01381883304566145
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 0,
+      "dpflags": 7,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-62.data",
+      "0",
+      "2",
+      "16777730",
+      "0",
+      "7",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013671166030690074
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 0,
+      "dpflags": 8,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-63.data",
+      "0",
+      "2",
+      "16777730",
+      "0",
+      "8",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01237137510906905
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 7,
+      "dpflags": -1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-64.data",
+      "0",
+      "2",
+      "16777730",
+      "7",
+      "-1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014251917018555105
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 7,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-65.data",
+      "0",
+      "2",
+      "16777730",
+      "7",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.017892249976284802
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 7,
+      "dpflags": 1,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-66.data",
+      "0",
+      "2",
+      "16777730",
+      "7",
+      "1",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01302529196254909
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 7,
+      "dpflags": 2,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-67.data",
+      "0",
+      "2",
+      "16777730",
+      "7",
+      "2",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.016143250046297908
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 7,
+      "dpflags": 3,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-68.data",
+      "0",
+      "2",
+      "16777730",
+      "7",
+      "3",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013552082935348153
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 7,
+      "dpflags": 4,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-69.data",
+      "0",
+      "2",
+      "16777730",
+      "7",
+      "4",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01695408404339105
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 7,
+      "dpflags": 7,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-70.data",
+      "0",
+      "2",
+      "16777730",
+      "7",
+      "7",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010737707954831421
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 7,
+      "dpflags": 8,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-71.data",
+      "0",
+      "2",
+      "16777730",
+      "7",
+      "8",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013881082995794713
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 0,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-72.data",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011567375040613115
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 0,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-73.data",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011982250027358532
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-74.data",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013911875081248581
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-75.data",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010854042018763721
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 31,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-76.data",
+      "0",
+      "31",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012800500029698014
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 31,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-77.data",
+      "0",
+      "31",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011374082998372614
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 34,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-78.data",
+      "0",
+      "34",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013363333069719374
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 34,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-79.data",
+      "0",
+      "34",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014183458988554776
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 0,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-80.data",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010170083027333021
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 0,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-81.data",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012056916952133179
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 2,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-82.data",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.009336042101494968
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 2,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-83.data",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011136000044643879
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 31,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-84.data",
+      "1",
+      "31",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01370974991004914
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 31,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-85.data",
+      "1",
+      "31",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012874457985162735
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 34,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-86.data",
+      "1",
+      "34",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01353691692929715
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 34,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-87.data",
+      "1",
+      "34",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011939208023250103
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 0,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-88.data",
+      "2",
+      "0",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012632917030714452
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 0,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-89.data",
+      "2",
+      "0",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013386417063884437
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 2,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-90.data",
+      "2",
+      "2",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012246958096511662
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 2,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-91.data",
+      "2",
+      "2",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011056457995437086
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 31,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-92.data",
+      "2",
+      "31",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01313704194035381
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 31,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-93.data",
+      "2",
+      "31",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01205612497869879
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 34,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-94.data",
+      "2",
+      "34",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014768416993319988
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 34,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-95.data",
+      "2",
+      "34",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01289983291644603
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 0,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-96.data",
+      "3",
+      "0",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014261040952987969
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 0,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-97.data",
+      "3",
+      "0",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0143889170140028
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 2,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-98.data",
+      "3",
+      "2",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.018180540995672345
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 2,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-99.data",
+      "3",
+      "2",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015607665991410613
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 31,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-100.data",
+      "3",
+      "31",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01160637498833239
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 31,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-101.data",
+      "3",
+      "31",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012818582938052714
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 34,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-102.data",
+      "3",
+      "34",
+      "0",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011046540923416615
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 34,
+      "flags": 0,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-103.data",
+      "3",
+      "34",
+      "0",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01396941696293652
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 0,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-104.data",
+      "0",
+      "0",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015037457924336195
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 0,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-105.data",
+      "0",
+      "0",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0111028749961406
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-106.data",
+      "0",
+      "2",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011068291030824184
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-107.data",
+      "0",
+      "2",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014531374908983707
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 31,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-108.data",
+      "0",
+      "31",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "file-mode",
+        "result": 384,
+        "errno": 0
+      },
+      {
+        "kind": "guarded-dp-close",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012212917092256248
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 31,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-109.data",
+      "0",
+      "31",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01286287500988692
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 34,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-110.data",
+      "0",
+      "34",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011153624975122511
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 34,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-111.data",
+      "0",
+      "34",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012083624955266714
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 0,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-112.data",
+      "1",
+      "0",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013580625061877072
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 0,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-113.data",
+      "1",
+      "0",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010545499972067773
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-114.data",
+      "1",
+      "2",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.020110542071051896
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-115.data",
+      "1",
+      "2",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014231332927010953
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 31,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-116.data",
+      "1",
+      "31",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012778040952980518
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 31,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-117.data",
+      "1",
+      "31",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.018022333970293403
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 34,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-118.data",
+      "1",
+      "34",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012969082919880748
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 34,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-119.data",
+      "1",
+      "34",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011155375046655536
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 0,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-120.data",
+      "2",
+      "0",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012688959017395973
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 0,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-121.data",
+      "2",
+      "0",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013054291950538754
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-122.data",
+      "2",
+      "2",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011884582927450538
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-123.data",
+      "2",
+      "2",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012353457976132631
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 31,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-124.data",
+      "2",
+      "31",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01103433407843113
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 31,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-125.data",
+      "2",
+      "31",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0144174579763785
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 34,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-126.data",
+      "2",
+      "34",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012517375056631863
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 34,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-127.data",
+      "2",
+      "34",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011634542024694383
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 0,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-128.data",
+      "3",
+      "0",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013511791941709816
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 0,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-129.data",
+      "3",
+      "0",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012913374928757548
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-130.data",
+      "3",
+      "2",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01266191597096622
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 2,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-131.data",
+      "3",
+      "2",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012274708016775548
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 31,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-132.data",
+      "3",
+      "31",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012441375060006976
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 31,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-133.data",
+      "3",
+      "31",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012276749941520393
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 34,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-134.data",
+      "3",
+      "34",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01064229104667902
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 34,
+      "flags": 16777216,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-135.data",
+      "3",
+      "34",
+      "16777216",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012126666028052568
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 0,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-136.data",
+      "0",
+      "0",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01248720905277878
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 0,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-137.data",
+      "0",
+      "0",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01362758397590369
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-138.data",
+      "0",
+      "2",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013638166012242436
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-139.data",
+      "0",
+      "2",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011840707971714437
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 31,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-140.data",
+      "0",
+      "31",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012025707983411849
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 31,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-141.data",
+      "0",
+      "31",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015210457961075008
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 34,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-142.data",
+      "0",
+      "34",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014631791971623898
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 34,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-143.data",
+      "0",
+      "34",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012628208030946553
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 0,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-144.data",
+      "1",
+      "0",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011855292017571628
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 0,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-145.data",
+      "1",
+      "0",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.009424749994650483
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 2,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-146.data",
+      "1",
+      "2",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012732917093671858
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 2,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-147.data",
+      "1",
+      "2",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.009890749934129417
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 31,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-148.data",
+      "1",
+      "31",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011109250015579164
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 31,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-149.data",
+      "1",
+      "31",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.009427416953258216
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 34,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-150.data",
+      "1",
+      "34",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012017417000606656
+  },
+  {
+    "input": {
+      "cookie_mode": 1,
+      "attributes": 34,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-151.data",
+      "1",
+      "34",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011932292021811008
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 0,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-152.data",
+      "2",
+      "0",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011527915950864553
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 0,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-153.data",
+      "2",
+      "0",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013252165983431041
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 2,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-154.data",
+      "2",
+      "2",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01499475003220141
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 2,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-155.data",
+      "2",
+      "2",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012774167000316083
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 31,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-156.data",
+      "2",
+      "31",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015042957966215909
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 31,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-157.data",
+      "2",
+      "31",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015476167085580528
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 34,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-158.data",
+      "2",
+      "34",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01692579104565084
+  },
+  {
+    "input": {
+      "cookie_mode": 2,
+      "attributes": 34,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-159.data",
+      "2",
+      "34",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0184927920345217
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 0,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-160.data",
+      "3",
+      "0",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01587862498126924
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 0,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-161.data",
+      "3",
+      "0",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014345041010528803
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 2,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-162.data",
+      "3",
+      "2",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.017470582970418036
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 2,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-163.data",
+      "3",
+      "2",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013637625030241907
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 31,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-164.data",
+      "3",
+      "31",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014686541981063783
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 31,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-165.data",
+      "3",
+      "31",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 14
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013513082987628877
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 34,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 0
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-166.data",
+      "3",
+      "34",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01363404095172882
+  },
+  {
+    "input": {
+      "cookie_mode": 3,
+      "attributes": 34,
+      "flags": 16777219,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 1
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-167.data",
+      "3",
+      "34",
+      "16777219",
+      "0",
+      "0",
+      "384",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015282333013601601
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 384,
+      "path_mode": 2
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-168.data",
+      "0",
+      "2",
+      "16777730",
+      "0",
+      "0",
+      "384",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013771625002846122
+  },
+  {
+    "input": {
+      "cookie_mode": 0,
+      "attributes": 2,
+      "flags": 16777730,
+      "class": 0,
+      "dpflags": 0,
+      "mode": 3583,
+      "path_mode": 2
+    },
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/x86_64-169.data",
+      "0",
+      "2",
+      "16777730",
+      "0",
+      "0",
+      "3583",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guarded-dp-open",
+        "result": -1,
+        "errno": 22
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.009812875068746507
+  }
+]

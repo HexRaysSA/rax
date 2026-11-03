@@ -1,0 +1,35 @@
+[
+  {
+    "source_path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_select.h",
+    "retained_path": "sys-_select.h",
+    "sha256": "23e013274b46f4eb46aae8492206ed2862ea6c998e28e793427f38a5e499bb6d",
+    "issuing_organization": "Apple Inc.",
+    "retrieved_date": "2026-11-03",
+    "license": "Originalnoticesretained"
+  },
+  {
+    "source_path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_fd_def.h",
+    "retained_path": "sys-_fd_def.h",
+    "sha256": "feea8c758abe49372bcf3ab7dd9b0391d02269e4a531ef838895e961e9f43f30",
+    "issuing_organization": "Apple Inc.",
+    "retrieved_date": "2026-11-03",
+    "license": "Originalnoticesretained"
+  },
+  {
+    "source_path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/mach/thread_info.h",
+    "retained_path": "mach-thread_info.h",
+    "sha256": "b61e3b2d08a3e618e2467b631048e9ed5e787c0b1ced11819f493ef698157d30",
+    "issuing_organization": "Apple Inc.",
+    "retrieved_date": "2026-11-03",
+    "license": "Originalnoticesretained"
+  },
+  {
+    "source_url": "https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/bsd/miscfs/fifofs/fifo_vnops.c",
+    "canonical_title": "Apple XNU fifo_vnops.c",
+    "retained_path": "fifo_vnops.c",
+    "sha256": "39eb70d5172e56e47a2ce492e43109cf0d157fdd7a55993068f8b02aec127088",
+    "retrieved_date": "2026-11-03",
+    "issuing_organization": "Apple Inc.",
+    "scope": "Publicsourceexplanation;notassertedtoidentifytheexactrunning27.2kernelrevision."
+  }
+]

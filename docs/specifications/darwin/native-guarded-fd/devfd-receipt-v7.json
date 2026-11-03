@@ -1,0 +1,58 @@
+{
+  "inputs": {
+    "docs/specifications/darwin/native-guarded-fd/devfd-probe-v7.c": "a573d4e738645d44df509d4c9cda16763ea4b8df1ee3e5fc9b93fafd223f00cd",
+    "docs/specifications/darwin/native-guarded-fd/policy-probe-v2.c": "d359a368e9f6d26c558980e7497452ec8880bd36245c465385e5c380c7871508",
+    "docs/specifications/darwin/native-guarded-fd/references/guarded.h": "9a61dbd134908ef8fca72a31b26174325a785a2cd3186439c3f6dcab08ec77bd"
+  },
+  "architectures": [
+    {
+      "architecture": "arm64",
+      "cases": 198,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/devfd-probe-v7.c",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-arm64"
+      ],
+      "image_sha256": "b329c502b2eb5bb85976e10d5aa9d216bd2bf76d3078bd5f1e5c94bc8c32204d",
+      "records_sha256": "604363a4ebc82d03bd1ca6347e9325e6368a18a5f2a193bc24bde4dde02e4d5c"
+    },
+    {
+      "architecture": "x86_64",
+      "cases": 198,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/devfd-probe-v7.c",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64"
+      ],
+      "image_sha256": "19459aea51bcbb1ab67e0c2b9bc791c100405df899e8428a39a0f9e15e344828",
+      "records_sha256": "8e7f2a74a7fa7571ad9a0b32fb3e4bb46a77faac3b28f80c770c69f5ae333d61"
+    }
+  ],
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "state": "finished",
+  "exit_code": 0
+}

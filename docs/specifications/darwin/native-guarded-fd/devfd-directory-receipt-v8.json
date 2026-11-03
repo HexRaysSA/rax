@@ -1,0 +1,58 @@
+{
+  "inputs": {
+    "docs/specifications/darwin/native-guarded-fd/devfd-directory-probe-v8.c": "45abd85baf40137b25b119971289f5aba8193c9c11a07ab58bed5b6b5d541c6c",
+    "docs/specifications/darwin/native-guarded-fd/policy-probe-v2.c": "d359a368e9f6d26c558980e7497452ec8880bd36245c465385e5c380c7871508",
+    "docs/specifications/darwin/native-guarded-fd/references/guarded.h": "9a61dbd134908ef8fca72a31b26174325a785a2cd3186439c3f6dcab08ec77bd"
+  },
+  "architectures": [
+    {
+      "architecture": "arm64",
+      "cases": 6,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/devfd-directory-probe-v8.c",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/devfd-dir-arm64"
+      ],
+      "image_sha256": "c527fe86561d4b380db8301ee033bc101e6820b497cbc92a8509398e7e02c7a5",
+      "records_sha256": "c0fce8e9d6137e7651d5a510a797c6aba69a856d54b8598bd6e8df8e584e94d7"
+    },
+    {
+      "architecture": "x86_64",
+      "cases": 6,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/devfd-directory-probe-v8.c",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-directory-v8/devfd-dir-x86_64"
+      ],
+      "image_sha256": "2b8524b452566022be0f1b45381ce5b76bd99dcc4780caf204ac66ec8cfffd1d",
+      "records_sha256": "b831b4a20efc947e6e20e88d9337c127578524aa5e5d2e0d17a9dfe0a5705772"
+    }
+  ],
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "state": "finished",
+  "exit_code": 0
+}

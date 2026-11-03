@@ -1,0 +1,62 @@
+{
+  "inputs": {
+    "docs/specifications/darwin/native-guarded-fd/fdinfo-probe-v4.c": "f8d29d3dc34f146e81aa066e98e23dbd43fc67179e6d5ba567be3670333ac96c",
+    "docs/specifications/darwin/native-guarded-fd/policy-probe-v2.c": "d359a368e9f6d26c558980e7497452ec8880bd36245c465385e5c380c7871508",
+    "docs/specifications/darwin/native-guarded-fd/references/guarded.h": "9a61dbd134908ef8fca72a31b26174325a785a2cd3186439c3f6dcab08ec77bd"
+  },
+  "architectures": [
+    {
+      "architecture": "arm64",
+      "cases": 32,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/fdinfo-probe-v4.c",
+        "-lproc",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-arm64"
+      ],
+      "image_sha256": "cd3cc54e8c2b03e67d873d77cf9e92941754108f0052889552f592baebcd2107",
+      "records_sha256": "a70f496bd609b573be468b51428c228a5995e9474337a79dfec6d18b47c418e4"
+    },
+    {
+      "architecture": "x86_64",
+      "cases": 32,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/fdinfo-probe-v4.c",
+        "-lproc",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-fdinfo-v4/fdinfo-x86_64"
+      ],
+      "image_sha256": "e557dccbc5a526329d8d196dcdd2de23bf124d35af64cf0d68c2c0db338cbf92",
+      "records_sha256": "6f100bfdda5ca8a51c503f2d19a74823f3230f3b7b980077284b447904a055c2"
+    }
+  ],
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "compiler": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+  "sdk": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+  "state": "finished",
+  "exit_code": 0
+}

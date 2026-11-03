@@ -74,6 +74,7 @@ fn completed_bsd_return_preserves_only_successful_general_state_writes() {
                 pc: ENTRY + 4,
                 completed: None,
                 result_prepared: false,
+                guard_cookie: None,
             });
             syscall::complete_unix(&mut thread, Ok(Rv::one(0)));
             let arm = abi == DarwinAbi::Arm64;

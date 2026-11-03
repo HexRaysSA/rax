@@ -25,6 +25,12 @@ use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{self, Wait};
 
 mod embedded;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+mod fifo_io;
+#[cfg(target_os = "linux")]
+mod fifo_linux;
+#[cfg(target_os = "macos")]
+mod fifo_read;
 pub(crate) mod lifetime;
 mod pipe_drain;
 
@@ -98,6 +104,10 @@ pub fn read(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64
             #[cfg(target_os = "macos")]
             return super::socket::read(ctx, fd, buf, nbyte);
         }
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        if offset.is_none() && fifo_io::eligible(ctx, fd, h) {
+            return fifo_io::read(ctx, fd, &file, vec![(buf, nbyte)], false);
+        }
         if offset.is_none()
             && let Some(r) = block_until_ready(ctx, h, true)
         {
@@ -143,6 +153,24 @@ pub fn read(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64
 
 /// `write(fd, cbuf, nbyte)` and `pwrite` (`offset` given).
 pub fn write(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64>) -> SysResult {
+    write_with_guard(ctx, fd, buf, nbyte, offset, None)
+}
+
+pub(super) fn write_with_guard(
+    ctx: &mut Ctx<'_>,
+    fd: i32,
+    buf: u64,
+    nbyte: u64,
+    offset: Option<i64>,
+    guard: Option<u64>,
+) -> SysResult {
+    if guard.is_none() && offset == Some(-1) {
+        return Err(Errno::EINVAL);
+    }
+    if nbyte > IO_MAX {
+        return Err(Errno::EINVAL);
+    }
+    super::guarded::check_write(ctx, fd, guard)?;
     if offset.is_none() && nbyte <= IO_MAX && ctx.proc.fds.file(fd).is_ok_and(|f| socket(&f)) {
         #[cfg(target_os = "macos")]
         return super::socket::write(ctx, fd, buf, nbyte);
@@ -192,7 +220,7 @@ fn nosigpipe(h: i32) -> bool {
 }
 
 fn write_file(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64>) -> SysResult {
-    let file = ctx.proc.fds.file(fd)?;
+    let file = lifetime::write_file(ctx, fd)?;
     if nbyte > IO_MAX {
         return Err(Errno::EINVAL);
     }
@@ -207,6 +235,7 @@ fn write_file(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i
             && nbyte > 0
             && let Some(r) = block_until_ready(ctx, h, false)
         {
+            lifetime::parked_write(ctx, fd, &file, None);
             return r;
         }
         let mut done = 0u64;
@@ -250,22 +279,34 @@ fn write_file(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i
 
 /// Reads a guest iovec array: `(base, len)` pairs.
 fn iovecs(ctx: &Ctx<'_>, iov: u64, cnt: i32) -> Result<Vec<(u64, u64)>, Errno> {
+    let out = raw_iovecs(ctx, iov, cnt)?;
+    vector_length(&out)?;
+    Ok(out)
+}
+
+fn raw_iovecs(ctx: &Ctx<'_>, iov: u64, cnt: i32) -> Result<Vec<(u64, u64)>, Errno> {
     if cnt < 0 || cnt as u64 > UIO_MAXIOV {
         return Err(Errno::EINVAL);
     }
     let raw = ctx.read(iov, 16 * cnt as usize)?;
     let mut out = Vec::with_capacity(cnt as usize);
-    let mut total = 0u64;
     for c in raw.chunks(16) {
         let base = u64::from_le_bytes(c[..8].try_into().expect("8 bytes"));
         let len = u64::from_le_bytes(c[8..].try_into().expect("8 bytes"));
-        total = total.checked_add(len).ok_or(Errno::EINVAL)?;
-        if total > IO_MAX {
-            return Err(Errno::EINVAL);
-        }
         out.push((base, len));
     }
     Ok(out)
+}
+
+fn vector_length(vectors: &[(u64, u64)]) -> Result<u64, Errno> {
+    let mut total = 0u64;
+    for &(_, length) in vectors {
+        total = total.checked_add(length).ok_or(Errno::EINVAL)?;
+        if total > IO_MAX {
+            return Err(Errno::EINVAL);
+        }
+    }
+    Ok(total)
 }
 
 /// `readv(fd, iov, cnt)` and `preadv`.
@@ -292,6 +333,10 @@ pub fn readv(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>
             return super::socket::readv(ctx, fd, v);
         }
         let total: u64 = v.iter().map(|x| x.1).sum();
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        if offset.is_none() && fifo_io::eligible(ctx, fd, h) {
+            return fifo_io::read(ctx, fd, &file, v, true);
+        }
         if offset.is_none()
             && let Some(r) = block_until_ready(ctx, h, true)
         {
@@ -325,33 +370,64 @@ pub fn readv(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>
 
 /// `writev(fd, iov, cnt)` and `pwritev`.
 pub fn writev(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>) -> SysResult {
-    let r = writev_file(ctx, fd, iov, cnt, offset);
+    writev_with_guard(ctx, fd, iov, cnt, offset, None)
+}
+
+pub(super) fn writev_with_guard(
+    ctx: &mut Ctx<'_>,
+    fd: i32,
+    iov: u64,
+    cnt: i32,
+    offset: Option<i64>,
+    guard: Option<u64>,
+) -> SysResult {
+    if cnt <= 0 || cnt as u64 > UIO_MAXIOV || offset.is_some_and(|offset| offset < 0) {
+        return Err(Errno::EINVAL);
+    }
+    let vectors = match ctx
+        .thread
+        .file_io
+        .as_ref()
+        .filter(|entered| entered.write && entered.fd == fd)
+        .and_then(|entered| entered.vectors.as_ref())
+    {
+        Some(vectors) => vectors.clone(),
+        None => raw_iovecs(ctx, iov, cnt)?,
+    };
+    super::guarded::check_write(ctx, fd, guard)?;
+    vector_length(&vectors)?;
+    let r = writev_file(ctx, fd, vectors, offset);
     sigpipe(ctx, fd, r)
 }
 
-fn writev_file(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>) -> SysResult {
-    let file = ctx.proc.fds.file(fd)?;
+fn writev_file(
+    ctx: &mut Ctx<'_>,
+    fd: i32,
+    vectors: Vec<(u64, u64)>,
+    offset: Option<i64>,
+) -> SysResult {
+    let file = lifetime::write_file(ctx, fd)?;
     if let FileKind::Embedded(file) = &file.kind {
-        return embedded::vector(ctx, file, &iovecs(ctx, iov, cnt)?, offset, false);
+        return embedded::vector(ctx, file, &vectors, offset, false);
     }
 
     #[cfg(unix)]
     {
         let h = file.host_fd().ok_or(Errno::EBADF)?;
-        let v = iovecs(ctx, iov, cnt)?;
         if offset.is_none() && socket(&file) {
             #[cfg(target_os = "macos")]
-            return super::socket::writev(ctx, fd, v);
-        }
-        let mut buf = Vec::new();
-        for (base, len) in v {
-            buf.extend_from_slice(&ctx.read(base, len as usize)?);
+            return super::socket::writev(ctx, fd, vectors);
         }
         if offset.is_none()
-            && !buf.is_empty()
+            && vectors.iter().any(|&(_, length)| length != 0)
             && let Some(r) = block_until_ready(ctx, h, false)
         {
+            lifetime::parked_write(ctx, fd, &file, Some(vectors));
             return r;
+        }
+        let mut buf = Vec::new();
+        for (base, len) in vectors {
+            buf.extend_from_slice(&ctx.read(base, len as usize)?);
         }
         // SAFETY: `buf` holds `buf.len()` readable bytes.
         let n = check_size(unsafe {
@@ -417,11 +493,26 @@ fn host_seek_data() -> i32 {
 
 /// `close(fd)`.
 pub fn close(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
+    close_with_guard(ctx, fd, None)
+}
+
+pub(super) fn close_with_guard(ctx: &mut Ctx<'_>, fd: i32, guard: Option<u64>) -> SysResult {
+    if let Some(cookie) = guard {
+        super::guarded::lookup(ctx, fd, cookie)?;
+    } else {
+        super::guarded::check(
+            ctx,
+            fd,
+            super::guarded::CLOSE,
+            super::guarded::reason::CLOSE,
+        )?;
+    }
     lifetime::close(ctx, fd)
 }
 
 /// `dup(fd)`.
 pub fn dup(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
+    super::guarded::check(ctx, fd, super::guarded::DUP, super::guarded::reason::DUP)?;
     let file = ctx.proc.fds.file(fd)?;
     let limit = ctx.proc.rlimits[8].0;
     let n = ctx.proc.fds.install(file, false, 0, limit)?;
@@ -430,6 +521,7 @@ pub fn dup(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
 
 /// `dup2(from, to)`.
 pub fn dup2(ctx: &mut Ctx<'_>, from: i32, to: i32) -> SysResult {
+    super::guarded::check(ctx, from, super::guarded::DUP, super::guarded::reason::DUP)?;
     let file = ctx.proc.fds.file(from)?;
     let limit = ctx.proc.rlimits[8].0;
     if to < 0 || to as u64 >= limit {
@@ -437,6 +529,14 @@ pub fn dup2(ctx: &mut Ctx<'_>, from: i32, to: i32) -> SysResult {
     }
     if from == to {
         return Ok(Rv::one(to as u64));
+    }
+    if ctx.proc.fds.get(to).is_ok() {
+        super::guarded::check(
+            ctx,
+            to,
+            super::guarded::CLOSE,
+            super::guarded::reason::CLOSE,
+        )?;
     }
     lifetime::replace(ctx, from, to, file, false, false)
 }
@@ -450,12 +550,21 @@ pub fn dup3(ctx: &mut Ctx<'_>, from: i32, to: i32, flags: u32) -> SysResult {
     if flags & !(io::O_CLOEXEC | io::O_CLOFORK) != 0 || from == to {
         return Err(Errno::EINVAL);
     }
+    super::guarded::check(ctx, from, super::guarded::DUP, super::guarded::reason::DUP)?;
     let file = ctx.proc.fds.file(from)?;
     let limit = ctx.proc.rlimits[8].0;
     if to < 0 || to as u64 >= limit {
         return Err(Errno::EBADF);
     }
     let (cloexec, clofork) = (flags & io::O_CLOEXEC != 0, flags & io::O_CLOFORK != 0);
+    if ctx.proc.fds.get(to).is_ok() {
+        super::guarded::check(
+            ctx,
+            to,
+            super::guarded::CLOSE,
+            super::guarded::reason::CLOSE,
+        )?;
+    }
     lifetime::replace(ctx, from, to, file, cloexec, clofork)
 }
 
@@ -703,6 +812,7 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
     let limit = ctx.proc.rlimits[8].0;
     match c {
         F_DUPFD | F_DUPFD_CLOEXEC | F_DUPFD_CLOFORK => {
+            super::guarded::check(ctx, fd, super::guarded::DUP, super::guarded::reason::DUP)?;
             let min = arg as i32;
             if min < 0 || min as u64 >= limit {
                 return Err(Errno::EINVAL);
@@ -723,9 +833,22 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
             return Ok(Rv::one(flags));
         }
         F_SETFD => {
+            if arg & FD_CLOEXEC == 0 && ctx.proc.fds.get(fd)?.guard.is_some() {
+                // All guards force close-on-exec; unlike a wrong cookie,
+                // clearing it posts a fatal guard exception.
+                super::guarded::check(
+                    ctx,
+                    fd,
+                    super::guarded::DUP,
+                    super::guarded::reason::NOCLOEXEC,
+                )?;
+            }
             let slot = ctx.proc.fds.get_mut(fd)?;
             slot.cloexec = arg & FD_CLOEXEC != 0;
-            slot.clofork = arg & FD_CLOFORK != 0;
+            slot.clofork = arg & FD_CLOFORK != 0
+                || slot
+                    .guard
+                    .is_some_and(|g| g.attributes & super::guarded::CLOSE != 0);
             return Ok(Rv::one(0));
         }
         F_GETFL | F_SETFL if matches!(file.kind, FileKind::Embedded(_)) => {

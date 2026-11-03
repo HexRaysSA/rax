@@ -88,6 +88,12 @@ pub(crate) fn bsd_allowed(number: u32) -> bool {
             | nr::OPEN_NOCANCEL
             | nr::OPENAT
             | nr::OPENAT_NOCANCEL
+            | nr::GUARDED_OPEN_NP
+            | nr::GUARDED_CLOSE_NP
+            | nr::CHANGE_FDGUARD_NP
+            | nr::GUARDED_WRITE_NP
+            | nr::GUARDED_PWRITE_NP
+            | nr::GUARDED_WRITEV_NP
             | nr::CLOSE
             | nr::CLOSE_NOCANCEL
             | nr::LSEEK

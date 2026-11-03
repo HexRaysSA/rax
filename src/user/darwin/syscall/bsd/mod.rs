@@ -13,6 +13,7 @@ pub mod attr;
 pub mod audit;
 pub mod event;
 pub mod file;
+pub(crate) mod guarded;
 pub mod mac;
 pub mod misc;
 pub mod path;
@@ -100,7 +101,19 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
     if CANCELLATION_POINTS.contains(&number) {
         pthread::testcancel(ctx)?;
     }
+    if number == nr::FILEPORT_MAKEPORT && ctx.proc.fds.get(i(0)).is_ok_and(|fd| fd.guard.is_some())
+    {
+        guarded::check(ctx, i(0), guarded::FILEPORT, guarded::reason::FILEPORT)?;
+    }
     match number {
+        nr::GUARDED_OPEN_NP => guarded::open(ctx, a[0], a[1], u(2), u(3), u(4)),
+        nr::GUARDED_OPEN_DPROTECTED_NP => guarded::open_dprotected(ctx, a),
+        nr::GUARDED_CLOSE_NP => guarded::close(ctx, i(0), a[1]),
+        nr::GUARDED_KQUEUE_NP => guarded::kqueue(ctx, a[0], u(1)),
+        nr::CHANGE_FDGUARD_NP => guarded::change(ctx, a),
+        nr::GUARDED_WRITE_NP => guarded::write(ctx, i(0), a[1], a[2], a[3], None),
+        nr::GUARDED_PWRITE_NP => guarded::write(ctx, i(0), a[1], a[2], a[3], Some(a[4] as i64)),
+        nr::GUARDED_WRITEV_NP => guarded::writev(ctx, i(0), a[1], a[2], i(3)),
         nr::PTRACE => ptrace::ptrace(ctx, i(0), i(1), a[2], i(3)),
         nr::EXIT => proc::exit(ctx, i(0)),
         #[cfg(unix)]

@@ -1,0 +1,1434 @@
+[
+  {
+    "case": 0,
+    "operation": "dup",
+    "attributes": 2,
+    "clear_clofork": false,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-0.data",
+      "2",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 1,
+    "operation": "dup-self",
+    "attributes": 2,
+    "clear_clofork": false,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup-self",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-1.data",
+      "2",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 2,
+    "operation": "inherit",
+    "attributes": 2,
+    "clear_clofork": false,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "inherit",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-2.data",
+      "2",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 3,
+    "operation": "close",
+    "attributes": 2,
+    "clear_clofork": false,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "close",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-3.data",
+      "2",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 4,
+    "operation": "dup",
+    "attributes": 2,
+    "clear_clofork": false,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-4.data",
+      "2",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 5,
+    "operation": "dup-self",
+    "attributes": 2,
+    "clear_clofork": false,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup-self",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-5.data",
+      "2",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 6,
+    "operation": "inherit",
+    "attributes": 2,
+    "clear_clofork": false,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "inherit",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-6.data",
+      "2",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 7,
+    "operation": "close",
+    "attributes": 2,
+    "clear_clofork": false,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "close",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-7.data",
+      "2",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 8,
+    "operation": "dup",
+    "attributes": 2,
+    "clear_clofork": true,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-8.data",
+      "2",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "child-descriptor",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 9,
+    "operation": "dup-self",
+    "attributes": 2,
+    "clear_clofork": true,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup-self",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-9.data",
+      "2",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "child-descriptor",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 10,
+    "operation": "inherit",
+    "attributes": 2,
+    "clear_clofork": true,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "inherit",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-10.data",
+      "2",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "child-descriptor",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 11,
+    "operation": "close",
+    "attributes": 2,
+    "clear_clofork": true,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "close",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-11.data",
+      "2",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "child-descriptor",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 12,
+    "operation": "dup",
+    "attributes": 2,
+    "clear_clofork": true,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-12.data",
+      "2",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 13,
+    "operation": "dup-self",
+    "attributes": 2,
+    "clear_clofork": true,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup-self",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-13.data",
+      "2",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 14,
+    "operation": "inherit",
+    "attributes": 2,
+    "clear_clofork": true,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "inherit",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-14.data",
+      "2",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 15,
+    "operation": "close",
+    "attributes": 2,
+    "clear_clofork": true,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "close",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-15.data",
+      "2",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 16,
+    "operation": "dup",
+    "attributes": 3,
+    "clear_clofork": false,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-16.data",
+      "3",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 17,
+    "operation": "dup-self",
+    "attributes": 3,
+    "clear_clofork": false,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup-self",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-17.data",
+      "3",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 18,
+    "operation": "inherit",
+    "attributes": 3,
+    "clear_clofork": false,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "inherit",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-18.data",
+      "3",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 19,
+    "operation": "close",
+    "attributes": 3,
+    "clear_clofork": false,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "close",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-19.data",
+      "3",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 20,
+    "operation": "dup",
+    "attributes": 3,
+    "clear_clofork": false,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-20.data",
+      "3",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 21,
+    "operation": "dup-self",
+    "attributes": 3,
+    "clear_clofork": false,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup-self",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-21.data",
+      "3",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 22,
+    "operation": "inherit",
+    "attributes": 3,
+    "clear_clofork": false,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "inherit",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-22.data",
+      "3",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 23,
+    "operation": "close",
+    "attributes": 3,
+    "clear_clofork": false,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "close",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-23.data",
+      "3",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 24,
+    "operation": "dup",
+    "attributes": 3,
+    "clear_clofork": true,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-24.data",
+      "3",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 25,
+    "operation": "dup-self",
+    "attributes": 3,
+    "clear_clofork": true,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup-self",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-25.data",
+      "3",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 26,
+    "operation": "inherit",
+    "attributes": 3,
+    "clear_clofork": true,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "inherit",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-26.data",
+      "3",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 27,
+    "operation": "close",
+    "attributes": 3,
+    "clear_clofork": true,
+    "setexec": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "close",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-27.data",
+      "3",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 28,
+    "operation": "dup",
+    "attributes": 3,
+    "clear_clofork": true,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-28.data",
+      "3",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 29,
+    "operation": "dup-self",
+    "attributes": 3,
+    "clear_clofork": true,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "dup-self",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-29.data",
+      "3",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 30,
+    "operation": "inherit",
+    "attributes": 3,
+    "clear_clofork": true,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "inherit",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-30.data",
+      "3",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": 31,
+    "operation": "close",
+    "attributes": 3,
+    "clear_clofork": true,
+    "setexec": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/spawn-x86_64",
+      "close",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-spawn-v5/x86_64-31.data",
+      "3",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "guard-handler",
+        "status": 0
+      },
+      {
+        "kind": "open",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "clear-clofork",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "before-spawn"
+      },
+      {
+        "kind": "spawn-error",
+        "result": 9,
+        "errno": 0
+      },
+      {
+        "kind": "cleanup",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  }
+]

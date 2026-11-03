@@ -1,0 +1,214 @@
+[
+  {
+    "attributes": 2,
+    "clear_clofork": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/inherit-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/x86_64-0.data",
+      "2",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "child-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "attributes": 2,
+    "clear_clofork": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/inherit-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/x86_64-1.data",
+      "2",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "child-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "child-fileinfo",
+        "status": 3,
+        "guard_flags": 0
+      },
+      {
+        "kind": "child-dup",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "attributes": 3,
+    "clear_clofork": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/inherit-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/x86_64-2.data",
+      "3",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "child-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "attributes": 3,
+    "clear_clofork": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/inherit-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/x86_64-3.data",
+      "3",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "child-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "attributes": 18,
+    "clear_clofork": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/inherit-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/x86_64-4.data",
+      "18",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "child-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "attributes": 18,
+    "clear_clofork": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/inherit-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/x86_64-5.data",
+      "18",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "child-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "child-fileinfo",
+        "status": 3,
+        "guard_flags": 0
+      },
+      {
+        "kind": "child-dup",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "attributes": 31,
+    "clear_clofork": false,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/inherit-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/x86_64-6.data",
+      "31",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "child-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "attributes": 31,
+    "clear_clofork": true,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/inherit-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-inherit-v6/x86_64-7.data",
+      "31",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "child-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "child-wait-status",
+        "result": 0,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  }
+]

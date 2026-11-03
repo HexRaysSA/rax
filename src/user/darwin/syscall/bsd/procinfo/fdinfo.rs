@@ -45,6 +45,7 @@ pub(super) const KNOTES_MAX: usize = 131_072;
 /// `PROC_FP_*` status bits.
 const PROC_FP_SHARED: u32 = 1;
 const PROC_FP_CLEXEC: u32 = 2;
+const PROC_FP_GUARDED: u32 = 4;
 const PROC_FP_CLFORK: u32 = 8;
 
 /// `KQ_*` state bits `proc_info` reports.
@@ -122,6 +123,7 @@ pub fn own(ctx: &mut Ctx<'_>, a: &Args) -> SysResult {
             cloexec: slot.cloexec,
             clofork: slot.clofork,
             shared: std::sync::Arc::strong_count(&slot.file) > 1,
+            guard: slot.guard.map_or(0, |guard| guard.attributes),
         };
         (slot.file.clone(), flags)
     };
@@ -177,6 +179,8 @@ struct Flags {
     clofork: bool,
     /// Its open file has another descriptor in the process.
     shared: bool,
+    /// Guest fileproc guard attributes, independently of the host handle.
+    guard: u32,
 }
 
 /// The descriptor's `proc_fileinfo` (the first 24 bytes): close-on-exec
@@ -185,7 +189,7 @@ struct Flags {
 /// holds it.
 fn fileinfo(o: &mut Out, flags: Flags) {
     let status = u32::from_le_bytes(o.0[4..8].try_into().expect("4 bytes"));
-    let mut status = status & !(PROC_FP_CLEXEC | PROC_FP_CLFORK);
+    let mut status = status & !(PROC_FP_CLEXEC | PROC_FP_CLFORK | PROC_FP_GUARDED);
     if flags.shared {
         status |= PROC_FP_SHARED;
     }
@@ -195,7 +199,11 @@ fn fileinfo(o: &mut Out, flags: Flags) {
     if flags.clofork {
         status |= PROC_FP_CLFORK;
     }
-    o.u32(4, status);
+    if flags.guard != 0 {
+        status |= PROC_FP_GUARDED;
+    }
+    // Native proc_fileinfo exposes these four attributes, excluding GUARD_WRITE.
+    o.u32(4, status).u32(20, flags.guard & 0xf);
 }
 
 /// `kqueue_fdinfo` (`fill_kqueueinfo`) or the knotes of kqueue `kq`
@@ -248,6 +256,9 @@ fn kqueue(ctx: &Ctx<'_>, a: &Args, kq: u64, flags: Option<Flags>) -> SysResult {
         .u64(24 + 88, pending as u64)
         .u32(24 + 104, blksize)
         .u32(24 + 136, state);
+    if let Some(flags) = flags {
+        fileinfo(&mut o, flags);
+    }
     ctx.write(a.buffer, &o.0)?;
     Ok(Rv::one(168))
 }

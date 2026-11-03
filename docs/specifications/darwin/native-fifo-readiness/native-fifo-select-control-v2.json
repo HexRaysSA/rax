@@ -1,0 +1,19 @@
+[
+  {
+    "state": "empty-with-writer",
+    "select_readable": false
+  },
+  {
+    "state": "data-with-writer",
+    "select_readable": true
+  },
+  {
+    "state": "data-after-writer-close",
+    "select_readable": true
+  },
+  {
+    "state": "empty-after-writer-close",
+    "select_readable": true,
+    "read_at_EOF": []
+  }
+]

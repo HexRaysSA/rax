@@ -1,0 +1,6666 @@
+[
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 0,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-0.data",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 0,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-1.data",
+      "0",
+      "0",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 0,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-2.data",
+      "0",
+      "0",
+      "0",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 0,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-3.data",
+      "0",
+      "0",
+      "0",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 0,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-4.data",
+      "0",
+      "0",
+      "0",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 0,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-5.data",
+      "0",
+      "0",
+      "0",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 0,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-6.data",
+      "0",
+      "0",
+      "0",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 0,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-7.data",
+      "0",
+      "0",
+      "0",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 0,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-8.data",
+      "0",
+      "0",
+      "0",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 0,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-9.data",
+      "0",
+      "0",
+      "0",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 0,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-10.data",
+      "0",
+      "0",
+      "0",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-11.data",
+      "0",
+      "0",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-12.data",
+      "0",
+      "0",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-13.data",
+      "0",
+      "0",
+      "1",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-14.data",
+      "0",
+      "0",
+      "1",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-15.data",
+      "0",
+      "0",
+      "1",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-16.data",
+      "0",
+      "0",
+      "1",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-17.data",
+      "0",
+      "0",
+      "1",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-18.data",
+      "0",
+      "0",
+      "1",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-19.data",
+      "0",
+      "0",
+      "1",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-20.data",
+      "0",
+      "0",
+      "1",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-21.data",
+      "0",
+      "0",
+      "1",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 2,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-22.data",
+      "0",
+      "0",
+      "2",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 2,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-23.data",
+      "0",
+      "0",
+      "2",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 2,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-24.data",
+      "0",
+      "0",
+      "2",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 2,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-25.data",
+      "0",
+      "0",
+      "2",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 2,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-26.data",
+      "0",
+      "0",
+      "2",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 2,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-27.data",
+      "0",
+      "0",
+      "2",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 2,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-28.data",
+      "0",
+      "0",
+      "2",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 2,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-29.data",
+      "0",
+      "0",
+      "2",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 2,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-30.data",
+      "0",
+      "0",
+      "2",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 2,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-31.data",
+      "0",
+      "0",
+      "2",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 2,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-32.data",
+      "0",
+      "0",
+      "2",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-33.data",
+      "0",
+      "0",
+      "3",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-34.data",
+      "0",
+      "0",
+      "3",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-35.data",
+      "0",
+      "0",
+      "3",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-36.data",
+      "0",
+      "0",
+      "3",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-37.data",
+      "0",
+      "0",
+      "3",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-38.data",
+      "0",
+      "0",
+      "3",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-39.data",
+      "0",
+      "0",
+      "3",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-40.data",
+      "0",
+      "0",
+      "3",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-41.data",
+      "0",
+      "0",
+      "3",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-42.data",
+      "0",
+      "0",
+      "3",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-43.data",
+      "0",
+      "0",
+      "3",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 0,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-44.data",
+      "0",
+      "1",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 0,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-45.data",
+      "0",
+      "1",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 0,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-46.data",
+      "0",
+      "1",
+      "0",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 0,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-47.data",
+      "0",
+      "1",
+      "0",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 0,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-48.data",
+      "0",
+      "1",
+      "0",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 0,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-49.data",
+      "0",
+      "1",
+      "0",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 0,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-50.data",
+      "0",
+      "1",
+      "0",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 0,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-51.data",
+      "0",
+      "1",
+      "0",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 0,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-52.data",
+      "0",
+      "1",
+      "0",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 0,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-53.data",
+      "0",
+      "1",
+      "0",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 0,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-54.data",
+      "0",
+      "1",
+      "0",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-55.data",
+      "0",
+      "1",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-56.data",
+      "0",
+      "1",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-57.data",
+      "0",
+      "1",
+      "1",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-58.data",
+      "0",
+      "1",
+      "1",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-59.data",
+      "0",
+      "1",
+      "1",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-60.data",
+      "0",
+      "1",
+      "1",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-61.data",
+      "0",
+      "1",
+      "1",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-62.data",
+      "0",
+      "1",
+      "1",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-63.data",
+      "0",
+      "1",
+      "1",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-64.data",
+      "0",
+      "1",
+      "1",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-65.data",
+      "0",
+      "1",
+      "1",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 2,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-66.data",
+      "0",
+      "1",
+      "2",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 2,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-67.data",
+      "0",
+      "1",
+      "2",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 2,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-68.data",
+      "0",
+      "1",
+      "2",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 2,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-69.data",
+      "0",
+      "1",
+      "2",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 2,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-70.data",
+      "0",
+      "1",
+      "2",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 2,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-71.data",
+      "0",
+      "1",
+      "2",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 2,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-72.data",
+      "0",
+      "1",
+      "2",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 2,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-73.data",
+      "0",
+      "1",
+      "2",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 2,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-74.data",
+      "0",
+      "1",
+      "2",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 2,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-75.data",
+      "0",
+      "1",
+      "2",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 2,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-76.data",
+      "0",
+      "1",
+      "2",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-77.data",
+      "0",
+      "1",
+      "3",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-78.data",
+      "0",
+      "1",
+      "3",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-79.data",
+      "0",
+      "1",
+      "3",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-80.data",
+      "0",
+      "1",
+      "3",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-81.data",
+      "0",
+      "1",
+      "3",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-82.data",
+      "0",
+      "1",
+      "3",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-83.data",
+      "0",
+      "1",
+      "3",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-84.data",
+      "0",
+      "1",
+      "3",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-85.data",
+      "0",
+      "1",
+      "3",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-86.data",
+      "0",
+      "1",
+      "3",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-87.data",
+      "0",
+      "1",
+      "3",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 13
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 0,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-88.data",
+      "0",
+      "2",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 0,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-89.data",
+      "0",
+      "2",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 0,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-90.data",
+      "0",
+      "2",
+      "0",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 0,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-91.data",
+      "0",
+      "2",
+      "0",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 0,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-92.data",
+      "0",
+      "2",
+      "0",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 0,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-93.data",
+      "0",
+      "2",
+      "0",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 0,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-94.data",
+      "0",
+      "2",
+      "0",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 0,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-95.data",
+      "0",
+      "2",
+      "0",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 0,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-96.data",
+      "0",
+      "2",
+      "0",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 0,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-97.data",
+      "0",
+      "2",
+      "0",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 0,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-98.data",
+      "0",
+      "2",
+      "0",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-99.data",
+      "0",
+      "2",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-100.data",
+      "0",
+      "2",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-101.data",
+      "0",
+      "2",
+      "1",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-102.data",
+      "0",
+      "2",
+      "1",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-103.data",
+      "0",
+      "2",
+      "1",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-104.data",
+      "0",
+      "2",
+      "1",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-105.data",
+      "0",
+      "2",
+      "1",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-106.data",
+      "0",
+      "2",
+      "1",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-107.data",
+      "0",
+      "2",
+      "1",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-108.data",
+      "0",
+      "2",
+      "1",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-109.data",
+      "0",
+      "2",
+      "1",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 2,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-110.data",
+      "0",
+      "2",
+      "2",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 2,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-111.data",
+      "0",
+      "2",
+      "2",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 2,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-112.data",
+      "0",
+      "2",
+      "2",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 2,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-113.data",
+      "0",
+      "2",
+      "2",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 2,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-114.data",
+      "0",
+      "2",
+      "2",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 2,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-115.data",
+      "0",
+      "2",
+      "2",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 2,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-116.data",
+      "0",
+      "2",
+      "2",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 2,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-117.data",
+      "0",
+      "2",
+      "2",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 2,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-118.data",
+      "0",
+      "2",
+      "2",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 2,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-119.data",
+      "0",
+      "2",
+      "2",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 2,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-120.data",
+      "0",
+      "2",
+      "2",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-121.data",
+      "0",
+      "2",
+      "3",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-122.data",
+      "0",
+      "2",
+      "3",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-123.data",
+      "0",
+      "2",
+      "3",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-124.data",
+      "0",
+      "2",
+      "3",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-125.data",
+      "0",
+      "2",
+      "3",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-126.data",
+      "0",
+      "2",
+      "3",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-127.data",
+      "0",
+      "2",
+      "3",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-128.data",
+      "0",
+      "2",
+      "3",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-129.data",
+      "0",
+      "2",
+      "3",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-130.data",
+      "0",
+      "2",
+      "3",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": false,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-131.data",
+      "0",
+      "2",
+      "3",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-file-flags",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "cloned-seek",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "original-offset",
+        "result": 2,
+        "errno": 0
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-132.data",
+      "1",
+      "0",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-133.data",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-134.data",
+      "1",
+      "0",
+      "1",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-135.data",
+      "1",
+      "0",
+      "1",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-136.data",
+      "1",
+      "0",
+      "1",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-137.data",
+      "1",
+      "0",
+      "1",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-138.data",
+      "1",
+      "0",
+      "1",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-139.data",
+      "1",
+      "0",
+      "1",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-140.data",
+      "1",
+      "0",
+      "1",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-141.data",
+      "1",
+      "0",
+      "1",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 1,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-142.data",
+      "1",
+      "0",
+      "1",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-143.data",
+      "1",
+      "0",
+      "3",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-144.data",
+      "1",
+      "0",
+      "3",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-145.data",
+      "1",
+      "0",
+      "3",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-146.data",
+      "1",
+      "0",
+      "3",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-147.data",
+      "1",
+      "0",
+      "3",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-148.data",
+      "1",
+      "0",
+      "3",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-149.data",
+      "1",
+      "0",
+      "3",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-150.data",
+      "1",
+      "0",
+      "3",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-151.data",
+      "1",
+      "0",
+      "3",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-152.data",
+      "1",
+      "0",
+      "3",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 0,
+    "original_fd_flags": 3,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-153.data",
+      "1",
+      "0",
+      "3",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-154.data",
+      "1",
+      "1",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-155.data",
+      "1",
+      "1",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-156.data",
+      "1",
+      "1",
+      "1",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-157.data",
+      "1",
+      "1",
+      "1",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-158.data",
+      "1",
+      "1",
+      "1",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-159.data",
+      "1",
+      "1",
+      "1",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-160.data",
+      "1",
+      "1",
+      "1",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-161.data",
+      "1",
+      "1",
+      "1",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-162.data",
+      "1",
+      "1",
+      "1",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-163.data",
+      "1",
+      "1",
+      "1",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 1,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-164.data",
+      "1",
+      "1",
+      "1",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-165.data",
+      "1",
+      "1",
+      "3",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-166.data",
+      "1",
+      "1",
+      "3",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-167.data",
+      "1",
+      "1",
+      "3",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-168.data",
+      "1",
+      "1",
+      "3",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-169.data",
+      "1",
+      "1",
+      "3",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-170.data",
+      "1",
+      "1",
+      "3",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-171.data",
+      "1",
+      "1",
+      "3",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-172.data",
+      "1",
+      "1",
+      "3",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-173.data",
+      "1",
+      "1",
+      "3",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-174.data",
+      "1",
+      "1",
+      "3",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 1,
+    "original_fd_flags": 3,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-175.data",
+      "1",
+      "1",
+      "3",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-176.data",
+      "1",
+      "2",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-177.data",
+      "1",
+      "2",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-178.data",
+      "1",
+      "2",
+      "1",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-179.data",
+      "1",
+      "2",
+      "1",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-180.data",
+      "1",
+      "2",
+      "1",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-181.data",
+      "1",
+      "2",
+      "1",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-182.data",
+      "1",
+      "2",
+      "1",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-183.data",
+      "1",
+      "2",
+      "1",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-184.data",
+      "1",
+      "2",
+      "1",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-185.data",
+      "1",
+      "2",
+      "1",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 1,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-186.data",
+      "1",
+      "2",
+      "1",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-187.data",
+      "1",
+      "2",
+      "3",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 1,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-188.data",
+      "1",
+      "2",
+      "3",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 2,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-189.data",
+      "1",
+      "2",
+      "3",
+      "2"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 3,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-190.data",
+      "1",
+      "2",
+      "3",
+      "3"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 22
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 16777216,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-191.data",
+      "1",
+      "2",
+      "3",
+      "16777216"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 134217728,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-192.data",
+      "1",
+      "2",
+      "3",
+      "134217728"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 2562,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-193.data",
+      "1",
+      "2",
+      "3",
+      "2562"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 17
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 1026,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-194.data",
+      "1",
+      "2",
+      "3",
+      "1026"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 1048576,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-195.data",
+      "1",
+      "2",
+      "3",
+      "1048576"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 20
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-196.data",
+      "1",
+      "2",
+      "3",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "guarded": true,
+    "original_mode": 2,
+    "original_fd_flags": 3,
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/devfd-x86_64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-v7/x86_64-197.data",
+      "1",
+      "2",
+      "3",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-devfd",
+        "result": -1,
+        "errno": 1
+      },
+      {
+        "kind": "file-size",
+        "result": 5,
+        "errno": 0
+      }
+    ],
+    "stderr": ""
+  }
+]

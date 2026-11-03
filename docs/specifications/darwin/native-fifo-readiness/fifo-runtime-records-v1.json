@@ -1,0 +1,159 @@
+{
+  "captured_utc": "2026-11-03T02:34:52.173083+00:00",
+  "native_host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "source_sha256": "e3fb48e4e310b9d79dfa5a48c8c41bc77bda96e980986247fd9fd04a0b48991b",
+  "cli_sha256": "b18fab43406583e30045c73650b2643777b03d00d29b77559b0cf4107979ad30",
+  "sysroot_supplied": false,
+  "cases": [
+    {
+      "architecture": "arm64",
+      "vector": false,
+      "native_exit": 0,
+      "guest_exit": 0,
+      "native_stdout": [
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "empty-zero-read=0",
+        "reader-blocked=1",
+        "child-exit=0",
+        "read-result=1",
+        "read-errno=0",
+        "read-byte=120",
+        "shared-nonblock=1",
+        "after-writer-eof=0",
+        "after-writer-eof=0",
+        "after-writer-eof=0"
+      ],
+      "guest_stdout": [
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "empty-zero-read=0",
+        "reader-blocked=1",
+        "child-exit=0",
+        "read-result=1",
+        "read-errno=0",
+        "read-byte=120",
+        "shared-nonblock=1",
+        "after-writer-eof=0",
+        "after-writer-eof=0",
+        "after-writer-eof=0"
+      ]
+    },
+    {
+      "architecture": "arm64",
+      "vector": true,
+      "native_exit": 0,
+      "guest_exit": 0,
+      "native_stdout": [
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "empty-zero-read=0",
+        "reader-blocked=1",
+        "child-exit=0",
+        "read-result=1",
+        "read-errno=0",
+        "read-byte=120",
+        "shared-nonblock=1",
+        "after-writer-eof=0",
+        "after-writer-eof=0",
+        "after-writer-eof=0"
+      ],
+      "guest_stdout": [
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "empty-zero-read=0",
+        "reader-blocked=1",
+        "child-exit=0",
+        "read-result=1",
+        "read-errno=0",
+        "read-byte=120",
+        "shared-nonblock=1",
+        "after-writer-eof=0",
+        "after-writer-eof=0",
+        "after-writer-eof=0"
+      ]
+    },
+    {
+      "architecture": "x86_64",
+      "vector": false,
+      "native_exit": 0,
+      "guest_exit": 0,
+      "native_stdout": [
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "empty-zero-read=0",
+        "reader-blocked=1",
+        "child-exit=0",
+        "read-result=1",
+        "read-errno=0",
+        "read-byte=120",
+        "shared-nonblock=1",
+        "after-writer-eof=0",
+        "after-writer-eof=0",
+        "after-writer-eof=0"
+      ],
+      "guest_stdout": [
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "empty-zero-read=0",
+        "reader-blocked=1",
+        "child-exit=0",
+        "read-result=1",
+        "read-errno=0",
+        "read-byte=120",
+        "shared-nonblock=1",
+        "after-writer-eof=0",
+        "after-writer-eof=0",
+        "after-writer-eof=0"
+      ]
+    },
+    {
+      "architecture": "x86_64",
+      "vector": true,
+      "native_exit": 0,
+      "guest_exit": 0,
+      "native_stdout": [
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "empty-zero-read=0",
+        "reader-blocked=1",
+        "child-exit=0",
+        "read-result=1",
+        "read-errno=0",
+        "read-byte=120",
+        "shared-nonblock=1",
+        "after-writer-eof=0",
+        "after-writer-eof=0",
+        "after-writer-eof=0"
+      ],
+      "guest_stdout": [
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "never-writer-eof=0",
+        "empty-zero-read=0",
+        "reader-blocked=1",
+        "child-exit=0",
+        "read-result=1",
+        "read-errno=0",
+        "read-byte=120",
+        "shared-nonblock=1",
+        "after-writer-eof=0",
+        "after-writer-eof=0",
+        "after-writer-eof=0"
+      ]
+    }
+  ]
+}

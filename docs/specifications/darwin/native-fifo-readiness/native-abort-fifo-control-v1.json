@@ -1,0 +1,60 @@
+{
+  "source_sha256": "6cc00caa50cfd4b08a3c63f1f8799e1b8d272144687dae7adc997e1727b8559e",
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "observations": [
+    {
+      "architecture": "arm64",
+      "argv": [
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/abort-fifo-arm64-v1",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/abort-fifo-arm64-0.fifo",
+        "0"
+      ],
+      "image_sha256": "bc562612861edafb10556d4e54767590eca857c2581214791beebad26909070f",
+      "exit_code": 0,
+      "stdout": "{\"waiting_before\":1,\"safe_abort\":0,\"abort_return\":0,\"completed_by_abort\":1,\"read_result\":-1,\"read_errno\":4,\"flags_before\":0,\"flags_after\":0,\"seconds\":0.001257000}\n",
+      "stderr": ""
+    },
+    {
+      "architecture": "arm64",
+      "argv": [
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/abort-fifo-arm64-v1",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/abort-fifo-arm64-1.fifo",
+        "1"
+      ],
+      "image_sha256": "bc562612861edafb10556d4e54767590eca857c2581214791beebad26909070f",
+      "exit_code": 0,
+      "stdout": "{\"waiting_before\":1,\"safe_abort\":1,\"abort_return\":0,\"completed_by_abort\":0,\"read_result\":0,\"read_errno\":0,\"flags_before\":0,\"flags_after\":0,\"seconds\":0.257069000}\n",
+      "stderr": ""
+    },
+    {
+      "architecture": "x86_64",
+      "argv": [
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/abort-fifo-x86_64-v1",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/abort-fifo-x86_64-0.fifo",
+        "0"
+      ],
+      "image_sha256": "7e7361b5f1fa81dca501780473e7b088f8b27716d1c18bbe5c2b0d935aa11d95",
+      "exit_code": 0,
+      "stdout": "{\"waiting_before\":1,\"safe_abort\":0,\"abort_return\":0,\"completed_by_abort\":1,\"read_result\":-1,\"read_errno\":4,\"flags_before\":0,\"flags_after\":0,\"seconds\":0.001331000}\n",
+      "stderr": ""
+    },
+    {
+      "architecture": "x86_64",
+      "argv": [
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/abort-fifo-x86_64-v1",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/abort-fifo-x86_64-1.fifo",
+        "1"
+      ],
+      "image_sha256": "7e7361b5f1fa81dca501780473e7b088f8b27716d1c18bbe5c2b0d935aa11d95",
+      "exit_code": 0,
+      "stdout": "{\"waiting_before\":1,\"safe_abort\":1,\"abort_return\":0,\"completed_by_abort\":0,\"read_result\":0,\"read_errno\":0,\"flags_before\":0,\"flags_after\":0,\"seconds\":0.249304000}\n",
+      "stderr": ""
+    }
+  ]
+}

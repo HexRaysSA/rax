@@ -1,0 +1,59 @@
+{
+  "inputs": {
+    "docs/specifications/darwin/native-guarded-fd/devfd-alias-probe-v9.c": "2a0ca7e087f81a94917c09a0c1fa720735297695c2c65917374423f5ca9f28c0",
+    "docs/specifications/darwin/native-guarded-fd/policy-probe-v2.c": "d359a368e9f6d26c558980e7497452ec8880bd36245c465385e5c380c7871508",
+    "docs/specifications/darwin/native-guarded-fd/references/guarded.h": "9a61dbd134908ef8fca72a31b26174325a785a2cd3186439c3f6dcab08ec77bd"
+  },
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "architectures": [
+    {
+      "architecture": "arm64",
+      "cases": 48,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/devfd-alias-probe-v9.c",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64"
+      ],
+      "image_sha256": "4a562728f706893a84430234ba935e0f3495af5d5cfe0ed61755d57bf04d0aa1",
+      "records_sha256": "8a65ca5664eeb13f1681848d4112e5e44f62562b5b5bfc38d707edc0f299e048"
+    },
+    {
+      "architecture": "x86_64",
+      "cases": 48,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/devfd-alias-probe-v9.c",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-x86_64"
+      ],
+      "image_sha256": "6567e443fa33b91d41ee4d18abc8fc9d87f900aa055b8a072135e081534bdc40",
+      "records_sha256": "4783ee753fdd50333e1516794499fac4bab8d6b95a1eea51c66e77c2f637e4c4"
+    }
+  ],
+  "state": "finished",
+  "exit_code": 0,
+  "inputs_unchanged": true
+}

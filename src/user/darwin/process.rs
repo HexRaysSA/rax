@@ -46,6 +46,8 @@ mod exclusive_tests;
 #[cfg(all(test, unix))]
 mod fifo_lifetime_tests;
 #[cfg(test)]
+mod guarded_fd_tests;
+#[cfg(test)]
 mod pauth_tests;
 #[cfg(all(test, unix))]
 mod pipe_drain_tests;
@@ -565,6 +567,8 @@ impl Proc {
     pub fn exit_with(&mut self, status: ExitStatus) {
         if self.exit.is_none() {
             self.exit = Some(status);
+            #[cfg(target_os = "macos")]
+            syscall::bsd::file::lifetime::cancel_reads(self);
         }
     }
 }

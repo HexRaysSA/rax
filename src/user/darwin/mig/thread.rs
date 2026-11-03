@@ -29,6 +29,7 @@ mod flavor {
 /// `TH_STATE_*`.
 const TH_STATE_RUNNING: u32 = 1;
 const TH_STATE_WAITING: u32 = 3;
+const TH_STATE_UNINTERRUPTIBLE: u32 = 4;
 /// `POLICY_TIMESHARE`.
 const POLICY_TIMESHARE: u32 = 1;
 /// `BASEPRI_DEFAULT` and `MAXPRI_USER`.
@@ -117,7 +118,13 @@ pub(crate) fn basic_info(
     task_stopped: bool,
     signal_waiting: bool,
 ) -> [u32; 10] {
-    let run_state = if signal_waiting || task_stopped || t.mach.suspend_count > 0 {
+    let draining = t.wait.as_ref().is_some_and(|wait| {
+        wait.keys
+            .contains(&crate::user::darwin::wait::WaitKey::FileDrain)
+    });
+    let run_state = if draining {
+        TH_STATE_UNINTERRUPTIBLE
+    } else if signal_waiting || task_stopped || t.mach.suspend_count > 0 {
         // User holds park a quiescent thread in thread_apc_ast's
         // assert_wait (thread_act.c), rather than a debugger's TH_SUSP.
         TH_STATE_WAITING

@@ -1,0 +1,1058 @@
+[
+  {
+    "guarded": false,
+    "path_kind": "direct",
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-0.data",
+      "0",
+      "direct",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0054854589980095625
+  },
+  {
+    "guarded": false,
+    "path_kind": "direct",
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-1.data",
+      "0",
+      "direct",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00485391600523144
+  },
+  {
+    "guarded": false,
+    "path_kind": "direct",
+    "open_flags": 536870912,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-2.data",
+      "0",
+      "direct",
+      "536870912"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.006492958986200392
+  },
+  {
+    "guarded": false,
+    "path_kind": "direct",
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-3.data",
+      "0",
+      "direct",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00544962496496737
+  },
+  {
+    "guarded": false,
+    "path_kind": "direct",
+    "open_flags": 538968064,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-4.data",
+      "0",
+      "direct",
+      "538968064"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0037337499670684338
+  },
+  {
+    "guarded": false,
+    "path_kind": "direct",
+    "open_flags": 2560,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-5.data",
+      "0",
+      "direct",
+      "2560"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 17
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.004946958040818572
+  },
+  {
+    "guarded": false,
+    "path_kind": "directory-alias",
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-6.data",
+      "0",
+      "directory-alias",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.003948582918383181
+  },
+  {
+    "guarded": false,
+    "path_kind": "directory-alias",
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-7.data",
+      "0",
+      "directory-alias",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0051919580437242985
+  },
+  {
+    "guarded": false,
+    "path_kind": "directory-alias",
+    "open_flags": 536870912,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-8.data",
+      "0",
+      "directory-alias",
+      "536870912"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 62
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.004110540961846709
+  },
+  {
+    "guarded": false,
+    "path_kind": "directory-alias",
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-9.data",
+      "0",
+      "directory-alias",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.004704332910478115
+  },
+  {
+    "guarded": false,
+    "path_kind": "directory-alias",
+    "open_flags": 538968064,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-10.data",
+      "0",
+      "directory-alias",
+      "538968064"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 62
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0036562499590218067
+  },
+  {
+    "guarded": false,
+    "path_kind": "directory-alias",
+    "open_flags": 2560,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-11.data",
+      "0",
+      "directory-alias",
+      "2560"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 17
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.004226832999847829
+  },
+  {
+    "guarded": false,
+    "path_kind": "file-alias",
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-12.data",
+      "0",
+      "file-alias",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.004341833060607314
+  },
+  {
+    "guarded": false,
+    "path_kind": "file-alias",
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-13.data",
+      "0",
+      "file-alias",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 62
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0052256250055506825
+  },
+  {
+    "guarded": false,
+    "path_kind": "file-alias",
+    "open_flags": 536870912,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-14.data",
+      "0",
+      "file-alias",
+      "536870912"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 62
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.004008958931080997
+  },
+  {
+    "guarded": false,
+    "path_kind": "file-alias",
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-15.data",
+      "0",
+      "file-alias",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.004023832967504859
+  },
+  {
+    "guarded": false,
+    "path_kind": "file-alias",
+    "open_flags": 538968064,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-16.data",
+      "0",
+      "file-alias",
+      "538968064"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.004624707973562181
+  },
+  {
+    "guarded": false,
+    "path_kind": "file-alias",
+    "open_flags": 2560,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-17.data",
+      "0",
+      "file-alias",
+      "2560"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 17
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.004446915932931006
+  },
+  {
+    "guarded": false,
+    "path_kind": "relative",
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-18.data",
+      "0",
+      "relative",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0037227499997243285
+  },
+  {
+    "guarded": false,
+    "path_kind": "relative",
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-19.data",
+      "0",
+      "relative",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.003987625008448958
+  },
+  {
+    "guarded": false,
+    "path_kind": "relative",
+    "open_flags": 536870912,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-20.data",
+      "0",
+      "relative",
+      "536870912"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.006093874922953546
+  },
+  {
+    "guarded": false,
+    "path_kind": "relative",
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-21.data",
+      "0",
+      "relative",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0034225410781800747
+  },
+  {
+    "guarded": false,
+    "path_kind": "relative",
+    "open_flags": 538968064,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-22.data",
+      "0",
+      "relative",
+      "538968064"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0051984579768031836
+  },
+  {
+    "guarded": false,
+    "path_kind": "relative",
+    "open_flags": 2560,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-23.data",
+      "0",
+      "relative",
+      "2560"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 17
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00397724995855242
+  },
+  {
+    "guarded": true,
+    "path_kind": "direct",
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-24.data",
+      "1",
+      "direct",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0074182499665766954
+  },
+  {
+    "guarded": true,
+    "path_kind": "direct",
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-25.data",
+      "1",
+      "direct",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007196584017947316
+  },
+  {
+    "guarded": true,
+    "path_kind": "direct",
+    "open_flags": 536870912,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-26.data",
+      "1",
+      "direct",
+      "536870912"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008875083993189037
+  },
+  {
+    "guarded": true,
+    "path_kind": "direct",
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-27.data",
+      "1",
+      "direct",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010517417103983462
+  },
+  {
+    "guarded": true,
+    "path_kind": "direct",
+    "open_flags": 538968064,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-28.data",
+      "1",
+      "direct",
+      "538968064"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010369584080763161
+  },
+  {
+    "guarded": true,
+    "path_kind": "direct",
+    "open_flags": 2560,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-29.data",
+      "1",
+      "direct",
+      "2560"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 17
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01126004196703434
+  },
+  {
+    "guarded": true,
+    "path_kind": "directory-alias",
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-30.data",
+      "1",
+      "directory-alias",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013226040988229215
+  },
+  {
+    "guarded": true,
+    "path_kind": "directory-alias",
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-31.data",
+      "1",
+      "directory-alias",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008435290888883173
+  },
+  {
+    "guarded": true,
+    "path_kind": "directory-alias",
+    "open_flags": 536870912,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-32.data",
+      "1",
+      "directory-alias",
+      "536870912"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 62
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00903270801063627
+  },
+  {
+    "guarded": true,
+    "path_kind": "directory-alias",
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-33.data",
+      "1",
+      "directory-alias",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010906374896876514
+  },
+  {
+    "guarded": true,
+    "path_kind": "directory-alias",
+    "open_flags": 538968064,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-34.data",
+      "1",
+      "directory-alias",
+      "538968064"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 62
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.018979125074110925
+  },
+  {
+    "guarded": true,
+    "path_kind": "directory-alias",
+    "open_flags": 2560,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-35.data",
+      "1",
+      "directory-alias",
+      "2560"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 17
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012432417017407715
+  },
+  {
+    "guarded": true,
+    "path_kind": "file-alias",
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-36.data",
+      "1",
+      "file-alias",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.009146833908744156
+  },
+  {
+    "guarded": true,
+    "path_kind": "file-alias",
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-37.data",
+      "1",
+      "file-alias",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 62
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.006897083017975092
+  },
+  {
+    "guarded": true,
+    "path_kind": "file-alias",
+    "open_flags": 536870912,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-38.data",
+      "1",
+      "file-alias",
+      "536870912"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 62
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007981583010405302
+  },
+  {
+    "guarded": true,
+    "path_kind": "file-alias",
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-39.data",
+      "1",
+      "file-alias",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.006279958062805235
+  },
+  {
+    "guarded": true,
+    "path_kind": "file-alias",
+    "open_flags": 538968064,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-40.data",
+      "1",
+      "file-alias",
+      "538968064"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": 4,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008737958036363125
+  },
+  {
+    "guarded": true,
+    "path_kind": "file-alias",
+    "open_flags": 2560,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-41.data",
+      "1",
+      "file-alias",
+      "2560"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 17
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.004972958937287331
+  },
+  {
+    "guarded": true,
+    "path_kind": "relative",
+    "open_flags": 0,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-42.data",
+      "1",
+      "relative",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.005591708933934569
+  },
+  {
+    "guarded": true,
+    "path_kind": "relative",
+    "open_flags": 256,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-43.data",
+      "1",
+      "relative",
+      "256"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00765475002117455
+  },
+  {
+    "guarded": true,
+    "path_kind": "relative",
+    "open_flags": 536870912,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-44.data",
+      "1",
+      "relative",
+      "536870912"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.005058542010374367
+  },
+  {
+    "guarded": true,
+    "path_kind": "relative",
+    "open_flags": 2097152,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-45.data",
+      "1",
+      "relative",
+      "2097152"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0033170829992741346
+  },
+  {
+    "guarded": true,
+    "path_kind": "relative",
+    "open_flags": 538968064,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-46.data",
+      "1",
+      "relative",
+      "538968064"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 1
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.005822708015330136
+  },
+  {
+    "guarded": true,
+    "path_kind": "relative",
+    "open_flags": 2560,
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/devfd-alias-arm64",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-devfd-alias-v9/arm64-47.data",
+      "1",
+      "relative",
+      "2560"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "open-alias",
+        "result": -1,
+        "errno": 17
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.005238582962192595
+  }
+]

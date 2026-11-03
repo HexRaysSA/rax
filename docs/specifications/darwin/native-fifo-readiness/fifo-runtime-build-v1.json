@@ -1,0 +1,39 @@
+{
+  "source_sha256": "e3fb48e4e310b9d79dfa5a48c8c41bc77bda96e980986247fd9fd04a0b48991b",
+  "images": {
+    "arm64": {
+      "path": "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-runtime-v1/fifo-runtime-arm64",
+      "sha256": "85c63eb6e7d58c5a3c290eea9cc1657ab4b5b0535b60ec0925ebb36813cd341b",
+      "compile_argv": [
+        "xcrun",
+        "clang",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/.task-evidence/fifo-read-worker-v1/fifo-runtime-v1.c",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-runtime-v1/fifo-runtime-arm64"
+      ]
+    },
+    "x86_64": {
+      "path": "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-runtime-v1/fifo-runtime-x86_64",
+      "sha256": "865ad30e8ddf97b83a74d5dca79908ce6bbc5e95c4ef2b4190c43347c7a081c7",
+      "compile_argv": [
+        "xcrun",
+        "clang",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/.task-evidence/fifo-read-worker-v1/fifo-runtime-v1.c",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-runtime-v1/fifo-runtime-x86_64"
+      ]
+    }
+  }
+}

@@ -39,6 +39,8 @@ pub enum WaitKey {
     WorkqPark(u64),
     /// A workloop waiter knote is woken (by knote identity).
     Knote(u64),
+    /// An uninterruptible fileproc drain, completed by the kernel closer.
+    FileDrain,
 }
 
 /// What a sleeping call waits for.
@@ -59,6 +61,14 @@ pub struct Wait {
 }
 
 static WAIT_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+#[cfg(all(test, unix))]
+#[path = "wait/fifo_tests.rs"]
+mod fifo_tests;
+
+#[cfg(target_os = "macos")]
+#[path = "wait/fifo_macos.rs"]
+mod fifo_macos;
 
 /// The next wait-order stamp.
 pub fn next_seq() -> u64 {
@@ -151,18 +161,10 @@ fn poll(fds: &[(i32, bool, bool)], timeout: Option<Duration>) -> Vec<bool> {
             i
         })
         .collect();
-    let ms = match timeout {
-        None => -1,
-        // poll uses integer milliseconds: round up every fractional
-        // millisecond so an ordinary timeout cannot precede the deadline.
-        Some(d) => d
-            .as_millis()
-            .saturating_add(u128::from(d.subsec_nanos() % 1_000_000 != 0))
-            .min(i32::MAX as u128) as i32,
-    };
-    // SAFETY: `pfds` is a live, correctly sized array of pollfd for the
-    // duration of the call.
-    let n = unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, ms) };
+    #[cfg(target_os = "macos")]
+    let n = fifo_macos::poll(&mut pfds, timeout);
+    #[cfg(not(target_os = "macos"))]
+    let n = poll_once(&mut pfds, timeout_ms(timeout));
     if n <= 0 {
         return vec![false; fds.len()];
     }
@@ -175,6 +177,26 @@ fn poll(fds: &[(i32, bool, bool)], timeout: Option<Duration>) -> Vec<bool> {
                 || (w && got & libc::POLLOUT != 0)
         })
         .collect()
+}
+
+#[cfg(unix)]
+fn timeout_ms(timeout: Option<Duration>) -> i32 {
+    match timeout {
+        None => -1,
+        // poll uses integer milliseconds: round up every fractional
+        // millisecond so an ordinary timeout cannot precede the deadline.
+        Some(d) => d
+            .as_millis()
+            .saturating_add(u128::from(d.subsec_nanos() % 1_000_000 != 0))
+            .min(i32::MAX as u128) as i32,
+    }
+}
+
+#[cfg(unix)]
+fn poll_once(pfds: &mut [libc::pollfd], milliseconds: i32) -> libc::c_int {
+    // SAFETY: `pfds` is a live, correctly sized array of pollfd for the
+    // duration of the call.
+    unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, milliseconds) }
 }
 
 /// The non-Unix profile has no native descriptors. Guest wait deadlines still

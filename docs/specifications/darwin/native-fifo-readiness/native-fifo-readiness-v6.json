@@ -1,0 +1,124 @@
+{
+  "source_sha256": "35ce994cc4690d0b6ad152e338b43f232595049c4ae6b897642bcecb68a9a95b",
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "argv": [
+    "/opt/homebrew/opt/python@3.15/bin/python3.15",
+    "-I",
+    "-B",
+    "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-fifo-readiness/capture-readiness-v6.py",
+    "--worker",
+    "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/readiness-v6/tmp"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "records": [
+    {
+      "state": "never_had_writer",
+      "poll_result": 0,
+      "poll_events": 0,
+      "poll_errno": 0,
+      "select_readable": false,
+      "kqueue": [],
+      "read_result": []
+    },
+    {
+      "state": "empty_with_writer",
+      "poll_result": 0,
+      "poll_events": 0,
+      "poll_errno": 0,
+      "select_readable": false,
+      "kqueue": []
+    },
+    {
+      "state": "data_with_writer",
+      "poll_result": 1,
+      "poll_events": 1,
+      "poll_errno": 0,
+      "select_readable": true,
+      "kqueue": [
+        {
+          "flags": 5,
+          "data": 1,
+          "filter": -1
+        }
+      ]
+    },
+    {
+      "state": "data_after_writer_close",
+      "poll_result": 1,
+      "poll_events": 1,
+      "poll_errno": 0,
+      "select_readable": true,
+      "kqueue": [
+        {
+          "flags": 5,
+          "data": 1,
+          "filter": -1
+        }
+      ]
+    },
+    {
+      "state": "empty_before_first_eof_read",
+      "poll_result": 0,
+      "poll_events": 0,
+      "poll_errno": 0,
+      "select_readable": true,
+      "kqueue": []
+    },
+    {
+      "state": "empty_after_first_eof_read",
+      "poll_result": 0,
+      "poll_events": 0,
+      "poll_errno": 0,
+      "select_readable": false,
+      "kqueue": []
+    },
+    {
+      "state": "repeated_nonblocking_eof",
+      "poll_result": 0,
+      "poll_events": 0,
+      "poll_errno": 0,
+      "select_readable": false,
+      "kqueue": [],
+      "iteration": 0,
+      "read_result": []
+    },
+    {
+      "state": "repeated_nonblocking_eof",
+      "poll_result": 0,
+      "poll_events": 0,
+      "poll_errno": 0,
+      "select_readable": false,
+      "kqueue": [],
+      "iteration": 1,
+      "read_result": []
+    },
+    {
+      "state": "repeated_nonblocking_eof",
+      "poll_result": 0,
+      "poll_events": 0,
+      "poll_errno": 0,
+      "select_readable": false,
+      "kqueue": [],
+      "iteration": 2,
+      "read_result": []
+    },
+    {
+      "state": "repeated_blocking_eof",
+      "poll_result": 0,
+      "poll_events": 0,
+      "poll_errno": 0,
+      "select_readable": false,
+      "kqueue": [],
+      "read_result": [],
+      "seconds": 5.7750032283365726e-05
+    }
+  ],
+  "stdout": "[{\"state\": \"never_had_writer\", \"poll_result\": 0, \"poll_events\": 0, \"poll_errno\": 0, \"select_readable\": false, \"kqueue\": [], \"read_result\": []}, {\"state\": \"empty_with_writer\", \"poll_result\": 0, \"poll_events\": 0, \"poll_errno\": 0, \"select_readable\": false, \"kqueue\": []}, {\"state\": \"data_with_writer\", \"poll_result\": 1, \"poll_events\": 1, \"poll_errno\": 0, \"select_readable\": true, \"kqueue\": [{\"flags\": 5, \"data\": 1, \"filter\": -1}]}, {\"state\": \"data_after_writer_close\", \"poll_result\": 1, \"poll_events\": 1, \"poll_errno\": 0, \"select_readable\": true, \"kqueue\": [{\"flags\": 5, \"data\": 1, \"filter\": -1}]}, {\"state\": \"empty_before_first_eof_read\", \"poll_result\": 0, \"poll_events\": 0, \"poll_errno\": 0, \"select_readable\": true, \"kqueue\": []}, {\"state\": \"empty_after_first_eof_read\", \"poll_result\": 0, \"poll_events\": 0, \"poll_errno\": 0, \"select_readable\": false, \"kqueue\": []}, {\"state\": \"repeated_nonblocking_eof\", \"poll_result\": 0, \"poll_events\": 0, \"poll_errno\": 0, \"select_readable\": false, \"kqueue\": [], \"iteration\": 0, \"read_result\": []}, {\"state\": \"repeated_nonblocking_eof\", \"poll_result\": 0, \"poll_events\": 0, \"poll_errno\": 0, \"select_readable\": false, \"kqueue\": [], \"iteration\": 1, \"read_result\": []}, {\"state\": \"repeated_nonblocking_eof\", \"poll_result\": 0, \"poll_events\": 0, \"poll_errno\": 0, \"select_readable\": false, \"kqueue\": [], \"iteration\": 2, \"read_result\": []}, {\"state\": \"repeated_blocking_eof\", \"poll_result\": 0, \"poll_events\": 0, \"poll_errno\": 0, \"select_readable\": false, \"kqueue\": [], \"read_result\": [], \"seconds\": 5.7750032283365726e-05}]\n"
+}

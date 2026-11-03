@@ -253,7 +253,7 @@ fn send(ctx: &mut Ctx<'_>, h: RawFd, s: &Send) -> SysResult {
         let mut keep: Option<OwnedFd> = None;
         let mut ctl = if done == 0 { s.control.clone() } else { None };
         if let Some(c) = ctl.as_mut().filter(|_| is_local(h)) {
-            control::internalize(ctx, c, &mut keep);
+            control::internalize(ctx, c, &mut keep)?;
         }
         let r = host_send(h, s.name.as_deref(), &data, ctl.as_deref(), flags);
         drop(keep);

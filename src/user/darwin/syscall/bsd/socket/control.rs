@@ -51,18 +51,36 @@ fn outgoing(ctx: &Ctx<'_>, fd: i32, unsendable: &mut Option<OwnedFd>) -> RawFd {
 /// buffer, the only form `unp_internalize` takes (the host refuses the
 /// others untouched). Errors are left for the host to report in its
 /// order; `keep` holds what the translation made until the send is done.
-pub(super) fn internalize(ctx: &Ctx<'_>, buf: &mut [u8], keep: &mut Option<OwnedFd>) {
+pub(super) fn internalize(
+    ctx: &mut Ctx<'_>,
+    buf: &mut [u8],
+    keep: &mut Option<OwnedFd>,
+) -> Result<(), Errno> {
     let Some((len, level, ty)) = header(buf, 0) else {
-        return;
+        return Ok(());
     };
     if level != SOL_SOCKET || ty != SCM_RIGHTS || len != buf.len() {
-        return;
+        return Ok(());
     }
     for off in (CMSG_HDR..len).step_by(4).take_while(|o| o + 4 <= len) {
         let fd = i32::from_le_bytes(buf[off..off + 4].try_into().expect("4 bytes"));
+        if ctx.proc.fds.get(fd).is_ok() {
+            super::super::guarded::check(
+                ctx,
+                fd,
+                super::super::guarded::SOCKET_IPC,
+                super::super::guarded::reason::SOCKET_IPC,
+            )?;
+        }
         let h = outgoing(ctx, fd, keep);
         buf[off..off + 4].copy_from_slice(&h.to_le_bytes());
+        if h == -1 {
+            // The host rejects this earlier invalid descriptor before later
+            // rights; later guest descriptor numbers must not be translated.
+            break;
+        }
     }
+    Ok(())
 }
 
 /// The kind of a descriptor received from the host.

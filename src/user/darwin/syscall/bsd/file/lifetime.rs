@@ -7,7 +7,7 @@ use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::{Fd, FileRef};
 use crate::user::darwin::process::Proc;
 use crate::user::darwin::syscall::{self, Ctx};
-use crate::user::darwin::wait::Wait;
+use crate::user::darwin::wait::{Wait, WaitKey};
 
 /// An entered operation's reference to one descriptor, independently of aliases.
 #[derive(Clone, Debug)]
@@ -15,8 +15,13 @@ pub(crate) struct Use {
     pub(crate) fd: i32,
     pub(crate) file: FileRef,
     pub(crate) read: bool,
+    /// A parked write that already passed descriptor/guard authorization.
+    pub(crate) write: bool,
     /// The bounded vector copied at entry, rather than its mutable user array.
     pub(super) vectors: Option<Vec<(u64, u64)>>,
+    /// A native named-FIFO read, including its retained completion buffer.
+    #[cfg(target_os = "macos")]
+    pub(super) read_job: Option<Arc<super::fifo_read::Job>>,
 }
 
 #[derive(Clone)]
@@ -48,6 +53,49 @@ pub(super) fn read_file(ctx: &Ctx<'_>, fd: i32) -> Result<FileRef, Errno> {
     ctx.proc.fds.file(fd)
 }
 
+pub(in crate::user::darwin::syscall::bsd) fn entered_write(ctx: &Ctx<'_>, fd: i32) -> bool {
+    ctx.thread
+        .file_io
+        .as_ref()
+        .is_some_and(|entered| entered.write && entered.fd == fd)
+}
+
+pub(super) fn write_file(ctx: &Ctx<'_>, fd: i32) -> Result<FileRef, Errno> {
+    if let Some(entered) = &ctx.thread.file_io
+        && entered.write
+        && entered.fd == fd
+    {
+        return Ok(entered.file.clone());
+    }
+    ctx.proc.fds.file(fd)
+}
+
+#[cfg(unix)]
+pub(super) fn parked_write(
+    ctx: &mut Ctx<'_>,
+    fd: i32,
+    file: &FileRef,
+    vectors: Option<Vec<(u64, u64)>>,
+) {
+    let Some(host) = file.host_fd() else { return };
+    if ctx.thread.wait.is_none()
+        || ctx.thread.file_io.is_some()
+        || !crate::user::darwin::host::fstat(host)
+            .is_ok_and(|s| s.st_mode & libc::S_IFMT == libc::S_IFIFO)
+    {
+        return;
+    }
+    ctx.thread.file_io = Some(Use {
+        fd,
+        file: file.clone(),
+        read: false,
+        write: true,
+        vectors,
+        #[cfg(target_os = "macos")]
+        read_job: None,
+    });
+}
+
 #[cfg(unix)]
 pub(super) fn parked_read(
     ctx: &mut Ctx<'_>,
@@ -68,7 +116,10 @@ pub(super) fn parked_read(
         fd,
         file: file.clone(),
         read: true,
+        write: false,
         vectors,
+        #[cfg(target_os = "macos")]
+        read_job: None,
     });
     // The measured Rosetta FIFO READ entry exposes CF=1 while parked;
     // READ_NOCANCEL and vector entries preserve their incoming flags.
@@ -105,6 +156,53 @@ fn install(proc: &mut Proc, fd: i32, replacement: &Replacement) {
     proc.fds.get_mut(fd).expect("installed descriptor").clofork = replacement.clofork;
 }
 
+/// The native fork boundary used by both fork and posix_spawn. Joined jobs
+/// contain no native thread handle or held mutex in the child. A failed fork
+/// still rearms the parent's unperformed reads.
+#[cfg(unix)]
+pub(crate) fn fork_host(proc: &mut Proc) -> Result<Option<i32>, Errno> {
+    #[cfg(target_os = "macos")]
+    for thread in proc.threads.values() {
+        if let Some(job) = thread
+            .file_io
+            .as_ref()
+            .and_then(|entry| entry.read_job.as_ref())
+        {
+            job.pause();
+        }
+    }
+    let result = crate::user::darwin::signal::host::fork_host();
+    #[cfg(target_os = "macos")]
+    if !matches!(result, Ok(None)) {
+        let failures: Vec<_> = proc
+            .threads
+            .iter()
+            .filter_map(|(&tid, thread)| {
+                let job = thread.file_io.as_ref()?.read_job.as_ref()?;
+                job.resume().err().map(|error| (tid, Errno::from(error)))
+            })
+            .collect();
+        for (tid, error) in failures {
+            let thread = proc.threads.get_mut(&tid).expect("listed native reader");
+            syscall::complete_unix(thread, Err(error));
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = proc;
+    result
+}
+
+/// A finalized guest process retains inspectable CPU/memory state, but must
+/// not leave native read workers running until its library handle is closed.
+#[cfg(target_os = "macos")]
+pub(crate) fn cancel_reads(proc: &mut Proc) {
+    for thread in proc.threads.values_mut() {
+        if let Some(entry) = &mut thread.file_io {
+            entry.read_job = None;
+        }
+    }
+}
+
 fn park(ctx: &mut Ctx<'_>, operation: Closing) -> SysResult {
     assert!(
         ctx.proc
@@ -115,7 +213,13 @@ fn park(ctx: &mut Ctx<'_>, operation: Closing) -> SysResult {
     );
     // A kernel fileproc drain is uninterruptible. Completion below wakes its
     // owner directly, including while a Mach suspension holds its user return.
-    syscall::sleep(ctx, Wait::default())
+    syscall::sleep(
+        ctx,
+        Wait {
+            keys: vec![WaitKey::FileDrain],
+            ..Wait::default()
+        },
+    )
 }
 
 pub(super) fn close(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
@@ -167,7 +271,10 @@ pub(super) fn replace(
         fd: from,
         file,
         read: false,
+        write: false,
         vectors: None,
+        #[cfg(target_os = "macos")]
+        read_job: None,
     });
     park(
         ctx,
@@ -193,17 +300,27 @@ pub(crate) fn progress(proc: &mut Proc) {
                 let entered = t.file_io.as_ref()?;
                 let pending = t.pending_unix?;
                 let wait = t.wait.as_ref()?;
-                if !entered.read || t.exited || pending.completed.is_some() {
+                if (!entered.read && !entered.write) || t.exited || pending.completed.is_some() {
                     return None;
                 }
+                // A caught signal ends an entered kernel I/O wait even when
+                // Mach suspension holds its user return. Native controls show
+                // that this also releases a concurrent close's fileproc drain.
+                if t.woken && wait.interruptible {
+                    return Some((wait.seq, t.tid));
+                }
+                #[cfg(target_os = "macos")]
+                if let Some(job) = &entered.read_job {
+                    return job.ready().then_some((wait.seq, t.tid));
+                }
                 let host = entered.file.host_fd()?;
-                crate::user::darwin::wait::ready_now(&[(host, true, false)])[0]
+                crate::user::darwin::wait::ready_now(&[(host, entered.read, entered.write)])[0]
                     .then_some((wait.seq, t.tid))
             })
             .collect();
         reads.sort_unstable();
         for (_, tid) in reads {
-            let mut thread = proc.threads.remove(&tid).expect("listed FIFO reader");
+            let mut thread = proc.threads.remove(&tid).expect("listed FIFO operation");
             syscall::ready_file_io(proc, &mut thread);
             proc.threads.insert(tid, thread);
         }

@@ -1,0 +1,60 @@
+{
+  "inputs": {
+    "docs/specifications/darwin/native-guarded-fd/dp-probe-v10.c": "f00917b4b09698b3fa687179749d0e96a8aa9a59531bc8baaafbc831342ed501",
+    "docs/specifications/darwin/native-guarded-fd/policy-probe-v2.c": "d359a368e9f6d26c558980e7497452ec8880bd36245c465385e5c380c7871508",
+    "docs/specifications/darwin/native-guarded-fd/references/guarded.h": "9a61dbd134908ef8fca72a31b26174325a785a2cd3186439c3f6dcab08ec77bd"
+  },
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "umask_octal": "022",
+  "architectures": [
+    {
+      "architecture": "arm64",
+      "cases": 170,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/dp-probe-v10.c",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-arm64"
+      ],
+      "image_sha256": "166d57c5881610838feaa1a40015d982773894280147a00d9058e032fb1d7625",
+      "records_sha256": "b0cba558cb71c76659e3483e5951eac98d65b0975686429c7fa5d32e2bb6ce19"
+    },
+    {
+      "architecture": "x86_64",
+      "cases": 170,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/docs/specifications/darwin/native-guarded-fd/dp-probe-v10.c",
+        "-o",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-dp-v10/dp-x86_64"
+      ],
+      "image_sha256": "06a75d3af7995f7eff9f8b245e7b2af79bfaa4afcf575e222231b59cef44bdcc",
+      "records_sha256": "feb16d8563cc9693ea5427874803a489be676881540114e20ad645c3fd0157a2"
+    }
+  ],
+  "state": "finished",
+  "exit_code": 0,
+  "inputs_unchanged": true
+}

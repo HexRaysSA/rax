@@ -92,6 +92,15 @@ impl OpenFile {
 /// A shared open file.
 pub type FileRef = Arc<OpenFile>;
 
+/// A Darwin fileproc guard, owned by one descriptor rather than its fileglob.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DescriptorGuard {
+    /// Nonzero `guardid_t` supplied by the guest.
+    pub cookie: u64,
+    /// The selected `GUARD_*` descriptor operations.
+    pub attributes: u32,
+}
+
 /// One descriptor slot.
 #[derive(Clone, Debug)]
 pub struct Fd {
@@ -103,6 +112,8 @@ pub struct Fd {
     /// `FD_CLOFORK` (`FP_CLOFORK`): a forked (or spawned) child does not
     /// inherit the descriptor.
     pub clofork: bool,
+    /// The optional guest descriptor guard; the host descriptor is unguarded.
+    pub guard: Option<DescriptorGuard>,
 }
 
 /// The descriptor table.
@@ -230,6 +241,7 @@ impl FdTable {
             file,
             cloexec,
             clofork: false,
+            guard: None,
         })
     }
 

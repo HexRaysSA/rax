@@ -1,0 +1,1890 @@
+[
+  {
+    "vector": false,
+    "concurrent_close": false,
+    "mutation": 0,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "0",
+      "0",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-0.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65537,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.16078545898199081
+  },
+  {
+    "vector": false,
+    "concurrent_close": false,
+    "mutation": 0,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "0",
+      "0",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-1.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013363917008973658
+  },
+  {
+    "vector": false,
+    "concurrent_close": false,
+    "mutation": 1,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "0",
+      "1",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-2.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65537,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.011547959060408175
+  },
+  {
+    "vector": false,
+    "concurrent_close": false,
+    "mutation": 1,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "0",
+      "1",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-3.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.010649958974681795
+  },
+  {
+    "vector": false,
+    "concurrent_close": false,
+    "mutation": 2,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "0",
+      "2",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-4.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65537,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01352308306377381
+  },
+  {
+    "vector": false,
+    "concurrent_close": false,
+    "mutation": 2,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "0",
+      "2",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-5.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01602645800448954
+  },
+  {
+    "vector": false,
+    "concurrent_close": false,
+    "mutation": 3,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "0",
+      "3",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-6.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65537,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012438458972610533
+  },
+  {
+    "vector": false,
+    "concurrent_close": false,
+    "mutation": 3,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "0",
+      "3",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-7.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014195541967637837
+  },
+  {
+    "vector": false,
+    "concurrent_close": true,
+    "mutation": 0,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "1",
+      "0",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-8.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": -1,
+        "errno": 32
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 46,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014824458048678935
+  },
+  {
+    "vector": false,
+    "concurrent_close": true,
+    "mutation": 0,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "1",
+      "0",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-9.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": -1,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 5,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 6.390447417041287
+  },
+  {
+    "vector": false,
+    "concurrent_close": true,
+    "mutation": 1,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "1",
+      "1",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-10.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": -1,
+        "errno": 32
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 46,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01355195906944573
+  },
+  {
+    "vector": false,
+    "concurrent_close": true,
+    "mutation": 1,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "1",
+      "1",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-11.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": -1,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 5,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 6.4129692079732195
+  },
+  {
+    "vector": false,
+    "concurrent_close": true,
+    "mutation": 2,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "1",
+      "2",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-12.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": -1,
+        "errno": 32
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 46,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012688540969975293
+  },
+  {
+    "vector": false,
+    "concurrent_close": true,
+    "mutation": 2,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "1",
+      "2",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-13.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": -1,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 5,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 6.3786485000746325
+  },
+  {
+    "vector": false,
+    "concurrent_close": true,
+    "mutation": 3,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "1",
+      "3",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-14.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": -1,
+        "errno": 32
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 46,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0162076250417158
+  },
+  {
+    "vector": false,
+    "concurrent_close": true,
+    "mutation": 3,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "0",
+      "1",
+      "3",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-15.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": -1,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 5,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 6.328302124980837
+  },
+  {
+    "vector": true,
+    "concurrent_close": false,
+    "mutation": 0,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "0",
+      "0",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-16.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65537,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014552207896485925
+  },
+  {
+    "vector": true,
+    "concurrent_close": false,
+    "mutation": 0,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "0",
+      "0",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-17.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015538542065769434
+  },
+  {
+    "vector": true,
+    "concurrent_close": false,
+    "mutation": 1,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "0",
+      "1",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-18.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65537,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.016823707963339984
+  },
+  {
+    "vector": true,
+    "concurrent_close": false,
+    "mutation": 1,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "0",
+      "1",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-19.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013358250027522445
+  },
+  {
+    "vector": true,
+    "concurrent_close": false,
+    "mutation": 2,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "0",
+      "2",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-20.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65537,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012897417065687478
+  },
+  {
+    "vector": true,
+    "concurrent_close": false,
+    "mutation": 2,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "0",
+      "2",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-21.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.013319417019374669
+  },
+  {
+    "vector": true,
+    "concurrent_close": false,
+    "mutation": 3,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "0",
+      "3",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-22.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65537,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.014252374996431172
+  },
+  {
+    "vector": true,
+    "concurrent_close": false,
+    "mutation": 3,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "0",
+      "3",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-23.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.012001916067674756
+  },
+  {
+    "vector": true,
+    "concurrent_close": true,
+    "mutation": 0,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "1",
+      "0",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-24.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": -1,
+        "errno": 32
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 46,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.01612833293620497
+  },
+  {
+    "vector": true,
+    "concurrent_close": true,
+    "mutation": 0,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "1",
+      "0",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-25.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": -1,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 5,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 6.409746457939036
+  },
+  {
+    "vector": true,
+    "concurrent_close": true,
+    "mutation": 1,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "1",
+      "1",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-26.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": -1,
+        "errno": 32
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 46,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.021577959065325558
+  },
+  {
+    "vector": true,
+    "concurrent_close": true,
+    "mutation": 1,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "1",
+      "1",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-27.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": -1,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 5,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 6.472822375013493
+  },
+  {
+    "vector": true,
+    "concurrent_close": true,
+    "mutation": 2,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "1",
+      "2",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-28.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": -1,
+        "errno": 32
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 46,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.015954416012391448
+  },
+  {
+    "vector": true,
+    "concurrent_close": true,
+    "mutation": 2,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "1",
+      "2",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-29.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": -1,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 5,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 6.399668666999787
+  },
+  {
+    "vector": true,
+    "concurrent_close": true,
+    "mutation": 3,
+    "kind": "pipe",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "1",
+      "3",
+      "pipe",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-30.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 4,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": -1,
+        "errno": 32
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 65536,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 46,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.018318583024665713
+  },
+  {
+    "vector": true,
+    "concurrent_close": true,
+    "mutation": 3,
+    "kind": "fifo",
+    "argv": [
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/blocked-write-x86_64",
+      "1",
+      "1",
+      "3",
+      "fifo",
+      "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-blocked-write-v12/x86_64-31.fifo"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "initial-fd-flags",
+        "result": 3,
+        "errno": 0
+      },
+      {
+        "kind": "writer-was-blocked",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "closer-was-blocked",
+        "result": -1,
+        "errno": 0
+      },
+      {
+        "kind": "during-close-fd-flags",
+        "result": -1,
+        "errno": 9
+      },
+      {
+        "kind": "during-close-duplicate",
+        "result": 5,
+        "errno": 0
+      },
+      {
+        "kind": "write-result",
+        "result": 1,
+        "errno": 0
+      },
+      {
+        "kind": "close-result",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "received-bytes",
+        "result": 8193,
+        "errno": 0
+      },
+      {
+        "kind": "filled-bytes",
+        "result": 8192,
+        "errno": 0
+      },
+      {
+        "kind": "last-byte",
+        "result": 65,
+        "errno": 0
+      }
+    ],
+    "stderr": "",
+    "seconds": 6.3975785409566015
+  }
+]

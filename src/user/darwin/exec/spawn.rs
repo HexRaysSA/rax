@@ -742,7 +742,7 @@ fn fork_child(
         &ctx.proc.tracing,
         &new.task,
     );
-    match signal::host::fork_host()? {
+    match crate::user::darwin::syscall::bsd::file::lifetime::fork_host(ctx.proc)? {
         Some(pid) => {
             drop(wr);
             drop(new);
@@ -822,6 +822,108 @@ fn reap(pid: i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn guarded_fd_replays_64_native_spawn_action_cases_on_both_guest_abis() {
+        use crate::user::darwin::abi::{DarwinAbi, tables::nr};
+        use crate::user::darwin::fd::DescriptorGuard;
+        use crate::user::darwin::syscall::bsd;
+        for (abi, input) in [
+            (
+                DarwinAbi::Arm64,
+                include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/docs/specifications/darwin/native-guarded-fd/spawn-records-arm64-v5.json"
+                )),
+            ),
+            (
+                DarwinAbi::X86_64,
+                include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/docs/specifications/darwin/native-guarded-fd/spawn-records-x86_64-v5.json"
+                )),
+            ),
+        ] {
+            let records: serde_json::Value = serde_json::from_str(input).unwrap();
+            assert_eq!(records.as_array().unwrap().len(), 32);
+            let mut process = process::bounded_tests::process(abi);
+            let (_, mut thread) = process.proc.threads.pop_first().unwrap();
+            let mut ctx = Ctx {
+                proc: &mut process.proc,
+                thread: &mut thread,
+                nr: 0,
+                pc: 0x1_0000_1000,
+            };
+            for native in records.as_array().unwrap() {
+                let file = ctx.proc.fds.file(1).unwrap();
+                let fd = ctx.proc.fds.install_with(file, true, true, 9, 256).unwrap();
+                let guard = DescriptorGuard {
+                    cookie: 0x1122_3344_5566_7788,
+                    attributes: native["attributes"].as_u64().unwrap() as u32,
+                };
+                ctx.proc.fds.get_mut(fd).unwrap().guard = Some(guard);
+                if native["clear_clofork"].as_bool().unwrap() {
+                    assert_eq!(
+                        bsd::call(&mut ctx, nr::FCNTL, &[fd as u64, 2, 1, 0, 0, 0, 0, 0]),
+                        Ok(Rv::one(0))
+                    );
+                }
+                let mut scratch = Scratch {
+                    fds: fdt_fork(&ctx.proc.fds, native["setexec"].as_bool().unwrap()),
+                    cwd: b"/".to_vec(),
+                    dir: None,
+                    inherit: None,
+                };
+                let (action, observed) = match native["operation"].as_str().unwrap() {
+                    "dup" => (FileAction::Dup2(fd, 100), 100),
+                    "dup-self" => (FileAction::Dup2(fd, fd), fd),
+                    "inherit" => (FileAction::Inherit(fd), fd),
+                    "close" => (FileAction::Close(fd), fd),
+                    _ => unreachable!(),
+                };
+                let expected = native["records"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|row| row["kind"] == "spawn-error")
+                    .unwrap()["result"]
+                    .as_i64()
+                    .unwrap();
+                let result = file_actions(&ctx, &mut scratch, &[action], false);
+                assert_eq!(
+                    result,
+                    if expected == 0 {
+                        Ok(())
+                    } else {
+                        Err(Errno(expected as i32))
+                    },
+                    "{abi:?}/{native}"
+                );
+                if result.is_ok() {
+                    super::super::fdt_exec(&mut scratch.fds, None);
+                    let expected = native["records"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|row| row["kind"] == "child-descriptor")
+                        .unwrap();
+                    match scratch.fds.get(observed) {
+                        Ok(slot) => {
+                            assert_eq!(expected["result"], 0, "{abi:?}/{native}");
+                            assert!(!slot.cloexec && !slot.clofork && slot.guard.is_none());
+                        }
+                        Err(error) => {
+                            assert_eq!(expected["result"], -1, "{abi:?}/{native}");
+                            assert_eq!(error, Errno(expected["errno"].as_i64().unwrap() as i32));
+                        }
+                    }
+                }
+                assert_eq!(ctx.proc.fds.get(fd).unwrap().guard, Some(guard));
+                assert!(ctx.proc.guard_ast.is_none());
+                ctx.proc.fds.remove(fd).unwrap();
+            }
+        }
+    }
 
     #[test]
     fn action_sizes_match_the_kernel() {

@@ -15,6 +15,8 @@ pub(crate) struct PendingUnix {
     pub(crate) completed: Option<SysResult>,
     /// Return registers are prepared or replaced by a completed state write.
     pub(crate) result_prepared: bool,
+    /// Guarded writes copy their cookie once, before a possible I/O wait.
+    pub(crate) guard_cookie: Option<u64>,
 }
 
 pub(super) fn start_unix(proc: &mut Proc, thread: &mut Thread, nr: u32, args: [u64; 8], pc: u64) {
@@ -24,6 +26,7 @@ pub(super) fn start_unix(proc: &mut Proc, thread: &mut Thread, nr: u32, args: [u
         pc,
         completed: None,
         result_prepared: false,
+        guard_cookie: None,
     };
     thread.pending_unix = Some(entry);
     service(proc, thread, entry);

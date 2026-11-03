@@ -1,0 +1,34 @@
+{
+  "source_sha256": "4c0089e942062a194e34ad8403c2cc611977f0a0d3d54f33b0e73140545b1358",
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "observations": [
+    {
+      "architecture": "arm64",
+      "argv": [
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/held-signal-read-arm64-v1",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/held-signal-read-arm64-v1.fifo"
+      ],
+      "image_sha256": "ec53267a65a1f4ec76be49aca331ee8f79d29e63621395de5ed991130b82175f",
+      "exit_code": 0,
+      "stdout": "{\"read_wait\":1,\"close_wait\":1,\"signal_sent\":0,\"close_completed_while_reader_held\":1,\"read_user_done_while_held\":0,\"handler_while_held\":0,\"read_result\":-1,\"read_errno\":4,\"close_result\":0,\"close_errno\":0,\"handler_after_resume\":1}\n",
+      "stderr": ""
+    },
+    {
+      "architecture": "x86_64",
+      "argv": [
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/held-signal-read-x86_64-v1",
+        "/Users/int/.assist-native-root-20261025/vendor/rax/target/guarded-fd-runtime-v1/fifo-native-v1/held-signal-read-x86_64-v1.fifo"
+      ],
+      "image_sha256": "1159711cd0c41eeeeb24003d9a57558caa64cd7317f9118447d8ad4f45ad60e6",
+      "exit_code": 0,
+      "stdout": "{\"read_wait\":1,\"close_wait\":1,\"signal_sent\":0,\"close_completed_while_reader_held\":1,\"read_user_done_while_held\":0,\"handler_while_held\":0,\"read_result\":-1,\"read_errno\":4,\"close_result\":0,\"close_errno\":0,\"handler_after_resume\":1}\n",
+      "stderr": ""
+    }
+  ]
+}
