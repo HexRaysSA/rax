@@ -1,0 +1,11 @@
+{
+  "label": "a32_fp_pairs-run-v1",
+  "argv": [
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-block-production-v1/a32_fp_pairs",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "exit_code": 0,
+  "log": "\nrunning 5 tests\ntest complete_legal_pair_field_matrix_preserves_all_other_registers_and_flags ... ok\ntest decoder_reports_vm_m_and_m_vm_as_distinct_register_fields ... ok\ntest failed_arm_and_thumb_it_predicates_suppress_invalid_pair_execution ... ok\ntest mixed_width_pair_execution_updates_only_the_enclosing_physical_registers ... ok\ntest unpredictable_pair_operands_select_undefined_before_fp_control_checks ... ok\n\ntest result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s\n\n",
+  "utc": "2026-11-03T14:40:46.687934+00:00"
+}

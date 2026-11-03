@@ -1029,7 +1029,8 @@
         "docs/development/a64-fpexc32/qualification.json",
         "src/isa/arm/decoder/aarch32/neon/load_store.rs",
         "tests/suites/backend/a32_fp_controls/structure_memory.rs",
-        "docs/development/a32-structure-admission/qualification.json"
+        "docs/development/a32-structure-admission/qualification.json",
+        "docs/development/a32-block-admission/qualification.json"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
@@ -1044,7 +1045,8 @@
         "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json.",
         "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. The historical FP-group full root run retained one separately reproduced ptrace/fork test failure. Its test-only isolation followup qualifies a new root run (11944 passed, 0 failed, 35 ignored); see fork-test-isolation/qualification.json. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json.",
         "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
-        "Represented A32/Thumb structure operand spans and R15 bases now select the existing Undefined outcome before access controls; full owning suites and workspace gates are qualified in a32-structure-admission/qualification.json. This does not close broader profile/security/debug or any full original finding."
+        "Represented A32/Thumb structure operand spans and R15 bases now select the existing Undefined outcome before access controls; full owning suites and workspace gates are qualified in a32-structure-admission/qualification.json. This does not close broader profile/security/debug or any full original finding.",
+        "Scalar VFP block list/base decode admission before FP access is component-qualified with five observed owning regressions, all582 complete owning cases and eight canonical gates. Broader profile/security/debug/native requirements remain open; no full finding closure. See a32-block-admission/qualification.json."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1075,7 +1077,8 @@
         "a32-optional-short-vector-profile-2026-11-02",
         "a32-synchronous-fp-traps-2026-11-02",
         "aarch64-fpexc32-access-2026-11-02",
-        "a32-structure-operand-admission-2026-11-03"
+        "a32-structure-operand-admission-2026-11-03",
+        "a32-vfp-block-operand-admission-2026-11-03"
       ]
     },
     {
@@ -198773,6 +198776,7 @@
     "red_execution": "Exact full-path calls rejected by providers;16-path semantic retry committed all837 staged paths and both parents. No manual Git commit."
   },
   "remediation_components": [
-    "kvm-native-startup-eligibility-and-identities-2026-11-03"
+    "kvm-native-startup-eligibility-and-identities-2026-11-03",
+    "a32-vfp-block-operand-admission-2026-11-03"
   ]
 }

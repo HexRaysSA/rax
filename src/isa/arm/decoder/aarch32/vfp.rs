@@ -101,20 +101,36 @@ impl Aarch32Decoder {
         w: u32,
         size: u32,
     ) -> Option<DecodedInsn> {
-        if !matches!((p, u, w), (0, 1, _) | (1, 0, 1)) {
+        if !matches!(size, 2 | 3) || !matches!((p, u, w), (0, 1, _) | (1, 0, 1)) {
             return None;
         }
 
         let imm8 = raw & 0xFF;
-        if imm8 == 0 {
-            return None;
-        }
+        // Odd double lists belong to the unsupported FLDMX/FSTMX encodings.
         if size == 3 && (imm8 & 1) != 0 {
             return None;
         }
 
         let l = (raw >> 20) & 1;
         let rn = ((raw >> 16) & 0xF) as u8;
+        let vd = (raw >> 12) & 15;
+        let d = (raw >> 22) & 1;
+        let first = if size == 3 {
+            (d << 4) | vd
+        } else {
+            (vd << 1) | d
+        };
+        let count = if size == 3 { imm8 / 2 } else { imm8 };
+        // Decode constraints precede CheckVFPEnabled. Preserve the selected
+        // Undefined outcome for invalid lists and apply it to invalid bases.
+        if count == 0 || first + count > 32 || size == 3 && count > 16 || rn == 15 && w != 0 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
         let mnemonic = match (l, rn, p, u, w) {
             (0, 13, 1, 0, 1) => Mnemonic::VPUSH,
             (1, 13, 0, 1, 1) => Mnemonic::VPOP,

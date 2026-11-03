@@ -176,7 +176,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             3 if (words & 1) == 0 => (64, (d_bit << 4) | vd, words / 2),
             _ => return None,
         };
-        if count == 0 || first.checked_add(count - 1)? >= 32 {
+        if count == 0
+            || first.checked_add(count - 1)? >= 32
+            || size == 3 && count > 16
+            || rn == 15 && (w || insn.state.is_thumb())
+        {
             return None;
         }
 

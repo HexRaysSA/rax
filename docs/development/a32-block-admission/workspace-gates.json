@@ -1,0 +1,162 @@
+{
+  "scope": "Frozen combined IO/SMP/A32 block source. The later native firmware discovery work and independent upstream Darwin/Windows changes are excluded. Root unit groups are selections, not a complete unfiltered library run.",
+  "gates": {
+    "block-fmt-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:08:17.343736+00:00",
+      "results": []
+    },
+    "block-clippy-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:12:38.002118+00:00",
+      "results": []
+    },
+    "block-build-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:27:26.362249+00:00",
+      "results": []
+    },
+    "block-no-jit-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,kvm"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:27:40.444882+00:00",
+      "results": []
+    },
+    "block-doc-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:28:02.132143+00:00",
+      "results": [
+        "test result: ok. 0 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "block-decoder-unit-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "isa::arm::decoder::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:28:08.559056+00:00",
+      "results": [
+        "test result: ok. 165 passed; 0 failed; 0 ignored; 0 measured; 13009 filtered out; finished in 0.02s"
+      ]
+    },
+    "block-executor-unit-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "isa::arm::aarch32::instructions::tests::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:28:15.507431+00:00",
+      "results": [
+        "test result: ok. 54 passed; 0 failed; 0 ignored; 0 measured; 13120 filtered out; finished in 0.01s"
+      ]
+    },
+    "block-cargo-owning-v1": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit",
+        "--test",
+        "a32_fp_controls",
+        "--test",
+        "a32_fp_pairs",
+        "--test",
+        "arm_vfp_a32",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:28:28.885862+00:00",
+      "results": [
+        "test result: ok. 90 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.32s",
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+        "test result: ok. 487 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.96s"
+      ]
+    }
+  }
+}

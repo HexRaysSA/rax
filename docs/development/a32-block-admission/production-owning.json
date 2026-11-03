@@ -1,0 +1,50 @@
+{
+  "utc": "2026-11-03T14:40:57.383131+00:00",
+  "exit_code": 0,
+  "source_unchanged": true,
+  "base_source_unchanged": true,
+  "library_sha256": "978c60074b0c9b60a6094bdb3fd14b8b85ca9328f6ee67e7c147b0c7f898d6d9",
+  "results": [
+    {
+      "label": "block-library-v1",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "a32_fp_controls-compile-v1",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "a32_fp_controls-run-v1",
+      "exit_code": 0,
+      "results": [
+        "test result: ok. 90 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 26.58s"
+      ]
+    },
+    {
+      "label": "a32_fp_pairs-compile-v1",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "a32_fp_pairs-run-v1",
+      "exit_code": 0,
+      "results": [
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s"
+      ]
+    },
+    {
+      "label": "arm_vfp_a32-compile-v1",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "arm_vfp_a32-run-v1",
+      "exit_code": 0,
+      "results": [
+        "test result: ok. 487 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.97s"
+      ]
+    }
+  ]
+}

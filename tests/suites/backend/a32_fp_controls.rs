@@ -689,3 +689,6 @@ mod restricted_modes;
 
 #[path = "a32_fp_controls/structure_memory.rs"]
 mod structure_memory;
+
+#[path = "a32_fp_controls/block_memory.rs"]
+mod block_memory;

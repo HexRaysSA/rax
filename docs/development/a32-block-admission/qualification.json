@@ -1,0 +1,95 @@
+{
+  "status": "component_qualified",
+  "full_goal_complete": false,
+  "utc": "2026-11-03T15:29:13.891578+00:00",
+  "source_sha256": {
+    "src/isa/arm/decoder/aarch32/vfp.rs": "864f7b19ed0438522f576800da83dfaf8ba4837f6bfd4e15542cf0aaac986075",
+    "src/isa/arm/decoder/thumb.rs": "280695bfe5a09f1553bd7b2457c2eedf2449c5510e00798b449cbf7cd4a7dbd3",
+    "src/isa/arm/aarch32/instructions/neon/helpers.rs": "81df31f1d815a130aaac4edbcd71e0cccf5ee8fc3bca915b8dbc1e4151c43c42",
+    "tests/suites/backend/a32_fp_controls.rs": "04956cf77f49447a4e650ad5058f1ae2a4b94e3a3e2d0721676321c83f3ccd09",
+    "tests/suites/backend/a32_fp_controls/block_memory.rs": "e24fdaa712c52aa6807dcf6af98a698dfc4e5370dc72e245ce0b1a41b80f26d0"
+  },
+  "baseline_probe": {
+    "receipt": "baseline-probe.json",
+    "passed": 1,
+    "failed": 2,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "baseline_owning": {
+    "receipt": "baseline-owning.json",
+    "passed": 1,
+    "failed": 5,
+    "ignored": 0,
+    "filtered": 84
+  },
+  "production": {
+    "receipt": "production-owning.json",
+    "library_sha256": "978c60074b0c9b60a6094bdb3fd14b8b85ca9328f6ee67e7c147b0c7f898d6d9",
+    "owning_cases": {
+      "a32_fp_controls": 90,
+      "a32_fp_pairs": 5,
+      "arm_vfp_a32": 487
+    },
+    "total_passed": 582,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "scope": "Complete changed production library and complete three owning binaries on native Linux x86-64 software A32 execution; physical A32/Intel HVF not performed."
+  },
+  "generated_matrix": {
+    "decode_combinations": 294912,
+    "boundary_executions": 1008,
+    "pc_base_executions": 72,
+    "failed_thumb_it_executions": 252,
+    "mixed_width_faults": 28,
+    "note": "These are generated data points inside six harness cases, not additional test counts."
+  },
+  "assumptions": [
+    {
+      "id": "B1",
+      "assumption": "Use RAX Undefined for unpredictable lists/base constraints, preserving the existing overflowing-list policy and selecting the same permitted outcome for other represented constraints.",
+      "basis": "DDI0597 decode rules and explicitly permitted Undefined outcomes; original handler already rejects overflowing lists.",
+      "dependent_result": "Invalid operands do not reach FP permission checks or memory/writeback.",
+      "stress_test": "Every represented list start/imm8/mode in ARM/Thumb; valid/invalid boundary execution with access enabled, denied and trapped; unchanged state/RAM on rejection.",
+      "falsification_probe": "Reject a valid list, emit a higher FP syndrome for an invalid list, mutate RAM/writeback on rejection or fail skipped IT.",
+      "status": "Actual baseline counterexamples and all582 production owning tests passed after correction."
+    },
+    {
+      "id": "B2",
+      "assumption": "Thumb PC-base exclusion is checked after shared ARM decoding but before execution/admission.",
+      "basis": "DDI0597 CurrentInstrSet distinction.",
+      "dependent_result": "Keep valid ARM non-writeback PC forms while rejecting all Thumb PC block forms.",
+      "stress_test": "72 PC-base executions and252 failed-IT executions, plus mixed-width precise diagnostics.",
+      "falsification_probe": "A valid ARM PC form is rejected, a Thumb PC form executes, or failed IT faults.",
+      "status": "Complete production owning suite passed."
+    }
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "Broader advertised profile/security/debug controls, complete backend/private/native checkpoint/startup/clock/replay and physical Intel requirements remain open.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "Other implementations may choose different permitted unpredictable outcomes; no universal physical outcome is claimed.",
+      "blocks_component": false
+    }
+  ],
+  "remaining": [
+    "Exact-path git add/red, immediate master push and remote/blob verification after terminal qualification.",
+    "Cleanup owned native build root after all compiler/test processes are terminal."
+  ],
+  "canonical_cargo": {
+    "receipt": "workspace-gates.json",
+    "all8_passed": true,
+    "decoder_unit_passed": 165,
+    "executor_unit_passed": 54,
+    "whole_owning_passed": 582,
+    "doctests_passed": 2,
+    "preexisting_ignored_examples": 5,
+    "scope": "Root units are filtered module selections; all three owning binaries are complete. Frozen source excludes later MP discovery and unrelated newer upstream Darwin/Windows changes."
+  },
+  "publication": "Exact owned-path git add/red, immediate normal master push and signature/blob/remote receipt are recorded at the evidence root after publication."
+}

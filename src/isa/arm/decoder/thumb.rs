@@ -176,6 +176,16 @@ impl ThumbDecoder {
             ));
         };
         let mut insn = Aarch32Decoder::decode(a32)?;
+        // VFP block transfers permit a PC base only in ARM without writeback.
+        // The common ARM decoder has already checked all list constraints.
+        if (a32 >> 16) & 15 == 15
+            && matches!(
+                insn.mnemonic,
+                Mnemonic::VLDM | Mnemonic::VSTM | Mnemonic::VPUSH | Mnemonic::VPOP
+            )
+        {
+            insn = DecodedInsn::new(Mnemonic::UNDEFINED, ExecutionState::Thumb2, raw, 4);
+        }
         insn.raw = raw;
         insn.state = ExecutionState::Thumb2;
         insn.size = 4;

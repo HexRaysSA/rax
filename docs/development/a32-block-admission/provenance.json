@@ -1,0 +1,62 @@
+{
+  "utc": "2026-11-03T14:53:13.519991+00:00",
+  "manufacturer_pdf": {
+    "path": "docs/specifications/arm/aarch32-isa-2025-03.pdf",
+    "document": "Arm DDI0597 ID032025,2025-03",
+    "sha256": "29b5436067ef93655c2a62b3886ba45ca6772f4b4ad30e9d28b33b00bf2a9dda",
+    "sections": {
+      "VLDM": {
+        "printed_first": 1033,
+        "pdf_first": 1036,
+        "pdf_decode_and_operation": [
+          1036,
+          1037,
+          1038,
+          1039
+        ]
+      },
+      "VSTM": {
+        "printed_first": 1413,
+        "pdf_first": 1416,
+        "pdf_decode_and_operation": [
+          1416,
+          1417,
+          1418,
+          1419
+        ]
+      },
+      "VPOP": {
+        "printed_first": 1191,
+        "pdf_first": 1194
+      },
+      "VPUSH": {
+        "printed_first": 1193,
+        "pdf_first": 1196
+      }
+    },
+    "verified_rules": "Decode list/base constraints precede CheckVFPEnabled; Undefined is an explicitly permitted constrained-unpredictable outcome for zero/oversized/overflowing lists. T32 excludes PC bases; ARM permits PC only without writeback."
+  },
+  "asl": {
+    "path": "docs/architecture/arm/asl/arm_instrs.asl",
+    "sha256": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+    "revision": "unknown; exact existing bytes pinned",
+    "symbols": [
+      {
+        "symbol": "__instruction aarch32_VLDM_A",
+        "line": 63381
+      },
+      {
+        "symbol": "__instruction aarch32_VLDM_A",
+        "line": 67644
+      },
+      {
+        "symbol": "__instruction aarch32_VSTM_A",
+        "line": 73244
+      },
+      {
+        "symbol": "__instruction aarch32_VSTM_A",
+        "line": 77563
+      }
+    ]
+  }
+}
