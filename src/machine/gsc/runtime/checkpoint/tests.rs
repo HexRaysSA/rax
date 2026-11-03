@@ -505,3 +505,59 @@ fn in_flight_tpm_call_restores_saved_return_frame_before_terminal_exit() {
         assert_eq!(cpu.cpu.csr_read(0x304).unwrap(), 0x80);
     }
 }
+
+#[test]
+fn gsc_physical_reservations_capture_validity_and_publish_after_ram() {
+    for expired in [false, true] {
+        let mut src = source();
+        src.bridge
+            .mem
+            .write_slice(
+                &[0x1005_22afu32, 0x1855_25af]
+                    .iter()
+                    .flat_map(|w| w.to_le_bytes())
+                    .collect::<Vec<_>>(),
+                GuestAddress(CODE),
+            )
+            .unwrap();
+        src.cpu.set_x(10, 0x800);
+        src.bridge
+            .mem
+            .write_obj(0x1234_5678u32, GuestAddress(0x800))
+            .unwrap();
+        assert!(src.step_insn().unwrap().is_none());
+        if expired {
+            crate::vm::memory::reservations::write(
+                &src.bridge.mem,
+                0x800,
+                &0x1234_5678u32.to_le_bytes(),
+            )
+            .unwrap();
+        }
+        let target = GscVcpu::new_checkpoint_target(0, src.bridge.mem.clone()).unwrap();
+        let mut candidate = prepared(&src, &target);
+        assert_eq!(candidate.bridge.exclusive.get(), None);
+        publish(&candidate);
+        assert!(candidate.step_insn().unwrap().is_none());
+        assert_eq!(candidate.cpu.x(11) != 0, expired);
+    }
+}
+
+#[test]
+fn gsc_legacy_active_reservations_reject_without_invented_width() {
+    for active in [false, true] {
+        let mut src = source();
+        src.bridge
+            .mem
+            .write_slice(&0x1005_22afu32.to_le_bytes(), GuestAddress(CODE))
+            .unwrap();
+        src.cpu.set_x(10, 0x800);
+        if active {
+            src.step_insn().unwrap();
+        }
+        let image = Image::capture(&src).unwrap();
+        let mut legacy = b"RAXGSI01".to_vec();
+        legacy.extend(crate::codec::serialize(&image).unwrap());
+        assert_eq!(Image::decode(&legacy).is_err(), active);
+    }
+}

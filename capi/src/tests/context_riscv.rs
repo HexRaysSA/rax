@@ -230,3 +230,116 @@ fn riscv64_header_rejects_a_consistent_rv32_private_profile_without_publication(
     rax_engine_close(source);
     rax_engine_close(target);
 }
+
+#[test]
+fn riscv_register_updates_preserve_live_reservations_in_both_modes() {
+    for mode in [0, RAX_MODE_USER] {
+        let engine = open(mode, 0);
+        unsafe {
+            write(
+                engine,
+                0x100,
+                &[0xaf, 0x22, 0x05, 0x10, 0xaf, 0x25, 0x55, 0x18],
+            );
+            assert_eq!(
+                rax_reg_write_u64(engine, RISCV_X0 + 10, 0x800),
+                RaxStatus::Ok
+            );
+            assert_eq!(
+                rax_emu_start(engine, 0x100, RAX_NO_ADDR, 0, 1),
+                RaxStatus::Ok
+            );
+            assert_eq!(
+                rax_reg_write_u64(engine, RISCV_X0 + 13, 0x42),
+                RaxStatus::Ok
+            );
+            assert_eq!(
+                rax_emu_start(engine, 0x104, RAX_NO_ADDR, 0, 1),
+                RaxStatus::Ok
+            );
+            assert_eq!(rd_u64(engine, RISCV_X0 + 11), 0);
+        }
+        rax_engine_close(engine);
+    }
+}
+
+#[test]
+fn riscv_same_value_host_write_after_remap_stays_invalid_after_restore() {
+    for mode in [0, RAX_MODE_USER] {
+        let source = open(mode, 0);
+        let restored = open(mode, 0);
+        unsafe {
+            write(
+                source,
+                0x100,
+                &[0xaf, 0x22, 0x05, 0x10, 0xaf, 0x25, 0x55, 0x18],
+            );
+            write(source, 0x800, &0x1234_5678u32.to_le_bytes());
+            assert_eq!(
+                rax_reg_write_u64(source, RISCV_X0 + 10, 0x800),
+                RaxStatus::Ok
+            );
+            assert_eq!(
+                rax_emu_start(source, 0x100, RAX_NO_ADDR, 0, 1),
+                RaxStatus::Ok
+            );
+            assert_eq!(
+                rax_mem_map(source, 0x8000, 0x1000, RAX_PROT_ALL),
+                RaxStatus::Ok
+            );
+            write(source, 0x800, &0x1234_5678u32.to_le_bytes());
+            let raw = save(source);
+            assert_eq!(
+                rax_context_restore(restored, raw.as_ptr(), raw.len()),
+                RaxStatus::Ok
+            );
+            for engine in [source, restored] {
+                assert_eq!(
+                    rax_emu_start(engine, 0x104, RAX_NO_ADDR, 0, 1),
+                    RaxStatus::Ok
+                );
+                assert_eq!(rd_u64(engine, RISCV_X0 + 11), 1);
+            }
+        }
+        rax_engine_close(source);
+        rax_engine_close(restored);
+    }
+}
+
+#[test]
+fn riscv_unmapping_reserved_bytes_succeeds_without_regranting_rights() {
+    for mode in [0, RAX_MODE_USER] {
+        let engine = open(mode, 0);
+        unsafe {
+            write(
+                engine,
+                0x100,
+                &[0xaf, 0x22, 0x05, 0x10, 0xaf, 0x25, 0x55, 0x18],
+            );
+            assert_eq!(
+                rax_reg_write_u64(engine, RISCV_X0 + 10, 0x800),
+                RaxStatus::Ok
+            );
+            assert_eq!(
+                rax_emu_start(engine, 0x100, RAX_NO_ADDR, 0, 1),
+                RaxStatus::Ok
+            );
+            assert_eq!(rax_mem_unmap(engine, 0, 0x1000), RaxStatus::Ok);
+            assert_eq!(rax_mem_map(engine, 0, 0x1000, RAX_PROT_ALL), RaxStatus::Ok);
+            write(engine, 0x104, &0x1855_25afu32.to_le_bytes());
+            write(engine, 0x800, &0x9999_9999u32.to_le_bytes());
+            assert_eq!(
+                rax_emu_start(engine, 0x104, RAX_NO_ADDR, 0, 1),
+                RaxStatus::Ok
+            );
+            assert_eq!(rd_u64(engine, RISCV_X0 + 11), 1);
+            let mut bytes = [0; 4];
+            assert_eq!(
+                rax_mem_read(engine, 0x800, bytes.as_mut_ptr(), 4),
+                RaxStatus::Ok
+            );
+            assert_eq!(u32::from_le_bytes(bytes), 0x9999_9999);
+        }
+        rax_engine_close(engine);
+    }
+}

@@ -196,7 +196,7 @@ pub struct RiscVCpu {
     fcsr: u32,
     /// Current privilege level.
     priv_: Priv,
-    /// LR/SC reservation address (single-hart model).
+    /// Most recent LR virtual address; shared backing monitors own validity.
     reservation: Option<u64>,
 
     // ---- machine-mode trap CSRs (subset) ----
@@ -341,7 +341,7 @@ impl RiscVCpu {
         self.pc = entry;
         self.fcsr = 0;
         self.priv_ = Priv::Machine;
-        self.reservation = None;
+        self.clear_reservation();
         self.mstatus = 0;
         self.mtvec = 0;
         self.mepc = 0;

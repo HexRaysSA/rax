@@ -7,6 +7,8 @@
 
 use std::fmt::Debug;
 
+pub(crate) mod shared;
+
 /// Result of a memory access.
 pub type MemResult<T> = Result<T, MemError>;
 
@@ -54,6 +56,27 @@ pub trait Memory: Debug + Send {
         let mut discarded = vec![0; size];
         self.read(addr, &mut discarded)
     }
+
+    /// Read an LR operand and establish its reservation as one transaction.
+    /// The default is for private memory; shared implementations must override
+    /// this hook and `store_conditional` using the backing's writer domain.
+    fn load_reserved(&mut self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
+        self.read(addr, buf)
+    }
+
+    /// Check store permissions even for a failed SC. `eligible` represents the
+    /// core's most recent LR address; shared memory additionally checks its
+    /// physical reservation, consumes it, and publishes the store indivisibly.
+    fn store_conditional(&mut self, addr: u64, data: &[u8], eligible: bool) -> MemResult<bool> {
+        self.probe(addr, data.len(), true)?;
+        if eligible {
+            self.write(addr, data)?;
+        }
+        Ok(eligible)
+    }
+
+    /// Withdraw a backing reservation on reset or an embedder context switch.
+    fn clear_reservation(&mut self) {}
 
     /// Fetch a little-endian instruction parcel.
     ///

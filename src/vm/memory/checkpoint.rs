@@ -106,6 +106,11 @@ pub struct CheckpointPublication<'bindings> {
 enum Activation {
     None,
     Detached(Arc<AtomicBool>),
+    Memory {
+        monitor: Monitor,
+        reservation: Option<Reservation>,
+        completed: Arc<AtomicBool>,
+    },
     S3c {
         uart: Option<(usize, S3cUart)>,
         resume_epoch: Option<Arc<OnceLock<crate::vm::timing::ClockEpoch>>>,
@@ -128,6 +133,37 @@ pub struct CpuPublication<'scope, 'bindings> {
 }
 
 impl<'bindings> CheckpointPublication<'bindings> {
+    pub(crate) fn capture_reservation(&self, monitor: &Monitor) -> Result<Option<Reservation>> {
+        if !self.memory.borrow().owns(monitor) {
+            return Err(Error::InvalidConfig(
+                "checkpoint reservation memory binding differs".into(),
+            ));
+        }
+        Ok(monitor.get())
+    }
+
+    pub(crate) fn prepare_memory(
+        &self,
+        monitor: Monitor,
+        reservation: Option<Reservation>,
+        completed: Arc<AtomicBool>,
+    ) -> Result<CpuPublication<'_, 'bindings>> {
+        let memory = self.memory.borrow();
+        if !memory.owns(&monitor) || reservation.is_some_and(|value| !memory.admits(value)) {
+            return Err(Error::InvalidConfig(
+                "checkpoint reservation binding or range differs".into(),
+            ));
+        }
+        Ok(CpuPublication {
+            scope: self,
+            activation: Activation::Memory {
+                monitor,
+                reservation,
+                completed,
+            },
+        })
+    }
+
     /// CPU-owned state needs no shared controller setter, but entry must wait
     /// until the caller has published restored RAM at this stopped boundary.
     pub(crate) fn prepare_detached(
@@ -289,6 +325,16 @@ impl CpuPublication<'_, '_> {
         match self.activation {
             Activation::None => {}
             Activation::Detached(completed) => completed.store(true, Ordering::Release),
+            Activation::Memory {
+                monitor,
+                reservation,
+                completed,
+            } => {
+                if !completed.load(Ordering::Acquire) {
+                    self.scope.memory.borrow().restore(&monitor, reservation);
+                    completed.store(true, Ordering::Release);
+                }
+            }
             Activation::S3c {
                 uart,
                 resume_epoch,

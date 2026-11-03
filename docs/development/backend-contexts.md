@@ -132,8 +132,8 @@ The first whole-suite run passed 193 tests and failed an older system-format
 assertion; that assertion now expects format 5 while the user-context behavior
 remains exercised. Exact validation receipts are recorded in the audit ledger.
 
-RISC-V producer kind 3 (`RAXRV001`) adds the configured interpreter profile,
-reservation, raw counters, complete represented hart state and ordered pending
+RISC-V producer kind 3 (`RAXRV002`; inactive legacy `RAXRV001` import) adds the configured interpreter profile,
+physical reservation width/validity, raw counters, complete represented hart state and ordered pending
 adapter events. See [RISC-V backend contexts](riscv-backend-context.md) for its
 binding, admission, C API format-6 compatibility and validation boundaries.
 

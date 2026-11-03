@@ -28,10 +28,40 @@ const SCOUNTEREN_TIME_ONLY: u64 = 0b010;
 #[derive(Debug)]
 pub struct UserRiscVMemory {
     space: AddressSpace,
+    exclusive: crate::vm::memory::reservations::Monitor,
     last_fault: Arc<Mutex<Option<GuestMemoryFault>>>,
 }
 
 impl UserRiscVMemory {
+    fn load(&self, addr: u64, buf: &mut [u8], access: MemoryAccessKind) -> MemResult<()> {
+        let mut done = 0;
+        while done < buf.len() {
+            let address = addr.checked_add(done as u64).ok_or(MemError::OutOfBounds {
+                addr,
+                size: buf.len(),
+            })?;
+            let size = ((4096 - (address & 4095)) as usize).min(buf.len() - done);
+            let physical = self
+                .space
+                .translate(address, access)
+                .map_err(|fault| self.fail(fault, buf.len() - done))?;
+            self.exclusive
+                .read(
+                    self.space.physical_memory(),
+                    physical,
+                    &mut buf[done..done + size],
+                )
+                .map_err(|_| {
+                    self.fail(
+                        GuestMemoryFault::unmapped(address, size, access),
+                        buf.len() - done,
+                    )
+                })?;
+            done += size;
+        }
+        Ok(())
+    }
+
     fn fail(&self, fault: GuestMemoryFault, size: usize) -> MemError {
         *self.last_fault.lock().unwrap() = Some(fault);
         MemError::OutOfBounds {
@@ -42,10 +72,51 @@ impl UserRiscVMemory {
 }
 
 impl Memory for UserRiscVMemory {
+    fn load_reserved(&mut self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
+        let result = self
+            .space
+            .translate(addr, MemoryAccessKind::Read)
+            .map_err(|fault| self.fail(fault, buf.len()))
+            .and_then(|physical| {
+                crate::isa::riscv::memory::shared::load(
+                    self.space.physical_memory(),
+                    &self.exclusive,
+                    physical,
+                    buf,
+                )
+            });
+        if result.is_err() {
+            self.exclusive.clear();
+        }
+        result
+    }
+
+    fn store_conditional(&mut self, addr: u64, data: &[u8], eligible: bool) -> MemResult<bool> {
+        let result = self
+            .space
+            .translate(addr, MemoryAccessKind::Write)
+            .map_err(|fault| self.fail(fault, data.len()))
+            .and_then(|physical| {
+                crate::isa::riscv::memory::shared::store(
+                    self.space.physical_memory(),
+                    &self.exclusive,
+                    physical,
+                    data,
+                    eligible,
+                )
+            });
+        if result.is_err() {
+            self.exclusive.clear();
+        }
+        result
+    }
+
+    fn clear_reservation(&mut self) {
+        self.exclusive.clear();
+    }
+
     fn read(&self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
-        self.space
-            .read(addr, buf)
-            .map_err(|f| self.fail(f, buf.len()))
+        self.load(addr, buf, MemoryAccessKind::Read)
     }
 
     fn write(&mut self, addr: u64, data: &[u8]) -> MemResult<()> {
@@ -67,9 +138,7 @@ impl Memory for UserRiscVMemory {
 
     fn fetch_u16(&self, addr: u64) -> MemResult<u16> {
         let mut b = [0u8; 2];
-        self.space
-            .fetch(addr, &mut b)
-            .map_err(|f| self.fail(f, 2))?;
+        self.load(addr, &mut b, MemoryAccessKind::Fetch)?;
         Ok(u16::from_le_bytes(b))
     }
 }
@@ -126,6 +195,10 @@ impl RvUserCpu {
         let last_fault = Arc::new(Mutex::new(None));
         let memory = UserRiscVMemory {
             space: space.clone(),
+            exclusive: crate::vm::memory::reservations::MemoryDomain::for_memory(
+                space.physical_memory(),
+            )
+            .register(),
             last_fault: last_fault.clone(),
         };
         let mut cpu = RiscVCpu::new(config, Box::new(memory));
@@ -341,5 +414,59 @@ impl RvUserCpu {
                 trap.tval
             )),
         }
+    }
+}
+
+#[cfg(test)]
+mod reservation_tests {
+    use super::*;
+    use crate::user::mm::{Mapping, Perms, SpaceConfig};
+
+    fn memory() -> UserRiscVMemory {
+        let space = AddressSpace::new(SpaceConfig {
+            va_limit: 1 << 32,
+            arena_bytes: 16 * 4096,
+            reserved_phys: Vec::new(),
+        })
+        .unwrap();
+        space
+            .map(0x1000, 4096, Mapping::anonymous(Perms::READ | Perms::WRITE))
+            .unwrap();
+        space.write(0x1000, &0x1234_5678u64.to_le_bytes()).unwrap();
+        UserRiscVMemory {
+            exclusive: crate::vm::memory::reservations::MemoryDomain::for_memory(
+                space.physical_memory(),
+            )
+            .register(),
+            space,
+            last_fault: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    #[test]
+    fn translated_process_writers_invalidate_same_value_reservations() {
+        for size in [4, 8] {
+            let mut mem = memory();
+            let mut bytes = vec![0; size];
+            mem.load_reserved(0x1000, &mut bytes).unwrap();
+            mem.space.write(0x1000, &bytes).unwrap();
+            assert!(!mem.store_conditional(0x1000, &bytes, true).unwrap());
+            mem.load_reserved(0x1000, &mut bytes).unwrap();
+            assert!(mem.store_conditional(0x1000, &bytes, true).unwrap());
+            assert!(!mem.store_conditional(0x1000, &bytes, true).unwrap());
+        }
+    }
+
+    #[test]
+    fn failed_process_sc_checks_store_permission_and_consumes_reservation() {
+        let mut mem = memory();
+        mem.space
+            .map(0x2000, 4096, Mapping::anonymous(Perms::READ))
+            .unwrap();
+        let mut bytes = [0; 4];
+        mem.load_reserved(0x1000, &mut bytes).unwrap();
+        assert!(mem.store_conditional(0x2000, &bytes, false).is_err());
+        assert_eq!(mem.last_fault.lock().unwrap().unwrap().address, 0x2000);
+        assert!(!mem.store_conditional(0x1000, &bytes, true).unwrap());
     }
 }

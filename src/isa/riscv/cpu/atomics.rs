@@ -24,41 +24,30 @@ impl RiscVCpu {
         }
         match insn.op {
             Op::LrW => {
-                let v = self
-                    .mem
-                    .read_u32(addr)
+                let mut bytes = [0; 4];
+                self.mem
+                    .load_reserved(addr, &mut bytes)
                     .map_err(|_| acc_fault(false, addr))?;
+                let v = u32::from_le_bytes(bytes);
                 self.reservation = Some(addr);
                 self.set_x(insn.rd, v as i32 as i64 as u64);
             }
             Op::LrD => {
-                let v = self
-                    .mem
-                    .read_u64(addr)
+                let mut bytes = [0; 8];
+                self.mem
+                    .load_reserved(addr, &mut bytes)
                     .map_err(|_| acc_fault(false, addr))?;
+                let v = u64::from_le_bytes(bytes);
                 self.reservation = Some(addr);
                 self.set_x(insn.rd, v);
             }
             Op::ScW | Op::ScD => {
-                let ok = self.reservation == Some(addr);
-                self.reservation = None;
-                if ok {
-                    if is_d {
-                        self.mem
-                            .write_u64(addr, self.x(insn.rs2))
-                            .map_err(|_| acc_fault(true, addr))?;
-                    } else {
-                        self.mem
-                            .write_u32(addr, self.x(insn.rs2) as u32)
-                            .map_err(|_| acc_fault(true, addr))?;
-                    }
-                } else {
-                    // A failed SC generates no store operation, but it still
-                    // must pass the addressed range's memory-permission check.
-                    self.mem
-                        .probe(addr, size, true)
-                        .map_err(|_| acc_fault(true, addr))?;
-                }
+                let eligible = self.reservation.take() == Some(addr);
+                let data = self.x(insn.rs2).to_le_bytes();
+                let ok = self
+                    .mem
+                    .store_conditional(addr, &data[..size], eligible)
+                    .map_err(|_| acc_fault(true, addr))?;
                 self.set_x(insn.rd, if ok { 0 } else { 1 });
             }
             _ => unreachable!(),

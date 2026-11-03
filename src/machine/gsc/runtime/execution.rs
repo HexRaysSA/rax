@@ -28,8 +28,10 @@ impl GscVcpu {
         ready.extend(parse_ready_env());
         let pc_cell = Arc::new(AtomicU64::new(0));
         let time_cell = Arc::new(AtomicU64::new(0));
+        let exclusive = crate::vm::memory::reservations::MemoryDomain::for_memory(&mem).register();
         let bridge = GscBridge {
             mem,
+            exclusive,
             shared: shared.clone(),
             ap_flash: load_ap_flash_from_env(),
             cfg,
@@ -44,6 +46,7 @@ impl GscVcpu {
             cpu,
             bridge,
             checkpoint_publication: None,
+            checkpoint_reservation: None,
             shared,
             cfg,
             halted: false,

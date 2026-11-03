@@ -1,0 +1,32 @@
+{
+  "compiler_argv": [
+    "rustc",
+    "--edition=2024",
+    "--test",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/partial-view-witness.rs",
+    "--extern",
+    "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+    "--extern",
+    "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+    "-L",
+    "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+    "-o",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/partial-view-witness-v6"
+  ],
+  "compiler_exit": 0,
+  "compiler_stdout": "",
+  "compiler_stderr": "",
+  "rlib_path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+  "rlib_sha256": "14dad25aac156d8360ae9c34f4f97d9339f6765bd570f55fffe0f29e8620d89d",
+  "source_sha256": "e3c9620065faa8a495d4820b91f9233927c297952cb52ab8c48546988a7dac22",
+  "host_page_bytes": 16384,
+  "argv": [
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/partial-view-witness-v6",
+    "--nocapture"
+  ],
+  "exit_code": 0,
+  "stdout": "\nrunning 1 test\ntest a_larger_view_invalidates_the_same_physical_word_in_a_subview ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+  "stderr": "",
+  "exe_sha256": "4ee50b16202a56fa3acee94ddf9f33dbbaa95389a7b4ecca6059fff1b03481d6",
+  "rlib_unchanged": true
+}

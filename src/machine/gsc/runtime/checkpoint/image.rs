@@ -2,7 +2,9 @@
 use super::*;
 use crate::isa::riscv::cpu::checkpoint::CoreContext;
 use serde::{Deserialize, Serialize};
-const IMAGE_TAG: &[u8; 8] = b"RAXGSI01";
+const IMAGE_TAG: &[u8; 8] = b"RAXGSI02";
+const LEGACY_IMAGE_TAG: &[u8; 8] = b"RAXGSI01";
+use crate::vm::memory::reservations::Reservation;
 const ROWS: usize = 65536;
 fn data<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Vec<u8>, D::Error> {
     crate::devices::checkpoint_serde::vector::<u8, D, MAX_STATE>(d)
@@ -244,6 +246,8 @@ pub(super) struct Image {
     pc: u64,
     time: u64,
     crypto_trace: bool,
+    #[serde(skip)]
+    reservation: Option<Reservation>,
 }
 impl Image {
     pub(super) fn empty(id: u32) -> Result<Self> {
@@ -281,6 +285,7 @@ impl Image {
             pc: 0,
             time: 0,
             crypto_trace: false,
+            reservation: None,
             cfg: cfg,
             halted: false,
             reset_entry: 0,
@@ -342,9 +347,11 @@ impl Image {
             entropy_state,
             bridge,
             checkpoint_publication: _,
+            checkpoint_reservation: _,
         } = source;
         let GscBridge {
             mem: _,
+            exclusive: _,
             shared: _,
             ap_flash: _,
             cfg: _,
@@ -371,9 +378,15 @@ impl Image {
         }
         let mut ready: Vec<_> = bridge.ready.iter().map(|(&k, &v)| (k, v)).collect();
         ready.sort_unstable_by_key(|v| v.0);
+        let reservation = bridge.exclusive.get();
+        let mut core = cpu.checkpoint_state();
+        if reservation.is_none() {
+            core.discard_reservation();
+        }
         let image = Self {
             id: *id,
-            cpu: cpu.checkpoint_state(),
+            cpu: core,
+            reservation,
             shared: SharedImage::capture(&sh)?,
             bridge_cfg: bridge.cfg,
             ready,
@@ -411,6 +424,14 @@ impl Image {
     }
     fn validate(&self) -> Result<()> {
         self.cpu.validate().map_err(invalid)?;
+        if self.reservation.is_some_and(|r| !r.valid() || r.size != 4)
+            || self.reservation.is_some() != self.cpu.reservation_address().is_some()
+            || self
+                .reservation
+                .is_some_and(|r| Some(r.address) != self.cpu.reservation_address())
+        {
+            return Err(invalid("physical reservation and core LR state differ"));
+        }
         if self.cpu.configuration() != RiscVConfig::rv32(Isa::ti50()) {
             return Err(invalid("core ISA profile differs"));
         }
@@ -438,17 +459,34 @@ impl Image {
         self.shared.validate()
     }
     pub(super) fn encode(&self) -> Result<Vec<u8>> {
-        let raw = crate::codec::serialize_limited(self, MAX_STATE - 8).map_err(invalid)?;
+        let raw = crate::codec::serialize_limited(&(self.reservation, self), MAX_STATE - 8)
+            .map_err(invalid)?;
         let mut out = IMAGE_TAG.to_vec();
         out.extend_from_slice(&raw);
         Ok(out)
     }
     pub(super) fn decode(raw: &[u8]) -> Result<Self> {
-        if raw.len() > MAX_STATE || !raw.starts_with(IMAGE_TAG) {
-            return Err(invalid("invalid state resource tag/size"));
+        if raw.len() > MAX_STATE {
+            return Err(invalid("invalid state resource size"));
         }
-        let image: Self = crate::codec::deserialize_limited::<_, { MAX_STATE - 8 }>(&raw[8..])
-            .map_err(invalid)?;
+        let image: Self = if raw.starts_with(IMAGE_TAG) {
+            let (reservation, mut image): (Option<Reservation>, Self) =
+                crate::codec::deserialize_limited::<_, { MAX_STATE - 8 }>(&raw[8..])
+                    .map_err(invalid)?;
+            image.reservation = reservation;
+            image
+        } else if raw.starts_with(LEGACY_IMAGE_TAG) {
+            let image: Self = crate::codec::deserialize_limited::<_, { MAX_STATE - 8 }>(&raw[8..])
+                .map_err(invalid)?;
+            if image.cpu.reservation_address().is_some() {
+                return Err(invalid(
+                    "legacy active LR reservation lacks width and shared invalidation state",
+                ));
+            }
+            image
+        } else {
+            return Err(invalid("invalid state resource tag"));
+        };
         image.validate()?;
         Ok(image)
     }
@@ -460,8 +498,10 @@ impl Image {
         let shared = Arc::new(Mutex::new(self.shared.install()?));
         let pc_cell = Arc::new(AtomicU64::new(self.pc));
         let time_cell = Arc::new(AtomicU64::new(self.time));
+        let exclusive = crate::vm::memory::reservations::MemoryDomain::for_memory(&mem).register();
         let bridge = GscBridge {
             mem,
+            exclusive,
             shared: shared.clone(),
             ap_flash,
             cfg: self.bridge_cfg,
@@ -480,6 +520,7 @@ impl Image {
             time_cell,
             bridge,
             checkpoint_publication: None,
+            checkpoint_reservation: self.reservation,
             cfg: self.cfg,
             halted: self.halted,
             reset_entry: self.reset_entry,

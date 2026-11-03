@@ -572,6 +572,30 @@ pub trait VCpu: Send {
         self.capture_backend_context()
     }
 
+    /// Capture private state for a particular reconstructed address map.
+    /// Backends may discard rights whose physical backing is replaced/removed.
+    fn capture_backend_context_for_mapping(
+        &self,
+        _memory: &vm_memory::GuestMemoryMmap,
+    ) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        self.capture_backend_context_for_remap()
+    }
+
+    /// Retain a live source witness until an embedding mapping transaction has
+    /// admitted its replacement CPU. This witness is never serialized.
+    fn mapping_reservation(&self) -> Option<crate::vm::memory::MappingReservation> {
+        None
+    }
+
+    /// Reconcile the replacement with intervening source writers before it is
+    /// exposed by the embedder. The default has no reservation transfer.
+    fn reconcile_mapping_reservation(
+        &mut self,
+        _source: &crate::vm::memory::MappingReservation,
+    ) -> Result<()> {
+        Ok(())
+    }
+
     /// Owned controllers that must be locked before freezing physical memory.
     fn checkpoint_owned_gics(
         &self,

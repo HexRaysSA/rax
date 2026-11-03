@@ -65,6 +65,7 @@ impl GscVcpu {
     pub(super) fn finish_publication(&mut self) -> Result<()> {
         self.check_publication()?;
         self.checkpoint_publication = None;
+        self.checkpoint_reservation = None;
         Ok(())
     }
     pub(super) fn checkpoint_parts(&self) -> Result<(BackendContext, Vec<CheckpointResource>)> {
@@ -135,9 +136,11 @@ impl GscVcpu {
         scope: &'scope CheckpointPublication<'bindings>,
     ) -> Result<CpuPublication<'scope, 'bindings>> {
         match &self.checkpoint_publication {
-            Some(done) if !done.load(Ordering::Acquire) => {
-                scope.prepare_detached(&self.bridge.mem, done.clone())
-            }
+            Some(done) if !done.load(Ordering::Acquire) => scope.prepare_memory(
+                self.bridge.exclusive.clone(),
+                self.checkpoint_reservation,
+                done.clone(),
+            ),
             _ => Ok(scope.empty()),
         }
     }

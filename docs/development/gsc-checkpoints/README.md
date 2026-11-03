@@ -19,7 +19,7 @@ reopening is not claimed as a RAX defect.
 | --- | --- |
 | Backend producer | Kind 10, tag `RAXGSC01` |
 | Descriptor | 8-byte tag + 4-byte CPU ID + two 44-byte keys = 100 bytes |
-| State resource | Kind 3, tag `RAXGSI01`, at most 67,108,864 bytes including tag |
+| State resource | Kind 3, current tag `RAXGSI02`, at most 67,108,864 bytes including tag |
 | Immutable AP flash | Kind 4; full captured bytes, including a legitimate empty image |
 | Resource identity | Kind, byte length and SHA-256; existing aggregate resource/RAM/media bound applies |
 | Resource framing | Existing `RAXRES01`; older readers reject the new unknown kinds |
@@ -82,3 +82,14 @@ graph; external raw RAM writers retain the existing caller-quiescence requiremen
 Canonical capture costs O(S + E log E) time and O(S + E) space for S state bytes
 and E entries. Resource hashing is linear in captured byte length. No physical
 time or hard host-time bound is inferred. All four full audit findings remain open.
+
+
+The current `RAXGSI02` image prefixes the frozen state body with a separately
+versioned physical reservation token. `RAXGSI01` imports remain accepted when no
+LR is active; ambiguous active address-only reservations reject before live
+mutation. RAM, flash programming/erase and synthetic ROM writes participate in
+the shared invalidation boundary. The incoming token publishes after matching
+RAM restoration; cancellation cannot activate a detached CPU. The descriptor
+`RAXGSC01` and resource kinds are unchanged. Current reservation validation is
+recorded in [shared reservations](../riscv-shared-reservations/README.md); the
+earlier table above retains its original qualification counts.

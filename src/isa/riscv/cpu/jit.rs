@@ -1038,7 +1038,7 @@ unsafe fn jit_load_exclusive_impl(ctx: u64, addr: u64, size: u64) -> RiscVAtomic
     }
     let mut bytes = [0u8; 8];
     if unsafe { context.memory() }
-        .read(addr, &mut bytes[..size as usize])
+        .load_reserved(addr, &mut bytes[..size as usize])
         .is_err()
     {
         context.record_fault(cause::LOAD_ACCESS_FAULT, addr);
@@ -1065,18 +1065,21 @@ unsafe fn jit_store_exclusive_impl(
         context.record_fault(cause::STORE_MISALIGNED, addr);
         return RiscVAtomicResult::default();
     }
-    let succeeds = unsafe { context.reservation().take() == Some(addr) };
-    let access = if succeeds {
-        unsafe { context.memory() }.write(addr, &value.to_le_bytes()[..size as usize])
-    } else {
-        // A failed RISC-V SC generates no store, but it must still pass the
-        // store address's memory-permission check before reporting failure.
-        unsafe { context.memory() }.probe(addr, size as usize, true)
+    let eligible = unsafe { context.reservation().take() == Some(addr) };
+    // SAFETY: the stack-owned JIT context retains the CPU's exclusive memory
+    // borrow until this synchronous native region returns.
+    let access = unsafe { context.memory() }.store_conditional(
+        addr,
+        &value.to_le_bytes()[..size as usize],
+        eligible,
+    );
+    let succeeds = match access {
+        Ok(succeeds) => succeeds,
+        Err(_) => {
+            context.record_fault(cause::STORE_ACCESS_FAULT, addr);
+            return RiscVAtomicResult::default();
+        }
     };
-    if access.is_err() {
-        context.record_fault(cause::STORE_ACCESS_FAULT, addr);
-        return RiscVAtomicResult::default();
-    }
     RiscVAtomicResult {
         value: u64::from(succeeds),
         access_success: 1,
@@ -1086,6 +1089,8 @@ unsafe fn jit_store_exclusive_impl(
 unsafe fn jit_clear_exclusive_impl(ctx: u64) {
     if let Some(context) = unsafe { JitContext::from_abi(ctx) } {
         unsafe { *context.reservation() = None };
+        // SAFETY: this synchronous helper owns the context's memory borrow.
+        unsafe { context.memory() }.clear_reservation();
     }
 }
 

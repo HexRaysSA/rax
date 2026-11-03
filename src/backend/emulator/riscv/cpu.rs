@@ -30,7 +30,11 @@ use crate::error::{Error, GuestMemoryFault, MemoryAccessKind, Result};
 use crate::isa::riscv::cpu::{Priv, cause};
 use crate::isa::riscv::{MemError, MemResult, Memory, RiscVConfig, RiscVCpu, RiscVExit};
 use crate::vm::memory::FlatTranslation;
+use crate::vm::memory::reservations::{MemoryDomain, Monitor};
+#[path = "cpu_reservations.rs"]
+mod reservations;
 use crate::vm::vcpu::{CpuState, MemAccess, VCpu, VcpuExit};
+use reservations::overlaps_uart;
 
 /// 16550 UART MMIO base/length (matches `RiscvVirtMachine::serial_mmio_base`).
 const UART_BASE: u64 = 0x1000_0000;
@@ -56,6 +60,7 @@ type EventSink = Arc<Mutex<VecDeque<PendingEvent>>>;
 /// intercepted.
 struct GuestBridge {
     mem: Arc<GuestMemoryMmap>,
+    exclusive: Monitor,
     pending: EventSink,
     tohost_addr: Arc<Mutex<Option<u64>>>,
     /// The bare-metal machine's UART window and HTIF `tohost` port. An
@@ -80,6 +85,7 @@ fn in_uart(addr: u64) -> bool {
 /// inaccessible byte of a failed access is recorded for the vCPU.
 struct UserBridge {
     mem: Arc<GuestMemoryMmap>,
+    exclusive: Monitor,
     translation: Arc<dyn FlatTranslation>,
     last_fault: Arc<Mutex<Option<GuestMemoryFault>>>,
 }
@@ -125,8 +131,8 @@ impl UserBridge {
     fn load(&self, addr: u64, buf: &mut [u8], access: MemoryAccessKind) -> MemResult<()> {
         let len = buf.len();
         self.pages(addr, len, access, |target, range| {
-            self.mem
-                .read_slice(&mut buf[range.clone()], GuestAddress(target))
+            self.exclusive
+                .read(&self.mem, target, &mut buf[range.clone()])
                 .map_err(|_| {
                     self.fail(
                         GuestMemoryFault::unmapped(target, range.end - range.start, access),
@@ -138,6 +144,40 @@ impl UserBridge {
 }
 
 impl Memory for UserBridge {
+    fn load_reserved(&mut self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
+        let result = self
+            .reserved_address(addr, buf.len(), MemoryAccessKind::Read)
+            .and_then(|physical| {
+                crate::isa::riscv::memory::shared::load(&self.mem, &self.exclusive, physical, buf)
+            });
+        if result.is_err() {
+            self.exclusive.clear();
+        }
+        result
+    }
+
+    fn store_conditional(&mut self, addr: u64, data: &[u8], eligible: bool) -> MemResult<bool> {
+        let result = self
+            .reserved_address(addr, data.len(), MemoryAccessKind::Write)
+            .and_then(|physical| {
+                crate::isa::riscv::memory::shared::store(
+                    &self.mem,
+                    &self.exclusive,
+                    physical,
+                    data,
+                    eligible,
+                )
+            });
+        if result.is_err() {
+            self.exclusive.clear();
+        }
+        result
+    }
+
+    fn clear_reservation(&mut self) {
+        self.exclusive.clear();
+    }
+
     fn probe(&self, addr: u64, size: usize, write: bool) -> MemResult<()> {
         let access = if write {
             MemoryAccessKind::Write
@@ -168,9 +208,8 @@ impl Memory for UserBridge {
         self.probe(addr, data.len(), true)?;
         let len = data.len();
         self.pages(addr, len, MemoryAccessKind::Write, |target, range| {
-            self.mem
-                .write_slice(&data[range.clone()], GuestAddress(target))
-                .map_err(|_| {
+            crate::vm::memory::reservations::write(&self.mem, target, &data[range.clone()]).map_err(
+                |_| {
                     self.fail(
                         GuestMemoryFault::unmapped(
                             target,
@@ -179,7 +218,8 @@ impl Memory for UserBridge {
                         ),
                         len - range.start,
                     )
-                })
+                },
+            )
         })
     }
 
@@ -222,48 +262,8 @@ impl GuestBridge {
     }
 }
 
-impl Memory for GuestBridge {
-    fn probe(&self, addr: u64, size: usize, _write: bool) -> MemResult<()> {
-        if self.is_uart(addr) || self.mem.check_range(GuestAddress(addr), size) {
-            Ok(())
-        } else {
-            Err(MemError::OutOfBounds { addr, size })
-        }
-    }
-
-    fn read(&self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
-        if self.is_uart(addr) {
-            for (i, b) in buf.iter_mut().enumerate() {
-                let off = (addr + i as u64) - UART_BASE;
-                *b = if off == LSR_OFFSET { LSR_THRE_TEMT } else { 0 };
-            }
-            return Ok(());
-        }
-        self.mem
-            .read_slice(buf, GuestAddress(addr))
-            .map_err(|_| MemError::OutOfBounds {
-                addr,
-                size: buf.len(),
-            })
-    }
-
-    fn write(&mut self, addr: u64, data: &[u8]) -> MemResult<()> {
-        if self.is_uart(addr) {
-            self.pending
-                .lock()
-                .unwrap()
-                .push_back(PendingEvent::MmioWrite {
-                    addr,
-                    data: data.to_vec(),
-                });
-            return Ok(());
-        }
-        self.mem
-            .write_slice(data, GuestAddress(addr))
-            .map_err(|_| MemError::OutOfBounds {
-                addr,
-                size: data.len(),
-            })?;
+impl GuestBridge {
+    fn publish_tohost(&self, addr: u64, data: &[u8]) {
         if self.devices_enabled && *self.tohost_addr.lock().unwrap() == Some(addr) {
             let mut raw = [0u8; 8];
             let len = data.len().min(raw.len());
@@ -288,6 +288,88 @@ impl Memory for GuestBridge {
                 self.pending.lock().unwrap().push_back(event);
             }
         }
+    }
+}
+
+impl Memory for GuestBridge {
+    fn load_reserved(&mut self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
+        if self.devices_enabled && overlaps_uart(addr, buf.len()) {
+            self.exclusive.clear();
+            return Err(MemError::OutOfBounds {
+                addr,
+                size: buf.len(),
+            });
+        }
+        crate::isa::riscv::memory::shared::load(&self.mem, &self.exclusive, addr, buf)
+    }
+
+    fn store_conditional(&mut self, addr: u64, data: &[u8], eligible: bool) -> MemResult<bool> {
+        if self.devices_enabled && overlaps_uart(addr, data.len()) {
+            self.exclusive.clear();
+            return Err(MemError::OutOfBounds {
+                addr,
+                size: data.len(),
+            });
+        }
+        let stored = crate::isa::riscv::memory::shared::store(
+            &self.mem,
+            &self.exclusive,
+            addr,
+            data,
+            eligible,
+        )?;
+        if stored {
+            self.publish_tohost(addr, data);
+        }
+        Ok(stored)
+    }
+
+    fn clear_reservation(&mut self) {
+        self.exclusive.clear();
+    }
+
+    fn probe(&self, addr: u64, size: usize, _write: bool) -> MemResult<()> {
+        if self.is_uart(addr) || self.mem.check_range(GuestAddress(addr), size) {
+            Ok(())
+        } else {
+            Err(MemError::OutOfBounds { addr, size })
+        }
+    }
+
+    fn read(&self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
+        if self.is_uart(addr) {
+            for (i, b) in buf.iter_mut().enumerate() {
+                let off = (addr + i as u64) - UART_BASE;
+                *b = if off == LSR_OFFSET { LSR_THRE_TEMT } else { 0 };
+            }
+            return Ok(());
+        }
+        self.exclusive
+            .read(&self.mem, addr, buf)
+            .map_err(|_| MemError::OutOfBounds {
+                addr,
+                size: buf.len(),
+            })
+    }
+
+    fn write(&mut self, addr: u64, data: &[u8]) -> MemResult<()> {
+        if self.is_uart(addr) {
+            self.pending
+                .lock()
+                .unwrap()
+                .push_back(PendingEvent::MmioWrite {
+                    addr,
+                    data: data.to_vec(),
+                });
+            return Ok(());
+        }
+        crate::vm::memory::reservations::write(&self.mem, addr, data).map_err(|_| {
+            MemError::OutOfBounds {
+                addr,
+                size: data.len(),
+            }
+        })?;
+        self.publish_tohost(addr, data);
         Ok(())
     }
 }
@@ -302,6 +384,48 @@ pub struct RiscVVcpu {
     devices_enabled: bool,
     /// Process-level execution in U-mode ([`RiscVVcpu::new_user`]).
     user: Option<RvUser>,
+    physical_memory: Arc<GuestMemoryMmap>,
+    exclusive: Monitor,
+    checkpoint_activation: Option<context::PendingActivation>,
+}
+
+impl RiscVVcpu {
+    fn apply_public_state(&mut self, state: &CpuState) -> Result<()> {
+        self.validate_checkpoint_state(state, &Default::default())?;
+
+        let state = match state {
+            CpuState::RiscV(s) => s,
+            _ => {
+                return Err(Error::Emulator(
+                    "expected riscv state for riscv vCPU".to_string(),
+                ));
+            }
+        };
+        let mut tohost = self.tohost_addr.lock().map_err(|_| {
+            Error::Emulator("RISC-V tohost lock poisoned during restore".to_string())
+        })?;
+        for i in 0..32u8 {
+            self.cpu.set_x(i, state.regs.x[i as usize]);
+            self.cpu.set_f(i, state.regs.f[i as usize]);
+        }
+        self.cpu.set_pc(state.regs.pc);
+        self.cpu.set_fcsr(state.regs.fcsr);
+        *tohost = state.regs.tohost_addr;
+        if let Some(level) = state.regs.privilege {
+            let privilege = RiscVCpu::privilege_from_level(level).ok_or_else(|| {
+                Error::Emulator(format!("invalid RISC-V privilege level {level}"))
+            })?;
+            // A user-mode hart stays in U-mode.
+            if self.user.is_none() {
+                self.cpu.set_privilege(privilege);
+            }
+        }
+        self.cpu.import_csrs(&state.regs.csrs);
+        if let Some(vector) = &state.regs.vector {
+            self.cpu.import_vector(vector).map_err(Error::Emulator)?;
+        }
+        Ok(())
+    }
 }
 
 impl RiscVVcpu {
@@ -323,8 +447,10 @@ impl RiscVVcpu {
     fn build(id: u32, mem: Arc<GuestMemoryMmap>, cfg: RiscVConfig, devices_enabled: bool) -> Self {
         let pending: EventSink = Arc::new(Mutex::new(VecDeque::new()));
         let tohost_addr = Arc::new(Mutex::new(None));
+        let exclusive = MemoryDomain::for_memory(&mem).register();
         let bridge = GuestBridge {
-            mem,
+            mem: mem.clone(),
+            exclusive: exclusive.clone(),
             pending: pending.clone(),
             tohost_addr: tohost_addr.clone(),
             devices_enabled,
@@ -338,6 +464,9 @@ impl RiscVVcpu {
             halted: false,
             devices_enabled,
             user: None,
+            physical_memory: mem,
+            exclusive,
+            checkpoint_activation: None,
         }
     }
 
@@ -359,8 +488,10 @@ impl RiscVVcpu {
         translation: Arc<dyn FlatTranslation>,
     ) -> Self {
         let last_fault = Arc::new(Mutex::new(None));
+        let exclusive = MemoryDomain::for_memory(&mem).register();
         let bridge = UserBridge {
-            mem,
+            mem: mem.clone(),
+            exclusive: exclusive.clone(),
             translation: translation.clone(),
             last_fault: last_fault.clone(),
         };
@@ -373,6 +504,9 @@ impl RiscVVcpu {
             tohost_addr: Arc::new(Mutex::new(None)),
             halted: false,
             devices_enabled: false,
+            physical_memory: mem,
+            exclusive,
+            checkpoint_activation: None,
             user: Some(RvUser {
                 translation,
                 last_fault,
@@ -556,6 +690,80 @@ impl VCpu for RiscVVcpu {
         Some(*self.cpu.config())
     }
 
+    fn capture_backend_context_for_mapping(
+        &self,
+        memory: &GuestMemoryMmap,
+    ) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        Ok(Some(crate::vm::snapshot::BackendContext {
+            kind: crate::vm::snapshot::RISCV_CONTEXT,
+            data: self.context_for_mapping(memory)?,
+        }))
+    }
+
+    fn mapping_reservation(&self) -> Option<crate::vm::memory::MappingReservation> {
+        Some(self.exclusive.mapping_witness())
+    }
+
+    fn reconcile_mapping_reservation(
+        &mut self,
+        source: &crate::vm::memory::MappingReservation,
+    ) -> Result<()> {
+        if !self.exclusive.retain_from(source) {
+            self.cpu.clear_reservation();
+        }
+        Ok(())
+    }
+
+    fn capture_backend_context_in_scope(
+        &self,
+        scope: &crate::vm::memory::checkpoint::CheckpointPublication<'_>,
+    ) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        Ok(Some(crate::vm::snapshot::BackendContext {
+            kind: crate::vm::snapshot::RISCV_CONTEXT,
+            data: self.context_in_scope(scope)?,
+        }))
+    }
+
+    fn prepare_checkpoint_publication<'scope, 'bindings>(
+        &mut self,
+        scope: &'scope crate::vm::memory::checkpoint::CheckpointPublication<'bindings>,
+    ) -> Result<crate::vm::memory::checkpoint::CpuPublication<'scope, 'bindings>> {
+        self.publication(scope)
+    }
+
+    fn prepare_checkpoint_replacement(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+        _resources: &crate::vm::snapshot::PreparedResources,
+    ) -> Result<Option<Box<dyn VCpu>>> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        let candidate = match context {
+            Some(raw) => self.prepare_context(&raw.data)?,
+            None => {
+                let mut candidate = match &self.user {
+                    Some(user) => Self::new_user(
+                        self.id,
+                        self.physical_memory.clone(),
+                        *self.cpu.config(),
+                        user.translation.clone(),
+                    ),
+                    None => Self::build(
+                        self.id,
+                        self.physical_memory.clone(),
+                        *self.cpu.config(),
+                        self.devices_enabled,
+                    ),
+                };
+                candidate.set_state(state)?;
+                candidate.stage_without_reservation();
+                candidate
+            }
+        };
+        Ok(Some(Box::new(candidate)))
+    }
+
     fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
         Ok(Some(crate::vm::snapshot::BackendContext {
             kind: crate::vm::snapshot::RISCV_CONTEXT,
@@ -596,6 +804,7 @@ impl VCpu for RiscVVcpu {
     }
 
     fn run(&mut self) -> Result<VcpuExit> {
+        self.ensure_checkpoint_active()?;
         if self.user.is_some() {
             for _ in 0..MAX_ITERS {
                 if let Some(exit) = self.step_user()? {
@@ -649,44 +858,17 @@ impl VCpu for RiscVVcpu {
     }
 
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
-        self.validate_checkpoint_state(state, &Default::default())?;
-
-        let state = match state {
-            CpuState::RiscV(s) => s,
-            _ => {
-                return Err(Error::Emulator(
-                    "expected riscv state for riscv vCPU".to_string(),
-                ));
-            }
-        };
-        let mut tohost = self.tohost_addr.lock().map_err(|_| {
-            Error::Emulator("RISC-V tohost lock poisoned during restore".to_string())
-        })?;
-        for i in 0..32u8 {
-            self.cpu.set_x(i, state.regs.x[i as usize]);
-            self.cpu.set_f(i, state.regs.f[i as usize]);
-        }
-        self.cpu.set_pc(state.regs.pc);
-        self.cpu.set_fcsr(state.regs.fcsr);
-        *tohost = state.regs.tohost_addr;
-        if let Some(level) = state.regs.privilege {
-            let privilege = RiscVCpu::privilege_from_level(level).ok_or_else(|| {
-                Error::Emulator(format!("invalid RISC-V privilege level {level}"))
-            })?;
-            // A user-mode hart stays in U-mode.
-            if self.user.is_none() {
-                self.cpu.set_privilege(privilege);
-            }
-        }
-        self.cpu.import_csrs(&state.regs.csrs);
-        if let Some(vector) = &state.regs.vector {
-            self.cpu.import_vector(vector).map_err(Error::Emulator)?;
-        }
+        self.apply_public_state(state)?;
+        self.cpu.clear_reservation();
         self.halted = false;
         if let Some(user) = self.user.as_mut() {
             user.trap = None;
         }
         Ok(())
+    }
+
+    fn update_state(&mut self, state: &CpuState) -> Result<()> {
+        self.apply_public_state(state)
     }
 
     fn complete_io_in(&mut self, _data: &[u8]) {
@@ -711,6 +893,11 @@ impl VCpu for RiscVVcpu {
         self.cpu.pc()
     }
 
+    fn set_current_pc(&mut self, pc: u64) -> Result<()> {
+        self.cpu.set_pc(pc);
+        Ok(())
+    }
+
     fn wake(&mut self) {
         self.halted = false;
     }
@@ -730,6 +917,7 @@ impl VCpu for RiscVVcpu {
     }
 
     fn step_insn(&mut self) -> Result<Option<VcpuExit>> {
+        self.ensure_checkpoint_active()?;
         if self.user.is_some() {
             return self.step_user();
         }
@@ -781,3 +969,7 @@ mod checkpoint_lock_tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "cpu_reservation_tests.rs"]
+mod reservation_tests;

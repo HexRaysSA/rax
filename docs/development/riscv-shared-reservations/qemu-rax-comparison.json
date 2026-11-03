@@ -1,0 +1,125 @@
+{
+  "assembly": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.S",
+  "assembly_sha256": "b3b9f5965b176c7037b3fc100822763b7aefb3bb493e944ec3e05bc89682bc98",
+  "text_sha256": "b623c0f8f1c41b73b5015350361761207d398483bff044808c758569233c8690",
+  "objcopy_argv": [
+    "llvm-objcopy",
+    "-O",
+    "binary",
+    "--only-section=.text",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.elf",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc-text.bin"
+  ],
+  "rax": {
+    "compiler_argv": [
+      "rustc",
+      "--edition=2024",
+      "--test",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc-rax-mirror.rs",
+      "--extern",
+      "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+      "--extern",
+      "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+      "-L",
+      "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+      "-o",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc-rax-mirror-v6"
+    ],
+    "compiler_exit": 0,
+    "compiler_stdout": "",
+    "compiler_stderr": "",
+    "rlib_path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+    "rlib_sha256": "14dad25aac156d8360ae9c34f4f97d9339f6765bd570f55fffe0f29e8620d89d",
+    "source_sha256": "c1689a1631d2a0d360f93fa99052f373a19c6b45ef748f6ddc97557ff7eac43c",
+    "host_page_bytes": 16384,
+    "argv": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc-rax-mirror-v6",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "stdout": "\nrunning 1 test\nobserved_status_bytes=1111\n\ntest observed_peer_stores_fail_sc_for_all_four_retained_program_cases ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+    "stderr": "",
+    "exe_sha256": "feda85d4a6c4f3a14afb7d65130c8162b118724425ad81af395896a5ddb3ed73",
+    "rlib_unchanged": true
+  },
+  "qemu": {
+    "assembler_argv": [
+      "llvm-mc",
+      "-triple=riscv64",
+      "-mattr=+a,+zicsr",
+      "-filetype=obj",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.S",
+      "-o",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.o"
+    ],
+    "linker_argv": [
+      "ld.lld",
+      "-m",
+      "elf64lriscv",
+      "-Ttext=0x80000000",
+      "-e",
+      "_start",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.o",
+      "-o",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.elf"
+    ],
+    "argv": [
+      "qemu-system-riscv64",
+      "-M",
+      "virt",
+      "-m",
+      "128M",
+      "-smp",
+      "2",
+      "-bios",
+      "none",
+      "-kernel",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.elf",
+      "-nographic",
+      "-monitor",
+      "none",
+      "-serial",
+      "stdio",
+      "-no-reboot"
+    ],
+    "exit_code": 0,
+    "stdout": "1000\n",
+    "stderr": "",
+    "elapsed_seconds": 0.18682895798701793,
+    "source_sha256": "b3b9f5965b176c7037b3fc100822763b7aefb3bb493e944ec3e05bc89682bc98",
+    "elf_sha256": "889913056fe51ec5b2fcd90cab27fd04606e178d7aff5c7bda168a34eb0afcee",
+    "version": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n",
+    "comparison_expected_by_Zalrsc": "1111\n",
+    "oracle_matches_spec": false
+  },
+  "required": "1111\n",
+  "observed_rax": "1111\n",
+  "observed_qemu": "1000\n",
+  "rows": [
+    {
+      "case": "changed word",
+      "required_sc_status": 1,
+      "rax_sc_status": 1,
+      "qemu_sc_status": 1
+    },
+    {
+      "case": "same-value word",
+      "required_sc_status": 1,
+      "rax_sc_status": 1,
+      "qemu_sc_status": 0
+    },
+    {
+      "case": "ABA word",
+      "required_sc_status": 1,
+      "rax_sc_status": 1,
+      "qemu_sc_status": 0
+    },
+    {
+      "case": "same-value doubleword",
+      "required_sc_status": 1,
+      "rax_sc_status": 1,
+      "qemu_sc_status": 0
+    }
+  ],
+  "scope": "RAX host-interleaved actual backend harts, not VMM startup/controller qualification."
+}

@@ -1,0 +1,32 @@
+{
+  "compiler_argv": [
+    "rustc",
+    "--edition=2024",
+    "--test",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/sc-htif-witness.rs",
+    "--extern",
+    "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+    "--extern",
+    "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+    "-L",
+    "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+    "-o",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/sc-htif-witness-v6"
+  ],
+  "compiler_exit": 0,
+  "compiler_stdout": "",
+  "compiler_stderr": "",
+  "rlib_path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+  "rlib_sha256": "14dad25aac156d8360ae9c34f4f97d9339f6765bd570f55fffe0f29e8620d89d",
+  "source_sha256": "670785a4dffc1c9aa4b3f8b97740d7fb4d9e6dacb96811cd38034a7d608aa24b",
+  "host_page_bytes": 16384,
+  "argv": [
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/sc-htif-witness-v6",
+    "--nocapture"
+  ],
+  "exit_code": 0,
+  "stdout": "\nrunning 2 tests\ntest failed_sc_to_htif_neither_writes_nor_publishes_shutdown ... ok\ntest successful_sc_to_htif_preserves_shutdown_without_extra_retirement ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+  "stderr": "",
+  "exe_sha256": "e1e936e4efa98a08559cb5f188a8df28f783593c5960c75d568aad806b139c54",
+  "rlib_unchanged": true
+}

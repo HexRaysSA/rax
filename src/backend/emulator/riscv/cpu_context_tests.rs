@@ -287,3 +287,130 @@ fn poisoned_adapter_locks_reject_before_any_context_field_changes() {
         assert_eq!(target.save_context().unwrap(), before);
     }
 }
+
+#[test]
+fn expired_physical_reservations_are_not_resurrected_by_context_restore() {
+    for peer_store in [false, true] {
+        let mut source = fixture(1, RiscVConfig::rv64gc(), &[0x1005_22af, 0x1855_25af]);
+        source.step_insn().unwrap();
+        if peer_store {
+            // Same-value tracked host/DMA store after LR.
+            crate::vm::memory::reservations::write(
+                &source.physical_memory,
+                0x800,
+                &0x1234_5678u32.to_le_bytes(),
+            )
+            .unwrap();
+        }
+        let raw = source.save_context().unwrap();
+        assert!(raw.starts_with(TAG));
+        let mut target = fixture(1, RiscVConfig::rv64gc(), &[0x1005_22af, 0x1855_25af]);
+        target.restore_context(&raw).unwrap();
+        for cpu in [&mut source, &mut target] {
+            assert!(cpu.step_insn().unwrap().is_none());
+            assert_eq!(cpu.cpu.x(11) != 0, peer_store);
+        }
+    }
+}
+
+#[test]
+fn address_only_legacy_contexts_reject_active_reservations_and_accept_empty_ones() {
+    for active in [false, true] {
+        let mut source = fixture(1, RiscVConfig::rv64gc(), &[0x1005_22af]);
+        if active {
+            source.step_insn().unwrap();
+        }
+        let new = source.save_context().unwrap();
+        let context = Context::decode(&new, &source).unwrap();
+        let mut legacy = LEGACY_TAG.to_vec();
+        legacy.extend(crate::codec::serialize(&context).unwrap());
+        let mut target = fixture(1, RiscVConfig::rv64gc(), &[0x1005_22af]);
+        let before = target.save_context().unwrap();
+        let result = target.restore_context(&legacy);
+        assert_eq!(result.is_err(), active);
+        if active {
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("legacy active LR reservation")
+            );
+            assert_eq!(target.save_context().unwrap(), before);
+        }
+    }
+}
+
+#[test]
+fn detached_context_reservation_publishes_only_after_matching_ram() {
+    let mut source = fixture(1, RiscVConfig::rv64gc(), &[0x1005_22af, 0x1855_25af]);
+    source.step_insn().unwrap();
+    let raw = source.save_context().unwrap();
+    let target = fixture(1, RiscVConfig::rv64gc(), &[0x1005_22af, 0x1855_25af]);
+    let mut candidate = target.prepare_context(&raw).unwrap();
+    assert!(candidate.step_insn().is_err());
+    assert!(candidate.save_context().is_err());
+    assert_eq!(candidate.exclusive.get(), None);
+    let foreign = fixture(1, RiscVConfig::rv64gc(), &[]);
+    let bindings = CheckpointBindings::new(&foreign.physical_memory, Vec::new());
+    let scope = bindings.enter().unwrap();
+    assert!(candidate.publication(&scope).is_err());
+    drop(scope);
+    let bindings = CheckpointBindings::new(&target.physical_memory, Vec::new());
+    let scope = bindings.enter().unwrap();
+    let permit = candidate.publication(&scope).unwrap();
+    scope.write(0x800, &0x1234_5678u32.to_le_bytes()).unwrap();
+    assert_eq!(candidate.exclusive.get(), None);
+    permit.commit();
+    drop(scope);
+    assert!(candidate.step_insn().unwrap().is_none());
+    assert_eq!(candidate.cpu.x(11), 0);
+}
+
+#[test]
+fn mapping_targets_preserve_retained_backing_and_reset_discards_reservations() {
+    let mut source = fixture(1, RiscVConfig::rv64gc(), &[0x1005_22af, 0x1855_25af]);
+    source.step_insn().unwrap();
+    let raw = source
+        .capture_backend_context_for_mapping(&source.physical_memory)
+        .unwrap()
+        .unwrap();
+    let context = Context::decode(&raw.data, &source).unwrap();
+    assert!(context.reservation.is_some());
+    let changed = fixture(1, RiscVConfig::rv64gc(), &[]);
+    let raw = source
+        .capture_backend_context_for_mapping(&changed.physical_memory)
+        .unwrap()
+        .unwrap();
+    let context = Context::decode(&raw.data, &source).unwrap();
+    assert!(context.reservation.is_none());
+    assert!(context.cpu.reservation_address().is_none());
+    let state = source.get_state().unwrap();
+    source.update_state(&state).unwrap();
+    assert!(source.step_insn().unwrap().is_none());
+    assert_eq!(
+        source.cpu.x(11),
+        0,
+        "register updates preserve private state"
+    );
+    source.cpu.set_pc(0x100);
+    source.step_insn().unwrap();
+    let state = source.get_state().unwrap();
+    source.set_state(&state).unwrap();
+    assert!(source.step_insn().unwrap().is_none());
+    assert_ne!(
+        source.cpu.x(11),
+        0,
+        "public-state reset discards private rights"
+    );
+}
+
+#[test]
+fn setting_only_pc_preserves_the_complete_private_context() {
+    let mut source = fixture(1, RiscVConfig::rv64gc(), &[0x1005_22af, 0x1855_25af]);
+    source.step_insn().unwrap();
+    let before = source.save_context().unwrap();
+    source.set_current_pc(source.current_pc()).unwrap();
+    assert_eq!(source.save_context().unwrap(), before);
+    assert!(source.step_insn().unwrap().is_none());
+    assert_eq!(source.cpu.x(11), 0);
+}

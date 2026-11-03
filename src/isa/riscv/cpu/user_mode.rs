@@ -22,5 +22,6 @@ impl RiscVCpu {
     /// does (Linux performs a dummy SC on every exception return for this).
     pub fn clear_reservation(&mut self) {
         self.reservation = None;
+        self.mem.clear_reservation();
     }
 }

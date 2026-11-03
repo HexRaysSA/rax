@@ -256,10 +256,11 @@ impl Engine {
             Err(e) => return self.fail_engine(&e),
         };
         let es = self.vcpu.get_emulator_state();
-        let backend_context = match self.vcpu.capture_backend_context_for_remap() {
+        let backend_context = match self.vcpu.capture_backend_context_for_mapping(&new_mem) {
             Ok(context) => context,
             Err(error) => return self.fail_engine(&error),
         };
+        let reservation = self.vcpu.mapping_reservation();
         let resources = match self
             .vcpu
             .capture_checkpoint_resources()
@@ -293,6 +294,11 @@ impl Engine {
                 if let Err(error) = v.set_emulator_state(&es) {
                     return self.fail_engine(&error);
                 }
+            }
+        }
+        if let Some(source) = &reservation {
+            if let Err(error) = v.reconcile_mapping_reservation(source) {
+                return self.fail_engine(&error);
             }
         }
         if let Some(state) = arm_user {

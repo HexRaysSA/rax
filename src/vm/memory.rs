@@ -1,5 +1,6 @@
 pub mod checkpoint;
 pub(crate) mod reservations;
+pub use reservations::MappingReservation;
 
 /// Write physical RAM while invalidating registered software exclusive monitors.
 /// Raw mmap aliases require callers to provide equivalent writer coordination.

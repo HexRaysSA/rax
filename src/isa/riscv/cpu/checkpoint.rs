@@ -50,6 +50,12 @@ pub(crate) struct CoreContext {
 }
 
 impl CoreContext {
+    pub(crate) fn reservation_address(&self) -> Option<u64> {
+        self.reservation
+    }
+    pub(crate) fn discard_reservation(&mut self) {
+        self.reservation = None;
+    }
     pub(crate) fn configuration(&self) -> RiscVConfig {
         self.cfg
     }

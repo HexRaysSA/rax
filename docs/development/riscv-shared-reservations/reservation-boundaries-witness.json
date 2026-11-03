@@ -1,0 +1,30 @@
+{
+  "compiler_argv": [
+    "rustc",
+    "--edition=2024",
+    "--test",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/reservation-boundaries-witness.rs",
+    "--extern",
+    "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+    "--extern",
+    "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+    "-L",
+    "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+    "-o",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/reservation-boundaries-witness-v6"
+  ],
+  "compiler_exit": 0,
+  "compiler_stdout": "",
+  "compiler_stderr": "",
+  "source_sha256": "1480b59f8a3589bb8d89d721b3a64a4356d95f8eebe17a430559243d8f5b208f",
+  "rlib_sha256": "14dad25aac156d8360ae9c34f4f97d9339f6765bd570f55fffe0f29e8620d89d",
+  "argv": [
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/reservation-boundaries-witness-v6",
+    "--nocapture"
+  ],
+  "exit_code": 0,
+  "stdout": "\nrunning 2 tests\ntest wrong_hart_identity_rejects_the_version_two_record_before_target_mutation ... ok\ntest final_aligned_word_and_doubleword_use_only_the_admitted_page ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+  "stderr": "",
+  "exe_sha256": "3002b6b74e0360536c1a161316776243bc489ab29f51e622c5167c825f2753ee",
+  "rlib_unchanged": true
+}

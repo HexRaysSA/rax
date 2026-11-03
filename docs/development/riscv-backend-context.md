@@ -1,7 +1,7 @@
 # RISC-V backend contexts
 
 The RISC-V interpreter emits producer kind 3 in backend-context bundle section
-14. Its inner tag is `RAXRV001`. This record preserves represented hart state
+14. Its current inner tag is `RAXRV002`. This record preserves represented hart state
 that the public register projection cannot express, including LR/SC reservation,
 raw 64-bit counters on RV32, ISA configuration, halt state, and ordered events.
 
@@ -46,6 +46,15 @@ cause 2 from executing another instruction. The tests require the queued cause
 original halted state. Additional tests cover a four-byte vector UART sequence,
 LR/SC continuation, RV32 counter high halves, pending IRQs and process events.
 
+The current record additionally carries the guest-physical reservation address,
+width and observed validity separately from the frozen core body. Shared RAM
+writers invalidate the live token, including same-value and ABA stores. Capture
+normalizes an expired core reservation; detached restoration publishes admitted
+rights after matching RAM under the shared writer boundary. C API map rebuilds
+use a live source witness and retain rights only for unchanged host backing.
+Register/PC updates preserve private state; reset-style state installation clears
+it. See [shared reservations](riscv-shared-reservations/README.md).
+
 ## Admission and compatibility
 
 The inner payload is bounded to 1 MiB. Admission checks the tag, exact decoding,
@@ -53,6 +62,10 @@ hart identity, binding mode, register geometry/status widths, sorted vendor CSR
 table and event descriptors. The public register image must agree with the
 backend image. Restore acquires all fallible adapter locks before any live field
 assignment. Poisoned locks and malformed records preserve the target context.
+
+Legacy `RAXRV001` records without an active LR remain readable. Active
+address-only reservations reject before mutation because their width and shared
+invalidation history cannot be reconstructed.
 
 The outer section framing is unchanged. Older bundles without producer kind 3
 retain their register-projection semantics. The C API writes context format 6

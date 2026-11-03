@@ -21,6 +21,7 @@ fn test_cfg() -> GscConfig {
 fn test_bridge() -> GscBridge {
     let mem = GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 0x20_0000usize)]).unwrap();
     GscBridge {
+        exclusive: crate::vm::memory::reservations::MemoryDomain::for_memory(&mem).register(),
         mem: Arc::new(mem),
         shared: Arc::new(Mutex::new(GscShared {
             rstsrc: DEFAULT_RSTSRC_COLD,

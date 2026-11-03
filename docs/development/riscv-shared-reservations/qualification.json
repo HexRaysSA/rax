@@ -1,0 +1,2143 @@
+{
+  "schema": 1,
+  "status": "locally_validated_with_explicit_scope",
+  "group": "riscv-shared-reservations-2026-11-03",
+  "utc": "2026-11-03T01:24:32.722088+00:00",
+  "baseline_head": "99f0d1d60775f746b5a8ccc42a03381339b9016e",
+  "full_goal_complete": false,
+  "full_findings_remaining": [
+    "A32-FP",
+    "C-STATE",
+    "C-SMP",
+    "C-HVF"
+  ],
+  "acceptance": [
+    "Direct and native JIT LR.W/D / SC.W/D share physical reservation domains across system, embedded, user and GSC bridges",
+    "Observed peer stores including same-value and ABA invalidate reservations; successful SC consumes exactly once and faults remain precise",
+    "All RAX RISC-V RAM writers including GSC flash/DMA and translated process writes participate in invalidation",
+    "New versioned private records retain valid/invalid physical reservation size/address; ambiguous legacy active reservations rejected explicitly, empty legacy accepted",
+    "Detached candidates bind new monitors before stopped RAM publication; late preparation failure preserves live RAM, reservations and adapter state",
+    "Run baseline actual red then green; unfiltered affected owning targets and applicable quality gates; immutable inputs and protected-state guards",
+    "Exact git add/red commit then normal push master; remove only owned C/T",
+    "Retained Arc-backed RAM regions share writer locks across differing complete map views",
+    "Unrelated C API map/protection/PC updates preserve still-valid reservations; removed/reallocated RAM and intervening peer writes cannot regrant rights",
+    "C API system RISC-V restore publishes detached replacement before engine adoption"
+  ],
+  "surface": {
+    "direct": "LR/SC hooks and clear/reset",
+    "memory": "RAM writers, shared 64 byte reservation set and permission admission",
+    "jit": "native RISC-V exclusive ABI helpers delegate to same memory hooks",
+    "smir": "existing LoadExclusive/StoreExclusive IR and lowerers unchanged; generic FlatMemory standalone unchanged",
+    "backend": "RISC-V/GSC context versions and detached publication",
+    "user": "translated UserRiscVMemory monitor and thread sharing",
+    "abi": "No C declaration/layout changes; public Rust Memory gets default hooks",
+    "tests": "new coherence cases and existing backend/private/VM file tests"
+  },
+  "assumptions": [
+    {
+      "id": "A1",
+      "assumption": "Naturally aligned 4/8 byte RISC-V reservations fit one 4096 byte translated page",
+      "basis": "Zalrsc requires natural alignment; page translation granularity in bridges; because N in {4,8} divides4096, an N-aligned address has page offset at most4096-N and its N-byte operand cannot cross that page",
+      "dependent_result": "Translation and permissions checked before domain lock",
+      "stress_test": "last aligned word/doubleword and virtual aliases with write-denied SC",
+      "falsification_probe": "A 4/8 byte aligned operation crosses a 4096 byte page or translation callback maps sub-page spans",
+      "status": "confirmed"
+    },
+    {
+      "id": "A2",
+      "assumption": "Legacy records with an active address-only reservation cannot reconstruct width or shared invalidation history",
+      "basis": "RAXRV001 and RAXGSI01 CoreContext only Option<u64>",
+      "dependent_result": "Explicit reject active legacy token rather than invent success rights",
+      "stress_test": "legacy absent/active LR32/LR64 and same-value peer invalidation",
+      "falsification_probe": "Legacy producer stored independent width/history fields",
+      "status": "confirmed"
+    },
+    {
+      "id": "A3",
+      "assumption": "Single-step WFI returns Hlt, and a consumed Shutdown is replayed as Shutdown after restore",
+      "basis": "Initial external HTIF witness assumptions",
+      "dependent_result": "discarded initial HTIF witness post-exit expectations",
+      "stress_test": "Observe step_system mapping and saved halted state",
+      "falsification_probe": "step_system maps WFI to None and halted to Hlt; existing queue tests assert this mapping",
+      "status": "falsified"
+    },
+    {
+      "id": "A4",
+      "assumption": "Every unrelated RISC-V memory-map rebuild may discard the embedding reservation, and default update_state may call the new clearing set_state",
+      "basis": "Initial transfer of AArch64 remap policy without checking RISC-V C API contract",
+      "dependent_result": "Discarded v3 remap/public-update behavior",
+      "stress_test": "Existing C API reservation remap and instruction-start APIs",
+      "falsification_probe": "C API three failures and documented reservation retention; VCpu::update_state explicitly preserves implementation-private state",
+      "status": "falsified"
+    }
+  ],
+  "primary": [
+    {
+      "path": "docs/specifications/riscv/riscv/riscv-unprivileged.txt",
+      "revision": "20250508",
+      "section": "13.2 Zalrsc",
+      "sha256": "15cf782ec980195c28fc3085b88bf5eb5c408b366f77ead536f10151e71f467f"
+    },
+    {
+      "path": "docs/specifications/riscv/riscv/riscv-unprivileged.txt",
+      "revision": "20250508",
+      "section": "15.1 Zacas AMOCAS.W/D/Q",
+      "sha256": "15cf782ec980195c28fc3085b88bf5eb5c408b366f77ead536f10151e71f467f"
+    }
+  ],
+  "environment": {
+    "RUSTC_WRAPPER": "",
+    "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+    "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+    "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+    "CARGO_TARGET_DIR": "/Users/int/dev/rax-audit-work/main-integration-target",
+    "CARGO_BUILD_JOBS": "8",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_NET_OFFLINE": "true",
+    "RUSTC_WORKSPACE_WRAPPER": "",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_TEST_LTO": "off",
+    "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+    "CARGO_PROFILE_DEV_LTO": "off",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true"
+  },
+  "build": {
+    "argv": [
+      "cargo",
+      "--config",
+      "profile.dev.package.sha2.opt-level=3",
+      "--config",
+      "profile.dev.package.zstd.opt-level=3",
+      "--config",
+      "profile.dev.package.zstd-safe.opt-level=3",
+      "--config",
+      "profile.dev.package.zstd-sys.opt-level=3",
+      "--config",
+      "profile.test.package.sha2.opt-level=3",
+      "--config",
+      "profile.test.package.zstd.opt-level=3",
+      "--config",
+      "profile.test.package.zstd-safe.opt-level=3",
+      "--config",
+      "profile.test.package.zstd-sys.opt-level=3",
+      "build",
+      "--workspace",
+      "--all-targets",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+      "--message-format=json"
+    ],
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "elapsed_seconds": 327.4972961669555,
+    "test_results": [],
+    "executable_before": null,
+    "executable_after_sha256": null,
+    "source_unchanged": true
+  },
+  "focused": {
+    "argv": [
+      "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "backend::emulator::riscv::",
+      "user::cpu::riscv64::reservation_tests::",
+      "vm::memory::reservations::",
+      "gsc_physical_reservations_capture_validity_and_publish_after_ram",
+      "gsc_legacy_active_reservations_reject_without_invented_width",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "elapsed_seconds": 0.16139370808377862,
+    "test_results": [
+      {
+        "passed": 55,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "executable_before": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "sha256": "e341cdabfd8085d00cd09b4488d0a59c2baba162d140930ee2e6a1b505b894dc",
+      "inode": 403719210
+    },
+    "executable_after_sha256": "e341cdabfd8085d00cd09b4488d0a59c2baba162d140930ee2e6a1b505b894dc",
+    "source_unchanged": true
+  },
+  "root": {
+    "argv": [
+      "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "--nocapture",
+      "--test-threads=16"
+    ],
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "elapsed_seconds": 1945.67939170904,
+    "test_results": [
+      {
+        "passed": 12106,
+        "failed": 0,
+        "ignored": 35
+      }
+    ],
+    "executable_before": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "sha256": "e341cdabfd8085d00cd09b4488d0a59c2baba162d140930ee2e6a1b505b894dc",
+      "inode": 403719210
+    },
+    "executable_after_sha256": "e341cdabfd8085d00cd09b4488d0a59c2baba162d140930ee2e6a1b505b894dc",
+    "source_unchanged": true
+  },
+  "independent": [
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 14.220371624920517,
+      "test_results": [
+        {
+          "passed": 244,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-509a16e878a4b135",
+        "sha256": "acd2a8aedcc14ec284ae08c62947ae28f20c1ea490b35ac876e267e462372db2",
+        "inode": 403715436
+      },
+      "executable_after_sha256": "acd2a8aedcc14ec284ae08c62947ae28f20c1ea490b35ac876e267e462372db2",
+      "source_unchanged": true,
+      "target": "capi-library"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_boot-1e003e2b06d257f9",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.006933707976713777,
+      "test_results": [
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_boot-1e003e2b06d257f9",
+        "sha256": "790cb91d0c25f8fc40f3d289475743121a54d854a5915be72709338a49d89dc5",
+        "inode": 403715806
+      },
+      "executable_after_sha256": "790cb91d0c25f8fc40f3d289475743121a54d854a5915be72709338a49d89dc5",
+      "source_unchanged": true,
+      "target": "riscv_boot"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_diff-678c307e03fe11c4",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.004462333046831191,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_diff-678c307e03fe11c4",
+        "sha256": "6b46d66694aeadab2bc0cf54dea80fa30930fb5d33a223cb45223dfe8d8553c3",
+        "inode": 403715255
+      },
+      "executable_after_sha256": "6b46d66694aeadab2bc0cf54dea80fa30930fb5d33a223cb45223dfe8d8553c3",
+      "source_unchanged": true,
+      "target": "riscv_diff"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_smir_lift-265ad2ea59fea145",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 5.402630875003524,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_smir_lift-265ad2ea59fea145",
+        "sha256": "cea12390732916d98086fb9ee23da663272dcc8741c227434ba0c6bd25921006",
+        "inode": 403715735
+      },
+      "executable_after_sha256": "cea12390732916d98086fb9ee23da663272dcc8741c227434ba0c6bd25921006",
+      "source_unchanged": true,
+      "target": "riscv_smir_lift"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_smir_x86_jit-70576f986419d494",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.028733332990668714,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_smir_x86_jit-70576f986419d494",
+        "sha256": "9a0fa003fbb086e9ced477c19a676891dcf2e940e47ca83f372dd6f45d4400dd",
+        "inode": 403715229
+      },
+      "executable_after_sha256": "9a0fa003fbb086e9ced477c19a676891dcf2e940e47ca83f372dd6f45d4400dd",
+      "source_unchanged": true,
+      "target": "riscv_smir_x86_jit"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_smir_aarch64_jit-93f8e6c5ae288bf6",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.016128749935887754,
+      "test_results": [
+        {
+          "passed": 26,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_smir_aarch64_jit-93f8e6c5ae288bf6",
+        "sha256": "f089113fb4e93123495ec92cb1e20a7fbe10b70b44db2eed8af8911e90cdc44e",
+        "inode": 403714029
+      },
+      "executable_after_sha256": "f089113fb4e93123495ec92cb1e20a7fbe10b70b44db2eed8af8911e90cdc44e",
+      "source_unchanged": true,
+      "target": "riscv_smir_aarch64_jit"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_vector-60387d28d1bf054c",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.006867000018246472,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_vector-60387d28d1bf054c",
+        "sha256": "549a600829fa28d7aafb5fff0d0596ca92f2cb7f8752404e07259db8738d187a",
+        "inode": 403714571
+      },
+      "executable_after_sha256": "549a600829fa28d7aafb5fff0d0596ca92f2cb7f8752404e07259db8738d187a",
+      "source_unchanged": true,
+      "target": "riscv_vector"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_hartid-c4eb7acf7f783410",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.009222291992045939,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/riscv_hartid-c4eb7acf7f783410",
+        "sha256": "73707e281ab394cca15463133d7ed0bd214772356d1ffc9195cc077d23db0828",
+        "inode": 403714660
+      },
+      "executable_after_sha256": "73707e281ab394cca15463133d7ed0bd214772356d1ffc9195cc077d23db0828",
+      "source_unchanged": true,
+      "target": "riscv_hartid"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/user_linux-b43750afc9c90efb",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 90.50735258404166,
+      "test_results": [
+        {
+          "passed": 43,
+          "failed": 0,
+          "ignored": 1
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/user_linux-b43750afc9c90efb",
+        "sha256": "8be71a71d1555266b07b04b354816fa0aa0385e9148573d973296d5b1b07cacb",
+        "inode": 403714191
+      },
+      "executable_after_sha256": "8be71a71d1555266b07b04b354816fa0aa0385e9148573d973296d5b1b07cacb",
+      "source_unchanged": true,
+      "target": "user_linux"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_config-dee5be787ba9a753",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.008054833044297993,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_config-dee5be787ba9a753",
+        "sha256": "915ab1a0d03e16f2403b6331b48242a00b57c5cb1317b79f6fda045f54ec0b5b",
+        "inode": 403713978
+      },
+      "executable_after_sha256": "915ab1a0d03e16f2403b6331b48242a00b57c5cb1317b79f6fda045f54ec0b5b",
+      "source_unchanged": true,
+      "target": "checkpoint_config"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/controller_checkpoint-9dc897bbee9cc5d7",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.010371832991950214,
+      "test_results": [
+        {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/controller_checkpoint-9dc897bbee9cc5d7",
+        "sha256": "f3ee5f428f477638fed99eca1e8b9c93dddc1c71b6a22226be8c147562b51039",
+        "inode": 403715164
+      },
+      "executable_after_sha256": "f3ee5f428f477638fed99eca1e8b9c93dddc1c71b6a22226be8c147562b51039",
+      "source_unchanged": true,
+      "target": "controller_checkpoint"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/pci_checkpoint-39994e168b7d84c5",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.011799040948972106,
+      "test_results": [
+        {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/pci_checkpoint-39994e168b7d84c5",
+        "sha256": "9dfb2f276de352bb8a3d2bbd30f8139efe2cfaa7cc996771831d0aa318e899cc",
+        "inode": 403714103
+      },
+      "executable_after_sha256": "9dfb2f276de352bb8a3d2bbd30f8139efe2cfaa7cc996771831d0aa318e899cc",
+      "source_unchanged": true,
+      "target": "pci_checkpoint"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/pci_endpoint_checkpoint-7e2e1d94699503b3",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.7552851249929518,
+      "test_results": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/pci_endpoint_checkpoint-7e2e1d94699503b3",
+        "sha256": "0e1565c889953c11c0dbacadea018153bd95a5097506ff88e4f192844fa294ed",
+        "inode": 403715892
+      },
+      "executable_after_sha256": "0e1565c889953c11c0dbacadea018153bd95a5097506ff88e4f192844fa294ed",
+      "source_unchanged": true,
+      "target": "pci_endpoint_checkpoint"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/runtime_pci_checkpoint-6b286c998a55ea52",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.023388125002384186,
+      "test_results": [
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/runtime_pci_checkpoint-6b286c998a55ea52",
+        "sha256": "0685037a45abdc43ce6af1c314f203953fe6dc508c883203f450e2aeffd55187",
+        "inode": 403715688
+      },
+      "executable_after_sha256": "0685037a45abdc43ce6af1c314f203953fe6dc508c883203f450e2aeffd55187",
+      "source_unchanged": true,
+      "target": "runtime_pci_checkpoint"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_pci-b5cbefb2e78b7c4b",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 1.4133757499512285,
+      "test_results": [
+        {
+          "passed": 20,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_pci-b5cbefb2e78b7c4b",
+        "sha256": "c251b62a33a16fe8567cbde502ee06dfbe10c6906a66a2884eb022001872dbcb",
+        "inode": 403715232
+      },
+      "executable_after_sha256": "c251b62a33a16fe8567cbde502ee06dfbe10c6906a66a2884eb022001872dbcb",
+      "source_unchanged": true,
+      "target": "checkpoint_pci"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/restore_admission-ecf38435efb79cb3",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.014774334034882486,
+      "test_results": [
+        {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/restore_admission-ecf38435efb79cb3",
+        "sha256": "eb54c808f05154c0eb884d6501dad2fd64773dbf4f87842f1baf0189237f5aa3",
+        "inode": 403715862
+      },
+      "executable_after_sha256": "eb54c808f05154c0eb884d6501dad2fd64773dbf4f87842f1baf0189237f5aa3",
+      "source_unchanged": true,
+      "target": "restore_admission"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_physical_memory-e12414e5eab9dc6f",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 250.77456454199273,
+      "test_results": [
+        {
+          "passed": 30,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_physical_memory-e12414e5eab9dc6f",
+        "sha256": "7e7cf0974fd58784eb7a4e7f8fade5f32b2a479eb1c7c113221a565e37605ffa",
+        "inode": 403714493
+      },
+      "executable_after_sha256": "7e7cf0974fd58784eb7a4e7f8fade5f32b2a479eb1c7c113221a565e37605ffa",
+      "source_unchanged": true,
+      "target": "checkpoint_physical_memory"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/runtime_checkpoint_bundle-77e008297b43c3c1",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 132.89918508403935,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/runtime_checkpoint_bundle-77e008297b43c3c1",
+        "sha256": "30dd5c873916c16f1f57743576e887ed47ec887ed0b4862ec5cf7e61666bdf49",
+        "inode": 403713989
+      },
+      "executable_after_sha256": "30dd5c873916c16f1f57743576e887ed47ec887ed0b4862ec5cf7e61666bdf49",
+      "source_unchanged": true,
+      "target": "runtime_checkpoint_bundle"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_resume-1ba9346c51c2c83f",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 107.11654025001917,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_resume-1ba9346c51c2c83f",
+        "sha256": "931f711bda60b2f7085aad44be1cb639d35435b6ec3b8e9cbd7ea7a354924097",
+        "inode": 403713887
+      },
+      "executable_after_sha256": "931f711bda60b2f7085aad44be1cb639d35435b6ec3b8e9cbd7ea7a354924097",
+      "source_unchanged": true,
+      "target": "checkpoint_resume"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_cpus-4b86ae490049f9e9",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.05441133305430412,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_cpus-4b86ae490049f9e9",
+        "sha256": "a69e3f4fb2a215a317f398765962c3ad5f373640bbf938b662c1b334a8c0c63d",
+        "inode": 403715686
+      },
+      "executable_after_sha256": "a69e3f4fb2a215a317f398765962c3ad5f373640bbf938b662c1b334a8c0c63d",
+      "source_unchanged": true,
+      "target": "checkpoint_cpus"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-3477bb2ea3989bed",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.01815716701094061,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 2
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_budget-3477bb2ea3989bed",
+        "sha256": "5cb3aef059d52f15e08113980b1eca490b22ef60d4064b4e8027e438ea96ba26",
+        "inode": 403714766
+      },
+      "executable_after_sha256": "5cb3aef059d52f15e08113980b1eca490b22ef60d4064b4e8027e438ea96ba26",
+      "source_unchanged": true,
+      "target": "retirement_budget"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retired_clock-4fd413f370064705",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.010972333024255931,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retired_clock-4fd413f370064705",
+        "sha256": "c96b668ea01da8852cec2f211f193ea214fdbb9463c8276379e2eff6fa4af427",
+        "inode": 403715300
+      },
+      "executable_after_sha256": "c96b668ea01da8852cec2f211f193ea214fdbb9463c8276379e2eff6fa4af427",
+      "source_unchanged": true,
+      "target": "retired_clock"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_clock-b8724286b91fbeeb",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 112.24801504204515,
+      "test_results": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/checkpoint_clock-b8724286b91fbeeb",
+        "sha256": "d713ff2ab799e8c9005eabb988cf467d364893fc416c70342878009a1c574fe3",
+        "inode": 403714638
+      },
+      "executable_after_sha256": "d713ff2ab799e8c9005eabb988cf467d364893fc416c70342878009a1c574fe3",
+      "source_unchanged": true,
+      "target": "checkpoint_clock"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_clock-b411028c145cb526",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.013837417005561292,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/retirement_clock-b411028c145cb526",
+        "sha256": "0d0a37f2f83051154a49659988799c70f08e3dfdc4dedca82b808af7ce91855d",
+        "inode": 403714079
+      },
+      "executable_after_sha256": "0d0a37f2f83051154a49659988799c70f08e3dfdc4dedca82b808af7ce91855d",
+      "source_unchanged": true,
+      "target": "retirement_clock"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_cluster-2eef04fed6bc1b66",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.01563174999319017,
+      "test_results": [
+        {
+          "passed": 30,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/aarch64_cluster-2eef04fed6bc1b66",
+        "sha256": "246ffc46343fca5214101ef3294be469abbeac43122bde0777efc149971a17a5",
+        "inode": 403714125
+      },
+      "executable_after_sha256": "246ffc46343fca5214101ef3294be469abbeac43122bde0777efc149971a17a5",
+      "source_unchanged": true,
+      "target": "aarch64_cluster"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_sdk_abi-4fe327285df6fe33",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.5440803330857307,
+      "test_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_sdk_abi-4fe327285df6fe33",
+        "sha256": "2e7a7e27e4aaca26f44d40852fc017710fdf941d9e9002d67fd67ac84fe482d4",
+        "inode": 403713717
+      },
+      "executable_after_sha256": "2e7a7e27e4aaca26f44d40852fc017710fdf941d9e9002d67fd67ac84fe482d4",
+      "source_unchanged": true,
+      "target": "hvf_sdk_abi"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_xsetbv-fbb424b2e919bfb4",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.007939290953800082,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_xsetbv-fbb424b2e919bfb4",
+        "sha256": "a7c3b4bb5720a09336a7375193403fcda34a11f92474861cdb5cf5f1eac98c23",
+        "inode": 403714990
+      },
+      "executable_after_sha256": "a7c3b4bb5720a09336a7375193403fcda34a11f92474861cdb5cf5f1eac98c23",
+      "source_unchanged": true,
+      "target": "hvf_xsetbv"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_run_loop-3b7750085429fa99",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.014108375064097345,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_run_loop-3b7750085429fa99",
+        "sha256": "07b02bbc1d1700b11d4e4de78c8b5ff9a0ff3e44f3f241e97cacd267c31821ad",
+        "inode": 403714260
+      },
+      "executable_after_sha256": "07b02bbc1d1700b11d4e4de78c8b5ff9a0ff3e44f3f241e97cacd267c31821ad",
+      "source_unchanged": true,
+      "target": "hvf_run_loop"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_native_debug-a0c6830049d05976",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.009884375031106174,
+      "test_results": [
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_native_debug-a0c6830049d05976",
+        "sha256": "ddd440ac29e04323e36fbf88b0f8a0d6582a561e88856a09358276f114a87a78",
+        "inode": 403713799
+      },
+      "executable_after_sha256": "ddd440ac29e04323e36fbf88b0f8a0d6582a561e88856a09358276f114a87a78",
+      "source_unchanged": true,
+      "target": "hvf_native_debug"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_intel_owner-c47345d92ec5c633",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.008478167001157999,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_intel_owner-c47345d92ec5c633",
+        "sha256": "b9cc3ba5f26738e244a5160c2b223d46b69c5822309b35519a00794857a75ca2",
+        "inode": 403713783
+      },
+      "executable_after_sha256": "b9cc3ba5f26738e244a5160c2b223d46b69c5822309b35519a00794857a75ca2",
+      "source_unchanged": true,
+      "target": "hvf_intel_owner"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_owner-295443b092bd0071",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.010402708081528544,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_owner-295443b092bd0071",
+        "sha256": "6e391be8e38bc06b1e2983c81214db8020c4069ca9e17a14a9e08380ebad91c0",
+        "inode": 403715578
+      },
+      "executable_after_sha256": "6e391be8e38bc06b1e2983c81214db8020c4069ca9e17a14a9e08380ebad91c0",
+      "source_unchanged": true,
+      "target": "hvf_owner"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_cr8-000289772c894f48",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.0074306670576334,
+      "test_results": [
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_cr8-000289772c894f48",
+        "sha256": "a8674297332a83399664c73133faceb19ccd52e41af0caa7e1cc2c42a211d367",
+        "inode": 403714907
+      },
+      "executable_after_sha256": "a8674297332a83399664c73133faceb19ccd52e41af0caa7e1cc2c42a211d367",
+      "source_unchanged": true,
+      "target": "hvf_cr8"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_apic_identity-02f6bd97aee6e4de",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.00895725004374981,
+      "test_results": [
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_apic_identity-02f6bd97aee6e4de",
+        "sha256": "10cf6364f3e08b8175d38809baf9bdf9e190677262e7c53505d0f350d0aa2e32",
+        "inode": 403714985
+      },
+      "executable_after_sha256": "10cf6364f3e08b8175d38809baf9bdf9e190677262e7c53505d0f350d0aa2e32",
+      "source_unchanged": true,
+      "target": "hvf_apic_identity"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_sync_exits-f8318aaff0c7251d",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.006812458042986691,
+      "test_results": [
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_sync_exits-f8318aaff0c7251d",
+        "sha256": "93a74524a301beb3643fa2c279f9c01601490bd703e66696a7f61f20d694a12f",
+        "inode": 403715403
+      },
+      "executable_after_sha256": "93a74524a301beb3643fa2c279f9c01601490bd703e66696a7f61f20d694a12f",
+      "source_unchanged": true,
+      "target": "hvf_sync_exits"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_event_injection-545cce498e39cd47",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.009507791022770107,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_event_injection-545cce498e39cd47",
+        "sha256": "45073325714a789546f37643de9c426878c76c9987da4aaa14f0ace1e36b9bbf",
+        "inode": 403714119
+      },
+      "executable_after_sha256": "45073325714a789546f37643de9c426878c76c9987da4aaa14f0ace1e36b9bbf",
+      "source_unchanged": true,
+      "target": "hvf_event_injection"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_interrupt_shadow-b1aa9310119d63f4",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.008128458983264863,
+      "test_results": [
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_interrupt_shadow-b1aa9310119d63f4",
+        "sha256": "87ba6019a4778a31f68a2b2a92f24739416468f2f70c60e2e6fee433f6832c2a",
+        "inode": 403715486
+      },
+      "executable_after_sha256": "87ba6019a4778a31f68a2b2a92f24739416468f2f70c60e2e6fee433f6832c2a",
+      "source_unchanged": true,
+      "target": "hvf_interrupt_shadow"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_port_io-e1758642d0d1924b",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.007208333001472056,
+      "test_results": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_port_io-e1758642d0d1924b",
+        "sha256": "86ce89dedc7c973362159a622f7d0f86cbbfa2d2ff1fc7d856f117d390cb0b7b",
+        "inode": 403715042
+      },
+      "executable_after_sha256": "86ce89dedc7c973362159a622f7d0f86cbbfa2d2ff1fc7d856f117d390cb0b7b",
+      "source_unchanged": true,
+      "target": "hvf_port_io"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_guest_translation-3553d096ccd58ba6",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.006957125035114586,
+      "test_results": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_guest_translation-3553d096ccd58ba6",
+        "sha256": "81ff26d6bd5b241f5101c51fd9611038fc211a82771da6fbeaeeebbe4e4dcd5a",
+        "inode": 403715912
+      },
+      "executable_after_sha256": "81ff26d6bd5b241f5101c51fd9611038fc211a82771da6fbeaeeebbe4e4dcd5a",
+      "source_unchanged": true,
+      "target": "hvf_guest_translation"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_mmio-f02795bc12cf5fdc",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.0837532919831574,
+      "test_results": [
+        {
+          "passed": 37,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_mmio-f02795bc12cf5fdc",
+        "sha256": "8435a656f9a68318f96a67b8a6e2ccbe03d691cca6e49a3abaf45778b2044d45",
+        "inode": 403714574
+      },
+      "executable_after_sha256": "8435a656f9a68318f96a67b8a6e2ccbe03d691cca6e49a3abaf45778b2044d45",
+      "source_unchanged": true,
+      "target": "hvf_mmio"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_memory-deecf7f7ddebea6b",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.011211333912797272,
+      "test_results": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_memory-deecf7f7ddebea6b",
+        "sha256": "e5149e60e39481fd9c9fb91603de43ad0030264d61f68075ef1f5e207eedce58",
+        "inode": 403715162
+      },
+      "executable_after_sha256": "e5149e60e39481fd9c9fb91603de43ad0030264d61f68075ef1f5e207eedce58",
+      "source_unchanged": true,
+      "target": "hvf_memory"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_controls-2a9c8174d385fab9",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.012521374970674515,
+      "test_results": [
+        {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_controls-2a9c8174d385fab9",
+        "sha256": "c84e983c2f3b67924519e494461927a1b2605b3c9f1533da715b73ae1301b281",
+        "inode": 403715370
+      },
+      "executable_after_sha256": "c84e983c2f3b67924519e494461927a1b2605b3c9f1533da715b73ae1301b281",
+      "source_unchanged": true,
+      "target": "hvf_controls"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_arm64_state-9179f3188992c660",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.012332167010754347,
+      "test_results": [
+        {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 5
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_arm64_state-9179f3188992c660",
+        "sha256": "008e86afc815dd8ecef429ec0dcf66e15a7e8ba14092a780a7f1fdbc89657946",
+        "inode": 403713757
+      },
+      "executable_after_sha256": "008e86afc815dd8ecef429ec0dcf66e15a7e8ba14092a780a7f1fdbc89657946",
+      "source_unchanged": true,
+      "target": "hvf_arm64_state"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_arm64_mmio-aca641fabf3abfb9",
+        "--nocapture",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 0.009024166967719793,
+      "test_results": [
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/hvf_arm64_mmio-aca641fabf3abfb9",
+        "sha256": "f8597fdb50ee1d62303957c87e8abd37cfa4dc5dd868127c99ee3eecddf50215",
+        "inode": 403714141
+      },
+      "executable_after_sha256": "f8597fdb50ee1d62303957c87e8abd37cfa4dc5dd868127c99ee3eecddf50215",
+      "source_unchanged": true,
+      "target": "hvf_arm64_mmio"
+    }
+  ],
+  "independent_aggregate": {
+    "passed": 799,
+    "failed": 0,
+    "ignored": 8
+  },
+  "compile_only_zero_test_targets": [
+    "riscv_diff",
+    "riscv_smir_x86_jit",
+    "riscv_vector",
+    "hvf_intel_owner"
+  ],
+  "quality": [
+    {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 67.83005462493747,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true
+    },
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 296.61497812508605,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true
+    },
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 573.9411032500211,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true
+    },
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 101.42073612497188,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true
+    },
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "check",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,hvf,debug"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 101.74690195906442,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true
+    },
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.sha2.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.dev.package.zstd-sys.opt-level=3",
+        "--config",
+        "profile.test.package.sha2.opt-level=3",
+        "--config",
+        "profile.test.package.zstd.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-safe.opt-level=3",
+        "--config",
+        "profile.test.package.zstd-sys.opt-level=3",
+        "test",
+        "--doc",
+        "--workspace",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 42.52057729102671,
+      "test_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true
+    }
+  ],
+  "capi_consumers": {
+    "driver_exit": 0,
+    "source_and_copies_unchanged": true,
+    "executed_programs": 19,
+    "expected_programs": 19,
+    "programs": [
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/decode_flow ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/mem_and_context ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/pauth ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/x86_64_basic ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/x86_64_hooks ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/x86_64_io ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/x86_64_memhook ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/x86_64_smir ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/x86_64_step ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/x86_64_user ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/x86_64_vector_smir ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/arm64_fp ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/cpp_engine ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/cpp_fault_recovery ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/cpp_instruction_info ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/cpp_process ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/cpp_registers ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/cpp_user_arm ==",
+      "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples/cpp_user_arm64 =="
+    ],
+    "abi_c_objects": 7,
+    "owned_build_root": "/Users/int/dev/rax-audit-work/main-integration-target/capi-consumers",
+    "gate": {
+      "argv": [
+        "make",
+        "-C",
+        "/Users/int/dev/rax/capi",
+        "test",
+        "PROFILE=debug",
+        "TARGET_DIR=/Users/int/dev/rax-audit-work/main-integration-target",
+        "EXAMPLE_DIR=/Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/examples",
+        "TEST_DIR=/Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/tests",
+        "CARGO=python3 /Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/cargo-capi-wrapper.py"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "elapsed_seconds": 541.4769637499703,
+      "test_results": [],
+      "executable_before": null,
+      "executable_after_sha256": null,
+      "source_unchanged": true
+    },
+    "abi_objects": [
+      {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/tests/analyze_abi.o",
+        "sha256": "4f6c1079e32a34c96b3e76989b243fb9f510c0e15ce76b996e5e38a81923e1ff"
+      },
+      {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/tests/arm64_fp_abi.o",
+        "sha256": "14b0a03ae0a6814d8db02c2d2a29042fd6ee6c37304d67e0c0197ec62f610732"
+      },
+      {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/tests/fault_abi.o",
+        "sha256": "cfe4f230e518cfbfd947555a43d8c267f875bca52e097797f3544ba3b8f593da"
+      },
+      {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/tests/instruction_info_abi.o",
+        "sha256": "ad77e094e1da601194d18c1a16c6562b8311bf96ecb14b59ed3a0f194b0db4cf"
+      },
+      {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/tests/pauth_abi.o",
+        "sha256": "e08270a25cb8e7b1f7999e6cb8b04f4d7a04ed4c9dc2d12603052f3818a094af"
+      },
+      {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/tests/process_abi.o",
+        "sha256": "84fd00e3f0c63585e336b4b1f60cc9b838340f5bd7449c3ceb5683138359316e"
+      },
+      {
+        "path": "/Users/int/dev/rax-audit-work/main-integration-target/capi-consumers/tests/user_abi.o",
+        "sha256": "3a25fd0afce92f89bdf0f80e6ebf77d345af8b6f27f63edcd67008d477e0c66e"
+      }
+    ]
+  },
+  "compiler_inputs": {
+    "dependency_files": 394,
+    "project_compiler_inputs": 5993,
+    "untracked_unowned": [],
+    "missing": [],
+    "planned_exact_owned_inputs": [
+      "src/backend/emulator/riscv/cpu_reservation_tests.rs",
+      "src/backend/emulator/riscv/cpu_reservations.rs",
+      "src/isa/riscv/memory/shared.rs",
+      "src/machine/gsc/runtime/memory.rs",
+      "src/vm/memory/reservation_view_tests.rs"
+    ],
+    "manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/compiled-project-source-sha256-build-v6.json",
+    "manifest_sha256": "14d8b212988569bf8e1eb80ac2ba8a9d9e44585c356eadd5de03a35ea94cd9f1"
+  },
+  "source_sha256": {
+    "capi/src/mem.rs": "50e0741adfe5c66f8dda0e30b5a0fbeb8fcb50eae2fb0271c33ed4b96ef0c076",
+    "capi/src/tests/context_riscv.rs": "9cb3c3a82daa55fa0e11df3353dcfc5732ce2bba225ca90ef6fccd2e482ef7d1",
+    "capi/src/vcpu.rs": "befb8bd9e0e87c8f34cb8f6f0e0d76566d6271e2fae472233de0d365122f3539",
+    "src/backend/emulator/riscv/cpu.rs": "543ab97267057c64649f760cd985e43c5485387c99e43c6f9302f52251aaef76",
+    "src/backend/emulator/riscv/cpu_context.rs": "0666d9a9d9338433aa58c7968042e7361642239b9347fd9397004c00b2b41e83",
+    "src/backend/emulator/riscv/cpu_context_tests.rs": "2304d023a5b681a1feee144c16b5f19f116fd854051a33574705f640da6c30bf",
+    "src/backend/emulator/riscv/cpu_reservation_tests.rs": "53b7a72d9bc5e6b71b4a3616413384bada8094559c71b3be1a0131c7cdd3258e",
+    "src/backend/emulator/riscv/cpu_reservations.rs": "a8a55bad4c7c67423439a61e1a4695d420e17fb51c4279f80b7b5651fe137bb6",
+    "src/isa/riscv/cpu.rs": "7643c1a61b01af46da62a8028f5b8ae19d355e9f2ae5d6d73b17402190b4fb22",
+    "src/isa/riscv/cpu/atomics.rs": "4a44c8946f28710bc47e03dbe99acedba65c98475c88254928d9ed0a3a2848b5",
+    "src/isa/riscv/cpu/checkpoint.rs": "4503c5946c5027734ac455498aa779b2c1d4b9a16358a87827e10e38254a1b33",
+    "src/isa/riscv/cpu/jit.rs": "c20f995b797c7cf092d384ac35b68229a8ec5756343e56c94c0508b5777f07ef",
+    "src/isa/riscv/cpu/user_mode.rs": "d0dc360dc0abea99c8a7a3ed586c80591788582e2992c8437a589537bc1e98d8",
+    "src/isa/riscv/memory.rs": "208f31e1196a19de0c564a1dcdf5181f85cdef6167b255e4b260d947b3c1e299",
+    "src/isa/riscv/memory/shared.rs": "c03b99cc1a49049a25490222fb575eabad719d64b7dabcf62c1b50dd4f70bbe5",
+    "src/machine/gsc/runtime.rs": "a6d1ddfd0666de726c246502d3b65233b668c37c28de0b3aa422abee4a18354d",
+    "src/machine/gsc/runtime/checkpoint.rs": "d18f75fd90e6c53b4b48ca9bcd05bf503811c86bf53c15e3f0cd5957d7683047",
+    "src/machine/gsc/runtime/checkpoint/image.rs": "bcc3627c142736bb3d756498a849ded3b5e0c1518bc15a0566615f9046fc71b1",
+    "src/machine/gsc/runtime/checkpoint/tests.rs": "cec2a6125e1e6360e2462e841d938b0767eeb736e828490196c8dab528ac4696",
+    "src/machine/gsc/runtime/execution.rs": "a40f65bb5c15ff10c6cfc8f3ea4b4ee9ebbc1878a83586201a3f7b391b809813",
+    "src/machine/gsc/runtime/memory.rs": "50c8d7a04572060625cbf9296fc82c736808fc19cfafb047f982825883dc599f",
+    "src/machine/gsc/runtime/tests.rs": "3d90d24940f769bedbe260348aba6452b451af2279c0d1e05ed3d1c41ab004be",
+    "src/user/cpu/riscv64.rs": "dce81b4ce2477cd398fddad55919003a7b315cdf5f457b2f8bc6c94c7955845f",
+    "src/vm/memory.rs": "a2a0ca544e90f65bcff22f41ee0755ed2003f884b07250d2cfe3cd4f395b0110",
+    "src/vm/memory/checkpoint.rs": "a1bcb7fafb93695a1e90fb7357fb192cc8aa51818c9e4f2f43aeb8798177ad71",
+    "src/vm/memory/reservation_view_tests.rs": "a9c5c05027d415130e422dd05d7240d12fdd91095e4497b31c4617fe4b8479f0",
+    "src/vm/memory/reservations.rs": "3bd3c87a9d02c9258911a4717fb1a4b215c6def50a58d73014833e5c3ec17402",
+    "src/vm/runtime/gsc_context_tests.rs": "bebb71a7cefa78094b5488c168ae512faa4635abd2364f4225a0e260f909b71b",
+    "src/vm/runtime/riscv_context_tests.rs": "79aaa60b5537e058ec62ecddf51b4fa34b9dff8a59249a2b3c16f5e6d4f43865",
+    "src/vm/vcpu/mod.rs": "f4d1e3095c8bfd38378caf10aa5d197fef1957cfd008fc9f22494c8b104d82a8"
+  },
+  "inventory": {
+    "rows": 12141,
+    "previous_rows": 12117,
+    "added": [
+      "backend::emulator::riscv::cpu::context::tests::address_only_legacy_contexts_reject_active_reservations_and_accept_empty_ones",
+      "backend::emulator::riscv::cpu::context::tests::detached_context_reservation_publishes_only_after_matching_ram",
+      "backend::emulator::riscv::cpu::context::tests::expired_physical_reservations_are_not_resurrected_by_context_restore",
+      "backend::emulator::riscv::cpu::context::tests::mapping_targets_preserve_retained_backing_and_reset_discards_reservations",
+      "backend::emulator::riscv::cpu::context::tests::setting_only_pc_preserves_the_complete_private_context",
+      "backend::emulator::riscv::cpu::reservation_tests::aba_store_invalidates_reservation_but_another_granule_does_not",
+      "backend::emulator::riscv::cpu::reservation_tests::competing_same_value_store_conditionals_have_one_winner",
+      "backend::emulator::riscv::cpu::reservation_tests::different_value_peer_store_invalidates_lr",
+      "backend::emulator::riscv::cpu::reservation_tests::native_reservations_observe_direct_and_native_peer_stores",
+      "backend::emulator::riscv::cpu::reservation_tests::reservation_width_modes_aliases_and_double_sc",
+      "backend::emulator::riscv::cpu::reservation_tests::same_value_peer_store_invalidates_lr",
+      "backend::emulator::riscv::cpu::reservation_tests::shared_view::another_map_of_shared_backing_must_invalidate_lr",
+      "backend::emulator::riscv::cpu::reservation_tests::translated_failed_sc_checks_permission_and_clears_live_reservation",
+      "backend::emulator::riscv::cpu::reservation_tests::uart_exclusives_fault_without_publishing_events",
+      "machine::gsc::runtime::checkpoint::image::tests::gsc_legacy_active_reservations_reject_without_invented_width",
+      "machine::gsc::runtime::checkpoint::image::tests::gsc_physical_reservations_capture_validity_and_publish_after_ram",
+      "user::cpu::riscv64::reservation_tests::failed_process_sc_checks_store_permission_and_consumes_reservation",
+      "user::cpu::riscv64::reservation_tests::translated_process_writers_invalidate_same_value_reservations",
+      "vm::memory::reservations::view_tests::overlapping_views_share_allocation_locks_and_invalidation",
+      "vm::memory::reservations::view_tests::physical_publication_excludes_writers_from_another_map_view",
+      "vm::memory::reservations::view_tests::replaced_allocations_cannot_inherit_a_live_source_right",
+      "vm::memory::reservations::view_tests::sixteen_byte_reservation_tracks_every_fragmented_allocation",
+      "vm::memory::reservations::view_tests::source_witness_rejects_a_write_before_target_reconstruction",
+      "vm::runtime::riscv_context_tests::observed_peer_store_stays_invalid_across_source_free_multihart_file"
+    ],
+    "removed": [],
+    "duplicate_names": {
+      "smir::lower::aarch64::tests::logic::issue_20_register_switch_preserves_nzcv_and_branches": 2
+    },
+    "source": "compiler-reported root unit-test executable --list, unfiltered"
+  },
+  "baseline_red": {
+    "argv": [
+      "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "::reservation_tests::",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit_code": 101,
+    "expected_exit_code": 101,
+    "elapsed_seconds": 0.02160570805426687,
+    "test_results": [
+      {
+        "passed": 0,
+        "failed": 2,
+        "ignored": 0
+      }
+    ],
+    "executable_before": {
+      "path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/rax-3992657c4277efe2",
+      "sha256": "28c476c3f42f03b2f963f004e4f88372f04a836bba0ce24a3527aeed68e82424",
+      "inode": 403556045
+    },
+    "executable_after_sha256": "28c476c3f42f03b2f963f004e4f88372f04a836bba0ce24a3527aeed68e82424",
+    "source_unchanged": true,
+    "source_sha256": {
+      "src/isa/riscv/memory.rs": "5f68d9e2618643668f90d47e7efdaf5de7bc8785a607da382d321bdb8d0f05d5",
+      "src/isa/riscv/cpu/atomics.rs": "6e07352ba376156f5e5c1700d31d4152ffbef3e49a8c00e5a031392cc898c7bb",
+      "src/isa/riscv/cpu/jit.rs": "4d75bb6694bcd1f9010a99a814d128da6b9163cd905a73cf9d497862338638d8",
+      "src/isa/riscv/cpu.rs": "6274842e41c5cf16664ddd01aa62dbd1b6ff83f982efb2af714f04265d06aab9",
+      "src/isa/riscv/cpu/user_mode.rs": "20d76f45a703a4c3f90e7a8f535fc2f3ad072f4123f0f85036bad6ff09240bfa",
+      "src/isa/riscv/cpu/checkpoint.rs": "3fea6e461f72f84cf827032f7b91f60fe8040f11cd1925205ff3eaac1dbf5a60",
+      "src/backend/emulator/riscv/cpu.rs": "a338e345a64200c134f03c5fe8344a20c0bcd34a3a8e7bc90a6eb57cbcd8e948",
+      "src/backend/emulator/riscv/cpu_context.rs": "fe1fbdbcb565dbf5a2cba13683a662186690ea290e6ba225506ddc84d7c54c4a",
+      "src/backend/emulator/riscv/cpu_reservation_tests.rs": "824d2acb29fa892ed17efb4084da4ed2a8d956ba3fc0d0d2212bd3b84e4ac65e",
+      "src/backend/emulator/riscv/cpu_context_tests.rs": "162bf5b5aabaf76f281602ed325d315929b2b034ee8b584024b8b28d18b7eb59",
+      "src/user/cpu/riscv64.rs": "80352031ce6a1705c9722a8dca631c2b36c296282f64027169f3c99e05ae8eb5",
+      "src/machine/gsc/runtime.rs": "eafcf090c59e24126b1c9ae322e199479027531b1cbd29c66b42d26c89a09977",
+      "src/machine/gsc/runtime/execution.rs": "ecfe7ea74a8cc831102f13ac2b5cc9fd40dd91adc433190e46f5778d8099b4e4",
+      "src/machine/gsc/runtime/tests.rs": "bc793d86baf622887ba4170c2d065865ad827206beb101caf32e825ce93a3644",
+      "src/machine/gsc/runtime/checkpoint.rs": "09c655d97e5b1ed478f3e513632eab264c976578f22e523fa27cc3cfd79b7d42",
+      "src/machine/gsc/runtime/checkpoint/image.rs": "6662e46401712df81995278b1f8173b1d407ab0a0ab533ef633a41f4019a0028",
+      "src/machine/gsc/runtime/checkpoint/tests.rs": "531121e0ba40c679bd1b624a402c83a3e61ec8ff14b4eac45b6b7536659d5786",
+      "src/vm/memory/checkpoint.rs": "1b60abba5fd4f686069061bc1dcc6776b8ecc39d5e5cfbeb9f71332129cdeaa1",
+      "docs/development/audit-remediation-2026-10.json": "2a0002d82461bb7161787221c433e9fc1420784d6e2eeec15896e0a41fc19dca",
+      "src/vm/runtime/backend_context_tests.rs": "b384fa784e7447de0df0853b16bb479e14b4c5fb6bf6e26711265317a61d4edc",
+      "src/vm/runtime/gsc_context_tests.rs": "7c14f2e7288d3cf5509da11afba060b6f6f7ba3ad22cfaf09049050fd92f3676",
+      "docs/development/backend-contexts.md": "5434684a99413d6e2a290df8ebac7351b7f4e980dc39c8877b780c202aed84ba",
+      "docs/development/riscv-backend-context.md": "05588407b81baff54449f520fe45211a559e569d1fac58560b24e15cbf1bd095",
+      "docs/development/gsc-checkpoints/README.md": "e295ccc566342cd44c5ddae7b80d1535c7141730d7d90815056a953117db70b5",
+      "__protected_ax.trace__": {
+        "size": 16,
+        "mtime_ns": 1793639372346188555,
+        "inode": 402539738,
+        "sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d"
+      },
+      "__protected_target/debug/rax-user__": {
+        "size": 66125848,
+        "mtime_ns": 1793388332639246755,
+        "inode": 397245110,
+        "sha256": "7280b01ba2ddc38fd9b68bf92b97a001392f27a9cded274158ddbf93506e06aa"
+      },
+      "__HEAD__": "99f0d1d60775f746b5a8ccc42a03381339b9016e",
+      "__tracked_changes__": "5b9761ad9b346e5637aa25ad05267beaf3fbc9b716dc8531713c551e1b466aba"
+    }
+  },
+  "shared_view_red": {
+    "compiler_argv": [
+      "rustc",
+      "--edition=2024",
+      "--test",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-shared-view-reservation-probe.rs",
+      "--extern",
+      "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+      "--extern",
+      "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+      "-L",
+      "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+      "-o",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-shared-view-reservation-probe"
+    ],
+    "exit_code": 101,
+    "stdout": "\nrunning 1 test\ntest another_map_of_shared_backing_must_invalidate_lr ... FAILED\n\nfailures:\n\nfailures:\n    another_map_of_shared_backing_must_invalidate_lr\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+    "stderr": "\nthread 'another_map_of_shared_backing_must_invalidate_lr' (180496157) panicked at /Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-shared-view-reservation-probe.rs:26:5:\nassertion `left != right` failed: a different view of the same RAM must invalidate the LR\n  left: 0\n right: 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+    "source_sha256": "105469f33e9e10fd990db7f8b87d9c4bbe6c59febe1b866100acb608055a552d",
+    "rlib_sha256": "240ffe7cd77e092d5f0eb50ec4bbb266ef7b6d710f13c99447dbe6126df0ee8c",
+    "exe_sha256": "ec44636f0860495e64446eaea967ea6c825fc4d59b401ca0aa8250c5b31cd0d9"
+  },
+  "iterations": [
+    "Baseline complete compile0; actual2 peer-store tests failed2, no skips.",
+    "Implementation checkv1 passed workspace all-targets before expanded tests.",
+    "Buildv2 failed test compilation because test referenced nonexistent OptLevel::O3. Driver terminal101; no passing test/build claimed. Corrected to actual O0/O1/O2.",
+    "Follow-up supplies complete LR host range preflight, remap invalidation and detached public-state activation beforev3; source guards remained unchanged for each command.",
+    "v3 all-target build0 and focused39pass, HTIF witness2pass. Complete CAPI238pass3fail exposed detached publication omission and lost reservation on update_state/remap. Root/physical/quality gates intentionally stopped; terminal receipts retained.",
+    "Additional actual public-backend shared-view test failed1: map view with an added unrelated region allowed same-value peer store without invalidating LR. Shared physical allocation locks required.",
+    "v4 implementation check passed workspace all-targets. v5 full build passed; short focused54pass and supplemental HTIF2/partial-map1/same-assembly RAX-mirror1 passed. CAPI242pass2fail isolated generic set_current_pc reset semantics; direct override and exact-private-context regression added forv6.",
+    "The installed QEMU binary prints1000 for the retained four-case bare-metal program; RAX actual system-backend instruction interleaving prints1111. VMM secondary startup/controller execution is not qualified by this witness.",
+    "v6 all-target build0, focused55pass, complete CAPI244pass, supplemental4pass. Immutable project compiler input manifest5993, no missing/unowned. Root inventory12141,24added0removed; prior duplicate remains.",
+    "Additional current production-linked public-backend controls passed2: final aligned4/8-byte operands in a4096-byte page and exact wrong-hart V2 rejection without mutation, each system/embedded/translated mode. No project source changed during the owning run."
+  ],
+  "supplemental": {
+    "sc-htif-witness": {
+      "compiler_argv": [
+        "rustc",
+        "--edition=2024",
+        "--test",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/sc-htif-witness.rs",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+        "--extern",
+        "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/sc-htif-witness-v6"
+      ],
+      "compiler_exit": 0,
+      "compiler_stdout": "",
+      "compiler_stderr": "",
+      "rlib_path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+      "rlib_sha256": "14dad25aac156d8360ae9c34f4f97d9339f6765bd570f55fffe0f29e8620d89d",
+      "source_sha256": "670785a4dffc1c9aa4b3f8b97740d7fb4d9e6dacb96811cd38034a7d608aa24b",
+      "host_page_bytes": 16384,
+      "argv": [
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/sc-htif-witness-v6",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "stdout": "\nrunning 2 tests\ntest failed_sc_to_htif_neither_writes_nor_publishes_shutdown ... ok\ntest successful_sc_to_htif_preserves_shutdown_without_extra_retirement ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+      "stderr": "",
+      "exe_sha256": "e1e936e4efa98a08559cb5f188a8df28f783593c5960c75d568aad806b139c54",
+      "rlib_unchanged": true
+    },
+    "partial-view-witness": {
+      "compiler_argv": [
+        "rustc",
+        "--edition=2024",
+        "--test",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/partial-view-witness.rs",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+        "--extern",
+        "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/partial-view-witness-v6"
+      ],
+      "compiler_exit": 0,
+      "compiler_stdout": "",
+      "compiler_stderr": "",
+      "rlib_path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+      "rlib_sha256": "14dad25aac156d8360ae9c34f4f97d9339f6765bd570f55fffe0f29e8620d89d",
+      "source_sha256": "e3c9620065faa8a495d4820b91f9233927c297952cb52ab8c48546988a7dac22",
+      "host_page_bytes": 16384,
+      "argv": [
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/partial-view-witness-v6",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "stdout": "\nrunning 1 test\ntest a_larger_view_invalidates_the_same_physical_word_in_a_subview ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+      "stderr": "",
+      "exe_sha256": "4ee50b16202a56fa3acee94ddf9f33dbbaa95389a7b4ecca6059fff1b03481d6",
+      "rlib_unchanged": true
+    },
+    "qemu-lrsc-rax-mirror": {
+      "compiler_argv": [
+        "rustc",
+        "--edition=2024",
+        "--test",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc-rax-mirror.rs",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+        "--extern",
+        "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc-rax-mirror-v6"
+      ],
+      "compiler_exit": 0,
+      "compiler_stdout": "",
+      "compiler_stderr": "",
+      "rlib_path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+      "rlib_sha256": "14dad25aac156d8360ae9c34f4f97d9339f6765bd570f55fffe0f29e8620d89d",
+      "source_sha256": "c1689a1631d2a0d360f93fa99052f373a19c6b45ef748f6ddc97557ff7eac43c",
+      "host_page_bytes": 16384,
+      "argv": [
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc-rax-mirror-v6",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "stdout": "\nrunning 1 test\nobserved_status_bytes=1111\n\ntest observed_peer_stores_fail_sc_for_all_four_retained_program_cases ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+      "stderr": "",
+      "exe_sha256": "feda85d4a6c4f3a14afb7d65130c8162b118724425ad81af395896a5ddb3ed73",
+      "rlib_unchanged": true
+    },
+    "reservation-boundaries-witness": {
+      "compiler_argv": [
+        "rustc",
+        "--edition=2024",
+        "--test",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/reservation-boundaries-witness.rs",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+        "--extern",
+        "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/reservation-boundaries-witness-v6"
+      ],
+      "compiler_exit": 0,
+      "compiler_stdout": "",
+      "compiler_stderr": "",
+      "source_sha256": "1480b59f8a3589bb8d89d721b3a64a4356d95f8eebe17a430559243d8f5b208f",
+      "rlib_sha256": "14dad25aac156d8360ae9c34f4f97d9339f6765bd570f55fffe0f29e8620d89d",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/reservation-boundaries-witness-v6",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "stdout": "\nrunning 2 tests\ntest wrong_hart_identity_rejects_the_version_two_record_before_target_mutation ... ok\ntest final_aligned_word_and_doubleword_use_only_the_admitted_page ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+      "stderr": "",
+      "exe_sha256": "3002b6b74e0360536c1a161316776243bc489ab29f51e622c5167c825f2753ee",
+      "rlib_unchanged": true
+    }
+  },
+  "independent_oracle": {
+    "assembly": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.S",
+    "assembly_sha256": "b3b9f5965b176c7037b3fc100822763b7aefb3bb493e944ec3e05bc89682bc98",
+    "text_sha256": "b623c0f8f1c41b73b5015350361761207d398483bff044808c758569233c8690",
+    "objcopy_argv": [
+      "llvm-objcopy",
+      "-O",
+      "binary",
+      "--only-section=.text",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.elf",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc-text.bin"
+    ],
+    "rax": {
+      "compiler_argv": [
+        "rustc",
+        "--edition=2024",
+        "--test",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc-rax-mirror.rs",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+        "--extern",
+        "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc-rax-mirror-v6"
+      ],
+      "compiler_exit": 0,
+      "compiler_stdout": "",
+      "compiler_stderr": "",
+      "rlib_path": "/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+      "rlib_sha256": "14dad25aac156d8360ae9c34f4f97d9339f6765bd570f55fffe0f29e8620d89d",
+      "source_sha256": "c1689a1631d2a0d360f93fa99052f373a19c6b45ef748f6ddc97557ff7eac43c",
+      "host_page_bytes": 16384,
+      "argv": [
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc-rax-mirror-v6",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "stdout": "\nrunning 1 test\nobserved_status_bytes=1111\n\ntest observed_peer_stores_fail_sc_for_all_four_retained_program_cases ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+      "stderr": "",
+      "exe_sha256": "feda85d4a6c4f3a14afb7d65130c8162b118724425ad81af395896a5ddb3ed73",
+      "rlib_unchanged": true
+    },
+    "qemu": {
+      "assembler_argv": [
+        "llvm-mc",
+        "-triple=riscv64",
+        "-mattr=+a,+zicsr",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.S",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.o"
+      ],
+      "linker_argv": [
+        "ld.lld",
+        "-m",
+        "elf64lriscv",
+        "-Ttext=0x80000000",
+        "-e",
+        "_start",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.elf"
+      ],
+      "argv": [
+        "qemu-system-riscv64",
+        "-M",
+        "virt",
+        "-m",
+        "128M",
+        "-smp",
+        "2",
+        "-bios",
+        "none",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.elf",
+        "-nographic",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-no-reboot"
+      ],
+      "exit_code": 0,
+      "stdout": "1000\n",
+      "stderr": "",
+      "elapsed_seconds": 0.18682895798701793,
+      "source_sha256": "b3b9f5965b176c7037b3fc100822763b7aefb3bb493e944ec3e05bc89682bc98",
+      "elf_sha256": "889913056fe51ec5b2fcd90cab27fd04606e178d7aff5c7bda168a34eb0afcee",
+      "version": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n",
+      "comparison_expected_by_Zalrsc": "1111\n",
+      "oracle_matches_spec": false
+    },
+    "required": "1111\n",
+    "observed_rax": "1111\n",
+    "observed_qemu": "1000\n",
+    "rows": [
+      {
+        "case": "changed word",
+        "required_sc_status": 1,
+        "rax_sc_status": 1,
+        "qemu_sc_status": 1
+      },
+      {
+        "case": "same-value word",
+        "required_sc_status": 1,
+        "rax_sc_status": 1,
+        "qemu_sc_status": 0
+      },
+      {
+        "case": "ABA word",
+        "required_sc_status": 1,
+        "rax_sc_status": 1,
+        "qemu_sc_status": 0
+      },
+      {
+        "case": "same-value doubleword",
+        "required_sc_status": 1,
+        "rax_sc_status": 1,
+        "qemu_sc_status": 0
+      }
+    ],
+    "scope": "RAX host-interleaved actual backend harts, not VMM startup/controller qualification."
+  },
+  "remaining_amo_actual_failure": {
+    "compiler_argv": [
+      "rustc",
+      "--edition=2024",
+      "--test",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-riscv-amo-atomicity-probe.rs",
+      "--extern",
+      "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+      "--extern",
+      "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+      "-L",
+      "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+      "-o",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-riscv-amo-atomicity-probe-v6"
+    ],
+    "compiler_exit": 0,
+    "compiler_stdout": "",
+    "compiler_stderr": "",
+    "argv": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-riscv-amo-atomicity-probe-v6",
+      "--nocapture"
+    ],
+    "exit_code": 101,
+    "stdout": "\nrunning 1 test\ntest two_user_harts_must_not_lose_an_atomic_increment ... FAILED\n\nfailures:\n\nfailures:\n    two_user_harts_must_not_lose_an_atomic_increment\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+    "stderr": "\nthread 'two_user_harts_must_not_lose_an_atomic_increment' (181963961) panicked at /Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-riscv-amo-atomicity-probe.rs:35:5:\nassertion `left == right` failed: AMOADD.W must be indivisible across harts\n  left: 1\n right: 2\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+    "source_sha256": "b89ce685516b4766da8f2dc54678805bb5107514e574a28dd4d2dd7ca3d54e6a",
+    "rlib_sha256": "14dad25aac156d8360ae9c34f4f97d9339f6765bd570f55fffe0f29e8620d89d",
+    "rlib_unchanged": true,
+    "exe_sha256": "a1d90036763f6f532c0f92e63ca6c01aa24f644f1ae51a7d0b0ae9afcdbf47b3",
+    "full_goal_complete": false,
+    "next_work": "Implement shared AMO/Zacas RMW hooks across direct, JIT and all shared Memory providers; no source changes in this probe."
+  },
+  "remaining_atomic_admission_actual_failure": {
+    "compiler_argv": [
+      "rustc",
+      "--edition=2024",
+      "--test",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-riscv-atomic-admission-probe.rs",
+      "--extern",
+      "rax=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/librax-fa5098dca9b250eb.rlib",
+      "--extern",
+      "vm_memory=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps/libvm_memory-5535dadc785e3031.rlib",
+      "-L",
+      "dependency=/Users/int/dev/rax-audit-work/main-integration-target/debug/deps",
+      "-o",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-riscv-atomic-admission-probe-v6"
+    ],
+    "compiler_exit": 0,
+    "compiler_stdout": "",
+    "compiler_stderr": "",
+    "source_sha256": "914734a9417707fe79f72d616e780a5fc4847743faaab1280c651666467676b5",
+    "rlib_sha256": "14dad25aac156d8360ae9c34f4f97d9339f6765bd570f55fffe0f29e8620d89d",
+    "scope": "Current production-root-linked direct Zacas permission/admission checks; primary rule section15.1, no project source modifications.",
+    "argv": [
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-riscv-atomic-admission-probe-v6",
+      "--nocapture"
+    ],
+    "exit_code": 101,
+    "stdout": "\nrunning 2 tests\ntest unsuccessful_amocas_still_requires_write_access ... FAILED\ntest rv32_zacas_admits_even_register_pair_amocas_doubleword ... FAILED\n\nfailures:\n\nfailures:\n    rv32_zacas_admits_even_register_pair_amocas_doubleword\n    unsuccessful_amocas_still_requires_write_access\n\ntest result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+    "stderr": "\nthread 'rv32_zacas_admits_even_register_pair_amocas_doubleword' (182346820) panicked at /Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-riscv-atomic-admission-probe.rs:52:5:\nassertion `left == right` failed\n  left: Illegal\n right: AmocasD\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\nthread 'unsuccessful_amocas_still_requires_write_access' (182346821) panicked at /Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-riscv-atomic-admission-probe.rs:40:5:\nZacas always requires write permission, including compare failure\n",
+    "exe_sha256": "ea8b603cfe11bc1c8ef85d18f423b6b924be35d441d194968b27d6309eb52781",
+    "rlib_unchanged": true
+  },
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "item": "RISC-V AMO/Zacas shared RMW indivisibility is a separate remaining C-SMP requirement; ordinary AMO writes must invalidate monitors in this group",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "RISC-V startup/controller/clock implementation and actual Intel HVF validation remain open",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "item": "Allocation lock acquisition scales with the number of regions in the RAM view; the common one-region path has no guard-vector allocation. Performance for large fragmented maps is unqualified.",
+      "blocks_full_goal": false
+    },
+    {
+      "impact": "high",
+      "item": "Two actual current Zacas controls also fail: compare-miss on read-only memory omits mandatory write admission; RV32 even-pair AMOCAS.D decodes Illegal despite enabled Zacas. Retained primary section15.1 defines both rules. Include both in the next atomic transaction/profile group.",
+      "blocks_full_goal": true,
+      "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/remaining-riscv-atomic-admission-red-v6.json"
+    }
+  ],
+  "protected": {
+    "ax.trace": {
+      "size": 16,
+      "mtime_ns": 1793639372346188555,
+      "inode": 402539738,
+      "sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d"
+    },
+    "target/debug/rax-user": {
+      "size": 66125848,
+      "mtime_ns": 1793388332639246755,
+      "inode": 397245110,
+      "sha256": "7280b01ba2ddc38fd9b68bf92b97a001392f27a9cded274158ddbf93506e06aa"
+    }
+  },
+  "publication": {
+    "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/commit-receipt.json",
+    "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/push-receipt.json",
+    "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/cleanup-final.json"
+  },
+  "artifact_boundary": "Hashed compiler-reported deps/root rlib used; top-level librax.rlib can collide with C API outputs. No physical RISC-V or native Intel qualification.",
+  "historical_trace_boundary": "Current 16-byte trace stamps preserved during this group. Earlier historical truncation remains unresolved; historical contents were not restored.",
+  "compiler_inputs_after_feature_doc_checks": {
+    "dependency_files": 645,
+    "project_compiler_inputs": 5994,
+    "untracked_unowned": [],
+    "missing": [],
+    "planned_exact_owned_inputs": [
+      "src/backend/emulator/riscv/cpu_reservation_tests.rs",
+      "src/backend/emulator/riscv/cpu_reservations.rs",
+      "src/isa/riscv/memory/shared.rs",
+      "src/machine/gsc/runtime/memory.rs",
+      "src/vm/memory/reservation_view_tests.rs"
+    ],
+    "manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/compiled-project-source-sha256-final-v6.json",
+    "manifest_sha256": "edc692eff36412d07c2f955c1612cec071d0d29a9fa37dafad1cda8ab5ec3534"
+  },
+  "compiler_input_comparison": {
+    "all_original_hashes_unchanged": true,
+    "added": [
+      "Cargo.toml"
+    ],
+    "removed": []
+  },
+  "source_organization": {
+    "hard_trigger_lines": 2000,
+    "hard_trigger_bytes": 150000,
+    "largest_touched_jit_lines": 1609,
+    "GSC_memory_split": "src/machine/gsc/runtime/memory.rs",
+    "existing_oversized_owner": {
+      "path": "src/isa/riscv/cpu.rs",
+      "lines": 6459,
+      "baseline_lines": 6459,
+      "edit": "Existing reset call and reservation comment replaced without adding lines or semantic blocks; all new behavior resides in smaller siblings."
+    },
+    "scope": "New source remains below hard triggers. JIT helper remains near the approximately1500-line soft ceiling; full atomic helper ownership is the next AMO group."
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "assembler_argv": [
+    "llvm-mc",
+    "-triple=riscv64",
+    "-mattr=+a,+zicsr",
+    "-filetype=obj",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.S",
+    "-o",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.o"
+  ],
+  "linker_argv": [
+    "ld.lld",
+    "-m",
+    "elf64lriscv",
+    "-Ttext=0x80000000",
+    "-e",
+    "_start",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.o",
+    "-o",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.elf"
+  ],
+  "argv": [
+    "qemu-system-riscv64",
+    "-M",
+    "virt",
+    "-m",
+    "128M",
+    "-smp",
+    "2",
+    "-bios",
+    "none",
+    "-kernel",
+    "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-shared-reservations-v1/qemu-lrsc.elf",
+    "-nographic",
+    "-monitor",
+    "none",
+    "-serial",
+    "stdio",
+    "-no-reboot"
+  ],
+  "exit_code": 0,
+  "stdout": "1000\n",
+  "stderr": "",
+  "elapsed_seconds": 0.18682895798701793,
+  "source_sha256": "b3b9f5965b176c7037b3fc100822763b7aefb3bb493e944ec3e05bc89682bc98",
+  "elf_sha256": "889913056fe51ec5b2fcd90cab27fd04606e178d7aff5c7bda168a34eb0afcee",
+  "version": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n",
+  "comparison_expected_by_Zalrsc": "1111\n",
+  "oracle_matches_spec": false
+}

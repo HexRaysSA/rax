@@ -84,6 +84,7 @@ impl Vcpu {
                     rax_engine::snapshot::AARCH64_CONTEXT
                         | rax_engine::snapshot::CORTEX_M_CONTEXT
                         | rax_engine::snapshot::HEXAGON_CONTEXT
+                        | rax_engine::snapshot::RISCV_CONTEXT
                 ) {
                     return core.restore_checkpoint_context(state, emulator, Some(context));
                 }

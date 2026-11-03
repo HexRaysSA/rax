@@ -212,3 +212,57 @@ fn rv32_private_record_under_riscv64_machine_rejects_before_live_changes() {
         "{error}"
     );
 }
+
+#[test]
+fn observed_peer_store_stays_invalid_across_source_free_multihart_file() {
+    for count in [2, 4] {
+        let f = Fixture::new();
+        let mut source = f.source(count);
+        // The last hart executes a same-value SW over hart0's reserved word.
+        let last = usize::from(count) - 1;
+        let writer_pc = 0x2000;
+        source
+            .guest_mem
+            .memory()
+            .write_slice(&0x00c5_2023u32.to_le_bytes(), GuestAddress(writer_pc))
+            .unwrap();
+        let CpuState::RiscV(mut state) = source.vcpus[last].get_state().unwrap() else {
+            panic!()
+        };
+        state.regs.pc = writer_pc;
+        state.regs.x[10] = 0x8000;
+        state.regs.x[12] = 0x1234_5678;
+        source.vcpus[last]
+            .set_state(&CpuState::RiscV(state))
+            .unwrap();
+        assert!(source.vcpus[last].step_insn().unwrap().is_none());
+        source
+            .take_snapshot_bundle(u64::from(count) + 1)
+            .unwrap()
+            .save(&f.checkpoint)
+            .unwrap();
+        let loaded = SnapshotBundle::load(&f.checkpoint).unwrap();
+        let config = f.config(count);
+        std::fs::remove_file(&f.kernel).unwrap();
+        let mut restored = Vmm::new_resume_bundle(config, &loaded).unwrap();
+        assert_eq!(contexts(&source), contexts(&restored));
+        for vm in [&mut source, &mut restored] {
+            assert!(vm.vcpus[0].step_insn().unwrap().is_none());
+            let CpuState::RiscV(state) = vm.vcpus[0].get_state().unwrap() else {
+                panic!()
+            };
+            assert_ne!(
+                state.regs.x[11], 0,
+                "expired hart0 LR must not be resurrected"
+            );
+            assert_eq!(
+                vm.guest_mem
+                    .memory()
+                    .read_obj::<u32>(GuestAddress(0x8000))
+                    .unwrap(),
+                0x1234_5678
+            );
+        }
+        assert_eq!(contexts(&source), contexts(&restored));
+    }
+}

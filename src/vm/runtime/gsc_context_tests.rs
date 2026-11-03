@@ -455,8 +455,12 @@ fn final_gsc_record_or_resource_rejects_before_any_cpu_or_ram_change() {
                     crate::codec::deserialize_strict(&last.data[12..56]).unwrap();
                 let prepared = b.resources().unwrap().prepare().unwrap();
                 let mut bytes = prepared.resolve(old).unwrap().as_ref().clone();
-                assert_eq!(&bytes[..8], b"RAXGSI01");
-                bytes[8..12].copy_from_slice(&u32::from(count).to_le_bytes());
+                assert_eq!(&bytes[..8], b"RAXGSI02");
+                let mut prefix = std::io::Cursor::new(&bytes[8..]);
+                let _: Option<crate::vm::memory::reservations::Reservation> =
+                    crate::codec::deserialize_from(&mut prefix).unwrap();
+                let id_offset = 8 + prefix.position() as usize;
+                bytes[id_offset..id_offset + 4].copy_from_slice(&u32::from(count).to_le_bytes());
                 let bad = crate::vm::snapshot::CheckpointResource::gsc_state(bytes).unwrap();
                 last.data[12..56].copy_from_slice(&crate::codec::serialize(&bad.key()).unwrap());
                 let mut resources = Vec::new();
