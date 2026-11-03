@@ -31,7 +31,15 @@ impl Kernel {
         )
         .unwrap();
         c.memory = MemorySize(RAM as u64);
-        Vmm::new_resume(c).unwrap()
+        let mut vm = Vmm::new_resume(c).unwrap();
+        if arch == ArchKind::Riscv64 {
+            // These witnesses exercise the historical base-only format.
+            // Select its ordinary-RAM profile explicitly before capture;
+            // new CLINT files require the complete producer graph.
+            let base = copy(vm.take_snapshot_bundle(0).unwrap().base());
+            vm.restore_snapshot(&base).unwrap();
+        }
+        vm
     }
 }
 impl Drop for Kernel {

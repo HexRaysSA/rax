@@ -327,3 +327,37 @@ fn readonly_late_segment_and_bootstrap_stacks_reject_without_writes() {
     });
     assert!(super::startup::hart_state(&mem, &boot, 0, 1).is_err());
 }
+
+#[test]
+fn clint_image_overlap_is_rejected_before_any_segment_is_written() {
+    let base = crate::backend::emulator::riscv::platform::BASE;
+    let mem = GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), (base + 0x10000) as usize)])
+        .unwrap();
+    mem.write_slice(&[0xa5; 64], GuestAddress(0x1000)).unwrap();
+    let mut image = program::elf(&0x00000013u32.to_le_bytes(), 0x1000, 0x1000);
+    program::put16(&mut image, 56, 2);
+    program::put32(&mut image, 120, 1);
+    program::put32(&mut image, 124, 6);
+    program::put64(&mut image, 128, 4096);
+    program::put64(&mut image, 136, base);
+    program::put64(&mut image, 144, base);
+    program::put64(&mut image, 152, 4);
+    program::put64(&mut image, 160, 4);
+    assert!(
+        RiscvVirtMachine::load_elf(&mem, &image)
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("CLINT")
+    );
+    let mut before = [0; 64];
+    mem.read_slice(&mut before, GuestAddress(0x1000)).unwrap();
+    assert_eq!(before, [0xa5; 64]);
+    assert!(
+        RiscvVirtMachine::load_raw(&mem, &vec![0x13; base as usize + 4])
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("CLINT")
+    );
+}

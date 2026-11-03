@@ -41,7 +41,9 @@ impl Fixture {
         .unwrap()
     }
     fn source(&self, count: u8) -> Vmm {
-        let mut vm = Vmm::new_resume(self.config(count)).unwrap();
+        let mut vm =
+            Vmm::new_resume_with_clock(self.config(count), crate::vm::timing::ClockMode::Retired)
+                .unwrap();
         for (index, cpu) in vm.vcpus.iter_mut().enumerate() {
             let code = 0x1000 + index as u64 * 0x100;
             vm.guest_mem
@@ -126,8 +128,9 @@ fn invalid_final_riscv_context_preserves_all_harts_and_ram() {
     let f = Fixture::new();
     let source = f.source(4);
     let original = contexts(&source);
-    let cpus = source.capture_cpu_states().unwrap();
-    let mut target = Vmm::new_resume(f.config(4)).unwrap();
+    let mut bundle = source.take_snapshot_bundle(4).unwrap();
+    let mut target =
+        Vmm::new_resume_with_clock(f.config(4), crate::vm::timing::ClockMode::Retired).unwrap();
     target
         .guest_mem
         .memory()
@@ -143,14 +146,10 @@ fn invalid_final_riscv_context_preserves_all_harts_and_ram() {
             2 => {
                 last.data.pop();
             }
-            3 => last.data[8..12].copy_from_slice(&0u32.to_le_bytes()),
+            3 => last.data[9..13].copy_from_slice(&0u32.to_le_bytes()),
             _ => unreachable!(),
         }
-        let bundle = SnapshotBundle::new(source.take_snapshot(4).unwrap())
-            .with_cpus(cpus.clone())
-            .unwrap()
-            .with_backend_contexts(entries)
-            .unwrap();
+        bundle = bundle.with_backend_contexts(entries).unwrap();
         assert!(target.restore_snapshot_bundle(&bundle).is_err());
         assert_eq!(contexts(&target), before);
         let mut memory = [0; 4096];
@@ -176,6 +175,16 @@ fn rv32_private_record_under_riscv64_machine_rejects_before_live_changes() {
         RiscVConfig::rv32(Isa::rv64gc()),
     );
     let state = rv32.get_state().unwrap();
+    // A genuine legacy base producer has no CLINT binding.
+    source
+        .vm
+        .as_any()
+        .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+        .unwrap()
+        .riscv_platform()
+        .unwrap()
+        .restore_with(None, || Ok(()))
+        .unwrap();
     let mut base = source.take_snapshot(0).unwrap();
     base.cpu_state = state.clone();
     let bundle = SnapshotBundle::new(base)
@@ -186,7 +195,7 @@ fn rv32_private_record_under_riscv64_machine_rejects_before_live_changes() {
         .unwrap()
         .with_backend_contexts(vec![rv32.capture_backend_context().unwrap()])
         .unwrap();
-    let mut target = f.source(1);
+    let mut target = Vmm::new_resume(f.config(1)).unwrap();
     target
         .guest_mem
         .memory()

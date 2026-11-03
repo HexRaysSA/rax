@@ -2850,7 +2850,8 @@
         "Selected classic banked GIC operations, IRQ/FIQ masks/routing, waits, Any participation and active-state programming are locally qualified, including prepared1/2/4-PE source-free files. Full startup/backend/private/in-flight/clock/replay/native work remains open; the separately reproduced GICD_TYPER discovery defect is corrected by the discovery/routing followup.",
         "Classic SPI discovery and IROUTER word/full-width mapping, fixed-ARE legacy register readback, guest PSCI secondary startup and actual1/2/4-PE top-SPI source-free file continuations are locally qualified in a64-gic-discovery-routing/qualification.json. Complete original backend/private/in-flight, native startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
         "Shared physical LR/SC direct/native/process/GSC writers, validity encoding, stopped RAM publication and C API retained-backing reconstruction are locally qualified in riscv-shared-reservations/qualification.json. Shared AMO/Zacas transactions, mandatory CAS write admission and RV32 pair/admission are now locally qualified in riscv-shared-atomics/qualification.json; remaining full backend/platform/native requirements stay open.",
-        "Generic RV64 all-hart VMM startup, exact ELF entry/BSS/segment admission and actual source-free one/two/four-hart continuation are locally qualified in riscv-vmm-startup/qualification.json. A common-byte CLINT IPI probe passes QEMU and fails both actual RAX two/four-hart runs. CLINT/PLIC/common-clock/SBI/platform replay and remaining full backend/private/in-flight/native requirements remain open; no original finding closure."
+        "Generic RV64 all-hart VMM startup, exact ELF entry/BSS/segment admission and actual source-free one/two/four-hart continuation are locally qualified in riscv-vmm-startup/qualification.json. A common-byte CLINT IPI probe passes QEMU and fails both actual RAX two/four-hart runs. CLINT/PLIC/common-clock/SBI/platform replay and remaining full backend/private/in-flight/native requirements remain open; no original finding closure.",
+        "Generic RV64 classic CLINT source registers, owned time, all-hart interrupt work and complete coordinated source-free files are locally qualified in docs/development/riscv-clint/qualification.json. All original other profiles/backend/device/startup/IRQ/clock/replay and physical Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2924,7 +2925,8 @@
         "aarch64-gic-group-forwarding-2026-11-02",
         "aarch64-gic-discovery-routing-2026-11-02",
         "riscv-shared-reservations-2026-11-03",
-        "riscv-shared-atomics-2026-11-03"
+        "riscv-shared-atomics-2026-11-03",
+        "riscv-shared-clint-2026-11-03"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3660,7 +3662,8 @@
         "Selected classic banked GIC operations, IRQ/FIQ masks/routing, waits, Any participation and active-state programming are locally qualified, including prepared1/2/4-PE source-free files. Full startup/backend/private/in-flight/clock/replay/native work remains open; the separately reproduced GICD_TYPER discovery defect is corrected by the discovery/routing followup.",
         "Classic SPI discovery and IROUTER word/full-width mapping, fixed-ARE legacy register readback, guest PSCI secondary startup and actual1/2/4-PE top-SPI source-free file continuations are locally qualified in a64-gic-discovery-routing/qualification.json. Complete original backend/private/in-flight, native startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
         "Shared physical LR/SC direct/native/process/GSC writers, validity encoding, stopped RAM publication and C API retained-backing reconstruction are locally qualified in riscv-shared-reservations/qualification.json. Shared AMO/Zacas transactions, mandatory CAS write admission and RV32 pair/admission are now locally qualified in riscv-shared-atomics/qualification.json; remaining full backend/platform/native requirements stay open.",
-        "Generic RV64 all-hart VMM startup, exact ELF entry/BSS/segment admission and actual source-free one/two/four-hart continuation are locally qualified in riscv-vmm-startup/qualification.json. A common-byte CLINT IPI probe passes QEMU and fails both actual RAX two/four-hart runs. CLINT/PLIC/common-clock/SBI/platform replay and remaining full backend/private/in-flight/native requirements remain open; no original finding closure."
+        "Generic RV64 all-hart VMM startup, exact ELF entry/BSS/segment admission and actual source-free one/two/four-hart continuation are locally qualified in riscv-vmm-startup/qualification.json. A common-byte CLINT IPI probe passes QEMU and fails both actual RAX two/four-hart runs. CLINT/PLIC/common-clock/SBI/platform replay and remaining full backend/private/in-flight/native requirements remain open; no original finding closure.",
+        "Generic RV64 classic CLINT source registers, owned time, all-hart interrupt work and complete coordinated source-free files are locally qualified in docs/development/riscv-clint/qualification.json. All original other profiles/backend/device/startup/IRQ/clock/replay and physical Intel requirements remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3716,7 +3719,8 @@
         "aarch64-gic-group-forwarding-2026-11-02",
         "aarch64-gic-discovery-routing-2026-11-02",
         "riscv-shared-reservations-2026-11-03",
-        "riscv-shared-atomics-2026-11-03"
+        "riscv-shared-atomics-2026-11-03",
+        "riscv-shared-clint-2026-11-03"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198507,6 +198511,31 @@
         "guarded cleanup of owned C/T only"
       ],
       "full_goal_complete": false
+    },
+    {
+      "id": "riscv-shared-clint-2026-11-03",
+      "status": "locally_validated_with_explicit_scope_and_native_reference_limit",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "parent": "31d4c36c566d372280f88dfc6c26fe9239a08a0e",
+      "scope": "Generic RV64 shared CLINT, VM-owned time, all-hart software/timer handlers and coordinated source-free checkpoint profiles",
+      "qualification": "docs/development/riscv-clint/qualification.json",
+      "full_goal_complete": false,
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-clint-v1/commit-receipt.json",
+      "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-clint-v1/push-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-clint-v1/cleanup-final.json",
+      "linear_upstream_integration": {
+        "parent": "07fdfd8f26d175d96dd48f3a5c115c7f1945b300",
+        "receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-clint-v1/linear-integration-validation.json",
+        "totals": {
+          "passed": 2278,
+          "failed": 0,
+          "ignored": 0
+        },
+        "full_root_baseline": "31d4c36c566d372280f88dfc6c26fe9239a08a0e"
+      }
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

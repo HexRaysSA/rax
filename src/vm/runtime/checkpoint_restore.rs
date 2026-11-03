@@ -272,6 +272,21 @@ impl Vmm {
                 "AArch64 SMP checkpoint requires shared interrupt/power state".into(),
             ));
         }
+        let riscv_platform = self
+            .vm
+            .as_any()
+            .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+            .and_then(|vm| vm.riscv_platform());
+        let riscv_state = bundle
+            .execution()
+            .and_then(|state| state.riscv_platform.clone());
+        if let Some(platform) = &riscv_platform {
+            platform.validate_checkpoint(riscv_state.as_ref())?;
+        } else if riscv_state.is_some() {
+            return Err(Error::InvalidConfig(
+                "CLINT checkpoint requires the software platform".into(),
+            ));
+        }
         let arm_restore = if let Some(state) = bundle
             .execution()
             .and_then(|saved| saved.arm_cluster.as_ref())
@@ -448,6 +463,10 @@ impl Vmm {
             }
             Ok(())
         };
+        let commit = || match &riscv_platform {
+            Some(platform) => platform.restore_with(riscv_state, commit),
+            None => commit(),
+        };
         let commit = || match arm_restore {
             Some((cluster, state)) => cluster.restore_with(state, commit),
             None => commit(),
@@ -496,15 +515,27 @@ impl Vmm {
         let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
         let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
         let mut lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
-        vcpu.set_state(&snapshot.cpu_state)?;
-        vcpu.set_emulator_state(&snapshot.emulator_state)?;
-        self.guest_mem.write_all(&memory)?;
-        *pic = devices.pic;
-        *pit = devices.pit;
-        *serial = devices.serial;
-        lapic.replace_state(devices.lapic);
-        lapic.enable_coordinated_delivery();
-        crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
+        let platform = self
+            .vm
+            .as_any()
+            .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+            .and_then(|vm| vm.riscv_platform());
+        let commit = || -> Result<()> {
+            vcpu.set_state(&snapshot.cpu_state)?;
+            vcpu.set_emulator_state(&snapshot.emulator_state)?;
+            self.guest_mem.write_all(&memory)?;
+            *pic = devices.pic;
+            *pit = devices.pit;
+            *serial = devices.serial;
+            lapic.replace_state(devices.lapic);
+            lapic.enable_coordinated_delivery();
+            crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
+            Ok(())
+        };
+        match platform {
+            Some(platform) => platform.restore_with(None, commit)?,
+            None => commit()?,
+        }
 
         info!(
             insn_count = snapshot.instruction_count,

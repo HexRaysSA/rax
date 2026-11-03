@@ -44,7 +44,11 @@ impl Fixture {
             None,
         )
         .unwrap();
-        let vm = Vmm::new(config).unwrap();
+        let vm = if wait {
+            Vmm::new_with_clock(config, crate::vm::timing::ClockMode::Retired).unwrap()
+        } else {
+            Vmm::new(config).unwrap()
+        };
         Self { kernel, vm }
     }
 }

@@ -247,6 +247,7 @@ fn uart_exclusives_fault_without_publishing_events() {
     ));
     assert!(cpu.pending.lock().unwrap().is_empty());
     let mut bridge = super::GuestBridge {
+        platform: None,
         mem,
         exclusive: cpu.exclusive.clone(),
         pending: cpu.pending.clone(),

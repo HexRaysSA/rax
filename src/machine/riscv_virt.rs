@@ -29,6 +29,11 @@ impl RiscvVirtMachine {
     }
 
     fn load_raw(mem: &GuestMemoryMmap, buf: &[u8]) -> Result<RiscVBootInfo> {
+        if crate::backend::emulator::riscv::platform::overlaps(0, buf.len()) {
+            return Err(Error::KernelLoad(
+                "RISC-V raw image overlaps CLINT MMIO".into(),
+            ));
+        }
         crate::vm::memory::reservations::write(mem, 0, buf)?;
         Ok(RiscVBootInfo {
             entry_point: 0,

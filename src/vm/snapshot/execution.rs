@@ -5,6 +5,7 @@ use crate::error::{Error, Result};
 use std::collections::VecDeque;
 
 const TAG: &[u8; 8] = b"RAXEXE01";
+const RISCV_TAG: &[u8; 8] = b"RAXEXE09";
 const ARM_TAG: &[u8; 8] = b"RAXEXE02";
 const PC_TAG: &[u8; 8] = b"RAXEXE04";
 const UART_TAG: &[u8; 8] = b"RAXEXE03";
@@ -30,6 +31,7 @@ mod tests {
             retired: 53,
             online: vec![true],
             arm_cluster: None,
+            riscv_platform: None,
             pc: None,
             pl011: None,
             local_apics: vec![LapicCheckpoint {
@@ -235,6 +237,8 @@ pub struct ExecutionSnapshot {
     pub(crate) local_apics: Vec<LapicCheckpoint>,
     pub(crate) pc: Option<crate::machine::pc::PcCheckpoint>,
     pub(crate) pl011: Option<crate::devices::pl011::Pl011Checkpoint>,
+    pub(crate) riscv_platform:
+        Option<crate::backend::emulator::riscv::platform::PlatformCheckpoint>,
     pub(crate) arm_cluster:
         Option<crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint>,
 }
@@ -260,6 +264,17 @@ impl ExecutionSnapshot {
             || self.cursor >= count
         {
             return Err(invalid("CPU count or cursor disagrees with configuration"));
+        }
+        if let Some(platform) = &self.riscv_platform {
+            if base.config.arch != crate::config::ArchKind::Riscv64
+                || base.config.backend != crate::config::BackendKind::Emulator
+                || self.pc.is_some()
+                || self.arm_cluster.is_some()
+                || self.pl011.is_some()
+            {
+                return Err(invalid("RISC-V platform on another machine"));
+            }
+            platform.validate(count, base.memory_size)?;
         }
         if let Some(pc) = &self.pc {
             if base.config.arch != crate::config::ArchKind::X86_64
@@ -301,7 +316,14 @@ impl ExecutionSnapshot {
 
     pub(super) fn encoded(&self) -> Result<Vec<u8>> {
         let mut raw = Vec::new();
-        raw.extend_from_slice(if self.pc.is_some() {
+        if self.riscv_platform.is_some()
+            && (self.pc.is_some() || self.pl011.is_some() || self.arm_cluster.is_some())
+        {
+            return Err(invalid("mixed RISC-V platform frame"));
+        }
+        raw.extend_from_slice(if self.riscv_platform.is_some() {
+            RISCV_TAG
+        } else if self.pc.is_some() {
             PC_TAG
         } else if self.pl011.is_some() {
             if self.arm_cluster.is_some() {
@@ -376,6 +398,12 @@ impl ExecutionSnapshot {
             raw.extend_from_slice(&(control.len() as u32).to_le_bytes());
             raw.extend_from_slice(&control);
         }
+        if let Some(platform) = &self.riscv_platform {
+            let control =
+                crate::codec::serialize_limited(platform, MAX_CONTROL).map_err(invalid)?;
+            raw.extend_from_slice(&(control.len() as u32).to_le_bytes());
+            raw.extend_from_slice(&control);
+        }
         Ok(raw)
     }
 
@@ -413,6 +441,7 @@ impl ExecutionSnapshot {
             ARM_TAG,
             UART_TAG,
             PC_TAG,
+            RISCV_TAG,
             SOURCE_ARM_TAG,
             SOURCE_UART_TAG,
             PREVIOUS_SOURCE_ARM_TAG,
@@ -526,6 +555,18 @@ impl ExecutionSnapshot {
         } else {
             None
         };
+        let riscv_platform = if tag == RISCV_TAG {
+            let length = reader.u32()? as usize;
+            if length == 0 || length > MAX_CONTROL {
+                return Err(invalid("bad RISC-V platform length"));
+            }
+            Some(
+                crate::codec::deserialize_limited::<_, MAX_CONTROL>(reader.take(length)?)
+                    .map_err(invalid)?,
+            )
+        } else {
+            None
+        };
         if !reader.0.is_empty() {
             return Err(invalid("trailing execution data"));
         }
@@ -535,8 +576,60 @@ impl ExecutionSnapshot {
             online,
             local_apics,
             arm_cluster,
+            riscv_platform,
             pl011,
             pc,
         })
+    }
+}
+
+#[cfg(test)]
+mod riscv_frame_tests {
+    use super::*;
+    #[test]
+    fn clint_frame_is_bounded_required_and_rejects_every_truncated_prefix() {
+        let clock = std::sync::Arc::new(crate::vm::timing::TimingContext::with_mode(
+            crate::vm::timing::ClockMode::Retired,
+        ));
+        let platform =
+            crate::backend::emulator::riscv::platform::Platform::new(1, 0x8000000, clock).unwrap();
+        let mut state = ExecutionSnapshot {
+            cursor: 0,
+            retired: 0,
+            online: vec![true],
+            local_apics: vec![LocalApic::new(0).checkpoint_at(std::time::Instant::now())],
+            pc: None,
+            pl011: None,
+            arm_cluster: None,
+            riscv_platform: platform.checkpoint().unwrap(),
+        };
+        let raw = state.encoded().unwrap();
+        assert_eq!(&raw[..8], RISCV_TAG);
+        assert_eq!(
+            ExecutionSnapshot::decode(&raw, 1)
+                .unwrap()
+                .encoded()
+                .unwrap(),
+            raw
+        );
+        for end in 0..raw.len() {
+            assert!(
+                ExecutionSnapshot::decode(&raw[..end], 1).is_err(),
+                "prefix {end}"
+            );
+        }
+        let mut missing = raw.clone();
+        missing[..8].copy_from_slice(TAG);
+        assert!(ExecutionSnapshot::decode(&missing, 1).is_err());
+        let mut trailing = raw;
+        trailing.push(0);
+        assert!(ExecutionSnapshot::decode(&trailing, 1).is_err());
+        state.arm_cluster = Some(
+            crate::backend::emulator::aarch64::cluster::ArmCluster::new(1, 0x8000000)
+                .unwrap()
+                .checkpoint()
+                .unwrap(),
+        );
+        assert!(state.encoded().is_err());
     }
 }

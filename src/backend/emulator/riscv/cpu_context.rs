@@ -17,7 +17,8 @@ pub(super) struct PendingActivation {
     completed: Arc<AtomicBool>,
 }
 
-const TAG: &[u8; 8] = b"RAXRV002";
+const TAG: &[u8; 8] = b"RAXRV003";
+const PREVIOUS_TAG: &[u8; 8] = b"RAXRV002";
 const LEGACY_TAG: &[u8; 8] = b"RAXRV001";
 const MAX_PAYLOAD: usize = 1024 * 1024;
 
@@ -39,10 +40,26 @@ struct Context {
     user: Option<UserContext>,
     #[serde(skip)]
     reservation: Option<Reservation>,
+    #[serde(skip)]
+    platform: bool,
 }
 
 fn invalid(message: impl std::fmt::Display) -> Error {
     Error::Emulator(format!("RISC-V context: {message}"))
+}
+
+pub(super) fn platform_profile(raw: &[u8]) -> Result<bool> {
+    if raw.starts_with(TAG) {
+        return match raw.get(8) {
+            Some(0) => Ok(false),
+            Some(1) => Ok(true),
+            _ => Err(invalid("invalid platform profile")),
+        };
+    }
+    if raw.starts_with(PREVIOUS_TAG) || raw.starts_with(LEGACY_TAG) {
+        return Ok(false);
+    }
+    Err(invalid("invalid context tag"))
 }
 
 impl Context {
@@ -50,12 +67,18 @@ impl Context {
         let payload = crate::codec::serialize_limited(&(self.reservation, self), MAX_PAYLOAD)
             .map_err(invalid)?;
         let mut raw = TAG.to_vec();
+        raw.push(u8::from(self.platform));
         raw.extend_from_slice(&payload);
         Ok(raw)
     }
 
     fn validate(&self, target: &RiscVVcpu) -> Result<()> {
         self.cpu.validate().map_err(invalid)?;
+        if self.platform && target.platform.is_none() {
+            return Err(invalid(
+                "CLINT context requires a configured shared platform",
+            ));
+        }
         if self
             .reservation
             .is_some_and(|r| !r.valid() || !matches!(r.size, 4 | 8))
@@ -92,13 +115,17 @@ impl Context {
     }
 
     fn decode(raw: &[u8], target: &RiscVVcpu) -> Result<Self> {
-        if raw.len() > TAG.len() + MAX_PAYLOAD {
+        if raw.len() > TAG.len() + 1 + MAX_PAYLOAD {
             return Err(invalid("invalid context length"));
         }
-        let context: Self = if raw.starts_with(TAG) {
+        let profile = platform_profile(raw)?;
+        let context: Self = if raw.starts_with(TAG) || raw.starts_with(PREVIOUS_TAG) {
+            let offset = if raw.starts_with(TAG) { 9 } else { 8 };
             let (reservation, mut context): (Option<Reservation>, Self) =
-                crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(&raw[8..]).map_err(invalid)?;
+                crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(&raw[offset..])
+                    .map_err(invalid)?;
             context.reservation = reservation;
+            context.platform = profile;
             context
         } else if raw.starts_with(LEGACY_TAG) {
             let context: Self =
@@ -199,6 +226,7 @@ impl RiscVVcpu {
             tohost_addr,
             halted,
             devices_enabled,
+            platform,
             user,
             physical_memory: _,
             exclusive,
@@ -238,6 +266,7 @@ impl RiscVVcpu {
             tohost: *tohost,
             halted: *halted,
             devices_enabled: *devices_enabled,
+            platform: platform.as_ref().is_some_and(|p| p.enabled()),
             user,
         };
         context.validate(self)?;
@@ -248,6 +277,11 @@ impl RiscVVcpu {
     /// any live hart or adapter field. Existing memory/translation bindings stay
     /// attached; importing another binding mode is rejected before mutation.
     pub fn restore_context(&mut self, raw: &[u8]) -> Result<()> {
+        if platform_profile(raw)? != self.platform.as_ref().is_some_and(|p| p.enabled()) {
+            return Err(invalid(
+                "single-hart restore requires matching shared platform profile",
+            ));
+        }
         let mut prepared = self.prepare_context(raw)?;
         let bindings = CheckpointBindings::new(&prepared.physical_memory, Vec::new());
         let scope = bindings.enter()?;
@@ -271,6 +305,7 @@ impl RiscVVcpu {
                 self.physical_memory.clone(),
                 context.cpu.configuration(),
                 self.devices_enabled,
+                self.platform.clone(),
             ),
         };
         let reservation = context.reservation;

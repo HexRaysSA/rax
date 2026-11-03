@@ -280,6 +280,7 @@ impl SnapshotBundle {
     /// must include every byte in the SDK-mapped RAM window.
     pub(crate) fn validate_complete(&self) -> Result<()> {
         self.validate()?;
+        self.validate_clint_graph()?;
         if super::producer::is_native(&self.base.config) {
             if self.execution.is_none() || self.clock.is_none() {
                 return Err(Error::InvalidConfig(
@@ -315,6 +316,55 @@ impl SnapshotBundle {
                     ));
                 }
             }
+        }
+        Ok(())
+    }
+    /// Metadata-only closure after a builder has admitted the physical image.
+    /// Do not decompress/hash that image a second time during capture.
+    pub(crate) fn validate_clint_graph(&self) -> Result<()> {
+        let platform = self
+            .execution
+            .as_ref()
+            .and_then(|e| e.riscv_platform.as_ref());
+        let mut platform_harts = 0;
+        if let Some(contexts) = &self.backend_contexts {
+            for record in contexts.entries().iter().flatten() {
+                if record.kind == super::RISCV_CONTEXT
+                    && crate::backend::emulator::riscv::context_uses_platform(&record.data)?
+                {
+                    platform_harts += 1;
+                }
+            }
+        }
+        if platform.is_some() {
+            let physical = self.physical_memory.as_ref().ok_or_else(|| {
+                Error::InvalidConfig("CLINT checkpoint requires complete physical RAM".into())
+            })?;
+            let end = self
+                .base
+                .memory_size
+                .checked_add(crate::vm::memory::GUEST_MEMORY_PADDING)
+                .ok_or_else(|| Error::InvalidConfig("CLINT RAM extent overflows".into()))?;
+            if !physical
+                .layout()
+                .any(|(start, size)| start == 0 && size >= end)
+            {
+                return Err(Error::InvalidConfig(
+                    "CLINT physical image omits mapped RAM".into(),
+                ));
+            }
+            if self.clock.is_none()
+                || self.cpus.is_none()
+                || platform_harts != usize::from(self.base.config.vcpus)
+            {
+                return Err(Error::InvalidConfig(
+                    "CLINT checkpoint missing matching private harts or clock".into(),
+                ));
+            }
+        } else if platform_harts != 0 {
+            return Err(Error::InvalidConfig(
+                "CLINT hart checkpoint lacks shared platform state".into(),
+            ));
         }
         Ok(())
     }

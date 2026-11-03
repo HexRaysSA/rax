@@ -77,6 +77,18 @@ impl Vmm {
                 .as_any()
                 .is::<crate::backend::emulator::EmulatorVm>();
         let mut holes = self.mmio_bus.ranges();
+        if self
+            .vm
+            .as_any()
+            .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+            .and_then(|vm| vm.riscv_platform())
+            .is_some_and(|platform| platform.enabled())
+        {
+            holes.push(crate::devices::bus::MmioRange {
+                base: crate::backend::emulator::riscv::platform::BASE,
+                len: crate::backend::emulator::riscv::platform::LEN,
+            });
+        }
         if let Some(devices) = &self.pci_devices {
             // The software MMU diverts this entire aperture, including
             // unassigned BAR space, from the modeled physical backing.

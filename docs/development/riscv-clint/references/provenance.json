@@ -1,0 +1,20 @@
+[
+  {
+    "file": "aclint.adoc",
+    "url": "https://raw.githubusercontent.com/riscv/riscv-aclint/main/riscv-aclint.adoc",
+    "retrieved_utc": "2026-11-03",
+    "sha256": "922fd5665df3201ea5279f6b62437c89cfb435fdf86b6336c759aa26da060ffc"
+  },
+  {
+    "file": "qemu-aclint.c",
+    "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.0/hw/intc/riscv_aclint.c",
+    "retrieved_utc": "2026-11-03",
+    "sha256": "0b2ba0e01c110141df685e16b1ce98383646f95ec426c92b23ab3313a6cb1b89"
+  },
+  {
+    "file": "qemu-aclint.h",
+    "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.0/include/hw/intc/riscv_aclint.h",
+    "retrieved_utc": "2026-11-03",
+    "sha256": "6bd7dac8694d4d8012f1036c00d6b1e9e746d3d7635fc0380d100026e01f7d39"
+  }
+]

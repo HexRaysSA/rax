@@ -102,6 +102,7 @@ pub struct EmulatorVm {
     machine: MachineFamily,
     checkpoint_targets: bool,
     arm_cluster: OnceLock<Arc<aarch64::cluster::ArmCluster>>,
+    riscv_platform: OnceLock<Arc<riscv::platform::Platform>>,
     created_cpus: std::sync::Mutex<Vec<u32>>,
     irq_pending: std::sync::Mutex<Vec<u32>>,
     arch: ArchKind,
@@ -121,6 +122,7 @@ impl EmulatorVm {
             machine: MachineFamily::from_env(arch),
             checkpoint_targets: false,
             arm_cluster: OnceLock::new(),
+            riscv_platform: OnceLock::new(),
             created_cpus: std::sync::Mutex::new(Vec::new()),
             irq_pending: std::sync::Mutex::new(Vec::new()),
             arch,
@@ -138,6 +140,10 @@ impl EmulatorVm {
         self.arch == ArchKind::Riscv64 && self.machine == MachineFamily::Generic
     }
 
+    pub(crate) fn riscv_platform(&self) -> Option<Arc<riscv::platform::Platform>> {
+        self.riscv_platform.get().cloned()
+    }
+
     pub(crate) fn arm_cluster(&self) -> Option<Arc<aarch64::cluster::ArmCluster>> {
         self.arm_cluster.get().cloned()
     }
@@ -145,7 +151,7 @@ impl EmulatorVm {
 
 impl Vm for EmulatorVm {
     fn configure_cpu_topology(&self, count: u8, ram_end: u64) -> Result<()> {
-        if self.arch != ArchKind::Aarch64 {
+        if self.arch != ArchKind::Aarch64 && !self.boots_all_riscv_harts() {
             return Ok(());
         }
         let created = self
@@ -157,10 +163,22 @@ impl Vm for EmulatorVm {
                 "CPU topology must precede vCPU creation".into(),
             ));
         }
-        if self.arm_cluster.get().is_some() {
+        if self.arm_cluster.get().is_some() || self.riscv_platform.get().is_some() {
             return Err(Error::InvalidConfig(
                 "CPU topology is already configured".into(),
             ));
+        }
+        if self.boots_all_riscv_harts() {
+            let clock = crate::vm::timing::TimingContext::current()
+                .unwrap_or_else(|| Arc::new(crate::vm::timing::TimingContext::new()));
+            return self
+                .riscv_platform
+                .set(Arc::new(riscv::platform::Platform::new(
+                    count, ram_end, clock,
+                )?))
+                .map_err(|_| {
+                    Error::InvalidConfig("CPU topology was configured concurrently".into())
+                });
         }
         self.arm_cluster
             .set(Arc::new(aarch64::cluster::ArmCluster::new(count, ram_end)?))
@@ -184,8 +202,17 @@ impl Vm for EmulatorVm {
             .created_cpus
             .lock()
             .map_err(|_| Error::Emulator("CPU topology lock poisoned".into()))?;
-        if self.arm_cluster.get().is_some() && created.contains(&id) {
-            return Err(Error::InvalidConfig("AArch64 CPU id already exists".into()));
+        if (self.arm_cluster.get().is_some() || self.riscv_platform.get().is_some())
+            && created.contains(&id)
+        {
+            let architecture = if self.arch == ArchKind::Aarch64 {
+                "AArch64"
+            } else {
+                "RISC-V"
+            };
+            return Err(Error::InvalidConfig(format!(
+                "{architecture} CPU id already exists"
+            )));
         }
         let cpu: Result<Box<dyn VCpu>> = match self.arch {
             ArchKind::X86_64 => Ok(Box::new(X86_64Vcpu::new(id, mem))),
@@ -202,6 +229,13 @@ impl Vm for EmulatorVm {
                     } else {
                         Ok(Box::new(GscVcpu::new(id, mem)))
                     }
+                } else if let Some(platform) = self.riscv_platform.get() {
+                    Ok(Box::new(riscv::RiscVVcpu::new_in_platform(
+                        id,
+                        mem,
+                        self.riscv_config.unwrap_or_else(RiscVConfig::rv64gc),
+                        platform.clone(),
+                    )?))
                 } else {
                     Ok(Box::new(riscv::RiscVVcpu::new_with_config(
                         id,

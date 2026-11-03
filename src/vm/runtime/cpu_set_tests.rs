@@ -77,7 +77,9 @@ fn bytes(vm: &Vmm) -> Vec<Vec<u8>> {
 fn represented(vm: &Vmm) -> SnapshotBundle {
     // Shared GIC source state requires its complete private CPU cohort. Keep
     // the one-CPU projection below as an explicit legacy compatibility case.
-    if vm.checkpoint_config.arch == ArchKind::Aarch64 && vm.checkpoint_config.vcpus > 1 {
+    if (vm.checkpoint_config.arch == ArchKind::Aarch64 && vm.checkpoint_config.vcpus > 1)
+        || vm.checkpoint_config.arch == ArchKind::Riscv64
+    {
         return vm.take_snapshot_bundle(53).unwrap();
     }
     let base = vm.take_snapshot(53).unwrap();
@@ -125,13 +127,13 @@ fn last_riscv_privilege_failure_preserves_every_earlier_cpu_and_ram() {
     let f = Fixture::new();
     let mut source = f.vm(ArchKind::Riscv64, 4);
     mark(&mut source);
-    let base = source.take_snapshot(53).unwrap();
+    let bundle = source.take_snapshot_bundle(53).unwrap();
     let mut states = source.capture_cpu_states().unwrap();
     let CpuState::RiscV(s) = &mut states[3].state else {
         unreachable!()
     };
     s.regs.privilege = Some(2);
-    let b = SnapshotBundle::new(base).with_cpus(states).unwrap();
+    let b = bundle.with_cpus(states).unwrap();
     let mut target = f.vm(ArchKind::Riscv64, 4);
     target.guest_mem.write_all(&[0xa5; 4096]).unwrap();
     let before = bytes(&target);

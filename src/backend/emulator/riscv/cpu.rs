@@ -70,6 +70,7 @@ struct GuestBridge {
     /// embedder that owns the whole address space ([`RiscVVcpu::new_embedded`])
     /// sees ordinary guest memory there instead.
     devices_enabled: bool,
+    platform: Option<Arc<super::platform::Platform>>,
 }
 
 impl std::fmt::Debug for GuestBridge {
@@ -317,6 +318,13 @@ impl GuestBridge {
     }
 }
 
+impl GuestBridge {
+    fn in_platform(&self, address: u64, size: usize) -> bool {
+        self.platform
+            .as_ref()
+            .is_some_and(|platform| platform.claims(address, size))
+    }
+}
 impl Memory for GuestBridge {
     fn atomic(
         &mut self,
@@ -325,7 +333,9 @@ impl Memory for GuestBridge {
         operation: crate::isa::riscv::memory::AtomicOp,
     ) -> MemResult<u128> {
         operation.validate(address, size)?;
-        if self.devices_enabled && overlaps_uart(address, usize::from(size)) {
+        if (self.devices_enabled && overlaps_uart(address, usize::from(size)))
+            || self.in_platform(address, usize::from(size))
+        {
             return Err(MemError::OutOfBounds {
                 addr: address,
                 size: usize::from(size),
@@ -346,7 +356,9 @@ impl Memory for GuestBridge {
     }
 
     fn load_reserved(&mut self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
-        if self.devices_enabled && overlaps_uart(addr, buf.len()) {
+        if (self.devices_enabled && overlaps_uart(addr, buf.len()))
+            || self.in_platform(addr, buf.len())
+        {
             self.exclusive.clear();
             return Err(MemError::OutOfBounds {
                 addr,
@@ -357,7 +369,9 @@ impl Memory for GuestBridge {
     }
 
     fn store_conditional(&mut self, addr: u64, data: &[u8], eligible: bool) -> MemResult<bool> {
-        if self.devices_enabled && overlaps_uart(addr, data.len()) {
+        if (self.devices_enabled && overlaps_uart(addr, data.len()))
+            || self.in_platform(addr, data.len())
+        {
             self.exclusive.clear();
             return Err(MemError::OutOfBounds {
                 addr,
@@ -382,6 +396,13 @@ impl Memory for GuestBridge {
     }
 
     fn probe(&self, addr: u64, size: usize, _write: bool) -> MemResult<()> {
+        if self.in_platform(addr, size) {
+            return self
+                .platform
+                .as_ref()
+                .ok_or(MemError::OutOfBounds { addr, size })?
+                .probe(addr, size);
+        }
         if self.is_uart(addr) || self.mem.check_range(GuestAddress(addr), size) {
             Ok(())
         } else {
@@ -390,6 +411,16 @@ impl Memory for GuestBridge {
     }
 
     fn read(&self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
+        if self.in_platform(addr, buf.len()) {
+            return self
+                .platform
+                .as_ref()
+                .ok_or(MemError::OutOfBounds {
+                    addr,
+                    size: buf.len(),
+                })?
+                .read(addr, buf);
+        }
         if self.is_uart(addr) {
             for (i, b) in buf.iter_mut().enumerate() {
                 let off = (addr + i as u64) - UART_BASE;
@@ -406,6 +437,16 @@ impl Memory for GuestBridge {
     }
 
     fn write(&mut self, addr: u64, data: &[u8]) -> MemResult<()> {
+        if self.in_platform(addr, data.len()) {
+            return self
+                .platform
+                .as_ref()
+                .ok_or(MemError::OutOfBounds {
+                    addr,
+                    size: data.len(),
+                })?
+                .write(addr, data);
+        }
         if self.is_uart(addr) {
             self.pending
                 .lock()
@@ -435,6 +476,7 @@ pub struct RiscVVcpu {
     tohost_addr: Arc<Mutex<Option<u64>>>,
     halted: bool,
     devices_enabled: bool,
+    platform: Option<Arc<super::platform::Platform>>,
     /// Process-level execution in U-mode ([`RiscVVcpu::new_user`]).
     user: Option<RvUser>,
     physical_memory: Arc<GuestMemoryMmap>,
@@ -487,17 +529,37 @@ impl RiscVVcpu {
     }
 
     pub fn new_with_config(id: u32, mem: Arc<GuestMemoryMmap>, cfg: RiscVConfig) -> Self {
-        Self::build(id, mem, cfg, true)
+        Self::build(id, mem, cfg, true, None)
     }
 
     /// Instruction-level hart for embedders that own the complete address
     /// space: every address is guest memory (no UART window or HTIF `tohost`
     /// port). Execution otherwise matches [`RiscVVcpu::new_with_config`].
     pub fn new_embedded(id: u32, mem: Arc<GuestMemoryMmap>, cfg: RiscVConfig) -> Self {
-        Self::build(id, mem, cfg, false)
+        Self::build(id, mem, cfg, false, None)
     }
 
-    fn build(id: u32, mem: Arc<GuestMemoryMmap>, cfg: RiscVConfig, devices_enabled: bool) -> Self {
+    pub(crate) fn new_in_platform(
+        id: u32,
+        mem: Arc<GuestMemoryMmap>,
+        cfg: RiscVConfig,
+        platform: Arc<super::platform::Platform>,
+    ) -> Result<Self> {
+        if cfg.xlen != crate::isa::riscv::Xlen::Rv64 || !platform.contains_hart(id) {
+            return Err(Error::InvalidConfig(
+                "RISC-V hart outside configured topology".into(),
+            ));
+        }
+        Ok(Self::build(id, mem, cfg, true, Some(platform)))
+    }
+
+    fn build(
+        id: u32,
+        mem: Arc<GuestMemoryMmap>,
+        cfg: RiscVConfig,
+        devices_enabled: bool,
+        platform: Option<Arc<super::platform::Platform>>,
+    ) -> Self {
         let pending: EventSink = Arc::new(Mutex::new(VecDeque::new()));
         let tohost_addr = Arc::new(Mutex::new(None));
         let exclusive = MemoryDomain::for_memory(&mem).register();
@@ -507,6 +569,7 @@ impl RiscVVcpu {
             pending: pending.clone(),
             tohost_addr: tohost_addr.clone(),
             devices_enabled,
+            platform: platform.clone(),
         };
         let cpu = RiscVCpu::new_with_hart_id(cfg, Box::new(bridge), u64::from(id));
         RiscVVcpu {
@@ -516,6 +579,7 @@ impl RiscVVcpu {
             tohost_addr,
             halted: false,
             devices_enabled,
+            platform,
             user: None,
             physical_memory: mem,
             exclusive,
@@ -557,6 +621,7 @@ impl RiscVVcpu {
             tohost_addr: Arc::new(Mutex::new(None)),
             halted: false,
             devices_enabled: false,
+            platform: None,
             physical_memory: mem,
             exclusive,
             checkpoint_activation: None,
@@ -676,7 +741,9 @@ impl RiscVVcpu {
         if let Some(exit) = self.pop_event()? {
             return Ok(Some(exit));
         }
+        self.poll_vm_clock()?;
         let exit = self.cpu.step();
+        self.poll_vm_clock()?;
         let terminal = match exit {
             RiscVExit::Continue | RiscVExit::Wfi => None,
             RiscVExit::Ecall => {
@@ -712,7 +779,22 @@ impl RiscVVcpu {
     }
 }
 
+pub(crate) fn context_uses_platform(raw: &[u8]) -> Result<bool> {
+    context::platform_profile(raw)
+}
+
 impl VCpu for RiscVVcpu {
+    fn poll_vm_clock(&mut self) -> Result<()> {
+        if let Some(platform) = &self.platform
+            && let Some((time, software, timer)) = platform.signals(self.id)?
+        {
+            self.cpu.set_time(time);
+            self.cpu.set_interrupt_pending(1 << 3, software);
+            self.cpu.set_interrupt_pending(1 << 7, timer);
+        }
+        Ok(())
+    }
+
     fn required_private_checkpoint_kind(&self) -> Option<u32> {
         Some(crate::vm::snapshot::RISCV_CONTEXT)
     }
@@ -807,6 +889,7 @@ impl VCpu for RiscVVcpu {
                         self.physical_memory.clone(),
                         *self.cpu.config(),
                         self.devices_enabled,
+                        self.platform.clone(),
                     ),
                 };
                 candidate.set_state(state)?;
@@ -1026,3 +1109,7 @@ mod checkpoint_lock_tests {
 #[cfg(test)]
 #[path = "cpu_reservation_tests.rs"]
 mod reservation_tests;
+
+#[cfg(test)]
+#[path = "cpu_platform_tests.rs"]
+mod platform_tests;

@@ -38,6 +38,11 @@ impl Vmm {
             .as_any()
             .downcast_ref::<crate::backend::emulator::EmulatorVm>()
             .and_then(|vm| vm.arm_cluster());
+        let riscv_platform = self
+            .vm
+            .as_any()
+            .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+            .and_then(|vm| vm.riscv_platform());
         let bindings = CheckpointBindings::new(
             self.guest_mem.memory(),
             self.vcpus
@@ -53,7 +58,7 @@ impl Vmm {
         );
         let capture = |pci| {
             let capture = |pc, pc_resources: Vec<crate::vm::snapshot::CheckpointResource>| {
-                let capture = |arm_cluster| {
+                let capture = |arm_cluster, riscv_platform| {
                     let lock_error =
                         || Error::Emulator("legacy device capture lock poisoned".into());
                     let pic = self.pic.lock().map_err(|_| lock_error())?;
@@ -73,6 +78,7 @@ impl Vmm {
                         online: self.coordinator.online.clone(),
                         local_apics: lapics.iter().map(|apic| apic.checkpoint_at(now)).collect(),
                         arm_cluster,
+                        riscv_platform,
                         pc,
                         pl011: uart.as_ref().map(|uart| uart.checkpoint()).transpose()?,
                     };
@@ -134,10 +140,17 @@ impl Vmm {
                     }
                     let bundle = bundle.with_physical_memory(physical)?;
                     crate::config::runtime::validate_checkpoint_clock(self.backend_kind, &bundle)?;
+                    bundle.validate_clint_graph()?;
                     Ok(bundle)
                 };
-                match &cluster {
-                    Some(cluster) => cluster.checkpoint_with(|state| capture(Some(state))),
+                let capture = |riscv_platform| match &cluster {
+                    Some(cluster) => {
+                        cluster.checkpoint_with(|state| capture(Some(state), riscv_platform))
+                    }
+                    None => capture(None, riscv_platform),
+                };
+                match &riscv_platform {
+                    Some(platform) => platform.checkpoint_with(capture),
                     None => capture(None),
                 }
             };

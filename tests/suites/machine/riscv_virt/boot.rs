@@ -3,6 +3,7 @@
 //! and halting via `ecall`. This exercises the full wiring of the
 //! `rax::isa::riscv` interpreter into rax as a bootable architecture.
 
+mod clint;
 mod startup;
 
 use std::sync::Arc;

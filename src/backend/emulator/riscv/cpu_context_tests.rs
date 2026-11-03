@@ -414,3 +414,20 @@ fn setting_only_pc_preserves_the_complete_private_context() {
     assert!(source.step_insn().unwrap().is_none());
     assert_eq!(source.cpu.x(11), 0);
 }
+
+#[test]
+fn previous_reservation_contexts_migrate_to_explicit_legacy_platform_profile() {
+    let source = fixture(1, RiscVConfig::rv64gc(), &[0x00000013]);
+    let current = source.save_context().unwrap();
+    let mut previous = PREVIOUS_TAG.to_vec();
+    previous.extend_from_slice(&current[9..]);
+    let mut target = fixture(1, RiscVConfig::rv64gc(), &[0x00000013]);
+    target.restore_context(&previous).unwrap();
+    assert_eq!(target.save_context().unwrap(), current);
+    for flag in [2, 0xff] {
+        let mut invalid = current.clone();
+        invalid[8] = flag;
+        assert!(target.restore_context(&invalid).is_err());
+        assert_eq!(target.save_context().unwrap(), current);
+    }
+}

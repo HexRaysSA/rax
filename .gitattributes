@@ -40,3 +40,6 @@ docs/development/arm-fhm/legacy-s3c-v1.bin binary
 # Preserve archived upstream HTML whitespace and compressed CI transcript bytes.
 docs/development/riscv-vmm-startup/references/*.html -text -whitespace
 docs/development/riscv-vmm-startup/references/*.log.gz binary
+docs/development/riscv-clint/references/*.adoc -text -whitespace
+docs/development/riscv-clint/references/*.c -text
+docs/development/riscv-clint/references/*.h -text

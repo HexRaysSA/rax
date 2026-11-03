@@ -444,7 +444,7 @@ impl Vmm {
             config.vcpus,
             machine
                 .ram_base()
-                .checked_add(config.memory.bytes())
+                .checked_add(guest_mem.size())
                 .ok_or_else(|| Error::InvalidConfig("guest RAM extent overflows".into()))?,
         )?;
 
@@ -823,6 +823,17 @@ impl Vmm {
 
     /// Capture the represented CPU-0 and legacy-device base checkpoint.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
+        if self
+            .vm
+            .as_any()
+            .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+            .and_then(|vm| vm.riscv_platform())
+            .is_some_and(|platform| platform.enabled())
+        {
+            return Err(Error::InvalidConfig(
+                "CLINT capture requires a complete snapshot bundle".into(),
+            ));
+        }
         self.validate_base_snapshot_clock()?;
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
@@ -1089,3 +1100,6 @@ mod riscv_startup_tests;
 
 #[path = "runtime/riscv_startup.rs"]
 mod riscv_startup;
+
+#[cfg(test)]
+mod riscv_clint_tests;

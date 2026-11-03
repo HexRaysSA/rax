@@ -1,0 +1,503 @@
+{
+  "scope": "Generic RV64 shared classic CLINT, owned VM clock, real all-hart interrupt execution and coordinated complete checkpoint profile",
+  "status": "locally_validated_with_explicit_scope_and_native_reference_limit",
+  "baseline": "31d4c36c566d372280f88dfc6c26fe9239a08a0e",
+  "full_goal_complete": false,
+  "findings_status": {
+    "A32-FP": "partially_validated",
+    "C-STATE": "partially_validated",
+    "C-SMP": "partially_validated",
+    "C-HVF": "partially_validated"
+  },
+  "assumption_register": [
+    {
+      "id": "A1",
+      "assumption": "Configured generic RV64 harts share CLINT; standalone and old records retain ordinary RAM",
+      "basis": "Explicit VM family/topology and CPU/execution format versions",
+      "dependent_result": "Device binding and legacy restoration",
+      "stress_test": "Standalone, disabled platform, old RAXRV001/002, missing final hart/shared sections",
+      "falsification_probe": "Legacy RAM load/store or single-hart profile import witnesses disagree",
+      "status": "confirmed"
+    },
+    {
+      "id": "A2",
+      "assumption": "The selected VM clock supplies fixed 10 MHz ticks",
+      "basis": "Explicit platform policy, retained QEMU default-frequency header and bound TimingContext Arc",
+      "dependent_result": "MTIME/time CSR and MTIP",
+      "stress_test": "Foreign ambient clock, threshold transition, half writes, counter wrap, future deadlines",
+      "falsification_probe": "Owned-clock unit or all-hart future-deadline VMM witness diverges",
+      "status": "confirmed"
+    },
+    {
+      "id": "A3",
+      "assumption": "The finite guest contribution wait requires timely scheduling of participating harts",
+      "basis": "Retained shift=0 failure and stopped register/RAM evidence; selected shift=10 oracle controls",
+      "dependent_result": "Bounded independent guest qualification",
+      "stress_test": "Two-hart QEMU shift=0 timed out with BSP counter expired; later work flags3,3",
+      "falsification_probe": "Selected shift=10 1/2/4-hart reference run or actual VMM with default quantum fails",
+      "status": "revised"
+    },
+    {
+      "id": "A4",
+      "assumption": "Independent raw aliases and external clock writers are quiescent during complete capture/restore",
+      "basis": "Stopped-VMM API contract and existing controlled writer exclusion",
+      "dependent_result": "Coordinated CPU/controller/clock/RAM publication",
+      "stress_test": "Poisoned controller, rejected commit and incomplete graph before mutation",
+      "falsification_probe": "An admitted modeled writer bypasses the shared boundary; external raw aliases remain caller-owned",
+      "status": "retained"
+    },
+    {
+      "id": "A5",
+      "assumption": "A native comparison needs a completed native expected result",
+      "basis": "Darwin comparison requires expected.status.is_some()",
+      "dependent_result": "original_parent_signal_x86_64 comparison",
+      "stress_test": "Native x86/Rosetta trace descendants hold output beyond600s",
+      "falsification_probe": "Native source-only fixture fails to terminate; observed timeout retained",
+      "status": "falsified for this comparison; remains unqualified"
+    }
+  ],
+  "baseline_red": "clint-baseline-red.json: 0 passed, 1 failed; all three RAX hart counts failed",
+  "independent_oracles": [
+    "qemu-oracle.json: normal 1/2/4 pass",
+    "qemu-future-controlled.json: future 1/2/4 pass",
+    "qemu-future-initial-timeout.json: retained two-hart shift=0 timeout",
+    "future-diagnostic-v2.json: ready2/sent1/work3,3 after BSP wait expiration"
+  ],
+  "intermediate_results": [
+    "clint-check-v1: three test compile errors; controlled owned stop retained",
+    "clint-focused-v2: four test compile errors",
+    "clint-focused-v3: 19 passed, 1 failed; source-free 1/2/4 private/controller/clock continuation passed, debugger refused-write expectation corrected afterward",
+    "Initial full validation found two legacy-fixture construction failures and a real page-rounded RAM/CLINT topology capture failure. Owned processes were stopped under full-v1-controlled-stop.json. VMM topology now uses actual reported RAM; legacy fixtures explicitly select their base-only profile. Entire owning and quality validation rerun as clint-v2."
+  ],
+  "evidence_root": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-clint-v1",
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Physical Intel native execution remains unqualified; original C-HVF stays open",
+      "blocks_this_group": false
+    },
+    {
+      "impact": "medium",
+      "item": "Independent raw memory aliases and external clock writers require caller quiescence",
+      "blocks_this_group": false
+    },
+    {
+      "impact": "medium",
+      "item": "PLIC/AIA/SBI/Linux boot and complete external-event replay remain outside this controller group",
+      "blocks_this_group": false
+    },
+    {
+      "impact": "medium",
+      "item": "One native Darwin x86/Rosetta ptrace reference timed out; its expected outcome is unavailable.389 other cases passed; this comparison remains unqualified. Native C source is identical to the pre-change baseline and links only system libraries.",
+      "blocks_this_group": false
+    },
+    {
+      "impact": "low",
+      "item": "Pre-existing root/C API librax.rlib filename collision; validation selects root compiler artifacts by declared source",
+      "blocks_this_group": false
+    }
+  ],
+  "verification_pending": [],
+  "observed_focused": {
+    "receipt": "clint-focused-v4.json",
+    "passed": 29,
+    "failed": 0,
+    "ignored": 0,
+    "source_unchanged": true
+  },
+  "primary": [
+    {
+      "file": "aclint.adoc",
+      "url": "https://raw.githubusercontent.com/riscv/riscv-aclint/main/riscv-aclint.adoc",
+      "retrieved_utc": "2026-11-03",
+      "sha256": "922fd5665df3201ea5279f6b62437c89cfb435fdf86b6336c759aa26da060ffc"
+    },
+    {
+      "file": "qemu-aclint.c",
+      "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.0/hw/intc/riscv_aclint.c",
+      "retrieved_utc": "2026-11-03",
+      "sha256": "0b2ba0e01c110141df685e16b1ce98383646f95ec426c92b23ab3313a6cb1b89"
+    },
+    {
+      "file": "qemu-aclint.h",
+      "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.0/include/hw/intc/riscv_aclint.h",
+      "retrieved_utc": "2026-11-03",
+      "sha256": "6bd7dac8694d4d8012f1036c00d6b1e9e746d3d7635fc0380d100026e01f7d39"
+    }
+  ],
+  "validation": {
+    "root": [
+      {
+        "passed": 12195,
+        "failed": 0,
+        "ignored": 35
+      }
+    ],
+    "independent_targets": 44,
+    "independent_totals": {
+      "passed": 1194,
+      "failed": 1,
+      "ignored": 8
+    },
+    "compile_only_or_cfg_empty": [
+      "riscv_diff",
+      "riscv_smir_x86_jit",
+      "riscv_vector",
+      "hvf_intel_owner"
+    ],
+    "owning_receipts": {
+      "root": "complete-root-clint-v2.json",
+      "capi-library": "complete-capi-library-clint-v2.json",
+      "riscv_boot": "complete-riscv_boot-clint-v2.json",
+      "riscv_diff": "complete-riscv_diff-clint-v2.json",
+      "riscv_smir_lift": "complete-riscv_smir_lift-clint-v2.json",
+      "riscv_smir_x86_jit": "complete-riscv_smir_x86_jit-clint-v2.json",
+      "riscv_smir_aarch64_jit": "complete-riscv_smir_aarch64_jit-clint-v2.json",
+      "riscv_vector": "complete-riscv_vector-clint-v2.json",
+      "riscv_hartid": "complete-riscv_hartid-clint-v2.json",
+      "user_linux": "complete-user_linux-clint-v2.json",
+      "user_darwin": "complete-user_darwin-clint-v2.json",
+      "checkpoint_config": "complete-checkpoint_config-clint-v2.json",
+      "controller_checkpoint": "complete-controller_checkpoint-clint-v2.json",
+      "pci_checkpoint": "complete-pci_checkpoint-clint-v2.json",
+      "pci_endpoint_checkpoint": "complete-pci_endpoint_checkpoint-clint-v2.json",
+      "runtime_pci_checkpoint": "complete-runtime_pci_checkpoint-clint-v2.json",
+      "checkpoint_pci": "complete-checkpoint_pci-clint-v2.json",
+      "restore_admission": "complete-restore_admission-clint-v2.json",
+      "checkpoint_physical_memory": "complete-checkpoint_physical_memory-clint-v2.json",
+      "runtime_checkpoint_bundle": "complete-runtime_checkpoint_bundle-clint-v2.json",
+      "checkpoint_resume": "complete-checkpoint_resume-clint-v2.json",
+      "checkpoint_cpus": "complete-checkpoint_cpus-clint-v2.json",
+      "retirement_budget": "complete-retirement_budget-clint-v2.json",
+      "retired_clock": "complete-retired_clock-clint-v2.json",
+      "checkpoint_clock": "complete-checkpoint_clock-clint-v2.json",
+      "retirement_clock": "complete-retirement_clock-clint-v2.json",
+      "aarch64_cluster": "complete-aarch64_cluster-clint-v2.json",
+      "hvf_sdk_abi": "complete-hvf_sdk_abi-clint-v2.json",
+      "hvf_xsetbv": "complete-hvf_xsetbv-clint-v2.json",
+      "hvf_run_loop": "complete-hvf_run_loop-clint-v2.json",
+      "hvf_native_debug": "complete-hvf_native_debug-clint-v2.json",
+      "hvf_intel_owner": "complete-hvf_intel_owner-clint-v2.json",
+      "hvf_owner": "complete-hvf_owner-clint-v2.json",
+      "hvf_cr8": "complete-hvf_cr8-clint-v2.json",
+      "hvf_apic_identity": "complete-hvf_apic_identity-clint-v2.json",
+      "hvf_sync_exits": "complete-hvf_sync_exits-clint-v2.json",
+      "hvf_event_injection": "complete-hvf_event_injection-clint-v2.json",
+      "hvf_interrupt_shadow": "complete-hvf_interrupt_shadow-clint-v2.json",
+      "hvf_port_io": "complete-hvf_port_io-clint-v2.json",
+      "hvf_guest_translation": "complete-hvf_guest_translation-clint-v2.json",
+      "hvf_mmio": "complete-hvf_mmio-clint-v2.json",
+      "hvf_memory": "complete-hvf_memory-clint-v2.json",
+      "hvf_controls": "complete-hvf_controls-clint-v2.json",
+      "hvf_arm64_state": "complete-hvf_arm64_state-clint-v2.json",
+      "hvf_arm64_mmio": "complete-hvf_arm64_mmio-clint-v2.json"
+    },
+    "gates": {
+      "workspace-all-targets-build": "workspace-all-targets-build-clint-v2.json",
+      "fmt-workspace": "fmt-workspace-clint-v2.json",
+      "check-workspace-all-targets": "check-workspace-all-targets-clint-v2.json",
+      "clippy-workspace-all-targets": "clippy-workspace-all-targets-clint-v2.json",
+      "check-without-debug": "check-without-debug-clint-v2.json",
+      "check-without-jit": "check-without-jit-clint-v2.json",
+      "doctests-workspace": "doctests-workspace-clint-v2.json",
+      "capi-c-cpp-consumers": "capi-c-cpp-consumers-clint-v2.json"
+    },
+    "c_consumers": {
+      "driver_exit": 0,
+      "source_and_copies_unchanged": true,
+      "executed_programs": 19,
+      "expected_programs": 19,
+      "programs": [
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/decode_flow ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/mem_and_context ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/pauth ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/x86_64_basic ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/x86_64_hooks ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/x86_64_io ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/x86_64_memhook ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/x86_64_smir ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/x86_64_step ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/x86_64_user ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/x86_64_vector_smir ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/arm64_fp ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/cpp_engine ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/cpp_fault_recovery ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/cpp_instruction_info ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/cpp_process ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/cpp_registers ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/cpp_user_arm ==",
+        "== running /Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2/examples/cpp_user_arm64 =="
+      ],
+      "abi_c_objects": 7,
+      "owned_build_root": "/Users/int/dev/rax-audit-work/main-integration-target/capi-consumers-clint-v2"
+    },
+    "compiler_inputs": {
+      "dependency_files": 627,
+      "project_compiler_inputs": 6034,
+      "untracked_unowned": [],
+      "missing": [],
+      "planned_exact_owned_inputs": [
+        "src/backend/emulator/riscv/cpu_platform_tests.rs",
+        "src/backend/emulator/riscv/platform.rs",
+        "src/backend/emulator/riscv/platform_tests.rs",
+        "src/vm/runtime/riscv_clint_tests.rs",
+        "tests/suites/machine/riscv_virt/clint.rs",
+        "tests/support/riscv_clint.rs"
+      ],
+      "manifest": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-clint-v1/compiled-project-source-sha256-build-clint-v2.json",
+      "manifest_sha256": "6c987a00b317329cf51ebac990a30a1eb61c9d4951721f1289194d2857367500"
+    },
+    "environment": "environment-report.json",
+    "native_reference_limit": {
+      "test": "ptrace_registry::original_parent_signal_x86_64",
+      "result": {
+        "passed": 389,
+        "failed": 1,
+        "ignored": 0
+      },
+      "failure": "ptrace_reparent (x86_64): the native run timed out",
+      "native_source": "tests/fixtures/user/darwin/src/ptrace_reparent.c",
+      "source_matches_baseline": true,
+      "source_sha256": "945a065bd9ccd91a428a296bf15451339dd76402d39dfd0ca5e4a0df315aa13f",
+      "linked_libraries": "/Users/int/dev/rax-audit-work/main-integration-target/tmp/user-darwin/ptrace_reparent_signal.x86_64:\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.40.3)\n",
+      "expected_result_available": false,
+      "exact_cause": "unknown",
+      "status": "unqualified native reference; not a passing comparison",
+      "does_not_close_any_original_finding": true
+    },
+    "revalidation": {
+      "reason": "Production page-rounded topology correction and explicit legacy fixture correction",
+      "controlled_stop": "full-v1-controlled-stop.json",
+      "geometry_review": "topology-rounding-review.json",
+      "full_rerun": true
+    },
+    "supplemental_a32_profile_controls": {
+      "receipt": "a32-profile-controls-current.json",
+      "results": [
+        {
+          "passed": 79,
+          "failed": 0,
+          "ignored": 0
+        }
+      ],
+      "full_finding_closed": false
+    },
+    "full_validation_baseline_head": "31d4c36c566d372280f88dfc6c26fe9239a08a0e",
+    "linear_upstream_integration": {
+      "utc": "2026-11-03T06:34:37.837714+00:00",
+      "base_full_validation": "31d4c36c566d372280f88dfc6c26fe9239a08a0e",
+      "publication_parent": "07fdfd8f26d175d96dd48f3a5c115c7f1945b300",
+      "mode": "fast-forward only; no merge commit",
+      "disjoint_upstream_paths": [
+        "docs/specifications/windows/native-query-key/README.md",
+        "docs/specifications/windows/native-query-key/nls-tree/.gitattributes",
+        "docs/specifications/windows/native-query-key/nls-tree/CMakeLists.txt",
+        "docs/specifications/windows/native-query-key/nls-tree/README.md",
+        "docs/specifications/windows/native-query-key/nls-tree/arm64-v1.jsonl.zst",
+        "docs/specifications/windows/native-query-key/nls-tree/capture-v1.py",
+        "docs/specifications/windows/native-query-key/nls-tree/frozen-inputs-v1.json",
+        "docs/specifications/windows/native-query-key/nls-tree/handle-snapshot-v3.h",
+        "docs/specifications/windows/native-query-key/nls-tree/native-nls-tree-v1-arm64.exe",
+        "docs/specifications/windows/native-query-key/nls-tree/native-nls-tree-v1-x64.exe",
+        "docs/specifications/windows/native-query-key/nls-tree/native-nls-tree-v1-x86.exe",
+        "docs/specifications/windows/native-query-key/nls-tree/native-receipt-v1.json",
+        "docs/specifications/windows/native-query-key/nls-tree/probe-v1.c",
+        "docs/specifications/windows/native-query-key/nls-tree/records-v1.json",
+        "docs/specifications/windows/native-query-key/nls-tree/verify-v1.py",
+        "docs/specifications/windows/native-query-key/nls-tree/x64-v1.jsonl.zst",
+        "docs/specifications/windows/native-query-key/nls-tree/x86-v1.jsonl.zst",
+        "src/user/windows/process/sched/tests/services_tests/registry_key_query_tests.rs",
+        "src/user/windows/process/sched/tests/services_tests/registry_nls_tree_tests.rs",
+        "src/user/windows/registry.rs",
+        "src/user/windows/registry/installed.rs",
+        "src/user/windows/registry/installed/key_information.rs",
+        "src/user/windows/registry/installed/key_information_tests.rs",
+        "src/user/windows/registry/nls.rs",
+        "src/user/windows/registry/nls_tests.rs",
+        "src/user/windows/registry/tree.rs"
+      ],
+      "compiler_input_delta": [
+        "docs/specifications/windows/native-query-key/nls-tree/arm64-v1.jsonl.zst",
+        "docs/specifications/windows/native-query-key/nls-tree/records-v1.json",
+        "docs/specifications/windows/native-query-key/nls-tree/x64-v1.jsonl.zst",
+        "docs/specifications/windows/native-query-key/nls-tree/x86-v1.jsonl.zst",
+        "src/user/windows/process/sched/tests/services_tests/registry_key_query_tests.rs",
+        "src/user/windows/process/sched/tests/services_tests/registry_nls_tree_tests.rs",
+        "src/user/windows/registry.rs",
+        "src/user/windows/registry/nls.rs",
+        "src/user/windows/registry/nls_tests.rs",
+        "src/user/windows/registry/tree.rs"
+      ],
+      "all_delta_owned_by_upstream": true,
+      "all_targets_build_receipt": "post-ff-all-targets-build.json",
+      "fmt_receipt": "post-ff-fmt.json",
+      "test_results": {
+        "post-ff-windows-library": [
+          {
+            "passed": 1682,
+            "failed": 0,
+            "ignored": 0
+          }
+        ],
+        "post-ff-clint-library": [
+          {
+            "passed": 13,
+            "failed": 0,
+            "ignored": 0
+          }
+        ],
+        "post-ff-riscv_boot": [
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          }
+        ],
+        "post-ff-restore_admission": [
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0
+          }
+        ],
+        "post-ff-checkpoint_resume": [
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0
+          }
+        ],
+        "post-ff-user_windows": [
+          {
+            "passed": 544,
+            "failed": 0,
+            "ignored": 0
+          }
+        ],
+        "post-ff-user_windows_cli": [
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0
+          }
+        ],
+        "post-ff-user_windows_memory": [
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0
+          }
+        ]
+      },
+      "totals": {
+        "passed": 2278,
+        "failed": 0,
+        "ignored": 0
+      },
+      "compile_only": [
+        "post-ff-user_windows_memory"
+      ],
+      "full_root_rerun": false,
+      "scope": "Disjoint upstream Windows changes: all targets rebuilt, Windows root subset and complete public consumers; CLINT root subset and complete affected VMM consumers. Original complete root/44 owners remain pinned to pre-fast-forward source.",
+      "linear_history_review": "linear-history-review.json"
+    }
+  },
+  "requirements": [
+    {
+      "id": "RV-CLINT-MAP",
+      "claim": "Configured generic RV64 harts share banked MSIP/MTIMECMP and one writable10MHz MTIME; unsupported/atomic/crossing accesses reject before effects",
+      "sources": [
+        "src/backend/emulator/riscv/platform.rs",
+        "src/backend/emulator/riscv/cpu.rs"
+      ],
+      "evidence": [
+        "backend::emulator::riscv::platform::tests",
+        "backend::emulator::riscv::cpu::platform_tests"
+      ]
+    },
+    {
+      "id": "RV-IRQ-CLOCK",
+      "claim": "Every1/2/4-hart VMM cohort executes both handlers in Wall and Retired modes; future deadlines require actual VM retirement advancement",
+      "sources": [
+        "src/vm/runtime/coordinator.rs",
+        "tests/fixtures/riscv/vmm_clint.S",
+        "tests/fixtures/riscv/vmm_clint_future_prefix.S"
+      ],
+      "evidence": [
+        "actual_vmm_clint_software_and_timer_handlers_execute_on_every_hart",
+        "future_deadlines_advance_through_actual_vmm_retirement_on_every_hart",
+        "wall_clock_vmm_clint_handlers_execute_on_one_two_and_four_harts",
+        "complete-riscv_boot-clint-v2.json",
+        "qemu-oracle.json",
+        "qemu-future-controlled.json",
+        "fixture-byte-parity.json"
+      ]
+    },
+    {
+      "id": "RV-COMPLETE-STATE",
+      "claim": "RAXRV003/RAXEXE09 require a complete matching CPU/controller/clock/physical graph; source-free1/2/4-hart files preserve pending sources and continue new work",
+      "sources": [
+        "src/backend/emulator/riscv/cpu_context.rs",
+        "src/vm/snapshot/execution.rs",
+        "src/vm/snapshot/bundle.rs",
+        "src/vm/runtime/checkpoint_capture.rs",
+        "src/vm/runtime/checkpoint_restore.rs"
+      ],
+      "evidence": [
+        "pending_clint_file_resumes_new_interrupt_work_on_one_two_and_four_harts",
+        "incomplete_or_mismatched_clint_graph_rejects_before_any_publication",
+        "clint_frame_is_bounded_required_and_rejects_every_truncated_prefix"
+      ]
+    },
+    {
+      "id": "RV-LEGACY",
+      "claim": "Old private/base records retain ordinary RAM at CLINT addresses; raw hart imports require matching provider mode",
+      "sources": [
+        "src/backend/emulator/riscv/cpu_context.rs",
+        "src/vm/runtime/checkpoint_restore.rs"
+      ],
+      "evidence": [
+        "legacy_private_harts_restore_clint_addresses_as_ordinary_ram",
+        "legacy_base_restore_disables_clint_before_guest_execution",
+        "raw_hart_restore_requires_matching_shared_platform_profile",
+        "previous_reservation_contexts_migrate_to_explicit_legacy_platform_profile",
+        "complete-restore_admission-clint-v2.json"
+      ]
+    },
+    {
+      "id": "RV-GEOMETRY",
+      "claim": "Shared topology uses actual page-rounded reported RAM; loader/debugger cannot mutate shadow CLINT RAM",
+      "sources": [
+        "src/vm/runtime.rs",
+        "src/machine/riscv_virt/image.rs",
+        "src/vm/runtime/debugger_memory.rs"
+      ],
+      "evidence": [
+        "page_rounded_riscv_topology_uses_the_actual_reported_extent",
+        "console_file_resumes_missing_high_elf_kernel_and_executes_uart_shutdown",
+        "clint_image_overlap_is_rejected_before_any_segment_is_written",
+        "debugger_cannot_read_or_write_clint_shadow_ram",
+        "complete-checkpoint_resume-clint-v2.json"
+      ]
+    },
+    {
+      "id": "RV-ABI-COMPATIBILITY",
+      "claim": "No C ABI layout or identifier changes; complete C API owner and all C/C++ consumers execute",
+      "sources": [
+        "capi/include/rax.h",
+        "capi/include/rax.hpp"
+      ],
+      "evidence": [
+        "complete-capi-library-clint-v2.json",
+        "capi-consumer-completion-clint-v2.json"
+      ]
+    }
+  ],
+  "workflow": {
+    "commit_command": "git add -- exact owned paths; red -m --staged --run same exact paths",
+    "push_command": "git push origin master:master",
+    "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-clint-v1/commit-receipt.json",
+    "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-clint-v1/push-receipt.json",
+    "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/riscv-clint-v1/cleanup-final.json"
+  }
+}

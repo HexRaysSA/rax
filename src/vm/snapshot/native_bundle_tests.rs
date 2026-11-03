@@ -39,6 +39,7 @@ fn complete_file(count: u8) -> SnapshotBundle {
                 apic.checkpoint_at(std::time::Instant::now())
             })
             .collect(),
+        riscv_platform: None,
         arm_cluster: None,
         pc: None,
         pl011: None,

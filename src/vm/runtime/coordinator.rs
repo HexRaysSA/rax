@@ -45,7 +45,10 @@ impl ExecutionCoordinator {
 
 impl Vmm {
     fn poll_vm_clocks(&mut self) -> Result<()> {
-        if self.checkpoint_config.arch != ArchKind::Aarch64 {
+        if !matches!(
+            self.checkpoint_config.arch,
+            ArchKind::Aarch64 | ArchKind::Riscv64
+        ) {
             return Ok(());
         }
         for (cpu, online) in self.vcpus.iter_mut().zip(&self.coordinator.online) {
@@ -88,6 +91,14 @@ impl Vmm {
                         .checkpoint()
                 })
                 .transpose()?,
+            riscv_platform: self
+                .vm
+                .as_any()
+                .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+                .and_then(|vm| vm.riscv_platform())
+                .map(|platform| platform.checkpoint())
+                .transpose()?
+                .flatten(),
             arm_cluster: self
                 .vm
                 .as_any()
