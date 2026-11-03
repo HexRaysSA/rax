@@ -59,6 +59,12 @@ jobs:
           ls -l /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm # fail fast (e.g. if on arm64)
 
+      - name: Native XSAVE host-profile diagnostics
+        run: |
+          rustc --version --verbose
+          rustc --edition=2024 -C target-cpu=x86-64-v3 tools/kvm/host_profile.rs -o "$RUNNER_TEMP/rax-kvm-host-profile"
+          "$RUNNER_TEMP/rax-kvm-host-profile"
+
       - name: cargo test (KVM-gated, default features)
         run: cargo test --features x86_64-suite --test kvm_minimal -- --include-ignored --nocapture
 
