@@ -1,0 +1,48 @@
+{
+  "source": "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-base-csr-info-v1/native-base-csr-info-v2.cpp",
+  "source_sha256": "942e25c0015323999874f836cda169d7d0371a36d4ece411b6d7b842ebd22e89",
+  "commands": [
+    {
+      "argv": [
+        "/Users/int/local/bin/clang-cl",
+        "--target=aarch64-pc-windows-msvc",
+        "/nologo",
+        "/O2",
+        "/W4",
+        "/utf-8",
+        "/MT",
+        "/std:c++17",
+        "/c",
+        "/Fo/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-base-csr-info-arm64-v2.obj",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/crt/include",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/ucrt",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/shared",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/um",
+        "--",
+        "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-base-csr-info-v1/native-base-csr-info-v2.cpp"
+      ],
+      "exit_code": 0,
+      "seconds": 0.27433270891197026
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/lld-link",
+        "/subsystem:console",
+        "/machine:arm64",
+        "/out:/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-base-csr-info-arm64-v2.exe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-base-csr-info-arm64-v2.obj",
+        "kernel32.lib",
+        "advapi32.lib",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/crt/lib/aarch64",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/um/aarch64",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/ucrt/aarch64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.017497749999165535
+    }
+  ],
+  "state": "built",
+  "image": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-base-csr-info-arm64-v2.exe",
+  "image_bytes": 130560,
+  "image_sha256": "f5e2119d08eca8c94a60ab0671ec5b9ea79198d0a075a84fa68bca139d5ca554"
+}

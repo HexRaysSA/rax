@@ -1,0 +1,31 @@
+{
+  "kernel": [
+    10,
+    0,
+    29698
+  ],
+  "native_arch": "ARM64",
+  "api": "0x1001b",
+  "semantic_name": "Per-user NLS information; undocumented symbol name unknown",
+  "message_bytes": 80,
+  "data_bytes": 40,
+  "capture_bytes": 1704,
+  "pointer_count": 1,
+  "pointer_offset": 64,
+  "information_bytes": 1660,
+  "information_sha256": "546d2a642b259fe1c14fda0b4618cbc92ec95485b8f4eb4f9576c1ea7dfa79f7",
+  "measured_session": 1,
+  "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+  "public_operations": [
+    "GetUserDefaultLocaleName",
+    "GetLocaleInfoEx"
+  ],
+  "fixed_query": "CsrAllocateCaptureBuffer(1,1660); CsrAllocateMessagePointer into message+64; CsrClientCallServer(message,capture,0x1001b,16); CsrFreeCaptureBuffer",
+  "control_scope": "Native controllers observe and resume calls only in their own fresh child; public and fixed queries; natural child exit41.",
+  "system_information_sha256": "44e54919c88c6d9da76ad0162356a9870be9c065e632f2b3eb567500aef21572",
+  "system_observations": {
+    "earlier": "C0000001 in API status, ALPC transport0, unchanged input",
+    "later": "8fixed queries succeeded with1660zero bytes across BAADF00D/A5/5A/zero input patterns",
+    "cause_of_change": "unknown; no SYSTEM-specific permanent failure policy is inferred"
+  }
+}

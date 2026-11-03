@@ -5,9 +5,23 @@ use crate::user::windows::object_namespace::data::DataRegion;
 use std::io;
 
 #[cfg(target_arch = "aarch64")]
+mod base_nls;
+#[cfg(target_arch = "aarch64")]
 mod client_data;
 #[cfg(target_arch = "x86_64")]
 mod x64;
+
+pub(super) fn capture_base_nls(
+    metadata: &CsrMetadata,
+) -> io::Result<Option<super::super::csr::BaseNlsReply>> {
+    #[cfg(target_arch = "aarch64")]
+    return base_nls::capture(metadata);
+    #[cfg(not(target_arch = "aarch64"))]
+    {
+        let _ = metadata;
+        Ok(None)
+    }
+}
 
 pub(super) fn capture_client_data(
     metadata: &CsrMetadata,

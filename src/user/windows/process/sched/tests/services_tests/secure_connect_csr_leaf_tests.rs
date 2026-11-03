@@ -91,6 +91,58 @@ fn native_secure_connect_csr_installed_arm64_success_has_real_section_and_matchi
         p.vm.is_shared_view(local),
         "section handle close preserves connection view"
     );
+    if server.metadata.kernel == (10, 0, 29698) {
+        use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply};
+        let reply = server
+            .base_nls
+            .as_ref()
+            .expect("measured native BASE query snapshot");
+        let message = b + 16384;
+        p.space.wr(message, &[0; 1032]).unwrap();
+        p.space.w16(message, 40).unwrap();
+        p.space.w16(message + 2, 80).unwrap();
+        p.space.w64(message + 40, remote + 0x750).unwrap();
+        p.space.w32(message + 48, 0x1001B).unwrap();
+        p.space.w64(message + 64, remote + 0x778).unwrap();
+        p.space.w64(message + 72, BASE_NLS_BYTES as u64).unwrap();
+        p.space.w64(message + 1024, 952).unwrap();
+        p.space
+            .wr(local + 0x750, &[0xA5; BASE_NLS_BYTES + 44])
+            .unwrap();
+        p.space.w32(local + 0x750, 1704).unwrap();
+        p.space.w32(local + 0x760, 1).unwrap();
+        p.space.w64(local + 0x768, 0).unwrap();
+        p.space.w64(local + 0x770, 64).unwrap();
+        assert_eq!(
+            leaf(
+                p,
+                &mut thread,
+                "NtAlpcSendWaitReceivePort",
+                &[handle, 0x20000, message, 0, message, message + 1024, 0, 0,]
+            ),
+            STATUS_SUCCESS
+        );
+        assert_eq!(p.space.u64(message + 1024).unwrap(), 80);
+        match reply {
+            BaseNlsReply::Information(bytes) => {
+                assert_eq!(p.space.u32(message + 52).unwrap(), 0);
+                assert_eq!(
+                    p.space.bytes(local + 0x778, BASE_NLS_BYTES).unwrap(),
+                    bytes.as_slice()
+                );
+            }
+            BaseNlsReply::Unsuccessful => {
+                assert_eq!(p.space.u32(message + 52).unwrap(), STATUS_UNSUCCESSFUL);
+                assert_eq!(
+                    p.space.bytes(local + 0x778, BASE_NLS_BYTES).unwrap(),
+                    [0xA5; BASE_NLS_BYTES]
+                );
+            }
+        }
+        eprintln!(
+            "Validated installed ARM64 NtAlpcSendWaitReceivePort BASE NLS reply against native snapshot"
+        );
+    }
     assert_eq!(leaf(p, &mut thread, "NtClose", &[handle]), STATUS_SUCCESS);
     assert!(p.vm.allocation(local).is_none());
     eprintln!(

@@ -12,6 +12,9 @@ mod replay;
 #[path = "alpc_tests/limits.rs"]
 mod limits;
 
+#[path = "alpc_tests/base_nls.rs"]
+mod base_nls;
+
 fn invoke(p: &mut Proc, t: &mut Thread, args: &[u64; 8]) -> Outcome {
     super::nls_tests::arguments(p, t, args);
     if p.arch != WinArch::Arm64 {

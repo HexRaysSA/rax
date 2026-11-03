@@ -1,0 +1,51 @@
+{
+  "captured_utc": "2026-11-03T13:16:37.462751+00:00",
+  "baseline_head": "06f9bdd42dcae7c06e4c4cede4db03e30e5077b3",
+  "identical_rewritten_baseline": "86e1a752a6d2925f047661d621f7f50f1e80b3bf",
+  "baseline_tree": "c6e3d6a3eac3832bb25949ee44cb6d08fddea51a",
+  "native_windows_core": {
+    "case_runs": 58,
+    "unique_cases": 51,
+    "failed": 0,
+    "ignored": 0,
+    "subject": "ordinary user, session1",
+    "includes_installed_ntdll_base_exchange": true
+  },
+  "macos": {
+    "new_cases": 6,
+    "owning_exact_cases": 53,
+    "capi_cases": 244,
+    "failed": 0,
+    "ignored": 0
+  },
+  "linux": {
+    "focused_cases": 13,
+    "failed": 0,
+    "ignored": 0,
+    "execution": "Docker x86-64 translation on AArch64; not physical x86 qualification"
+  },
+  "workspace_all_targets": {
+    "macos": 0,
+    "windows_arm64": 0,
+    "windows_x64": 0,
+    "linux_x64": 0
+  },
+  "strict_library_lint": {
+    "macos": 0,
+    "windows_arm64": 0
+  },
+  "native_windows_capi": {
+    "build_and_link": 0,
+    "runtime": "not collected; RPC errors and pending transport; no native CAPI pass claimed"
+  },
+  "actual_cmd": {
+    "base_nls_exchange": "passed",
+    "whole_program_success": false,
+    "new_frontier": "NtQuerySystemInformation class134"
+  },
+  "noncompiled_final_changes": [
+    ".gitattributes",
+    "late documentation and retained runtime evidence"
+  ],
+  "dependency_warning": "Existing vendor/vm-memory stdcall warning remains; no dependency-source change."
+}

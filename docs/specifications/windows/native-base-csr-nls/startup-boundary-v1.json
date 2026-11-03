@@ -1,0 +1,16 @@
+{
+  "previous_frontier_passed": "NtAlpcSendWaitReceivePort BASE0x1001b per-user NLS exchange",
+  "guest_success": false,
+  "wrapper_exit_code": 0,
+  "new_service": "NtQuerySystemInformation",
+  "information_class": 134,
+  "class_name": "unknown; identify from primary source/native control before implementation",
+  "terminal": "TERMINAL sample=107047 instruction_budget_bound=6851072 active_exception_seen=false status=Complete(Internal(\"native NTDLL service NtQuerySystemInformation: Unimplemented(\\\"NtQuerySystemInformation: NtQuerySystemInformation class 134\\\")\"))",
+  "instruction_budget_bound": 6851072,
+  "actual_retired_instruction_count": "unknown",
+  "bound_calculation": "(107047+1)*64=6851072;64is the configured per-slice instruction maximum",
+  "active_exception_observed": false,
+  "file_backed_spawn": true,
+  "separate_sysroot": false,
+  "native_subject": "S-1-5-21-432357189-4232641918-3742464398-1000"
+}

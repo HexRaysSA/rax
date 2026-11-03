@@ -532,10 +532,12 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
     }
     if let Some(metadata) = csr {
         let client_data = csr::capture_client_data(&metadata)?;
-        namespace.select_csr_server(super::csr::CsrServer::selected_with_client_data(
+        let base_nls = csr::capture_base_nls(&metadata)?;
+        namespace.select_csr_server(super::csr::CsrServer::selected_with_data(
             section,
             metadata,
             client_data,
+            base_nls,
         )?)?;
     }
     namespace.select_wow_section_root(arm64)?;

@@ -11,6 +11,16 @@ use std::sync::atomic::{AtomicU32, Ordering};
 pub(crate) mod client_data;
 pub(crate) mod pid_export;
 
+/// Measured ARM64 build29698 BASE per-user NLS reply size.
+pub(crate) const BASE_NLS_BYTES: usize = 1660;
+
+/// A measured BASE query failure is distinct from ALPC transport failure.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum BaseNlsReply {
+    Information(Arc<[u8; BASE_NLS_BYTES]>),
+    Unsuccessful,
+}
+
 #[cfg(test)]
 #[path = "csr/kernel_profile_tests.rs"]
 mod kernel_profile_tests;
@@ -74,6 +84,7 @@ pub(crate) struct CsrServer {
     section: Arc<DataSection>,
     connections: Arc<AtomicU32>,
     pub(crate) client_data: Option<Arc<client_data::CsrClientData>>,
+    pub(crate) base_nls: Option<BaseNlsReply>,
 }
 
 impl CsrServer {
@@ -93,6 +104,15 @@ impl CsrServer {
         metadata: CsrMetadata,
         client_data: Option<Arc<client_data::CsrClientData>>,
     ) -> io::Result<Arc<Self>> {
+        Self::selected_with_data(section, metadata, client_data, None)
+    }
+
+    pub(crate) fn selected_with_data(
+        section: Arc<DataSection>,
+        metadata: CsrMetadata,
+        client_data: Option<Arc<client_data::CsrClientData>>,
+        base_nls: Option<BaseNlsReply>,
+    ) -> io::Result<Arc<Self>> {
         let prefix = section
             .regions
             .first()
@@ -101,6 +121,8 @@ impl CsrServer {
         let server_end = metadata.server_base.checked_add(section.size);
         let statics = metadata.statics_offset.checked_add(8);
         if !metadata.supported()
+            || base_nls.is_some()
+                && (metadata.arch != WinArch::Arm64 || metadata.kernel != (10, 0, 29698))
             || section.size != 1 << 20
             || section.regions.len() != 2
             || section.regions[0].size != 5 * 4096
@@ -124,6 +146,7 @@ impl CsrServer {
             section,
             connections: Arc::new(AtomicU32::new(0)),
             client_data,
+            base_nls,
         }))
     }
 
@@ -181,6 +204,7 @@ impl CsrServer {
             handle,
             base,
             client_data: self.client_data.clone(),
+            base_nls: self.base_nls.clone(),
             server_pid: self.metadata.server_pid,
             server_thread,
             next_message: 1,
@@ -198,6 +222,7 @@ pub(crate) struct CsrPeer {
     handle: u32,
     pub(crate) base: u64,
     pub(crate) client_data: Option<Arc<client_data::CsrClientData>>,
+    pub(crate) base_nls: Option<BaseNlsReply>,
     pub(crate) server_pid: u32,
     pub(crate) server_thread: u32,
     next_message: u32,
@@ -212,8 +237,14 @@ impl CsrPeer {
     pub(crate) fn prepare_capture(
         &mut self,
         header: &[u8; 40],
-        information: &[u8; client_data::INFORMATION_BYTES],
+        information: &[u8],
     ) -> Result<(u64, u32), VmError> {
+        if !matches!(
+            information.len(),
+            client_data::INFORMATION_BYTES | BASE_NLS_BYTES
+        ) {
+            return Err(VmError::NoMemory);
+        }
         let next = self.next_message.checked_add(1).ok_or(VmError::NoMemory)?;
         let (base, newly_allocated) = match self.capture_storage {
             Some(base) => (base, false),
@@ -229,7 +260,7 @@ impl CsrPeer {
                 true,
             ),
         };
-        let mut bytes = [0; 628];
+        let mut bytes = vec![0; 40 + information.len() + 4];
         bytes[..40].copy_from_slice(header);
         bytes[8..16].fill(0);
         bytes[40..40 + information.len()].copy_from_slice(information);
