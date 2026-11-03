@@ -132,6 +132,12 @@ impl EmulatorVm {
 }
 
 impl EmulatorVm {
+    /// Only the generic RV64 bare-metal machine resets every configured hart.
+    /// Other boards retain their own power/reset and interrupt topology.
+    pub(crate) fn boots_all_riscv_harts(&self) -> bool {
+        self.arch == ArchKind::Riscv64 && self.machine == MachineFamily::Generic
+    }
+
     pub(crate) fn arm_cluster(&self) -> Option<Arc<aarch64::cluster::ArmCluster>> {
         self.arm_cluster.get().cloned()
     }

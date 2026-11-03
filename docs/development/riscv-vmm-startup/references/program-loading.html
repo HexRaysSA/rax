@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>7. Program Loading &#8212; ELF Object File Format 4.3 DRAFT documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=128e1f3d" />
+    <script src="../_static/documentation_options.js?v=4977a7ef"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="8. Dynamic Linking" href="08-dynamic.html" />
+    <link rel="prev" title="6. Relocation" href="06-reloc.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+<div class="pageheader">
+  <a href="https://xinuos.com">
+    <img class="logo" src="../_static/Xinuos_Logo__Black.svg" alt="Xinuos" />
+  </a>
+</div>
+
+<div class="document">
+  <div class="documentwrapper">
+    <div class="bodywrapper">
+      <div class="related top">
+	&nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="06-reloc.html" title="Previous document"><span class="section-number">6. </span>Relocation</a>
+        </li>
+        <li>
+          <a href="08-dynamic.html" title="Next document"><span class="section-number">8. </span>Dynamic Linking</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+      </div>
+      <div class="body" role="main">
+      
+      <div class="toppagetitle">
+      <a href="../index.html">ELF Object File Format</a>
+      </div>
+      
+      
+  <section id="program-loading">
+<span id="program-header"></span><h1><span class="section-number">7. </span>Program Loading<a class="headerlink" href="#program-loading" title="Link to this heading">¶</a></h1>
+<p>This chapter and the next describe the object file
+information and system actions that create running programs.
+Some information here applies to all systems;
+information specific to one processor resides in
+sections marked accordingly.</p>
+<p>Executable and shared object files statically represent programs.
+To execute such programs, the system uses the files to create
+dynamic program representations, or process images.
+A process image has segments that hold its text, data, stack, and so on.
+This is described by the psABI supplement for the specific machine.</p>
+<p>This chapter discusses the following:</p>
+<ul class="simple">
+<li><p>Program Header.
+The program header complements the Section Header Table
+(<a class="reference internal" href="03-sheader.html#sections"><span class="std std-numref">Chapter 3, Sections</span></a>),
+describing object file structures that relate directly to program execution.
+The primary data structure, a program header table, locates
+segment images within the file and contains other information
+necessary to create the memory image for the program.</p></li>
+<li><p>Program Loading.
+Given an object file, the system must load
+it into memory for the program to run.</p></li>
+</ul>
+<p>An executable or shared object file’s program header table
+is an array of structures, each describing a segment or
+other information the system needs to prepare the program for execution.
+An object file <em>segment</em> contains one or more <em>sections</em>,
+as described in <a class="reference internal" href="#segment-contents"><span class="std std-numref">Section 7.5, Segment Contents</span></a>.
+Program headers are meaningful only for executable
+and shared object files.
+A file specifies its own program header size with the ELF header’s
+<code class="docutils literal notranslate"><span class="pre">e_phentsize</span></code> and <code class="docutils literal notranslate"><span class="pre">e_phnum</span></code> members.
+See <a class="reference internal" href="02-eheader.html#elf-header"><span class="std std-numref">Chapter 2, ELF Header</span></a> for more information.</p>
+<p>Segment entries may appear in any order, except as explicitly noted below.</p>
+<section id="program-header-entry">
+<h2><span class="section-number">7.1. </span>Program Header Entry<a class="headerlink" href="#program-header-entry" title="Link to this heading">¶</a></h2>
+<div class="literal-block-wrapper docutils container" id="id5">
+<div class="code-block-caption"><span class="caption-number">Listing 7.1 </span><span class="caption-text">Program Header</span><a class="headerlink" href="#id5" title="Link to this code">¶</a></div>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">Elf32_Word</span><span class="w">  </span><span class="n">p_type</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf32_Off</span><span class="w">   </span><span class="n">p_offset</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf32_Addr</span><span class="w">  </span><span class="n">p_vaddr</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf32_Addr</span><span class="w">  </span><span class="n">p_paddr</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf32_Word</span><span class="w">  </span><span class="n">p_filesz</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf32_Word</span><span class="w">  </span><span class="n">p_memsz</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf32_Word</span><span class="w">  </span><span class="n">p_flags</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf32_Word</span><span class="w">  </span><span class="n">p_align</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">Elf32_Phdr</span><span class="p">;</span>
+
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">Elf64_Word</span><span class="w">  </span><span class="n">p_type</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf64_Word</span><span class="w">  </span><span class="n">p_flags</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf64_Off</span><span class="w">   </span><span class="n">p_offset</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf64_Addr</span><span class="w">  </span><span class="n">p_vaddr</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf64_Addr</span><span class="w">  </span><span class="n">p_paddr</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf64_Xword</span><span class="w"> </span><span class="n">p_filesz</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf64_Xword</span><span class="w"> </span><span class="n">p_memsz</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf64_Xword</span><span class="w"> </span><span class="n">p_align</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">Elf64_Phdr</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">p_type</span></code></dt><dd><p>This member tells what kind of segment this array element
+describes or how to interpret the array element’s information.
+Type values and their meanings appear
+below.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_offset</span></code></dt><dd><p>This member gives the offset from the beginning of the
+file at which the first byte of the segment resides.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_vaddr</span></code></dt><dd><p>This member gives the virtual address at which
+the first byte of the segment resides in memory.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_paddr</span></code></dt><dd><p>On systems for which physical addressing is relevant,
+this member is reserved for the segment’s physical address.
+Because System V ignores physical addressing
+for application programs, this member has unspecified
+contents for executable files and shared objects.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_filesz</span></code></dt><dd><p>This member gives the number of bytes in the file image of
+the segment; it may be zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_memsz</span></code></dt><dd><p>This member gives the number of bytes in the memory image of
+the segment; it may be zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_flags</span></code></dt><dd><p>This member gives flags relevant to the segment.
+Defined flag values appear
+below.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_align</span></code></dt><dd><p>Loadable process segments must have congruent values for
+<code class="docutils literal notranslate"><span class="pre">p_vaddr</span></code> and <code class="docutils literal notranslate"><span class="pre">p_offset</span></code>, modulo the page size.
+This member gives the value to which the
+segments are aligned in memory and in the file.
+Values 0 and 1 mean no alignment is required.
+Otherwise, <code class="docutils literal notranslate"><span class="pre">p_align</span></code>
+should be a positive, integral power of 2, and <code class="docutils literal notranslate"><span class="pre">p_vaddr</span></code>
+should equal <code class="docutils literal notranslate"><span class="pre">p_offset</span></code>,
+modulo <code class="docutils literal notranslate"><span class="pre">p_align</span></code>.</p>
+</dd>
+</dl>
+</section>
+<section id="segment-types">
+<h2><span class="section-number">7.2. </span>Segment Types<a class="headerlink" href="#segment-types" title="Link to this heading">¶</a></h2>
+<p>Some entries describe process segments; others give supplementary
+information and do not contribute to the process image.</p>
+<p>Defined segment type values are listed in <a class="reference internal" href="#id1"><span class="std std-numref">Table 7.1</span></a>;
+other values are reserved for future use.</p>
+<span id="id1"></span><table class="docutils align-default" id="id6">
+<caption><span class="caption-number">Table 7.1 </span><span class="caption-text">Segment Types, <code class="docutils literal notranslate"><span class="pre">p_type</span></code></span><a class="headerlink" href="#id6" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PT_NULL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PT_LOAD</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PT_DYNAMIC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PT_INTERP</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PT_NOTE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">4</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PT_SHLIB</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PT_PHDR</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">6</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PT_TLS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">7</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PT_LOOS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x60000000</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PT_HIOS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x6fffffff</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PT_LOPROC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x70000000</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PT_HIPROC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x7fffffff</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">PT_NULL</span></code></dt><dd><p>The array element is unused; other members’ values are undefined.
+This type lets the program header table have ignored entries.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PT_LOAD</span></code></dt><dd><p>The array element specifies a loadable segment,
+described by <code class="docutils literal notranslate"><span class="pre">p_filesz</span></code> and <code class="docutils literal notranslate"><span class="pre">p_memsz</span></code>.
+The bytes from the file are mapped to the
+beginning of the memory segment.
+If the segment’s memory size (<code class="docutils literal notranslate"><span class="pre">p_memsz</span></code>)
+is larger than the file size (<code class="docutils literal notranslate"><span class="pre">p_filesz</span></code>),
+the “extra” bytes are defined to hold the value 0
+and to follow the segment’s initialized area.
+The file size may not be larger than the memory size.
+Loadable segment entries in the program header table
+appear in ascending order, sorted on the <code class="docutils literal notranslate"><span class="pre">p_vaddr</span></code> member.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PT_DYNAMIC</span></code></dt><dd><p>The array element specifies dynamic linking information.
+See <a class="reference internal" href="08-dynamic.html#dynamic-section"><span class="std std-numref">Section 8.3, Dynamic Section</span></a>, for more information.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PT_INTERP</span></code></dt><dd><p>The array element specifies the location and size of
+a null-terminated path name to invoke as an interpreter.
+This segment type is meaningful only for executable files
+(though it may occur for shared objects);
+it may not occur more than once in a file.
+If it is present, it must precede any loadable segment entry.
+See <a class="reference internal" href="08-dynamic.html#program-interpreter"><span class="std std-numref">Section 8.1, Program Interpreter</span></a>, for more information.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PT_NOTE</span></code></dt><dd><p>The array element specifies the location and size of
+auxiliary information.
+See <a class="reference internal" href="#note-sections"><span class="std std-numref">Section 7.6, Note Sections</span></a>, for more information.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PT_SHLIB</span></code></dt><dd><p>This segment type is reserved but has unspecified semantics.
+Programs that contain an array element of this type do not
+conform to the ABI.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PT_PHDR</span></code></dt><dd><p>The array element, if present, specifies the location and size of
+the program header table itself, both in the file and
+in the memory image of the program.
+This segment type may not occur more than once in a file.
+Moreover, it may occur only if the program header table is
+part of the memory image of the program.
+If it is present, it must precede any loadable segment entry.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PT_TLS</span></code></dt><dd><p>The array element specifies the <em>Thread-Local Storage</em> template.
+Implementations need not support this program table entry.
+See <a class="reference internal" href="#thread-local-storage"><span class="std std-numref">Section 7.7, Thread-Local Storage</span></a>, for more information.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PT_LOOS</span></code> through <code class="docutils literal notranslate"><span class="pre">PT_HIOS</span></code></dt><dd><p>Values in this inclusive range
+are reserved for operating system-specific semantics.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PT_LOPROC</span></code> through <code class="docutils literal notranslate"><span class="pre">PT_HIPROC</span></code></dt><dd><p>Values in this inclusive range
+are reserved for processor-specific semantics.
+If meanings are specified, the psABI supplement explains them.</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Unless specifically required elsewhere,
+all program header segment types are optional.
+A file’s program header table may contain
+only those elements relevant to its contents.</p>
+</div>
+</section>
+<section id="base-address">
+<h2><span class="section-number">7.3. </span>Base Address<a class="headerlink" href="#base-address" title="Link to this heading">¶</a></h2>
+<p>The virtual addresses in the program headers might not
+represent the actual virtual addresses of the program’s memory
+image.  Executable files typically contain absolute code.  To let
+the process execute correctly, the segments must reside at the
+virtual addresses used to build the executable file.  On the other
+hand, shared object segments typically contain position-independent
+code.  This lets a segment’s virtual address change from one
+process to another, without invalidating execution behavior.
+On some platforms, while the system chooses virtual
+addresses for individual processes,
+it maintains the <em>relative</em> position of one
+segment to another within any one shared object.
+Because position-independent code on those platforms
+uses relative addressing between segments,
+the difference between virtual addresses
+in memory must match the difference between virtual addresses
+in the file.  The differences between the virtual address
+of any segment in memory and the corresponding virtual address
+in the file is thus a single constant value for any one
+executable or shared object in a given process.  This difference
+is the <em>base address</em>.  One use of the base address is to
+relocate the memory image of the file during dynamic linking.</p>
+<p>An executable or shared object file’s base address (on platforms
+that support the concept)
+is calculated during execution
+from three values: the virtual memory load address, the maximum page size,
+and the lowest virtual address of a program’s loadable segment.
+To compute the base address, one determines the memory address associated
+with the lowest <code class="docutils literal notranslate"><span class="pre">p_vaddr</span></code> value for a <code class="docutils literal notranslate"><span class="pre">PT_LOAD</span></code>
+segment.  This address is truncated to the nearest multiple of
+the maximum page size.  The corresponding <code class="docutils literal notranslate"><span class="pre">p_vaddr</span></code>
+value itself is also truncated to the nearest multiple of
+the maximum page size.  The base address is the difference
+between the truncated memory address and the truncated
+<code class="docutils literal notranslate"><span class="pre">p_vaddr</span></code> value.</p>
+<p>See the psABI supplement for more information and examples.</p>
+</section>
+<section id="segment-permissions">
+<h2><span class="section-number">7.4. </span>Segment Permissions<a class="headerlink" href="#segment-permissions" title="Link to this heading">¶</a></h2>
+<p>A program to be loaded by the system must
+have at least one loadable segment (although
+this is not required by the file format).
+When the system creates loadable segments’ memory images,
+it gives access permissions as specified in the <code class="docutils literal notranslate"><span class="pre">p_flags</span></code> member.</p>
+<table class="docutils align-default" id="id7">
+<caption><span class="caption-number">Table 7.2 </span><span class="caption-text">Segment Flag Bits, <code class="docutils literal notranslate"><span class="pre">p_flags</span></code></span><a class="headerlink" href="#id7" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PF_X</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x1</span></code></p></td>
+<td><p>Execute</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PF_W</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x2</span></code></p></td>
+<td><p>Write</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PF_R</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x4</span></code></p></td>
+<td><p>Read</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PF_MASKOS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x0ff00000</span></code></p></td>
+<td><p>Unspecified</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PF_MASKPROC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0xf0000000</span></code></p></td>
+<td><p>Unspecified</p></td>
+</tr>
+</tbody>
+</table>
+<p>All bits included in the <code class="docutils literal notranslate"><span class="pre">PF_MASKOS</span></code>
+mask are reserved for operating system-specific semantics.</p>
+<p>All bits included in the <code class="docutils literal notranslate"><span class="pre">PF_MASKPROC</span></code>
+mask are reserved for processor-specific semantics.
+If meanings are specified, the psABI supplement explains them.</p>
+<p>If a permission bit is 0, that type of access is denied.
+Actual memory permissions depend on the memory management unit,
+which may vary from one system to another.
+Although all flag combinations are valid, the system may grant
+more access than requested.
+In no case, however, will a segment have write permission
+unless it is specified explicitly.
+The following table shows both the exact flag interpretation
+and the allowable flag interpretation. ABI-conforming systems may
+provide either.</p>
+<table class="docutils align-default" id="id8">
+<caption><span class="caption-number">Table 7.3 </span><span class="caption-text">Segment Permissions</span><a class="headerlink" href="#id8" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flags</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Exact</p></th>
+<th class="head"><p>Allowable</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><em>none</em></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>All access denied</p></td>
+<td><p>All access denied</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PF_X</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Execute only</p></td>
+<td><p>Read, execute</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PF_W</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p>Write only</p></td>
+<td><p>Read, write, execute</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PF_W+PF_X</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+<td><p>Write, execute</p></td>
+<td><p>Read, write, execute</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PF_R</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">4</span></code></p></td>
+<td><p>Read only</p></td>
+<td><p>Read, execute</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PF_R+PF_X</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Read, execute</p></td>
+<td><p>Read, execute</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PF_R+PF_W</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">6</span></code></p></td>
+<td><p>Read, write</p></td>
+<td><p>Read, write, execute</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PF_R+PF_W+PF_X</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">7</span></code></p></td>
+<td><p>Read, write, execute</p></td>
+<td><p>Read, write, execute</p></td>
+</tr>
+</tbody>
+</table>
+<p>For example, typical text segments have read and execute—but not write—permissions.
+Data segments normally have read, write, and execute permissions.</p>
+</section>
+<section id="segment-contents">
+<span id="id2"></span><h2><span class="section-number">7.5. </span>Segment Contents<a class="headerlink" href="#segment-contents" title="Link to this heading">¶</a></h2>
+<p>An object file segment comprises one or more sections,
+though this fact is transparent to the program header.
+Whether the file segment holds one or many sections
+also is immaterial to program loading.
+Nonetheless, various data must be present for program
+execution, dynamic linking, and so on.
+The diagrams below illustrate segment contents in general terms.
+The order and membership of sections within a segment may vary;
+moreover, processor-specific constraints may alter the
+examples below.  See the psABI supplement for details.</p>
+<p>Text segments contain read-only instructions and data,
+typically including the following sections
+(see <a class="reference internal" href="03-sheader.html#special-sections"><span class="std std-numref">Section 3.10, Special Sections</span></a>):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">.text</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.rodata</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.hash</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.dynsym</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.dynstr</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.plt</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.rel.got</span></code></p></li>
+</ul>
+<p>Other sections may also reside in loadable segments;
+these examples are not meant to give complete and
+exclusive segment contents.</p>
+<p>Data segments contain writable data and instructions,
+typically including the following sections.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">.data</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.dynamic</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.got</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.bss</span></code></p></li>
+</ul>
+<p>A <code class="docutils literal notranslate"><span class="pre">PT_DYNAMIC</span></code> program header element points at the <code class="docutils literal notranslate"><span class="pre">.dynamic</span></code>
+section, explained in <a class="reference internal" href="08-dynamic.html#dynamic-section"><span class="std std-numref">Section 8.3, Dynamic Section</span></a>.
+The <code class="docutils literal notranslate"><span class="pre">.got</span></code> and <code class="docutils literal notranslate"><span class="pre">.plt</span></code>
+sections also hold information related to position-independent
+code and dynamic linking.
+Although
+the <code class="docutils literal notranslate"><span class="pre">.plt</span></code>
+appears in a text segment in the previous table, it
+may reside in a text or a data segment,
+depending on the processor.
+See “Global Offset Table” and “Procedure Linkage Table”
+in the psABI supplement for details.</p>
+<p>As <a class="reference internal" href="03-sheader.html#sections"><span class="std std-numref">Chapter 3, Sections</span></a> describes,
+the <code class="docutils literal notranslate"><span class="pre">.bss</span></code> section has the type <code class="docutils literal notranslate"><span class="pre">SHT_NOBITS</span></code>.
+Although it occupies no space in the file, it contributes
+to the segment’s memory image.
+Normally, these uninitialized data reside at the end of
+the segment, thereby making <code class="docutils literal notranslate"><span class="pre">p_memsz</span></code> larger
+than <code class="docutils literal notranslate"><span class="pre">p_filesz</span></code>
+in the associated program header element.</p>
+</section>
+<section id="note-sections">
+<span id="id3"></span><h2><span class="section-number">7.6. </span>Note Sections<a class="headerlink" href="#note-sections" title="Link to this heading">¶</a></h2>
+<p>Sometimes a vendor or system builder needs to mark an
+object file with special information that
+other programs will check for conformance, compatibility, etc.
+Sections of type <code class="docutils literal notranslate"><span class="pre">SHT_NOTE</span></code>
+and program header elements of type
+<code class="docutils literal notranslate"><span class="pre">PT_NOTE</span></code> can be used for this purpose.
+The note information in sections and
+program header elements holds a variable amount of entries.
+In 64-bit objects (files with <code class="docutils literal notranslate"><span class="pre">e_ident[EI_CLASS]</span></code> equal to
+<code class="docutils literal notranslate"><span class="pre">ELFCLASS64</span></code>),
+each entry is an array of 8-byte words in the format of
+the target processor.
+In 32-bit objects (files with <code class="docutils literal notranslate"><span class="pre">e_ident[EI_CLASS]</span></code> equal to
+<code class="docutils literal notranslate"><span class="pre">ELFCLASS32</span></code>),
+each entry is an array of 4-byte words in the format of
+the target processor.
+Labels appear below
+to help explain note information
+organization, but they are not part of the specification.</p>
+<figure class="align-default" id="id9">
+<img alt="Note Information" src="../_images/figure-4.svg" style="width: 270pt;" />
+<figcaption>
+<p><span class="caption-number">Figure 7.1 </span><span class="caption-text">Note Information</span><a class="headerlink" href="#id9" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">namesz</span></code> and <code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>The first <code class="docutils literal notranslate"><span class="pre">namesz</span></code> bytes in <code class="docutils literal notranslate"><span class="pre">name</span></code>
+contain a null-terminated character representation
+of the entry’s owner or originator.
+There is no formal mechanism for avoiding name conflicts.
+By convention, vendors use their own name, such as
+<code class="docutils literal notranslate"><span class="pre">XYZ</span> <span class="pre">Computer</span> <span class="pre">Company</span></code>, as the identifier.
+If no name is present, <code class="docutils literal notranslate"><span class="pre">namesz</span></code> contains 0.
+Padding is present, if necessary, to ensure 8 or 4-byte
+alignment for the descriptor (depending on whether the
+file is a 64-bit or 32-bit object).
+Such padding is not included in <code class="docutils literal notranslate"><span class="pre">namesz</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">descsz</span></code> and <code class="docutils literal notranslate"><span class="pre">desc</span></code></dt><dd><p>The first <code class="docutils literal notranslate"><span class="pre">descsz</span></code> bytes in <code class="docutils literal notranslate"><span class="pre">desc</span></code>
+hold the note descriptor.  The ABI places no constraints on a
+descriptor’s contents.
+If no descriptor is present, <code class="docutils literal notranslate"><span class="pre">descsz</span></code>
+contains 0.
+Padding is present, if necessary, to ensure 8 or 4-byte
+alignment for the next note entry (depending on whether the
+file is a 64-bit or 32-bit object).
+Such padding is not included in <code class="docutils literal notranslate"><span class="pre">descsz</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>This word gives the interpretation of the descriptor.
+Each originator controls its own types; multiple
+interpretations of a single type value may exist.
+Thus, a program must recognize both the name and
+the type to recognize a descriptor.
+Types currently must be non-negative.
+The ABI does not define what descriptors mean.</p>
+</dd>
+</dl>
+<p>To illustrate, the following (<code class="docutils literal notranslate"><span class="pre">ELFCLASS32</span></code>) note segment holds two entries.
+Both have a 7-byte <code class="docutils literal notranslate"><span class="pre">name</span></code> field of “xyz co” (counting the null terminator).
+The first has a <code class="docutils literal notranslate"><span class="pre">type</span></code> field of 1 and no descriptor,
+and the second has a <code class="docutils literal notranslate"><span class="pre">type</span></code> field of 3 with 8 bytes of descriptor
+data (with no null terminator).
+Note that the word-size fields <code class="docutils literal notranslate"><span class="pre">namesz</span></code>, <code class="docutils literal notranslate"><span class="pre">descsz</span></code> and <code class="docutils literal notranslate"><span class="pre">type</span></code> are stored
+with the byte order specified in the ELF Header
+(see <cite>EI_DATA</cite> in <a class="reference internal" href="02-eheader.html#elf-identification"><span class="std std-numref">Section 2.2, ELF Identification</span></a>).</p>
+<figure class="align-default" id="id10">
+<img alt="Example ELFCLASS32 Note Segment" src="../_images/figure-5.svg" style="width: 392pt;" />
+<figcaption>
+<p><span class="caption-number">Figure 7.2 </span><span class="caption-text">Example <code class="docutils literal notranslate"><span class="pre">ELFCLASS32</span></code> Note Segment</span><a class="headerlink" href="#id10" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The system reserves note information with no name
+(<code class="docutils literal notranslate"><span class="pre">namesz==0</span></code>) and with a zero-length name
+(<code class="docutils literal notranslate"><span class="pre">name[0]==’\0’</span></code>) but currently defines no types.
+All other names must have at least one non-null character.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Note information is optional.  The presence of note information
+does not affect a program’s ABI conformance, provided the
+information does not affect the program’s execution behavior.
+Otherwise, the program does not conform to the ABI and has
+undefined behavior.</p>
+</div>
+</section>
+<section id="thread-local-storage">
+<span id="id4"></span><h2><span class="section-number">7.7. </span>Thread-Local Storage<a class="headerlink" href="#thread-local-storage" title="Link to this heading">¶</a></h2>
+<p>To permit association of separate copies of data allocated at compile-time
+with individual threads of execution,
+thread-local storage sections
+can be used to specify the size and initial contents of such data.
+Implementations need not support thread-local storage.
+A <code class="docutils literal notranslate"><span class="pre">PT_TLS</span></code> program entry has the following members:</p>
+<table class="docutils align-default" id="id11">
+<caption><span class="caption-number">Table 7.4 </span><span class="caption-text">Contents of the <code class="docutils literal notranslate"><span class="pre">PT_TLS</span></code> Entry</span><a class="headerlink" href="#id11" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Member</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">p_offset</span></code></p></td>
+<td><p>File offset of the TLS initialization image</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">p_vaddr</span></code></p></td>
+<td><p>Virtual memory address of the TLS initialization image</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">p_paddr</span></code></p></td>
+<td><p>reserved</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">p_filesz</span></code></p></td>
+<td><p>Size of the TLS initialization image</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">p_memsz</span></code></p></td>
+<td><p>Total size of the TLS template</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">p_flags</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">PF_R</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">p_align</span></code></p></td>
+<td><p>Alignment of the TLS template</p></td>
+</tr>
+</tbody>
+</table>
+<p>The <em>TLS template</em> is formed from the combination
+of all sections with the flag <code class="docutils literal notranslate"><span class="pre">SHF_TLS</span></code>.
+The portion of the TLS template that holds initialized data
+is the <em>TLS initialization image</em>.
+(The remaining portion of the TLS template
+is one or more sections of type <code class="docutils literal notranslate"><span class="pre">SHT_NOBITS</span></code>.)</p>
+</section>
+</section>
+
+
+      </div>
+      <div class="related bottom">
+	&nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="06-reloc.html" title="Previous document"><span class="section-number">6. </span>Relocation</a>
+        </li>
+        <li>
+          <a href="08-dynamic.html" title="Next document"><span class="section-number">8. </span>Dynamic Linking</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+      </div>
+    </div>
+  </div>
+  <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+    <div class="sphinxsidebarwrapper">
+      <div class="sphinxsidebar-navigation__pages">
+	<h3><a href="../index.html">Contents</a></h3>
+	<ul>
+<li class="toctree-l1"><a class="reference internal" href="00-foreword.html">Foreword</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="01-intro.html">1. Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02-eheader.html">2. ELF Header</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-sheader.html">3. Sections</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04-strtab.html">4. String Table</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05-symtab.html">5. Symbol Table</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06-reloc.html">6. Relocation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">7. Program Loading</a></li>
+<li class="toctree-l1"><a class="reference internal" href="08-dynamic.html">8. Dynamic Linking</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="a-emachine.html">Appendix A: Assigned Machine Values</a></li>
+<li class="toctree-l1"><a class="reference internal" href="b-osabi.html">Appendix B: Assigned OSABI Values</a></li>
+<li class="toctree-l1"><a class="reference internal" href="c-history.html">Appendix C: Revision History</a></li>
+</ul>
+
+      </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+    </div>
+  </div>
+  <div class="clearer"></div>
+</div>
+<div class="footer">
+<p>© 1997, 1998, 1999, 2000, 2001 The Santa Cruz Operation, Inc.  All rights reserved.
+<br>© 2002 Caldera International.  All rights reserved.
+<br>© 2003-2010 The SCO Group.  All rights reserved.
+<br>© 2011-2014, 2023–2026 Xinuos Inc.  All rights reserved.</p>
+<p>Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
+&amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</p>
+</div>  
+
+  </body>
+</html>

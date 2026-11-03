@@ -2791,7 +2791,10 @@
         "docs/development/riscv-shared-reservations/README.md",
         "docs/development/riscv-shared-reservations/qualification.json",
         "docs/development/riscv-shared-atomics/README.md",
-        "docs/development/riscv-shared-atomics/qualification.json"
+        "docs/development/riscv-shared-atomics/qualification.json",
+        "docs/development/riscv-vmm-startup/README.md",
+        "docs/development/riscv-vmm-startup/qualification.json",
+        "src/vm/runtime/riscv_startup_tests.rs"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2846,7 +2849,8 @@
         "Independent distributor/CPU group gating,current-output direct timer polling,versioned exact-mask restoration and actual1/2/4prepared-PE source-free files are locally qualified in a64-gic-forwarding/qualification.json. Prior coalesced controls import their recorded readback;original writes are unknown. Group-specific IRQ/FIQ/ICC/WFI paths and complete profile/backend/private/in-flight/startup/IRQ/clock/replay/physical Intel requirements remain open;no full finding closure.",
         "Selected classic banked GIC operations, IRQ/FIQ masks/routing, waits, Any participation and active-state programming are locally qualified, including prepared1/2/4-PE source-free files. Full startup/backend/private/in-flight/clock/replay/native work remains open; the separately reproduced GICD_TYPER discovery defect is corrected by the discovery/routing followup.",
         "Classic SPI discovery and IROUTER word/full-width mapping, fixed-ARE legacy register readback, guest PSCI secondary startup and actual1/2/4-PE top-SPI source-free file continuations are locally qualified in a64-gic-discovery-routing/qualification.json. Complete original backend/private/in-flight, native startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
-        "Shared physical LR/SC direct/native/process/GSC writers, validity encoding, stopped RAM publication and C API retained-backing reconstruction are locally qualified in riscv-shared-reservations/qualification.json. Shared AMO/Zacas transactions, mandatory CAS write admission and RV32 pair/admission are now locally qualified in riscv-shared-atomics/qualification.json; remaining full backend/platform/native requirements stay open."
+        "Shared physical LR/SC direct/native/process/GSC writers, validity encoding, stopped RAM publication and C API retained-backing reconstruction are locally qualified in riscv-shared-reservations/qualification.json. Shared AMO/Zacas transactions, mandatory CAS write admission and RV32 pair/admission are now locally qualified in riscv-shared-atomics/qualification.json; remaining full backend/platform/native requirements stay open.",
+        "Generic RV64 all-hart VMM startup, exact ELF entry/BSS/segment admission and actual source-free one/two/four-hart continuation are locally qualified in riscv-vmm-startup/qualification.json. A common-byte CLINT IPI probe passes QEMU and fails both actual RAX two/four-hart runs. CLINT/PLIC/common-clock/SBI/platform replay and remaining full backend/private/in-flight/native requirements remain open; no original finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3607,7 +3611,10 @@
         "docs/development/riscv-shared-reservations/README.md",
         "docs/development/riscv-shared-reservations/qualification.json",
         "docs/development/riscv-shared-atomics/README.md",
-        "docs/development/riscv-shared-atomics/qualification.json"
+        "docs/development/riscv-shared-atomics/qualification.json",
+        "docs/development/riscv-vmm-startup/README.md",
+        "docs/development/riscv-vmm-startup/qualification.json",
+        "src/vm/runtime/riscv_startup_tests.rs"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3652,7 +3659,8 @@
         "Independent distributor/CPU group gating,current-output direct timer polling,versioned exact-mask restoration and actual1/2/4prepared-PE source-free files are locally qualified in a64-gic-forwarding/qualification.json. Prior coalesced controls import their recorded readback;original writes are unknown. Group-specific IRQ/FIQ/ICC/WFI paths and complete profile/backend/private/in-flight/startup/IRQ/clock/replay/physical Intel requirements remain open;no full finding closure.",
         "Selected classic banked GIC operations, IRQ/FIQ masks/routing, waits, Any participation and active-state programming are locally qualified, including prepared1/2/4-PE source-free files. Full startup/backend/private/in-flight/clock/replay/native work remains open; the separately reproduced GICD_TYPER discovery defect is corrected by the discovery/routing followup.",
         "Classic SPI discovery and IROUTER word/full-width mapping, fixed-ARE legacy register readback, guest PSCI secondary startup and actual1/2/4-PE top-SPI source-free file continuations are locally qualified in a64-gic-discovery-routing/qualification.json. Complete original backend/private/in-flight, native startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
-        "Shared physical LR/SC direct/native/process/GSC writers, validity encoding, stopped RAM publication and C API retained-backing reconstruction are locally qualified in riscv-shared-reservations/qualification.json. Shared AMO/Zacas transactions, mandatory CAS write admission and RV32 pair/admission are now locally qualified in riscv-shared-atomics/qualification.json; remaining full backend/platform/native requirements stay open."
+        "Shared physical LR/SC direct/native/process/GSC writers, validity encoding, stopped RAM publication and C API retained-backing reconstruction are locally qualified in riscv-shared-reservations/qualification.json. Shared AMO/Zacas transactions, mandatory CAS write admission and RV32 pair/admission are now locally qualified in riscv-shared-atomics/qualification.json; remaining full backend/platform/native requirements stay open.",
+        "Generic RV64 all-hart VMM startup, exact ELF entry/BSS/segment admission and actual source-free one/two/four-hart continuation are locally qualified in riscv-vmm-startup/qualification.json. A common-byte CLINT IPI probe passes QEMU and fails both actual RAX two/four-hart runs. CLINT/PLIC/common-clock/SBI/platform replay and remaining full backend/private/in-flight/native requirements remain open; no original finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -198475,6 +198483,28 @@
         "red -m --staged --run exact owned paths",
         "normal push origin master:master",
         "guarded owned build cleanup"
+      ],
+      "full_goal_complete": false
+    },
+    {
+      "id": "riscv-vmm-startup-2026-11-03",
+      "status": "locally_validated_with_explicit_scope",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "parent": "6d6342238b514a081de4a82e319db8bdf12a454d",
+      "original_baseline": "1e766416862b0d37cfd82a1b8cdc3e856c803928",
+      "scope": "Generic RV64 bare-metal all-hart VMM startup, exact ELF entry and segment admission, and source-free coordinator/private-context continuation",
+      "qualification": "docs/development/riscv-vmm-startup/qualification.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-riscv-startup-v1/commit-receipt.json",
+      "push_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-riscv-startup-v1/push-receipt.json",
+      "cleanup_receipt": "/Users/int/dev/rax-audit-work/four-findings-coordinator/vmm-riscv-startup-v1/cleanup-final.json",
+      "workflow": [
+        "git add -- exact owned paths",
+        "red -m --staged --run exact owned paths",
+        "normal git push origin master:master",
+        "guarded cleanup of owned C/T only"
       ],
       "full_goal_complete": false
     }

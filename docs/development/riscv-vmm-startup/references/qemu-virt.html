@@ -1,0 +1,410 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>‘virt’ Generic Virtual Platform (virt) &mdash; QEMU  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=f5127f15" />
+      <link rel="stylesheet" type="text/css" href="../../_static/theme_overrides.css?v=b3ae9cc8" />
+
+  
+    <link rel="shortcut icon" href="../../_static/qemu_32x32.png"/>
+      <script src="../../_static/jquery.js?v=8dae8fb0"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=3b5cce75"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/custom.js?v=2ab9f71d"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="BOSC Xiangshan Kunminghu FPGA prototype platform (xiangshan-kunminghu)" href="xiangshan-kunminghu.html" />
+    <link rel="prev" title="Tenstorrent Atlantis (tt-atlantis)" href="tt_atlantis.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #802400" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            QEMU
+              <img src="../../_static/qemu_128x128.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../about/index.html">About QEMU</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">System Emulation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../introduction.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../invocation.html">Invocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../device-emulation.html">Device Emulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../keys.html">Keys in the graphical frontends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mux-chardev.html">Keys in the character backend multiplexer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../monitor.html">QEMU Monitor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../images.html">Disk Images</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../virtio-net-failover.html">QEMU virtio-net standby (net_failover)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../linuxboot.html">Direct Linux Boot</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generic-loader.html">Generic Loader</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guest-loader.html">Guest Loader</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../barrier.html">QEMU Barrier Client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../vnc-security.html">VNC security</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tls.html">TLS setup for network services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../secrets.html">Providing secret data to QEMU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../authz.html">Client authorization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../gdb.html">GDB usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../replay.html">Record/replay</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../managed-startup.html">Managed start up options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../bootindex.html">Managing device boot order with bootindex properties</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cpu-hotplug.html">Virtual CPU hotplug</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pr-manager.html">Persistent reservation managers</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../targets.html">QEMU System Emulator Targets</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../target-arm.html">Arm System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-avr.html">AVR System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-loongarch.html">LoongArch System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-m68k.html">ColdFire System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-mips.html">MIPS System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-or1k.html">OpenRISC System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-ppc.html">PowerPC System emulator</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../target-riscv.html">RISC-V System emulator</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../target-riscv.html#choosing-a-board-model">Choosing a board model</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="../target-riscv.html#board-specific-documentation">Board-specific documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../target-riscv.html#risc-v-cpu-firmware">RISC-V CPU firmware</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../target-riscv.html#risc-v-cpu-endianness">RISC-V CPU endianness</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../target-rx.html">RX System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-s390x.html">s390x System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-sparc.html">Sparc32 System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-sparc64.html">Sparc64 System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-i386.html">x86 System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-xtensa.html">Xtensa System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-hexagon.html">Hexagon System emulator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-hexagon.html#components">Components</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-hexagon.html#bootstrapping">Bootstrapping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../target-hexagon.html#semihosting">Semihosting</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multi-process.html">Multi-process QEMU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../confidential-guest-support.html">Confidential Guest Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../igvm.html">Independent Guest Virtual Machine (IGVM) support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../nitro.html">AWS Nitro Enclaves</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../whpx.html">Windows Hypervisor Platform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../vm-templating.html">QEMU VM templating</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sriov.html">Composable SR-IOV device</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../qemu-colo.html">Qemu COLO Fault Tolerance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guest-memfd.html">guest-memfd support</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../user/index.html">User Mode Emulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tools/index.html">Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../interop/index.html">System Emulation Management and Interoperability</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../specs/index.html">System Emulation Guest Hardware Specifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../devel/index.html">Developer Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../glossary.html">Glossary</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #802400" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">QEMU</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">System Emulation</a></li>
+          <li class="breadcrumb-item"><a href="../targets.html">QEMU System Emulator Targets</a></li>
+          <li class="breadcrumb-item"><a href="../target-riscv.html">RISC-V System emulator</a></li>
+      <li class="breadcrumb-item active">‘virt’ Generic Virtual Platform (<code class="docutils literal notranslate"><span class="pre">virt</span></code>)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="https://gitlab.com/qemu-project/qemu/-/blob/master/docs/system/riscv/virt.rst">View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="virt-generic-virtual-platform-virt">
+<h1>‘virt’ Generic Virtual Platform (<code class="docutils literal notranslate"><span class="pre">virt</span></code>)<a class="headerlink" href="#virt-generic-virtual-platform-virt" title="Link to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">virt</span></code> board is a platform which does not correspond to any real hardware;
+it is designed for use in virtual machines. It is the recommended board type
+if you simply want to run a guest such as Linux and do not care about
+reproducing the idiosyncrasies and limitations of a particular bit of
+real-world hardware.</p>
+<section id="supported-devices">
+<h2>Supported devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">virt</span></code> machine supports the following devices:</p>
+<ul class="simple">
+<li><p>Up to 512 generic RV32GC/RV64GC cores, with optional extensions</p></li>
+<li><p>Core Local Interruptor (CLINT)</p></li>
+<li><p>Platform-Level Interrupt Controller (PLIC)</p></li>
+<li><p>CFI parallel NOR flash memory</p></li>
+<li><p>Either 1 or 2 NS16550 compatible UARTs</p></li>
+<li><p>1 Google Goldfish RTC</p></li>
+<li><p>1 SiFive Test device</p></li>
+<li><p>8 virtio-mmio transport devices</p></li>
+<li><p>1 generic PCIe host bridge</p></li>
+<li><p>The fw_cfg device that allows a guest to obtain data from QEMU</p></li>
+</ul>
+<p>The hypervisor extension has been enabled for the default CPU, so virtual
+machines with hypervisor extension can simply be used without explicitly
+declaring.</p>
+<p>The second UART only exists if a backend is configured explicitly (e.g.
+with a second <code class="docutils literal notranslate"><span class="pre">-serial</span></code> command line option).</p>
+</section>
+<section id="hardware-configuration-information">
+<h2>Hardware configuration information<a class="headerlink" href="#hardware-configuration-information" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">virt</span></code> machine automatically generates a device tree blob (“dtb”)
+which it passes to the guest, if there is no <code class="docutils literal notranslate"><span class="pre">-dtb</span></code> option. This provides
+information about the addresses, interrupt lines and other configuration of
+the various devices in the system. Guest software should discover the devices
+that are present in the generated DTB.</p>
+<p>If users want to provide their own DTB, they can use the <code class="docutils literal notranslate"><span class="pre">-dtb</span></code> option.
+These DTBs should have the following requirements:</p>
+<ul class="simple">
+<li><p>The number of subnodes of the /cpus node should match QEMU’s <code class="docutils literal notranslate"><span class="pre">-smp</span></code> option</p></li>
+<li><p>The /memory reg size should match QEMU’s selected ram_size via <code class="docutils literal notranslate"><span class="pre">-m</span></code></p></li>
+<li><p>Should contain a node for the CLINT device with a compatible string
+“riscv,clint0” if using with OpenSBI BIOS images</p></li>
+</ul>
+</section>
+<section id="boot-options">
+<h2>Boot options<a class="headerlink" href="#boot-options" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">virt</span></code> machine can start using the standard -kernel functionality
+for loading a Linux kernel, a VxWorks kernel, an S-mode U-Boot bootloader
+with the default OpenSBI firmware image as the -bios. It also supports
+the recommended RISC-V bootflow: U-Boot SPL (M-mode) loads OpenSBI fw_dynamic
+firmware and U-Boot proper (S-mode), using the standard -bios functionality.</p>
+</section>
+<section id="using-flash-devices">
+<h2>Using flash devices<a class="headerlink" href="#using-flash-devices" title="Link to this heading"></a></h2>
+<p>By default, the first flash device (pflash0) is expected to contain
+S-mode firmware code. It can be configured as read-only, with the
+second flash device (pflash1) available to store configuration data.</p>
+<p>For example, booting edk2 looks like</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>qemu-system-riscv64<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>-blockdev<span class="w"> </span>node-name<span class="o">=</span>pflash0,driver<span class="o">=</span>file,read-only<span class="o">=</span>on,filename<span class="o">=</span>&lt;edk2_code&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>-blockdev<span class="w"> </span>node-name<span class="o">=</span>pflash1,driver<span class="o">=</span>file,filename<span class="o">=</span>&lt;edk2_vars&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>-M<span class="w"> </span>virt,pflash0<span class="o">=</span>pflash0,pflash1<span class="o">=</span>pflash1<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>...<span class="w"> </span>other<span class="w"> </span>args<span class="w"> </span>....
+</pre></div>
+</div>
+<p>For TCG guests only, it is also possible to boot M-mode firmware from
+the first flash device (pflash0) by additionally passing <code class="docutils literal notranslate"><span class="pre">-bios</span>
+<span class="pre">none</span></code>, as in</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>qemu-system-riscv64<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>-bios<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>-blockdev<span class="w"> </span>node-name<span class="o">=</span>pflash0,driver<span class="o">=</span>file,read-only<span class="o">=</span>on,filename<span class="o">=</span>&lt;m_mode_code&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>-M<span class="w"> </span>virt,pflash0<span class="o">=</span>pflash0<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>...<span class="w"> </span>other<span class="w"> </span>args<span class="w"> </span>....
+</pre></div>
+</div>
+<p>Firmware images used for pflash must be exactly 32 MiB in size.</p>
+</section>
+<section id="riscv-iommu-support">
+<h2>riscv-iommu support<a class="headerlink" href="#riscv-iommu-support" title="Link to this heading"></a></h2>
+<p>The board has support for the riscv-iommu-pci device by using the following
+command line:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>qemu-system-riscv64<span class="w"> </span>-M<span class="w"> </span>virt<span class="w"> </span>-device<span class="w"> </span>riscv-iommu-pci<span class="w"> </span><span class="o">(</span>...<span class="o">)</span>
+</pre></div>
+</div>
+<p>It also has support for the riscv-iommu-sys platform device:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>qemu-system-riscv64<span class="w"> </span>-M<span class="w"> </span>virt,iommu-sys<span class="o">=</span>on<span class="w"> </span><span class="o">(</span>...<span class="o">)</span>
+</pre></div>
+</div>
+<p>Refer to <a class="reference internal" href="../../specs/riscv-iommu.html#riscv-iommu"><span class="std std-ref">RISC-V IOMMU support for RISC-V machines</span></a> for more information on how the RISC-V IOMMU support
+works.</p>
+</section>
+<section id="machine-specific-options">
+<h2>Machine-specific options<a class="headerlink" href="#machine-specific-options" title="Link to this heading"></a></h2>
+<p>The following machine-specific options are supported:</p>
+<ul>
+<li><p>aclint=[on|off]</p>
+<p>When this option is “on”, ACLINT devices will be emulated instead of
+SiFive CLINT. When not specified, this option is assumed to be “off”.
+This option is restricted to the TCG accelerator.</p>
+</li>
+<li><p>acpi=[on|off|auto]</p>
+<p>When this option is “on” (which is the default), ACPI tables are generated and
+exposed as firmware tables etc/acpi/rsdp and etc/acpi/tables.</p>
+</li>
+<li><p>aia=[none|aplic|aplic-imsic]</p>
+<p>This option allows selecting interrupt controller defined by the AIA
+(advanced interrupt architecture) specification. The “aia=aplic” selects
+APLIC (advanced platform level interrupt controller) to handle wired
+interrupts whereas the “aia=aplic-imsic” selects APLIC and IMSIC (incoming
+message signaled interrupt controller) to handle both wired interrupts and
+MSIs. When not specified, this option is assumed to be “none” which selects
+SiFive PLIC to handle wired interrupts.</p>
+<p>This option also interacts with ‘-accel kvm’.  When using “aia=aplic-imsic”
+with KVM, it is possible to set the use of the kernel irqchip in split mode
+by using “-accel kvm,kernel-irqchip=split”.  In this case the <code class="docutils literal notranslate"><span class="pre">virt</span></code> machine
+will emulate the APLIC controller instead of using the APLIC controller from
+the irqchip.  See <a class="reference internal" href="../../specs/riscv-aia.html#riscv-aia"><span class="std std-ref">RISC-V AIA support for RISC-V machines</span></a> for more details on all available AIA
+modes.</p>
+</li>
+<li><p>aia-guests=nnn</p>
+<p>The number of per-HART VS-level AIA IMSIC pages to be emulated for a guest
+having AIA IMSIC (i.e. “aia=aplic-imsic” selected). When not specified,
+the default number of per-HART VS-level AIA IMSIC pages is 0.</p>
+</li>
+<li><p>iommu-sys=[on|off]</p>
+<p>Enables the riscv-iommu-sys platform device. Defaults to ‘off’.</p>
+</li>
+</ul>
+</section>
+<section id="running-linux-kernel">
+<h2>Running Linux kernel<a class="headerlink" href="#running-linux-kernel" title="Link to this heading"></a></h2>
+<p>Linux mainline v5.12 release is tested at the time of writing. To build a
+Linux mainline kernel that can be booted by the <code class="docutils literal notranslate"><span class="pre">virt</span></code> machine in
+64-bit mode, simply configure the kernel using the defconfig configuration:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="nv">ARCH</span><span class="o">=</span>riscv
+$<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="nv">CROSS_COMPILE</span><span class="o">=</span>riscv64-linux-
+$<span class="w"> </span>make<span class="w"> </span>defconfig
+$<span class="w"> </span>make
+</pre></div>
+</div>
+<p>To boot the newly built Linux kernel in QEMU with the <code class="docutils literal notranslate"><span class="pre">virt</span></code> machine:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>qemu-system-riscv64<span class="w"> </span>-M<span class="w"> </span>virt<span class="w"> </span>-smp<span class="w"> </span><span class="m">4</span><span class="w"> </span>-m<span class="w"> </span>2G<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-display<span class="w"> </span>none<span class="w"> </span>-serial<span class="w"> </span>stdio<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-kernel<span class="w"> </span>arch/riscv/boot/Image<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-initrd<span class="w"> </span>/path/to/rootfs.cpio<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-append<span class="w"> </span><span class="s2">&quot;root=/dev/ram&quot;</span>
+</pre></div>
+</div>
+<p>To build a Linux mainline kernel that can be booted by the <code class="docutils literal notranslate"><span class="pre">virt</span></code> machine
+in 32-bit mode, use the rv32_defconfig configuration. A patch is required to
+fix the 32-bit boot issue for Linux kernel v5.12.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="nv">ARCH</span><span class="o">=</span>riscv
+$<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="nv">CROSS_COMPILE</span><span class="o">=</span>riscv64-linux-
+$<span class="w"> </span>curl<span class="w"> </span>https://patchwork.kernel.org/project/linux-riscv/patch/20210627135117.28641-1-bmeng.cn@gmail.com/mbox/<span class="w"> </span>&gt;<span class="w"> </span>riscv.patch
+$<span class="w"> </span>git<span class="w"> </span>am<span class="w"> </span>riscv.patch
+$<span class="w"> </span>make<span class="w"> </span>rv32_defconfig
+$<span class="w"> </span>make
+</pre></div>
+</div>
+<p>Replace <code class="docutils literal notranslate"><span class="pre">qemu-system-riscv64</span></code> with <code class="docutils literal notranslate"><span class="pre">qemu-system-riscv32</span></code> in the command
+line above to boot the 32-bit Linux kernel. A rootfs image containing 32-bit
+applications shall be used in order for kernel to boot to user space.</p>
+</section>
+<section id="running-u-boot">
+<h2>Running U-Boot<a class="headerlink" href="#running-u-boot" title="Link to this heading"></a></h2>
+<p>U-Boot mainline v2021.04 release is tested at the time of writing. To build an
+S-mode U-Boot bootloader that can be booted by the <code class="docutils literal notranslate"><span class="pre">virt</span></code> machine, use
+the qemu-riscv64_smode_defconfig with similar commands as described above for Linux:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="nv">CROSS_COMPILE</span><span class="o">=</span>riscv64-linux-
+$<span class="w"> </span>make<span class="w"> </span>qemu-riscv64_smode_defconfig
+</pre></div>
+</div>
+<p>Boot the 64-bit U-Boot S-mode image directly:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>qemu-system-riscv64<span class="w"> </span>-M<span class="w"> </span>virt<span class="w"> </span>-smp<span class="w"> </span><span class="m">4</span><span class="w"> </span>-m<span class="w"> </span>2G<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-display<span class="w"> </span>none<span class="w"> </span>-serial<span class="w"> </span>stdio<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-kernel<span class="w"> </span>/path/to/u-boot.bin
+</pre></div>
+</div>
+<p>To test booting U-Boot SPL which in M-mode, which in turn loads a FIT image
+that bundles OpenSBI fw_dynamic firmware and U-Boot proper (S-mode) together,
+build the U-Boot images using riscv64_spl_defconfig:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="nv">CROSS_COMPILE</span><span class="o">=</span>riscv64-linux-
+$<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="nv">OPENSBI</span><span class="o">=</span>/path/to/opensbi-riscv64-generic-fw_dynamic.bin
+$<span class="w"> </span>make<span class="w"> </span>qemu-riscv64_spl_defconfig
+</pre></div>
+</div>
+<p>The minimal QEMU commands to run U-Boot SPL are:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>qemu-system-riscv64<span class="w"> </span>-M<span class="w"> </span>virt<span class="w"> </span>-smp<span class="w"> </span><span class="m">4</span><span class="w"> </span>-m<span class="w"> </span>2G<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-display<span class="w"> </span>none<span class="w"> </span>-serial<span class="w"> </span>stdio<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-bios<span class="w"> </span>/path/to/u-boot-spl<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-device<span class="w"> </span>loader,file<span class="o">=</span>/path/to/u-boot.itb,addr<span class="o">=</span>0x80200000
+</pre></div>
+</div>
+<p>To test 32-bit U-Boot images, switch to use qemu-riscv32_smode_defconfig and
+riscv32_spl_defconfig builds, and replace <code class="docutils literal notranslate"><span class="pre">qemu-system-riscv64</span></code> with
+<code class="docutils literal notranslate"><span class="pre">qemu-system-riscv32</span></code> in the command lines above to boot the 32-bit U-Boot.</p>
+</section>
+<section id="enabling-tpm">
+<h2>Enabling TPM<a class="headerlink" href="#enabling-tpm" title="Link to this heading"></a></h2>
+<p>A TPM device can be connected to the virt board by following the steps below.</p>
+<p>First launch the TPM emulator:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>swtpm<span class="w"> </span>socket<span class="w"> </span>--tpm2<span class="w"> </span>-t<span class="w"> </span>-d<span class="w"> </span>--tpmstate<span class="w"> </span><span class="nv">dir</span><span class="o">=</span>/tmp/tpm<span class="w"> </span><span class="se">\</span>
+<span class="w">      </span>--ctrl<span class="w"> </span><span class="nv">type</span><span class="o">=</span>unixio,path<span class="o">=</span>swtpm-sock
+</pre></div>
+</div>
+<p>Then launch QEMU with some additional arguments to link a TPM device to the backend:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>qemu-system-riscv64<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>...<span class="w"> </span>other<span class="w"> </span>args<span class="w"> </span>....<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-chardev<span class="w"> </span>socket,id<span class="o">=</span>chrtpm,path<span class="o">=</span>swtpm-sock<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-tpmdev<span class="w"> </span>emulator,id<span class="o">=</span>tpm0,chardev<span class="o">=</span>chrtpm<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-device<span class="w"> </span>tpm-tis-device,tpmdev<span class="o">=</span>tpm0
+</pre></div>
+</div>
+<p>The TPM device can be seen in the memory tree and the generated device
+tree and should be accessible from the guest software.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="tt_atlantis.html" class="btn btn-neutral float-left" title="Tenstorrent Atlantis (tt-atlantis)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="xiangshan-kunminghu.html" class="btn btn-neutral float-right" title="BOSC Xiangshan Kunminghu FPGA prototype platform (xiangshan-kunminghu)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, The QEMU Project Developers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+
+<!-- Empty para to force a blank line after "Built with Sphinx ..." -->
+<p></p>
+
+<p>This documentation is for QEMU version 11.1.50.</p>
+
+
+<p><a href="../../about/license.html">QEMU and this manual are released under the
+GNU General Public License, version 2.</a></p>
+
+ 
+
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

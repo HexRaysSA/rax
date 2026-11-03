@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>2. ELF Header &#8212; ELF Object File Format 4.3 DRAFT documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=128e1f3d" />
+    <script src="../_static/documentation_options.js?v=4977a7ef"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="3. Sections" href="03-sheader.html" />
+    <link rel="prev" title="1. Introduction" href="01-intro.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+<div class="pageheader">
+  <a href="https://xinuos.com">
+    <img class="logo" src="../_static/Xinuos_Logo__Black.svg" alt="Xinuos" />
+  </a>
+</div>
+
+<div class="document">
+  <div class="documentwrapper">
+    <div class="bodywrapper">
+      <div class="related top">
+	&nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="01-intro.html" title="Previous document"><span class="section-number">1. </span>Introduction</a>
+        </li>
+        <li>
+          <a href="03-sheader.html" title="Next document"><span class="section-number">3. </span>Sections</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+      </div>
+      <div class="body" role="main">
+      
+      <div class="toppagetitle">
+      <a href="../index.html">ELF Object File Format</a>
+      </div>
+      
+      
+  <section id="elf-header">
+<span id="id1"></span><h1><span class="section-number">2. </span>ELF Header<a class="headerlink" href="#elf-header" title="Link to this heading">¶</a></h1>
+<p>The ELF header resides at the beginning of an ELF file.
+It identifies the file as an ELF file and contains the information
+necessary for interpreting the contents of the file and locating
+the other components of the file.</p>
+<section id="contents-of-the-elf-header">
+<span id="id2"></span><h2><span class="section-number">2.1. </span>Contents of the ELF Header<a class="headerlink" href="#contents-of-the-elf-header" title="Link to this heading">¶</a></h2>
+<div class="literal-block-wrapper docutils container" id="id5">
+<div class="code-block-caption"><span class="caption-number">Listing 2.1 </span><span class="caption-text">ELF Header</span><a class="headerlink" href="#id5" title="Link to this code">¶</a></div>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#define EI_NIDENT 16</span>
+
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w">   </span><span class="n">e_ident</span><span class="p">[</span><span class="n">EI_NIDENT</span><span class="p">];</span>
+<span class="w">        </span><span class="n">Elf32_Half</span><span class="w">      </span><span class="n">e_type</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Half</span><span class="w">      </span><span class="n">e_machine</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Word</span><span class="w">      </span><span class="n">e_version</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Addr</span><span class="w">      </span><span class="n">e_entry</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Off</span><span class="w">       </span><span class="n">e_phoff</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Off</span><span class="w">       </span><span class="n">e_shoff</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Word</span><span class="w">      </span><span class="n">e_flags</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Half</span><span class="w">      </span><span class="n">e_ehsize</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Half</span><span class="w">      </span><span class="n">e_phentsize</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Half</span><span class="w">      </span><span class="n">e_phnum</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Half</span><span class="w">      </span><span class="n">e_shentsize</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Half</span><span class="w">      </span><span class="n">e_shnum</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf32_Half</span><span class="w">      </span><span class="n">e_shstrndx</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">Elf32_Ehdr</span><span class="p">;</span>
+
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w">   </span><span class="n">e_ident</span><span class="p">[</span><span class="n">EI_NIDENT</span><span class="p">];</span>
+<span class="w">        </span><span class="n">Elf64_Half</span><span class="w">      </span><span class="n">e_type</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Half</span><span class="w">      </span><span class="n">e_machine</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Word</span><span class="w">      </span><span class="n">e_version</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Addr</span><span class="w">      </span><span class="n">e_entry</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Off</span><span class="w">       </span><span class="n">e_phoff</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Off</span><span class="w">       </span><span class="n">e_shoff</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Word</span><span class="w">      </span><span class="n">e_flags</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Half</span><span class="w">      </span><span class="n">e_ehsize</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Half</span><span class="w">      </span><span class="n">e_phentsize</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Half</span><span class="w">      </span><span class="n">e_phnum</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Half</span><span class="w">      </span><span class="n">e_shentsize</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Half</span><span class="w">      </span><span class="n">e_shnum</span><span class="p">;</span>
+<span class="w">        </span><span class="n">Elf64_Half</span><span class="w">      </span><span class="n">e_shstrndx</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">Elf64_Ehdr</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">e_ident</span></code></dt><dd><p>The initial bytes mark the file as an object file and
+provide machine-independent
+data with which to decode and interpret the file’s contents.
+Complete descriptions
+appear below in <a class="reference internal" href="#elf-identification"><span class="std std-numref">Section 2.2, ELF Identification</span></a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_type</span></code></dt><dd><p>This member identifies the object file type.</p>
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-number">Table 2.1 </span><span class="caption-text">Object File Types</span><a class="headerlink" href="#id6" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ET_NONE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>No file type</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ET_REL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Relocatable file</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ET_EXEC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p>Executable file</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ET_DYN</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+<td><p>Shared object file</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ET_CORE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">4</span></code></p></td>
+<td><p>Core file</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ET_LOOS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0xfe00</span></code></p></td>
+<td><p>Operating system-specific</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ET_HIOS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0xfeff</span></code></p></td>
+<td><p>Operating system-specific</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ET_LOPROC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0xff00</span></code></p></td>
+<td><p>Processor-specific</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ET_HIPROC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0xffff</span></code></p></td>
+<td><p>Processor-specific</p></td>
+</tr>
+</tbody>
+</table>
+<p>Although the core file contents are unspecified,
+type <code class="docutils literal notranslate"><span class="pre">ET_CORE</span></code>
+is reserved to mark the file.
+Values from <code class="docutils literal notranslate"><span class="pre">ET_LOOS</span></code>
+through <code class="docutils literal notranslate"><span class="pre">ET_HIOS</span></code>
+(inclusive) are reserved for operating system-specific semantics.
+Values from <code class="docutils literal notranslate"><span class="pre">ET_LOPROC</span></code>
+through <code class="docutils literal notranslate"><span class="pre">ET_HIPROC</span></code>
+(inclusive) are reserved for processor-specific semantics. If meanings
+are specified, the psABI supplement explains them. Other values are
+reserved and will be assigned to new object file types as necessary.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_machine</span></code></dt><dd><p>This member’s value specifies the required architecture for
+an individual file.</p>
+<p>See <a class="reference internal" href="a-emachine.html"><span class="doc">Appendix A</span></a>
+for currently-assigned values for this field.
+Other values are reserved and will be assigned to new machines
+as necessary.</p>
+<p>Processor-specific ELF names use the machine name to distinguish them.
+For example, the flags mentioned below use the
+prefix <code class="docutils literal notranslate"><span class="pre">EF_</span></code>;
+a flag named <code class="docutils literal notranslate"><span class="pre">WIDGET</span></code> for the <code class="docutils literal notranslate"><span class="pre">EM_XYZ</span></code>
+machine would be called <code class="docutils literal notranslate"><span class="pre">EF_XYZ_WIDGET</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_version</span></code></dt><dd><p>This member identifies the object file version.</p>
+<table class="docutils align-default" id="id7">
+<caption><span class="caption-number">Table 2.2 </span><span class="caption-text">Object File Version Numbers</span><a class="headerlink" href="#id7" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">EV_NONE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Invalid version</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">EV_CURRENT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Current version</p></td>
+</tr>
+</tbody>
+</table>
+<p>The value <code class="docutils literal notranslate"><span class="pre">1</span></code> signifies the original file format;
+extensions will create new versions with higher numbers.
+Although the value of <code class="docutils literal notranslate"><span class="pre">EV_CURRENT</span></code>
+is shown as <code class="docutils literal notranslate"><span class="pre">1</span></code> in the previous table, it will
+change as necessary to reflect the current version number.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_entry</span></code></dt><dd><p>This member gives the virtual address to which the
+system first transfers
+control, thus starting the process. If the file has no associated entry
+point, this member holds zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_phoff</span></code></dt><dd><p>This member holds the program header table’s file offset in bytes.
+If the file has no program header table, this member holds zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_shoff</span></code></dt><dd><p>This member holds the section header table’s file offset in bytes.
+If the file has no section header table, this member holds zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_flags</span></code></dt><dd><p>This member holds processor-specific flags associated with the file.
+Flag names take the form
+<code class="docutils literal notranslate"><span class="pre">EF_</span></code><em>machine</em><strong>_</strong><em>flag</em>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_ehsize</span></code></dt><dd><p>This member holds the ELF header’s size in bytes.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_phentsize</span></code></dt><dd><p>This member holds the size in bytes of one entry in the file’s program
+header table; all entries are the same size.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_phnum</span></code></dt><dd><p>This member holds the number of entries in the program header table.
+Thus the product of
+<code class="docutils literal notranslate"><span class="pre">e_phentsize</span></code> and <code class="docutils literal notranslate"><span class="pre">e_phnum</span></code> gives the
+table’s size in bytes.
+If a file has no program header table, <code class="docutils literal notranslate"><span class="pre">e_phnum</span></code>
+holds the value zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_shentsize</span></code></dt><dd><p>This member holds a section header’s size in bytes. A section header
+is one entry in the section header table; all entries are the same size.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_shnum</span></code></dt><dd><p>This member holds the number of entries in the section header table.
+Thus the product of <code class="docutils literal notranslate"><span class="pre">e_shentsize</span></code> and
+<code class="docutils literal notranslate"><span class="pre">e_shnum</span></code> gives the
+section header table’s size in bytes.
+If a file has no section header table,
+<code class="docutils literal notranslate"><span class="pre">e_shnum</span></code> holds the value zero.</p>
+<p>If the number of sections is greater than or equal to
+<code class="docutils literal notranslate"><span class="pre">SHN_LORESERVE</span></code> (<code class="docutils literal notranslate"><span class="pre">0xff00</span></code>), this member
+has the value zero and the actual number of section header table
+entries is contained in the <code class="docutils literal notranslate"><span class="pre">sh_size</span></code> field of
+the section header at index <code class="docutils literal notranslate"><span class="pre">0</span></code>.
+(Otherwise, the <code class="docutils literal notranslate"><span class="pre">sh_size</span></code> member of the initial entry
+contains <code class="docutils literal notranslate"><span class="pre">0</span></code>.)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">e_shstrndx</span></code></dt><dd><p>This member holds the section header table index of the
+entry associated with the section name string table.
+If the file has no section name string
+table, this member holds the value <code class="docutils literal notranslate"><span class="pre">SHN_UNDEF</span></code>.
+See <a class="reference internal" href="03-sheader.html#sections"><span class="std std-numref">Chapter 3, Sections</span></a>,
+and <a class="reference internal" href="04-strtab.html#string-table"><span class="std std-numref">Chapter 4, String Table</span></a>,
+for more information.</p>
+<p>If the section name string table section index is greater than or equal to
+<code class="docutils literal notranslate"><span class="pre">SHN_LORESERVE</span></code> (<code class="docutils literal notranslate"><span class="pre">0xff00</span></code>), this member
+has the value <code class="docutils literal notranslate"><span class="pre">SHN_XINDEX</span></code> (<code class="docutils literal notranslate"><span class="pre">0xffff</span></code>) and the
+actual index of the section name string table section
+is contained in the <code class="docutils literal notranslate"><span class="pre">sh_link</span></code> field of
+the section header at index <code class="docutils literal notranslate"><span class="pre">0</span></code>.
+(Otherwise, the <code class="docutils literal notranslate"><span class="pre">sh_link</span></code> member of the initial entry
+contains <code class="docutils literal notranslate"><span class="pre">0</span></code>.)</p>
+</dd>
+</dl>
+</section>
+<section id="elf-identification">
+<span id="id3"></span><h2><span class="section-number">2.2. </span>ELF Identification<a class="headerlink" href="#elf-identification" title="Link to this heading">¶</a></h2>
+<p>As mentioned above, ELF provides an object file framework to support
+multiple processors, multiple data encodings, and multiple
+classes of machines.  To support this object file family,
+the initial bytes of the file specify
+how to interpret the file, independent of the processor on
+which the inquiry is made and independent of the file’s
+remaining contents.</p>
+<p>The initial bytes of an ELF header (and an object file) correspond to
+the <code class="docutils literal notranslate"><span class="pre">e_ident</span></code> member.</p>
+<table class="docutils align-default" id="id8">
+<caption><span class="caption-number">Table 2.3 </span><span class="caption-text"><code class="docutils literal notranslate"><span class="pre">e_ident[]</span></code> Identification Indexes</span><a class="headerlink" href="#id8" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">EI_MAG0</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>File identification</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">EI_MAG1</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>File identification</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">EI_MAG2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p>File identification</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">EI_MAG3</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+<td><p>File identification</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">EI_CLASS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">4</span></code></p></td>
+<td><p>File class</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">EI_DATA</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Data encoding</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">EI_VERSION</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">6</span></code></p></td>
+<td><p>File version</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">EI_OSABI</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">7</span></code></p></td>
+<td><p>Operating system/ABI identification</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">EI_ABIVERSION</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">8</span></code></p></td>
+<td><p>ABI version</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">EI_PAD</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">9</span></code></p></td>
+<td><p>Start of padding bytes</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">EI_NIDENT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">16</span></code></p></td>
+<td><p>Size of <code class="docutils literal notranslate"><span class="pre">e_ident[]</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>These indexes access bytes that hold the following values.</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">EI_MAG0</span></code> to <code class="docutils literal notranslate"><span class="pre">EI_MAG3</span></code></dt><dd><p>A file’s first 4 bytes hold a “magic number,” identifying the file
+as an ELF object file.</p>
+<table class="docutils align-default" id="id9">
+<caption><span class="caption-number">Table 2.4 </span><span class="caption-text">ELF Magic Numbers</span><a class="headerlink" href="#id9" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Position</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ELFMAG0</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x7f</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">e_ident[EI_MAG0]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ELFMAG1</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">’E’</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">e_ident[EI_MAG1]</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ELFMAG2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">’L’</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">e_ident[EI_MAG2]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ELFMAG3</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">’F’</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">e_ident[EI_MAG3]</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">EI_CLASS</span></code></dt><dd><p>The next byte, <code class="docutils literal notranslate"><span class="pre">e_ident[EI_CLASS]</span></code>, identifies the
+file’s class, or capacity.</p>
+<table class="docutils align-default" id="id10">
+<caption><span class="caption-number">Table 2.5 </span><span class="caption-text">ELF Class</span><a class="headerlink" href="#id10" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ELFCLASSNONE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Invalid class</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ELFCLASS32</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>32-bit objects</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ELFCLASS64</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p>64-bit objects</p></td>
+</tr>
+</tbody>
+</table>
+<p>The file format is designed to be portable among machines of various
+sizes, without imposing the sizes of the largest machine on the
+smallest.  The class of the file defines the basic types
+used by the data structures
+of the object file container itself. The data contained in object file
+sections may follow a different programming model. If so, the psABI
+supplement describes the model used.</p>
+<p>Class <code class="docutils literal notranslate"><span class="pre">ELFCLASS32</span></code> supports machines with
+32-bit architectures. It uses the basic types defined in
+<a class="reference internal" href="01-intro.html#thirty-two-bit-data-types"><span class="std std-numref">Table 1.1</span></a>
+in <a class="reference internal" href="01-intro.html#data-representation"><span class="std std-numref">Section 1.2, Data Representation</span></a>.</p>
+<p>Class <code class="docutils literal notranslate"><span class="pre">ELFCLASS64</span></code> supports machines with 64-bit
+architectures.  It uses the basic types defined in
+<a class="reference internal" href="01-intro.html#sixty-four-bit-data-types"><span class="std std-numref">Table 1.2</span></a>
+in <a class="reference internal" href="01-intro.html#data-representation"><span class="std std-numref">Section 1.2, Data Representation</span></a>.</p>
+<p>Other classes will be defined as necessary, with different basic types
+and sizes for object file data.</p>
+</dd>
+</dl>
+<dl id="ei-data">
+<dt><code class="docutils literal notranslate"><span class="pre">EI_DATA</span></code></dt><dd><p>Byte <code class="docutils literal notranslate"><span class="pre">e_ident[EI_DATA]</span></code> specifies the
+encoding of both the data structures used by object file container
+and data contained in object file sections.
+The following encodings are currently defined.</p>
+<table class="docutils align-default" id="id11">
+<caption><span class="caption-number">Table 2.6 </span><span class="caption-text">ELF Data Encoding</span><a class="headerlink" href="#id11" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ELFDATANONE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Invalid data encoding</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ELFDATA2LSB</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>See below</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ELFDATA2MSB</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p>See below</p></td>
+</tr>
+</tbody>
+</table>
+<p>Other values are reserved and will be assigned to new
+encodings as necessary.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Primarily for the convenience of code that looks at the ELF
+file at runtime, the ELF data structures are intended to have the
+same byte order as that of the running program.</p>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">EI_VERSION</span></code></dt><dd><p>Byte <code class="docutils literal notranslate"><span class="pre">e_ident[EI_VERSION]</span></code> specifies the
+ELF header version
+number. Currently, this value must be <code class="docutils literal notranslate"><span class="pre">EV_CURRENT</span></code>,
+as explained above for <code class="docutils literal notranslate"><span class="pre">e_version</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">EI_OSABI</span></code></dt><dd><p>Byte <code class="docutils literal notranslate"><span class="pre">e_ident[EI_OSABI]</span></code> identifies the
+OS- or ABI-specific ELF extensions used by this file.
+Some fields in other ELF structures have flags and values
+that have operating system and/or ABI specific meanings;
+the interpretation of those fields is determined by the value of this byte.
+If the object file does not use any extensions,
+it is recommended that this byte be set to <code class="docutils literal notranslate"><span class="pre">0</span></code>.
+If the value for this byte is <code class="docutils literal notranslate"><span class="pre">64</span></code> through <code class="docutils literal notranslate"><span class="pre">255</span></code>,
+its meaning depends on the value of the <code class="docutils literal notranslate"><span class="pre">e_machine</span></code> header member.
+The psABI supplement for an architecture
+can define its own associated set of values for this byte in this range.
+If the psABI supplement does not specify a set of values,
+one of the values defined in <a class="reference internal" href="b-osabi.html"><span class="doc">Appendix B</span></a> shall be used,
+where <code class="docutils literal notranslate"><span class="pre">0</span></code> (<code class="docutils literal notranslate"><span class="pre">ELFOSABI_NONE</span></code>) can also be taken to mean <em>unspecified</em>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">EI_ABIVERSION</span></code></dt><dd><p>Byte <code class="docutils literal notranslate"><span class="pre">e_ident[EI_ABIVERSION]</span></code> identifies the
+version of the ABI to which the object is targeted.
+This field is used to distinguish among incompatible versions
+of an ABI.  The interpretation of this version number
+is dependent on the ABI identified by the <code class="docutils literal notranslate"><span class="pre">EI_OSABI</span></code>
+field.  If no values are specified for the <code class="docutils literal notranslate"><span class="pre">EI_OSABI</span></code>
+field by the psABI supplement or no version values are
+specified for the ABI determined by a particular value of the
+<code class="docutils literal notranslate"><span class="pre">EI_OSABI</span></code> byte, the value <code class="docutils literal notranslate"><span class="pre">0</span></code> shall
+be used for the <code class="docutils literal notranslate"><span class="pre">EI_ABIVERSION</span></code> byte; it
+indicates <em>unspecified</em>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">EI_PAD</span></code></dt><dd><p>This value marks the beginning of the unused bytes in
+<code class="docutils literal notranslate"><span class="pre">e_ident</span></code>.  These bytes are reserved and set to zero;
+programs that read object files
+should ignore them. The value of <code class="docutils literal notranslate"><span class="pre">EI_PAD</span></code> will
+change in the future if currently unused bytes are given
+meanings.</p>
+</dd>
+</dl>
+</section>
+<section id="data-encoding">
+<h2><span class="section-number">2.3. </span>Data Encoding<a class="headerlink" href="#data-encoding" title="Link to this heading">¶</a></h2>
+<p>A file’s data encoding specifies how to interpret the basic objects
+in a file. Class <code class="docutils literal notranslate"><span class="pre">ELFCLASS32</span></code> files use objects
+that occupy 1, 2, and 4 bytes. Class <code class="docutils literal notranslate"><span class="pre">ELFCLASS64</span></code> files
+use objects that occupy 1, 2, 4, and 8 bytes. Under the defined
+encodings, objects are represented as shown below.</p>
+<p>Encoding <code class="docutils literal notranslate"><span class="pre">ELFDATA2LSB</span></code> specifies 2’s complement values,
+with the least significant byte occupying the lowest address.
+Encoding <code class="docutils literal notranslate"><span class="pre">ELFDATA2MSB</span></code> specifies 2’s complement values,
+with the most significant byte occupying the lowest address.
+See <a class="reference internal" href="#id4"><span class="std std-numref">Figure 2.1</span></a>.</p>
+<figure class="align-default" id="id12">
+<span id="id4"></span><img alt="Data Encoding" src="../_images/figure-2.svg" style="width: 702pt;" />
+<figcaption>
+<p><span class="caption-number">Figure 2.1 </span><span class="caption-text">Data Encodings for 8-, 16-, 32-, and 64-bit Values</span><a class="headerlink" href="#id12" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+
+
+      </div>
+      <div class="related bottom">
+	&nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="01-intro.html" title="Previous document"><span class="section-number">1. </span>Introduction</a>
+        </li>
+        <li>
+          <a href="03-sheader.html" title="Next document"><span class="section-number">3. </span>Sections</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+      </div>
+    </div>
+  </div>
+  <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+    <div class="sphinxsidebarwrapper">
+      <div class="sphinxsidebar-navigation__pages">
+	<h3><a href="../index.html">Contents</a></h3>
+	<ul>
+<li class="toctree-l1"><a class="reference internal" href="00-foreword.html">Foreword</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="01-intro.html">1. Introduction</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">2. ELF Header</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-sheader.html">3. Sections</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04-strtab.html">4. String Table</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05-symtab.html">5. Symbol Table</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06-reloc.html">6. Relocation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="07-pheader.html">7. Program Loading</a></li>
+<li class="toctree-l1"><a class="reference internal" href="08-dynamic.html">8. Dynamic Linking</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="a-emachine.html">Appendix A: Assigned Machine Values</a></li>
+<li class="toctree-l1"><a class="reference internal" href="b-osabi.html">Appendix B: Assigned OSABI Values</a></li>
+<li class="toctree-l1"><a class="reference internal" href="c-history.html">Appendix C: Revision History</a></li>
+</ul>
+
+      </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+    </div>
+  </div>
+  <div class="clearer"></div>
+</div>
+<div class="footer">
+<p>© 1997, 1998, 1999, 2000, 2001 The Santa Cruz Operation, Inc.  All rights reserved.
+<br>© 2002 Caldera International.  All rights reserved.
+<br>© 2003-2010 The SCO Group.  All rights reserved.
+<br>© 2011-2014, 2023–2026 Xinuos Inc.  All rights reserved.</p>
+<p>Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
+&amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</p>
+</div>  
+
+  </body>
+</html>

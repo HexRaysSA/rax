@@ -1,0 +1,104 @@
+[
+  {
+    "file": "elf-header.html",
+    "url": "https://gabi.xinuos.com/elf/02-eheader.html",
+    "title": "ELF Object File Format 4.3 DRAFT",
+    "retrieved_utc": "2026-11-03T03:16:13.382596+00:00",
+    "sha256": "29b7528dfc69641e93d39ef57cd75d38c1d5fcd9f9837d43ee24b4e5fe579019",
+    "issuing_organization": "Xinuos Inc.; retained copyright notices also identify The Santa Cruz Operation, Inc.",
+    "revision": "ELF Object File Format 4.3 DRAFT"
+  },
+  {
+    "file": "program-loading.html",
+    "url": "https://gabi.xinuos.com/elf/07-pheader.html",
+    "title": "ELF Object File Format 4.3 DRAFT",
+    "retrieved_utc": "2026-11-03T03:16:13.737990+00:00",
+    "sha256": "91787676e5dcbec67e3a9415cd43944aac9e7ed57515b81a36c3f8c1c0dce2e1",
+    "issuing_organization": "Xinuos Inc.; retained copyright notices also identify The Santa Cruz Operation, Inc.",
+    "revision": "ELF Object File Format 4.3 DRAFT"
+  },
+  {
+    "file": "qemu-virt.html",
+    "url": "https://www.qemu.org/docs/master/system/riscv/virt.html",
+    "title": "QEMU 11.1.50 documentation: virt Generic Virtual Platform",
+    "issuing_organization": "QEMU Project",
+    "retrieved_utc": "2026-11-03T03:39:39.004527+00:00",
+    "sha256": "7c6d5c72e4128fdcf062a2c985f2efdfbf2f58c1276dce1cd1aea4c9a05de154",
+    "notice": "QEMU and this manual are released under GNU GPL version 2"
+  },
+  {
+    "file": "qemu-icount.html",
+    "url": "https://www.qemu.org/docs/master/devel/tcg-icount.html",
+    "title": "QEMU 11.1.50 documentation: TCG Instruction Counting",
+    "issuing_organization": "QEMU Project",
+    "retrieved_utc": "2026-11-03T03:39:39.005128+00:00",
+    "sha256": "67008b2a618afe52a1a42cf6c5c2c1b3453a7eec233c3cec2d928cef0539a439",
+    "notice": "QEMU and this manual are released under GNU GPL version 2"
+  },
+  {
+    "file": "elf-symbols.html",
+    "url": "https://gabi.xinuos.com/elf/05-symtab.html",
+    "title": "ELF Object File Format 4.3 DRAFT: Symbol Table",
+    "retrieved_utc": "2026-11-03T03:43:08Z",
+    "sha256": "71934103e42f54153b52c4a34a73219b8ef2e72fe37dd095ec51e50af7e4c4f2",
+    "issuing_organization": "Xinuos Inc.; retained copyright notices also identify The Santa Cruz Operation, Inc.",
+    "revision": "ELF Object File Format 4.3 DRAFT"
+  },
+  {
+    "file": "ci-windows-x64-125710047614.log.gz",
+    "title": "GitHub Actions captured job log 125710047614",
+    "issuing_organization": "19h/rax GitHub Actions",
+    "revision": "commit 6d6342238b514a081de4a82e319db8bdf12a454d",
+    "url": "https://github.com/19h/rax/actions/runs/41572847030/job/125710047614",
+    "retrieved_utc": "2026-11-03T04:23:15.918174+00:00",
+    "representation": "Exact captured UTF-8 CLI output, including original ANSI sequences; deterministic gzip with mtime=0",
+    "sha256": "774b8060ff0145c2498895ad0941555442a4d2ca85ab3f8850683e7d6e5d7c77",
+    "uncompressed_sha256": "c0bfa25f3fd8c0a07a0fc9569b661cdccc119475c8832d105831ec024fa577fd",
+    "compressed_bytes": 35161,
+    "uncompressed_bytes": 193498,
+    "producer": {
+      "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+      "zlib_runtime": "1.2.12",
+      "compression_level": 9,
+      "mtime": 0
+    }
+  },
+  {
+    "file": "ci-linux-x64-125710047671.log.gz",
+    "title": "GitHub Actions captured job log 125710047671",
+    "issuing_organization": "19h/rax GitHub Actions",
+    "revision": "commit 6d6342238b514a081de4a82e319db8bdf12a454d",
+    "url": "https://github.com/19h/rax/actions/runs/41572847030/job/125710047671",
+    "retrieved_utc": "2026-11-03T04:23:15.918174+00:00",
+    "representation": "Exact captured UTF-8 CLI output, including original ANSI sequences; deterministic gzip with mtime=0",
+    "sha256": "5e197b428f696407aa72bc173ac5954cf8bd6e88aa45880874a3e0044c2e2770",
+    "uncompressed_sha256": "a9e9a32e43461c25f45635f7a94e0901528ded6fb0eb1d5e5e230fca21b7ed4d",
+    "compressed_bytes": 72228,
+    "uncompressed_bytes": 439036,
+    "producer": {
+      "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+      "zlib_runtime": "1.2.12",
+      "compression_level": 9,
+      "mtime": 0
+    }
+  },
+  {
+    "file": "ci-linux-arm64-125710047697.log.gz",
+    "title": "GitHub Actions captured job log 125710047697",
+    "issuing_organization": "19h/rax GitHub Actions",
+    "revision": "commit 6d6342238b514a081de4a82e319db8bdf12a454d",
+    "url": "https://github.com/19h/rax/actions/runs/41572847030/job/125710047697",
+    "retrieved_utc": "2026-11-03T04:23:15.918174+00:00",
+    "representation": "Exact captured UTF-8 CLI output, including original ANSI sequences; deterministic gzip with mtime=0",
+    "sha256": "b2cc8a5942fcb5a7d1d52d4ab4e6a8bd2bdc8b940597804fc2c57bc686198e3a",
+    "uncompressed_sha256": "9771806a823ef2a16b66534349540392bab5859dac5e211f199686bc5ee7e977",
+    "compressed_bytes": 9599,
+    "uncompressed_bytes": 40628,
+    "producer": {
+      "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+      "zlib_runtime": "1.2.12",
+      "compression_level": 9,
+      "mtime": 0
+    }
+  }
+]

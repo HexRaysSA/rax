@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>5. Symbol Table &#8212; ELF Object File Format 4.3 DRAFT documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=128e1f3d" />
+    <script src="../_static/documentation_options.js?v=4977a7ef"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="6. Relocation" href="06-reloc.html" />
+    <link rel="prev" title="4. String Table" href="04-strtab.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+<div class="pageheader">
+  <a href="https://xinuos.com">
+    <img class="logo" src="../_static/Xinuos_Logo__Black.svg" alt="Xinuos" />
+  </a>
+</div>
+
+<div class="document">
+  <div class="documentwrapper">
+    <div class="bodywrapper">
+      <div class="related top">
+	&nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="04-strtab.html" title="Previous document"><span class="section-number">4. </span>String Table</a>
+        </li>
+        <li>
+          <a href="06-reloc.html" title="Next document"><span class="section-number">6. </span>Relocation</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+      </div>
+      <div class="body" role="main">
+      
+      <div class="toppagetitle">
+      <a href="../index.html">ELF Object File Format</a>
+      </div>
+      
+      
+  <section id="symbol-table">
+<span id="id1"></span><h1><span class="section-number">5. </span>Symbol Table<a class="headerlink" href="#symbol-table" title="Link to this heading">¶</a></h1>
+<p>An object file’s symbol table holds information
+needed to locate and relocate a program’s symbolic
+definitions and references.
+A symbol table index is a subscript into this array.
+Index 0 both designates the first entry in the table
+and serves as the undefined symbol index.
+The contents of the initial entry are specified in
+<a class="reference internal" href="#first-symbol-table-entry"><span class="std std-numref">Section 5.6, First Symbol Table Entry</span></a>.</p>
+<table class="docutils align-default" id="id3">
+<caption><span class="caption-number">Table 5.1 </span><span class="caption-text">Special Symbol Table Index</span><a class="headerlink" href="#id3" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STN_UNDEF</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<section id="symbol-table-entry">
+<h2><span class="section-number">5.1. </span>Symbol Table Entry<a class="headerlink" href="#symbol-table-entry" title="Link to this heading">¶</a></h2>
+<p>A symbol table entry has the following format.</p>
+<div class="literal-block-wrapper docutils container" id="id4">
+<div class="code-block-caption"><span class="caption-number">Listing 5.1 </span><span class="caption-text">Symbol Table Entry</span><a class="headerlink" href="#id4" title="Link to this code">¶</a></div>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">Elf32_Word</span><span class="w">     </span><span class="n">st_name</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf32_Addr</span><span class="w">     </span><span class="n">st_value</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf32_Word</span><span class="w">     </span><span class="n">st_size</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w">  </span><span class="n">st_info</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w">  </span><span class="n">st_other</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf32_Half</span><span class="w">     </span><span class="n">st_shndx</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">Elf32_Sym</span><span class="p">;</span>
+
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">Elf64_Word</span><span class="w">     </span><span class="n">st_name</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w">  </span><span class="n">st_info</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w">  </span><span class="n">st_other</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf64_Half</span><span class="w">     </span><span class="n">st_shndx</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf64_Addr</span><span class="w">     </span><span class="n">st_value</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf64_Xword</span><span class="w">    </span><span class="n">st_size</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">Elf64_Sym</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">st_name</span></code></dt><dd><p>This member holds an index into the object file’s
+symbol string table, which
+holds the character representations of the symbol names.
+If the value is non-zero, it represents a string table
+index that gives the symbol name.
+Otherwise, the symbol table entry has no name.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>External C symbols have the same names in C
+and object files’ symbol tables.</p>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">st_value</span></code></dt><dd><p>This member gives the value of the associated symbol.
+Depending on the context, this may be an absolute value,
+an address, and so on; details appear below.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">st_size</span></code></dt><dd><p>Many symbols have associated sizes.
+For example, a data object’s size is the number
+of bytes contained in the object.
+This member holds 0 if the symbol has no size or an unknown size.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">st_info</span></code></dt><dd><p>This member specifies the symbol’s type and binding attributes.
+A list of the values and meanings appears below.
+The following code shows how to manipulate the values for
+both 32 and 64-bit objects.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#define ELF32_ST_BIND(i)   ((i)&gt;&gt;4)</span>
+<span class="cp">#define ELF32_ST_TYPE(i)   ((i)&amp;0xf)</span>
+<span class="cp">#define ELF32_ST_INFO(b,t) (((b)&lt;&lt;4)+((t)&amp;0xf))</span>
+
+<span class="cp">#define ELF64_ST_BIND(i)   ((i)&gt;&gt;4)</span>
+<span class="cp">#define ELF64_ST_TYPE(i)   ((i)&amp;0xf)</span>
+<span class="cp">#define ELF64_ST_INFO(b,t) (((b)&lt;&lt;4)+((t)&amp;0xf))</span>
+</pre></div>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">st_other</span></code></dt><dd><p>This member currently specifies a symbol’s visibility.
+A list of the values and meanings appears below.
+The following code shows how to manipulate the values for
+both 32 and 64-bit objects.  Other bits contain 0 and have
+no defined meaning.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#define ELF32_ST_VISIBILITY(o) ((o)&amp;0x7)</span>
+<span class="cp">#define ELF64_ST_VISIBILITY(o) ((o)&amp;0x7)</span>
+</pre></div>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">st_shndx</span></code></dt><dd><p>Every symbol table entry is <em>defined</em> in relation
+to some section. This member holds the relevant
+section header table index.
+As described in <a class="reference internal" href="03-sheader.html#special-section-indexes"><span class="std std-numref">Section 3.1, Special Section Indexes</span></a>,
+some section indexes indicate special meanings.</p>
+<p>If this member contains <code class="docutils literal notranslate"><span class="pre">SHN_XINDEX</span></code>,
+then the actual section header index is too large to fit in this field.
+The actual value is contained in the associated
+section of type <code class="docutils literal notranslate"><span class="pre">SHT_SYMTAB_SHNDX</span></code>.</p>
+</dd>
+</dl>
+</section>
+<section id="symbol-binding">
+<h2><span class="section-number">5.2. </span>Symbol Binding<a class="headerlink" href="#symbol-binding" title="Link to this heading">¶</a></h2>
+<p>A symbol’s binding determines the linkage visibility
+and behavior.</p>
+<table class="docutils align-default" id="id5">
+<caption><span class="caption-number">Table 5.2 </span><span class="caption-text">Symbol Binding</span><a class="headerlink" href="#id5" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STB_LOCAL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">STB_GLOBAL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STB_WEAK</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">STB_LOOS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STB_HIOS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">12</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">STB_LOPROC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">13</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STB_HIPROC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">15</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">STB_LOCAL</span></code></dt><dd><p>Local symbols are not visible outside the object file
+containing their definition.
+Local symbols of the same name may exist in
+multiple files without interfering with each other.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STB_GLOBAL</span></code></dt><dd><p>Global symbols are visible to all object files being combined.
+One file’s definition of a global symbol will satisfy
+another file’s undefined reference to the same global symbol.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STB_WEAK</span></code></dt><dd><p>Weak symbols resemble global symbols, but their
+definitions have lower precedence.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STB_LOOS</span></code> through <code class="docutils literal notranslate"><span class="pre">STB_HIOS</span></code></dt><dd><p>Values in this inclusive range
+are reserved for operating system-specific semantics.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STB_LOPROC</span></code> through <code class="docutils literal notranslate"><span class="pre">STB_HIPROC</span></code></dt><dd><p>Values in this inclusive range
+are reserved for processor-specific semantics.  If meanings are
+specified, the psABI supplement explains them.</p>
+</dd>
+</dl>
+<p>Global and weak symbols differ in two major ways.</p>
+<ul class="simple">
+<li><p>When the link editor combines several relocatable object files,
+it does not allow multiple definitions of <code class="docutils literal notranslate"><span class="pre">STB_GLOBAL</span></code>
+symbols with the same name.
+On the other hand, if a defined global symbol exists,
+the appearance of a weak symbol with the same name
+will not cause an error.
+The link editor honors the global definition and ignores
+the weak ones.
+Similarly, if a common symbol exists
+(that is, a symbol whose <code class="docutils literal notranslate"><span class="pre">st_shndx</span></code>
+field holds <code class="docutils literal notranslate"><span class="pre">SHN_COMMON</span></code>),
+the appearance of a weak symbol with the same name will
+not cause an error.
+The link editor honors the common definition and
+ignores the weak ones.</p></li>
+<li><p>When the link editor searches archive libraries,
+it extracts archive members that contain definitions of
+undefined global symbols.
+The member’s definition may be either a global or a weak symbol.
+The link editor does not
+extract archive members to resolve undefined weak symbols.
+Unresolved weak symbols have a zero value.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The behavior of weak symbols in areas not specified by this document is
+implementation defined.
+Weak symbols are intended primarily for use in system software.
+Applications using weak symbols are unreliable
+since changes in the runtime environment
+might cause the execution to fail.</p>
+</div>
+<p>In each symbol table, all symbols with <code class="docutils literal notranslate"><span class="pre">STB_LOCAL</span></code>
+binding precede the weak and global symbols.
+As described in <a class="reference internal" href="03-sheader.html#sections"><span class="std std-numref">Chapter 3, Sections</span></a>,
+a symbol table section’s <code class="docutils literal notranslate"><span class="pre">sh_info</span></code>
+section header member holds the symbol table index
+for the first non-local symbol.</p>
+</section>
+<section id="symbol-type">
+<h2><span class="section-number">5.3. </span>Symbol Type<a class="headerlink" href="#symbol-type" title="Link to this heading">¶</a></h2>
+<p>A symbol’s type provides a general classification for
+the associated entity.</p>
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-number">Table 5.3 </span><span class="caption-text">Symbol Types</span><a class="headerlink" href="#id6" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STT_NOTYPE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">STT_OBJECT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STT_FUNC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">STT_SECTION</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STT_FILE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">4</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">STT_COMMON</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STT_TLS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">6</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">STT_LOOS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STT_HIOS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">12</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">STT_LOPROC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">13</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STT_HIPROC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">15</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">STT_NOTYPE</span></code></dt><dd><p>The symbol’s type is not specified.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STT_OBJECT</span></code></dt><dd><p>The symbol is associated with a data object,
+such as a variable, an array, and so on.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STT_FUNC</span></code></dt><dd><p>The symbol is associated with a function or other executable code.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STT_SECTION</span></code></dt><dd><p>The symbol is associated with a section.
+Symbol table entries of this type exist primarily for relocation
+and normally have <code class="docutils literal notranslate"><span class="pre">STB_LOCAL</span></code> binding.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STT_FILE</span></code></dt><dd><p>Conventionally, the symbol’s name gives the name of
+the source file associated with the object file.
+A file symbol has <code class="docutils literal notranslate"><span class="pre">STB_LOCAL</span></code>
+binding, its section index is <code class="docutils literal notranslate"><span class="pre">SHN_ABS</span></code>,
+and it precedes the other <code class="docutils literal notranslate"><span class="pre">STB_LOCAL</span></code>
+symbols for the file, if it is present.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STT_COMMON</span></code></dt><dd><p>The symbol labels an uninitialized common block.
+See below for details.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STT_TLS</span></code></dt><dd><p>The symbol specifies a <em>Thread-Local Storage</em> entity.
+When defined, it gives the assigned offset for the symbol,
+not the actual address.
+Symbols of type <code class="docutils literal notranslate"><span class="pre">STT_TLS</span></code> can be referenced
+by only special thread-local storage relocations
+and thread-local storage relocations can only reference
+symbols with type <code class="docutils literal notranslate"><span class="pre">STT_TLS</span></code>.
+Implementations need not support thread-local storage.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STT_LOOS</span></code> through <code class="docutils literal notranslate"><span class="pre">STT_HIOS</span></code></dt><dd><p>Values in this inclusive range
+are reserved for operating system-specific semantics.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STT_LOPROC</span></code> through <code class="docutils literal notranslate"><span class="pre">STT_HIPROC</span></code></dt><dd><p>Values in this inclusive range
+are reserved for processor-specific semantics.
+If meanings are specified, the psABI supplement explains them.</p>
+</dd>
+</dl>
+<p>Function symbols (those with type
+<code class="docutils literal notranslate"><span class="pre">STT_FUNC</span></code>) in shared object files have special significance.
+When another object file references a function from
+a shared object, the link editor automatically creates a procedure
+linkage table entry for the referenced symbol.
+Shared object symbols with types other than
+<code class="docutils literal notranslate"><span class="pre">STT_FUNC</span></code> will not
+be referenced automatically through the procedure linkage table.</p>
+<p>Symbols with type <code class="docutils literal notranslate"><span class="pre">STT_COMMON</span></code> label uninitialized
+common blocks.  In relocatable objects, these symbols are
+not allocated and must have the special section index
+<code class="docutils literal notranslate"><span class="pre">SHN_COMMON</span></code> (see below).
+In shared objects and executables these symbols must be
+allocated to some section in the defining object.</p>
+<p>In relocatable objects, symbols with type <code class="docutils literal notranslate"><span class="pre">STT_COMMON</span></code>
+are treated just as other symbols with index <code class="docutils literal notranslate"><span class="pre">SHN_COMMON</span></code>.
+If the link-editor allocates space for the <code class="docutils literal notranslate"><span class="pre">SHN_COMMON</span></code>
+symbol in an output section of the object it is producing, it
+must preserve the type of the output symbol as <code class="docutils literal notranslate"><span class="pre">STT_COMMON</span></code>.</p>
+<p>When the dynamic linker encounters a reference to a symbol
+that resolves to a definition of type <code class="docutils literal notranslate"><span class="pre">STT_COMMON</span></code>,
+it may (but is not required to) change its symbol resolution
+rules as follows: instead of binding the reference to
+the first symbol found with the given name, the dynamic linker searches
+for the first symbol with that name with type other
+than <code class="docutils literal notranslate"><span class="pre">STT_COMMON</span></code>.  If no such symbol is found,
+it looks for the <code class="docutils literal notranslate"><span class="pre">STT_COMMON</span></code> definition of that
+name that has the largest size.</p>
+</section>
+<section id="symbol-visibility">
+<h2><span class="section-number">5.4. </span>Symbol Visibility<a class="headerlink" href="#symbol-visibility" title="Link to this heading">¶</a></h2>
+<p>A symbol’s visibility, although it may be specified in a relocatable
+object, defines how that symbol may be accessed once it has
+become part of an executable or shared object.</p>
+<table class="docutils align-default" id="id7">
+<caption><span class="caption-number">Table 5.4 </span><span class="caption-text">Symbol Visibility</span><a class="headerlink" href="#id7" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STV_DEFAULT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">STV_INTERNAL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STV_HIDDEN</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">STV_PROTECTED</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STV_EXPORTED</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">4</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">STV_SINGLETON</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STV_ELIMINATE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">6</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">STV_DEFAULT</span></code></dt><dd><p>The visibility of symbols with the <code class="docutils literal notranslate"><span class="pre">STV_DEFAULT</span></code>
+attribute is as specified by the symbol’s binding type.
+That is, global and weak symbols are visible
+outside of their defining <em>component</em>
+(executable file or shared object).
+Local symbols are <em>hidden</em>, as described below.
+Global and weak symbols are also <em>preemptable</em>,
+that is, they may by preempted by definitions of the same
+name in another component.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>An implementation may restrict the set of global and weak
+symbols that are externally visible.</p>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STV_PROTECTED</span></code></dt><dd><p>A symbol defined in the current component is <em>protected</em>
+if it is visible in other components but not preemptable,
+meaning that any reference to such a symbol from within the
+defining component must be resolved to the definition in
+that component, even if there is a definition in another
+component that would preempt by the default rules.
+A symbol with <code class="docutils literal notranslate"><span class="pre">STB_LOCAL</span></code> binding may not have
+<code class="docutils literal notranslate"><span class="pre">STV_PROTECTED</span></code> visibility.</p>
+<p>If a symbol definition with <code class="docutils literal notranslate"><span class="pre">STV_PROTECTED</span></code> visibility
+from a shared object is taken as resolving a reference
+from an executable or another shared object,
+the <code class="docutils literal notranslate"><span class="pre">SHN_UNDEF</span></code> symbol table entry created
+has <code class="docutils literal notranslate"><span class="pre">STV_DEFAULT</span></code> visibility.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The presence of the <code class="docutils literal notranslate"><span class="pre">STV_PROTECTED</span></code> flag on a symbol
+in a given load module does not affect the symbol resolution
+rules for references to that symbol from outside the containing
+load module.</p>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STV_HIDDEN</span></code></dt><dd><p>A symbol defined in the current component is <em>hidden</em>
+if its name is not visible to other components.  Such a symbol
+is necessarily protected.  This attribute may be used to
+control the external interface of a component.  Note that
+an object named by such a symbol may still be referenced
+from another component if its address is passed outside.</p>
+<p>A hidden symbol contained in a relocatable object must be
+either removed or converted to <code class="docutils literal notranslate"><span class="pre">STB_LOCAL</span></code> binding
+by the link-editor when the relocatable object is included in an
+executable file or shared object.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STV_INTERNAL</span></code></dt><dd><p>The meaning of this visibility attribute may be defined by psABI
+supplements to further constrain hidden symbols.  A psABI
+supplement’s definition should be such that generic tools
+can safely treat internal symbols as hidden.</p>
+<p>An internal symbol contained in a relocatable object must be
+either removed or converted to <code class="docutils literal notranslate"><span class="pre">STB_LOCAL</span></code> binding
+by the link-editor when the relocatable object is included in an
+executable file or shared object.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STV_EXPORTED</span></code></dt><dd><p>This visibility attribute ensures that a symbol remains global.
+Unlike <code class="docutils literal notranslate"><span class="pre">STV_DEFAULT</span></code> symbols, whose visibility can be affected by
+other visibility requests, the <code class="docutils literal notranslate"><span class="pre">STV_EXPORTED</span></code> attribute ensures
+that the visibility of the symbol is not reduced by any other
+visibility request.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STV_SINGLETON</span></code></dt><dd><p>This visibility attribute is reserved to the psABI supplements.
+If implemented, it ensures that all references within a process
+bind to a single instance of the symbol definition.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">STV_ELIMINATE</span></code></dt><dd><p>This visibility attribute is reserved to the psABI supplements.
+If implemented, it prevents the symbol from being written to
+the dynamic symbol table. Otherwise, it can be treated the
+same as <code class="docutils literal notranslate"><span class="pre">STV_HIDDEN</span></code>.</p>
+</dd>
+</dl>
+<p>None of the visibility attributes affects resolution of symbols
+within an executable or shared object during link-editing – such
+resolution is controlled by the binding type.  Once the link-editor
+has chosen its resolution, these attributes impose two requirements,
+both based on the fact that references in the code being linked may
+have been optimized to take advantage of the attributes.</p>
+<ul class="simple">
+<li><p>First, all of the non-default visibility attributes, when applied
+to a symbol reference, imply that a definition to satisfy that
+reference must be provided within the current executable or
+shared object.  If such a symbol reference has no definition within the
+component being linked, then the reference must have
+<code class="docutils literal notranslate"><span class="pre">STB_WEAK</span></code> binding and is resolved to zero.</p></li>
+<li><p>Second, if any reference to or definition of a name is a symbol with
+a non-default visibility attribute, the visibility attribute
+must be propagated to the resolving symbol in the linked object.
+If different visibility attributes are specified for distinct
+references to or definitions of a symbol, the most constraining
+visibility attribute must be propagated to the resolving symbol
+in the linked object.  The attributes, ordered from least
+to most constraining, are: <code class="docutils literal notranslate"><span class="pre">STV_PROTECTED</span></code>,
+<code class="docutils literal notranslate"><span class="pre">STV_HIDDEN</span></code>, <code class="docutils literal notranslate"><span class="pre">STV_INTERNAL</span></code>, and <code class="docutils literal notranslate"><span class="pre">STV_EXPORTED</span></code>.</p></li>
+</ul>
+</section>
+<section id="section-index">
+<h2><span class="section-number">5.5. </span>Section Index<a class="headerlink" href="#section-index" title="Link to this heading">¶</a></h2>
+<p>If a symbol’s value refers to a
+specific location within a section,
+its section index member, <code class="docutils literal notranslate"><span class="pre">st_shndx</span></code>,
+holds an index into the section header table.
+As the section moves during relocation, the symbol’s value
+changes as well, and references to the symbol
+continue to “point” to the same location in the program.
+Some special section index values give other semantics.</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">SHN_ABS</span></code></dt><dd><p>The symbol has an absolute value that will not change
+because of relocation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">SHN_COMMON</span></code></dt><dd><p>The symbol labels a common block that has not yet been allocated.
+The symbol’s value gives alignment constraints,
+similar to a section’s
+<code class="docutils literal notranslate"><span class="pre">sh_addralign</span></code> member.
+The link editor will allocate the storage for the symbol
+at an address that is a multiple of
+<code class="docutils literal notranslate"><span class="pre">st_value</span></code>.
+The symbol’s size tells how many bytes are required.
+Symbols with section index <code class="docutils literal notranslate"><span class="pre">SHN_COMMON</span></code> may
+appear only in relocatable objects.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">SHN_UNDEF</span></code></dt><dd><p>This section table index means the symbol is undefined.
+When the link editor combines this object file with
+another that defines the indicated symbol,
+this file’s references to the symbol will be linked
+to the actual definition.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">SHN_XINDEX</span></code></dt><dd><p>This value is an escape value.
+It indicates that the symbol refers to a specific location within a section,
+but that the section header index for that section is too large to be
+represented directly in the symbol table entry.
+The actual section header index is found in the associated
+<code class="docutils literal notranslate"><span class="pre">SHT_SYMTAB_SHNDX</span></code> section.
+The entries in that section correspond one to one
+with the entries in the symbol table.
+Only those entries in <code class="docutils literal notranslate"><span class="pre">SHT_SYMTAB_SHNDX</span></code>
+that correspond to symbol table entries with <code class="docutils literal notranslate"><span class="pre">SHN_XINDEX</span></code>
+will hold valid section header indexes;
+all other entries will have value <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd>
+</dl>
+</section>
+<section id="first-symbol-table-entry">
+<span id="id2"></span><h2><span class="section-number">5.6. </span>First Symbol Table Entry<a class="headerlink" href="#first-symbol-table-entry" title="Link to this heading">¶</a></h2>
+<p>The symbol table entry for index 0 (<code class="docutils literal notranslate"><span class="pre">STN_UNDEF</span></code>) is reserved;
+it holds the following.</p>
+<table class="docutils align-default" id="id8">
+<caption><span class="caption-number">Table 5.5 </span><span class="caption-text">First Symbol Table Entry</span><a class="headerlink" href="#id8" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Note</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">st_name</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>No name</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">st_value</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Zero value</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">st_size</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>No size</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">st_info</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>No type, local binding</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">st_other</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Default visibility</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">st_shndx</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SHN_UNDEF</span></code></p></td>
+<td><p>No section</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="symbol-value">
+<h2><span class="section-number">5.7. </span>Symbol Value<a class="headerlink" href="#symbol-value" title="Link to this heading">¶</a></h2>
+<p>Symbol table entries for different object file types have
+slightly different interpretations for the <code class="docutils literal notranslate"><span class="pre">st_value</span></code> member.</p>
+<ul class="simple">
+<li><p>In relocatable files, <code class="docutils literal notranslate"><span class="pre">st_value</span></code> holds alignment constraints for a symbol
+whose section index is <code class="docutils literal notranslate"><span class="pre">SHN_COMMON</span></code>.</p></li>
+<li><p>In relocatable files, <code class="docutils literal notranslate"><span class="pre">st_value</span></code> holds
+a section offset for a defined symbol.
+<code class="docutils literal notranslate"><span class="pre">st_value</span></code> is an offset from the beginning of the section that
+<code class="docutils literal notranslate"><span class="pre">st_shndx</span></code> identifies.</p></li>
+<li><p>In executable and shared object files,
+<code class="docutils literal notranslate"><span class="pre">st_value</span></code> holds a virtual address.
+To make these files’ symbols more useful
+for the dynamic linker, the section offset (file interpretation)
+gives way to a virtual address (memory interpretation)
+for which the section number is irrelevant.</p></li>
+</ul>
+<p>Despite this difference in interpretation, the <code class="docutils literal notranslate"><span class="pre">st_value</span></code> for a given
+symbol conveys the same meaning across the different ELF object types.
+The different interpretation for relocatable, and the other object
+types, allows for efficient access by the link-editor, as well
+as by the runtime linker, in their respective contexts.</p>
+</section>
+</section>
+
+
+      </div>
+      <div class="related bottom">
+	&nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="04-strtab.html" title="Previous document"><span class="section-number">4. </span>String Table</a>
+        </li>
+        <li>
+          <a href="06-reloc.html" title="Next document"><span class="section-number">6. </span>Relocation</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+      </div>
+    </div>
+  </div>
+  <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+    <div class="sphinxsidebarwrapper">
+      <div class="sphinxsidebar-navigation__pages">
+	<h3><a href="../index.html">Contents</a></h3>
+	<ul>
+<li class="toctree-l1"><a class="reference internal" href="00-foreword.html">Foreword</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="01-intro.html">1. Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02-eheader.html">2. ELF Header</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-sheader.html">3. Sections</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04-strtab.html">4. String Table</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">5. Symbol Table</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06-reloc.html">6. Relocation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="07-pheader.html">7. Program Loading</a></li>
+<li class="toctree-l1"><a class="reference internal" href="08-dynamic.html">8. Dynamic Linking</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="a-emachine.html">Appendix A: Assigned Machine Values</a></li>
+<li class="toctree-l1"><a class="reference internal" href="b-osabi.html">Appendix B: Assigned OSABI Values</a></li>
+<li class="toctree-l1"><a class="reference internal" href="c-history.html">Appendix C: Revision History</a></li>
+</ul>
+
+      </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+    </div>
+  </div>
+  <div class="clearer"></div>
+</div>
+<div class="footer">
+<p>© 1997, 1998, 1999, 2000, 2001 The Santa Cruz Operation, Inc.  All rights reserved.
+<br>© 2002 Caldera International.  All rights reserved.
+<br>© 2003-2010 The SCO Group.  All rights reserved.
+<br>© 2011-2014, 2023–2026 Xinuos Inc.  All rights reserved.</p>
+<p>Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
+&amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</p>
+</div>  
+
+  </body>
+</html>

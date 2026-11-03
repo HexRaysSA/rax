@@ -8,8 +8,7 @@
 use std::fs::File;
 use std::io::Read;
 
-use goblin::elf::Elf;
-use vm_memory::{Address, Bytes, GuestAddress, GuestMemory, GuestMemoryMmap};
+use vm_memory::{Address, GuestMemory, GuestMemoryMmap};
 
 use crate::config::VmConfig;
 use crate::devices::bus::{IoBus, MmioBus};
@@ -19,8 +18,8 @@ use crate::vm::vcpu::{CpuState, RiscVRegisters};
 
 /// 16550 UART MMIO base (matches the RISC-V "virt" machine convention).
 const RISCV_UART_BASE: u64 = 0x1000_0000;
-/// `EM_RISCV` machine type.
-const EM_RISCV: u16 = 243;
+mod image;
+pub(crate) mod startup;
 
 pub struct RiscvVirtMachine;
 
@@ -30,102 +29,12 @@ impl RiscvVirtMachine {
     }
 
     fn load_raw(mem: &GuestMemoryMmap, buf: &[u8]) -> Result<RiscVBootInfo> {
-        mem.write_slice(buf, GuestAddress(0))?;
+        crate::vm::memory::reservations::write(mem, 0, buf)?;
         Ok(RiscVBootInfo {
             entry_point: 0,
             load_addr: 0,
             image_size: buf.len() as u64,
             tohost_addr: None,
-        })
-    }
-
-    fn load_elf(mem: &GuestMemoryMmap, buf: &[u8]) -> Result<RiscVBootInfo> {
-        let elf =
-            Elf::parse(buf).map_err(|e| Error::KernelLoad(format!("ELF parse error: {e}")))?;
-        if !elf.is_64 {
-            return Err(Error::KernelLoad("RISC-V ELF must be 64-bit".to_string()));
-        }
-        if elf.header.e_machine != EM_RISCV {
-            return Err(Error::KernelLoad(format!(
-                "not a RISC-V ELF (e_machine={})",
-                elf.header.e_machine
-            )));
-        }
-
-        let mut min_addr = u64::MAX;
-        let mut max_addr = 0u64;
-        let mut post_mret_entry = None;
-        for ph in &elf.program_headers {
-            if ph.p_type != goblin::elf::program_header::PT_LOAD {
-                continue;
-            }
-            let file_start = ph.p_offset as usize;
-            let file_end = file_start
-                .checked_add(ph.p_filesz as usize)
-                .ok_or_else(|| Error::KernelLoad("ELF segment overflow".to_string()))?;
-            if file_end > buf.len() {
-                return Err(Error::KernelLoad("ELF segment out of range".to_string()));
-            }
-            let load_addr = if ph.p_paddr != 0 {
-                ph.p_paddr
-            } else {
-                ph.p_vaddr
-            };
-            let segment = &buf[file_start..file_end];
-            mem.write_slice(segment, GuestAddress(load_addr))?;
-            if post_mret_entry.is_none() && ph.p_flags & goblin::elf::program_header::PF_X != 0 {
-                if let Some(offset) = segment
-                    .windows(4)
-                    .position(|word| word == [0x73, 0x00, 0x20, 0x30])
-                {
-                    post_mret_entry = Some(load_addr + offset as u64 + 4);
-                }
-            }
-            min_addr = min_addr.min(load_addr);
-            max_addr = max_addr.max(load_addr + ph.p_memsz);
-        }
-
-        let mut entry_point = elf.entry;
-        let mut found_test_entry = false;
-        let mut first_numbered_test = None;
-        let mut tohost_addr = None;
-        for sym in &elf.syms {
-            if sym.st_value == 0 {
-                continue;
-            }
-            if let Some(name) = elf.strtab.get_at(sym.st_name) {
-                if name == "tohost" {
-                    tohost_addr = Some(sym.st_value);
-                }
-                if name == "test_entry" {
-                    entry_point = sym.st_value;
-                    found_test_entry = true;
-                    first_numbered_test = None;
-                    break;
-                }
-                if let Some(suffix) = name.strip_prefix("test_") {
-                    if !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit()) {
-                        first_numbered_test = Some(
-                            first_numbered_test
-                                .map_or(sym.st_value, |addr: u64| addr.min(sym.st_value)),
-                        );
-                    }
-                }
-            }
-        }
-        if !found_test_entry {
-            if let Some(addr) = post_mret_entry {
-                entry_point = addr;
-            } else if let Some(addr) = first_numbered_test {
-                entry_point = addr;
-            }
-        }
-
-        Ok(RiscVBootInfo {
-            entry_point,
-            load_addr: if min_addr == u64::MAX { 0 } else { min_addr },
-            image_size: max_addr.saturating_sub(min_addr),
-            tohost_addr,
         })
     }
 }
@@ -185,3 +94,7 @@ impl Machine for RiscvVirtMachine {
 
 // Compatibility name retained for the previous architecture terminology.
 pub use RiscvVirtMachine as Riscv64Arch;
+
+#[cfg(test)]
+#[path = "riscv_virt/tests.rs"]
+mod tests;

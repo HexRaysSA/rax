@@ -616,6 +616,7 @@ impl Vmm {
         // Create vCPUs
         let mem_arc = Arc::new(guest_mem.memory().clone());
         let mut vcpus = Vec::with_capacity(config.vcpus as usize);
+        let mut coordinator = coordinator::ExecutionCoordinator::new(usize::from(config.vcpus));
         let mut local_apics = Vec::with_capacity(config.vcpus as usize);
         for cpu_id in 0..config.vcpus {
             debug!(cpu_id, "creating vCPU");
@@ -627,11 +628,20 @@ impl Vmm {
             }
             debug!(cpu_id, "created vCPU, setting initial state");
 
-            // Setup initial CPU state for BSP (cpu 0). Skipped on resume — the
-            // checkpoint restore sets the full register file afterwards.
-            if cpu_id == 0 && !resume {
-                let initial_state = machine.initial_cpu_state(guest_mem.memory(), &boot_info)?;
-                vcpu.set_state(&initial_state)?;
+            // A fresh machine supplies its platform's initial CPU set. Resume
+            // leaves captured registers and online/cursor state to publication.
+            if !resume {
+                if let Some(initial_state) = riscv_startup::boot_state(
+                    &*vm,
+                    &*machine,
+                    guest_mem.memory(),
+                    &boot_info,
+                    &*vcpu,
+                    config.vcpus,
+                )? {
+                    vcpu.set_state(&initial_state)?;
+                    coordinator.online[usize::from(cpu_id)] = true;
+                }
             }
             if cpu_id == 0 {
                 if let Some(real_mode) = boot_info
@@ -728,7 +738,7 @@ impl Vmm {
             pic,
             lapic,
             local_apics,
-            coordinator: coordinator::ExecutionCoordinator::new(vcpus.len()),
+            coordinator,
             vcpus,
             machine,
             boot_info,
@@ -1072,3 +1082,10 @@ mod clock;
 #[cfg(test)]
 #[path = "runtime/rtc_clock_tests.rs"]
 mod rtc_clock_tests;
+
+#[cfg(test)]
+#[path = "runtime/riscv_startup_tests.rs"]
+mod riscv_startup_tests;
+
+#[path = "runtime/riscv_startup.rs"]
+mod riscv_startup;

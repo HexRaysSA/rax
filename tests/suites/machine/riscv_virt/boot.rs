@@ -3,6 +3,8 @@
 //! and halting via `ecall`. This exercises the full wiring of the
 //! `rax::isa::riscv` interpreter into rax as a bootable architecture.
 
+mod startup;
+
 use std::sync::Arc;
 
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
