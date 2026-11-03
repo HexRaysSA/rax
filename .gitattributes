@@ -61,3 +61,6 @@ docs/development/kvm-host-slices/references/* -text
 
 # Preserve native timed-lock source and observation byte identities.
 docs/specifications/darwin/native-timed-record-locks/* -text whitespace=cr-at-eol
+
+# Preserve native FIFO filesystem control source and receipt identities.
+docs/specifications/darwin/native-fifo-filesystem/* -text whitespace=cr-at-eol

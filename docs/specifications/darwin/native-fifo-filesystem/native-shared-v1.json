@@ -1,0 +1,73 @@
+{
+  "system": [
+    "Linux",
+    "3878af058fce",
+    "7.2.12-orbstack-00394-gbecdd6130068",
+    "#1 SMP PREEMPT Thu Oct 22 22:17:17 UTC 2026",
+    "x86_64",
+    ""
+  ],
+  "records": [
+    {
+      "kind": "named-linked",
+      "fd": 3,
+      "fstatfs_result": 0,
+      "fs_errno": 0,
+      "fs_magic": "0x65735546",
+      "stat": {
+        "mode": "0o10600",
+        "dev": 36,
+        "inode": 689680,
+        "links": 1
+      },
+      "proc_fd": "/work/target/qualified-v1/tmp/linux-fifo-entry-native-v2/named",
+      "flags": 32768
+    },
+    {
+      "kind": "named-unlinked",
+      "fd": 3,
+      "fstatfs_result": -1,
+      "fs_errno": 2,
+      "fs_magic": "0x0",
+      "stat_error": {
+        "errno": 9,
+        "message": "[Errno 9] Bad file descriptor"
+      },
+      "proc_fd": "/work/target/qualified-v1/tmp/linux-fifo-entry-native-v2/named (deleted)",
+      "flags": 32768
+    },
+    {
+      "kind": "anonymous-reader",
+      "fd": 5,
+      "fstatfs_result": 0,
+      "fs_errno": 0,
+      "fs_magic": "0x50495045",
+      "stat": {
+        "mode": "0o10600",
+        "dev": 15,
+        "inode": 985327,
+        "links": 1
+      },
+      "proc_fd": "pipe:[985327]",
+      "flags": 0
+    },
+    {
+      "kind": "anonymous-writer",
+      "fd": 6,
+      "fstatfs_result": 0,
+      "fs_errno": 0,
+      "fs_magic": "0x50495045",
+      "stat": {
+        "mode": "0o10600",
+        "dev": 15,
+        "inode": 985327,
+        "links": 1
+      },
+      "proc_fd": "pipe:[985327]",
+      "flags": 1
+    }
+  ],
+  "container_architecture": "amd64",
+  "docker_daemon_architecture": "aarch64",
+  "cpu_execution": "Docker x86-64 translation on ARM64; not physical Intel qualification"
+}

@@ -1,0 +1,22 @@
+{
+  "captured_utc": "2026-11-03T15:06:47.746475+00:00",
+  "files": {
+    "native-shared-v1.py": "604c5bdccb255273f9a7d2b0bf7d1c5308b3b7fdbe9dc886e4b365183d0fe6b0",
+    "native-tmpfs-v1.py": "436d1b993fc122d058b79012ca5a47e163d60bf51a26282905f42229bf40bf29",
+    "native-shared-v1.json": "3e53845417c3665dadfab8edef9c07fcb153aa85a23ccbc70ed3f4fdd1f4cb02",
+    "native-tmpfs-v1.json": "f63577ffee5ee2df444559ba9f47361ee40efd882e7d433c5a7fba03eac5c62c",
+    "runtime-tmpfs-v1.py": "0fd30dc712acd347e9de7b7f669023db73a7736d1a3fd93ca69266040b8e1b4c",
+    "runtime-tmpfs-v1.json": "888daa0c73cd480ca718b0097bfc4c10cbc0a8801282a32008b9552cf02e1dde",
+    "runtime-shared-current-v1.json": "94e6d240312e385037e2e813156047dc866d5991a14909b823dc4ee864b62c20",
+    "runtime-shared-baseline-v1.json": "08bd9b05dab1352012b1c590927443fe80423bc5884cceb7fa773e37c7471d7b",
+    "runtime-shared-baseline-v1.py": "28b20357ab037e02171cbd0f99981d7facf977063f548898e54794fb57ff9a98",
+    "runtime-shared-current-v1.py": "6680aae99ff6d24869fd0c3f288aca7c95d4edfa617892ea66491cf8ba980023"
+  },
+  "qualified_model_code_commit": "07f998384150c0e1b7113756a8a13d2a0718767f",
+  "current_model_image_sha256": "2ee5b36ce2d56eaf45eafdb3692b90f569f84aebb0704eace38141ba3cffc4fc",
+  "baseline_model_image_sha256": "1deb556716e1bfb3041a67e7c41f9ee6fe8f12bccae8358a7952bfd896ba7d27",
+  "source_changes_for_resolution": false,
+  "docker_image": "sha256:2bd0f059787fbcc378752ea4898b0ddb77c6ccdf240ac3e550f366f3987e7da9",
+  "storage_fix": "Per-container Linux tmpfs at an in-worktree resolved scratch path,64MiB,UID501/GID20,0700; no global defaults changed.",
+  "execution": "Docker amd64 translation on ARM64; not physical Intel qualification."
+}

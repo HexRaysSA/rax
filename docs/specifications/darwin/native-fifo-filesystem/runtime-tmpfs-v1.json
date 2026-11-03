@@ -1,0 +1,51 @@
+{
+  "results": [
+    {
+      "label": "current-timed",
+      "image_sha256": "2ee5b36ce2d56eaf45eafdb3692b90f569f84aebb0704eace38141ba3cffc4fc",
+      "filter": "user::darwin::process::timed_lock_tests::",
+      "exit_code": 0,
+      "stdout": "\nrunning 7 tests\ntest user::darwin::process::timed_lock_tests::timed_lock_deadline_survives_wakes_and_expires_before_late_unlock ... ok\ntest user::darwin::process::timed_lock_tests::timed_lock_replays_16_native_request_mutation_and_close_lifetimes ... ok\ntest user::darwin::process::timed_lock_tests::timed_lock_replays_272_native_unconfined_results_on_both_guest_abis ... ok\ntest user::darwin::process::timed_lock_tests::timed_lock_replays_32_native_relative_range_boundaries ... ok\ntest user::darwin::process::timed_lock_tests::timed_lock_replays_36_native_pid_and_error_precedence_results ... ok\ntest user::darwin::process::timed_lock_tests::timed_lock_retains_entry_offset_and_eof_after_host_changes ... ok\ntest user::darwin::process::timed_lock_tests::timed_lock_signal_interruption_retires_entry_and_releases_fileproc ... ok\n\ntest result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 9870 filtered out; finished in 0.41s\n\n",
+      "stderr": ""
+    },
+    {
+      "label": "current-fifo",
+      "image_sha256": "2ee5b36ce2d56eaf45eafdb3692b90f569f84aebb0704eace38141ba3cffc4fc",
+      "filter": "user::darwin::process::fifo_lifetime_tests::",
+      "exit_code": 0,
+      "stdout": "\nrunning 10 tests\ntest user::darwin::process::fifo_lifetime_tests::a_dup2_source_close_waits_and_invalidates_installation_after_target_drain ... ok\ntest user::darwin::process::fifo_lifetime_tests::a_signal_completes_a_held_fifo_read_and_releases_its_close_drain ... ok\ntest user::darwin::process::fifo_lifetime_tests::an_empty_fifo_zero_byte_read_returns_without_waiting_for_its_writer ... ok\ntest user::darwin::process::fifo_lifetime_tests::draining_close_reports_native_uninterruptible_state_until_kernel_completion ... ok\ntest user::darwin::process::fifo_lifetime_tests::entered_fifo_close_waits_for_read_and_keeps_the_descriptor_reserved ... ok\ntest user::darwin::process::fifo_lifetime_tests::entered_fifo_readv_keeps_the_vector_copied_before_sleep ... ok\ntest user::darwin::process::fifo_lifetime_tests::fifo_eof_reads_and_a_reopened_writer_follow_native_state_on_both_abis ... ok\ntest user::darwin::process::fifo_lifetime_tests::fifo_kernel_completion_releases_close_when_reader_or_closer_is_held ... ok\ntest user::darwin::process::fifo_lifetime_tests::guest_exit_joins_a_native_read_while_the_library_object_remains_inspectable ... ok\ntest user::darwin::process::fifo_lifetime_tests::terminating_an_entered_reader_releases_its_file_reference_and_close_barrier ... ok\n\ntest result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 9867 filtered out; finished in 0.11s\n\n",
+      "stderr": ""
+    },
+    {
+      "label": "current-pipe",
+      "image_sha256": "2ee5b36ce2d56eaf45eafdb3692b90f569f84aebb0704eace38141ba3cffc4fc",
+      "filter": "user::darwin::process::pipe_drain_tests::",
+      "exit_code": 0,
+      "stdout": "\nrunning 1 test\ntest user::darwin::process::pipe_drain_tests::entered_bsd_pipe_close_and_replacement_keep_eof_separate_from_other_aliases ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9876 filtered out; finished in 0.10s\n\n",
+      "stderr": ""
+    },
+    {
+      "label": "current-continuation",
+      "image_sha256": "2ee5b36ce2d56eaf45eafdb3692b90f569f84aebb0704eace38141ba3cffc4fc",
+      "filter": "user::darwin::process::continuation_tests::",
+      "exit_code": 0,
+      "stdout": "\nrunning 7 tests\ntest user::darwin::process::continuation_tests::completed_bsd_return_preserves_only_successful_general_state_writes ... ok\ntest user::darwin::process::continuation_tests::entered_arm_bsd_call_keeps_arguments_number_and_return_pc_without_refetching_svc ... ok\ntest user::darwin::process::continuation_tests::entered_arm_bsd_indirect_number_and_shifted_arguments_survive_user_state_writes ... ok\ntest user::darwin::process::continuation_tests::entered_arm_bsd_service_obeys_task_and_thread_holds ... ok\ntest user::darwin::process::continuation_tests::entered_arm_bsd_signal_return_retires_entry_and_restarts_from_current_saved_pc ... ok\ntest user::darwin::process::continuation_tests::entered_arm_bsd_spurious_wakes_keep_progress_and_one_entry_count ... ok\ntest user::darwin::process::continuation_tests::entered_x86_bsd_call_keeps_decoded_arguments_and_independent_return_state ... ok\n\ntest result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 9870 filtered out; finished in 0.08s\n\n",
+      "stderr": ""
+    },
+    {
+      "label": "baseline-fifo",
+      "image_sha256": "1deb556716e1bfb3041a67e7c41f9ee6fe8f12bccae8358a7952bfd896ba7d27",
+      "filter": "user::darwin::process::fifo_lifetime_tests::",
+      "exit_code": 0,
+      "stdout": "\nrunning 10 tests\ntest user::darwin::process::fifo_lifetime_tests::a_dup2_source_close_waits_and_invalidates_installation_after_target_drain ... ok\ntest user::darwin::process::fifo_lifetime_tests::a_signal_completes_a_held_fifo_read_and_releases_its_close_drain ... ok\ntest user::darwin::process::fifo_lifetime_tests::an_empty_fifo_zero_byte_read_returns_without_waiting_for_its_writer ... ok\ntest user::darwin::process::fifo_lifetime_tests::draining_close_reports_native_uninterruptible_state_until_kernel_completion ... ok\ntest user::darwin::process::fifo_lifetime_tests::entered_fifo_close_waits_for_read_and_keeps_the_descriptor_reserved ... ok\ntest user::darwin::process::fifo_lifetime_tests::entered_fifo_readv_keeps_the_vector_copied_before_sleep ... ok\ntest user::darwin::process::fifo_lifetime_tests::fifo_eof_reads_and_a_reopened_writer_follow_native_state_on_both_abis ... ok\ntest user::darwin::process::fifo_lifetime_tests::fifo_kernel_completion_releases_close_when_reader_or_closer_is_held ... ok\ntest user::darwin::process::fifo_lifetime_tests::guest_exit_joins_a_native_read_while_the_library_object_remains_inspectable ... ok\ntest user::darwin::process::fifo_lifetime_tests::terminating_an_entered_reader_releases_its_file_reference_and_close_barrier ... ok\n\ntest result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 9860 filtered out; finished in 0.12s\n\n",
+      "stderr": ""
+    }
+  ],
+  "current_passed": 25,
+  "baseline_fifo_passed": 10,
+  "failed": 0,
+  "ignored": 0,
+  "storage": "Linux tmpfs mounted inside the worktree",
+  "source_changes": false,
+  "cpu_execution": "Docker x86-64 translation on ARM64; not physical Intel qualification"
+}

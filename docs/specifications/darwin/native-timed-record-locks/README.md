@@ -72,11 +72,14 @@ the portable closed Darwin profile. The Windows workspace is compile-checked.
 Untimed blocking commands 9 and 91 are unchanged and remain separate scheduler
 work.
 
-All seven timed-lock tests pass on macOS and Linux. The broader Linux FIFO
-lifecycle group has eight pre-existing failures: the same eight fail in the
-retained executable built before this timed-lock change. Its two other cases,
-the pipe-drain case and seven continuation cases pass. This corpus does not
-establish general FIFO parity, and the full process-emulation goal remains open.
+All seven timed-lock tests pass on macOS and Linux. The initial shared-volume
+run reproduced eight FIFO failures in both the old and current executables.
+Independent native controls subsequently showed that this filesystem fails
+`fstat` after unlinking an open FIFO. On an in-worktree Linux tmpfs, all 25
+current owning cases and all ten baseline FIFO cases pass without changing
+product code or assertions. See the paired
+[filesystem controls](../native-fifo-filesystem/README.md). These finite tests
+do not establish general FIFO equivalence; the full emulation goal remains open.
 
 Material assumptions and falsification probes:
 

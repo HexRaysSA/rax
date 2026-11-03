@@ -1,0 +1,75 @@
+{
+  "system": [
+    "Linux",
+    "b5973e95c3f6",
+    "7.2.12-orbstack-00394-gbecdd6130068",
+    "#1 SMP PREEMPT Thu Oct 22 22:17:17 UTC 2026",
+    "x86_64",
+    ""
+  ],
+  "records": [
+    {
+      "kind": "named-linked",
+      "fd": 3,
+      "fstatfs_result": 0,
+      "fs_errno": 0,
+      "fs_magic": "0x1021994",
+      "stat": {
+        "mode": "0o10600",
+        "dev": 77,
+        "inode": 3,
+        "links": 1
+      },
+      "proc_fd": "/work/target/qualified-v1/tmp/linux-fifo-entry-native-v3/named",
+      "flags": 32768
+    },
+    {
+      "kind": "named-unlinked",
+      "fd": 3,
+      "fstatfs_result": 0,
+      "fs_errno": 0,
+      "fs_magic": "0x1021994",
+      "stat": {
+        "mode": "0o10600",
+        "dev": 77,
+        "inode": 3,
+        "links": 0
+      },
+      "proc_fd": "/work/target/qualified-v1/tmp/linux-fifo-entry-native-v3/named (deleted)",
+      "flags": 32768
+    },
+    {
+      "kind": "anonymous-reader",
+      "fd": 5,
+      "fstatfs_result": 0,
+      "fs_errno": 0,
+      "fs_magic": "0x50495045",
+      "stat": {
+        "mode": "0o10600",
+        "dev": 15,
+        "inode": 986513,
+        "links": 1
+      },
+      "proc_fd": "pipe:[986513]",
+      "flags": 0
+    },
+    {
+      "kind": "anonymous-writer",
+      "fd": 6,
+      "fstatfs_result": 0,
+      "fs_errno": 0,
+      "fs_magic": "0x50495045",
+      "stat": {
+        "mode": "0o10600",
+        "dev": 15,
+        "inode": 986513,
+        "links": 1
+      },
+      "proc_fd": "pipe:[986513]",
+      "flags": 1
+    }
+  ],
+  "container_architecture": "amd64",
+  "docker_daemon_architecture": "aarch64",
+  "cpu_execution": "Docker x86-64 translation on ARM64; not physical Intel qualification"
+}
