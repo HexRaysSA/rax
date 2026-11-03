@@ -1,0 +1,23 @@
+{
+  "corpus_file": "cipher-controls-v1.json",
+  "corpus_sha256": "385562a82cee83bcd7ade150be6c91ee772fe4b06bf488c5a79ef199ba5af0a0",
+  "native_producers": [
+    {
+      "mode": "response",
+      "source_sha256": "3fcfae5f4ff7364d5b971905e060df9cc9821741f3a57810cc47e77947e978dc",
+      "image_sha256": "d7b0066997413437cbbaf20cc5c12f788a49adc634545beb94ad5e80ef340296",
+      "raw_stdout_sha256": "01f14073404fcfe3a81c856294bb3bce54138a672b9bd52f3a52f80479a800a6",
+      "native_exit": 0,
+      "selected_ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd"
+    },
+    {
+      "mode": "input",
+      "source_sha256": "b9855c8f14e4839d105157b969e2e68a57e750482420aef652e1fe070e4c3e2a",
+      "image_sha256": "9d20afa4e72cedf4c2a1f3d1ef29d18330828dadb24ba603a6c2830e7548a9c9",
+      "raw_stdout_sha256": "55bb0f54876a8380738e50c6e2d9cc2bd817f28ec61d3ba89e00628d03fbeb41",
+      "native_exit": 0,
+      "selected_ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd"
+    }
+  ],
+  "scope": "Native raw reports remain private; published prefixes exclude undefined final blocks and retain only controlled query metadata."
+}

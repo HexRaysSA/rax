@@ -70,3 +70,4 @@ docs/specifications/darwin/native-pipe-close-write/** -text
 
 # Preserve the archived AMD topology reference as binary bytes.
 docs/development/kvm-native-topology/references/*.pdf binary
+docs/specifications/windows/native-system-policy/** -text

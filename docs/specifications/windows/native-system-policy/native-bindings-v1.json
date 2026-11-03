@@ -1,0 +1,77 @@
+{
+  "scope": "Three process ABIs on the selected Windows ARM64 kernel. Full arena byte changes and all8page protections observed independently; pointer queries use parameter-byte-aligned size-only replies.",
+  "artifacts": [
+    {
+      "file": "pointer-arm64-v1.jsonl",
+      "bytes": 143524,
+      "sha256": "be4dd3f1ecc4fe2d41491490046b77817ee37fbab1f6e9b037ef8aa0ba13ea18",
+      "process_abi": "arm64",
+      "source_sha256": "70e89fc9c5a8cbb5b941f80af04e9c4fb4dbad5ac5af26ba0914b7c3e4f85d8d",
+      "image_sha256": "94404a67f05b44362c61635a036a6facac97101090287ed1542988197b1684ac",
+      "selected_ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "native_exit_code": 0,
+      "provider": "Windows 11 ARM64,10.0.29698.1000",
+      "physical_x86_host": false
+    },
+    {
+      "file": "abi-arm64-v1.jsonl",
+      "bytes": 90199,
+      "sha256": "4b59fe63a3a18b78486de843b5aa7626b55dec76320c3079774ac43fab06a135",
+      "process_abi": "arm64",
+      "source_sha256": "f7df19ca48cc9bec20f2b78bfdf7469563b6705aabf2a0216bc2b8bada376643",
+      "image_sha256": "1dc2eed80089c09fe502dcfd110029f02100083b5ba10801f87196c0430e15d7",
+      "selected_ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "native_exit_code": 0,
+      "provider": "Windows 11 ARM64,10.0.29698.1000",
+      "physical_x86_host": false
+    },
+    {
+      "file": "pointer-x64-v1.jsonl",
+      "bytes": 143524,
+      "sha256": "be4dd3f1ecc4fe2d41491490046b77817ee37fbab1f6e9b037ef8aa0ba13ea18",
+      "process_abi": "x64",
+      "source_sha256": "70e89fc9c5a8cbb5b941f80af04e9c4fb4dbad5ac5af26ba0914b7c3e4f85d8d",
+      "image_sha256": "48e7d60802dc08373c3d24816abdcf8cfba5c94335b1157b94091d20508edf5a",
+      "selected_ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "native_exit_code": 0,
+      "provider": "Windows 11 ARM64,10.0.29698.1000",
+      "physical_x86_host": false
+    },
+    {
+      "file": "abi-x64-v1.jsonl",
+      "bytes": 90199,
+      "sha256": "4b59fe63a3a18b78486de843b5aa7626b55dec76320c3079774ac43fab06a135",
+      "process_abi": "x64",
+      "source_sha256": "f7df19ca48cc9bec20f2b78bfdf7469563b6705aabf2a0216bc2b8bada376643",
+      "image_sha256": "d860aa7904bbe939816f529df38a6a5250a2c34be687745472b60f939bd80f7e",
+      "selected_ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "native_exit_code": 0,
+      "provider": "Windows 11 ARM64,10.0.29698.1000",
+      "physical_x86_host": false
+    },
+    {
+      "file": "pointer-x86-v1.jsonl",
+      "bytes": 164502,
+      "sha256": "7cc14507008d77ddacdcd676cc1d9d2c2d8cff0ee60eb9a8514333249827dcd6",
+      "process_abi": "x86",
+      "source_sha256": "70e89fc9c5a8cbb5b941f80af04e9c4fb4dbad5ac5af26ba0914b7c3e4f85d8d",
+      "image_sha256": "49649f90e029732715c50d5e58926fa6812a11705437aff122ab4cfdd9caff28",
+      "selected_ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "native_exit_code": 0,
+      "provider": "Windows 11 ARM64,10.0.29698.1000",
+      "physical_x86_host": false
+    },
+    {
+      "file": "abi-x86-v1.jsonl",
+      "bytes": 89527,
+      "sha256": "e0cad7e5fef3eec36882eff1303d00f3d100e628ebc661b81f52d12251fb47e2",
+      "process_abi": "x86",
+      "source_sha256": "f7df19ca48cc9bec20f2b78bfdf7469563b6705aabf2a0216bc2b8bada376643",
+      "image_sha256": "57288d13ab1c774a6c6d939aaf20ed59f6fa5f39bba955100e4387f4e1f1fa82",
+      "selected_ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "native_exit_code": 0,
+      "provider": "Windows 11 ARM64,10.0.29698.1000",
+      "physical_x86_host": false
+    }
+  ]
+}

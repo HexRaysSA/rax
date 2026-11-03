@@ -1,0 +1,55 @@
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <cstring>
+#include <vector>
+using Query = LONG (NTAPI *)(ULONG, void *, ULONG, ULONG *);
+struct Unicode { USHORT length, maximum; wchar_t *buffer; };
+using License = LONG (NTAPI *)(const Unicode *, ULONG *, void *, ULONG, ULONG *);
+struct Policy { void *input, *output; ULONG input_bytes, output_bytes, version; };
+@ARRAYS@
+static void hex(const unsigned char *p,size_t n) {for(size_t i=0;i<n;++i) std::printf("%02X",unsigned(p[i]));}
+static unsigned u16(const unsigned char *p) {return p[0]|(unsigned(p[1])<<8);}
+static ULONG u32(const unsigned char *p) {return u16(p)|(ULONG(u16(p+2))<<16);}
+int main() {
+ auto dll=GetModuleHandleW(L"ntdll.dll");
+ auto query=reinterpret_cast<Query>(GetProcAddress(dll,"NtQuerySystemInformation"));
+ auto license=reinterpret_cast<License>(GetProcAddress(dll,"NtQueryLicenseValue"));
+ if(!query||!license) return 2;
+ std::printf("{\"kind\":\"profile\",\"pointer_bytes\":%zu,\"policy_bytes\":%zu}\n",sizeof(void*),sizeof(Policy));
+ for(unsigned index=0;index<sizeof(cases)/sizeof(cases[0]);++index) {
+  unsigned char output[16384];std::memset(output,0xA5,sizeof(output));ULONG returned=0xFEEDFACE;
+  std::vector<unsigned char> input(cases[index].data,cases[index].data+cases[index].bytes);
+  Policy p{input.data(),output,cases[index].bytes,sizeof(output),0};
+  LONG status=query(134,&p,sizeof(p),&returned);
+  std::printf("{\"kind\":\"policy\",\"index\":%u,\"status\":\"0x%08lX\",\"returned\":%lu,\"output_bytes\":%lu,\"input_unchanged\":%s,\"bytes\":\"",index,static_cast<ULONG>(status),returned,p.output_bytes,std::memcmp(input.data(),cases[index].data,cases[index].bytes)==0?"true":"false");
+  if(status>=0 && p.output_bytes<=sizeof(output))hex(output,p.output_bytes);
+  std::printf("\"}\n");
+ }
+ HKEY key=nullptr;
+ if(RegOpenKeyExW(HKEY_LOCAL_MACHINE,L"SYSTEM\\CurrentControlSet\\Control\\ProductOptions",0,KEY_QUERY_VALUE|KEY_WOW64_64KEY,&key)!=ERROR_SUCCESS)return 3;
+ DWORD type=0,size=0;
+ if(RegQueryValueExW(key,L"ProductPolicy",nullptr,&type,nullptr,&size)!=ERROR_SUCCESS||type!=REG_BINARY||size<24||size>8388608){RegCloseKey(key);return 4;}
+ std::vector<unsigned char> blob(size);
+ if(RegQueryValueExW(key,L"ProductPolicy",nullptr,&type,blob.data(),&size)!=ERROR_SUCCESS){RegCloseKey(key);return 5;}
+ RegCloseKey(key);
+ if(size!=blob.size()||u32(blob.data())!=size||20ULL+u32(blob.data()+4)+u32(blob.data()+8)!=size)return 6;
+ size_t at=20,end=20+u32(blob.data()+4);unsigned index=0;
+ while(at<end) {
+  if(end-at<16)return 7;
+  const auto *e=blob.data()+at;unsigned item=u16(e),name=u16(e+2),data=u16(e+6);
+  if(item<16||item%4||item>end-at||name%2||16ULL+name+data>item)return 8;
+  Unicode u{static_cast<USHORT>(name),static_cast<USHORT>(name),reinterpret_cast<wchar_t*>(blob.data()+at+16)};
+  for(unsigned pass=0;pass<2;++pass) {
+   std::vector<unsigned char> value(data+16,0x5A);ULONG kind=0xA5A55A5A,returned=0xFEEDFACE;
+   ULONG capacity=pass==0?0:static_cast<ULONG>(value.size());
+   LONG status=license(&u,&kind,value.data(),capacity,&returned);
+   std::printf("{\"kind\":\"license\",\"index\":%u,\"pass\":%u,\"name_hex\":\"",index,pass);hex(e+16,name);
+   std::printf("\",\"capacity\":%lu,\"status\":\"0x%08lX\",\"type\":%lu,\"returned\":%lu,\"bytes\":\"",capacity,static_cast<ULONG>(status),kind,returned);hex(value.data(),value.size());std::printf("\"}\n");
+  }
+  at+=item;++index;
+ }
+ std::printf("{\"kind\":\"catalog\",\"entries\":%u,\"bytes\":%lu}\n",index,size);
+ return at==end?0:9;
+}

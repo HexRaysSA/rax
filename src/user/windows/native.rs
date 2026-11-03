@@ -37,6 +37,7 @@ pub(crate) struct NativeRuntime {
     pub(crate) code_integrity: Result<u32, String>,
     pub(crate) code_integrity_policy: Result<[u8; 32], String>,
     pub(crate) code_integrity_policies: Result<std::sync::Arc<[u8]>, String>,
+    pub(crate) policy_catalog: Result<std::sync::Arc<super::policy::Catalog>, String>,
 }
 
 fn invalid(message: impl Into<String>) -> io::Error {
@@ -110,6 +111,7 @@ impl NativeRuntime {
             startup: None,
             gui: Default::default(),
             code_integrity: Err("native code integrity has not been captured".into()),
+            policy_catalog: Err("native software policy has not been captured".into()),
             code_integrity_policy: Err("native code integrity policy has not been captured".into()),
             code_integrity_policies: Err(
                 "native code integrity policies have not been captured".into()
@@ -130,6 +132,7 @@ impl NativeRuntime {
         runtime.code_integrity = system::capture();
         runtime.code_integrity_policy = code_integrity_policy::capture();
         runtime.code_integrity_policies = code_integrity_policies::capture();
+        runtime.policy_catalog = super::policy::capture();
         runtime.registry = super::registry::snapshot()?;
         runtime.wnf_catalog = super::wnf::snapshot()?;
         let subject = runtime

@@ -1,0 +1,29 @@
+{
+  "selected_kernel": {
+    "version": "10.0.29698.1000",
+    "machine": "ARM64",
+    "image_sha256": "02ec181bd1a3f9cced96eb3cdf2bf99cc69e133ba121809d3e6b5aa417f1d2d7",
+    "codeview": {
+      "guid": "246E60CC76839EE06A21B3EB2408711D",
+      "age": 1,
+      "pdb_name": "ntkrnlmp.pdb",
+      "url": "https://msdl.microsoft.com/download/symbols/ntkrnlmp.pdb/246E60CC76839EE06A21B3EB2408711D1/ntkrnlmp.pdb"
+    },
+    "pdb_info_age": 6,
+    "pdb_dbi_age": 1,
+    "symbol_identity_checks": "GUID and DBI age match the selected image; exported NtQuerySystemInformation and NtQueryLicenseValue RVAs independently agree with the public symbols."
+  },
+  "owning_rvas": {
+    "system_information_dispatch": "0xa1ec18",
+    "class134_adapter": "0xa26908",
+    "policy_packet_routine": "0xaae660",
+    "selector_table": "0x1053480",
+    "query_policy_operation": "0xab22b8",
+    "native_name_table": "0xb1d6e0"
+  },
+  "phnt": {
+    "path": "../native-wnf-query/primary/phnt-ntexapi.h",
+    "sha256": "0510ac40fa1690cd73bed8afe3ed602aaa7bb6870ab95ea9aaba36ce1f4c3d53"
+  },
+  "scope": "Arithmetic and layouts recovered independently from the selected native image and validated with native calls. Microsoft binaries and PDBs are retained only in private task evidence."
+}

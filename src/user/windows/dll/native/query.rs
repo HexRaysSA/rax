@@ -22,6 +22,7 @@ mod code_integrity;
 mod code_integrity_policies;
 mod code_integrity_policy;
 mod flush;
+mod policy;
 mod processor;
 
 const SYSTEM_BASIC_INFORMATION: u32 = 0;
@@ -37,6 +38,7 @@ const SYSTEM_CODE_INTEGRITY_INFORMATION: u32 = 103;
 const SYSTEM_CODE_INTEGRITY_POLICY_INFORMATION: u32 = 164;
 const SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION: u32 = 189;
 const SYSTEM_FLUSH_INFORMATION: u32 = 192;
+const SYSTEM_POLICY_INFORMATION: u32 = 134;
 const WOW64_LENGTH_FAILURE: u32 = 0xFFFF_FFFC;
 
 pub(super) fn probe_write(c: &Ctx, address: u64, bytes: usize) -> Result<(), MemFault> {
@@ -148,6 +150,9 @@ pub(super) fn write_guard_result(c: &mut Ctx, result: ApiResult) -> ApiResult {
 
 fn query(c: &mut Ctx) -> ApiResult {
     let (class, output, length, returned) = (c.u32(0)?, c.ptr(1)?, c.u32(2)?, c.ptr(3)?);
+    if class == SYSTEM_POLICY_INFORMATION && c.arch() == WinArch::X86 {
+        return policy::wow64(c, output, returned);
+    }
     if class == SYSTEM_CODE_INTEGRITY_POLICY_INFORMATION && c.arch() == WinArch::X86 {
         return code_integrity_policy::wow64(c, output, length, returned);
     }
@@ -235,6 +240,7 @@ fn query(c: &mut Ctx) -> ApiResult {
             code_integrity_policies::query(c, output, length, returned)
         }
         SYSTEM_FLUSH_INFORMATION => flush::query(c, output, length, returned),
+        SYSTEM_POLICY_INFORMATION => policy::native(c, output, length, returned),
         _ => Err(c.unsupported(format!("NtQuerySystemInformation class {class}"))),
     }
 }

@@ -20,6 +20,7 @@ pub(super) fn kernel_profile(p: &mut Proc, build: u32, machine: u16) {
         wnf_catalog: Default::default(),
         startup: None,
         gui: Default::default(),
+        policy_catalog: Err("software policy not captured in this fixture".into()),
         code_integrity: Err("controlled filename query profile".into()),
         code_integrity_policy: Err("code integrity policy not captured in this fixture".into()),
         code_integrity_policies: Err("code integrity policies not captured in this fixture".into()),

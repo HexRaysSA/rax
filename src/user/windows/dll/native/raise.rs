@@ -129,6 +129,7 @@ mod tests {
             gui: Default::default(),
             code_integrity: Err("controlled argument profile".into()),
             code_integrity_policy: Err("code integrity policy not captured in this fixture".into()),
+            policy_catalog: Err("software policy not captured in this fixture".into()),
             code_integrity_policies: Err(
                 "code integrity policies not captured in this fixture".into()
             ),

@@ -22,6 +22,7 @@ pub mod nt;
 pub mod object_namespace;
 pub mod objects;
 mod performance_clock;
+mod policy;
 pub mod process;
 pub mod registry;
 mod security;

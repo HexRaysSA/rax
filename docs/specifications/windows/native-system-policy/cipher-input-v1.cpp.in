@@ -1,0 +1,31 @@
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <cstring>
+#include <vector>
+using Query = LONG (NTAPI *)(ULONG, void *, ULONG, ULONG *);
+struct Unicode { USHORT length, maximum; wchar_t *buffer; };
+using License = LONG (NTAPI *)(const Unicode *, ULONG *, void *, ULONG, ULONG *);
+struct Policy { void *input, *output; ULONG input_bytes, output_bytes, version; };
+@ARRAYS@
+static void hex(const unsigned char *p,size_t n) {for(size_t i=0;i<n;++i) std::printf("%02X",unsigned(p[i]));}
+static unsigned u16(const unsigned char *p) {return p[0]|(unsigned(p[1])<<8);}
+static ULONG u32(const unsigned char *p) {return u16(p)|(ULONG(u16(p+2))<<16);}
+int main() {
+ auto dll=GetModuleHandleW(L"ntdll.dll");
+ auto query=reinterpret_cast<Query>(GetProcAddress(dll,"NtQuerySystemInformation"));
+ auto license=reinterpret_cast<License>(GetProcAddress(dll,"NtQueryLicenseValue"));
+ if(!query||!license) return 2;
+ std::printf("{\"kind\":\"profile\",\"pointer_bytes\":%zu,\"policy_bytes\":%zu}\n",sizeof(void*),sizeof(Policy));
+ for(unsigned index=0;index<sizeof(cases)/sizeof(cases[0]);++index) {
+  unsigned char output[16384];std::memset(output,0xA5,sizeof(output));ULONG returned=0xFEEDFACE;
+  std::vector<unsigned char> input(cases[index].data,cases[index].data+cases[index].bytes);
+  Policy p{input.data(),output,cases[index].bytes,sizeof(output),0};
+  LONG status=query(134,&p,sizeof(p),&returned);
+  std::printf("{\"kind\":\"policy\",\"index\":%u,\"status\":\"0x%08lX\",\"returned\":%lu,\"output_bytes\":%lu,\"input_unchanged\":%s,\"bytes\":\"",index,static_cast<ULONG>(status),returned,p.output_bytes,std::memcmp(input.data(),cases[index].data,cases[index].bytes)==0?"true":"false");
+  if(status>=0 && p.output_bytes<=sizeof(output))hex(output,p.output_bytes);
+  std::printf("\"}\n");
+ }
+ return 0;
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "file": "native-policy-abi-v1.cpp",
+    "bytes": 4379,
+    "sha256": "f7df19ca48cc9bec20f2b78bfdf7469563b6705aabf2a0216bc2b8bada376643",
+    "scope": "Independent native compatibility probe; no RAX model is linked."
+  },
+  {
+    "file": "native-policy-pointer-v1.cpp",
+    "bytes": 7677,
+    "sha256": "70e89fc9c5a8cbb5b941f80af04e9c4fb4dbad5ac5af26ba0914b7c3e4f85d8d",
+    "scope": "Independent native compatibility probe; no RAX model is linked."
+  },
+  {
+    "mode": "response",
+    "source_sha256": "3fcfae5f4ff7364d5b971905e060df9cc9821741f3a57810cc47e77947e978dc",
+    "generated_source": true,
+    "case_count": 174,
+    "template": "cipher-response-v1.cpp.in",
+    "requests": "cipher-response-requests-v1.json",
+    "scope": "Exact independently compiled native source is reconstructed from the template and fixed QueryPolicy0 request bytes."
+  },
+  {
+    "mode": "input",
+    "source_sha256": "b9855c8f14e4839d105157b969e2e68a57e750482420aef652e1fe070e4c3e2a",
+    "generated_source": true,
+    "case_count": 128,
+    "template": "cipher-input-v1.cpp.in",
+    "requests": "cipher-input-requests-v1.json",
+    "scope": "Exact independently compiled native source is reconstructed from the template and fixed QueryPolicy0 request bytes."
+  }
+]

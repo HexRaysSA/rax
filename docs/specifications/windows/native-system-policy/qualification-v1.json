@@ -1,0 +1,212 @@
+{
+  "schema": "rax-native-system-policy-qualification-v1",
+  "qualified_utc": "2026-11-03T18:41:19.122672+00:00",
+  "baseline": "1abf38674b089864dc26f741fe671d6e1155eafe",
+  "source_sha256": {
+    "src/user/windows/dll/native/query.rs": "faec9d592258b859c59e695756a1f70104f1f0d7d20fd68815422f2fcdb954d7",
+    "src/user/windows/dll/native/query/policy.rs": "c5597d9a8cccf41179aa39a76062659ca9fe10bdd5408bf3ba6f306e78a5d1cf",
+    "src/user/windows/dll/native/raise.rs": "1eaf591e96ceea64f7dfb19c58e48901cccb5bf7a3b27e25f9e81e0dbbec8327",
+    "src/user/windows/loader/cookie_tests.rs": "8d7286c50e75a9565e47d74b22d55fbbb23bd3170ffdb29ebf6430d163853578",
+    "src/user/windows/mod.rs": "5f16a09d5b979fae4cf4fbfc11f82595165872d14c563cd83b886cfe8cc42245",
+    "src/user/windows/native.rs": "74101527982761a8ea1204618421e41e5ec3177dd40ff4b8be4aada3e36b8437",
+    "src/user/windows/policy.rs": "f497e810022394238cf7661ac9b3fbd5a02d146bef9c8a75e9ad471377a790d1",
+    "src/user/windows/policy/catalog.rs": "9af74c2d9f5f7d1f6d4c7753c17d196c06399209dc0dfa57b400276226c47010",
+    "src/user/windows/policy/catalog/installed.rs": "30e0105a894424ff07bc276ea184a338b21d898ec7f39d50fa4227824346b554",
+    "src/user/windows/policy/catalog/tests.rs": "747c9a04ef972d1749ec3191d33dc8ab6eae320bd15e74e1a6bceb9c6e7559fe",
+    "src/user/windows/policy/codec.rs": "9635ddffa887f4d8f3e361eabc302e9ba65f1aefe7d4302f588c6c54d5ba7e30",
+    "src/user/windows/policy/tests.rs": "859659be059578f2480a50a9d4aceba310612143e77d63ba235a87041e9db9ac",
+    "src/user/windows/process/native_start/tests.rs": "4ad2d447def9f357be89b1aac5314979d386336e4174efa33fd5edc29c1421b0",
+    "src/user/windows/process/sched/tests/services_tests.rs": "1ae648539580c4fcd0d315faa3fb27645d460f315c69729ab58ae03f8f771d81",
+    "src/user/windows/process/sched/tests/services_tests/code_integrity_tests.rs": "42f91e43434d6d38052907b316c5b027191b987799c4fe87a4fe174760ea055d",
+    "src/user/windows/process/sched/tests/services_tests/file_attributes_tests/semantics.rs": "a34af1e155bd8fe2341f690a7cb2589de52bfd62cd3573766236cc5339f1c82b",
+    "src/user/windows/process/sched/tests/services_tests/file_open_tests.rs": "2413f298a2bc4870b244230dbdda5b7bfc73eae74e9ec4750052c6cfdc50ddc3",
+    "src/user/windows/process/sched/tests/services_tests/gui_tests.rs": "5dc2ca886560f117f24519de2629ee9c19f84b28457ad07fb7aa9bc1af3d7d0b",
+    "src/user/windows/process/sched/tests/services_tests/native_profile.rs": "55f6d99d4275949a7e4ccc8f4b608146c203d4b1142cb6f798d6f4717c277e1b",
+    "src/user/windows/process/sched/tests/services_tests/process_query_tests/image_information/replay.rs": "949d5179cc89c10a540e6b674802b791f90db02de238e0785500b893ba698199",
+    "src/user/windows/process/sched/tests/services_tests/system_policy_tests.rs": "4e40f09378bf7e8ff2324ee3f453ddf2a93bf140e1cb2b22ca4b358a3928e09b",
+    "src/user/windows/process/sched/tests/services_tests/system_policy_tests/basic_abi.rs": "2f7ad36bd11fbbfbae09a8342d97e54dcba5a3c4472650488b2aced02198c56d",
+    "src/user/windows/process/sched/tests/services_tests/system_processor_tests.rs": "6f27d703464ebaf3732d507cd96b1d5f18f51091bd4a14bcebb23f0265ec6b5e",
+    "src/user/windows/seh/native_entry/tests.rs": "1c8bbd19cf3982a923a5319519f91094ddf0f048ec8b6f9e8580dc39d6f22144"
+  },
+  "native_controls": {
+    "kernel_build": "10.0.29698.1000",
+    "kernel_architecture": "ARM64",
+    "process_abis": [
+      "ARM64",
+      "x64",
+      "x86 through WoW64"
+    ],
+    "scalar_cases": 1350,
+    "complete_arena_cases": 2496,
+    "cipher_query_controls": 296,
+    "raw_bindings_sha256": "b9ee1b5029ed5620fa6d136b24b9f5882cac90038e4d95aa085a1d04bc11f199",
+    "cipher_bindings_sha256": "3749cc7667ab0ad73bad163c8b661877ee1f98e84764a841a5abd3e0fa2847c0"
+  },
+  "virtual_runtime_checks": [
+    {
+      "host": "macOS ARM64",
+      "policy_unit_tests": 8,
+      "owning_replay_tests": 2,
+      "ignored": 0
+    },
+    {
+      "host": "Windows ARM64",
+      "policy_unit_tests": 8,
+      "owning_replay_tests": 2,
+      "ignored": 0,
+      "image_sha256": "83d7bf5817263e8b5debe0b34bbf74495d83f5b7a04cf2a1f029450c4011eaa2"
+    },
+    {
+      "host": "Linux x86-64",
+      "policy_unit_tests": 8,
+      "owning_replay_tests": 2,
+      "ignored": 0,
+      "image_sha256": "08361a418ea45930717dcf7ff420a32fac1a2d27142114aaa29a0258ecc94abc",
+      "execution": "Docker amd64 translation on AArch64; not physical x86 qualification"
+    }
+  ],
+  "workspace_gates": [
+    {
+      "name": "gate-owned-format-v1",
+      "exit_code": 0,
+      "seconds": 0.105
+    },
+    {
+      "name": "gate-evidence-v1",
+      "exit_code": 0,
+      "seconds": 0.414
+    },
+    {
+      "name": "gate-format-v1",
+      "exit_code": 0,
+      "seconds": 29.539
+    },
+    {
+      "name": "gate-diff-v1",
+      "exit_code": 0,
+      "seconds": 0.208
+    },
+    {
+      "name": "gate-windows-library-release-v2",
+      "exit_code": 0,
+      "seconds": 327.722
+    },
+    {
+      "name": "gate-macos-test-build-v1",
+      "exit_code": 0,
+      "seconds": 260.306
+    },
+    {
+      "name": "gate-macos-policy-unit-v1",
+      "exit_code": 0,
+      "seconds": 0.2
+    },
+    {
+      "name": "gate-macos-service-replay-v1",
+      "exit_code": 0,
+      "seconds": 0.489
+    },
+    {
+      "name": "gate-library-clippy-v2",
+      "exit_code": 0,
+      "seconds": 70.476
+    },
+    {
+      "name": "gate-macos-all-targets-v1",
+      "exit_code": 0,
+      "seconds": 295.305
+    },
+    {
+      "name": "gate-all-targets-clippy-v1",
+      "exit_code": 0,
+      "seconds": 298.558
+    },
+    {
+      "name": "gate-macos-capi-v1",
+      "exit_code": 0,
+      "seconds": 128.315
+    },
+    {
+      "name": "gate-windows-arm64-all-targets-v1",
+      "exit_code": 0,
+      "seconds": 164.893
+    },
+    {
+      "name": "gate-windows-x64-all-targets-v1",
+      "exit_code": 0,
+      "seconds": 128.657
+    },
+    {
+      "name": "gate-linux-all-targets-v1",
+      "exit_code": 0,
+      "seconds": 138.794
+    },
+    {
+      "name": "gate-linux-test-build-v1",
+      "exit_code": 0,
+      "seconds": 123.74
+    }
+  ],
+  "capi_macos_tests": 244,
+  "probe_cmake": {
+    "targets_per_configuration": 4,
+    "configurations": [
+      "Windows ARM64",
+      "Windows x64"
+    ],
+    "execution": "Exact independent probe sources executed separately in recorded native controls"
+  },
+  "verifier_counterfactuals": [
+    {
+      "mutation": "missing-case",
+      "exit_code": 1,
+      "rejected": true
+    },
+    {
+      "mutation": "duplicate-index",
+      "exit_code": 1,
+      "rejected": true
+    },
+    {
+      "mutation": "outside-arena",
+      "exit_code": 1,
+      "rejected": true
+    },
+    {
+      "mutation": "cipher-value",
+      "exit_code": 1,
+      "rejected": true
+    },
+    {
+      "mutation": "native-source",
+      "exit_code": 1,
+      "rejected": true
+    },
+    {
+      "mutation": "generated-template",
+      "exit_code": 1,
+      "rejected": true
+    }
+  ],
+  "real_installed_cmd": {
+    "source_sha256": "9f31c86b110fbd2c4682438942eeae3a2712e7a9daddbc4913094476402773d0",
+    "image_sha256": "6f917e1ddee7abe0ce508963aff5df21c53d078b8861177cb9cad01dabc7b4c4",
+    "library_sha256": "600248c9a562605d713bf86a28b57d2c49dedf779ec2f94661be238e88bb50a2",
+    "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+    "separate_sysroot_supplied": false,
+    "file_backed_spawn": true,
+    "wrapper_exit_code": 0,
+    "guest_success": false,
+    "terminal": "TERMINAL sample=225749 instruction_budget_bound=14448000 active_exception_seen=false status=Complete(Internal(\"native NTDLL service NtCreateFile (0x55) at 0x7ffc805b1590 is not implemented\"))",
+    "previous_frontier": "NtQuerySystemInformation class134 SystemPolicyInformation",
+    "next_frontier": "NtCreateFile 0x55",
+    "instruction_budget": "Observation bound is slices times64, not a measured retired-instruction count."
+  },
+  "assumption_register": "README.md defines assumptions, stress tests, falsification probes and measured scope.",
+  "bounded_scope": {
+    "high": "Full process emulation remains incomplete; NtCreateFile and other later services still require implementation and native validation.",
+    "medium": "Physical x86 kernels and other Windows builds were not independently measured. Runtime protocol selection uses a fixed qualification request."
+  },
+  "public_abi_defaults_and_dependencies_changed": false,
+  "guest_selected_host_policy_operations": false
+}
