@@ -8,7 +8,6 @@
   "exact_module": "deadline-exact-module-absolute-v3.json",
   "scope": "Production KvmVcpu finite native entry, retained raw-vCPU ownership, managed VMM registration and the complete four-case Cargo target. Full native private/shared/in-flight checkpointing and VMM AP startup remain required.",
   "pending": [
-    "Stage exactly the 26 owned entry/ownership paths, run the authorized red command, push master and verify the remote.",
     "Remove the owned native build root only after all its compiler/test processes are terminal; preserve protected local artifacts and unrelated untracked files."
   ],
   "utc": "2026-11-03T13:55:46.486924+00:00",
@@ -591,5 +590,13 @@
     "minimal_passed": 2,
     "release_build": "passed",
     "proof": "../kvm-amd-mxcsr/github-success.log"
+  },
+  "publication": {
+    "commit": "523c4aa3c655eaf6451264df936075fe71e860c0",
+    "remote_verified": true,
+    "signed_commit_verified": true,
+    "exact_owned_paths": 26,
+    "committed_source": "Exact tested entry/ownership snapshot; later owned IO/MP/SMP working versions saved and restored with hash checks.",
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-entry-ownership-v1/publication.json"
   }
 }

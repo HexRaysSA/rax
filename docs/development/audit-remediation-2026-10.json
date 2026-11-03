@@ -1026,7 +1026,10 @@
         "docs/development/a32-fp-traps/README.md",
         "docs/development/fork-test-isolation/qualification.json",
         "docs/development/a64-fpexc32/README.md",
-        "docs/development/a64-fpexc32/qualification.json"
+        "docs/development/a64-fpexc32/qualification.json",
+        "src/isa/arm/decoder/aarch32/neon/load_store.rs",
+        "tests/suites/backend/a32_fp_controls/structure_memory.rs",
+        "docs/development/a32-structure-admission/qualification.json"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
@@ -1040,7 +1043,8 @@
         "Restricted scalar rounding/NaN/subnormal modes now use an explicitly selected synchronous support-code boundary, with complete owning tests and actual two/four-CPU pre/post-bounce files. See docs/development/a32-restricted-fp/qualification.json. Synthetic feature matrices do not establish physical A32 profiles, optional trapping/short-vector/security/debug controls, complete native checkpoints/startup/scheduling/replay or physical Intel execution. Original four-finding scope remains open.",
         "Optional non-trapping A32 VFP short-vector controls/admission and all14 forms are locally qualified with full owning suites and actual1/2/4 prepared-context pre/post instruction files; all200 independent QEMU differences are retained against primary rules. Optional FP trapping, broader security/debug/profile and full original backend/native/startup/IRQ/clock/replay/physical Intel requirements remain open; no full finding closure. See a32-short-vectors/qualification.json.",
         "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. The historical FP-group full root run retained one separately reproduced ptrace/fork test failure. Its test-only isolation followup qualifies a new root run (11944 passed, 0 failed, 35 ignored); see fork-test-isolation/qualification.json. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json.",
-        "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure."
+        "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
+        "Represented A32/Thumb structure operand spans and R15 bases now select the existing Undefined outcome before access controls; full owning suites and workspace gates are qualified in a32-structure-admission/qualification.json. This does not close broader profile/security/debug or any full original finding."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1070,7 +1074,8 @@
         "legacy-s3c-fixture-tracking-2026-11-02",
         "a32-optional-short-vector-profile-2026-11-02",
         "a32-synchronous-fp-traps-2026-11-02",
-        "aarch64-fpexc32-access-2026-11-02"
+        "aarch64-fpexc32-access-2026-11-02",
+        "a32-structure-operand-admission-2026-11-03"
       ]
     },
     {
@@ -198615,7 +198620,7 @@
     },
     {
       "id": "kvm-native-entry-ownership-2026-11-03",
-      "status": "native_target_passed_broad_gates_in_progress",
+      "status": "component_qualified_with_reproduced_host_baseline_failures",
       "findings": [
         "C-SMP",
         "C-STATE"
@@ -198641,7 +198646,9 @@
         "Native VMM1/2/4CPU INIT/SIPI/topology, scheduling, interrupts, halt/wake and source-free file continuation.",
         "Remaining advertised A32 profiles and Intel HVF MMIO/IRQ/control profiles, with physical Intel validation."
       ],
-      "commit_workflow": "git add -- exact owned paths; red -m --staged --run same paths; immediate normal master push and verified remote readback; cleanup owned native build directory after terminal validation."
+      "commit_workflow": "git add -- exact owned paths; red -m --staged --run same paths; immediate normal master push and verified remote readback; cleanup owned native build directory after terminal validation.",
+      "commit": "523c4aa3c655eaf6451264df936075fe71e860c0",
+      "publication": "Exact26 owned paths committed via authorized git add/red, immediate normal master push, signature/remote/blob verification; later IO/MP/SMP working versions restored."
     },
     {
       "id": "amd-mxcsr-mask-2026-11-03",
@@ -198657,6 +198664,20 @@
       "counts": "Portableexactmodule red14pass1fail,green15pass; correctednativeGitHub15portable+14native+2minimal pass,zero failures/ignoresinselectedcases,releasebuildsuccess onmask2ffff.",
       "publication": "Exacttenownedpath gitadd/redcommit/immediatenormalpush verified. Retainednativebuildtree serves the separatelypendingentry/ownership finalgates and remains live.",
       "proof_commit": "364f7baaf5d2bcbe8ad5e915e6378676e0f6c6d3"
+    },
+    {
+      "id": "a32-structure-operand-admission-2026-11-03",
+      "commit": "9ce05d2edcd6f90da85750d976dfb325760c2e46",
+      "findings": [
+        "A32-FP"
+      ],
+      "scope": "VLD1-VLD4/VST1-VST4 multiple/single-lane/replicated structure operand validation during ARM/Thumb decode, ahead of FP-access traps; preserve chosen Undefined policy, failed IT suppression and mixed-width zero retirement. No new SMIR lowering or state layout.",
+      "qualification": "docs/development/a32-structure-admission/qualification.json",
+      "status": "locally_validated",
+      "full_goal_complete": false,
+      "counts": "Baseline original production probe1pass4fail; owning baseline2pass3fail. Changed full production owning binaries84+5+487=576pass,0fail,0ignored,0filtered, both direct pinned artifacts and canonical Cargo. Workspace fmt/Clippy/all-target build/no-JIT check/doctests passed;2compile-fail pass,5pre-existing doc examples ignored.",
+      "publication": "Exact14 paths committed via authorized git add/red, immediately pushed to master, committed blobs/signature/remote verified. Upstream Windows commit015dbaf retained without a merge commit.",
+      "remaining": "Broader advertised profiles, optional security/debug controls, complete backend/private/in-flight/native startup/clock/replay and physical Intel requirements remain open."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
