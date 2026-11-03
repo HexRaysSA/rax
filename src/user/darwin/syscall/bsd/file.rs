@@ -33,6 +33,8 @@ mod fifo_linux;
 mod fifo_read;
 pub(crate) mod lifetime;
 mod pipe_drain;
+#[cfg(unix)]
+mod record_lock;
 
 /// The largest single transfer (`read`/`write` fail larger `nbyte` with
 /// `EINVAL`, as `rd_uio`/`wr_uio` do).
@@ -774,6 +776,7 @@ pub mod cmd {
     pub const F_GETLK: i32 = 7;
     pub const F_SETLK: i32 = 8;
     pub const F_SETLKW: i32 = 9;
+    pub const F_SETLKWTIMEOUT: i32 = 10;
     pub const F_FLUSH_DATA: i32 = 40;
     pub const F_PREALLOCATE: i32 = 42;
     pub const F_SETSIZE: i32 = 43;
@@ -793,6 +796,7 @@ pub mod cmd {
     pub const F_OFD_SETLK: i32 = 90;
     pub const F_OFD_SETLKW: i32 = 91;
     pub const F_OFD_GETLK: i32 = 92;
+    pub const F_OFD_SETLKWTIMEOUT: i32 = 93;
     pub const F_ADDFILESIGS_RETURN: i32 = 97;
     pub const F_CHECK_LV: i32 = 98;
     pub const F_SPECULATIVE_READ: i32 = 101;
@@ -808,6 +812,10 @@ const FD_CLOFORK: u64 = 2;
 /// `fcntl(fd, cmd, arg)`.
 pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
     use cmd::*;
+    #[cfg(unix)]
+    if matches!(c, F_SETLKWTIMEOUT | F_OFD_SETLKWTIMEOUT) {
+        return record_lock::wait(ctx, fd, c, arg);
+    }
     let file = ctx.proc.fds.file(fd)?;
     let limit = ctx.proc.rlimits[8].0;
     match c {

@@ -1,0 +1,55 @@
+{
+  "producer_sha256": "38885fbb8c561e1cc9c0975312840d82609f5929e0c5a6368d65bb986a728bab",
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64"
+  ],
+  "architectures": [
+    {
+      "architecture": "arm64",
+      "cases": 144,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-local-settings-20261029/docs/specifications/darwin/native-guarded-fd/timed-lock-probe-v13.c",
+        "-o",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-arm64"
+      ],
+      "image_sha256": "c38e9b5ffbdf3dd4dada7bd043b4e0be48b0abd70120174b9c271c3b30549e84",
+      "records_sha256": "cf614b4396641a14610d5c9f4ac7e599889dc4f31ed4a39359eda70d4e998427"
+    },
+    {
+      "architecture": "x86_64",
+      "cases": 144,
+      "build_argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "/Users/int/.assist-native-local-settings-20261029/docs/specifications/darwin/native-guarded-fd/timed-lock-probe-v13.c",
+        "-o",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64"
+      ],
+      "image_sha256": "dc357a9b5d039721b48afde947ed6bd7ff87f765bb3c3e499e783d6025bf9f4d",
+      "records_sha256": "dc6710338e305981f98d2c00fefee60ea00028f2b2b7b4fbf1f18a293e228544"
+    }
+  ],
+  "state": "finished",
+  "exit_code": 0,
+  "inputs_unchanged": true
+}

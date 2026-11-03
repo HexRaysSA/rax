@@ -1,0 +1,467 @@
+{
+  "source_sha256": "f16e0da30014c51d37b7164fa2758d690c080ca5de710de0f5b2604067cd70d4",
+  "host": [
+    "Darwin",
+    "ints-macbook-pro-1.mau-ule.ts.net",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64",
+    "arm"
+  ],
+  "builds": [
+    {
+      "arch": "arm64",
+      "argv": [
+        "/usr/bin/xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-arch",
+        "arm64",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/int/.rax-fifo-pub-20261103/.task-evidence/darwin-timed-record-locks-v1/range-errors-probe-v1.c",
+        "-o",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64"
+      ],
+      "image_sha256": "b7cd22f048aa3056dbb1269630733c07559aa030b6ac1a0085bcc94e57c04c4d"
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/usr/bin/xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-arch",
+        "x86_64",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/int/.rax-fifo-pub-20261103/.task-evidence/darwin-timed-record-locks-v1/range-errors-probe-v1.c",
+        "-o",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64"
+      ],
+      "image_sha256": "51eb2d40dc91797d98156e7ce5224c50a82cf89a2f11abbbb01dabb3b0acd36b"
+    }
+  ],
+  "cases": [
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-10-1-9223372036854775807.data",
+        "10",
+        "1",
+        "9223372036854775807"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":1,\"start\":9223372036854775807,\"result\":-1,\"errno\":84,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-10-1--9223372036854775808.data",
+        "10",
+        "1",
+        "-9223372036854775808"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":1,\"start\":-9223372036854775808,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-10-1--17.data",
+        "10",
+        "1",
+        "-17"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":1,\"start\":-17,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-10-1--16.data",
+        "10",
+        "1",
+        "-16"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":1,\"start\":-16,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-10-2-9223372036854775807.data",
+        "10",
+        "2",
+        "9223372036854775807"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":2,\"start\":9223372036854775807,\"result\":-1,\"errno\":84,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-10-2--9223372036854775808.data",
+        "10",
+        "2",
+        "-9223372036854775808"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":2,\"start\":-9223372036854775808,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-10-2--17.data",
+        "10",
+        "2",
+        "-17"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":2,\"start\":-17,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-10-2--16.data",
+        "10",
+        "2",
+        "-16"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":2,\"start\":-16,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-93-1-9223372036854775807.data",
+        "93",
+        "1",
+        "9223372036854775807"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":1,\"start\":9223372036854775807,\"result\":-1,\"errno\":84,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-93-1--9223372036854775808.data",
+        "93",
+        "1",
+        "-9223372036854775808"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":1,\"start\":-9223372036854775808,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-93-1--17.data",
+        "93",
+        "1",
+        "-17"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":1,\"start\":-17,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-93-1--16.data",
+        "93",
+        "1",
+        "-16"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":1,\"start\":-16,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-93-2-9223372036854775807.data",
+        "93",
+        "2",
+        "9223372036854775807"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":2,\"start\":9223372036854775807,\"result\":-1,\"errno\":84,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-93-2--9223372036854775808.data",
+        "93",
+        "2",
+        "-9223372036854775808"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":2,\"start\":-9223372036854775808,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-93-2--17.data",
+        "93",
+        "2",
+        "-17"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":2,\"start\":-17,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-arm64-93-2--16.data",
+        "93",
+        "2",
+        "-16"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":2,\"start\":-16,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-10-1-9223372036854775807.data",
+        "10",
+        "1",
+        "9223372036854775807"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":1,\"start\":9223372036854775807,\"result\":-1,\"errno\":84,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-10-1--9223372036854775808.data",
+        "10",
+        "1",
+        "-9223372036854775808"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":1,\"start\":-9223372036854775808,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-10-1--17.data",
+        "10",
+        "1",
+        "-17"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":1,\"start\":-17,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-10-1--16.data",
+        "10",
+        "1",
+        "-16"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":1,\"start\":-16,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-10-2-9223372036854775807.data",
+        "10",
+        "2",
+        "9223372036854775807"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":2,\"start\":9223372036854775807,\"result\":-1,\"errno\":84,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-10-2--9223372036854775808.data",
+        "10",
+        "2",
+        "-9223372036854775808"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":2,\"start\":-9223372036854775808,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-10-2--17.data",
+        "10",
+        "2",
+        "-17"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":2,\"start\":-17,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-10-2--16.data",
+        "10",
+        "2",
+        "-16"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":2,\"start\":-16,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-93-1-9223372036854775807.data",
+        "93",
+        "1",
+        "9223372036854775807"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":1,\"start\":9223372036854775807,\"result\":-1,\"errno\":84,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-93-1--9223372036854775808.data",
+        "93",
+        "1",
+        "-9223372036854775808"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":1,\"start\":-9223372036854775808,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-93-1--17.data",
+        "93",
+        "1",
+        "-17"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":1,\"start\":-17,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-93-1--16.data",
+        "93",
+        "1",
+        "-16"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":1,\"start\":-16,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-93-2-9223372036854775807.data",
+        "93",
+        "2",
+        "9223372036854775807"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":2,\"start\":9223372036854775807,\"result\":-1,\"errno\":84,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-93-2--9223372036854775808.data",
+        "93",
+        "2",
+        "-9223372036854775808"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":2,\"start\":-9223372036854775808,\"result\":-1,\"errno\":22,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-93-2--17.data",
+        "93",
+        "2",
+        "-17"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":2,\"start\":-17,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/range-errors-x86_64-93-2--16.data",
+        "93",
+        "2",
+        "-16"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":2,\"start\":-16,\"result\":0,\"errno\":0,\"unchanged\":true}\n",
+      "stderr": ""
+    }
+  ]
+}

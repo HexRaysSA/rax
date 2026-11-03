@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "--pull=never",
+    "--network=none",
+    "--platform=linux/amd64",
+    "--user",
+    "501:20",
+    "-v",
+    "/Users/int/.rax-fifo-pub-20261103:/work",
+    "-w",
+    "/work",
+    "--entrypoint",
+    "python3",
+    "sha256:2bd0f059787fbcc378752ea4898b0ddb77c6ccdf240ac3e550f366f3987e7da9",
+    "-c",
+    "from pathlib import Path\nimport ctypes,fcntl,json,os,platform\nroot=Path('/work');d=root/'target/qualified-v1/tmp/timed-lock-pid-oracle-v1';d.mkdir();(d/'.owner').write_text('darwin-timed-record-locks-v1\\n')\nclass Flock(ctypes.Structure):\n _fields_=[('type',ctypes.c_short),('whence',ctypes.c_short),('start',ctypes.c_longlong),('length',ctypes.c_longlong),('pid',ctypes.c_int)]\nlibc=ctypes.CDLL(None,use_errno=True);libc.fcntl.argtypes=[ctypes.c_int,ctypes.c_int];libc.fcntl.restype=ctypes.c_int\npath=d/'native-lock.data';fd=os.open(path,os.O_CREAT|os.O_EXCL|os.O_RDWR,0o600);rows=[]\ntry:\n for pid in [1,0]:\n  lock=Flock(fcntl.F_WRLCK,os.SEEK_SET,0,1,pid);ctypes.set_errno(0);result=libc.fcntl(fd,fcntl.F_OFD_SETLK,ctypes.byref(lock));error=ctypes.get_errno();rows.append({'pid':pid,'result':result,'errno':error})\n assert rows==[{'pid':1,'result':-1,'errno':22},{'pid':0,'result':0,'errno':0}],rows\nfinally:os.close(fd);path.unlink()\nprint(json.dumps({'rows':rows,'struct_bytes':ctypes.sizeof(Flock),'command':fcntl.F_OFD_SETLK,'system':platform.system(),'machine':platform.machine(),'container_architecture':'amd64','docker_daemon_architecture':'aarch64','cpu_execution':'Docker x86-64 translation on AArch64; not physical x86 qualification'}))\n"
+  ],
+  "exit_code": 0,
+  "stdout": "{\"rows\": [{\"pid\": 1, \"result\": -1, \"errno\": 22}, {\"pid\": 0, \"result\": 0, \"errno\": 0}], \"struct_bytes\": 32, \"command\": 37, \"system\": \"Linux\", \"machine\": \"x86_64\", \"container_architecture\": \"amd64\", \"docker_daemon_architecture\": \"aarch64\", \"cpu_execution\": \"Docker x86-64 translation on AArch64; not physical x86 qualification\"}\n",
+  "stderr": ""
+}

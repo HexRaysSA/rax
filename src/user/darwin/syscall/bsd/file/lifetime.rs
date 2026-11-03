@@ -19,6 +19,9 @@ pub(crate) struct Use {
     pub(crate) write: bool,
     /// The bounded vector copied at entry, rather than its mutable user array.
     pub(super) vectors: Option<Vec<(u64, u64)>>,
+    /// Timed record locks retain their copied request and original deadline.
+    #[cfg(unix)]
+    pub(super) lock: Option<super::record_lock::Entered>,
     /// A native named-FIFO read, including its retained completion buffer.
     #[cfg(target_os = "macos")]
     pub(super) read_job: Option<Arc<super::fifo_read::Job>>,
@@ -91,6 +94,8 @@ pub(super) fn parked_write(
         read: false,
         write: true,
         vectors,
+        #[cfg(unix)]
+        lock: None,
         #[cfg(target_os = "macos")]
         read_job: None,
     });
@@ -118,6 +123,8 @@ pub(super) fn parked_read(
         read: true,
         write: false,
         vectors,
+        #[cfg(unix)]
+        lock: None,
         #[cfg(target_os = "macos")]
         read_job: None,
     });
@@ -273,6 +280,8 @@ pub(super) fn replace(
         read: false,
         write: false,
         vectors: None,
+        #[cfg(unix)]
+        lock: None,
         #[cfg(target_os = "macos")]
         read_job: None,
     });
@@ -300,7 +309,10 @@ pub(crate) fn progress(proc: &mut Proc) {
                 let entered = t.file_io.as_ref()?;
                 let pending = t.pending_unix?;
                 let wait = t.wait.as_ref()?;
-                if (!entered.read && !entered.write) || t.exited || pending.completed.is_some() {
+                if (!entered.read && !entered.write && entered.lock.is_none())
+                    || t.exited
+                    || pending.completed.is_some()
+                {
                     return None;
                 }
                 // A caught signal ends an entered kernel I/O wait even when
@@ -308,6 +320,12 @@ pub(crate) fn progress(proc: &mut Proc) {
                 // that this also releases a concurrent close's fileproc drain.
                 if t.woken && wait.interruptible {
                     return Some((wait.seq, t.tid));
+                }
+                if entered.lock.is_some() {
+                    return wait
+                        .deadline
+                        .is_some_and(|deadline| deadline <= crate::host::time::Instant::now())
+                        .then_some((wait.seq, t.tid));
                 }
                 #[cfg(target_os = "macos")]
                 if let Some(job) = &entered.read_job {

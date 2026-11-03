@@ -1,0 +1,274 @@
+[
+  {
+    "input": {
+      "command": 10,
+      "close": false,
+      "mutate": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/lifetime-arm64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/arm64-0.data",
+      "10",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"kind\":\"timed-lock-lifetime\",\"state\":3,\"lock_done_before_unlock\":0,\"close_done_before_unlock\":0,\"flags\":1,\"flags_errno\":0,\"original_fd\":4,\"duplicate_fd\":5,\"lock_result\":0,\"lock_errno\":0,\"close_result\":0,\"close_errno\":0}\n",
+    "stderr": "",
+    "seconds": 0.01574591698590666,
+    "records": [
+      {
+        "kind": "timed-lock-lifetime",
+        "state": 3,
+        "lock_done_before_unlock": 0,
+        "close_done_before_unlock": 0,
+        "flags": 1,
+        "flags_errno": 0,
+        "original_fd": 4,
+        "duplicate_fd": 5,
+        "lock_result": 0,
+        "lock_errno": 0,
+        "close_result": 0,
+        "close_errno": 0
+      }
+    ]
+  },
+  {
+    "input": {
+      "command": 10,
+      "close": false,
+      "mutate": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/lifetime-arm64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/arm64-1.data",
+      "10",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"kind\":\"timed-lock-lifetime\",\"state\":3,\"lock_done_before_unlock\":0,\"close_done_before_unlock\":0,\"flags\":1,\"flags_errno\":0,\"original_fd\":4,\"duplicate_fd\":5,\"lock_result\":0,\"lock_errno\":0,\"close_result\":0,\"close_errno\":0}\n",
+    "stderr": "",
+    "seconds": 0.015298375044949353,
+    "records": [
+      {
+        "kind": "timed-lock-lifetime",
+        "state": 3,
+        "lock_done_before_unlock": 0,
+        "close_done_before_unlock": 0,
+        "flags": 1,
+        "flags_errno": 0,
+        "original_fd": 4,
+        "duplicate_fd": 5,
+        "lock_result": 0,
+        "lock_errno": 0,
+        "close_result": 0,
+        "close_errno": 0
+      }
+    ]
+  },
+  {
+    "input": {
+      "command": 10,
+      "close": true,
+      "mutate": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/lifetime-arm64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/arm64-2.data",
+      "10",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"kind\":\"timed-lock-lifetime\",\"state\":3,\"lock_done_before_unlock\":0,\"close_done_before_unlock\":0,\"flags\":-1,\"flags_errno\":9,\"original_fd\":4,\"duplicate_fd\":5,\"lock_result\":0,\"lock_errno\":0,\"close_result\":0,\"close_errno\":0}\n",
+    "stderr": "",
+    "seconds": 0.01570037507917732,
+    "records": [
+      {
+        "kind": "timed-lock-lifetime",
+        "state": 3,
+        "lock_done_before_unlock": 0,
+        "close_done_before_unlock": 0,
+        "flags": -1,
+        "flags_errno": 9,
+        "original_fd": 4,
+        "duplicate_fd": 5,
+        "lock_result": 0,
+        "lock_errno": 0,
+        "close_result": 0,
+        "close_errno": 0
+      }
+    ]
+  },
+  {
+    "input": {
+      "command": 10,
+      "close": true,
+      "mutate": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/lifetime-arm64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/arm64-3.data",
+      "10",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"kind\":\"timed-lock-lifetime\",\"state\":3,\"lock_done_before_unlock\":0,\"close_done_before_unlock\":0,\"flags\":-1,\"flags_errno\":9,\"original_fd\":4,\"duplicate_fd\":5,\"lock_result\":0,\"lock_errno\":0,\"close_result\":0,\"close_errno\":0}\n",
+    "stderr": "",
+    "seconds": 0.015071499976329505,
+    "records": [
+      {
+        "kind": "timed-lock-lifetime",
+        "state": 3,
+        "lock_done_before_unlock": 0,
+        "close_done_before_unlock": 0,
+        "flags": -1,
+        "flags_errno": 9,
+        "original_fd": 4,
+        "duplicate_fd": 5,
+        "lock_result": 0,
+        "lock_errno": 0,
+        "close_result": 0,
+        "close_errno": 0
+      }
+    ]
+  },
+  {
+    "input": {
+      "command": 93,
+      "close": false,
+      "mutate": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/lifetime-arm64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/arm64-4.data",
+      "93",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"kind\":\"timed-lock-lifetime\",\"state\":3,\"lock_done_before_unlock\":0,\"close_done_before_unlock\":0,\"flags\":1,\"flags_errno\":0,\"original_fd\":4,\"duplicate_fd\":5,\"lock_result\":0,\"lock_errno\":0,\"close_result\":0,\"close_errno\":0}\n",
+    "stderr": "",
+    "seconds": 0.01707279193215072,
+    "records": [
+      {
+        "kind": "timed-lock-lifetime",
+        "state": 3,
+        "lock_done_before_unlock": 0,
+        "close_done_before_unlock": 0,
+        "flags": 1,
+        "flags_errno": 0,
+        "original_fd": 4,
+        "duplicate_fd": 5,
+        "lock_result": 0,
+        "lock_errno": 0,
+        "close_result": 0,
+        "close_errno": 0
+      }
+    ]
+  },
+  {
+    "input": {
+      "command": 93,
+      "close": false,
+      "mutate": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/lifetime-arm64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/arm64-5.data",
+      "93",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"kind\":\"timed-lock-lifetime\",\"state\":3,\"lock_done_before_unlock\":0,\"close_done_before_unlock\":0,\"flags\":1,\"flags_errno\":0,\"original_fd\":4,\"duplicate_fd\":5,\"lock_result\":0,\"lock_errno\":0,\"close_result\":0,\"close_errno\":0}\n",
+    "stderr": "",
+    "seconds": 0.01622954197227955,
+    "records": [
+      {
+        "kind": "timed-lock-lifetime",
+        "state": 3,
+        "lock_done_before_unlock": 0,
+        "close_done_before_unlock": 0,
+        "flags": 1,
+        "flags_errno": 0,
+        "original_fd": 4,
+        "duplicate_fd": 5,
+        "lock_result": 0,
+        "lock_errno": 0,
+        "close_result": 0,
+        "close_errno": 0
+      }
+    ]
+  },
+  {
+    "input": {
+      "command": 93,
+      "close": true,
+      "mutate": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/lifetime-arm64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/arm64-6.data",
+      "93",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"kind\":\"timed-lock-lifetime\",\"state\":3,\"lock_done_before_unlock\":0,\"close_done_before_unlock\":0,\"flags\":-1,\"flags_errno\":9,\"original_fd\":4,\"duplicate_fd\":5,\"lock_result\":0,\"lock_errno\":0,\"close_result\":0,\"close_errno\":0}\n",
+    "stderr": "",
+    "seconds": 0.016556916991248727,
+    "records": [
+      {
+        "kind": "timed-lock-lifetime",
+        "state": 3,
+        "lock_done_before_unlock": 0,
+        "close_done_before_unlock": 0,
+        "flags": -1,
+        "flags_errno": 9,
+        "original_fd": 4,
+        "duplicate_fd": 5,
+        "lock_result": 0,
+        "lock_errno": 0,
+        "close_result": 0,
+        "close_errno": 0
+      }
+    ]
+  },
+  {
+    "input": {
+      "command": 93,
+      "close": true,
+      "mutate": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/lifetime-arm64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/arm64-7.data",
+      "93",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"kind\":\"timed-lock-lifetime\",\"state\":3,\"lock_done_before_unlock\":0,\"close_done_before_unlock\":0,\"flags\":-1,\"flags_errno\":9,\"original_fd\":4,\"duplicate_fd\":5,\"lock_result\":0,\"lock_errno\":0,\"close_result\":0,\"close_errno\":0}\n",
+    "stderr": "",
+    "seconds": 0.01725662499666214,
+    "records": [
+      {
+        "kind": "timed-lock-lifetime",
+        "state": 3,
+        "lock_done_before_unlock": 0,
+        "close_done_before_unlock": 0,
+        "flags": -1,
+        "flags_errno": 9,
+        "original_fd": 4,
+        "duplicate_fd": 5,
+        "lock_result": 0,
+        "lock_errno": 0,
+        "close_result": 0,
+        "close_errno": 0
+      }
+    ]
+  }
+]

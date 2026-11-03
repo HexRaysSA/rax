@@ -1,0 +1,153 @@
+{
+  "source_sha256": "0f3b3e1c643beaefb4729321c5db8f75b83e6bbb4c093f83f538f123f2e742b8",
+  "host": [
+    "Darwin",
+    "ints-macbook-pro-1.mau-ule.ts.net",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64",
+    "arm"
+  ],
+  "builds": [
+    {
+      "arch": "arm64",
+      "argv": [
+        "/usr/bin/xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pthread",
+        "/Users/int/.rax-fifo-pub-20261103/docs/specifications/darwin/native-timed-record-locks/offset-probe-v1.c",
+        "-o",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-arm64"
+      ],
+      "image_sha256": "2385c066ebeaa92b00432e0ccd429c1a5cbca43f51786880df8dcde895ce390b"
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/usr/bin/xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pthread",
+        "/Users/int/.rax-fifo-pub-20261103/docs/specifications/darwin/native-timed-record-locks/offset-probe-v1.c",
+        "-o",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-x86_64"
+      ],
+      "image_sha256": "63e84b5905a5b2dbef95af3cb3da2cdc7b7e8d6d718113a6eef9f886a90de0aa"
+    }
+  ],
+  "cases": [
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-arm64-10-1.data",
+        "10",
+        "1"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":1,\"original_offset\":16,\"changed_offset\":32,\"result\":0,\"errno\":0,\"original_lock_type\":3,\"changed_lock_type\":2,\"entry_state\":3,\"request_start\":0,\"request_whence\":1}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-arm64-10-2.data",
+        "10",
+        "2"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":2,\"original_offset\":64,\"changed_offset\":96,\"result\":0,\"errno\":0,\"original_lock_type\":3,\"changed_lock_type\":2,\"entry_state\":3,\"request_start\":0,\"request_whence\":2}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-arm64-93-1.data",
+        "93",
+        "1"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":1,\"original_offset\":16,\"changed_offset\":32,\"result\":0,\"errno\":0,\"original_lock_type\":3,\"changed_lock_type\":2,\"entry_state\":3,\"request_start\":0,\"request_whence\":1}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "arm64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-arm64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-arm64-93-2.data",
+        "93",
+        "2"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":2,\"original_offset\":64,\"changed_offset\":96,\"result\":0,\"errno\":0,\"original_lock_type\":3,\"changed_lock_type\":2,\"entry_state\":3,\"request_start\":0,\"request_whence\":2}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-x86_64-10-1.data",
+        "10",
+        "1"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":1,\"original_offset\":16,\"changed_offset\":32,\"result\":0,\"errno\":0,\"original_lock_type\":3,\"changed_lock_type\":2,\"entry_state\":3,\"request_start\":0,\"request_whence\":1}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-x86_64-10-2.data",
+        "10",
+        "2"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":10,\"whence\":2,\"original_offset\":64,\"changed_offset\":96,\"result\":0,\"errno\":0,\"original_lock_type\":3,\"changed_lock_type\":2,\"entry_state\":3,\"request_start\":0,\"request_whence\":2}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-x86_64-93-1.data",
+        "93",
+        "1"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":1,\"original_offset\":16,\"changed_offset\":32,\"result\":0,\"errno\":0,\"original_lock_type\":3,\"changed_lock_type\":2,\"entry_state\":3,\"request_start\":0,\"request_whence\":1}\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86_64",
+      "argv": [
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-x86_64",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-timed-record-locks-v1/offset-x86_64-93-2.data",
+        "93",
+        "2"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"command\":93,\"whence\":2,\"original_offset\":64,\"changed_offset\":96,\"result\":0,\"errno\":0,\"original_lock_type\":3,\"changed_lock_type\":2,\"entry_state\":3,\"request_start\":0,\"request_whence\":2}\n",
+      "stderr": ""
+    }
+  ]
+}

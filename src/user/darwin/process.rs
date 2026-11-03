@@ -54,6 +54,8 @@ mod pipe_drain_tests;
 #[cfg(test)]
 mod step_tests;
 mod stepping;
+#[cfg(all(test, unix))]
+mod timed_lock_tests;
 
 /// Instructions per scheduling slice for arm64 threads (x86-64 threads
 /// yield on the core's own ~1 ms timer).

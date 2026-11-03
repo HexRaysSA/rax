@@ -1,0 +1,5514 @@
+[
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-0.data",
+      "10",
+      "-1",
+      "0",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.9320469161029905
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-1.data",
+      "10",
+      "-1",
+      "0",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007483916939236224
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-2.data",
+      "10",
+      "-1",
+      "0",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007141083013266325
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-3.data",
+      "10",
+      "-1",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007887125015258789
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-4.data",
+      "10",
+      "-1",
+      "-1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007713124970905483
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-5.data",
+      "10",
+      "-1",
+      "-1",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007677166955545545
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-6.data",
+      "10",
+      "-1",
+      "-1",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0072695419657975435
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-7.data",
+      "10",
+      "-1",
+      "-1",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008194625028409064
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-8.data",
+      "10",
+      "-1",
+      "1000000",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007552624912932515
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-9.data",
+      "10",
+      "-1",
+      "1000000",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00770483398810029
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-10.data",
+      "10",
+      "-1",
+      "1000000",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007667958037927747
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-11.data",
+      "10",
+      "-1",
+      "1000000",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008204416953958571
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-12.data",
+      "10",
+      "-1",
+      "1000000000",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007737500010989606
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-13.data",
+      "10",
+      "-1",
+      "1000000000",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00765529100317508
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-14.data",
+      "10",
+      "-1",
+      "1000000000",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007616500020958483
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-15.data",
+      "10",
+      "-1",
+      "1000000000",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007176708080805838
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-16.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0073558330768719316
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-17.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00757104204967618
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-18.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007435915991663933
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-19.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.006446667015552521
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-20.data",
+      "10",
+      "0",
+      "-1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007109791971743107
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-21.data",
+      "10",
+      "0",
+      "-1",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007971415994688869
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-22.data",
+      "10",
+      "0",
+      "-1",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007290082983672619
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-23.data",
+      "10",
+      "0",
+      "-1",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0070987079525366426
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-24.data",
+      "10",
+      "0",
+      "1000000",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007458333042450249
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-25.data",
+      "10",
+      "0",
+      "1000000",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007294417009688914
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-26.data",
+      "10",
+      "0",
+      "1000000",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007520082988776267
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-27.data",
+      "10",
+      "0",
+      "1000000",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00849795900285244
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-28.data",
+      "10",
+      "0",
+      "1000000000",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0078073329059407115
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-29.data",
+      "10",
+      "0",
+      "1000000000",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007857999997213483
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-30.data",
+      "10",
+      "0",
+      "1000000000",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007680666982196271
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-31.data",
+      "10",
+      "0",
+      "1000000000",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007620958029292524
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-32.data",
+      "10",
+      "-1",
+      "0",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51010000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06791054108180106
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-33.data",
+      "10",
+      "-1",
+      "0",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06217179202940315
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-34.data",
+      "10",
+      "-1",
+      "0",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50363000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06132741691544652
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-35.data",
+      "10",
+      "-1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 3000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06197058304678649
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-36.data",
+      "10",
+      "-1",
+      "-1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51005000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.061724542058072984
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-37.data",
+      "10",
+      "-1",
+      "-1",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 3000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.061807624995708466
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-38.data",
+      "10",
+      "-1",
+      "-1",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50468000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06111674988642335
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-39.data",
+      "10",
+      "-1",
+      "-1",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06213237496558577
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-40.data",
+      "10",
+      "-1",
+      "1000000",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50400000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06130829092580825
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-41.data",
+      "10",
+      "-1",
+      "1000000",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 4000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06226699997205287
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-42.data",
+      "10",
+      "-1",
+      "1000000",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51015000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.061631749966181815
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-43.data",
+      "10",
+      "-1",
+      "1000000",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06228370906319469
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-44.data",
+      "10",
+      "-1",
+      "1000000000",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 60,
+        "elapsed_ns": 18000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06248666706960648
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-45.data",
+      "10",
+      "-1",
+      "1000000000",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.061893165926449
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-46.data",
+      "10",
+      "-1",
+      "1000000000",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 60,
+        "elapsed_ns": 16000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06278779206331819
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-47.data",
+      "10",
+      "-1",
+      "1000000000",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 4000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06233762495685369
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-48.data",
+      "10",
+      "0",
+      "0",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51010000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06258691707625985
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-49.data",
+      "10",
+      "0",
+      "0",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06467204203363508
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-50.data",
+      "10",
+      "0",
+      "0",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51011000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06319237500429153
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-51.data",
+      "10",
+      "0",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06241208303254098
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-52.data",
+      "10",
+      "0",
+      "-1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51016000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06247016694396734
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-53.data",
+      "10",
+      "0",
+      "-1",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06291879096534103
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-54.data",
+      "10",
+      "0",
+      "-1",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51013000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06273579190019518
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-55.data",
+      "10",
+      "0",
+      "-1",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 4000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06287658389192075
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-56.data",
+      "10",
+      "0",
+      "1000000",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 60,
+        "elapsed_ns": 1136000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06253774999640882
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-57.data",
+      "10",
+      "0",
+      "1000000",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 3000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06251145899295807
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-58.data",
+      "10",
+      "0",
+      "1000000",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 60,
+        "elapsed_ns": 1137000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06255587504711002
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-59.data",
+      "10",
+      "0",
+      "1000000",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 3000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06254620791878551
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-60.data",
+      "10",
+      "0",
+      "1000000000",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50462000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06253795803058892
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-61.data",
+      "10",
+      "0",
+      "1000000000",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06438825000077486
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-62.data",
+      "10",
+      "0",
+      "1000000000",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50476000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.062227334012277424
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-63.data",
+      "10",
+      "0",
+      "1000000000",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 4000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06319533300120384
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-64.data",
+      "93",
+      "-1",
+      "0",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008176165982149541
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-65.data",
+      "93",
+      "-1",
+      "0",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0077517080353572965
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-66.data",
+      "93",
+      "-1",
+      "0",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007946250028908253
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-67.data",
+      "93",
+      "-1",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008154625073075294
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-68.data",
+      "93",
+      "-1",
+      "-1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00830445799510926
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-69.data",
+      "93",
+      "-1",
+      "-1",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007836792035959661
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-70.data",
+      "93",
+      "-1",
+      "-1",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007767417002469301
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-71.data",
+      "93",
+      "-1",
+      "-1",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0073344160337001085
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-72.data",
+      "93",
+      "-1",
+      "1000000",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007446708041243255
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-73.data",
+      "93",
+      "-1",
+      "1000000",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007718333043158054
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-74.data",
+      "93",
+      "-1",
+      "1000000",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0078052920289337635
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-75.data",
+      "93",
+      "-1",
+      "1000000",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00817529100459069
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-76.data",
+      "93",
+      "-1",
+      "1000000000",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008519249968230724
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-77.data",
+      "93",
+      "-1",
+      "1000000000",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007947042002342641
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-78.data",
+      "93",
+      "-1",
+      "1000000000",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007947749923914671
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-79.data",
+      "93",
+      "-1",
+      "1000000000",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008217041962780058
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-80.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008153249975293875
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-81.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007793415919877589
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-82.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007662041927687824
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-83.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00788508402183652
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-84.data",
+      "93",
+      "0",
+      "-1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007847458007745445
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-85.data",
+      "93",
+      "0",
+      "-1",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007484792033210397
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-86.data",
+      "93",
+      "0",
+      "-1",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007212916039861739
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-87.data",
+      "93",
+      "0",
+      "-1",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008337958017364144
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-88.data",
+      "93",
+      "0",
+      "1000000",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007651332998648286
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-89.data",
+      "93",
+      "0",
+      "1000000",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008000749978236854
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-90.data",
+      "93",
+      "0",
+      "1000000",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0078487079590559
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-91.data",
+      "93",
+      "0",
+      "1000000",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00758075003977865
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-92.data",
+      "93",
+      "0",
+      "1000000000",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 3000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008012374979443848
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-93.data",
+      "93",
+      "0",
+      "1000000000",
+      "0",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.009173333062790334
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-94.data",
+      "93",
+      "0",
+      "1000000000",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007981874980032444
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-95.data",
+      "93",
+      "0",
+      "1000000000",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007408207980915904
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-96.data",
+      "93",
+      "-1",
+      "0",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50392000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.061557166976854205
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-97.data",
+      "93",
+      "-1",
+      "0",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 3000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06182116596028209
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-98.data",
+      "93",
+      "-1",
+      "0",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51038000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06214183394331485
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 0,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-99.data",
+      "93",
+      "-1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 3000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.062469500000588596
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-100.data",
+      "93",
+      "-1",
+      "-1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51021000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06392154097557068
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-101.data",
+      "93",
+      "-1",
+      "-1",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06161325005814433
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-102.data",
+      "93",
+      "-1",
+      "-1",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50977000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06745162501465529
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": -1,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-103.data",
+      "93",
+      "-1",
+      "-1",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 3000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.061533749918453395
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-104.data",
+      "93",
+      "-1",
+      "1000000",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50868000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06280866696033627
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-105.data",
+      "93",
+      "-1",
+      "1000000",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06269229191821069
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-106.data",
+      "93",
+      "-1",
+      "1000000",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50771000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0632802500622347
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-107.data",
+      "93",
+      "-1",
+      "1000000",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06233220791909844
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-108.data",
+      "93",
+      "-1",
+      "1000000000",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 60,
+        "elapsed_ns": 24000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06324079202022403
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-109.data",
+      "93",
+      "-1",
+      "1000000000",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06258254102431238
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-110.data",
+      "93",
+      "-1",
+      "1000000000",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 60,
+        "elapsed_ns": 28000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.061995666939765215
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": -1,
+      "nanoseconds": 1000000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-111.data",
+      "93",
+      "-1",
+      "1000000000",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 4000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06303895800374448
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-112.data",
+      "93",
+      "0",
+      "0",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51017000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06276216695550829
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-113.data",
+      "93",
+      "0",
+      "0",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 3000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06289683294016868
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-114.data",
+      "93",
+      "0",
+      "0",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51015000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06250658293720335
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-115.data",
+      "93",
+      "0",
+      "0",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 3000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06286841607652605
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-116.data",
+      "93",
+      "0",
+      "-1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50397000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06202454189769924
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-117.data",
+      "93",
+      "0",
+      "-1",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.062495082966051996
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-118.data",
+      "93",
+      "0",
+      "-1",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50812000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06275095802266151
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": -1,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-119.data",
+      "93",
+      "0",
+      "-1",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06254341697786003
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-120.data",
+      "93",
+      "0",
+      "1000000",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 60,
+        "elapsed_ns": 1135000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06254412501584738
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-121.data",
+      "93",
+      "0",
+      "1000000",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0627282909117639
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-122.data",
+      "93",
+      "0",
+      "1000000",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 60,
+        "elapsed_ns": 1135000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0628830409841612
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-123.data",
+      "93",
+      "0",
+      "1000000",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06314966606441885
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 1,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-124.data",
+      "93",
+      "0",
+      "1000000000",
+      "1",
+      "1",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 50798000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06212579202838242
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 2,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-125.data",
+      "93",
+      "0",
+      "1000000000",
+      "1",
+      "2",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06281020806636661
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-126.data",
+      "93",
+      "0",
+      "1000000000",
+      "1",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 51021000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.0625561251072213
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": true,
+      "seconds": 0,
+      "nanoseconds": 1000000000,
+      "lock_type": 0,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-127.data",
+      "93",
+      "0",
+      "1000000000",
+      "1",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 22,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.06312791700474918
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-128.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008339833002537489
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": true,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-129.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "3",
+      "0",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "confine",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008447542088106275
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-130.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "3",
+      "0",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 9,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008273459039628506
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": true,
+      "bad_fd": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-131.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "3",
+      "0",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "confine",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 9,
+        "elapsed_ns": 0,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007958375033922493
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": true,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-132.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "3",
+      "1",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 14,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008513250038959086
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": true,
+      "confined": true,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-133.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "3",
+      "1",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "confine",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 14,
+        "elapsed_ns": 0,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008056833990849555
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": true,
+      "confined": false,
+      "bad_fd": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-134.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "3",
+      "1",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 9,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008231292013078928
+  },
+  {
+    "input": {
+      "command": 10,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": true,
+      "confined": true,
+      "bad_fd": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-135.data",
+      "10",
+      "0",
+      "0",
+      "0",
+      "3",
+      "1",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "confine",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 9,
+        "elapsed_ns": 0,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008298583095893264
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-136.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "3",
+      "0",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008250833954662085
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": true,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-137.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "3",
+      "0",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "confine",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "timed-lock",
+        "result": 0,
+        "errno": 0,
+        "elapsed_ns": 2000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00785804190672934
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": false,
+      "bad_fd": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-138.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "3",
+      "0",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 9,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.008209999999962747
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": false,
+      "confined": true,
+      "bad_fd": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-139.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "3",
+      "0",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "confine",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 9,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007922541932202876
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": true,
+      "confined": false,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-140.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "3",
+      "1",
+      "0",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 14,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00776187505107373
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": true,
+      "confined": true,
+      "bad_fd": false
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-141.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "3",
+      "1",
+      "1",
+      "0"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "confine",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 14,
+        "elapsed_ns": 0,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.00810462492518127
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": true,
+      "confined": false,
+      "bad_fd": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-142.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "3",
+      "1",
+      "0",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 9,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007957833004184067
+  },
+  {
+    "input": {
+      "command": 93,
+      "conflict": false,
+      "seconds": 0,
+      "nanoseconds": 0,
+      "lock_type": 3,
+      "bad_pointer": true,
+      "confined": true,
+      "bad_fd": true
+    },
+    "argv": [
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/timed-lock-x86_64",
+      "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v13/x86_64-143.data",
+      "93",
+      "0",
+      "0",
+      "0",
+      "3",
+      "1",
+      "1",
+      "1"
+    ],
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "confine",
+        "result": 0,
+        "errno": 0
+      },
+      {
+        "kind": "timed-lock",
+        "result": -1,
+        "errno": 9,
+        "elapsed_ns": 1000,
+        "flock_bytes": 24,
+        "request_bytes": 40,
+        "request_unchanged": true
+      }
+    ],
+    "stderr": "",
+    "seconds": 0.007840541074983776
+  }
+]

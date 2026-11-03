@@ -1,0 +1,62 @@
+{
+  "state": "finished",
+  "source_sha256": {
+    "docs/specifications/darwin/native-guarded-fd/timed-lock-lifetime-probe-v14.c": "031ccf20bcf2c9bf3e4ce5d7110a0a6066cffe4d2383639252b4115e60644db1",
+    "docs/specifications/darwin/native-guarded-fd/timed-lock-probe-v13.c": "38885fbb8c561e1cc9c0975312840d82609f5929e0c5a6368d65bb986a728bab"
+  },
+  "commands": [
+    {
+      "argv": [
+        "/usr/bin/xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-arch",
+        "arm64",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pthread",
+        "/Users/int/.assist-native-local-settings-20261029/docs/specifications/darwin/native-guarded-fd/timed-lock-lifetime-probe-v14.c",
+        "-o",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/lifetime-arm64"
+      ],
+      "image_sha256": "851a809507afbfbf0e7dc07b4c06401207fa37ba541f98a46a382dc53627c5dc"
+    },
+    {
+      "argv": [
+        "/usr/bin/xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pthread",
+        "/Users/int/.assist-native-local-settings-20261029/docs/specifications/darwin/native-guarded-fd/timed-lock-lifetime-probe-v14.c",
+        "-o",
+        "/Users/int/.assist-native-local-settings-20261029/target/native-timed-file-locks-v14/lifetime-x86_64"
+      ],
+      "image_sha256": "834631b4f52db05bcfc7197f6e801693960994e2c67832ad39371a470f1c346d"
+    }
+  ],
+  "observations": {
+    "arm64": {
+      "cases": 8,
+      "sha256": "fd391c59c74b242512ffb7b18a80f430abd28dcc23872f1c4b1d336bb0251a99"
+    },
+    "x86_64": {
+      "cases": 8,
+      "sha256": "3da0a3cfc69a0c5af44b3f30c488aff014fa3bd2b3b05951e62fd44cdd8fd50b"
+    }
+  },
+  "first_attempts": [
+    "clang frontend could not locate errno.h; no native case executed; corrected via Xcode xcrun SDK selection",
+    "thread_info declaration missing; no native case executed; added mach/mach.h"
+  ],
+  "inputs_unchanged": true
+}
