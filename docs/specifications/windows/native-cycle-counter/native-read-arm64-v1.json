@@ -1,0 +1,20 @@
+{
+  "schema": "assist-native-pmu-probe-v27",
+  "native_validation_jobs_restarted": false,
+  "pid": 1932,
+  "creation_filetime": "134381574331069159",
+  "exit_code": 0,
+  "native_machine": "ARM64",
+  "windows_version": [
+    10,
+    0,
+    29698,
+    2,
+    ""
+  ],
+  "image_sha256": "d0cb73246d27431ae082421d79c59ae62d1a1c42dd9f83be5f3a66107245cb89",
+  "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+  "stdout": "{\"kind\":\"host\",\"schema\":\"rax-native-pmccntr-read-v1\",\"pointer_bytes\":8,\"qpc_frequency_hz\":24000000}\r\n{\"kind\":\"sample\",\"index\":0,\"busy\":0,\"status_before\":0,\"status_after\":0,\"counter_before\":440676703313331,\"counter_after\":440676799625862,\"qpc_before\":3305065249773,\"qpc_after\":3305065972234,\"thread_cycles_before\":17416262,\"thread_cycles_after\":17464262}\r\n{\"kind\":\"sample\",\"index\":1,\"busy\":1,\"status_before\":0,\"status_after\":0,\"counter_before\":440676799758796,\"counter_after\":440676800369731,\"qpc_before\":3305065973065,\"qpc_after\":3305065977760,\"thread_cycles_before\":17578928,\"thread_cycles_after\":18196128}\r\n{\"kind\":\"sample\",\"index\":2,\"busy\":0,\"status_before\":0,\"status_after\":0,\"counter_before\":440676800389462,\"counter_after\":440670303895864,\"qpc_before\":3305065977864,\"qpc_after\":3305066813572,\"thread_cycles_before\":18209461,\"thread_cycles_after\":18273595}\r\n{\"kind\":\"sample\",\"index\":3,\"busy\":1,\"status_before\":0,\"status_after\":0,\"counter_before\":440670303972264,\"counter_after\":440670304821730,\"qpc_before\":3305066814012,\"qpc_after\":3305066820488,\"thread_cycles_before\":18314129,\"thread_cycles_after\":19183862}\r\n{\"kind\":\"sample\",\"index\":4,\"busy\":0,\"status_before\":0,\"status_after\":0,\"counter_before\":440670304889999,\"counter_after\":440670368539464,\"qpc_before\":3305066820886,\"qpc_after\":3305067298402,\"thread_cycles_before\":19229595,\"thread_cycles_after\":19288795}\r\n{\"kind\":\"sample\",\"index\":5,\"busy\":1,\"status_before\":0,\"status_after\":0,\"counter_before\":440670368606530,\"counter_after\":440670369756530,\"qpc_before\":3305067298770,\"qpc_after\":3305067307504,\"thread_cycles_before\":19331595,\"thread_cycles_after\":20505328}\r\n{\"kind\":\"sample\",\"index\":6,\"busy\":0,\"status_before\":0,\"status_after\":0,\"counter_before\":440670369813599,\"counter_after\":440670442775730,\"qpc_before\":3305067307820,\"qpc_after\":3305067855155,\"thread_cycles_before\":20536395,\"thread_cycles_after\":20587995}\r\n{\"kind\":\"sample\",\"index\":7,\"busy\":1,\"status_before\":0,\"status_after\":0,\"counter_before\":440670442817999,\"counter_after\":440670442902130,\"qpc_before\":3305067855386,\"qpc_after\":3305067856061,\"thread_cycles_before\":20611595,\"thread_cycles_after\":20701461}\r\n{\"kind\":\"finished\",\"samples\":8}\r\n",
+  "stderr": "",
+  "stdout_sha256": "a92bb91b0f57abb695084bcece36e9d40674d1915f0922b6c412fc63abbc2d6c"
+}

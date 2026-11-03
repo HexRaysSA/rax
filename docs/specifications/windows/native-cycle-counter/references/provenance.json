@@ -1,0 +1,18 @@
+[
+  {
+    "file": "arm64-windows-abi-conventions.md",
+    "url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/docs/build/arm64-windows-abi-conventions.md",
+    "final_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/docs/build/arm64-windows-abi-conventions.md",
+    "bytes": 19102,
+    "sha256": "ca114f82ef8d5eae781896ba95e98b5ccd2105b555360777bb6a491c1eec97aa",
+    "retrieved_utc": "2026-11-03T05:54:10.992411+00:00"
+  },
+  {
+    "file": "MicrosoftDocs-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/LICENSE",
+    "final_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/LICENSE",
+    "bytes": 18653,
+    "sha256": "9bbc1ea9fe5c96df01b311a2ac864d5b18fc87b9948bfd14770e4b44db755ee9",
+    "retrieved_utc": "2026-11-03T05:54:11.421140+00:00"
+  }
+]

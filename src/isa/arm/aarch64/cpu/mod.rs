@@ -90,6 +90,8 @@ mod system_step;
 pub use system::*;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod user_cycle_counter_tests;
 mod user_mode;
 
 // =============================================================================
@@ -322,6 +324,10 @@ pub struct AArch64Cpu {
 
     /// Cycle count.
     cycle_count: u64,
+
+    /// Trusted process-personality read source, not architectural PMU state.
+    /// The argument is this core's modulo-2^64 retired-cycle count.
+    el0_cycle_counter: Option<fn(u64) -> u64>,
 
     /// Portable native continuation and per-instance execution policy.
     execution: native_execution::NativeExecution,
@@ -777,6 +783,7 @@ impl ArmCpu for AArch64Cpu {
 
         self.insn_count = 0;
         self.cycle_count = 0;
+        self.el0_cycle_counter = None;
         self.halted = false;
         self.wfi = false;
         self.wfe = false;

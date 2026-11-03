@@ -24,6 +24,8 @@ use crate::user::image::pe::{
 };
 use crate::user::mm::AddressSpace;
 
+mod cycle_counter;
+
 /// A Windows guest architecture.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum WinArch {
@@ -185,7 +187,11 @@ impl WinCpu {
                 WinCpu::X86(cpu, arch)
             }
             WinArch::X64 => WinCpu::X86(X86UserCpu::new(space), arch),
-            WinArch::Arm64 => WinCpu::Arm64(A64UserCpu::new(space)),
+            WinArch::Arm64 => {
+                let mut cpu = A64UserCpu::new(space);
+                cycle_counter::bind(&mut cpu);
+                WinCpu::Arm64(cpu)
+            }
         }
     }
 
@@ -404,7 +410,11 @@ impl WinCpu {
                 }
                 WinCpu::X86(child, *arch)
             }
-            WinCpu::Arm64(cpu) => WinCpu::Arm64(cpu.clone_thread()),
+            WinCpu::Arm64(cpu) => {
+                let mut child = cpu.clone_thread();
+                cycle_counter::bind(&mut child);
+                WinCpu::Arm64(child)
+            }
         }
     }
 
@@ -490,6 +500,9 @@ mod tests {
     use crate::user::cpu::x86_64::RESERVED_PHYS;
     use crate::user::mm::{Mapping, PAGE_SIZE, Perms, SpaceConfig};
     use crate::user::windows::memory::Mem;
+
+    #[path = "cycle_counter_tests.rs"]
+    mod cycle_counter_tests;
 
     const CODE: u64 = 0x10000;
     const TEB: u64 = 0x20000;

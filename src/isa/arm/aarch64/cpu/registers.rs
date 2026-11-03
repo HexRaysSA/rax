@@ -213,6 +213,15 @@ impl AArch64Cpu {
         if encoding == Aarch64SysRegEncoding::new(3, 4, 14, 0, 3) && self.current_el < 2 {
             return Err(ArmError::InvalidExceptionLevel(self.current_el));
         }
+        // A trusted process personality can provide its kernel's user cycle
+        // counter. This grants only this read; PMU controls and writes retain
+        // their normal checks. Default/full-system CPUs have no such binding.
+        if self.current_el == 0
+            && encoding == Aarch64SysRegEncoding::new(3, 3, 9, 13, 0)
+            && let Some(read) = self.el0_cycle_counter
+        {
+            return Ok(read(self.cycle_count));
+        }
         if self.current_el == 0 && !Self::sysreg_read_allowed_at_el0(encoding) {
             return Err(ArmError::InvalidExceptionLevel(0));
         }

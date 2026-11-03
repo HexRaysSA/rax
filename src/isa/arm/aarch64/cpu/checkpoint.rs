@@ -161,6 +161,7 @@ impl CoreCheckpoint {
             insn_count,
             last_instruction_size,
             cycle_count,
+            el0_cycle_counter,
             halted,
             wfi,
             wfe,
@@ -185,6 +186,13 @@ impl CoreCheckpoint {
             #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
             jit,
         } = cpu;
+        // A process personality owns this host callback and its kernel
+        // contract. The machine snapshot format cannot represent that owner.
+        if el0_cycle_counter.is_some() {
+            return Err(invalid(
+                "process-personality cycle-counter binding is not machine checkpoint state",
+            ));
+        }
         // These fields contain host code, compilation decisions and cache
         // invalidation bookkeeping. Restore reconstructs them cold.
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
@@ -260,6 +268,11 @@ impl CoreCheckpoint {
     }
 
     fn validate(&self, target: &AArch64Cpu) -> Result<(), ArmError> {
+        if target.el0_cycle_counter.is_some() {
+            return Err(invalid(
+                "target has a process-personality cycle-counter binding",
+            ));
+        }
         if self.nzcv > 15
             || self.daif > 15
             || self.btype > 3

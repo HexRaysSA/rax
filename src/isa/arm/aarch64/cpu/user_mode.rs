@@ -12,6 +12,7 @@ impl AArch64Cpu {
     /// Linux `execve` state: NZCV, DAIF, BTYPE, and the single-step,
     /// illegal-state, PAN, UAO, DIT, SSBS, and TCO bits clear.
     pub fn enter_el0(&mut self) {
+        self.el0_cycle_counter = None;
         self.aarch32 = None;
         self.current_el = 0;
         self.sp_sel = false;
@@ -31,6 +32,13 @@ impl AArch64Cpu {
         self.clear_event();
         self.pending_exceptions.clear();
         self.update_mmu_config();
+    }
+
+    /// Bind an OS-owned, read-only PMCCNTR_EL0 source. Ordinary instruction
+    /// execution still owns entry checks, destination handling and retirement.
+    /// Reset and entering a fresh EL0 personality remove this host policy.
+    pub(crate) fn bind_el0_cycle_counter(&mut self, read: fn(u64) -> u64) {
+        self.el0_cycle_counter = Some(read);
     }
 
     /// Sets the top-byte-ignore controls of `TCR_EL1` for the lower

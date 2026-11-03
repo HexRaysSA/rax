@@ -1,0 +1,16 @@
+{
+  "source_sha256": "9c3a332ae632b86600ad96da3b1780b45276d34f28a1ba4e542bf0c0c30669ab",
+  "stdout_sha256": "de9c5f910bba8442b267cf90a79a5266e5d9a03b94bff6a4bccda04d6a7a71a7",
+  "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+  "repo": "C:\\Users\\int\\AppData\\Local\\Temp\\assist-native-rax-current-user-20261103\\public-counter-repo-v1",
+  "subject": "S-1-5-21-432357189-4232641918-3742464398-1000",
+  "pid": 1564,
+  "stderr": "",
+  "image_sha256": "8c04265ea4b70894601cd9e6f4f5c865b60bb60cbfe555416b053971cf506204",
+  "stdout": "\nrunning 6 tests\ntest counter_cases::pmccntr_remains_disabled_in_the_default_os_neutral_arm64_cpu ... ok\ntest counter_cases::windows_pmccntr_does_not_grant_other_pmu_reads_or_writes ... ok\ntest counter_cases::windows_pmccntr_inherits_the_profile_in_new_threads ... ok\ntest counter_cases::windows_pmccntr_matches_a_pinned_native_processor_counter ... native-pmccntr before=0x1a32a88b854b6 actual=0x1a32a88b8dd2c after=0x1a32a88b8f523 group=0 affinity=0x1\nok\ntest counter_cases::windows_pmccntr_read_preserves_an_exclusive_reservation_across_slices ... ok\ntest counter_cases::windows_pmccntr_retires_all_destinations_without_losing_context ... ok\n\ntest result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.63s\n\n",
+  "schema": "assist-native-pmu-probe-v37",
+  "native_validation_jobs_restarted": false,
+  "exit_code": 0,
+  "creation": "134381637450959939",
+  "new_subject_control": true
+}
