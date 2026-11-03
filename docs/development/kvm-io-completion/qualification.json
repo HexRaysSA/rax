@@ -45,7 +45,7 @@
     "corrected_receipt": "mp-corrected.json",
     "probe": "mp-overlay.rs",
     "library_sha256": "30731d1200513f034760e35ea83073da4579d784758849da433c8c8196809123",
-    "counts_note": "Four values in one independent probe, not four harness tests. Registered native unit case remains pending its actual Cargo run."
+    "counts_note": "Four MP values in one independent probe, not four harness tests. The registered native unit case passed in the final canonical16-case selection."
   },
   "assumptions": [
     {
@@ -87,8 +87,7 @@
   ],
   "remaining_required": [
     "Complete native private/shared/in-flight checkpoint producer, coordinated cut/rollback, RAM/controller/clock association and source-free file continuation.",
-    "Actual native1/2/4 VMM AP startup, CPUID/APIC identity/topology, IPI/halt/wakeup and scheduler/kernel state coherence.",
-    "Full current Cargo/owning unit/feature/Clippy/docs qualification and exact-group commit/push after terminal checks; source exports remain frozen while live.",
+    "The subsequent native SMP group qualifies1/2/4 VMM AP startup, legacy CPUID/APIC identity and two IPI/halt/wakeup rounds; topology geometry, clock/replay and complete native state remain required.",
     "Remaining advertised A32/HVF profiles and physical Intel Mac HVF execution."
   ],
   "bounded_findings": [
@@ -144,7 +143,14 @@
     "all14_passed": true,
     "scope": "Final combined IO/SMP source. Scalar A32 block work is separately pending and excluded. Root unit groups are selections; this does not rerun the complete unfiltered library."
   },
-  "publication": "Exact owned-path git add/red, immediate normal master push and remote/blob/signature receipt are recorded at the evidence root after publication.",
+  "publication": {
+    "commit": "7391b87d1007d84c82102b3c70f64055f7adf2e6",
+    "parent": "2ff097bb70cf94a81d4f75fd5fc48c5b35b60dd2",
+    "remote_master": "7391b87d1007d84c82102b3c70f64055f7adf2e6",
+    "signed_commit_verified": true,
+    "all_committed_blobs_match_qualified_io_snapshot": true,
+    "later_smp_and_a32_working_versions_preserved": true
+  },
   "upstream_integration": {
     "utc": "2026-11-03T15:11:18.898206+00:00",
     "old_head": "ff44ff56252b98fd98d5251d2f53976bc2c95b2b",

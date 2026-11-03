@@ -1,0 +1,44 @@
+{
+  "utc": "2026-11-03T14:03:42.372084+00:00",
+  "exit_code": 0,
+  "source_unchanged": true,
+  "base_source_unchanged": true,
+  "library_sha256": "9e266079abc0755ebc0fffef00bb3c48e0f45854a14587f7f94bfcdf585803a8",
+  "results": [
+    {
+      "label": "green-library-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "green-suite-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "green-suite-run-v2",
+      "exit_code": 0,
+      "results": [
+        "test four_native_cpus_start_and_wake_twice_with_distinct_ids ... native_vmm_cpus=4 marker=0x600d600d flags=[a5a55a5a, a5a55a5a, a5a55a5a, a5a55a5a] ipi_counts=[0, 2, 2, 2] cpuid_ids=[0, 1, 2, 3]",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.17s",
+        "test one_native_cpu_executes_the_actual_vmm_boot_control ... native_vmm_cpus=1 marker=0x600d600d flags=[a5a55a5a] ipi_counts=[0] cpuid_ids=[0]",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.19s",
+        "test two_native_cpus_start_and_wake_twice_with_distinct_ids ... native_vmm_cpus=2 marker=0x600d600d flags=[a5a55a5a, a5a55a5a] ipi_counts=[0, 2] cpuid_ids=[0, 1]",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.09s",
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s"
+      ]
+    },
+    {
+      "label": "green-io-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "green-io-run-v2",
+      "exit_code": 0,
+      "results": [
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.24s"
+      ]
+    }
+  ]
+}

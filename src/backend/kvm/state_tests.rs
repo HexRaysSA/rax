@@ -56,6 +56,10 @@ fn cpu() -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
 }
 
 fn cpu_with_irqchip(irqchip: bool) -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
+    cpu_with_irqchip_and_id(irqchip, 0)
+}
+
+fn cpu_with_irqchip_and_id(irqchip: bool, id: u32) -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
     let kvm = Kvm::new().expect("native KVM tests require /dev/kvm");
     let vm = kvm.create_vm().unwrap();
     if irqchip {
@@ -63,7 +67,7 @@ fn cpu_with_irqchip(irqchip: bool) -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
     }
     let memory = GuestMemoryWrapper::new(2 * 1024 * 1024).unwrap();
     memory.register(&vm).unwrap();
-    let vcpu_fd = vm.create_vcpu(0).unwrap();
+    let vcpu_fd = vm.create_vcpu(u64::from(id)).unwrap();
     vcpu_fd
         .set_cpuid2(
             &kvm.get_supported_cpuid(kvm_bindings::KVM_MAX_CPUID_ENTRIES)
@@ -73,10 +77,11 @@ fn cpu_with_irqchip(irqchip: bool) -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
     let memory_owner = Arc::new(MemoryOwner {
         vm_fd: vm,
         registered: Mutex::new(vec![memory.memory().clone()]),
+        irqchip_created: AtomicBool::new(irqchip),
     });
     let cpu = KvmVcpu {
         vcpu_fd,
-        id: 0,
+        id,
         pending_io_in: None,
         io: super::io::State::default(),
         memory_owner: memory_owner.clone(),
@@ -601,4 +606,115 @@ fn inactive_legacy_backing_does_not_override_architectural_initial_state() {
     };
     assert_eq!(state.regs.xmm, [[0; 2]; 16]);
     assert_eq!(state.regs.mm, [0; 8]);
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; executed by the KVM CI job"]
+fn native_init_waits_for_owned_input_completion_before_eligibility_changes() {
+    use crate::vm::vcpu::VcpuExit;
+    use std::time::Duration;
+    use vm_memory::{Bytes, GuestAddress};
+    fn prepare(cpu: &KvmVcpu, pc: u64) {
+        let mut special = cpu.vcpu_fd.get_sregs().unwrap();
+        special.cs.base = 0;
+        special.cs.selector = 0;
+        special.cs.limit = 0xffff;
+        special.cs.db = 0;
+        special.cs.g = 0;
+        special.ds.base = 0;
+        special.ds.selector = 0;
+        // The sender uses 32-bit APIC addresses in real mode (unreal DS).
+        special.ds.limit = u32::MAX;
+        special.ds.db = 1;
+        special.ds.g = 1;
+        cpu.vcpu_fd.set_sregs(&special).unwrap();
+        let mut registers = cpu.vcpu_fd.get_regs().unwrap();
+        registers.rip = pc;
+        registers.rflags = 2;
+        cpu.vcpu_fd.set_regs(&registers).unwrap();
+        cpu.vcpu_fd
+            .set_mp_state(kvm_bindings::kvm_mp_state {
+                mp_state: kvm_bindings::KVM_MP_STATE_RUNNABLE,
+            })
+            .unwrap();
+    }
+    fn exit(cpu: &mut KvmVcpu) -> VcpuExit {
+        for _ in 0..10 {
+            if let Some(exit) = cpu.run_host_slice(Duration::from_millis(100)).unwrap() {
+                return exit;
+            }
+        }
+        panic!("native fixture did not reach its bounded PIO exit");
+    }
+    let (kvm, owner, mut ap) = cpu_with_irqchip_and_id(true, 1);
+    assert_eq!(ap.native_run_eligibility().unwrap(), Some(false));
+    ap._memory
+        .write_slice(&[0xe4, 0x80, 0xf4], GuestAddress(0x1000))
+        .unwrap();
+    prepare(&ap, 0x1000);
+    assert!(matches!(
+        exit(&mut ap),
+        VcpuExit::IoIn {
+            port: 0x80,
+            size: 1
+        }
+    ));
+    // GNU as2.42: enable BSP LAPIC, address AP1, send INIT, then OUT80.
+    let sender_code = [
+        0xfa, 0x66, 0xbf, 0x00, 0x00, 0xe0, 0xfe, 0x67, 0x66, 0xc7, 0x87, 0xf0, 0x00, 0x00, 0x00,
+        0xff, 0x01, 0x00, 0x00, 0x67, 0x66, 0xc7, 0x87, 0x10, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x01, 0x67, 0x66, 0xc7, 0x87, 0x00, 0x03, 0x00, 0x00, 0x00, 0x45, 0x00, 0x00, 0xe6, 0x80,
+        0xf4,
+    ];
+    ap._memory
+        .write_slice(&sender_code, GuestAddress(0x2000))
+        .unwrap();
+    let vcpu_fd = owner.vm_fd.create_vcpu(0).unwrap();
+    vcpu_fd
+        .set_cpuid2(
+            &kvm.get_supported_cpuid(kvm_bindings::KVM_MAX_CPUID_ENTRIES)
+                .unwrap(),
+        )
+        .unwrap();
+    let mut bsp = KvmVcpu {
+        vcpu_fd,
+        id: 0,
+        pending_io_in: None,
+        io: super::io::State::default(),
+        memory_owner: owner,
+        _memory: ap._memory.clone(),
+        state_failure: None,
+    };
+    prepare(&bsp, 0x2000);
+    assert!(matches!(exit(&mut bsp), VcpuExit::IoOut { port: 0x80, .. }));
+    bsp.complete_io_out().unwrap();
+    let before_observation = ap.vcpu_fd.get_regs().unwrap();
+    let _public = ap.get_state().unwrap();
+    assert_eq!(
+        ap.vcpu_fd.get_regs().unwrap(),
+        before_observation,
+        "public observation consumed pending INIT before native input completion"
+    );
+    assert_eq!(ap.native_run_eligibility().unwrap(), None);
+    assert!(ap.io.has_native_completion());
+    ap.complete_io_in(&[0x5a]);
+    ap.io_completion_result().unwrap();
+    assert_eq!(ap.native_run_eligibility().unwrap(), None);
+    for _ in 0..10 {
+        assert!(
+            ap.run_host_slice(Duration::from_millis(100))
+                .unwrap()
+                .is_none()
+        );
+        if !ap.io.has_native_completion() {
+            break;
+        }
+    }
+    assert_eq!(ap.native_run_eligibility().unwrap(), Some(false));
+    assert_eq!(
+        ap.vcpu_fd.get_mp_state().unwrap().mp_state,
+        kvm_bindings::KVM_MP_STATE_INIT_RECEIVED
+    );
+    assert!(!ap.io.has_native_completion());
+    assert!(ap.pending_io_in.is_none());
 }

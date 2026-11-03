@@ -1,0 +1,56 @@
+{
+  "kind": "smp",
+  "exit_code": 0,
+  "utc": "2026-11-03T14:29:14.040808+00:00",
+  "source_unchanged": true,
+  "manifest_sha256": "5fa3f7af7729988a88af846e24d1f25b5301095c26e0bb1e5a9a02482d10a433",
+  "library_sha256": "22f50042b1d144b5bb277a5e59ca32776e2ba668f83a9eab60a78608a6aa5723",
+  "probe_sha256": "a451616248a5600c5133998fda6a9421f761553b56b98991c312e879cf074119",
+  "results": [
+    {
+      "label": "smp-library-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "smp-probe-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "smp-probe-run-v2",
+      "exit_code": 0,
+      "results": [
+        "public_observation_before_rip=0x1000 after_rip=0x1000",
+        "native_input_completed_then_init_wait=true"
+      ]
+    },
+    {
+      "label": "smp-smp-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "smp-smp-run-v2",
+      "exit_code": 0,
+      "results": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.29s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.09s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.14s",
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s"
+      ]
+    },
+    {
+      "label": "smp-io-compile-v2",
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "smp-io-run-v2",
+      "exit_code": 0,
+      "results": [
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.38s"
+      ]
+    }
+  ]
+}

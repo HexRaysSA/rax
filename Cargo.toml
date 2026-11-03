@@ -144,6 +144,10 @@ name = "kvm_host_slices"
 path = "tests/suites/backend/kvm/host_slices.rs"
 
 [[test]]
+name = "kvm_smp"
+path = "tests/suites/backend/kvm/smp.rs"
+
+[[test]]
 name = "microkernel_multiarch"
 path = "tests/suites/machine/microkernel/multiarch.rs"
 

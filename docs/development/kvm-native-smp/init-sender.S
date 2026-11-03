@@ -1,0 +1,9 @@
+.text
+.code16
+cli
+movl $0xfee00000, %edi
+movl $0x1ff, 0xf0(%edi)
+movl $0x01000000, 0x310(%edi)
+movl $0x4500, 0x300(%edi)
+outb %al, $0x80
+hlt

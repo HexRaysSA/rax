@@ -17,6 +17,7 @@ mod checkpoint_backlog_tests;
 mod state_tests;
 
 use std::any::Any;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
@@ -58,6 +59,7 @@ impl Backend for KvmBackend {
             memory: Arc::new(MemoryOwner {
                 vm_fd,
                 registered: Mutex::new(Vec::new()),
+                irqchip_created: AtomicBool::new(false),
             }),
             kvm,
         }))
@@ -75,6 +77,7 @@ pub struct KvmVm {
 struct MemoryOwner {
     vm_fd: VmFd,
     registered: Mutex<Vec<GuestMemoryMmap>>,
+    irqchip_created: AtomicBool,
 }
 
 impl KvmVm {
@@ -116,6 +119,7 @@ impl KvmVm {
     /// Create IRQ chip.
     pub fn create_irq_chip(&self) -> Result<()> {
         self.memory.vm_fd.create_irq_chip()?;
+        self.memory.irqchip_created.store(true, Ordering::Release);
         Ok(())
     }
 
@@ -162,7 +166,15 @@ impl Vm for KvmVm {
         debug!(id, "KvmVm::create_vcpu: vcpu created, getting CPUID");
 
         // Set CPUID for the vCPU
-        let cpuid = self.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?;
+        let mut cpuid = self.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?;
+        for entry in cpuid.as_mut_slice() {
+            (entry.eax, entry.ebx, entry.ecx, entry.edx) =
+                crate::isa::x86_64::identity::project_cpuid(
+                    entry.function,
+                    (entry.eax, entry.ebx, entry.ecx, entry.edx),
+                    id,
+                );
+        }
         debug!(id, "KvmVm::create_vcpu: setting CPUID");
         vcpu_fd.set_cpuid2(&cpuid)?;
         debug!(id, "KvmVm::create_vcpu: done");
@@ -222,6 +234,30 @@ impl KvmVcpu {
 }
 
 impl VCpu for KvmVcpu {
+    fn native_run_eligibility(&mut self) -> Result<Option<bool>> {
+        self.state_ready()?;
+        if !self.memory_owner.irqchip_created.load(Ordering::Acquire)
+            || self.io.has_native_completion()
+        {
+            // GET_MP_STATE accepts pending INIT/SIPI and can reset this CPU.
+            // Complete native instruction emulation before observing those
+            // events; the owned transfer and mapped reply buffer remain live.
+            return Ok(None);
+        }
+        let state = self.vcpu_fd.get_mp_state()?.mp_state;
+        match state {
+            kvm_bindings::KVM_MP_STATE_RUNNABLE
+            | kvm_bindings::KVM_MP_STATE_HALTED
+            | kvm_bindings::KVM_MP_STATE_SIPI_RECEIVED => Ok(Some(true)),
+            kvm_bindings::KVM_MP_STATE_UNINITIALIZED
+            | kvm_bindings::KVM_MP_STATE_INIT_RECEIVED
+            | kvm_bindings::KVM_MP_STATE_AP_RESET_HOLD => Ok(Some(false)),
+            _ => Err(Error::Emulator(format!(
+                "unsupported native x86 MP scheduling state {state}"
+            ))),
+        }
+    }
+
     fn supports_host_slices(&self) -> bool {
         true
     }

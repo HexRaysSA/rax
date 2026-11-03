@@ -1,0 +1,135 @@
+{
+  "status": "component_qualified",
+  "full_goal_complete": false,
+  "utc": "2026-11-03T15:08:57.312407+00:00",
+  "source_sha256": {
+    "Cargo.toml": "c389b60ca6c0c013a1338d258a61a9e9702f3e61df564034d54f86acaa2e0d4b",
+    "src/backend/kvm/mod.rs": "e8e557c9b69c41ced465c1940428932644760ea8a5c90fc9a1fc6647d73ae2ab",
+    "src/backend/kvm/state_tests.rs": "aa232d0d93bf1dfc1eba31361c20edd8f9f351fdfd0d85e0d9daac38092867b0",
+    "src/vm/vcpu/mod.rs": "76e1c78e4c8ef7e3d58ba6b337e36150392392525ac1fd30aca71d7ebffbff4a",
+    "src/vm/runtime/coordinator.rs": "3e17f2224628ce57a7c2b7af6066982856c2e46041ef860fbb49bac25139cb0f",
+    "tests/suites/backend/kvm/smp.rs": "80fb0f173b7ed6505ec2de2a41d9f5a77e0a01cb611545fdea20652611a82114",
+    ".github/workflows/kvm.yml": "2f2a05f86f6aedf3ad756e256bfbc0a140b9b3cf1ec7cd7fccd89c78f9efced1",
+    "tests/README.md": "8c5a4bddd662fe249a953cac1f146dbbadc2e9b95d04917c67c8b3da87fed238"
+  },
+  "evidence_root": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-smp-v1",
+  "baseline_startup": {
+    "receipt": "baseline-startup.json",
+    "passed": 1,
+    "failed": 2,
+    "ignored": 0,
+    "filtered": 0,
+    "actual_vmm": "Only CPU0 set its RAM flag in the2/4 CPU native guest; bounded BSP wait reached0xbad0bad0."
+  },
+  "baseline_identity": {
+    "receipt": "baseline-identity.json",
+    "passed": 1,
+    "failed": 2,
+    "ignored": 0,
+    "filtered": 0,
+    "actual_vmm": "After scheduler bridge, all APs started and handled two fixed IPIs;2/4 guests still failed because every CPUID initial APIC ID was7 on this observed run."
+  },
+  "production": {
+    "receipt": "production-native.json",
+    "library_sha256": "9e266079abc0755ebc0fffef00bb3c48e0f45854a14587f7f94bfcdf585803a8",
+    "whole_smp_target": {
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "whole_io_target": {
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "actual_vmm": "All1/2/4 native CPUs execute fresh startup work; all APs receive and EOI two fixed IPIs around HLT; legacy CPUID IDs equal executing kernel LAPIC IDs0..N-1."
+  },
+  "assumptions": [
+    {
+      "id": "N1",
+      "assumption": "With an in-kernel IRQchip, kernel MP state owns native startup eligibility.",
+      "basis": "KVM API4.38 and Linux6.8 GET_MP_STATE processing of pending APIC events.",
+      "dependent_result": "The coordinator observes all CPUs, defers UNINITIALIZED/INIT/AP_RESET_HOLD and allows RUNNABLE/SIPI/HALTED finite entry.",
+      "stress_test": "Actual cold1/2/4 Vmm.run INIT/SIPI guest, fresh per-CPU RAM flags and two fixed IPI/EOI/HLT rounds.",
+      "falsification_probe": "An AP executes before startup, remains unscheduled after SIPI, or fails either native interrupt round.",
+      "status": "Actual whole native target passed3 cases; inactive startup state also covered by the pending INIT unit case."
+    },
+    {
+      "id": "N2",
+      "assumption": "GET_MP_STATE may process INIT and reset native instruction emulation, so eligibility observation must wait for pending native IO completion.",
+      "basis": "Linux6.8 GET_MP_STATE calls kvm_apic_accept_events; KVM API5 requires subsequent KVM_RUN for IO completion.",
+      "dependent_result": "Polling preserves coordinator state and the owned transfer while native completion is pending.",
+      "stress_test": "Registered actual two-CPU INIT sender while AP input is unresolved and after accepting its exact reply.",
+      "falsification_probe": "Polling consumes INIT or clears pending IO before the kernel completion entry.",
+      "status": "Exact production observation probe and expanded canonical native16case selection passed; IO8,port3,XSAVE15,coordinator20,nativeSMP3,nativeIO10,minimal2,workflow12 also passed."
+    },
+    {
+      "id": "N3",
+      "assumption": "Native CPUID initial APIC identity must match the created native CPU.",
+      "basis": "Intel SDM CPUID leaf1/B/1F identity fields and per-CPU kernel LAPIC IDs.",
+      "dependent_result": "Use shared identity projection before SET_CPUID2; preserve other host profile fields.",
+      "stress_test": "Actual guest CPUID1 reads on every CPU, compared with fresh native LAPIC-addressed work and distinct per-CPU RAM slots.",
+      "falsification_probe": "Any CPU reports another CPU or physical-host APIC identity.",
+      "status": "Observed7/7 and7/7/7/7 baseline; corrected0/1 and0/1/2/3 passed. Host leafB has zero logical-count subleaf and leaf1F is absent, so valid populated topology levels remain unqualified."
+    }
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "Host topology counts/cache sharing and AMD extended topology fields are preserved, not yet reconciled with configured virtual CPU geometry.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "No complete native CPU/shared/in-flight checkpoint producer, coordinated native timer/IRQ/RAM cut, common clock rebase, source-free native file continuation or replay proof yet.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "finding": "Physical Intel Mac HVF execution and remaining A32/HVF profiles remain open.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "finding": "MP polling is O(N) per scheduler turn and native entry uses finite host intervals; no hard real-time latency or throughput claim.",
+      "blocks_component": false
+    }
+  ],
+  "remaining_required": [
+    "Commit only exact owned group after terminal qualification, run authorized red and immediately push master; preserve other pending work.",
+    "Reconcile native virtual topology/count/cache/extended-leaf geometry, then complete native checkpoint/clock/replay scope.",
+    "Remove owned native build root only after all its compilers/tests are terminal."
+  ],
+  "required_io_state_sha256": "0a26a359dc5ef32bed4e5ed92411d69bf0b62a8fa8dbdff55a323269cf300680",
+  "public_observation": {
+    "baseline": "public-observation-baseline.json",
+    "corrected": "public-observation-corrected.json",
+    "probe": "public-observation.rs",
+    "library_sha256": "22f50042b1d144b5bb277a5e59ca32776e2ba668f83a9eab60a78608a6aa5723",
+    "source_manifest_sha256": "5fa3f7af7729988a88af846e24d1f25b5301095c26e0bb1e5a9a02482d10a433",
+    "counts": "Whole nativeSMP3 and nativeIO10 passed again,0fail/ignore/filter; public observation keeps RIP1000 and input completes before INIT wait."
+  },
+  "cargo": {
+    "state": "all14 passed",
+    "driver": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-smp-v1/cargo-gates-v2.py",
+    "manifest": "inputs-observation-v2.json",
+    "scope": "Final IO/SMP source; separately pending scalar A32 block changes are excluded."
+  },
+  "final_combined_cargo": {
+    "receipt": "final-gates.json",
+    "all14_passed": true,
+    "scope": "Final combined IO/SMP source. Scalar A32 block work is separately pending and excluded. Root unit groups are selections; this does not rerun the complete unfiltered library."
+  },
+  "publication": "Exact owned-path git add/red, immediate normal master push and remote/blob/signature receipt are recorded at the evidence root after publication.",
+  "upstream_integration": {
+    "utc": "2026-11-03T15:11:18.898206+00:00",
+    "old_head": "ff44ff56252b98fd98d5251d2f53976bc2c95b2b",
+    "new_head": "ffff9f71ae629410f4093bb814a6a7a89f6bf210",
+    "method": "fast-forward only; no merge commit",
+    "dirty_tracked_preserved": true,
+    "upstream_scope": "Independent Darwin timed record-lock implementation and native Windows CAPI receipts; not qualified by the already-frozen native IO/SMP gates."
+  },
+  "native_unit": "Complete expanded actual native16-case selection passed under canonical Cargo, including pending INIT/public observation/input completion."
+}

@@ -77,6 +77,9 @@ jobs:
       - name: Native finite entry, signal ownership, and PIO/MMIO continuation
         run: cargo test --features x86_64-suite --test kvm_host_slices -- --include-ignored --test-threads=1 --nocapture
 
+      - name: Native secondary startup, fixed IPIs, halt/wakeup, and CPU identities
+        run: cargo test --features x86_64-suite --test kvm_smp -- --include-ignored --test-threads=1 --nocapture
+
       - name: cargo build --release (default features, fat LTO)
         run: cargo build --release
 

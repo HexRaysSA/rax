@@ -1,0 +1,304 @@
+{
+  "scope": "Final combined IO/SMP source. Scalar A32 block work is separately pending and excluded. Root unit groups are selections; this does not rerun the complete unfiltered library.",
+  "gates": {
+    "smp-fmt-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:27:53.570275+00:00",
+      "results": []
+    },
+    "smp-clippy-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:34:31.126665+00:00",
+      "results": []
+    },
+    "smp-build-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:50:21.829954+00:00",
+      "results": []
+    },
+    "smp-no-jit-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,kvm"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:53:52.693086+00:00",
+      "results": []
+    },
+    "smp-doc-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:54:15.353702+00:00",
+      "results": [
+        "test result: ok. 0 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "smp-public-state-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::state_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:54:22.261201+00:00",
+      "results": [
+        "test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 13158 filtered out; finished in 0.30s"
+      ]
+    },
+    "smp-io-unit-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::io::tests::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:54:29.410398+00:00",
+      "results": [
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 13166 filtered out; finished in 0.00s"
+      ]
+    },
+    "smp-port-unit-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "vm::runtime::port_io::tests::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:54:36.028336+00:00",
+      "results": [
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 13171 filtered out; finished in 0.00s"
+      ]
+    },
+    "smp-xsave-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::intel_hvf_xsave::tests::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T14:54:42.572312+00:00",
+      "results": [
+        "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 13159 filtered out; finished in 0.00s"
+      ]
+    },
+    "smp-coordinator-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "vm::runtime::execution_tests::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:01:06.930734+00:00",
+      "results": [
+        "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 13154 filtered out; finished in 377.54s"
+      ]
+    },
+    "smp-native-owning-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "x86_64-suite",
+        "--test",
+        "kvm_smp",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:05:28.360621+00:00",
+      "results": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.24s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.07s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.12s",
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s"
+      ]
+    },
+    "smp-native-io-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "x86_64-suite",
+        "--test",
+        "kvm_host_slices",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:05:50.051199+00:00",
+      "results": [
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.89s"
+      ]
+    },
+    "smp-minimal-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "x86_64-suite",
+        "--test",
+        "kvm_minimal",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:05:56.943735+00:00",
+      "results": [
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s"
+      ]
+    },
+    "smp-workflow-v2": {
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "ci_actions_pinned",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "utc": "2026-11-03T15:06:03.518471+00:00",
+      "results": [
+        "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s"
+      ]
+    }
+  },
+  "selected_counts": {
+    "smp-public-state-v2": 16,
+    "smp-io-unit-v2": 8,
+    "smp-port-unit-v2": 3,
+    "smp-xsave-v2": 15,
+    "smp-coordinator-v2": 20,
+    "smp-native-owning-v2": 3,
+    "smp-native-io-v2": 10,
+    "smp-minimal-v2": 2,
+    "smp-workflow-v2": 12
+  },
+  "doctests": "2 compile-fail pass;5 pre-existing examples ignored",
+  "all14_passed": true
+}

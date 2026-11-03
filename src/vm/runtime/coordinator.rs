@@ -219,6 +219,11 @@ impl Vmm {
         if self.checkpoint_config.arch != ArchKind::X86_64 {
             return Ok(());
         }
+        for (index, cpu) in self.vcpus.iter_mut().enumerate() {
+            if let Some(eligible) = cpu.native_run_eligibility()? {
+                self.coordinator.online[index] = eligible;
+            }
+        }
         for source in 0..self.local_apics.len() {
             loop {
                 let request = self.local_apics[source]

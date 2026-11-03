@@ -70,7 +70,7 @@ writes require preservation of native halted/startup state.
 implement the complete backend checkpoint producer or native AP startup. It
 does not establish physical Intel HVF behavior. Those remain high-impact full
 goal requirements; no guard or retained frame is counted as their completion.
-Broader current-source Cargo/unit/feature/lint/doc gates remain pending.
+The final combined IO/SMP Cargo/unit/feature/lint/doc gates passed below.
 
 Direct embedding clients must acknowledge output after successful dispatch and
 check input completion status before further execution. Those operations are the
@@ -88,8 +88,8 @@ backup rejects before any native setter.
 The exact paired corrected probe keeps RIP0x1000, then completes input before
 entering native INIT wait. All four MP values and the whole ten-case native IO
 target pass again. The earlier eleven Cargo gates passed before this correction
-and are retained as historical receipts. Final combined IO/SMP Cargo checks are
-running; no all-current-source qualification is claimed before they finish.
+and are retained as historical receipts. Final combined IO/SMP Cargo checks
+passed with the public-observation correction, as recorded below.
 
 Final combined IO/SMP qualification passed all14 gates. The actual expanded native
 public-state selection passes16 cases; IO8, port3, XSAVE15, coordinator20, native

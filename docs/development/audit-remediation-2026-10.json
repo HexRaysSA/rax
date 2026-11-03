@@ -2800,7 +2800,8 @@
         "docs/development/riscv-vmm-startup/README.md",
         "docs/development/riscv-vmm-startup/qualification.json",
         "src/vm/runtime/riscv_startup_tests.rs",
-        "docs/development/kvm-io-completion/qualification.json"
+        "docs/development/kvm-io-completion/qualification.json",
+        "docs/development/kvm-native-smp/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2857,7 +2858,8 @@
         "Classic SPI discovery and IROUTER word/full-width mapping, fixed-ARE legacy register readback, guest PSCI secondary startup and actual1/2/4-PE top-SPI source-free file continuations are locally qualified in a64-gic-discovery-routing/qualification.json. Complete original backend/private/in-flight, native startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
         "Shared physical LR/SC direct/native/process/GSC writers, validity encoding, stopped RAM publication and C API retained-backing reconstruction are locally qualified in riscv-shared-reservations/qualification.json. Shared AMO/Zacas transactions, mandatory CAS write admission and RV32 pair/admission are now locally qualified in riscv-shared-atomics/qualification.json; remaining full backend/platform/native requirements stay open.",
         "Generic RV64 all-hart VMM startup, exact ELF entry/BSS/segment admission and actual source-free one/two/four-hart continuation are locally qualified in riscv-vmm-startup/qualification.json. A common-byte CLINT IPI probe passes QEMU and fails both actual RAX two/four-hart runs. CLINT/PLIC/common-clock/SBI/platform replay and remaining full backend/private/in-flight/native requirements remain open; no original finding closure.",
-        "Generic RV64 classic CLINT source registers, owned time, all-hart interrupt work and complete coordinated source-free files are locally qualified in docs/development/riscv-clint/qualification.json. All original other profiles/backend/device/startup/IRQ/clock/replay and physical Intel requirements remain open."
+        "Generic RV64 classic CLINT source registers, owned time, all-hart interrupt work and complete coordinated source-free files are locally qualified in docs/development/riscv-clint/qualification.json. All original other profiles/backend/device/startup/IRQ/clock/replay and physical Intel requirements remain open.",
+        "Native1/2/4 Vmm.run startup, two AP fixed-IPI/EOI/HLT rounds, legacy CPUID identity and pending INIT/input/public-observation ordering are component-qualified in kvm-native-smp/qualification.json. Full topology geometry, complete native/shared/in-flight checkpoint production, clocks/replay and physical Intel remain open; no original finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2939,7 +2941,8 @@
           "scope": "Native KVM public register banks, retained APIC/event/XSAVE fields, rollback and managed VM/RAM lifetime; SREGS2 preserves cached PAE pointers while intentional CR3 changes reload the new table. This is a prerequisite for the complete private/shared/in-flight producer.",
           "qualification": "docs/development/kvm-public-state/qualification.json"
         },
-        "kvm-owned-io-and-mp-preservation-2026-11-03"
+        "kvm-owned-io-and-mp-preservation-2026-11-03",
+        "kvm-native-startup-eligibility-and-identities-2026-11-03"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json."
     },
@@ -3630,7 +3633,8 @@
         "docs/development/riscv-vmm-startup/README.md",
         "docs/development/riscv-vmm-startup/qualification.json",
         "src/vm/runtime/riscv_startup_tests.rs",
-        "docs/development/kvm-io-completion/qualification.json"
+        "docs/development/kvm-io-completion/qualification.json",
+        "docs/development/kvm-native-smp/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3677,7 +3681,8 @@
         "Classic SPI discovery and IROUTER word/full-width mapping, fixed-ARE legacy register readback, guest PSCI secondary startup and actual1/2/4-PE top-SPI source-free file continuations are locally qualified in a64-gic-discovery-routing/qualification.json. Complete original backend/private/in-flight, native startup/IRQ/clock/replay and physical Intel requirements remain open; no full finding closure.",
         "Shared physical LR/SC direct/native/process/GSC writers, validity encoding, stopped RAM publication and C API retained-backing reconstruction are locally qualified in riscv-shared-reservations/qualification.json. Shared AMO/Zacas transactions, mandatory CAS write admission and RV32 pair/admission are now locally qualified in riscv-shared-atomics/qualification.json; remaining full backend/platform/native requirements stay open.",
         "Generic RV64 all-hart VMM startup, exact ELF entry/BSS/segment admission and actual source-free one/two/four-hart continuation are locally qualified in riscv-vmm-startup/qualification.json. A common-byte CLINT IPI probe passes QEMU and fails both actual RAX two/four-hart runs. CLINT/PLIC/common-clock/SBI/platform replay and remaining full backend/private/in-flight/native requirements remain open; no original finding closure.",
-        "Generic RV64 classic CLINT source registers, owned time, all-hart interrupt work and complete coordinated source-free files are locally qualified in docs/development/riscv-clint/qualification.json. All original other profiles/backend/device/startup/IRQ/clock/replay and physical Intel requirements remain open."
+        "Generic RV64 classic CLINT source registers, owned time, all-hart interrupt work and complete coordinated source-free files are locally qualified in docs/development/riscv-clint/qualification.json. All original other profiles/backend/device/startup/IRQ/clock/replay and physical Intel requirements remain open.",
+        "Native1/2/4 Vmm.run startup, two AP fixed-IPI/EOI/HLT rounds, legacy CPUID identity and pending INIT/input/public-observation ordering are component-qualified in kvm-native-smp/qualification.json. Full topology geometry, complete native/shared/in-flight checkpoint production, clocks/replay and physical Intel remain open; no original finding closure."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3735,7 +3740,8 @@
         "riscv-shared-reservations-2026-11-03",
         "riscv-shared-atomics-2026-11-03",
         "riscv-shared-clint-2026-11-03",
-        "kvm-owned-io-and-mp-preservation-2026-11-03"
+        "kvm-owned-io-and-mp-preservation-2026-11-03",
+        "kvm-native-startup-eligibility-and-identities-2026-11-03"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open."
     },
@@ -198765,5 +198771,8 @@
     },
     "actual_merge_commit": "08995784b69b7f7847d27fe5383bf3be8741ae53",
     "red_execution": "Exact full-path calls rejected by providers;16-path semantic retry committed all837 staged paths and both parents. No manual Git commit."
-  }
+  },
+  "remediation_components": [
+    "kvm-native-startup-eligibility-and-identities-2026-11-03"
+  ]
 }

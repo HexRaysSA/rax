@@ -86,6 +86,16 @@ pub trait VCpu: Send {
         false
     }
 
+    /// Refresh scheduling eligibility owned by a native interrupt controller.
+    /// `Some(false)` waits for native startup; `Some(true)` permits finite host
+    /// entry, including a halted CPU which can wake on a native interrupt.
+    /// `None` preserves coordinator ownership or defers observation until a
+    /// pending native I/O completion has been drained. Implementations may
+    /// process pending controller events, so this requires exclusive CPU access.
+    fn native_run_eligibility(&mut self) -> Result<Option<bool>> {
+        Ok(None)
+    }
+
     /// Use a finite native-entry deadline for a positive host scheduling interval.
     /// `None` yields to the scheduler without fabricating a guest exit or an
     /// instruction-retirement count. Actual guest exits are returned as `Some`.
