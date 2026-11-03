@@ -364,6 +364,9 @@ fn socketpair_reserves_and_writes_its_descriptors_first() {
 fn unix_names_bind_resolve_and_report() {
     each_abi(|abi| {
         let mut h = Harness::new(abi);
+        // Host-backed processes inherit the launcher's mask; select the
+        // guest mask whose resulting permissions this case asserts below.
+        h.ok(Sysno::Umask, &[0o022]);
         let m = area(&mut h);
         let dir = tmpdir("names", abi);
         chdir(&mut h, &dir, m);
