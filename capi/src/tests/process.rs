@@ -362,18 +362,51 @@ fn process_input_capacity_and_invalid_output_do_not_consume_bytes() {
 
 #[test]
 fn process_supplied_dll_array_loads_real_imports_all_abis() {
-    for arch in ["x86", "x64", "arm64"] {
-        let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../tests/fixtures/user/windows/lifecycle/bin")
-            .join(arch);
-        let exe = std::fs::read(dir.join("startup.exe")).unwrap();
+    struct Fixture {
+        arch: &'static str,
+        exe: &'static [u8],
+        dlls: [&'static [u8]; 3],
+    }
+    macro_rules! fixture {
+        ($arch:literal) => {
+            Fixture {
+                arch: $arch,
+                exe: include_bytes!(concat!(
+                    "../../../tests/fixtures/user/windows/lifecycle/bin/",
+                    $arch,
+                    "/startup.exe"
+                )),
+                dlls: [
+                    include_bytes!(concat!(
+                        "../../../tests/fixtures/user/windows/lifecycle/bin/",
+                        $arch,
+                        "/root.dll"
+                    )),
+                    include_bytes!(concat!(
+                        "../../../tests/fixtures/user/windows/lifecycle/bin/",
+                        $arch,
+                        "/leaf.dll"
+                    )),
+                    include_bytes!(concat!(
+                        "../../../tests/fixtures/user/windows/lifecycle/bin/",
+                        $arch,
+                        "/observer.dll"
+                    )),
+                ],
+            }
+        };
+    }
+    // The cross-built executable must retain the exact corpus without a
+    // runtime dependency on the build host's CARGO_MANIFEST_DIR.
+    for fixture in [fixture!("x86"), fixture!("x64"), fixture!("arm64")] {
+        let Fixture {
+            arch,
+            exe,
+            dlls: data,
+        } = fixture;
         let paths: Vec<_> = ["root.dll", "leaf.dll", "observer.dll"]
             .into_iter()
             .map(|n| format!("C:\\app\\{n}"))
-            .collect();
-        let data: Vec<_> = ["root.dll", "leaf.dll", "observer.dll"]
-            .into_iter()
-            .map(|n| std::fs::read(dir.join(n)).unwrap())
             .collect();
         let images: Vec<_> = paths
             .iter()
@@ -415,17 +448,45 @@ fn process_supplied_dll_array_loads_real_imports_all_abis() {
 
 #[test]
 fn process_captures_real_crt_stdout_and_stderr_after_exit_all_abis() {
-    for arch in ["x86", "x64", "arm64"] {
-        for binding in ["msvcrt", "ucrtbase", "apiset"] {
-            let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../tests/fixtures/user/windows/crt_stdio/bin")
-                .join(arch)
-                .join(binding)
-                .join("streams.exe");
-            let p = open(
-                &std::fs::read(path).unwrap(),
-                r#"{"memory_bytes":67108864,"console_capacity":64}"#,
-            );
+    macro_rules! fixture {
+        ($arch:literal) => {
+            (
+                $arch,
+                [
+                    (
+                        "msvcrt",
+                        include_bytes!(concat!(
+                            "../../../tests/fixtures/user/windows/crt_stdio/bin/",
+                            $arch,
+                            "/msvcrt/streams.exe"
+                        ))
+                        .as_slice(),
+                    ),
+                    (
+                        "ucrtbase",
+                        include_bytes!(concat!(
+                            "../../../tests/fixtures/user/windows/crt_stdio/bin/",
+                            $arch,
+                            "/ucrtbase/streams.exe"
+                        ))
+                        .as_slice(),
+                    ),
+                    (
+                        "apiset",
+                        include_bytes!(concat!(
+                            "../../../tests/fixtures/user/windows/crt_stdio/bin/",
+                            $arch,
+                            "/apiset/streams.exe"
+                        ))
+                        .as_slice(),
+                    ),
+                ],
+            )
+        };
+    }
+    for (arch, bindings) in [fixture!("x86"), fixture!("x64"), fixture!("arm64")] {
+        for (binding, image) in bindings {
+            let p = open(image, r#"{"memory_bytes":67108864,"console_capacity":64}"#);
             let mut result = RaxProcessResult::default();
             assert_eq!(rax_process_run(p.0, 100_000, 0, &mut result), RaxStatus::Ok);
             assert_eq!(

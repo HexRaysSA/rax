@@ -12,6 +12,8 @@ mod replay;
 
 #[path = "wow64_csr_amd64_tests.rs"]
 mod amd64;
+#[path = "wow64_csr_current_session_tests.rs"]
+mod current_session;
 
 #[cfg(all(windows, any(target_arch = "aarch64", target_arch = "x86_64")))]
 #[path = "wow64_csr_leaf_tests.rs"]

@@ -11,7 +11,7 @@ const QOS: [u8; 12] = [0, 0, 0, 0, 2, 0, 0, 0, 1, 1, 0, 0];
 pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) -> ApiResult {
     let metadata = &server.metadata;
     let measured_call = match c.arch() {
-        WinArch::Arm64 => request.secure && metadata.session == 0,
+        WinArch::Arm64 => request.secure,
         WinArch::X64 => !request.secure,
         WinArch::X86 => false,
     };

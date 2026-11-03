@@ -1,0 +1,39 @@
+{
+  "baseline_head": "4b755f2600d5dee4bf6f9acbf0b18ec47b038591",
+  "artifact": {
+    "path": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/windows-counter-native-v1/windows-post-csr-session-context-arm64-v4.exe",
+    "bytes": 7873536,
+    "sha256": "509f47065e76cfcaf45fa652974262ca67975ebf6ebded05040e389c2f774014",
+    "source": "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-csr-session-v1/windows-post-csr-session-context-v4.rs",
+    "source_sha256": "9de01d80384df4b2c66dae3e691c67dc0975c69a36114a90d47e58eb2800b62f",
+    "library_sha256": "0689218931c231071c965f295acbee26fdbb2ac055a3398e7b06eda25fad8088"
+  },
+  "source_frame_sha256": "e5707024e388c087a271b1e212d304ee25026f45d6a00b12b5886b4066f4617c",
+  "owned_sources": {
+    "src/user/windows/object_namespace/csr.rs": "9ef5e6443de152f7c1a3967afab82f42b43f450fda5bfec567fd7258831a05ce",
+    "src/user/windows/object_namespace/installed/csr.rs": "744d0e066415207fce7f80ad3f52ebb066f83635bf8f1891d59ddc2305fd23e3",
+    "src/user/windows/object_namespace/installed/csr/client_data.rs": "a8e656bc4693ab7dcdf1fe379e70292af068d0c4199b34de44e5a7a9c80d1fa2",
+    "src/user/windows/dll/native/secure_connect/csr.rs": "799d8b365baf0b1fb4bb9c1b582a7785616c8d916540fa8aa74851d30f3cc548",
+    "src/user/windows/object_namespace/csr/kernel_profile_tests.rs": "fb2e46dd57bf18cf9b2411e8572ed21234782319e1c94b241fb1ea72dd008b88",
+    "src/user/windows/process/sched/tests/services_tests/secure_connect_csr_tests.rs": "b1582a6f777a056d8c5ab107b729a830e91eacd63d6c3ce281f2f2065f9046ae",
+    "src/user/windows/process/sched/tests/services_tests/secure_connect_csr_leaf_tests.rs": "b448796e4b90b967d7bcce89ac733eb724bd0f7a486c18ab9fa181a2de116cef",
+    "src/user/windows/process/sched/tests/services_tests/secure_connect_csr_session_tests.rs": "1a26cf1b5a22dbac8d98afa859bff06c1b9e32179a5994ed58aed18424bdbfb1",
+    "src/user/windows/dll/native/wow64_csr.rs": "7f1eed627724832534525277ef226a9389dfbf1d4efe1d9e3af00935d71f1605",
+    "src/user/windows/process/sched/tests/services_tests/wow64_csr_tests.rs": "7450a6045ff7bf47ee602e4a95a799cba15d081b625a798d7545821b38b765b7",
+    "src/user/windows/process/sched/tests/services_tests/wow64_csr_current_session_tests.rs": "39232ebe3f53a6253982b3390244dd6cbda49d38a27ea6ba0ceb62e26742e4b9",
+    "docs/specifications/windows/native-arm64-session-csr/README.md": "55253d99a06f6e5b66898e4246c94d4934b815514b25ed2cf65b0823f36912cc",
+    "docs/specifications/windows/native-arm64-session-csr/native-build-v1.json": "a5fc6b58a5a269eef0aa966ca9ed2076f6c70d7b3724b4dd8e37e9bcb2d12539",
+    "docs/specifications/windows/native-arm64-session-csr/native-first-build-v1.json": "7a2541fd823c3a04815e3c4d80070ea40073ba578111498d5f431560eed1e596",
+    "docs/specifications/windows/native-arm64-session-csr/native-first-csr-session-v1.cpp": "8d9fb463dd33618e8e1b2e1f0358d952e604220044f463bee96237c8417bb8d3",
+    "docs/specifications/windows/native-arm64-session-csr/native-first-receipt-v1.json": "f8f0f17f1c12cfe5c060abc3f28e619eab44c4b3a8630ffe3636d1b565697fc8",
+    "docs/specifications/windows/native-arm64-session-csr/native-receipt-v1.json": "5f7f0ebb30237cfd88d00bc3b52936eb367a00c286d75bcec75022634137876b",
+    "docs/specifications/windows/native-arm64-session-csr/native-session-csr-v1.cpp": "610f121d1acfa3da1d84c6a4eedd83c0f060a9cc8894a6760f77536fb08c7117",
+    "docs/specifications/windows/native-arm64-session-csr/native-wow64-build-v1.json": "8df28e0b95a498533934ec0776b5fc07c94917483c5636e77e82781aac5e428b",
+    "docs/specifications/windows/native-arm64-session-csr/native-wow64-child-v1.cpp": "ef16f8b19e715cd4cfe2064f97326e874ff50c0d54be72dec5a511a68084af7c",
+    "docs/specifications/windows/native-arm64-session-csr/native-wow64-first-session-v1.cpp": "ae70cb5b7d99b9ee40870eff11a9fdc51853fe889ce41158f31a2ad0b603afd5",
+    "docs/specifications/windows/native-arm64-session-csr/native-wow64-receipt-v2.json": "63d77b3d70dc2a1fd61fe2e68a028cc42c1bc72d10ae743f58a43b3c1b90594e",
+    "docs/specifications/windows/native-arm64-session-csr/profile-v1.json": "d2f5879403424f4c57ac4e22a8a167170c5d07e16aa35c7623206c35bd6938de",
+    "docs/specifications/windows/native-arm64-session-csr/verify.py": "ce16a09d087597147bfbf28f390fc59c3a7a0724dffb5b12c4d33a8f83959336"
+  },
+  "note": "Host build source/hash manifest; not a native rebuild."
+}

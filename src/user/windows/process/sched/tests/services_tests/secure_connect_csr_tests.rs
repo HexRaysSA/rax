@@ -5,6 +5,8 @@ use crate::user::windows::object_namespace::csr::{CsrMetadata, CsrServer};
 use crate::user::windows::object_namespace::data::{DataRegion, DataSection};
 
 const BASE: u64 = 0x0000_7FF5_F57C_0000;
+#[path = "secure_connect_csr_session_tests.rs"]
+mod current_session;
 #[cfg(all(windows, target_arch = "aarch64"))]
 #[path = "secure_connect_csr_leaf_tests.rs"]
 mod installed_csr;
@@ -63,6 +65,10 @@ fn setup_for_kernel(p: &mut Proc, b: u64, build: u32) -> [u64; 9] {
 }
 
 fn packet(p: &mut Proc, b: u64, section: Option<u32>) -> [u64; 9] {
+    packet_for_session(p, b, section, 0)
+}
+
+fn packet_for_session(p: &mut Proc, b: u64, section: Option<u32>, session: u32) -> [u64; 9] {
     let section = section.unwrap_or_else(|| {
         let backing = Arc::new(SharedObject::anonymous(65536).unwrap());
         let id = p.objects.create(Object::Mapping {
@@ -75,7 +81,12 @@ fn packet(p: &mut Proc, b: u64, section: Option<u32>) -> [u64; 9] {
         let section = p.objects.open_access(id, false, 0xF001F).unwrap();
         section
     });
-    name(p, b + 128, b + 256, "\\Windows\\ApiPort");
+    let port = if session == 0 {
+        "\\Windows\\ApiPort".to_owned()
+    } else {
+        format!("\\Sessions\\{session}\\Windows\\ApiPort")
+    };
+    name(p, b + 128, b + 256, &port);
     p.space
         .wr(b + 512, &[0, 0, 0, 0, 2, 0, 0, 0, 1, 1, 0, 0])
         .unwrap();

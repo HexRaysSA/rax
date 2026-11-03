@@ -1,0 +1,18 @@
+{
+  "source_sha256": "ae70cb5b7d99b9ee40870eff11a9fdc51853fe889ce41158f31a2ad0b603afd5",
+  "stdout": "CREATE status=00000000 state=6 chpe=0\r\nCHILD pid=9248 tid=6240 chpe=0\r\nMODE name=valid derived-child=1 terminate-after-return=70\r\nINSTALLED event=6 base=779E0000 rva=77030 machine=014C ret-bytes=20\r\nENTRY ordinal=0 sp=028FED20 directory=028FED78 server=1 buffer=028FED68 bytes=8 inside=028FED3B\r\nPEB_IDENTITIES status64=00000000 status32=00000000 native=2649000 wow=264A000\r\nSESSION native=1 wow=1 process=1\r\nROOT units=19 hex=5C00530065007300730069006F006E0073005C0031005C00570069006E0064006F0077007300\r\nHANDLE_SNAPSHOT status=00000000 returned=1856 count=46\r\nDATA label=before-buffer address=028FED68 bytes=8 ok=1 got=8 hex=A08B997500000000\r\nDATA label=before-inside address=028FED3B bytes=1 ok=1 got=1 hex=2E\r\nRETURN ordinal=0 status=00000000 sp=028FED38\r\nDATA label=after-buffer address=028FED68 bytes=8 ok=1 got=8 hex=A08B997500000000\r\nDATA label=after-inside address=028FED3B bytes=1 ok=1 got=1 hex=00\r\nHANDLE_SNAPSHOT status=00000000 returned=1896 count=47\r\nHANDLE_NEW value=84 access=001F0001 type-index=48 attributes=00000000 duplicate=1 error=0 query=00000000 bytes=128 type=ALPC Port\r\nHANDLE_DELTA added=1 removed=0\r\nMAPPED_NEW base=2EA0000 allocation=2EA0000 bytes=65536 state=00001000 protect=00000004 type=00040000\r\nMAPPED_NEW base=7FE10000 allocation=7FE10000 bytes=20480 state=00001000 protect=00000002 type=00040000\r\nMAPPED_NEW base=7FE15000 allocation=7FE10000 bytes=1028096 state=00002000 protect=00000000 type=00040000\r\nPEB_CHANGE width=64 offset=138 before=00 after=E1\r\nPEB_CHANGE width=64 offset=139 before=00 after=7F\r\nPEB_CHANGE width=64 offset=152 before=00 after=50\r\nPEB_CHANGE width=64 offset=153 before=00 after=07\r\nPEB_CHANGE width=64 offset=154 before=00 after=E1\r\nPEB_CHANGE width=64 offset=155 before=00 after=7F\r\nPEB_CHANGE width=64 offset=898 before=00 after=06\r\nPEB_CHANGE width=64 offset=899 before=00 after=9C\r\nPEB_CHANGE width=64 offset=900 before=00 after=F5\r\nPEB_CHANGE width=64 offset=901 before=00 after=7F\r\nPEB_CHANGE width=32 offset=78 before=00 after=E1\r\nPEB_CHANGE width=32 offset=79 before=00 after=7F\r\nPEB_CHANGE width=32 offset=84 before=00 after=50\r\nPEB_CHANGE width=32 offset=85 before=00 after=07\r\nPEB_CHANGE width=32 offset=86 before=00 after=E1\r\nPEB_CHANGE width=32 offset=87 before=00 after=7F\r\nPEB_CHANGE width=32 offset=586 before=00 after=06\r\nPEB_CHANGE width=32 offset=587 before=00 after=9C\r\nPEB_CHANGE width=32 offset=588 before=00 after=F5\r\nPEB_CHANGE width=32 offset=589 before=00 after=7F\r\nPEB_DELTA bytes64=2048 bytes32=1280 changed64=10 changed32=10 handles=46:47\r\nDONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70\r\n",
+  "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+  "repo": "C:\\Users\\int\\AppData\\Local\\Temp\\assist-native-rax-current-user-20261103\\csr-wow64-session-repo-v2",
+  "subject": "S-1-5-21-432357189-4232641918-3742464398-1000",
+  "pid": 2164,
+  "stderr": "",
+  "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+  "schema": "assist-native-wow64-session-csr-v1",
+  "native_validation_jobs_restarted": false,
+  "child_image_sha256": "82fd3fb641575ac8d31ad73c362d3e40396665f3fcfd302ada250d36dd2150c6",
+  "stdout_sha256": "656c073664b684845b8f2980346e39813d04a9f14e0440029eaa730bce6b0aa2",
+  "exit_code": 0,
+  "image_sha256": "287e597a21f13afe606521c203ad4a03a8df40c5b1dd10e8cb921b0c7f924681",
+  "creation": "134381778720691031",
+  "new_subject_control": true
+}

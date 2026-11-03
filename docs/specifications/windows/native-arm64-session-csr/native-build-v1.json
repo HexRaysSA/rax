@@ -1,0 +1,48 @@
+{
+  "state": "built",
+  "source": "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-csr-session-v1/native-session-csr-v1.cpp",
+  "source_sha256": "610f121d1acfa3da1d84c6a4eedd83c0f060a9cc8894a6760f77536fb08c7117",
+  "image": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-session-csr-arm64-v1.exe",
+  "commands": [
+    {
+      "argv": [
+        "/Users/int/local/bin/clang-cl",
+        "--target=aarch64-pc-windows-msvc",
+        "/nologo",
+        "/O2",
+        "/W4",
+        "/utf-8",
+        "/MT",
+        "/std:c++17",
+        "/c",
+        "/Fo/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-session-csr-v1.obj",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/crt/include",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/ucrt",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/shared",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/um",
+        "--",
+        "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-csr-session-v1/native-session-csr-v1.cpp"
+      ],
+      "exit_code": 0,
+      "seconds": 0.4726735829608515
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/lld-link",
+        "/subsystem:console",
+        "/machine:arm64",
+        "/out:/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-session-csr-arm64-v1.exe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-session-csr-v1.obj",
+        "kernel32.lib",
+        "advapi32.lib",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/crt/lib/aarch64",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/um/aarch64",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/ucrt/aarch64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.13559499999973923
+    }
+  ],
+  "image_bytes": 131072,
+  "image_sha256": "48613af68a8701598bee1c906a191fc4256261ef8bbf9fd6d2b5546bbafe7d68"
+}

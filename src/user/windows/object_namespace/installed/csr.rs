@@ -98,9 +98,6 @@ pub(super) fn capture(regions: &[DataRegion]) -> io::Result<Option<CsrMetadata>>
     if unsafe { ProcessIdToSessionId(GetCurrentProcessId(), &mut session) } == 0 {
         return Err(io::Error::last_os_error());
     }
-    if session != 0 {
-        return Ok(None);
-    }
     const NTDLL: [u16; 10] = [110, 116, 100, 108, 108, 46, 100, 108, 108, 0];
     // SAFETY: fixed terminated names in the process-lifetime installed NTDLL.
     let module = unsafe { GetModuleHandleW(NTDLL.as_ptr()) };

@@ -96,12 +96,11 @@ fn allocation(base: u64, size: usize) -> io::Result<Arc<DataSection>> {
 }
 
 pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Arc<CsrClientData>> {
-    if metadata.arch != crate::user::windows::arch::WinArch::Arm64 || metadata.session != 0 {
-        return Err(invalid(
-            "CSR client capture requires matched ARM64/session0 profile",
-        ));
+    if metadata.arch != crate::user::windows::arch::WinArch::Arm64 {
+        return Err(invalid("CSR client capture requires matched ARM64 profile"));
     }
-    let mut directory: Vec<_> = "\\Windows".encode_utf16().chain([0]).collect();
+    let mut directory = metadata.directory_path();
+    directory.push(0);
     let mut information = [0u8; INFORMATION_BYTES];
     let mut inside = 0xA5;
     // SAFETY: reached only after the measured current-process build29683/29695/29698,

@@ -1,0 +1,90 @@
+{
+  "assets": {
+    "tests/fixtures/user/windows/lifecycle/bin/x86/startup.exe": {
+      "bytes": 3072,
+      "sha256": "bf839cff3b1e013c308f71a75265cb18d1d8bc15768fd760a7a6c842b5eaf730"
+    },
+    "tests/fixtures/user/windows/lifecycle/bin/x86/root.dll": {
+      "bytes": 3584,
+      "sha256": "865f13d34e595baedd33129c8263869f9c94d4668d33c9de2dfb61e35241f978"
+    },
+    "tests/fixtures/user/windows/lifecycle/bin/x86/leaf.dll": {
+      "bytes": 3072,
+      "sha256": "3db304f747c90d9bfb67b5efdabfbc391eb0fd2521ea0ba4f108432ce81fdbfd"
+    },
+    "tests/fixtures/user/windows/lifecycle/bin/x86/observer.dll": {
+      "bytes": 2560,
+      "sha256": "a62a4fba0fb0df595278bb5dd85c1213e3e8c637313c1ea1072d91dae0b4c8e3"
+    },
+    "tests/fixtures/user/windows/crt_stdio/bin/x86/msvcrt/streams.exe": {
+      "bytes": 3072,
+      "sha256": "202762b628ecaa8bd8c981ed3afe0c6295f8f80131f77c95bd96ca93475dfdaa"
+    },
+    "tests/fixtures/user/windows/crt_stdio/bin/x86/ucrtbase/streams.exe": {
+      "bytes": 3072,
+      "sha256": "7b446a5e161af68f135de4f88baf0d9952ab47c66bcbe9366d2bf00292193edc"
+    },
+    "tests/fixtures/user/windows/crt_stdio/bin/x86/apiset/streams.exe": {
+      "bytes": 3072,
+      "sha256": "b4a14f59b1f4859e97027cfd9a41acc2224083763baf0e7a92a0a26b3cbec5ca"
+    },
+    "tests/fixtures/user/windows/lifecycle/bin/x64/startup.exe": {
+      "bytes": 3072,
+      "sha256": "b22d8ca33dd094fa708a4b23622d9d792d1d217d4f39f5383f03b1eb716eca06"
+    },
+    "tests/fixtures/user/windows/lifecycle/bin/x64/root.dll": {
+      "bytes": 3584,
+      "sha256": "3ea9a627fa48abf66d451f3d2c46df9005f9d4c41fb12a6a2af31e237255db23"
+    },
+    "tests/fixtures/user/windows/lifecycle/bin/x64/leaf.dll": {
+      "bytes": 3584,
+      "sha256": "6e6bbf10f8f5e2eb533eacc420b0bdd3e33b7be7912de324684639a056e48161"
+    },
+    "tests/fixtures/user/windows/lifecycle/bin/x64/observer.dll": {
+      "bytes": 2048,
+      "sha256": "aaaa94d91367909328873b2565de43f06d7c9e9700566781aa645e73bc4f2634"
+    },
+    "tests/fixtures/user/windows/crt_stdio/bin/x64/msvcrt/streams.exe": {
+      "bytes": 3072,
+      "sha256": "f09d8ca9467c5aa0ce6c417422ea0cf63b3c8ee30caba54797f8da90ae8253f7"
+    },
+    "tests/fixtures/user/windows/crt_stdio/bin/x64/ucrtbase/streams.exe": {
+      "bytes": 3072,
+      "sha256": "e23de05c771a44d1b93844fe637369d8b9edc59d4970caff1050520bd22d9d40"
+    },
+    "tests/fixtures/user/windows/crt_stdio/bin/x64/apiset/streams.exe": {
+      "bytes": 3072,
+      "sha256": "5ff5d5bf59c99ee49b4d9f05ddf66425007cedde0ba94671d56367a7f1385f6e"
+    },
+    "tests/fixtures/user/windows/lifecycle/bin/arm64/startup.exe": {
+      "bytes": 3584,
+      "sha256": "b8ef6801eae019076b3dc17ad5c3a098dbe67ce95c2f2ab3e9bea636d57b8550"
+    },
+    "tests/fixtures/user/windows/lifecycle/bin/arm64/root.dll": {
+      "bytes": 3584,
+      "sha256": "eb72516dc1b428c0010e841c646a4ebe701a5565829859ac4fd27ec40b1db965"
+    },
+    "tests/fixtures/user/windows/lifecycle/bin/arm64/leaf.dll": {
+      "bytes": 3584,
+      "sha256": "201991ee7c74171fc7f84654b8a2481d0a6128adb121fa0495deda647f2be2be"
+    },
+    "tests/fixtures/user/windows/lifecycle/bin/arm64/observer.dll": {
+      "bytes": 2048,
+      "sha256": "955895b0d22d2f8653498a1a05544268f7c2eed5ad3f88dde80d4e154f928a80"
+    },
+    "tests/fixtures/user/windows/crt_stdio/bin/arm64/msvcrt/streams.exe": {
+      "bytes": 3072,
+      "sha256": "e7b472b4da760f01762b9d21deb8164f3421964005ff6fefeb96b67b5d4714cd"
+    },
+    "tests/fixtures/user/windows/crt_stdio/bin/arm64/ucrtbase/streams.exe": {
+      "bytes": 3072,
+      "sha256": "e89dad391ff854251c8558490239af7a1496c61d19b5bfb0fd2552739bf0faac"
+    },
+    "tests/fixtures/user/windows/crt_stdio/bin/arm64/apiset/streams.exe": {
+      "bytes": 3072,
+      "sha256": "b1f935443f13729d4c5d299895b4f48cb7e150091fa0bdd762bb9f377fbb9328"
+    }
+  },
+  "count": 21,
+  "test_change": "Embed these exact existing21binaries instead of opening build-host paths. No corpus bytes or status/output assertions changed."
+}

@@ -46,7 +46,6 @@ pub(crate) struct CsrMetadata {
 impl CsrMetadata {
     fn supported(&self) -> bool {
         supports_profile(self.arch, self.kernel.0, self.kernel.1, self.kernel.2)
-            && (self.arch != WinArch::Arm64 || self.session == 0)
     }
 
     fn namespace_session(&self) -> Option<u32> {

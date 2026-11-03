@@ -1,0 +1,49 @@
+{
+  "state": "built",
+  "source": "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-csr-session-v1/native-first-csr-session-v1.cpp",
+  "source_sha256": "8d9fb463dd33618e8e1b2e1f0358d952e604220044f463bee96237c8417bb8d3",
+  "image": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-first-csr-session-arm64-v1.exe",
+  "commands": [
+    {
+      "argv": [
+        "/Users/int/local/bin/clang-cl",
+        "--target=aarch64-pc-windows-msvc",
+        "/nologo",
+        "/O2",
+        "/W4",
+        "/utf-8",
+        "/MT",
+        "/std:c++17",
+        "/c",
+        "/Fo/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-first-csr-session-arm64-v1.obj",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/crt/include",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/ucrt",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/shared",
+        "-imsvc/Users/int/Library/Caches/cargo-xwin/xwin/sdk/include/um",
+        "--",
+        "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-csr-session-v1/native-first-csr-session-v1.cpp"
+      ],
+      "exit_code": 0,
+      "seconds": 0.2515252080047503
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/lld-link",
+        "/subsystem:console",
+        "/machine:arm64",
+        "/out:/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-first-csr-session-arm64-v1.exe",
+        "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-first-csr-session-arm64-v1.obj",
+        "kernel32.lib",
+        "advapi32.lib",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/crt/lib/aarch64",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/um/aarch64",
+        "/libpath:/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/ucrt/aarch64"
+      ],
+      "exit_code": 0,
+      "seconds": 0.017263040994293988
+    }
+  ],
+  "control_note": "Unchanged retained first-startup debugger controller. It observes only its own child, resumes unchanged native calls, and expects the child to exit41 naturally.",
+  "image_bytes": 126464,
+  "image_sha256": "87ff7d03a16c739a272c43cb860340e6124a77199c3f793e5d0b19217c71d3dc"
+}

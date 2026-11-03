@@ -13,8 +13,7 @@ fn native_secure_connect_csr_installed_arm64_success_has_real_section_and_matchi
     config.arena_bytes = 256 << 20;
     let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
     let p = process.state_mut();
-    let path: Vec<_> = "\\Windows\\ApiPort".encode_utf16().collect();
-    let selected = p.object_namespace.csr_server(&path);
+    let selected = p.object_namespace.selected_csr_server();
     if !crate::user::windows::object_namespace::csr::supports_kernel(
         p.cfg.version.major,
         p.cfg.version.minor,
@@ -30,7 +29,9 @@ fn native_secure_connect_csr_installed_arm64_success_has_real_section_and_matchi
         );
         return;
     }
-    let server = selected.expect("measured native ARM64/session0 CSR metadata must be selected");
+    let server =
+        selected.expect("measured native ARM64/current-session CSR metadata must be selected");
+    assert_eq!(p.space.u32(p.peb + 0x2C0).unwrap(), server.metadata.session);
     let tid = *p.threads.keys().next().unwrap();
     let mut thread = p.threads.remove(&tid).unwrap();
     let b = scratch(p, 65536);
@@ -53,7 +54,12 @@ fn native_secure_connect_csr_installed_arm64_success_has_real_section_and_matchi
         STATUS_SUCCESS
     );
     let section = p.space.u64(b + 60000).unwrap();
-    let args = packet(p, b, Some(u32::try_from(section).unwrap()));
+    let args = packet_for_session(
+        p,
+        b,
+        Some(u32::try_from(section).unwrap()),
+        server.metadata.session,
+    );
     assert_eq!(
         leaf(p, &mut thread, "NtSecureConnectPort", &args),
         STATUS_SUCCESS

@@ -76,14 +76,13 @@ fn csr_kernel_profile_selects_independently_captured_29698_metadata_and_geometry
 }
 
 #[test]
-fn csr_kernel_profile_refuses_adjacent_builds_foreign_architecture_and_session() {
+fn csr_kernel_profile_refuses_adjacent_builds_and_foreign_architecture() {
     let (section, metadata) = captured_profile();
     for (major, minor, build, session, arch) in [
         (10, 0, 29697, 0, WinArch::Arm64),
         (10, 0, 29699, 0, WinArch::Arm64),
         (11, 0, 29698, 0, WinArch::Arm64),
         (10, 1, 29698, 0, WinArch::Arm64),
-        (10, 0, 29698, 1, WinArch::Arm64),
         (10, 0, 29698, 0, WinArch::X64),
         (10, 0, 29698, 0, WinArch::X86),
     ] {

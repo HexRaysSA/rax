@@ -1,0 +1,50 @@
+{
+  "state": "built",
+  "source": "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-csr-session-v1/native-wow64-first-session-v1.cpp",
+  "source_sha256": "ae70cb5b7d99b9ee40870eff11a9fdc51853fe889ce41158f31a2ad0b603afd5",
+  "image": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-wow64-first-session-arm64-v1.exe",
+  "source_provenance": "Retained initial-v9 controller plus read-only child session/root observations; pure-x86 child source unchanged.",
+  "sdk_correction": "Cached SDK has onlyARM64/x64 import libraries. Generated one-export x86 import library for standard KERNEL32!ExitProcess; llvm-readobj confirms exact import.",
+  "generated_import_definition": {
+    "path": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/kernel32-exit-x86.def",
+    "sha256": "99457cf64f1eb73fa5a26f92606257c94618d898fa6f41e56d95614138937bfd"
+  },
+  "recovery_commands": [
+    [
+      "/Users/int/local/bin/llvm-dlltool",
+      "-m",
+      "i386",
+      "-k",
+      "-d",
+      "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/kernel32-exit-x86.def",
+      "-l",
+      "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/kernel32-exit-x86.lib"
+    ],
+    [
+      "/Users/int/local/bin/lld-link",
+      "/machine:x86",
+      "/out:/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-wow64-child-x86-v1.exe",
+      "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-wow64-child-x86-v1.obj",
+      "/entry:entry",
+      "/subsystem:console",
+      "/nodefaultlib",
+      "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/kernel32-exit-x86.lib"
+    ]
+  ],
+  "parent": {
+    "path": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-wow64-first-session-arm64-v1.exe",
+    "bytes": 136192,
+    "sha256": "287e597a21f13afe606521c203ad4a03a8df40c5b1dd10e8cb921b0c7f924681",
+    "machine": 43620
+  },
+  "child": {
+    "path": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/native-namespace-access-v1/native-wow64-child-x86-v1.exe",
+    "bytes": 2560,
+    "sha256": "82fd3fb641575ac8d31ad73c362d3e40396665f3fcfd302ada250d36dd2150c6",
+    "machine": 332,
+    "source": "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-csr-session-v1/native-wow64-child-v1.cpp",
+    "source_sha256": "ef16f8b19e715cd4cfe2064f97326e874ff50c0d54be72dec5a511a68084af7c"
+  },
+  "image_bytes": 136192,
+  "image_sha256": "287e597a21f13afe606521c203ad4a03a8df40c5b1dd10e8cb921b0c7f924681"
+}

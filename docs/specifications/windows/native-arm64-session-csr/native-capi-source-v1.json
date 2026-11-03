@@ -1,0 +1,42 @@
+{
+  "baseline_head": "4ddd5ef91c32e7b4d7c75a026f2195c23ba4c5ce",
+  "artifact": {
+    "path": "/Users/int/.rax-fifo-pub-20261103/target/qualified-v1/aarch64-pc-windows-msvc/debug/deps/rax-8d03a81860e9a69e.exe",
+    "bytes": 49195008,
+    "sha256": "348625f437f1bade2b8b6805035c6162b54e3073254a7c95aab6abb6e0f8635b"
+  },
+  "source_frame_sha256": "52c86fe21cef0b92bffa00b4b3639ddda7370d431722e5ba971cb9d94bd86156",
+  "owned_sources": {
+    "src/user/windows/object_namespace/csr.rs": "9ef5e6443de152f7c1a3967afab82f42b43f450fda5bfec567fd7258831a05ce",
+    "src/user/windows/object_namespace/installed/csr.rs": "744d0e066415207fce7f80ad3f52ebb066f83635bf8f1891d59ddc2305fd23e3",
+    "src/user/windows/object_namespace/installed/csr/client_data.rs": "a8e656bc4693ab7dcdf1fe379e70292af068d0c4199b34de44e5a7a9c80d1fa2",
+    "src/user/windows/dll/native/secure_connect/csr.rs": "799d8b365baf0b1fb4bb9c1b582a7785616c8d916540fa8aa74851d30f3cc548",
+    "src/user/windows/object_namespace/csr/kernel_profile_tests.rs": "fb2e46dd57bf18cf9b2411e8572ed21234782319e1c94b241fb1ea72dd008b88",
+    "src/user/windows/process/sched/tests/services_tests/secure_connect_csr_tests.rs": "b1582a6f777a056d8c5ab107b729a830e91eacd63d6c3ce281f2f2065f9046ae",
+    "src/user/windows/process/sched/tests/services_tests/secure_connect_csr_leaf_tests.rs": "b448796e4b90b967d7bcce89ac733eb724bd0f7a486c18ab9fa181a2de116cef",
+    "src/user/windows/process/sched/tests/services_tests/secure_connect_csr_session_tests.rs": "1a26cf1b5a22dbac8d98afa859bff06c1b9e32179a5994ed58aed18424bdbfb1",
+    "src/user/windows/dll/native/wow64_csr.rs": "7f1eed627724832534525277ef226a9389dfbf1d4efe1d9e3af00935d71f1605",
+    "src/user/windows/process/sched/tests/services_tests/wow64_csr_tests.rs": "7450a6045ff7bf47ee602e4a95a799cba15d081b625a798d7545821b38b765b7",
+    "src/user/windows/process/sched/tests/services_tests/wow64_csr_current_session_tests.rs": "39232ebe3f53a6253982b3390244dd6cbda49d38a27ea6ba0ceb62e26742e4b9",
+    "capi/src/tests/process.rs": "c9c526b7536e7a7269f942f47b39717e1d7aef71523acbfea109a5819ff9df63",
+    "docs/specifications/windows/native-arm64-session-csr/README.md": "c0a0065ddf3dc7efc083d8c6520e838307f8aa20df9f6ce51c98fb368bc2a328",
+    "docs/specifications/windows/native-arm64-session-csr/native-build-v1.json": "a5fc6b58a5a269eef0aa966ca9ed2076f6c70d7b3724b4dd8e37e9bcb2d12539",
+    "docs/specifications/windows/native-arm64-session-csr/native-first-build-v1.json": "7a2541fd823c3a04815e3c4d80070ea40073ba578111498d5f431560eed1e596",
+    "docs/specifications/windows/native-arm64-session-csr/native-first-csr-session-v1.cpp": "8d9fb463dd33618e8e1b2e1f0358d952e604220044f463bee96237c8417bb8d3",
+    "docs/specifications/windows/native-arm64-session-csr/native-first-receipt-v1.json": "f8f0f17f1c12cfe5c060abc3f28e619eab44c4b3a8630ffe3636d1b565697fc8",
+    "docs/specifications/windows/native-arm64-session-csr/native-receipt-v1.json": "5f7f0ebb30237cfd88d00bc3b52936eb367a00c286d75bcec75022634137876b",
+    "docs/specifications/windows/native-arm64-session-csr/native-rust-arm64-v1.json": "0415d6d70ce92226be0c4c4e95dd875b5066edd26c8675c4f7325075e1cfc6ec",
+    "docs/specifications/windows/native-arm64-session-csr/native-rust-source-v1.json": "03383af2495a015975a71d831e6e94584fc73c8ff44d4038e356b34cdec7c734",
+    "docs/specifications/windows/native-arm64-session-csr/native-session-csr-v1.cpp": "610f121d1acfa3da1d84c6a4eedd83c0f060a9cc8894a6760f77536fb08c7117",
+    "docs/specifications/windows/native-arm64-session-csr/native-startup-arm64-v1.json": "6aa9d037ba02c6df0358a878b77d2d195c4c9e28b63952e7b86966c864b798b2",
+    "docs/specifications/windows/native-arm64-session-csr/native-startup-source-v1.json": "eb635cdaa88d6340ef75be4c28003075dd15d27e3b2fe2ec81b7a44d68a8e5e5",
+    "docs/specifications/windows/native-arm64-session-csr/native-wow64-build-v1.json": "8df28e0b95a498533934ec0776b5fc07c94917483c5636e77e82781aac5e428b",
+    "docs/specifications/windows/native-arm64-session-csr/native-wow64-child-v1.cpp": "ef16f8b19e715cd4cfe2064f97326e874ff50c0d54be72dec5a511a68084af7c",
+    "docs/specifications/windows/native-arm64-session-csr/native-wow64-first-session-v1.cpp": "ae70cb5b7d99b9ee40870eff11a9fdc51853fe889ce41158f31a2ad0b603afd5",
+    "docs/specifications/windows/native-arm64-session-csr/native-wow64-receipt-v2.json": "63d77b3d70dc2a1fd61fe2e68a028cc42c1bc72d10ae743f58a43b3c1b90594e",
+    "docs/specifications/windows/native-arm64-session-csr/profile-v1.json": "d2f5879403424f4c57ac4e22a8a167170c5d07e16aa35c7623206c35bd6938de",
+    "docs/specifications/windows/native-arm64-session-csr/startup-control.rs": "9de01d80384df4b2c66dae3e691c67dc0975c69a36114a90d47e58eb2800b62f",
+    "docs/specifications/windows/native-arm64-session-csr/verify.py": "61935fcd0e8ecb67505763c7dbb7c803c794f1a6ca06b78800ec0761ac332810"
+  },
+  "note": "Host build source/hash manifest; not a native rebuild."
+}
