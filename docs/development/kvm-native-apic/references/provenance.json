@@ -1,0 +1,20 @@
+{
+  "references": [
+    {
+      "file": "../../kvm-public-state/references/kernel-x86-v6.8.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/x86.c",
+      "bytes": 380072,
+      "sha256": "3898fb303a2a8eb5c8ee9b02d03425dd9ac9475457f22deedbfe2c77081b8498",
+      "retrieved_utc": "2026-11-03T17:39:22.784593+00:00",
+      "scope": "Unmodified primary Linux source; original license notices retained."
+    },
+    {
+      "file": "linux-kvm-lapic-v6.8.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/lapic.c",
+      "bytes": 87849,
+      "sha256": "cbf1b0e870868c8e81b8fc9c6ae242ddf75d2efbddf7cbfe4dc8b17cc535c3e2",
+      "retrieved_utc": "2026-11-03T17:39:23.370746+00:00",
+      "scope": "Unmodified primary Linux source; original license notices retained."
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 
 mod convert;
 mod cpuid;
+mod cpuid_apic;
 mod deadline;
 mod firmware;
 mod io;
@@ -127,6 +128,12 @@ impl KvmVm {
 
     /// Create IRQ chip.
     pub fn create_irq_chip(&self) -> Result<()> {
+        // Match CPU allocation: the kernel controller and its admission flag
+        // must become visible together before any CPU chooses its profile.
+        let _profile = self
+            .profile
+            .lock()
+            .map_err(|_| Error::Emulator("native CPU profile lock poisoned".into()))?;
         self.memory.vm_fd.create_irq_chip()?;
         self.memory.irqchip_created.store(true, Ordering::Release);
         Ok(())
@@ -201,10 +208,15 @@ impl Vm for KvmVm {
             .lock()
             .map_err(|_| Error::Emulator("native CPU profile lock poisoned".into()))?;
         // Validate the complete pure record before consuming a native CPU ID.
-        let cpuid = match profile.count {
+        let mut cpuid = match profile.count {
             Some(count) => cpuid::Topology::new(count)?.project(&self.cpuid, id)?,
             None => cpuid::sdk_profile(&self.cpuid, id)?,
         };
+        cpuid_apic::admit(
+            &mut cpuid,
+            self.memory.irqchip_created.load(Ordering::Acquire),
+            self.kvm.check_extension(kvm_ioctls::Cap::TscDeadlineTimer),
+        );
         debug!(id, "KvmVm::create_vcpu: calling create_vcpu");
         let vcpu_fd = self.memory.vm_fd.create_vcpu(id as u64)?;
         // Native allocation consumes this ID even if subsequent setup fails.

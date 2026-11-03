@@ -1,0 +1,19 @@
+{
+  "utc": "2026-11-03T17:52:04.466255+00:00",
+  "retired_source": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-topology-v1/source",
+  "current_source": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-apic-profile-v1/source",
+  "prior_eighteen_gates_terminal": true,
+  "prior_controller_absent": true,
+  "active_source_references": [],
+  "prior_full_manifest_verified": true,
+  "changed_paths": [
+    "src/backend/kvm/mod.rs",
+    "src/backend/kvm/cpuid.rs",
+    "src/backend/kvm/cpuid_apic.rs",
+    "src/backend/kvm/cpuid_apic_tests.rs",
+    "tests/suites/backend/kvm/smp.rs",
+    "tests/suites/backend/kvm/smp/timers.rs",
+    "tests/suites/backend/kvm/smp/apic_profile.rs"
+  ],
+  "method": "Move the completed topology export, then atomically replace only changed owned source files. No second full export or Git worktree."
+}

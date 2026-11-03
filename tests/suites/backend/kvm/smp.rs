@@ -7,10 +7,14 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 
+#[path = "smp/apic_profile.rs"]
+mod apic_profile;
 #[path = "smp/discovery.rs"]
 mod discovery;
 #[path = "smp/pit_speaker.rs"]
 mod pit_speaker;
+#[path = "smp/timers.rs"]
+mod timers;
 #[path = "smp/topology.rs"]
 mod topology;
 

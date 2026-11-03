@@ -8,7 +8,7 @@ pub(super) struct Configuration {
     pub(super) created: bool,
 }
 
-fn has_kvm_signature(entries: &[kvm_cpuid_entry2]) -> bool {
+pub(super) fn has_kvm_signature(entries: &[kvm_cpuid_entry2]) -> bool {
     entries.iter().any(|entry| {
         entry.function == 0x4000_0000
             && (entry.eax == 0 || entry.eax >= 0x4000_0001)

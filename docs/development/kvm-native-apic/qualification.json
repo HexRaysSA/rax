@@ -1,0 +1,107 @@
+{
+  "utc": "2026-11-03T18:54:28.724225+00:00",
+  "status": "component_qualified",
+  "full_goal_complete": false,
+  "baseline": {
+    "receipt": "baseline-owning.json",
+    "owning_passed": 20,
+    "owning_failed": 7,
+    "owning_ignored": 0,
+    "owning_filtered": 0,
+    "component_passed": 9
+  },
+  "queue": {
+    "host": "abyss",
+    "pid": 3028413,
+    "upstream_controller": 2912298,
+    "status_file": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-apic-profile-v1/queue-v1-status.json",
+    "status": "superseded_by_receipt_recovery_and_canonical"
+  },
+  "assumptions": [
+    {
+      "id": "AP1",
+      "assumption": "Managed KVM CPUs use the actual kernel LAPIC; raw SDK CPUs retain explicit CPUID ownership.",
+      "dependent_result": "Gate x2APIC/PV unhalt and admit deadline only with the actual kernel controller/capability.",
+      "basis": "Primary KVM API sections4.46 and9.1; native four-case guest baseline.",
+      "stress_test": "Configured/unconfigured with/without IRQchip, absent/present native capability component matrix, late controller creation rejection.",
+      "falsification_probe": "An unsupported bit survives without its controller, or raw SDK CPUID ownership changes.",
+      "status": "Confirmed for the scoped profile: nine component,13 full-production profile/admission,27 whole SMP and10 whole IO cases pass; all18 canonical commands pass. Other CPUID dependencies and full native restore remain open."
+    }
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "Linux periodic calibration failure remains unexplained; three actual1/2/4 periodic VMM controls pass. Deadline admission does not prove legacy calibration or clock/checkpoint continuity.",
+      "blocks": "Full timer/IRQ/restore closure."
+    },
+    {
+      "impact": "high",
+      "finding": "Full native private/shared/in-flight producer, remaining A32/HVF profiles and physical Intel qualification remain open.",
+      "blocks": "Full four-finding goal."
+    }
+  ],
+  "source_scope": "Exact source-payload-v1.json/source-sha256-v1.json outside the repository. No live frozen source export was mutated; queued reuse requires18 upstream gates, full input digests and absent processes/references.",
+  "transport_observation": {
+    "utc": "2026-11-03T18:00:38.760260+00:00",
+    "host": "abyss",
+    "error": "SSH TCP connect to95.216.116.106:22 returns ENOENT; direct AF_INET probe reproduces errno2.",
+    "cause": "unknown",
+    "last_observed_queue_pid": 3028413,
+    "last_observed_queue_state": "waiting_for_topology_canonical",
+    "upstream_eighteen_gates_verified_terminal": true,
+    "current_native_process_state": "Controller3078520 confirmed live; its build child continues.",
+    "restarted": false,
+    "cleanup": "Retain native source/target until actual controller/compiler/test/reference state can be read.",
+    "resolved_by": "Existing Tailscale peer100.90.105.129 with original host-key alias; no connection policy changed."
+  },
+  "recovery": {
+    "utc": "2026-11-03T18:05:17.782820+00:00",
+    "original_controller_failure": "Missing Python import re after compiler completion; no command result was recorded.",
+    "original_native_test_results": "No changed full native runtime test had run.",
+    "transport": "Existing Tailscale address100.90.105.129, original SSH host key alias95.216.116.106; no network settings changed.",
+    "source": "Same full manifest and exact queued source; no source export mutation.",
+    "new_artifacts": "v2 production outputs and command receipts; original failure retained.",
+    "qualification": "All nine full production commands sealed without rerunning the passed commands; canonical workspace gates in progress."
+  },
+  "production": {
+    "receipt": "production-v2.json",
+    "commands_passed": 9,
+    "smp_passed": 27,
+    "io_passed": 10,
+    "profile_passed": 13,
+    "public_state_passed": 16,
+    "source_unchanged": true,
+    "library_sha256": "a94e02b387d46d0b6bb9ca554f9e9109496bb3c346723b818c5d029e332e250f",
+    "cli_sha256": "c171b431de2bf6c3d2619c6319b7377a718ab93cc17b950b4d6f97817cdf0a79"
+  },
+  "canonical": {
+    "receipt": "canonical-gates.json",
+    "commands_passed": 18,
+    "source_unchanged": true,
+    "final_content_verified": true,
+    "doctests_passed": 2,
+    "preexisting_ignored_doc_examples": 5
+  },
+  "linux_startup": {
+    "receipt": "linux-startup.json",
+    "configured_and_observed_counts": [
+      4,
+      2,
+      1
+    ],
+    "exit_codes": [
+      0,
+      0,
+      0
+    ],
+    "deadline_available_each_run": true,
+    "full_os_boot": false,
+    "legacy_periodic_calibration_explained": false
+  },
+  "integration": {
+    "qualified_source": "Frozen inputs-v1.json/source manifest in canonical-gates.json",
+    "incoming_parent": "93b0467bbd6cf1a930706d00d161d0b74f7a642d",
+    "incoming_scope": "Unrelated Windows SystemPolicyInformation implementation; independent attribute additions retained by fast-forward.",
+    "validation_boundary": "The eighteen APIC gates used the frozen source before the incoming Windows change. Final combined source qualification remains pending in the RAM subgroup."
+  }
+}
