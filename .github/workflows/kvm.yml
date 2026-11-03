@@ -16,6 +16,7 @@ on:
     branches: [master, main]
     paths:
       - "src/backend/kvm/**"
+      - "src/backend/hvf/intel_xsave*.rs"
       - "src/vm/**"
       - "tests/suites/backend/kvm/minimal.rs"
       - ".github/workflows/kvm.yml"
@@ -70,6 +71,7 @@ jobs:
 
       - name: Native RAX public-state, rollback, and RAM lifetime regressions
         run: |
+          cargo test --features x86_64-suite --lib backend::intel_hvf_xsave::tests:: -- --test-threads=1 --nocapture
           cargo test --features x86_64-suite --lib backend::kvm::state_tests:: -- --include-ignored --test-threads=1 --nocapture
 
       - name: cargo build --release (default features, fat LTO)

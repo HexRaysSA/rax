@@ -269,3 +269,37 @@ fn emulator_overlay_materializes_initial_xmm_and_compacted_mxcsr() {
     assert_eq!(u32_at(&changed, 24), 0x1f80);
     assert_eq!(&changed[160..416], &[0; 256]);
 }
+
+#[test]
+fn amd_misaligned_exception_mask_roundtrips_only_when_the_host_supports_it() {
+    let mut amd = layout();
+    amd.mxcsr_mask = 0x0002_ffff;
+    for present in [0u64, 3] {
+        let mut bytes = image(&amd);
+        bytes[512..520].copy_from_slice(&present.to_le_bytes());
+        bytes[24..28].copy_from_slice(&0x0002_1f80u32.to_le_bytes());
+        let projected = amd.project(&bytes, &mut Registers::default()).unwrap();
+        assert_eq!(projected.mxcsr, 0x0002_1f80);
+        let changed = amd.overlay(&bytes, &Registers::default()).unwrap();
+        assert_eq!(u32_at(&changed, 24), 0x0002_1f80);
+        let changed = amd.overlay_emulator(&changed, &projected).unwrap();
+        assert_eq!(u32_at(&changed, 24), 0x0002_1f80);
+        assert!(layout().validate_image(&bytes).is_err());
+    }
+}
+
+#[test]
+fn mxcsr_mask_still_rejects_reserved_bits_outside_the_amd_extension() {
+    for bit in [16u32, 18, 31] {
+        let mut invalid = layout();
+        invalid.mxcsr_mask |= 1 << bit;
+        assert!(invalid.validate().is_err(), "reserved bit {bit}");
+    }
+    let mut amd = layout();
+    amd.mxcsr_mask = 0x0002_ffff;
+    let mut bytes = image(&amd);
+    for bit in [16u32, 18, 31] {
+        bytes[24..28].copy_from_slice(&(0x1f80u32 | (1 << bit)).to_le_bytes());
+        assert!(amd.validate_image(&bytes).is_err(), "reserved bit {bit}");
+    }
+}

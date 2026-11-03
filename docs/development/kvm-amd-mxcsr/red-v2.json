@@ -1,0 +1,32 @@
+{
+  "utc": "2026-11-03T11:44:13.025241+00:00",
+  "compile_argv": [
+    "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+    "--edition=2024",
+    "--test",
+    "-C",
+    "opt-level=1",
+    "-L",
+    "dependency=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps",
+    "--extern",
+    "rax=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/librax-a705b0592dd6c999.rlib",
+    "--extern",
+    "serde=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libserde-3e67dcae90e817b2.rlib",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/amd-mxcsr-red-v2/owner.rs",
+    "-o",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/amd-mxcsr-red-v2/owner"
+  ],
+  "compile_exit": 0,
+  "compile_stderr": "",
+  "exit_code": 101,
+  "stdout": "\nrunning 15 tests\ntest xsave::tests::amd_misaligned_exception_mask_roundtrips_only_when_the_host_supports_it ... FAILED\ntest xsave::tests::compacted_images_keep_opaque_components_when_normalized ... ok\ntest xsave::tests::emulator_overlay_materializes_initial_xmm_and_compacted_mxcsr ... ok\ntest xsave::tests::emulator_overlay_rejects_unrepresentable_tags_and_controls_without_source_changes ... ok\ntest xsave::tests::emulator_overlay_round_trips_exact_x87_state_at_every_top ... ok\ntest xsave::tests::init_components_ignore_stale_bytes ... ok\ntest xsave::tests::mxcsr_mask_still_rejects_reserved_bits_outside_the_amd_extension ... ok\ntest xsave::tests::pkru_overlay_preserves_other_extended_components ... ok\ntest xsave::tests::preserves_unprojected_host_component_during_register_overlay ... ok\ntest xsave::tests::projects_first_and_last_xmm_and_ymm_lanes ... ok\ntest xsave::tests::rejects_malformed_headers_and_reserved_mxcsr_bits ... ok\ntest xsave::tests::rejects_overlapping_or_unsupported_component_tables ... ok\ntest xsave::tests::standard_mxcsr_is_independent_of_the_sse_in_use_bit ... ok\ntest xsave::tests::unsupported_public_banks_are_rejected_without_changing_the_source ... ok\ntest xsave::tests::x87_logical_slots_recover_physical_registers_and_full_tags ... ok\n\nfailures:\n\nfailures:\n    xsave::tests::amd_misaligned_exception_mask_roundtrips_only_when_the_host_supports_it\n\ntest result: FAILED. 14 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+  "stderr": "\nthread 'xsave::tests::amd_misaligned_exception_mask_roundtrips_only_when_the_host_supports_it' (2047947) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/amd-mxcsr-red-v2/intel_xsave_tests.rs:281:72:\ncalled `Result::unwrap()` on an `Err` value: InvalidConfig(\"native Intel XSAVE: invalid host image size or MXCSR mask\")\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+  "input_sha256": {
+    "intel_xsave.rs": "898f64ceacb7db062b27d9420c3bd483037b54ce38b239bd7f953ff1cbfaed7e",
+    "intel_xsave_tests.rs": "fbb7f6a81cf9f608ec7b9fe5ccd5e2ebbd4ada3b9fc385d18ab35cfbb5b67d9f",
+    "owner.rs": "ad899cb574fa0ce086fb71914a3bb6fdf8033fbf87a831277efe2836ec051f67"
+  },
+  "inputs_unchanged": true,
+  "executable_sha256": "6f041f62238228fcd50806a0ed3ff61c9a1e4b20dfa5d95c0f051d8ec44d166f",
+  "scope": "Complete exact portable XSAVE module and its entire test source, linked against actual frozen RAX public register/snapshot/error types. This is a type seam, not a production native KVM/HVF guest execution."
+}

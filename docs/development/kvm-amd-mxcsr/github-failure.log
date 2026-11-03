@@ -1,0 +1,22 @@
+2026-11-03T11:37:24.5781115Z   stable-x86_64-unknown-linux-gnu unchanged - rustc 1.99.1 (58cf8f9c3 2026-10-13)
+2026-11-03T11:37:24.7388161Z   stable-x86_64-unknown-linux-gnu unchanged - rustc 1.99.1 (58cf8f9c3 2026-10-13)
+2026-11-03T11:37:25.1110795Z rustc 1.99.1 (58cf8f9c3 2026-10-13)
+2026-11-03T11:37:25.1112176Z LLVM version: 23.1.1
+2026-11-03T11:37:30.8169770Z rustc 1.99.1 (58cf8f9c3 2026-10-13)
+2026-11-03T11:37:30.8170859Z LLVM version: 23.1.1
+2026-11-03T11:37:36.6677963Z xsave_host_mask=00000000000000e7 enabled_bytes=2432 maximum_bytes=2432 intrinsic_mxcsr_mask=0002ffff assembly_mxcsr_mask=0002ffff
+2026-11-03T11:38:33.0793893Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+2026-11-03T11:41:06.9267391Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:06.9312568Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:06.9330049Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:06.9408295Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:06.9495440Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:06.9725238Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:06.9825537Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:06.9924106Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:07.0024070Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:07.0192902Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:07.0285189Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:07.0397764Z called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel XSAVE: invalid host image size or MXCSR mask")
+2026-11-03T11:41:07.0466697Z test result: FAILED. 2 passed; 12 failed; 0 ignored; 0 measured; 13064 filtered out; finished in 0.14s
+2026-11-03T11:41:07.1320153Z ##[error]Process completed with exit code 101.

@@ -43,7 +43,10 @@ impl Layout {
         }
         if !(HEADER_END..=MAX_IMAGE).contains(&(self.size as usize))
             || self.mxcsr_mask == 0
-            || self.mxcsr_mask & !0xffff != 0
+            // AMD APM Vol.1 4.2.2 defines MXCSR.MM at bit17. The shared
+            // KVM parser must admit that host capability; actual MXCSR values
+            // are still checked against this exact host mask below.
+            || self.mxcsr_mask & !0x0002_ffff != 0
         {
             return Err(invalid("invalid host image size or MXCSR mask"));
         }

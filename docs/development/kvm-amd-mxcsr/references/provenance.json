@@ -1,0 +1,15 @@
+{
+  "document": "AMD64 Architecture Programmer\u2019s Manual, Volume1: Application Programming",
+  "issuing_organization": "Advanced Micro Devices, Inc.",
+  "revision": "24592,Rev.3.22,December2017",
+  "relevant_section": "4.2.2,MXCSR Register; Misaligned Exception Mask (MM), printed page115",
+  "retrieval_url": "https://www.sra.uni-hannover.de/Lehre/SS21/V_BSB/doc/amd64_manual_vol1.pdf",
+  "canonical_vendor_document": "https://docs.amd.com/v/u/en-US/24592_3.24",
+  "retrieved_utc": "2026-11-03T11:45:54.391737+00:00",
+  "file": "amd64-apm-vol1.pdf",
+  "bytes": 2668106,
+  "sha256": "fa01762601e48c0ac5bc257899f3abeb70ee008bbd7c5d64bbf170a201608f92",
+  "preservation": "Verbatim AMD-authored primary manual from university mirror, with original notices; not asserted to be the latest vendor bytes.",
+  "retrieval_limits": "Indexed AMD3.24/API URLs returned404; current amd.com PDF endpoint failed HTTP/2 and timed out underHTTP/1.1. The retained3.22 manual directly defines the required bit17 semantics.",
+  "scope_and_size_justification": "Required primary definition of MXCSR.MM bit17 and MXCSR_MASK, which differs from the Intel-only guard that caused12 GitHub native KVM regressions. Retain the complete2.7MB vendor volume and notices."
+}
