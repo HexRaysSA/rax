@@ -1,0 +1,53 @@
+{
+  "utc": "2026-11-03T22:57:39.368742+00:00",
+  "status": "interrupt_v3_qualified_additional_async_pf_dependency_reproduced_v4_pending",
+  "main_applied": false,
+  "full_goal_complete": false,
+  "candidate_sources": {
+    "src/backend/kvm/cpuid_apic.rs": "be47317e91de4253ce2abd65277bd5efe574aa9b600b8e696156e07af29853d7",
+    "src/backend/kvm/cpuid_apic_tests.rs": "50ec2e4e1e468400eef2479404a768306ff00fede3df06f40793fa23d75bc615",
+    "tests/suites/backend/kvm/smp/apic_profile.rs": "844b775c381f6781484d01dba6c6227033a8aa6a6c7d6210b06e8db00c152e29"
+  },
+  "primary_sources": {
+    "docs/development/kvm-public-state/references/kernel-x86-v6.8.c": "3898fb303a2a8eb5c8ee9b02d03425dd9ac9475457f22deedbfe2c77081b8498",
+    "docs/development/kvm-native-topology/references/linux-kvm-cpuid-v6.8.rst": "f314b6c30e0457cdc3ac895058fd4854b8b4ce875f0b19ff038bd245b50bd279",
+    "docs/development/kvm-native-apic/references/linux-kvm-lapic-v6.8.c": "cbf1b0e870868c8e81b8fc9c6ae242ddf75d2efbddf7cbfe4dc8b17cc535c3e2"
+  },
+  "native": {
+    "commands_passed": 7,
+    "smp_passed": 27,
+    "io_passed": 10,
+    "minimal_passed": 14,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "library_sha256": "a4828b80f9a2d150845092e50ad08dca6512dafe3a22aece8372f2465d8d1bc6",
+    "full_source_verified": true,
+    "source_manifest_sha256": "9b2ffa34dff09411053b6c9c8885320b91c775f0b768a29a2ee629849ba04124"
+  },
+  "pure": {
+    "baseline_passed": 8,
+    "baseline_failed": 2,
+    "candidate_passed": 10,
+    "candidate_failed": 0
+  },
+  "baseline": {
+    "apf_original_smp_passed": 25,
+    "apf_original_smp_failed": 2,
+    "apf_only_extended_smp_passed": 25,
+    "apf_only_extended_smp_failed": 2
+  },
+  "projection": {
+    "dispatchers": 3,
+    "body_reconstruction_exact": true,
+    "scaffold_bytes": 24735,
+    "one_complete_source_export": true,
+    "source_location_metadata": "Path/line metadata can differ in three dispatchers; original executable bodies recover exactly. No executable helper or SDK type is mocked."
+  },
+  "remaining": "Apply the exact three files after the live main-source guard releases; complete packaged workspace gates, exact-path git add/red and normal master push. Complete native private/shared/in-flight producer, coordinated replay, remaining A32/HVF and physical Intel qualification remain required.",
+  "additional_required_feature_bits": [
+    4,
+    10
+  ],
+  "additional_regression": "Actual managed guest advertises both bits and reaches a dedicated #GP handler on nonzero MSR_KVM_ASYNC_PF_EN without a LAPIC, for basic and VM-exit flags. Both controller-present controls succeed. Existing candidate hashes identify the retained v3 qualification; expanded candidate is not yet qualified."
+}

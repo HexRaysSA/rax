@@ -1,0 +1,40 @@
+{
+  "utc": "2026-11-04T00:48:50.779890+00:00",
+  "exit_code": 0,
+  "commands": [
+    {
+      "label": "fmt",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 14.991713749943301,
+      "log": ""
+    },
+    {
+      "label": "clippy",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.7856981669319794,
+      "log": "    Blocking waiting for file lock on package cache\n    Finished `dev` profile [optimized] target(s) in 0.45s\n"
+    }
+  ],
+  "full_source_verified": true,
+  "protected_state_unchanged": true,
+  "source_manifest_sha256": "7a4b0a4a32fd44221dafc603ff8b6c859ff47946f31435936c5121526f7d0804",
+  "head": "df4834911e095e6d6549c8774fcc0fbefe12bf99",
+  "scope": "Final main-tree macOS packaged workspace formatting and all-target Clippy with the exact qualified three-file KVM candidate. KVM Linux code is target-gated here; physical Linux native full-product compilation, owning execution and Clippy are separate receipts. No native KVM execution on macOS is claimed."
+}

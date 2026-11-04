@@ -1,0 +1,38 @@
+{
+  "utc": "2026-11-03T22:29:37.970778+00:00",
+  "source_export": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-memory-layout-v1/source",
+  "scaffold": {
+    "src/lib.rs": {
+      "original_sha256": "7452fe87b608d0df7a3ce2b622c6fb65297d4673fd13006121a08d06e63efefa",
+      "projected_path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-async-pf-profile-v1/production-projection-v2/projected/lib.rs",
+      "projected_sha256": "1293890dace0936e00a2f0da564ca5375a999e0748be534e879f0af731f31b98",
+      "module_path_annotations": 14,
+      "original_recovered_exactly": true
+    },
+    "src/backend/mod.rs": {
+      "original_sha256": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+      "projected_path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-async-pf-profile-v1/production-projection-v2/projected/backend.rs",
+      "projected_sha256": "6a968860b17b61d9244f94e7b63b38911b7c2c01c119acc41974c1d101bda65c",
+      "module_path_annotations": 12,
+      "original_recovered_exactly": true
+    },
+    "src/backend/kvm/mod.rs": {
+      "original_sha256": "245839b7225a6d2eaa3e15cc0fb2b89b83eb90336f9c55c2ceb049ac513d84eb",
+      "projected_path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-async-pf-profile-v1/production-projection-v2/projected/kvm.rs",
+      "projected_sha256": "e4513c371d2d9efb2e960013a322cb9762e817847157f2b8ed4590732b40f977",
+      "module_path_annotations": 14,
+      "original_recovered_exactly": true
+    }
+  },
+  "scaffold_bytes": 24735,
+  "candidate_sha256": {
+    "src/backend/kvm/cpuid_apic.rs": "9bb41c8f35f7c0964df271109d285706bbbd0f598e80b3bbec16616a266f36aa",
+    "src/backend/kvm/cpuid_apic_tests.rs": "74f5affd355947bb1f1b8af2b5afa8eaa2a235583b2ca1e8d8896d3fc627f6eb",
+    "tests/suites/backend/kvm/smp/apic_profile.rs": "82a8f5bb6b4aaa05db8fc55d57a4e54464dec94b4af82269acb253bbaed2f306"
+  },
+  "one_complete_export_reused": true,
+  "production_semantic_changes": [
+    "src/backend/kvm/cpuid_apic.rs"
+  ],
+  "scope": "Three exact-body module dispatchers with path-only routing plus the two actual candidate source/test files; every other module remains the original frozen production source."
+}

@@ -1,0 +1,38 @@
+{
+  "utc": "2026-11-03T22:45:30.163630+00:00",
+  "source_export": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-memory-layout-v1/source",
+  "scaffold": {
+    "src/lib.rs": {
+      "original_sha256": "7452fe87b608d0df7a3ce2b622c6fb65297d4673fd13006121a08d06e63efefa",
+      "projected_path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-async-pf-profile-v1/production-projection-v3/projected/lib.rs",
+      "projected_sha256": "269cc380f31c5ec2af4d9ea5ca50584d51a0a045b70c6d0c0eabb51b9a7b4639",
+      "module_path_annotations": 14,
+      "original_recovered_exactly": true
+    },
+    "src/backend/mod.rs": {
+      "original_sha256": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+      "projected_path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-async-pf-profile-v1/production-projection-v3/projected/backend.rs",
+      "projected_sha256": "af76fb79a29ef2745bd882abc4f4514e317da231b560be809c8a632001b1c77f",
+      "module_path_annotations": 12,
+      "original_recovered_exactly": true
+    },
+    "src/backend/kvm/mod.rs": {
+      "original_sha256": "245839b7225a6d2eaa3e15cc0fb2b89b83eb90336f9c55c2ceb049ac513d84eb",
+      "projected_path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-async-pf-profile-v1/production-projection-v3/projected/kvm.rs",
+      "projected_sha256": "5864e2adb01e45940021f4e4f9722cc4d0e4b988c4a5f9abb8ae360b198b4d5b",
+      "module_path_annotations": 14,
+      "original_recovered_exactly": true
+    }
+  },
+  "scaffold_bytes": 24735,
+  "candidate_sha256": {
+    "src/backend/kvm/cpuid_apic.rs": "be47317e91de4253ce2abd65277bd5efe574aa9b600b8e696156e07af29853d7",
+    "src/backend/kvm/cpuid_apic_tests.rs": "50ec2e4e1e468400eef2479404a768306ff00fede3df06f40793fa23d75bc615",
+    "tests/suites/backend/kvm/smp/apic_profile.rs": "844b775c381f6781484d01dba6c6227033a8aa6a6c7d6210b06e8db00c152e29"
+  },
+  "one_complete_export_reused": true,
+  "production_semantic_changes": [
+    "src/backend/kvm/cpuid_apic.rs"
+  ],
+  "scope": "Complete unchanged production body/module graph with candidate KVM paravirtual interrupt bits11/14 admission; three path-only dispatchers and no second complete source copy."
+}

@@ -1,0 +1,38 @@
+{
+  "utc": "2026-11-03T22:40:03.732379+00:00",
+  "status": "full_product_qualified_pending_main_application",
+  "main_applied": false,
+  "full_goal_complete": false,
+  "candidate_sources": {
+    "src/backend/kvm/cpuid_apic.rs": "9bb41c8f35f7c0964df271109d285706bbbd0f598e80b3bbec16616a266f36aa",
+    "src/backend/kvm/cpuid_apic_tests.rs": "74f5affd355947bb1f1b8af2b5afa8eaa2a235583b2ca1e8d8896d3fc627f6eb",
+    "tests/suites/backend/kvm/smp/apic_profile.rs": "82a8f5bb6b4aaa05db8fc55d57a4e54464dec94b4af82269acb253bbaed2f306"
+  },
+  "primary_sources": {
+    "docs/development/kvm-public-state/references/kernel-x86-v6.8.c": "3898fb303a2a8eb5c8ee9b02d03425dd9ac9475457f22deedbfe2c77081b8498",
+    "docs/development/kvm-native-topology/references/linux-kvm-cpuid-v6.8.rst": "f314b6c30e0457cdc3ac895058fd4854b8b4ce875f0b19ff038bd245b50bd279"
+  },
+  "native": {
+    "commands_passed": 7,
+    "smp_passed": 27,
+    "io_passed": 10,
+    "minimal_passed": 14,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "library_sha256": "6546f9c8c5d5fc11b380d61d5a41d209c290d4c90df0cf873e9a8f3a17deac7b",
+    "full_source_verified": true
+  },
+  "baseline": {
+    "smp_passed": 25,
+    "smp_failed": 2
+  },
+  "projection": {
+    "dispatchers": 3,
+    "body_reconstruction_exact": true,
+    "scaffold_bytes": 24735,
+    "one_complete_source_export": true,
+    "source_location_metadata": "Path/line metadata can differ in these dispatchers; their original bodies recover exactly. No executable helper, SDK type or semantic implementation is mocked."
+  },
+  "remaining": "Apply exact three files after the live main-source freeze releases; complete packaged workspace gates, exact-path git add/red and normal master push. Full private/shared/in-flight producer, other CPUID dependencies, broad clocks/IRQ/replay, remaining A32/HVF and physical Intel qualification remain required."
+}

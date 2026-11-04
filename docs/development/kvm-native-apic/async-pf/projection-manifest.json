@@ -1,0 +1,41 @@
+{
+  "utc": "2026-11-03T23:17:37.847903+00:00",
+  "source_export": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-memory-layout-v1/source",
+  "scaffold": {
+    "src/lib.rs": {
+      "original_sha256": "7452fe87b608d0df7a3ce2b622c6fb65297d4673fd13006121a08d06e63efefa",
+      "projected_path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-async-pf-profile-v1/production-projection-v4/projected/lib.rs",
+      "projected_sha256": "d9a2709c572737d456dec747f933331207cc2aa78ee7fea834fd922299dbd1d8",
+      "module_path_annotations": 14,
+      "original_recovered_exactly": true,
+      "restored_original_relative_attributes": 0
+    },
+    "src/backend/mod.rs": {
+      "original_sha256": "129236649de595a5f0d64a72fb85cf9544c4ca81e98238b5e11c2322f402c6e0",
+      "projected_path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-async-pf-profile-v1/production-projection-v4/projected/backend.rs",
+      "projected_sha256": "bf62ab0306cfee61cf5d9bcbf0cbc6dd69ed6978b702c1b560bcf918acfc17de",
+      "module_path_annotations": 12,
+      "original_recovered_exactly": true,
+      "restored_original_relative_attributes": 8
+    },
+    "src/backend/kvm/mod.rs": {
+      "original_sha256": "245839b7225a6d2eaa3e15cc0fb2b89b83eb90336f9c55c2ceb049ac513d84eb",
+      "projected_path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-async-pf-profile-v1/production-projection-v4/projected/kvm.rs",
+      "projected_sha256": "47851f396e95f40dd4d208ca19a38e1ba8222479c8e96ece05f8d1a44fd629b6",
+      "module_path_annotations": 14,
+      "original_recovered_exactly": true,
+      "restored_original_relative_attributes": 0
+    }
+  },
+  "scaffold_bytes": 24735,
+  "candidate_sha256": {
+    "src/backend/kvm/cpuid_apic.rs": "1b6225749943f36f9c6b921b93868c8d48e6424f6420af0d65347273378b9291",
+    "src/backend/kvm/cpuid_apic_tests.rs": "e53bbcecafc51a07a1f26a64957e6b8f1228b414e34707c3a818eb04f8a19fa1",
+    "tests/suites/backend/kvm/smp/apic_profile.rs": "f12244b5f105edec7992d62c2ea121ce1b34cb01daa58b995b94f0d94fbefba9"
+  },
+  "one_complete_export_reused": true,
+  "production_semantic_changes": [
+    "src/backend/kvm/cpuid_apic.rs"
+  ],
+  "scope": "Complete original production graph with all LAPIC-dependent asynchronous-PF feature bits4/10/14 and PV-IPI bit11 admitted from the actual controller; one complete export reused and all three dispatcher bodies recover exactly."
+}

@@ -1,0 +1,74 @@
+{
+  "utc": "2026-11-03T23:27:31.681891+00:00",
+  "status": "main_applied_native_and_workspace_qualified",
+  "main_applied": true,
+  "full_goal_complete": false,
+  "candidate_sources": {
+    "src/backend/kvm/cpuid_apic.rs": "1b6225749943f36f9c6b921b93868c8d48e6424f6420af0d65347273378b9291",
+    "src/backend/kvm/cpuid_apic_tests.rs": "e53bbcecafc51a07a1f26a64957e6b8f1228b414e34707c3a818eb04f8a19fa1",
+    "tests/suites/backend/kvm/smp/apic_profile.rs": "f12244b5f105edec7992d62c2ea121ce1b34cb01daa58b995b94f0d94fbefba9"
+  },
+  "primary_sources": {
+    "docs/development/kvm-public-state/references/kernel-x86-v6.8.c": "3898fb303a2a8eb5c8ee9b02d03425dd9ac9475457f22deedbfe2c77081b8498",
+    "docs/development/kvm-native-topology/references/linux-kvm-cpuid-v6.8.rst": "f314b6c30e0457cdc3ac895058fd4854b8b4ce875f0b19ff038bd245b50bd279",
+    "docs/development/kvm-native-apic/references/linux-kvm-lapic-v6.8.c": "cbf1b0e870868c8e81b8fc9c6ae242ddf75d2efbddf7cbfe4dc8b17cc535c3e2"
+  },
+  "native": {
+    "commands_passed": 7,
+    "smp_passed": 27,
+    "io_passed": 10,
+    "minimal_passed": 14,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "library_sha256": "3176f22d4abf831a64b59241f985e1c71de11ff2c60fe10d51010572910ff211",
+    "full_source_verified": true,
+    "source_manifest_sha256": "9b2ffa34dff09411053b6c9c8885320b91c775f0b768a29a2ee629849ba04124"
+  },
+  "pure": {
+    "baseline_passed": 8,
+    "baseline_failed": 2,
+    "candidate_passed": 10,
+    "candidate_failed": 0
+  },
+  "baseline": {
+    "apf_original_smp_passed": 25,
+    "apf_original_smp_failed": 2,
+    "interrupt_v3_extended_smp_passed": 25,
+    "interrupt_v3_extended_smp_failed": 2
+  },
+  "projection": {
+    "dispatchers": 3,
+    "body_reconstruction_exact": true,
+    "scaffold_bytes": 24735,
+    "one_complete_source_export": true,
+    "source_location_metadata": "Path/line metadata can differ in three dispatchers; original executable bodies recover exactly. No executable helper or SDK type is mocked."
+  },
+  "remaining": "Complete native CPU/private/shared and in-flight checkpoint production, coordinated replay, remaining A32/HVF profiles and physical Intel macOS qualification remain required.",
+  "lapic_dependent_kvm_feature_bits": [
+    4,
+    7,
+    10,
+    11,
+    14
+  ],
+  "asynchronous_pf_control_guest_cases": 4,
+  "main_application": {
+    "utc": "2026-11-04T00:48:14.686235+00:00",
+    "head": "df4834911e095e6d6549c8774fcc0fbefe12bf99",
+    "before": {
+      "src/backend/kvm/cpuid_apic.rs": "419fe004cc7d938085ff9d80b505efb9b3a6f7c0374598fd8737ad2a9d1233d5",
+      "src/backend/kvm/cpuid_apic_tests.rs": "7e9b0a68635260acdc2d4d74735b22403a64d73c24938f0eba991b79a598ade8",
+      "tests/suites/backend/kvm/smp/apic_profile.rs": "637d8f06772587e06667bf4794c63ecacc65916a9ae0fd643aa4a20b3711eea8"
+    },
+    "after": {
+      "src/backend/kvm/cpuid_apic.rs": "1b6225749943f36f9c6b921b93868c8d48e6424f6420af0d65347273378b9291",
+      "src/backend/kvm/cpuid_apic_tests.rs": "e53bbcecafc51a07a1f26a64957e6b8f1228b414e34707c3a818eb04f8a19fa1",
+      "tests/suites/backend/kvm/smp/apic_profile.rs": "f12244b5f105edec7992d62c2ea121ce1b34cb01daa58b995b94f0d94fbefba9"
+    },
+    "exact_qualified_candidate": true
+  },
+  "main_workspace_receipt": "main-workspace.json",
+  "native_clippy_receipt": "native-clippy.json",
+  "validation_boundary": "Final main-tree macOS packaged workspace formatting/Clippy; KVM body is Linux-target-gated there. Physical Linux full-product compile, full owning SMP/I/O/minimal execution, pure admission component and native library/root-test Clippy are separate recorded native evidence. No post-integration Linux Cargo workspace run or unfiltered native root execution is claimed for this subgroup."
+}

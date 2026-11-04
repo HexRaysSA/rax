@@ -14,6 +14,30 @@ fn assert_profile(irqchip: bool, configured: bool) {
     let deadline = backend
         .kvm()
         .check_extension(kvm_ioctls::Cap::TscDeadlineTimer);
+    let supported = backend
+        .kvm()
+        .get_supported_cpuid(kvm_bindings::KVM_MAX_CPUID_ENTRIES)
+        .unwrap();
+    let async_page_faults = supported
+        .as_slice()
+        .iter()
+        .find(|entry| entry.function == 0x4000_0001)
+        .is_some_and(|entry| entry.eax & (1 << 4) != 0);
+    let async_vmexits = supported
+        .as_slice()
+        .iter()
+        .find(|entry| entry.function == 0x4000_0001)
+        .is_some_and(|entry| entry.eax & (1 << 10) != 0);
+    let async_interrupts = supported
+        .as_slice()
+        .iter()
+        .find(|entry| entry.function == 0x4000_0001)
+        .is_some_and(|entry| entry.eax & (1 << 14) != 0);
+    let paravirtual_ipis = supported
+        .as_slice()
+        .iter()
+        .find(|entry| entry.function == 0x4000_0001)
+        .is_some_and(|entry| entry.eax & (1 << 11) != 0);
     let vm = backend.create_vm().unwrap();
     if configured {
         vm.configure_cpu_topology(1, 2 * 1024 * 1024).unwrap();
@@ -69,6 +93,26 @@ fn assert_profile(irqchip: bool, configured: bool) {
         ecx & (1 << 24) != 0,
         irqchip && deadline,
         "TSC-deadline admission must match the native capability and LAPIC"
+    );
+    assert_eq!(
+        features & (1 << 4) != 0,
+        irqchip && async_page_faults,
+        "asynchronous page-fault enable requires the kernel LAPIC"
+    );
+    assert_eq!(
+        features & (1 << 10) != 0,
+        irqchip && async_vmexits,
+        "asynchronous page-fault VM exits require the kernel LAPIC"
+    );
+    assert_eq!(
+        features & (1 << 14) != 0,
+        irqchip && async_interrupts,
+        "asynchronous page-fault interrupts require the kernel LAPIC"
+    );
+    assert_eq!(
+        features & (1 << 11) != 0,
+        irqchip && paravirtual_ipis,
+        "paravirtual IPI delivery requires the kernel APIC map"
     );
     if !irqchip {
         assert_eq!(ecx & (1 << 21), 0, "x2APIC requires the kernel LAPIC");
