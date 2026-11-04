@@ -15,6 +15,7 @@ mod file_attributes;
 mod file_create;
 mod file_directory;
 mod file_information;
+pub(super) mod file_name_origin;
 mod file_open;
 mod file_read;
 mod file_state_set;

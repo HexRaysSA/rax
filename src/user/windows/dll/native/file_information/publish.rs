@@ -3,7 +3,6 @@ use super::super::named_object::{Checked, Failure};
 use super::records::{Publication, Record};
 use crate::user::windows::hle::Ctx;
 use crate::user::windows::memory::{Mem, MemFault};
-use crate::user::windows::nt::status::STATUS_SUCCESS;
 
 pub(super) fn record(c: &mut Ctx, io: u64, output: u64, r: &Record, wow: bool) -> Checked<u32> {
     c.mem().wr(output, &r.data)?;
@@ -19,27 +18,27 @@ pub(super) fn record(c: &mut Ctx, io: u64, output: u64, r: &Record, wow: bool) -
         } else {
             None
         };
-        c.mem().w32(io, 0)?;
+        c.mem().w32(io, r.status)?;
         c.mem().w32(information, r.information)?;
         if let Some(bytes) = aliased {
             c.mem().wr(information, &bytes)?;
         }
-        return Ok(STATUS_SUCCESS);
+        return Ok(r.status);
     }
     let result: Checked<()> = (|| {
         match r.publication {
             Publication::Full => {
-                c.mem().wptr(io, c.psize(), 0)?;
+                c.mem().wptr(io, c.psize(), u64::from(r.status))?;
                 c.mem()
                     .wptr(information, c.psize(), u64::from(r.information))?;
             }
             Publication::InformationFirst => {
                 c.mem()
                     .wptr(information, c.psize(), u64::from(r.information))?;
-                c.mem().w32(io, 0)?;
+                c.mem().w32(io, r.status)?;
             }
             Publication::StatusFirst => {
-                c.mem().w32(io, 0)?;
+                c.mem().w32(io, r.status)?;
                 c.mem()
                     .wptr(information, c.psize(), u64::from(r.information))?;
             }
@@ -54,5 +53,5 @@ pub(super) fn record(c: &mut Ctx, io: u64, output: u64, r: &Record, wow: bool) -
         }
         result => result?,
     }
-    Ok(STATUS_SUCCESS)
+    Ok(r.status)
 }

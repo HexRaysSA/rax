@@ -7,6 +7,8 @@ use crate::user::windows::process::{Thread, WindowsConfig, WindowsProcess};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+mod name_origin;
+
 struct Temp(PathBuf);
 impl Temp {
     fn new() -> Self {
@@ -78,6 +80,7 @@ impl Harness {
         let api = EXPORTS
             .iter()
             .chain(super::super::native::EXPORTS.iter())
+            .chain(super::super::native::FILE_INFORMATION_EXPORTS.iter())
             .find_map(|e| match &e.item {
                 Item::Func(a) if a.name == name => Some(a),
                 _ => None,

@@ -16,8 +16,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+mod file_name;
 #[cfg(windows)]
 mod windows;
+pub(crate) use file_name::FileNameOrigin;
 
 /// Identity used by process-local sharing and deferred deletion.
 #[derive(Clone, Debug, PartialEq, Eq)]

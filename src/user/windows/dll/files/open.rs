@@ -352,9 +352,18 @@ fn create(c: &mut Ctx, wide: bool) -> ApiResult {
 }
 
 fn publish(c: &mut Ctx, object: Object, inherit: bool, access: u32) -> ApiResult {
+    let name_origin = match &object {
+        Object::File(file) if !file.null => {
+            Some(super::super::native::file_name_origin::win32(c, &file.path))
+        }
+        _ => None,
+    };
     let Some(id) = c.p.objects.try_create(object) else {
         return c.fail(ERROR_NOT_ENOUGH_MEMORY, u64::MAX);
     };
+    if let Some(origin) = name_origin {
+        c.p.objects.set_file_name_origin(id, origin);
+    }
     match c
         .p
         .objects

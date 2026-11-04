@@ -3,6 +3,12 @@ use super::*;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{Object, StdStream};
 
+#[path = "file_information_tests/name_faults.rs"]
+mod name_faults;
+#[path = "file_information_tests/names.rs"]
+mod names;
+#[path = "file_information_tests/origins.rs"]
+mod origins;
 #[path = "file_information_tests/replay.rs"]
 mod replay;
 #[path = "file_information_tests/retained.rs"]

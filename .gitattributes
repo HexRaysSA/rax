@@ -111,3 +111,7 @@ docs/specifications/posix-fifo-readiness/** -text
 
 # Preserve the pinned cache implementation and license as exact primary inputs.
 docs/development/windows-native-ci-corpus-lifetime/primary/** -text -whitespace
+
+# Preserve independent class 9 controls, captures and primary reference bytes.
+docs/specifications/windows/native-file-name-information/** -text
+docs/specifications/windows/native-file-name-information/primary/** -text -whitespace

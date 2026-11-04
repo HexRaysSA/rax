@@ -254,6 +254,8 @@ pub(super) fn kernel(
             .mark_delete(acquired.path.clone(), false)
             .map_err(|e| c.unsupported(format!("deferred NT delete: {e}")))?;
     }
+    let name_origin =
+        super::file_name_origin::nt(c, attrs.root, name.as_deref(), resolved.runtime_library);
     let file = FileObj {
         host: Some(acquired.file),
         host_path: acquired.path,
@@ -275,6 +277,7 @@ pub(super) fn kernel(
             .try_create(Object::File(file))
             .ok_or(Failure::Status(STATUS_INSUFFICIENT_RESOURCES))?;
     c.p.objects.set_file_mode(id, r.options);
+    c.p.objects.set_file_name_origin(id, name_origin);
     if resolved.runtime_library {
         c.p.objects.mark_runtime_library(id);
     }

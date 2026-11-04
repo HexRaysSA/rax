@@ -1,8 +1,9 @@
-//! Fixed-size information about retained files and modeled standard streams.
+//! Retained file names, fixed records and modeled standard-stream information.
 //! The independent native corpus owns class/length/probe/publication behavior.
 //! Host adapters receive only admitted File objects and fixed class numbers.
 
 pub(super) mod host;
+mod name;
 mod publish;
 mod records;
 
@@ -25,6 +26,7 @@ struct Layout {
 impl Layout {
     fn of(class: u32) -> Option<Self> {
         let (bytes, alignment) = match class {
+            9 => (8, 4),
             4 => (40, 8),
             5 => (24, 8),
             6 | 14 => (8, 8),
@@ -134,7 +136,11 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
     ) {
         return status(STATUS_OBJECT_TYPE_MISMATCH);
     }
-    let record = records::query(c, handle, object, class)?;
+    let record = if class == 9 {
+        name::query(c, handle, object, length)?
+    } else {
+        records::query(c, handle, object, class)?
+    };
     *caller_store = wow;
     publish::record(c, io, output, &record, wow)
 }

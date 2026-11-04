@@ -1,0 +1,54 @@
+{
+  "schema": "rax-native-file-name-root-move-observations-v1",
+  "scope": "Native Windows directory MoveFileExW with task-owned fixtures; independent of RAX. x64 CLR process on Windows ARM64 build 29698. This is an observed host operation boundary, not an emulation skip.",
+  "source": "docs/specifications/windows/native-file-name-information/native-root-move-v1.cs",
+  "source_sha256": "884c6bfd271a00dd52b56186e7e8557822d89aedda1ba830c02ce522a2f4f495",
+  "image_sha256": "baf60b6329332173d24ab1a879429b20bb2d35670f710ae7263ab0a3948c5697",
+  "pe_machine": 34404,
+  "compiler_sha256": "e7a1708119d5e7fb17de452e07cbb5c88e18979c0b68653ab0b7d63b02bc5d5f",
+  "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+  "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+  "rows": [
+    {
+      "kind": "host",
+      "machine": 34404
+    },
+    {
+      "kind": "move",
+      "mode": 0,
+      "file_handle": false,
+      "root_handles": false,
+      "success": true,
+      "last_error": 0
+    },
+    {
+      "kind": "move",
+      "mode": 1,
+      "file_handle": true,
+      "root_handles": false,
+      "success": false,
+      "last_error": 5
+    },
+    {
+      "kind": "move",
+      "mode": 2,
+      "file_handle": true,
+      "root_handles": true,
+      "success": false,
+      "last_error": 5
+    },
+    {
+      "kind": "move",
+      "mode": 3,
+      "file_handle": false,
+      "root_handles": true,
+      "success": false,
+      "last_error": 5
+    },
+    {
+      "kind": "complete",
+      "moves": 4,
+      "owned_fixtures_removed": true
+    }
+  ]
+}

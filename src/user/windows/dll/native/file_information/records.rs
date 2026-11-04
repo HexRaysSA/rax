@@ -10,6 +10,7 @@ pub(super) enum Publication {
 }
 
 pub(super) struct Record {
+    pub status: u32,
     pub data: Vec<u8>,
     pub information: u32,
     pub publication: Publication,
@@ -52,6 +53,7 @@ fn access(c: &Ctx, handle: u64, object: &Object) -> u32 {
 
 fn value(data: Vec<u8>, publication: Publication, ignore_late_fault: bool) -> Record {
     Record {
+        status: STATUS_SUCCESS,
         information: data.len() as u32,
         data,
         publication,

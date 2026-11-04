@@ -1,0 +1,39 @@
+{
+  "issuing_organization": "Microsoft",
+  "title": "FileNameInformation native contract and FILE_NAME_INFORMATION record",
+  "retrieved_utc": "2026-11-04T18:56:38.037301+00:00",
+  "files": [
+    {
+      "file": "microsoft-nf-wdm-zwqueryinformationfile.md",
+      "source_url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/wdm/nf-wdm-zwqueryinformationfile.md",
+      "source_commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+      "git_blob": "03669e3fc11a2a61167a139a4051499412421d99",
+      "bytes": 11680,
+      "sha256": "a5fa017627653d5db4b51dcf4c7ac5808067cc7aa12efd825b6a6b3354bd0f91"
+    },
+    {
+      "file": "microsoft-ns-ntddk-_file_name_information.md",
+      "source_url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntddk/ns-ntddk-_file_name_information.md",
+      "source_commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+      "git_blob": "0049b1a7393955e0b106a2bb2975cd87b496bc01",
+      "bytes": 2840,
+      "sha256": "4d04696dc6a7ab5b08a0c5df004f85841727dc953c2f00b9409803272f937e91"
+    },
+    {
+      "file": "LICENSE",
+      "source_url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/LICENSE",
+      "source_commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+      "git_blob": "e056e7c3ec54533985dfb3a4c6ef70dab8ca2e42",
+      "bytes": 18650,
+      "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+    },
+    {
+      "file": "LICENSE-CODE",
+      "source_url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/LICENSE-CODE",
+      "source_commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+      "git_blob": "b17b032a43088ac7f3d2f3e34a2431c778a95e6f",
+      "bytes": 1090,
+      "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+    }
+  ]
+}

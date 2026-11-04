@@ -19,6 +19,7 @@ mod desktop;
 pub use desktop::Desktop;
 mod directory;
 mod etw;
+mod file_name;
 mod file_state;
 pub(crate) use file_state::{FileState, finish_file_write};
 #[cfg(unix)]
@@ -308,6 +309,8 @@ struct Entry {
     runtime_library: bool,
     /// Per-open NT mode, shared by duplicate handles, separate from file identity.
     file_state: FileState,
+    /// Naming belongs to this open, including its original mapped volume.
+    file_name_origin: Option<Result<super::fs::FileNameOrigin, String>>,
     #[cfg(unix)]
     directory_scan: Option<DirectoryScan>,
     refs: u32,
@@ -398,6 +401,7 @@ impl Objects {
                 registry_views: None,
                 runtime_library: false,
                 file_state: FileState::new(file_mode),
+                file_name_origin: None,
                 #[cfg(unix)]
                 directory_scan: None,
                 refs: 0,
