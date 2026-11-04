@@ -12,7 +12,7 @@ fn external_github_actions_are_pinned_to_full_commit_shas() {
 
     let mut violations = Vec::new();
     for file in files {
-        let contents = fs::read_to_string(&file)
+        let contents = read_workflow(&file)
             .unwrap_or_else(|err| panic!("failed to read {}: {err}", file.display()));
         let rel = file.strip_prefix(&root).unwrap_or(&file);
 
@@ -46,7 +46,7 @@ fn external_github_actions_are_pinned_to_full_commit_shas() {
 #[test]
 fn licensing_resolves_locked_dependencies_for_fresh_runners() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let workflow = fs::read_to_string(root.join(".github/workflows/licensing.yml"))
+    let workflow = read_workflow(root.join(".github/workflows/licensing.yml"))
         .expect("failed to read licensing workflow");
     assert!(
         workflow.contains("run: python tools/licensing/check.py"),
@@ -69,7 +69,7 @@ fn licensing_resolves_locked_dependencies_for_fresh_runners() {
     );
 
     for workflow in ["ci.yml", "full-suite.yml"] {
-        let contents = fs::read_to_string(root.join(".github/workflows").join(workflow))
+        let contents = read_workflow(root.join(".github/workflows").join(workflow))
             .unwrap_or_else(|err| panic!("failed to read {workflow}: {err}"));
         assert!(
             contents.contains("--test ci_actions_pinned"),
@@ -81,7 +81,7 @@ fn licensing_resolves_locked_dependencies_for_fresh_runners() {
 #[test]
 fn native_windows_corpus_capture_follows_rust_cache_restore() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let workflow = fs::read_to_string(root.join(".github/workflows/windows-exception-profile.yml"))
+    let workflow = read_workflow(root.join(".github/workflows/windows-exception-profile.yml"))
         .expect("failed to read native Windows workflow");
     let job = workflow_block(&workflow, "  observe:");
     let prepare_marker = "      - name: Prepare contained native CSR build directories";
@@ -139,7 +139,7 @@ fn windows_process_suite_is_registered_and_reachable_in_ci_commands() {
     );
 
     let mut missing = Vec::new();
-    let ci = fs::read_to_string(root.join(".github/workflows/ci.yml"))
+    let ci = read_workflow(root.join(".github/workflows/ci.yml"))
         .expect("failed to read push CI workflow");
     let job = workflow_block(&ci, "  test-core:");
     let core = workflow_block(&job, "      - name: cargo test (core slice)");
@@ -168,7 +168,7 @@ fn windows_process_suite_is_registered_and_reachable_in_ci_commands() {
         }
     }
 
-    let full = fs::read_to_string(root.join(".github/workflows/full-suite.yml"))
+    let full = read_workflow(root.join(".github/workflows/full-suite.yml"))
         .expect("failed to read full-suite workflow");
     let job = workflow_block(&full, "  full:");
     let matrix = workflow_block(&job, "      matrix:");
@@ -226,7 +226,7 @@ fn workflow_test_selection_excludes_comments_harness_arguments_and_name_prefixes
 fn scheduled_differential_separates_oracles_diagnostics_and_assembler_capabilities() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow = root.join(".github/workflows/differential.yml");
-    let contents = fs::read_to_string(&workflow)
+    let contents = read_workflow(&workflow)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", workflow.display()));
     let normalized = contents.split_whitespace().collect::<Vec<_>>().join(" ");
 
@@ -248,7 +248,7 @@ fn scheduled_differential_separates_oracles_diagnostics_and_assembler_capabiliti
 fn scheduled_kvm_keeps_host_dependent_differentials_informational() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow = root.join(".github/workflows/kvm.yml");
-    let contents = fs::read_to_string(&workflow)
+    let contents = read_workflow(&workflow)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", workflow.display()));
 
     for job in ["kvm-differential", "kvm-avx512"] {
@@ -272,7 +272,7 @@ fn scheduled_kvm_keeps_host_dependent_differentials_informational() {
 fn experimental_cross_builds_report_failures_without_red_checks() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow = root.join(".github/workflows/cross.yml");
-    let contents = fs::read_to_string(&workflow)
+    let contents = read_workflow(&workflow)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", workflow.display()));
 
     let marker = "  cross-experimental:\n";
@@ -300,7 +300,7 @@ fn experimental_cross_builds_report_failures_without_red_checks() {
 fn push_ci_runs_host_specific_scalar_and_evex_jit_regressions() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow = root.join(".github/workflows/ci.yml");
-    let contents = fs::read_to_string(&workflow)
+    let contents = read_workflow(&workflow)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", workflow.display()));
 
     for target in [
@@ -335,7 +335,7 @@ fn push_ci_runs_host_specific_scalar_and_evex_jit_regressions() {
 #[test]
 fn push_ci_runs_darwin_fixtures_against_a_required_native_oracle() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let ci = fs::read_to_string(root.join(".github/workflows/ci.yml"))
+    let ci = read_workflow(root.join(".github/workflows/ci.yml"))
         .expect("failed to read push CI workflow");
     let job = workflow_block(&ci, "  test-user-darwin:");
     // The suite's native runs are an oracle only on the macOS release the
@@ -374,7 +374,7 @@ fn push_ci_runs_darwin_fixtures_against_a_required_native_oracle() {
 fn scheduled_full_suite_runs_every_host_specific_jit_regression_binary() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow = root.join(".github/workflows/full-suite.yml");
-    let contents = fs::read_to_string(&workflow)
+    let contents = read_workflow(&workflow)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", workflow.display()));
 
     for target in [
@@ -398,7 +398,7 @@ fn scheduled_full_suite_runs_every_host_specific_jit_regression_binary() {
 fn scheduled_full_suite_serializes_native_jit_shards_and_preserves_diagnostics() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow = root.join(".github/workflows/full-suite.yml");
-    let contents = fs::read_to_string(&workflow)
+    let contents = read_workflow(&workflow)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", workflow.display()));
 
     for shard in ["unit", "smir-host"] {
@@ -449,7 +449,7 @@ fn scheduled_full_suite_serializes_native_jit_shards_and_preserves_diagnostics()
 fn ebpf_validation_runs_every_oracle_and_partitions_the_formal_tier() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow = root.join(".github/workflows/ebpf-validation.yml");
-    let contents = fs::read_to_string(&workflow)
+    let contents = read_workflow(&workflow)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", workflow.display()));
 
     for command in [
@@ -694,4 +694,26 @@ fn is_full_sha_ref(action_ref: &str) -> bool {
     };
 
     reference.len() == 40 && reference.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+// Workflows are text inputs on native Windows checkouts as well as Unix hosts.
+fn read_workflow(path: impl AsRef<Path>) -> std::io::Result<String> {
+    fs::read_to_string(path).map(|source| normalize_workflow_text(&source))
+}
+
+fn normalize_workflow_text(source: &str) -> String {
+    source.replace("\r\n", "\n")
+}
+
+#[test]
+fn workflow_policy_markers_and_test_selection_accept_crlf() {
+    let source = "  selected:\r\n    run: |\r\n      cargo test --test user_linux -- --nocapture\r\n  unrelated:\r\n    run: |\r\n      cargo test --test user_windows\r\n";
+    let workflow = normalize_workflow_text(source);
+    assert!(
+        workflow.contains("  selected:\n"),
+        "line-bound policy markers must accept a native Windows checkout"
+    );
+    let selected = workflow_block(&workflow, "  selected:");
+    assert!(selects_test_target(&selected, "user_linux"));
+    assert!(!selects_test_target(&selected, "user_windows"));
 }

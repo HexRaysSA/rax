@@ -43,3 +43,10 @@ lifetime requirement. No production interpreter, loader, host adapter, public
 C ABI, dependency pin or feature default changes in this correction. Linux and
 macOS use the same portable workflow test; this workflow executes only on
 Windows. The broader process-emulation goal remains incomplete.
+
+Workflow text is normalized from CRLF to LF at its reading boundary before
+applying the existing policy markers and command-selection checks. Policy
+assertions remain identical on Windows, macOS and Linux. The complete tooling
+binary is checked against both LF and CRLF workflow fixtures; unrelated jobs
+remain outside each selected block. Changes to its owning Rust source trigger
+the native Windows workflow for both pushes and pull requests.

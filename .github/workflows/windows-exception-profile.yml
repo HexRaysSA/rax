@@ -5,6 +5,7 @@ on:
     branches: [master, main]
     paths:
       - .github/workflows/windows-exception-profile.yml
+      - tests/suites/tooling/ci_actions_pinned.rs
       - docs/specifications/windows/native-exception-entry-profile/**
       - docs/specifications/windows/native-raise-arguments/**
       - docs/specifications/windows/native-wow64-processor-feature/**
@@ -56,6 +57,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
+      - tests/suites/tooling/ci_actions_pinned.rs
       - docs/specifications/windows/native-exception-entry-profile/**
       - docs/specifications/windows/native-raise-arguments/**
       - docs/specifications/windows/native-wow64-processor-feature/**
