@@ -35,7 +35,7 @@ fn native_record(
     Ok((status as u32, returned, bytes))
 }
 
-fn records(key: &OwnedKey) -> io::Result<KeyInformation> {
+pub(super) fn records(key: &OwnedKey) -> io::Result<KeyInformation> {
     let mut records: [Vec<u8>; 9] = std::array::from_fn(|_| Vec::new());
     for class in [0, 1, 2, 3, 4, 5, 6, 8] {
         let (probe_status, required, _) = native_record(key, class, 0, 0xA5)?;

@@ -341,8 +341,8 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
                 None => return status(STATUS_INVALID_PARAMETER),
             });
         }
-        physical_wow = root.redirected_view == Some(RegistryView::Wow32)
-            && root.command_physical_name(&root.path);
+        physical_wow =
+            root.redirected_view == Some(RegistryView::Wow32) && root.physical_wow_name(&root.path);
         if root.is_machine_hive() {
             let folded = root.fold(&attrs.name.units);
             let mut parts = folded.split(|u| *u == 92).filter(|part| !part.is_empty());
@@ -409,6 +409,9 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
             }
         }
     };
+    if let Some(Object::Key(root)) = c.p.objects.get(attrs.root) {
+        control_set_alias |= root.current_version_shared_alias(&selected);
+    }
     // Native controls distinguish OBJ_OPENLINK above from OpenOptions bit8.
     // The admitted option alone retains the ordinary resolved-key behavior.
     // Relative opens consume key-body state. Absolute opens establish native
@@ -432,14 +435,14 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     } else if let Some(relative) = &relative {
         relative.tags(
             selected.is_machine_hive(),
-            physical_wow || selected.command_physical_name(&attrs.name.units),
+            physical_wow || selected.physical_wow_name(&attrs.name.units),
             control_set_alias,
         )
     } else if wow {
         let requested = access & 0x300;
         if selected.is_machine_hive() || selected.primary_hive_sid_spelling(&attrs.name.units) {
             requested
-        } else if selected.command_physical_name(&attrs.name.units) {
+        } else if selected.physical_wow_name(&attrs.name.units) {
             if requested == 0x100 { 0x100 } else { 0xE00 }
         } else {
             requested | if requested == 0x100 { 0 } else { 0x400 }

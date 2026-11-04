@@ -51,6 +51,16 @@ pub(crate) use command_processor::{
 #[path = "registry/snapshot_root.rs"]
 mod snapshot_root;
 pub(crate) use snapshot_root::{OLE_KEY, SnapshotRoot};
+#[path = "registry/current_version.rs"]
+mod current_version;
+#[cfg(test)]
+pub(crate) use current_version::CURRENT_VERSION_WOW_KEY;
+#[cfg(test)]
+pub(crate) use current_version::tests::{
+    header as current_version_header_fixture, parent_header as current_version_parent_fixture,
+    registry as current_version_registry_fixture,
+};
+pub(crate) use current_version::{CURRENT_VERSION_KEY, CurrentVersionHeader, WINDOWS_NT_KEY};
 #[path = "registry/fixed.rs"]
 mod fixed;
 #[path = "registry/local_settings.rs"]

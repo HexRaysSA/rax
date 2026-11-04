@@ -5,6 +5,8 @@
 mod appmodel;
 #[path = "installed/command_processor.rs"]
 mod command_processor;
+#[path = "installed/current_version.rs"]
+mod current_version;
 #[path = "installed/ifeo.rs"]
 mod ifeo;
 #[path = "installed/key_enumeration.rs"]
@@ -382,11 +384,12 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let selected = key_information::capture(&registry, super::TreeRoot::Nls)?
         .ok_or_else(|| io::Error::from_raw_os_error(2))?;
     let registry = registry.with_nls_information_tree(selected)?;
-    machine_hive::capture(command_processor::capture_ole(
+    let registry = machine_hive::capture(command_processor::capture_ole(
         command_processor::capture_system(command_processor::capture_machine(appmodel::capture(
             registry,
         )?)?)?,
-    )?)
+    )?)?;
+    current_version::capture(registry)
 }
 
 #[cfg(test)]

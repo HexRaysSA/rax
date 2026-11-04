@@ -1121,3 +1121,6 @@ mod display_policy;
 
 #[path = "registry_tests/gre_initialize.rs"]
 mod gre_initialize;
+
+#[path = "registry_current_version_tests.rs"]
+mod current_version;

@@ -23,6 +23,8 @@ pub(crate) enum ViewRoot {
     CommandUser,
     Ole,
     LocalSettings,
+    CurrentVersion,
+    WindowsNt,
 }
 
 #[derive(Clone, Debug, Default)]

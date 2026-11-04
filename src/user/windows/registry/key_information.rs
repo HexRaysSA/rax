@@ -139,7 +139,7 @@ impl KeyInformation {
             .collect()
     }
 
-    fn check_contents(&self, key: &Key) -> io::Result<()> {
+    pub(super) fn check_contents(&self, key: &Key) -> io::Result<()> {
         if word(&self.records[2], 20) != key.children as usize
             || word(&self.records[2], 32) != key.values.len()
             || word(&self.records[4], 12) != key.children as usize

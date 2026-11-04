@@ -393,7 +393,7 @@ impl Key {
                 }
             }
             let Some(children) = &key.subkeys else {
-                return if key.children == 0 {
+                return if key.children == 0 || key.current_version_missing_child(component) {
                     Lookup::Missing
                 } else {
                     Lookup::Unselected

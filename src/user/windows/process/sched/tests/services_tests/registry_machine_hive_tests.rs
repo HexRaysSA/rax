@@ -46,7 +46,7 @@ fn captured(p: &mut Proc, present_appmodel: bool) {
         .unwrap();
 }
 
-fn open(
+pub(super) fn open(
     p: &mut Proc,
     t: &mut Thread,
     base: u64,
