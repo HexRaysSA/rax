@@ -13,6 +13,7 @@ mod directory;
 mod events;
 mod file_attributes;
 mod file_create;
+mod file_information;
 mod file_open;
 mod file_write;
 mod hotpatch;
@@ -410,6 +411,14 @@ pub(super) static EXPORTS: &[Export] = &[
         wnf_query::query,
     ),
 ];
+
+// Appended after all existing families by the DLL registry, preserving ordinals.
+pub(super) static FILE_INFORMATION_EXPORTS: &[Export] = &[Export::func(
+    "NtQueryInformationFile",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, I32, I32],
+    file_information::query,
+)];
 
 // Append this table after all existing NTDLL families to preserve their
 // synthetic PE ordinals and trap addresses. Kernel lookup shares this table.

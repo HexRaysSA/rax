@@ -16,11 +16,42 @@ use crate::user::windows::nt::status::{
 use crate::user::windows::objects::Object;
 use std::path::Path;
 
-pub(super) struct Information {
-    pub(super) times: [u64; 4],
-    pub(super) allocation: u64,
-    pub(super) size: u64,
-    pub(super) attributes: u32,
+pub(in super::super) struct Information {
+    pub(in super::super) times: [u64; 4],
+    pub(in super::super) allocation: u64,
+    pub(in super::super) size: u64,
+    pub(in super::super) attributes: u32,
+}
+
+/// Query an already admitted object; a legacy pathname cannot substitute a new file.
+#[cfg(unix)]
+pub(in super::super) fn retained(
+    c: &Ctx,
+    file: &crate::user::windows::objects::FileObj,
+) -> Checked<Information> {
+    let reopened;
+    let retained = if let Some(retained) = &file.host {
+        retained
+    } else {
+        // Reopening may acquire a different object after rename/replacement.
+        // Admit it only after fstat proves the original captured identity, then
+        // keep that descriptor for every timestamp/xattr query below.
+        reopened = std::fs::File::open(&file.host_path)
+            .map_err(|error| c.unsupported(format!("metadata-only file open: {error}")))?;
+        let metadata = reopened
+            .metadata()
+            .map_err(|error| c.unsupported(format!("retained file metadata: {error}")))?;
+        if FileIdentity::of(&file.host_path, &metadata)
+            .map_err(|error| c.unsupported(format!("retained file identity: {error}")))?
+            != file.lifetime.identity
+        {
+            return Err(c
+                .unsupported("metadata-only file pathname was replaced")
+                .into());
+        }
+        &reopened
+    };
+    unix::query(c, &file.host_path, Some(retained))
 }
 
 pub(super) fn io_error(c: &Ctx, error: std::io::Error, path: &Path) -> Checked<Information> {

@@ -274,6 +274,7 @@ pub(super) fn kernel(
         c.p.objects
             .try_create(Object::File(file))
             .ok_or(Failure::Status(STATUS_INSUFFICIENT_RESOURCES))?;
+    c.p.objects.set_file_mode(id, r.options);
     if resolved.runtime_library {
         c.p.objects.mark_runtime_library(id);
     }

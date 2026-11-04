@@ -1,0 +1,28 @@
+{
+  "schema": "rax-native-file-information-manifest-v1",
+  "files": {
+    "CMakeLists.txt": {
+      "sha256": "7ef9b429b101ee147bc4558f1d47aa2f5fb0e10679249f13892c3f7c97fb0702",
+      "bytes": 1106
+    },
+    "observations-v1.json": {
+      "sha256": "b399614a2dad343e0a3cc1e4d16d4fbe9dbc4bdf5e224d8b0e60348de737f8b8",
+      "bytes": 3846244
+    },
+    "profile-v1.c": {
+      "sha256": "0ac2adb5313cbff5c462607e1b6d132e270e01ef0b342ad0696f193d4973108a",
+      "bytes": 7044
+    },
+    "faults-v1.c": {
+      "sha256": "a877a72af1c674fca30f9febeaf8508a20af69589559b6dc569b1b08970df2c9",
+      "bytes": 9142
+    },
+    "runtime-v1.h": {
+      "sha256": "9d474e443c49928d048af50c67735ab727c6b5f22b3fb63354da3656c922c14d",
+      "bytes": 2247
+    }
+  },
+  "replay_cases": 19776,
+  "native_fault_cases": 43260,
+  "native_profile_cases": 46461
+}

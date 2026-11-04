@@ -25,6 +25,9 @@ mod file_attributes_tests;
 #[path = "services_tests/volume_query_tests.rs"]
 mod volume_query_tests;
 
+#[path = "services_tests/file_information_tests.rs"]
+mod file_information_tests;
+
 #[path = "services_tests/semaphore_replay_tests.rs"]
 mod semaphore_replay_tests;
 

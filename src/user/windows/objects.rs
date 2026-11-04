@@ -300,6 +300,8 @@ struct Entry {
     registry_views: Option<std::sync::Arc<super::registry::RegistryViews>>,
     /// Read-only installed-library authority, retained independently of a catalog.
     runtime_library: bool,
+    /// Per-open NT mode, shared by duplicate handles, separate from file identity.
+    file_mode: u32,
     refs: u32,
     name: Option<String>,
     native_name: Option<super::object_namespace::NativeName>,
@@ -369,6 +371,14 @@ impl Objects {
             Object::Key(key) if key.redirected_view.is_some() => None,
             _ => Some(0),
         };
+        let file_mode = match &obj {
+            Object::File(file) => {
+                (if file.overlapped { 0 } else { 0x20 })
+                    | if file.delete_on_close { 0x1000 } else { 0 }
+            }
+            Object::Console(_) | Object::Null | Object::Pipe { .. } => 0x20,
+            _ => 0,
+        };
         self.objs.insert(
             next,
             Entry {
@@ -376,6 +386,7 @@ impl Objects {
                 registry_tags,
                 registry_views: None,
                 runtime_library: false,
+                file_mode,
                 refs: 0,
                 name: None,
                 native_name: None,
@@ -532,6 +543,18 @@ impl Objects {
         let entry = self.objs.get_mut(&id).expect("new file object");
         assert!(matches!(entry.obj, Object::File(_)));
         entry.runtime_library = true;
+    }
+
+    pub(crate) fn set_file_mode(&mut self, id: ObjId, options: u32) {
+        let entry = self.objs.get_mut(&id).expect("new file object");
+        assert!(matches!(entry.obj, Object::File(_)));
+        entry.file_mode = options & 0x103e;
+    }
+
+    pub(crate) fn file_mode(&self, handle: u64) -> Option<u32> {
+        self.objs
+            .get(&self.id(handle)?)
+            .map(|entry| entry.file_mode)
     }
 
     pub(crate) fn runtime_library(&self, handle: u64) -> bool {
