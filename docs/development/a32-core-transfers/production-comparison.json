@@ -1,0 +1,33 @@
+{
+  "compile_argv": [
+    "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+    "--edition=2024",
+    "--crate-name",
+    "a32_transfer_oracle",
+    "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/compare-qemu.rs",
+    "-C",
+    "opt-level=1",
+    "-C",
+    "debug-assertions=yes",
+    "-C",
+    "overflow-checks=yes",
+    "-L",
+    "dependency=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps",
+    "--extern",
+    "rax=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps/librax-8756ceecdfefe73c.rlib",
+    "--extern",
+    "serde_json=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps/libserde_json-c8a34c758e9ba835.rlib",
+    "-o",
+    "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-tmp-v1/compare-transfer-oracle"
+  ],
+  "compile_code": 0,
+  "compile_log": "",
+  "run_code": 0,
+  "stdout": "SUMMARY cases=216 matching=216 mismatches=0\n",
+  "stderr": "",
+  "library_sha256": "99aeb26284d846e507c1696824dfd81015f26671416c4f57688dc0e9d088b3a2",
+  "golden_sha256": "85f19000710506d37a4fdbf3bc3b2dfd9cf370c5309efc15ea2bcb0a4b9af14b",
+  "actual_sha256": "85f19000710506d37a4fdbf3bc3b2dfd9cf370c5309efc15ea2bcb0a4b9af14b",
+  "source_unchanged": true,
+  "physical_Intel_execution": false
+}

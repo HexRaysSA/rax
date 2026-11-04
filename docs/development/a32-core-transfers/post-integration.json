@@ -1,0 +1,166 @@
+{
+  "utc": "2026-11-04T00:46:23.994657+00:00",
+  "exit_code": 0,
+  "head": "efa5e15b021c83dee424cef2126cc223c1f0f679",
+  "full_source_verified": true,
+  "protected_state_unchanged": true,
+  "source_manifest_sha256": "6098da4aec2fd13d1281c1b1f451a0861ee811fa863fd225d7b070a6d4e25da5",
+  "commands": [
+    {
+      "label": "fmt",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "results": [],
+      "coverage_verified": true,
+      "source_unchanged": true,
+      "elapsed_seconds": 13.32533887505997,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "label": "clippy",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "results": [],
+      "coverage_verified": true,
+      "source_unchanged": true,
+      "elapsed_seconds": 89.14755587500986,
+      "log_sha256": "db7da37533d31fffa2147c288cf0b1382a0da25c6d246450528a96f4f94cb499",
+      "log_bytes": 159
+    },
+    {
+      "label": "owning",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--message-format=json",
+        "--test",
+        "arm_vfp_a32",
+        "--test",
+        "arm",
+        "--test",
+        "isa_oracle",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          46850,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          524,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          102,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "coverage_verified": true,
+      "source_unchanged": true,
+      "elapsed_seconds": 210.29664662503637,
+      "log_sha256": "299f4e0a5551329c73eb7b0b4f22ae7002a1d07ef2d02170068f7ae9aa63afc9",
+      "log_bytes": 5053281
+    }
+  ],
+  "independent": [
+    {
+      "label": "oracle",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+        "--edition=2024",
+        "--crate-name",
+        "a32_post_oracle",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/compare-qemu.rs",
+        "-C",
+        "opt-level=1",
+        "-C",
+        "debug-assertions=yes",
+        "-C",
+        "overflow-checks=yes",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps/librax-8756ceecdfefe73c.rlib",
+        "--extern",
+        "serde_json=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps/libserde_json-c8a34c758e9ba835.rlib",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/post-integration-v1/oracle-bin"
+      ],
+      "compile_code": 0,
+      "run_code": 0,
+      "stdout": "SUMMARY cases=216 matching=216 mismatches=0\n",
+      "stderr": "",
+      "source_sha256": "772cebae86bc876f4b875e7dd5a1e5a8eef4d9ca852ddafaf0b21e4774a369aa",
+      "library_sha256": "463f432466b114da5c505622d2aefec8b8da7211e3d6c220c44ceebe3e62996e",
+      "executable_sha256": "e4a03cb991c74bae22b9cdf52dfdbd52b0e07e0457e373a195ff12290442876d",
+      "executable_bytes": 1014472
+    },
+    {
+      "label": "mixed",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+        "--edition=2024",
+        "--crate-name",
+        "a32_post_mixed",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/mixed-transfers-v1.rs",
+        "-C",
+        "opt-level=1",
+        "-C",
+        "debug-assertions=yes",
+        "-C",
+        "overflow-checks=yes",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps/librax-8756ceecdfefe73c.rlib",
+        "--extern",
+        "serde_json=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps/libserde_json-c8a34c758e9ba835.rlib",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/post-integration-v1/mixed-bin"
+      ],
+      "compile_code": 0,
+      "run_code": 0,
+      "stdout": "MIXED valid=216 invalid=80 skipped=20\n",
+      "stderr": "",
+      "source_sha256": "f44d1092519ee556c84f9e40d0c9e8be7f9a752e1b5c1b398a1adb8f35594cd2",
+      "library_sha256": "463f432466b114da5c505622d2aefec8b8da7211e3d6c220c44ceebe3e62996e",
+      "executable_sha256": "81067ee3d9fd8085ed6f21f61fb14616a3240513f8fd91befa6e476a97fe976c",
+      "executable_bytes": 1989768
+    }
+  ],
+  "regular_library_sha256": "463f432466b114da5c505622d2aefec8b8da7211e3d6c220c44ceebe3e62996e",
+  "scope": "Disjoint upstream Windows fast-forward; exact A32/RAM inputs retained. Complete owning binaries, workspace lint and independent standalone/mixed observers executed on the updated product. Earlier complete root-library receipt retains its original frozen manifest; it is not relabeled as a post-integration root run."
+}

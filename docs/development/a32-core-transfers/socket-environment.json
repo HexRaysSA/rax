@@ -1,0 +1,64 @@
+{
+  "utc": "2026-11-04T00:39:36.209940+00:00",
+  "exit_code": 0,
+  "source_unchanged": true,
+  "binary_sha256": "cae323c11a4ef7b30b27aadb68bd104931fd852f952fa0d028d4017edc3d36d3",
+  "commands": [
+    {
+      "label": "original-long",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps/rax-dbb91d3021ad8f64",
+        "user::linux::tests::sockets::abstract_names_and_autobind",
+        "user::linux::tests::sockets::unix_names_bind_resolve_and_report",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "TMPDIR": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-tmp-v1",
+      "canonical_TMPDIR": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-tmp-v1",
+      "exit_code": 101,
+      "results": [
+        [
+          0,
+          2,
+          0,
+          0,
+          12310
+        ]
+      ],
+      "elapsed_seconds": 0.027214083936996758,
+      "log": "\nrunning 2 tests\ntest user::linux::tests::sockets::abstract_names_and_autobind ... \nthread 'user::linux::tests::sockets::abstract_names_and_autobind' (243153764) panicked at src/user/linux/tests/sockets.rs:493:9:\nassertion `left == right` failed\n  left: -36\n right: 4\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nFAILED\ntest user::linux::tests::sockets::unix_names_bind_resolve_and_report ... \nthread 'user::linux::tests::sockets::unix_names_bind_resolve_and_report' (243153766) panicked at src/user/linux/tests/sockets.rs:392:9:\nassertion `left == right` failed\n  left: -22\n right: -111\nFAILED\n\nfailures:\n\nfailures:\n    user::linux::tests::sockets::abstract_names_and_autobind\n    user::linux::tests::sockets::unix_names_bind_resolve_and_report\n\ntest result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 12310 filtered out; finished in 0.01s\n\n"
+    },
+    {
+      "label": "short-owning",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps/rax-dbb91d3021ad8f64",
+        "user::linux::tests::sockets::",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "TMPDIR": "/tmp/rax-a32-3_40v247",
+      "canonical_TMPDIR": "/private/tmp/rax-a32-3_40v247",
+      "exit_code": 0,
+      "results": [
+        [
+          16,
+          0,
+          0,
+          0,
+          12296
+        ]
+      ],
+      "elapsed_seconds": 0.216843125061132,
+      "log": "\nrunning 16 tests\ntest user::linux::tests::sockets::a_send_that_faults_sends_what_linux_copied_whole ... ok\ntest user::linux::tests::sockets::abstract_names_and_autobind ... ok\ntest user::linux::tests::sockets::addresses_copy_out_as_move_addr_to_user ... ok\ntest user::linux::tests::sockets::batches_send_and_receive_until_done ... ok\ntest user::linux::tests::sockets::blocking_calls_end_by_timeout_or_signal ... ok\ntest user::linux::tests::sockets::creation_checks_follow_sock_create ... ok\ntest user::linux::tests::sockets::credentials_are_checked_and_delivered_with_so_passcred ... ok\ntest user::linux::tests::sockets::descriptors_pass_as_scm_detach_fds_installs_them ... ok\ntest user::linux::tests::sockets::inet_bind_and_connect_check_their_addresses ... ok\ntest user::linux::tests::sockets::ipv6_loopback_carries_whole_addresses ... ok\ntest user::linux::tests::sockets::message_headers_are_checked_as_copy_msghdr_does ... ok\ntest user::linux::tests::sockets::options_follow_sk_setsockopt_and_sk_getsockopt ... ok\ntest user::linux::tests::sockets::sigpipe_follows_the_protocol ... ok\ntest user::linux::tests::sockets::socketpair_reserves_and_writes_its_descriptors_first ... ok\ntest user::linux::tests::sockets::sockets_poll_and_answer_their_ioctls ... ok\ntest user::linux::tests::sockets::unix_names_bind_resolve_and_report ... ok\n\ntest result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 12296 filtered out; finished in 0.20s\n\n"
+    }
+  ],
+  "original_root_results": [
+    12275,
+    2,
+    35,
+    0,
+    0
+  ],
+  "root_rerun": false,
+  "scope": "Same unchanged production root executable: both original failures reproduced at the original long TMPDIR; entire socket owning module rerun at a short TMPDIR. The original root failure is retained and is not relabeled as a passing unfiltered run. This establishes TMPDIR sensitivity, not general long-path correctness."
+}

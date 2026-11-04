@@ -1,0 +1,69 @@
+{
+  "utc": "2026-11-03T23:37:32.907463+00:00",
+  "commands": [
+    {
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/native-owner-controls-v1/hypervisor.entitlements",
+        "--generate-entitlement-der",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/native-owner-controls-v1/signed-root-tests"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/native-owner-controls-v1/signed-root-tests: replacing existing signature\n"
+    },
+    {
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "--verbose=2",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/native-owner-controls-v1/signed-root-tests"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/native-owner-controls-v1/signed-root-tests: valid on disk\n/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/native-owner-controls-v1/signed-root-tests: satisfies its Designated Requirement\n"
+    },
+    {
+      "argv": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/native-owner-controls-v1/signed-root-tests",
+        "backend::hvf::arm64::worker::timing_tests::",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "stdout": "\nrunning 2 tests\ntest backend::hvf::arm64::worker::timing_tests::native_instruction_frontier_advance_wraps_the_sdk_pc_at_64_bits ... ok\ntest backend::hvf::arm64::worker::timing_tests::native_owner_requests_preserve_nested_caller_clocks_without_leaking_bindings ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 12310 filtered out; finished in 0.02s\n\n",
+      "stderr": ""
+    }
+  ],
+  "results": [
+    [
+      2,
+      0,
+      0,
+      0,
+      12310
+    ]
+  ],
+  "original_executable_unchanged": true,
+  "original_executable": {
+    "bytes": 701213864,
+    "inode": 407550107,
+    "mtime_ns": 1793743080733556095,
+    "sha256": "cae323c11a4ef7b30b27aadb68bd104931fd852f952fa0d028d4017edc3d36d3"
+  },
+  "executable_cleanup": {
+    "path": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/native-owner-controls-v1/signed-root-tests",
+    "bytes": 697137648,
+    "sha256": "9ab6235f8554bba23fdea3e0459eb84be7704fc2df1cf7e38016f0034573f5f5",
+    "process_terminal": true
+  },
+  "physical_Apple_Silicon": true,
+  "physical_Intel": false,
+  "scope": "Both ignored native ARM64 worker timing/frontier cases executed on a separately signed APFS clone of the exact running full-library binary. The original executable and source inputs were never modified. This is a separate two-case native control, not a relabeled unfiltered root result."
+}

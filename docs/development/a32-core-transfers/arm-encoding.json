@@ -1,0 +1,14 @@
+{
+  "utc": "2026-11-03T20:51:07.813285+00:00",
+  "argv": [
+    "/Users/int/local/bin/llvm-mc",
+    "-triple=armv7-none-eabi",
+    "-mattr=+neon",
+    "-show-encoding",
+    "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/anchors.s"
+  ],
+  "exit_code": 0,
+  "source_sha256": "3b9bb17c66a18ba79322f4a64d1cfbbffb9910741180a09e9644642cf579cc97",
+  "stdout": "\t.code\t32\n\t.p2align\t2\n\t.fpu\tneon\n\n\tvmov\ts0, r0                          @ encoding: [0x10,0x0a,0x00,0xee]\n\tvmov\tr0, s0                          @ encoding: [0x10,0x0a,0x10,0xee]\n\tvmov.32\td0[0], r0                       @ encoding: [0x10,0x0b,0x00,0xee]\n\tvmov.32\tr0, d0[0]                       @ encoding: [0x10,0x0b,0x10,0xee]\n\tvmov.16\td0[0], r0                       @ encoding: [0x30,0x0b,0x00,0xee]\n\tvmov.s16\tr0, d0[0]                       @ encoding: [0x30,0x0b,0x10,0xee]\n\tvmov.u16\tr0, d0[0]                       @ encoding: [0x30,0x0b,0x90,0xee]\n\tvmov.8\td0[0], r0                       @ encoding: [0x10,0x0b,0x40,0xee]\n\tvmov.s8\tr0, d0[0]                       @ encoding: [0x10,0x0b,0x50,0xee]\n\tvmov.u8\tr0, d0[0]                       @ encoding: [0x10,0x0b,0xd0,0xee]\n",
+  "stderr": ""
+}

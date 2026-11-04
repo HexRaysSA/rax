@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "/Users/int/local/bin/llvm-mc",
+    "-triple=thumbv7-none-eabi",
+    "-mattr=+neon",
+    "-show-encoding",
+    "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/anchors-thumb.s"
+  ],
+  "exit_code": 0,
+  "stdout": "\t.code\t16\n\t.p2align\t1\n\t.fpu\tneon\n\n\tvmov\ts0, r0                          @ encoding: [0x00,0xee,0x10,0x0a]\n\tvmov\tr0, s0                          @ encoding: [0x10,0xee,0x10,0x0a]\n\tvmov.32\td0[0], r0                       @ encoding: [0x00,0xee,0x10,0x0b]\n\tvmov.32\tr0, d0[0]                       @ encoding: [0x10,0xee,0x10,0x0b]\n\tvmov.16\td0[0], r0                       @ encoding: [0x00,0xee,0x30,0x0b]\n\tvmov.s16\tr0, d0[0]                       @ encoding: [0x10,0xee,0x30,0x0b]\n\tvmov.u16\tr0, d0[0]                       @ encoding: [0x90,0xee,0x30,0x0b]\n\tvmov.8\td0[0], r0                       @ encoding: [0x40,0xee,0x10,0x0b]\n\tvmov.s8\tr0, d0[0]                       @ encoding: [0x50,0xee,0x10,0x0b]\n\tvmov.u8\tr0, d0[0]                       @ encoding: [0xd0,0xee,0x10,0x0b]\n",
+  "stderr": ""
+}

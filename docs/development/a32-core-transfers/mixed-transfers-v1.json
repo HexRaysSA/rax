@@ -1,0 +1,32 @@
+{
+  "utc": "2026-11-03T21:55:50.552813+00:00",
+  "argv": [
+    "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+    "--edition=2024",
+    "--crate-name",
+    "mixed_transfers_v1",
+    "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/mixed-transfers-v1.rs",
+    "-C",
+    "opt-level=1",
+    "-C",
+    "debug-assertions=yes",
+    "-C",
+    "overflow-checks=yes",
+    "-L",
+    "dependency=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps",
+    "--extern",
+    "rax=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps/librax-8756ceecdfefe73c.rlib",
+    "--extern",
+    "serde_json=/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-target-v1/debug/deps/libserde_json-c8a34c758e9ba835.rlib",
+    "-o",
+    "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/macos-tmp-v1/mixed-transfers-v1-bin"
+  ],
+  "compile_code": 0,
+  "compile_log": "",
+  "run_code": 0,
+  "stdout": "MIXED valid=216 invalid=80 skipped=20\n",
+  "stderr": "",
+  "source_sha256": "f44d1092519ee556c84f9e40d0c9e8be7f9a752e1b5c1b398a1adb8f35594cd2",
+  "library_sha256": "99aeb26284d846e507c1696824dfd81015f26671416c4f57688dc0e9d088b3a2",
+  "scope": "Complete mixed AArch64/AArch32 CPU;216 independent valid records,80 invalid R15/denial/trap states,20 failed ARM/Thumb IT predicates; physical integer/vector banks and retirement."
+}

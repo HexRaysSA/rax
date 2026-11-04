@@ -1,0 +1,212 @@
+{
+  "utc": "2026-11-04T00:38:29.178181+00:00",
+  "exit_code": 101,
+  "full_source_verified": true,
+  "protected_state_unchanged": true,
+  "physical_Intel_execution": false,
+  "scope": "Complete AArch32 decoder/executor owning suites and full root library on Apple M4 Max; all216 independent QEMU records match through the complete new product library. Original passing gates retained without rerun. Five doctests ignored and zero active on macOS; no physical A32 or physical Intel guest executed.",
+  "source_manifest_sha256": "f4b1566c8e59a74901580226e47b97e13696ee5f6db791313da0a0c952c5e059",
+  "registered_root_cases": 12312,
+  "root_ignored": [
+    "backend::hvf::arm64::worker::timing_tests::native_instruction_frontier_advance_wraps_the_sdk_pc_at_64_bits",
+    "backend::hvf::arm64::worker::timing_tests::native_owner_requests_preserve_nested_caller_clocks_without_leaking_bindings",
+    "smir::lower::validation::tests::test_lift_lower_full_microkernel",
+    "smir::lower::validation::tests::test_roundtrip_exact_bytes_microkernel",
+    "vm::runtime::gdb_lifecycle_tests::transport::disconnected_owner_child",
+    "vm::runtime::gdb_smp_tests::client::installed_gdb_enumerates_selects_steps_and_writes_an_ap",
+    "vm::runtime::gdb_smp_tests::memory::installed_gdb_uses_selected_cpu_virtual_memory_and_read_only_writes",
+    "vm::runtime::native_checkpoint_tests::active_sme_modes_restore_all_storage_and_execute_za_after_real_file_resume",
+    "vm::runtime::native_checkpoint_tests::active_uart_spi_file_restore_preserves_priority_reassertion_and_deassertion",
+    "vm::runtime::native_checkpoint_tests::actual_native_vmm_restores_one_two_four_cpu_files_and_continues_pending_mmio",
+    "vm::runtime::native_checkpoint_tests::failed_native_reply_file_retries_saved_data_without_a_second_device_read",
+    "vm::runtime::native_checkpoint_tests::late_sdk_gic_rejection_rolls_back_every_native_cpu_ram_and_irq_level",
+    "vm::runtime::native_checkpoint_tests::native_coordinator_runs_online_cpus_and_resumes_the_next_cpu_from_a_real_file",
+    "vm::runtime::native_checkpoint_tests::native_coordinator_yields_from_gic_handled_wfi_without_claiming_retirement",
+    "vm::runtime::native_checkpoint_tests::native_cpu_destruction_preserves_peer_entry_but_rejects_incomplete_checkpoint",
+    "vm::runtime::native_checkpoint_tests::native_failed_restore_and_failed_rollback_disable_all_further_entry",
+    "vm::runtime::native_checkpoint_tests::native_kick_spawn_failure_unwinds_sdk_owner_and_allows_identity_reuse",
+    "vm::runtime::native_checkpoint_tests::native_pending_mmio_store_survives_real_file_before_device_dispatch",
+    "vm::runtime::native_checkpoint_tests::native_psci_shutdown_survives_files_and_register_overlays_until_explicit_restart",
+    "vm::runtime::native_checkpoint_tests::native_register_overlay_preserves_each_pending_io_phase",
+    "vm::runtime::native_checkpoint_tests::native_reversed_cpu_creation_order_preserves_real_file_continuation",
+    "vm::runtime::native_checkpoint_tests::native_short_mmio_reply_reports_pending_before_more_execution",
+    "vm::runtime::native_checkpoint_tests::native_target_rejects_legacy_cpu_projection_before_any_mutation",
+    "vm::runtime::native_checkpoint_tests::psci::native_cpu_off_blocks_entry_and_pending_stop_survives_file_before_restart",
+    "vm::runtime::native_checkpoint_tests::psci::native_guest_cpu_on_starts_secondaries_and_continues_after_real_file_restore",
+    "vm::runtime::native_checkpoint_tests::psci::native_pending_start_failure_retains_remaining_cpus_through_real_file",
+    "vm::runtime::native_checkpoint_tests::psci::native_psci_32_64_conduits_admit_arguments_and_copy_caller_endianness",
+    "vm::runtime::native_checkpoint_tests::psci::native_secondary_system_off_stops_every_cpu_through_real_file",
+    "vm::runtime::native_checkpoint_tests::standalone::standalone_native_shared_capture_preserves_a_restored_pending_power_graph",
+    "vm::runtime::native_checkpoint_tests::standalone::standalone_native_shutdown_is_vm_wide_and_restores_with_the_shared_graph",
+    "vm::runtime::native_checkpoint_tests::store_retirement::acknowledged_store_file_retries_only_pc_without_replaying_external_output",
+    "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_consumed_peer_input_and_error_through_file_restart",
+    "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_retryable_peer_input_through_file_restart",
+    "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_undispatched_peer_output_through_file_restart",
+    "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_unserviced_peer_input_through_file_restart"
+  ],
+  "commands": [
+    {
+      "label": "fmt",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [],
+      "coverage_verified": true,
+      "elapsed_seconds": 15.513486417010427,
+      "utc": "2026-11-03T21:46:25.296523+00:00",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "label": "clippy",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [],
+      "coverage_verified": true,
+      "elapsed_seconds": 91.31865495897364,
+      "utc": "2026-11-03T21:47:56.663920+00:00",
+      "log_sha256": "7edeb252f3bc55741409e13bdf0953503937c08db9a9f338c9b527a78a325d0b",
+      "log_bytes": 2890
+    },
+    {
+      "label": "owning",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--message-format=json",
+        "--test",
+        "arm_vfp_a32",
+        "--test",
+        "arm",
+        "--test",
+        "isa_oracle",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [
+        [
+          46850,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          524,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          102,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "coverage_verified": true,
+      "elapsed_seconds": 227.438578124973,
+      "utc": "2026-11-03T21:51:44.154610+00:00",
+      "log_sha256": "24c709c749b465e500dd6cab4dcbb35e9ce4d1457bee941ec3d9d65bc6c81bdd",
+      "log_bytes": 5055513
+    },
+    {
+      "label": "doc",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [
+        [
+          0,
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "coverage_verified": true,
+      "elapsed_seconds": 10.690603958093561,
+      "utc": "2026-11-03T21:51:56.936542+00:00",
+      "coverage_boundary": "macOS has zero active doctests and five existing ignores; command compiled successfully. The original harness incorrectly required a positive execution count. Original logs/receipts preserved; no rerun.",
+      "log_sha256": "318027f4c8bfdf4a186d1813f4b12a50972c4585cf10b1cf4f125a1c31229c8b",
+      "log_bytes": 771
+    },
+    {
+      "label": "root-library",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "source_unchanged": true,
+      "results": [
+        [
+          12275,
+          2,
+          35,
+          0,
+          0
+        ]
+      ],
+      "coverage_verified": false,
+      "elapsed_seconds": 9883.750719291973,
+      "utc": "2026-11-04T00:38:24.307791+00:00",
+      "log_sha256": "20a865ad170602f41c1d153f944ef4d1ab189a5e0884543cafb115edc4762f9b",
+      "log_bytes": 1450865
+    }
+  ],
+  "root_environment_followup": "socket-environment.json",
+  "unfiltered_root_passed": false
+}

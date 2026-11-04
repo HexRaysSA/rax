@@ -177,6 +177,16 @@ impl Aarch32Decoder {
         }
 
         let rt = ((raw >> 12) & 0xF) as u8;
+        // Core/extension transfers select Undefined for an R15 operand before
+        // CheckAdvSIMDOrVFPEnabled, as the pair-register forms already do.
+        if rt == 15 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
         let v = ((raw >> 16) & 0xF) as u8;
         if coproc == 0b1011 {
             let transfer_to_core = ((raw >> 20) & 1) != 0;

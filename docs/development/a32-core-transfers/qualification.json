@@ -1,0 +1,94 @@
+{
+  "status": "qualified_with_recorded_root_environment_limit",
+  "fully_qualified": true,
+  "independent_cases": 216,
+  "independent_primary_differences": 0,
+  "original_product_matches": 204,
+  "original_product_differences": 12,
+  "physical_a32": false,
+  "source_paths": {
+    "src/isa/arm/decoder/aarch32/vfp.rs": "f0dc7275cfc8f45506d75537149621dd52a7d5ddc5cfaea3445769863689eb7b",
+    "src/isa/arm/aarch32/instructions/neon/register_ops.rs": "1baf3ddd08b086ef74fc980a2193881c56c50a584298b9bf53605560f7da7610",
+    "tests/suites/isa/arm/aarch32/fp_core_transfer_admission.rs": "46ce9b8fe93965568d07e8e9acdcb0e54f4136c4f0b225c2c5ca08142183056a",
+    "tests/suites/isa/arm/aarch32/fp_profile_registry.rs": "2a3719f71c4916f5de6c0db6ffce870609003c68c9d05f646600b07b532374c4"
+  },
+  "production_receipt": "production-validation.json",
+  "scope": "This VMOV subgroup does not close A32-FP, C-STATE, C-SMP or C-HVF.",
+  "owning": {
+    "arm": 46850,
+    "arm_vfp_a32": 524,
+    "isa_oracle": 102,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "production_matches": 216,
+  "production_differences": 0,
+  "production_comparison": "production-comparison.json",
+  "doctests": {
+    "passed": 0,
+    "failed": 0,
+    "ignored": 5,
+    "reason": "No active macOS doctests; Cargo succeeded. Original observer count assertion corrected without rerun."
+  },
+  "mixed_execution": {
+    "valid": 216,
+    "invalid": 80,
+    "skipped": 20,
+    "receipt": "mixed-transfers-v1.json",
+    "source": "mixed-transfers-v1.rs"
+  },
+  "concurrent_uncommitted_RAM_sources": {
+    "src/vm/memory.rs": "062f629e6891164ff9a73de1978d045588409f8e39b58f70d3a0903fe6e07ff7",
+    "src/backend/kvm/mod.rs": "245839b7225a6d2eaa3e15cc0fb2b89b83eb90336f9c55c2ceb049ac513d84eb",
+    "src/backend/kvm/state_tests.rs": "1fd7128cbde26a4b70e80ce655530753757b48db3563996ba499b21dd02f7181",
+    "src/machine/pc/mod.rs": "099fbfadae0b2b21458420f656d35f994639046f15c8c8551ab01353f68692b5",
+    "src/machine/pc/owned_setup.rs": "942332f87f0739ecd3529bbb8ab5b04d8be7b7bcf69be4b9fde10d2497664feb",
+    "src/backend/hvf/memory_layout.rs": "4f8f71c5498af09c5c0953b914ea9055652997d3f452bd3d5e47dd9f89e35ba0",
+    "src/backend/hvf/intel_context_format.rs": "ed6a330055095a6d38933c4ab4ae5db959c9add6a5fea82088ab39450539a076",
+    "src/backend/hvf/intel_context_tests.rs": "36facd8a54bab73bebeba6936c886c03bee50136914dc84c46ad5a86b98b1361",
+    "tests/suites/backend/hvf_memory.rs": "30e61fee85878291790b074f666a9bddc7a932a5e8aa67986c450579b3f5b038",
+    "tests/suites/backend/hvf_memory/native_adapter.rs": "d60b5764d2f0da5e236fbcc4efbfdc2e47c0d674c531495864cc05b4e935f61f",
+    "src/isa/x86_64/bios.rs": "b9b3deeb474cfd04da1c4d7cf81a956713d57ec706556f5ead7965414b7fbba2",
+    "tests/suites/backend/kvm/minimal.rs": "91ef9718f8b702e07f97f1deeb19307c32186a653b9262f5f9329173d6f2698a",
+    "src/machine/pc/ram.rs": "6b831327ab010227625cb5bf6aee955f1d75463e7e2a20ffdacddde8902363b0",
+    "tests/suites/backend/kvm/memory_layout.rs": "7907360b04ea55f0b616b30e76de03f26fdf25e89660c6b542b918156285404f",
+    "src/devices/bus.rs": "7b99b8189d3f4f6fd9e5fcdd5a6008bad06f3342bc026b44790907095ea59284",
+    "src/devices/bus/fallback.rs": "ddad96a4548beb66d0640a427baf910c664846fb0b27724c8435e6cb37a5cb07",
+    "src/devices/bus/native_fallback_tests.rs": "4e90b615a56faa80c6135ac4351ad3e4ef1f44c1b3f90a919179ff068882f6fb",
+    "src/vm/runtime.rs": "a0b95b04c1a7bc15dab5869606469049a73af09d97d2f4b862866a4ced9ff630",
+    "src/devices/pci.rs": "77ea92fe51180d1a696376650a5dbb5106c5590e7a92674689b0eef0142f75f8",
+    "src/devices/pci/checkpoint.rs": "4e7ec46bdb65cb9fb7e396907274f0982204b52c1128a0afd01b470b49eb3e8e",
+    "src/devices/pci/ram_profile_tests.rs": "8587bcbe11156f6612eae9dde6bd0fb52583774c60cf57cfbf9e0b9428597850"
+  },
+  "combined_tree_boundary": "The macOS whole-product gates include the separately pending native RAM group. The A32 source hashes and results are qualified explicitly; the RAM group remains independently uncommitted and is excluded from this group publication.",
+  "validation_manifest_sha256": "f4b1566c8e59a74901580226e47b97e13696ee5f6db791313da0a0c952c5e059",
+  "native_owner_controls": {
+    "passed": 2,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 12310,
+    "physical_Apple_Silicon": true,
+    "physical_Intel": false,
+    "receipt": "native-owner-controls.json",
+    "scope": "Separate complete two-case native ARM64 worker module; original full-root count and ignore status unchanged."
+  },
+  "root_library": {
+    "passed": 12275,
+    "failed": 2,
+    "ignored": 35,
+    "filtered": 0,
+    "unfiltered_passed": false,
+    "environment_followup": "socket-environment.json",
+    "short_TMPDIR_socket_module_passed": 16
+  },
+  "qualified_utc": "2026-11-04T00:40:20.554277+00:00",
+  "qualification_scope": "A32/T32 core-extension VMOV subgroup; full-root environment limits retained explicitly",
+  "unfiltered_root_passed": false,
+  "publication_base": {
+    "head": "efa5e15b021c83dee424cef2126cc223c1f0f679",
+    "receipt": "post-integration.json",
+    "source_manifest_sha256": "6098da4aec2fd13d1281c1b1f451a0861ee811fa863fd225d7b070a6d4e25da5",
+    "library_sha256": "463f432466b114da5c505622d2aefec8b8da7211e3d6c220c44ceebe3e62996e"
+  }
+}

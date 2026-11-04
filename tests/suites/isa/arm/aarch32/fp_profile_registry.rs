@@ -38,3 +38,6 @@ mod fp_short_vector_contract;
 
 #[path = "fp_trapping_profile.rs"]
 mod fp_trapping_profile;
+
+#[path = "fp_core_transfer_admission.rs"]
+mod fp_core_transfer_admission;

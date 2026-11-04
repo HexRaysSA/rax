@@ -530,7 +530,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if Self::is_neon_modified_immediate_shape(insn.raw) {
             return self.exec_neon_modified_immediate(insn);
         }
-        if ((insn.raw >> 4) & 1) == 1
+        // Byte-lane transfers share these operation bits; only the 0xC
+        // coprocessor load/store class transfers two core registers.
+        if insn.raw & 0x0f00_0000 == 0x0c00_0000
+            && ((insn.raw >> 4) & 1) == 1
             && matches!((insn.raw >> 8) & 0xF, 0b1010 | 0b1011)
             && ((insn.raw >> 21) & 0x7) == 0b010
             && (insn.raw & 0xC0) == 0

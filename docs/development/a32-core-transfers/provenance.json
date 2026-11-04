@@ -1,0 +1,46 @@
+{
+  "primary_source": "docs/architecture/arm/asl/arm_instrs.asl",
+  "primary_sha256": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+  "issuing_organization": "Arm Limited",
+  "revision": "unknown; exact existing source digest retained",
+  "inspected": "2026-11-03",
+  "instruction_symbols": [
+    "aarch32_VMOV_s_A",
+    "aarch32_VMOV_rs_A",
+    "aarch32_VMOV_sr_A",
+    "aarch32_VMOV_d_A",
+    "aarch32_VMOV_ss_A"
+  ],
+  "policy": "Keep the existing selected Undefined response for UNPREDICTABLE Rt15, but apply encoding admission before CheckVFPEnabled as the primary decode/execute ordering specifies.",
+  "change_surface": {
+    "direct_decode": "A32 and T32 delegated FP transfers: selected Undefined for Rt15 before access controls.",
+    "direct_execute": "Full opcode-class discrimination for two-core-register versus lane VMOV.",
+    "cpu_state": "No layouts, fields or wire versions changed; regression bodies verify GPR/vector/FPSCR preservation.",
+    "mixed_width_backend": "Shared A32 Executor and decoder feed standalone and mixed-width PEs; actual owning runtime qualification still required.",
+    "smir_jit": "A32 and Thumb lift_decoded reject unimplemented VMOV with LiftError::Unsupported; no new FP native admission.",
+    "c_api_oracle": "No ABI layout/signature changes. Decoder classification is observable through shared instruction-analysis paths.",
+    "owning_tests": "arm_vfp_a32 and affected ARM/runtime/decoder targets must run against the complete final product; candidate component evidence alone is insufficient."
+  },
+  "tool": "tools/execution/a32_core_transfer_oracle.py",
+  "tool_sha256": "50c1b48fbe2d752d1fc166ddc3015154e29f92c000d5f032420bd80bb7057b63",
+  "oracle": "Independent QEMU 11.1.2 Cortex-A15 TCG; no RAX linked into guest or oracle",
+  "qemu_sha256": "85f19000710506d37a4fdbf3bc3b2dfd9cf370c5309efc15ea2bcb0a4b9af14b",
+  "source_files": {
+    "src/isa/arm/decoder/aarch32/vfp.rs": "f0dc7275cfc8f45506d75537149621dd52a7d5ddc5cfaea3445769863689eb7b",
+    "src/isa/arm/aarch32/instructions/neon/register_ops.rs": "1baf3ddd08b086ef74fc980a2193881c56c50a584298b9bf53605560f7da7610",
+    "tests/suites/isa/arm/aarch32/fp_core_transfer_admission.rs": "46ce9b8fe93965568d07e8e9acdcb0e54f4136c4f0b225c2c5ca08142183056a",
+    "tests/suites/isa/arm/aarch32/fp_profile_registry.rs": "2a3719f71c4916f5de6c0db6ffce870609003c68c9d05f646600b07b532374c4"
+  },
+  "known_harness_corrections": [
+    {
+      "receipt": "reproduction-v1/result.json",
+      "problem": "Resolving the ld.lld symlink changed argv[0] to the generic LLVM linker driver; version command exited1 before guest assembly.",
+      "fix": "Preserve absolute executable invocation names; the corrected tool independently reproduced all216 records."
+    },
+    {
+      "receipt": "owning-baseline-coverage-v1.json",
+      "problem": "The baseline wrapper incorrectly expected an Apple-host test count on Linux.",
+      "fix": "Retain actual488pass2fail execution and487 unchanged owning cases; no test rerun or skipped failure."
+    }
+  ]
+}

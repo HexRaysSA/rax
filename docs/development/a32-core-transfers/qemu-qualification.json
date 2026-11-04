@@ -1,0 +1,129 @@
+{
+  "status": "qualified",
+  "commands": [
+    {
+      "label": "llvm-mc-version",
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "--version"
+      ],
+      "utc": "2026-11-03T21:51:33.539184+00:00",
+      "status": "terminal",
+      "exit_code": 0
+    },
+    {
+      "label": "ld-version",
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "--version"
+      ],
+      "utc": "2026-11-03T21:51:33.545798+00:00",
+      "status": "terminal",
+      "exit_code": 0
+    },
+    {
+      "label": "qemu-version",
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "--version"
+      ],
+      "utc": "2026-11-03T21:51:33.557893+00:00",
+      "status": "terminal",
+      "exit_code": 0
+    },
+    {
+      "label": "assemble",
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv7-none-eabi",
+        "-mattr=+neon",
+        "-filetype=obj",
+        "guest.s",
+        "-o",
+        "guest.o"
+      ],
+      "utc": "2026-11-03T21:51:33.635176+00:00",
+      "status": "terminal",
+      "exit_code": 0
+    },
+    {
+      "label": "link",
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-m",
+        "armelf",
+        "-T",
+        "link.ld",
+        "guest.o",
+        "-o",
+        "guest.elf"
+      ],
+      "utc": "2026-11-03T21:51:33.648179+00:00",
+      "status": "terminal",
+      "exit_code": 0
+    },
+    {
+      "label": "qemu",
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a15",
+        "-accel",
+        "tcg,thread=single",
+        "-m",
+        "128M",
+        "-nodefaults",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "none",
+        "-semihosting-config",
+        "enable=on,target=native",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/reproduction-v2/guest.elf"
+      ],
+      "utc": "2026-11-03T21:51:33.663778+00:00",
+      "status": "terminal",
+      "exit_code": 0
+    }
+  ],
+  "scope": "QEMU Cortex-A15 software oracle; no physical A32 execution",
+  "tool_versions": {
+    "llvm-mc": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore\n",
+    "ld": "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d) (compatible with GNU linkers)\n",
+    "qemu": "QEMU emulator version 11.1.2\nCopyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers\n"
+  },
+  "cases": 216,
+  "result_bytes": 60480,
+  "differences": [],
+  "result_sha256": "85f19000710506d37a4fdbf3bc3b2dfd9cf370c5309efc15ea2bcb0a4b9af14b",
+  "inputs_sha256": {
+    "/Users/int/dev/rax/tools/execution/a32_core_transfer_oracle.py": "50c1b48fbe2d752d1fc166ddc3015154e29f92c000d5f032420bd80bb7057b63",
+    "/Users/int/local/bin/llvm-mc": "0311e88d2281780e2784cd7657bcdc71b70044fa4c530c89a5431a45acc1b971",
+    "/Users/int/local/bin/ld.lld": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd",
+    "/opt/homebrew/bin/qemu-system-aarch64": "7299ef807db462f913be5d1b89a71ea12590416175be0be5e87c2349594c6542",
+    "/Users/int/dev/rax/docs/architecture/arm/asl/arm_instrs.asl": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+    "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/reproduction-v2/cases.json": "102339328594ae5be6d58182bddd982ba98e534eede9d7c7eed9b05338274c17",
+    "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/reproduction-v2/guest.s": "4c2350a9ea63186462e0bacab50a089809e52600399b121d6fde2c08ca4c081b",
+    "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/reproduction-v2/link.ld": "a20088a0d0dadb76ebeba500bfd6dd81b8526e52a7176199400b407ffb918dda",
+    "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/reproduction-v2/guest.o": "53b6a7af1a09ee0ea6284aa3333a856b86ec96bc45e84ac954a4cd9e322004ef",
+    "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-core-transfer-admission-v1/reproduction-v2/guest.elf": "44523c9a00853b7d46955549b5dba6175153339c79be7d07c2f2a9ebe3c86238"
+  },
+  "build_cleanup": [
+    {
+      "name": "guest.o",
+      "bytes": 96504,
+      "sha256": "53b6a7af1a09ee0ea6284aa3333a856b86ec96bc45e84ac954a4cd9e322004ef"
+    },
+    {
+      "name": "guest.elf",
+      "bytes": 155096,
+      "sha256": "44523c9a00853b7d46955549b5dba6175153339c79be7d07c2f2a9ebe3c86238"
+    }
+  ],
+  "utc": "2026-11-03T21:51:33.806812+00:00"
+}
