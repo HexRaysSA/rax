@@ -1,0 +1,122 @@
+{
+  "utc": "2026-11-04T05:59:13.101493+00:00",
+  "exit_code": 0,
+  "stderr": "",
+  "observations": {
+    "lapic-expired-pending-control-v1": [
+      {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true
+      },
+      {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true
+      },
+      {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true
+      },
+      {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true
+      },
+      {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true
+      }
+    ],
+    "lapic-settled-phase-control-v4": [
+      {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "saved_vector_isr": 2,
+        "source_first": 1,
+        "source_extra": 0,
+        "target_extra": 1,
+        "source_destroyed_before_restore": true,
+        "pending_irr": 0,
+        "completed_irr": 0,
+        "completed_isr": 0,
+        "lapic_record_different_bytes": 0,
+        "saved_rip": 8196,
+        "source_final_rip": 4098
+      },
+      {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "saved_vector_isr": 2,
+        "source_first": 1,
+        "source_extra": 0,
+        "target_extra": 1,
+        "source_destroyed_before_restore": true,
+        "pending_irr": 0,
+        "completed_irr": 0,
+        "completed_isr": 0,
+        "lapic_record_different_bytes": 0,
+        "saved_rip": 8196,
+        "source_final_rip": 4098
+      },
+      {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "saved_vector_isr": 2,
+        "source_first": 1,
+        "source_extra": 0,
+        "target_extra": 1,
+        "source_destroyed_before_restore": true,
+        "pending_irr": 2,
+        "completed_irr": 0,
+        "completed_isr": 0,
+        "lapic_record_different_bytes": 1,
+        "saved_rip": 8196,
+        "source_final_rip": 4098
+      },
+      {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "saved_vector_isr": 2,
+        "source_first": 1,
+        "source_extra": 0,
+        "target_extra": 1,
+        "source_destroyed_before_restore": true,
+        "pending_irr": 0,
+        "completed_irr": 0,
+        "completed_isr": 0,
+        "lapic_record_different_bytes": 0,
+        "saved_rip": 8196,
+        "source_final_rip": 4098
+      },
+      {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "saved_vector_isr": 2,
+        "source_first": 1,
+        "source_extra": 0,
+        "target_extra": 1,
+        "source_destroyed_before_restore": true,
+        "pending_irr": 0,
+        "completed_irr": 0,
+        "completed_isr": 0,
+        "lapic_record_different_bytes": 0,
+        "saved_rip": 8196,
+        "source_final_rip": 4098
+      }
+    ]
+  },
+  "temporary_binary_cleanup": "TemporaryDirectory exited after all ten observed native controls"
+}

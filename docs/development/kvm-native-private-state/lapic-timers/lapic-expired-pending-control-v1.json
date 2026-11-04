@@ -1,0 +1,87 @@
+{
+  "utc": "2026-11-04T05:49:23.637894+00:00",
+  "source_sha256": "365fd645dbf9cb81671a0ff3146a134c19db82e0e2df2ee06eb30383a473707a",
+  "build_argv": [
+    "gcc",
+    "-std=c11",
+    "-D_GNU_SOURCE",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-O2",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/lapic-expired-pending-control-v1.c",
+    "-o",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/lapic-expired-pending-control-v1"
+  ],
+  "build_exit_code": 0,
+  "build_stdout": "",
+  "build_stderr": "",
+  "runs": [
+    {
+      "index": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true
+      }
+    },
+    {
+      "index": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true
+      }
+    },
+    {
+      "index": 2,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true
+      }
+    },
+    {
+      "index": 3,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true
+      }
+    },
+    {
+      "index": 4,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true
+      }
+    }
+  ],
+  "binary_removed": true
+}

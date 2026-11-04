@@ -14,6 +14,7 @@ remains open. None of these records closes the original four audit findings.
 | [SREGS2 record](sregs2-wire/README.md) | Fourteen legacy cache-loss controls, 28 exact source-free restores and 84 malformed-record controls | Full CPU continuation, event/controller association and transaction |
 | [Unscaled native clocks](clock-rebase/README.md) | Independent phase-loss controls; 28 serialized phase restores and 228 rejected record/target controls | Actual first-entry gate, other counter/rate profiles and transaction |
 | [Combined CPU banks](cpu-banks/README.md) | 28 source-free CPU restores, 84 GPR/XMM/upper-YMM guest outputs, 700 unchanged-destination rejection controls and two combined loaded-VMCS continuations | Production hooks, shared state, clocks, generic I/O settlement and full VM transaction |
+| [LAPIC timer counterexample](lapic-timers/README.md) | Five settled source continuations halt after EOI; all five raw destination restores introduce an extra interrupt | Owned pending/completed timer phase and actual first-entry activation |
 
 The experiments use physical Intel Haswell Linux KVM, the actual installed SDK,
 and recorded Rust/C toolchains. The nested VMX and combined CPU witnesses execute

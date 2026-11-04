@@ -1,0 +1,10 @@
+{
+  "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/lapic.c",
+  "retrieved_utc": "2026-11-04T02:26:53.554785+00:00",
+  "bytes": 87849,
+  "sha256": "cbf1b0e870868c8e81b8fc9c6ae242ddf75d2efbddf7cbfe4dc8b17cc535c3e2",
+  "title": "Linux v6.8 arch/x86/kvm/lapic.c",
+  "organization": "Linux kernel contributors",
+  "revision": "v6.8",
+  "license": "Preserved verbatim with upstream notices"
+}

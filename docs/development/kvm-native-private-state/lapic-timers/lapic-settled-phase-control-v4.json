@@ -1,0 +1,127 @@
+{
+  "utc": "2026-11-04T05:53:10.397068+00:00",
+  "source_sha256": "e6011ff56027bfca9ad58ab791c2d6093b50f4e8a0f6000d26fdb99be3166cd2",
+  "build_argv": [
+    "gcc",
+    "-std=c11",
+    "-D_GNU_SOURCE",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-O2",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/lapic-settled-phase-control-v4.c",
+    "-o",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/lapic-settled-phase-control-v4"
+  ],
+  "build_exit_code": 0,
+  "build_stdout": "",
+  "build_stderr": "",
+  "runs": [
+    {
+      "index": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"saved_vector_isr\":2,\"source_first\":1,\"source_extra\":0,\"target_extra\":1,\"source_destroyed_before_restore\":true,\"pending_irr\":0,\"completed_irr\":0,\"completed_isr\":0,\"lapic_record_different_bytes\":0,\"saved_rip\":8196,\"source_final_rip\":4098}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "saved_vector_isr": 2,
+        "source_first": 1,
+        "source_extra": 0,
+        "target_extra": 1,
+        "source_destroyed_before_restore": true,
+        "pending_irr": 0,
+        "completed_irr": 0,
+        "completed_isr": 0,
+        "lapic_record_different_bytes": 0,
+        "saved_rip": 8196,
+        "source_final_rip": 4098
+      }
+    },
+    {
+      "index": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"saved_vector_isr\":2,\"source_first\":1,\"source_extra\":0,\"target_extra\":1,\"source_destroyed_before_restore\":true,\"pending_irr\":0,\"completed_irr\":0,\"completed_isr\":0,\"lapic_record_different_bytes\":0,\"saved_rip\":8196,\"source_final_rip\":4098}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "saved_vector_isr": 2,
+        "source_first": 1,
+        "source_extra": 0,
+        "target_extra": 1,
+        "source_destroyed_before_restore": true,
+        "pending_irr": 0,
+        "completed_irr": 0,
+        "completed_isr": 0,
+        "lapic_record_different_bytes": 0,
+        "saved_rip": 8196,
+        "source_final_rip": 4098
+      }
+    },
+    {
+      "index": 2,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"saved_vector_isr\":2,\"source_first\":1,\"source_extra\":0,\"target_extra\":1,\"source_destroyed_before_restore\":true,\"pending_irr\":0,\"completed_irr\":0,\"completed_isr\":0,\"lapic_record_different_bytes\":0,\"saved_rip\":8196,\"source_final_rip\":4098}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "saved_vector_isr": 2,
+        "source_first": 1,
+        "source_extra": 0,
+        "target_extra": 1,
+        "source_destroyed_before_restore": true,
+        "pending_irr": 0,
+        "completed_irr": 0,
+        "completed_isr": 0,
+        "lapic_record_different_bytes": 0,
+        "saved_rip": 8196,
+        "source_final_rip": 4098
+      }
+    },
+    {
+      "index": 3,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"saved_vector_isr\":2,\"source_first\":1,\"source_extra\":0,\"target_extra\":1,\"source_destroyed_before_restore\":true,\"pending_irr\":0,\"completed_irr\":0,\"completed_isr\":0,\"lapic_record_different_bytes\":0,\"saved_rip\":8196,\"source_final_rip\":4098}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "saved_vector_isr": 2,
+        "source_first": 1,
+        "source_extra": 0,
+        "target_extra": 1,
+        "source_destroyed_before_restore": true,
+        "pending_irr": 0,
+        "completed_irr": 0,
+        "completed_isr": 0,
+        "lapic_record_different_bytes": 0,
+        "saved_rip": 8196,
+        "source_final_rip": 4098
+      }
+    },
+    {
+      "index": 4,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"saved_vector_isr\":2,\"source_first\":1,\"source_extra\":0,\"target_extra\":1,\"source_destroyed_before_restore\":true,\"pending_irr\":2,\"completed_irr\":0,\"completed_isr\":0,\"lapic_record_different_bytes\":1,\"saved_rip\":8196,\"source_final_rip\":4098}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "saved_vector_isr": 2,
+        "source_first": 1,
+        "source_extra": 0,
+        "target_extra": 1,
+        "source_destroyed_before_restore": true,
+        "pending_irr": 2,
+        "completed_irr": 0,
+        "completed_isr": 0,
+        "lapic_record_different_bytes": 1,
+        "saved_rip": 8196,
+        "source_final_rip": 4098
+      }
+    }
+  ],
+  "binary_removed": true
+}

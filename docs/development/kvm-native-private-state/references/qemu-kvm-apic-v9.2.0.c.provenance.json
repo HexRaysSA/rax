@@ -1,0 +1,9 @@
+{
+  "title": "QEMU v9.2.0 hw/i386/kvm/apic.c",
+  "organization": "QEMU contributors",
+  "revision": "v9.2.0",
+  "url": "https://raw.githubusercontent.com/qemu/qemu/v9.2.0/hw/i386/kvm/apic.c",
+  "retrieved_utc": "2026-11-04T05:56:09.074774+00:00",
+  "sha256": "da5209422fa8d73e0e7c8cf56a7bc692c468ed5856b6997b4e2c182b2c66286a",
+  "license": "Preserved verbatim with upstream notices"
+}

@@ -1,0 +1,99 @@
+{
+  "status": "native_uapi_counterexample_confirmed_not_fixed",
+  "utc": "2026-11-04T05:58:13.669912+00:00",
+  "scope": "Independent native Linux KVM UAPI timer controls; not RAX producer or full CPU-state restoration",
+  "native_host": "host.json",
+  "production_checkpoint_hooks_active": false,
+  "complete_producer": false,
+  "observations": {
+    "expired_pending_continuations": 5,
+    "settled_source_first_deliveries": 5,
+    "settled_source_extra_deliveries": 0,
+    "settled_destination_extra_deliveries": 5,
+    "identical_pending_completed_1024_byte_lapic_records": 4,
+    "comparison_samples": 5,
+    "saved_completed_io_rip": "0x2004",
+    "source_after_eoi_halt_rip": "0x1002"
+  },
+  "controls": {
+    "lapic-expired-pending-control-v1": {
+      "source": "lapic-expired-pending-control-v1.c",
+      "record": "lapic-expired-pending-control-v1.json",
+      "sha256": "365fd645dbf9cb81671a0ff3146a134c19db82e0e2df2ee06eb30383a473707a",
+      "native_runs": 5,
+      "build_exit_code": 0,
+      "binary_removed": true
+    },
+    "lapic-settled-phase-control-v4": {
+      "source": "lapic-settled-phase-control-v4.c",
+      "record": "lapic-settled-phase-control-v4.json",
+      "sha256": "e6011ff56027bfca9ad58ab791c2d6093b50f4e8a0f6000d26fdb99be3166cd2",
+      "native_runs": 5,
+      "build_exit_code": 0,
+      "binary_removed": true
+    }
+  },
+  "assumptions": [
+    {
+      "id": "LAP-T1",
+      "assumption": "Native output completion precedes the settled capture",
+      "basis": "KVM_RUN with immediate_exit settles the output and returns EINTR",
+      "dependent_result": "Settled timer duplication control",
+      "stress_test": "Distinguish the output instruction from a newly delivered timer interrupt",
+      "falsification_probe": "Saved RIP differs from 0x2004 or source does not return to 0x1002 after EOI/IRET",
+      "status": "confirmed in all five settled controls"
+    },
+    {
+      "id": "LAP-T2",
+      "assumption": "The real-mode fixture can issue EOI to LAPIC MMIO",
+      "basis": "Expanded DS limit in the independently initialized native graph",
+      "dependent_result": "Acknowledged-source versus restored-destination comparison",
+      "stress_test": "Default 64 KiB DS would fault at the MMIO address",
+      "falsification_probe": "Source ISR remains set or post-handler RIP is not 0x1002",
+      "status": "confirmed in all five settled controls"
+    },
+    {
+      "id": "LAP-T3",
+      "assumption": "Exported LAPIC register bytes distinguish expired-pending from delivered-completed one-shot phase",
+      "basis": "Candidate checkpoint bank representation",
+      "dependent_result": "Sufficiency of a raw LAPIC bank",
+      "stress_test": "Compare all 1024 exported bytes before delivery and after EOI",
+      "falsification_probe": "Identical records with opposite delivery requirements",
+      "status": "falsified in four of five settled controls"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Complete producer must conserve one-shot pending/completed phase; ordinary GET/SET bank replay duplicates delivery in these controls",
+      "blocks": "C-STATE and native checkpoint continuation under C-SMP"
+    },
+    {
+      "impact": "high",
+      "item": "PIT phase/reinjection, periodic/deadline timers and actual first-entry activation remain unqualified by these controls",
+      "blocks": "Full original goal"
+    },
+    {
+      "impact": "medium",
+      "item": "Linux v6.8 and QEMU v9.2.0 source are explanatory primary references, not proof that another runtime or kernel version reproduces this behavior",
+      "blocks": false
+    }
+  ],
+  "unrun": [
+    "Physical Intel macOS",
+    "RAX full checkpoint producer",
+    "Active periodic and TSC-deadline timer migration",
+    "Complete CPU/private/shared/RAM/in-flight restore"
+  ],
+  "quality_gates": {
+    "source_and_record_hashes": "checked",
+    "native_builds_and_runs": "both controls built with -Wall -Wextra -Werror and executed five times",
+    "cleanup": "all owned native control executables removed",
+    "claims": "finite native UAPI counterexample only; no production fix or full finding closure"
+  },
+  "replay_validation": {
+    "record": "retained-replay-v1.json",
+    "exit_code": 0,
+    "native_controls": 10
+  }
+}
