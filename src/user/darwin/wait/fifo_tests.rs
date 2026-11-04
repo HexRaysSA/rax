@@ -21,11 +21,19 @@ impl Fifo {
         // SAFETY: fresh task-owned pathname and a terminated native string.
         assert_eq!(unsafe { libc::mkfifo(native.as_ptr(), 0o600) }, 0);
         // SAFETY: the FIFO exists; successful descriptors are owned below.
-        let read = unsafe { libc::open(native.as_ptr(), libc::O_RDONLY | libc::O_NONBLOCK) };
+        let read = unsafe {
+            libc::open(
+                native.as_ptr(),
+                libc::O_RDONLY | libc::O_NONBLOCK | libc::O_CLOEXEC,
+            )
+        };
         assert!(read >= 0);
         // SAFETY: the same live FIFO has its reader, so this open cannot block.
         let write = writer.then(|| unsafe {
-            let fd = libc::open(native.as_ptr(), libc::O_WRONLY | libc::O_NONBLOCK);
+            let fd = libc::open(
+                native.as_ptr(),
+                libc::O_WRONLY | libc::O_NONBLOCK | libc::O_CLOEXEC,
+            );
             assert!(fd >= 0);
             OwnedFd::from_raw_fd(fd)
         });
@@ -45,6 +53,98 @@ impl Fifo {
             0
         );
     }
+}
+
+struct TestChild(std::process::Child);
+
+impl Drop for TestChild {
+    fn drop(&mut self) {
+        if !matches!(self.0.try_wait(), Ok(Some(_))) {
+            // Reap only this regression's child if an assertion or watchdog fails.
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+}
+
+/// Exercise descriptor readiness rather than unrelated native signal wakes.
+fn uninterrupted_sleep(fds: &[(i32, bool, bool)], deadline: Option<Instant>) -> Vec<bool> {
+    loop {
+        let ready = sleep(fds, deadline);
+        if ready.iter().any(|&value| value)
+            || std::io::Error::last_os_error().raw_os_error() != Some(libc::EINTR)
+            || deadline.is_some_and(|end| Instant::now() >= end)
+        {
+            return ready;
+        }
+        // Preserve the absolute deadline across host interruptions, as a
+        // scheduler re-entering the parked guest call does.
+    }
+}
+
+#[test]
+fn named_fifo_writer_does_not_survive_an_unrelated_child_exec() {
+    use std::io::{BufRead, Read, Write};
+    use std::process::{Command, Stdio};
+
+    const CHILD: &str = "RAX_FIFO_WRITER_INHERITANCE_CHILD";
+    const READY: &str = "RAX_FIFO_CHILD_READY";
+    if std::env::var_os(CHILD).is_some() {
+        println!("\n{READY}");
+        std::io::stdout().flush().unwrap();
+        std::io::stdin().read_exact(&mut [0]).unwrap();
+        return;
+    }
+
+    let mut fifo = Fifo::new(true);
+    let mut child = TestChild(
+        Command::new(std::env::current_exe().unwrap())
+            .args([
+                "user::darwin::wait::fifo_tests::named_fifo_writer_does_not_survive_an_unrelated_child_exec",
+                "--exact", "--test-threads=1", "--nocapture",
+            ])
+            .env(CHILD, "1")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
+    let stdout = child.0.stdout.take().unwrap();
+    let (send, receive) = std::sync::mpsc::channel();
+    let output = std::thread::spawn(move || {
+        let mut reader = std::io::BufReader::new(stdout);
+        let mut text = String::new();
+        loop {
+            let mut line = String::new();
+            if reader.read_line(&mut line).unwrap() == 0 {
+                break;
+            }
+            let ready = line.contains(READY);
+            text.push_str(&line);
+            if ready {
+                send.send(()).unwrap();
+                reader.read_to_string(&mut text).unwrap();
+                break;
+            }
+        }
+        text
+    });
+    receive
+        .recv_timeout(Duration::from_secs(30))
+        .expect("the owned FIFO control child must reach its stdin barrier");
+    assert!(child.0.try_wait().unwrap().is_none());
+    drop(fifo.write.take());
+    // Darwin consumes the FIFO's EOF readiness indication when EOF is read.
+    assert_eq!(
+        ready_now(&[(fifo.read.as_raw_fd(), true, false)]),
+        vec![true]
+    );
+    fifo.assert_eof();
+    child.0.stdin.take().unwrap().write_all(b"x").unwrap();
+    let status = child.0.wait().unwrap();
+    let output = output.join().unwrap();
+    assert!(status.success(), "{output}");
+    assert!(output.contains("1 passed; 0 failed;"), "{output}");
 }
 
 #[test]
@@ -91,7 +191,7 @@ fn named_fifo_wait_observes_async_writer_close_with_an_independent_wakeup() {
             1
         );
     });
-    let ready = sleep(
+    let ready = uninterrupted_sleep(
         &[
             (fifo.read.as_raw_fd(), true, false),
             (wake_read.as_raw_fd(), true, false),
@@ -111,7 +211,7 @@ fn named_fifo_wait_preserves_a_finite_deadline_while_its_writer_remains_open() {
     let fifo = Fifo::new(true);
     let start = Instant::now();
     assert_eq!(
-        sleep(
+        uninterrupted_sleep(
             &[(fifo.read.as_raw_fd(), true, false)],
             Some(start + Duration::from_millis(25))
         ),

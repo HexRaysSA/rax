@@ -1,0 +1,32 @@
+{
+  "schema": "rax-native-fifo-readiness-order-v1",
+  "source_file": "native-readiness-v1.c",
+  "source_sha256": "f17a056793dc310da4ab30805906c8b938834ad9a2a05def5eb3fcc0c289e38f",
+  "observed_utc": "2026-11-04T16:32:44.435805+00:00",
+  "rows": [
+    {
+      "host": "macos",
+      "image_bytes": 34200,
+      "image_sha256": "1b466a7021f54bf886e3576fcee927b0d2199a3eb4d0ce407b3ec1ba4c6fba09",
+      "before_eof_read": 1,
+      "read_result": 0,
+      "after_eof_read": 0,
+      "system": "Darwin",
+      "kernel_release": "27.2.0",
+      "machine": "arm64"
+    },
+    {
+      "host": "linux",
+      "image_bytes": 4192024,
+      "image_sha256": "194cb89e533416f7ff73cdee24390068ecd6d8a198ddaae18890004d90e15f61",
+      "before_eof_read": 1,
+      "read_result": 0,
+      "after_eof_read": 1,
+      "system": "Linux",
+      "kernel_release": "7.2.12-orbstack-00394-gbecdd6130068",
+      "machine": "x86_64",
+      "scope": "amd64 translation on ARM64 host; kernel API evidence, no physical-x86 qualification"
+    }
+  ],
+  "scope": "Independent ordinary select/read calls on private nonblocking FIFOs. No RAX code linked. Each output field is a native return value."
+}

@@ -105,3 +105,6 @@ docs/specifications/windows/native-process-parameters/relocation-v1/primary/micr
 docs/specifications/windows/native-directory-enumeration/** -text
 docs/specifications/windows/native-directory-enumeration/*.json -diff
 docs/specifications/windows/native-directory-enumeration/primary/microsoft-* -whitespace
+
+# Preserve the independent native FIFO readiness control and captured bytes.
+docs/specifications/posix-fifo-readiness/** -text
