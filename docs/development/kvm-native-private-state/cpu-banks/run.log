@@ -1,0 +1,15 @@
+{
+  "graphs": 6,
+  "guest_outputs": 84,
+  "negative_controls": 700,
+  "nested": {
+    "active_l2_exercised": false,
+    "loaded_vmcs_gpa": 36864,
+    "source_free_combined_restores": 2,
+    "vmcs_guest_rip": 4702394921427289928
+  },
+  "source_free_cpu_restores": 28
+}
+{"phase":"setup","vmx_basic":60816187455798992,"cr0_fixed0":2147483681,"cr4_fixed0":8192}
+{"phase":"rust_source_vmxon","result":0,"errno":0,"reason":2,"rip":4131,"rax":2,"port":128}
+{"phase":"rust_source_output_completion","result":-1,"errno":4,"reason":2,"rip":4133,"rax":2,"port":128}

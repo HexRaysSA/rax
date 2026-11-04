@@ -1,0 +1,8 @@
+{
+  "label": "run",
+  "exit_code": 0,
+  "seconds": 1.617871786467731,
+  "argv": [
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v8/native-probe"
+  ]
+}

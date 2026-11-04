@@ -1,0 +1,95 @@
+{
+  "utc": "2026-11-04T02:19:41.111883+00:00",
+  "process_references": [],
+  "unobserved_processes": [],
+  "removed": [
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v2/native-probe.d",
+      "bytes": 1685,
+      "sha256": "2f4ad222a0a7936ae75a5d65d4ccada34228eb24e08b879bf15739ed44253884"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v3/native-probe",
+      "bytes": 4898216,
+      "sha256": "05589134f2b601dbc24247ebcb78ee87dfe7a7acfacde8a160585247d0553cb8"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v4/native-probe",
+      "bytes": 4930240,
+      "sha256": "afd3ef2a8c983232c9017fca5bca5b56ec4cf5d3e61e7e68f92e5980eecc87f4"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v4/clippy.rmeta",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v5/native-probe",
+      "bytes": 4975248,
+      "sha256": "8788a11ab4e05c01820971efb68062458447f3bd52571e5e25d013208ffb639b"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v5/clippy.rmeta",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v6/native-probe",
+      "bytes": 5005840,
+      "sha256": "571a010a2ff79d97f6dbaf7f8046a1cd6c175eca43166077dc7b6573748225b7"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v6/clippy.rmeta",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v6/nested-helper.o",
+      "bytes": 23040,
+      "sha256": "d556ce9da8bdc7775cff2a0dfd77c7f86bb1b4ebbc69d67f6508383652897802"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v7/native-probe",
+      "bytes": 5007544,
+      "sha256": "551031d40116b305f5d19bab7f785ef332475d0b27df9a3d50666f09564dfbd3"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v7/clippy.rmeta",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v7/nested-helper.o",
+      "bytes": 23040,
+      "sha256": "84bfc2a4178dc047137c509f19bd96492ffe15755de3b162f28f5734086aee28"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v8/native-probe",
+      "bytes": 5007944,
+      "sha256": "080eb17e4ad9aed90aa02abe6a4bc2903f838cf6a099cf9530eed67061dd60fc"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v8/clippy.rmeta",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/cpu-context-contract-v8/nested-helper.o",
+      "bytes": 23040,
+      "sha256": "c0081e4d2262b0757bd6b36cfdd2c1259e5fad7f58bbeba038350f143770ff81"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/rax-kvm-cpu-contract",
+      "bytes": 3696664,
+      "sha256": "bc4c36ab206f2092e736cf02fc58ebddd1630fb7d096b664f117419ceb545366"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax_kvm_cpu_contract-d46329eb2b056ac9",
+      "bytes": 3696664,
+      "sha256": "bc4c36ab206f2092e736cf02fc58ebddd1630fb7d096b664f117419ceb545366"
+    }
+  ],
+  "bytes": 37289165,
+  "active_shared_cache_retained": "/tmp/rax-kvm-native-entry-ixif9sv1/target",
+  "source_export_retained_for_live_RAM_jobs": true
+}

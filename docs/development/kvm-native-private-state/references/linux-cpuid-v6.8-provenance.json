@@ -1,0 +1,10 @@
+{
+  "title": "Linux v6.8 arch/x86/kvm/cpuid.c",
+  "issuing_project": "Linux kernel",
+  "revision": "v6.8",
+  "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/cpuid.c",
+  "retrieved_utc": "2026-11-04T01:47:54.272062+00:00",
+  "bytes": 46110,
+  "sha256": "3b626e973f5c80126596e869e68ce59db0943e429d4aa4716595309c8d8004b9",
+  "license": "SPDX license identifier and source notices retained unchanged"
+}
