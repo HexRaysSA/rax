@@ -218,6 +218,19 @@ pub(super) fn kernel(
         // create a replacement if another host process removes it during lookup.
         request.disposition = 1;
     }
+    if creation
+        .as_ref()
+        .is_some_and(|request| matches!(request.disposition, 0 | 4 | 5))
+        && let Ok(metadata) = std::fs::metadata(&resolved.host)
+        && let Ok(identity) = crate::user::windows::fs::FileIdentity::of(&resolved.host, &metadata)
+        && crate::user::windows::object_namespace::file_data::is_live(c.p, &identity)
+    {
+        return Err(c
+            .unsupported(
+                "overwriting a file with live data sections requires the section-resize contract",
+            )
+            .into());
+    }
     let acquired = match creation {
         Some(request) => host::create(
             c,

@@ -256,6 +256,14 @@ pub(super) fn set_end(c: &mut Ctx) -> ApiResult {
     let handle = c.ptr(0)?;
     preflight_error(c)?;
     let grant = c.p.objects.access(handle).unwrap_or(0);
+    if let Some(Object::File(file)) = c.p.objects.get(handle)
+        && can_set_end(grant)
+        && crate::user::windows::object_namespace::file_data::is_live(c.p, &file.lifetime.identity)
+    {
+        return Err(c.unsupported(
+            "resizing a file with live data sections requires the section-resize contract",
+        ));
+    }
     let file = match c.p.objects.get_mut(handle) {
         Some(Object::File(file)) if !file.directory && !file.null => {
             if !can_set_end(grant) {

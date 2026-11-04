@@ -67,6 +67,7 @@ impl Vma {
 pub struct VmaMap {
     map: BTreeMap<u64, Vma>,
     private_copy: PrivateRanges,
+    shared_cow: PrivateRanges,
 }
 
 impl VmaMap {
@@ -139,6 +140,7 @@ impl VmaMap {
     /// and returns the removed pieces in ascending order.
     pub fn remove(&mut self, lo: u64, hi: u64) -> Vec<Vma> {
         self.private_copy.remove(lo, hi);
+        self.shared_cow.remove(lo, hi);
         self.remove_areas(lo, hi)
     }
 
@@ -177,6 +179,24 @@ impl VmaMap {
             self.map.insert(piece.start, piece);
         }
         n
+    }
+
+    pub(super) fn enable_shared_cow(&mut self, start: u64, end: u64) {
+        self.shared_cow.enable(start, end);
+        self.private_copy.enable(start, end);
+    }
+
+    pub(super) fn disable_shared_cow(&mut self, start: u64, end: u64) {
+        self.shared_cow.remove(start, end);
+        self.private_copy.remove(start, end);
+    }
+
+    pub(super) fn copies_shared_page(&self, address: u64) -> bool {
+        self.shared_cow.contains(address)
+    }
+
+    pub(super) fn shared_cow_ranges(&self, start: u64, end: u64) -> Vec<(u64, u64)> {
+        self.shared_cow.intersections(start, end)
     }
 
     pub(super) fn track_private_copy(&mut self, start: u64, end: u64) {

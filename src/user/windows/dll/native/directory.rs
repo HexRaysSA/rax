@@ -327,6 +327,7 @@ fn wow_redirect_probe(c: &mut Ctx, attrs: &Option<Attributes>) -> Checked<()> {
             Some(Object::SymbolicLink(l)) => l.path.len() * 2,
             Some(Object::ImageSection(s)) => s.path.len() * 2,
             Some(Object::DataSection(s)) => s.path.len() * 2,
+            Some(Object::FileSection(_)) => 0,
             // Native pseudo process/thread objects have an empty queried name.
             None if attrs.root == c.arch().ptr(u64::MAX)
                 || attrs.root == c.arch().ptr(u64::MAX - 1) =>

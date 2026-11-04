@@ -150,9 +150,12 @@ pub(super) fn unmap(c: &mut Ctx) -> ApiResult {
     if !c.p.vm.is_nls_view(base)
         && c.p.vm.section_view(base).is_none()
         && !c.p.vm.is_data_view(base)
+        && !c.p.vm.is_file_view(base)
         && !c.p.vm.is_shared_view(base)
     {
-        return Err(c.unsupported("unmap outside selected NLS, image, data or LPC section views"));
+        return Err(
+            c.unsupported("unmap outside selected NLS, image, data, file or LPC section views")
+        );
     }
     match c.p.vm.release(base) {
         Ok(_) => Flow::ret(STATUS_SUCCESS.into()),

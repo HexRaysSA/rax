@@ -80,6 +80,33 @@ impl fmt::Debug for SharedObject {
 }
 
 impl SharedObject {
+    /// A section-backed file mapping retains no additional file handle and
+    /// therefore does not extend the source handle's sharing reservation.
+    #[cfg(windows)]
+    pub(crate) fn native_file_section(
+        section: Arc<std::os::windows::io::OwnedHandle>,
+        maximum: u64,
+        writable: bool,
+        keep: Option<super::Keep>,
+    ) -> std::io::Result<Self> {
+        let memory = super::windows_section::FileMemory::new(section, maximum, writable, keep)?;
+        Ok(Self::host_memory(Arc::new(memory), writable))
+    }
+
+    pub(crate) fn is_file_backed(&self) -> bool {
+        if self.host_file().is_some() {
+            return true;
+        }
+        #[cfg(windows)]
+        if self
+            .memory()
+            .is_some_and(|memory| memory.as_any().is::<super::windows_section::FileMemory>())
+        {
+            return true;
+        }
+        false
+    }
+
     /// A host file, mapped for writing when `writable` (the file must then
     /// be open for reading and writing).
     pub fn file(file: std::fs::File, writable: bool) -> std::io::Result<Self> {

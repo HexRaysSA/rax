@@ -4,6 +4,7 @@ use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::object_namespace::{ImageSection, SectionGrantError, file_image};
 use crate::user::windows::objects::Object;
+mod data;
 
 fn file_access(mut access: u32) -> u32 {
     for (generic, specific) in [
@@ -26,6 +27,10 @@ pub(super) fn construct(
     converted: Option<Attributes>,
     size: u64,
 ) -> ApiResult {
+    let image = request.attributes & 0x01000000 != 0;
+    if !image && request.attributes & 0x80000000 != 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER_6.into());
+    }
     let file = match c.p.objects.get(request.file) {
         Some(Object::File(file)) => file,
         Some(_) => return Flow::ret(STATUS_OBJECT_TYPE_MISMATCH.into()),
@@ -51,7 +56,10 @@ pub(super) fn construct(
     if file.directory {
         return Flow::ret(STATUS_INVALID_FILE_FOR_SECTION.into());
     }
-    if (size as i64) < 0 {
+    // Read-only data backing rejects an oversized extent before object
+    // capture. The shared-writable path can extend the file and reaches
+    // object capture first; the independent negative-maximum rows bind both.
+    if (image || !matches!(request.protection, 4 | 0x40)) && (size as i64) < 0 {
         return Flow::ret(STATUS_SECTION_TOO_BIG.into());
     }
     let attrs = match converted {
@@ -71,8 +79,13 @@ pub(super) fn construct(
     if attrs.flags & 0x10 != 0 {
         return Err(c.unsupported("permanent file-backed image section lifetime"));
     }
-    if request.attributes & 0x0d000000 != 0x01000000 {
-        return Err(c.unsupported("NtCreateSection file-backed data allocation"));
+    if !image {
+        // Shared-writable data sections capture object attributes before
+        // rejecting a negative maximum.
+        if (size as i64) < 0 {
+            return Flow::ret(STATUS_SECTION_TOO_BIG.into());
+        }
+        return data::construct(c, request, attrs, size);
     }
     let security = c.p.objects.primary_token_subject().map(|subject| {
         if subject

@@ -36,6 +36,7 @@ mod read_memory;
 mod registry;
 mod section_create;
 mod section_map;
+mod section_query;
 mod secure_connect;
 mod semaphore;
 mod symbolic_link;
@@ -162,6 +163,12 @@ pub(super) static EXPORTS: &[Export] = &[
         Stdcall,
         &[Ptr, I32, Ptr, Ptr, I32, I32, Ptr],
         section_create::create,
+    ),
+    Export::func(
+        "NtQuerySection",
+        Stdcall,
+        &[Ptr, I32, Ptr, Ptr, Ptr],
+        section_query::query,
     ),
     Export::func(
         "NtOpenDirectoryObject",
@@ -671,7 +678,7 @@ fn protect(c: &mut Ctx) -> ApiResult {
                 c.mem().w32(old_ptr, super::super::memory::prot::NOACCESS)?;
             }
             if c.p.vm.is_nls_view(base) && e == super::super::memory::VmError::InvalidProtection
-                || c.p.vm.is_data_view(base)
+                || (c.p.vm.is_data_view(base) || c.p.vm.is_file_view(base))
                     && matches!(
                         e,
                         super::super::memory::VmError::SectionProtection

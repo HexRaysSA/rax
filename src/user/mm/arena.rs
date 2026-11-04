@@ -348,6 +348,29 @@ impl FrameArena {
         unsafe { memory.map_at(self.host_address(pa), offset, len, writable) }
     }
 
+    /// Retain a Windows view's memory owner through placeholder replacement,
+    /// rollback, and any independently retained GuestMemoryMmap clone.
+    #[cfg(windows)]
+    pub(crate) fn attach_memory_keeping(
+        &self,
+        pa: u64,
+        memory: &std::sync::Arc<dyn super::HostMemory>,
+        offset: u64,
+        len: u64,
+        writable: bool,
+    ) -> std::io::Result<()> {
+        self.windows
+            .as_ref()
+            .ok_or(std::io::ErrorKind::Unsupported)?
+            .attach_memory(
+                usize::try_from(pa).map_err(|_| std::io::ErrorKind::InvalidInput)?,
+                memory.clone(),
+                offset,
+                usize::try_from(len).map_err(|_| std::io::ErrorKind::InvalidInput)?,
+                writable,
+            )
+    }
+
     /// Lays anonymous memory back over extent `pa`.
     #[cfg(unix)]
     pub fn detach(&self, pa: u64) {

@@ -48,7 +48,7 @@ fn subject(p: &mut Proc) {
         .select_wnf_catalog(crate::user::windows::wnf::Catalog::selected(vec![], subject).unwrap());
 }
 
-fn fixtures(directory: &Directory, arch: WinArch) -> [PathBuf; 3] {
+fn fixtures(directory: &Directory, arch: WinArch, file_size: usize) -> [PathBuf; 3] {
     let paths = [
         directory.0.join("image.dll"),
         directory.0.join("plain.bin"),
@@ -64,6 +64,10 @@ fn fixtures(directory: &Directory, arch: WinArch) -> [PathBuf; 3] {
         0x16000
     };
     bytes[pe + 24 + 56..pe + 24 + 60].copy_from_slice(&full.to_le_bytes());
+    // The native corpus also creates non-image data sections over this DLL.
+    // Preserve its independently captured raw file length as well as SizeOfImage.
+    assert!(file_size >= bytes.len());
+    bytes.resize(file_size, 0);
     std::fs::write(&paths[0], bytes).unwrap();
     std::fs::write(&paths[1], b"plain").unwrap();
     std::fs::write(&paths[2], []).unwrap();
@@ -76,7 +80,26 @@ fn replay_create(arch: WinArch, text: &str, count: usize) -> (usize, usize) {
     assert_eq!(observations.len(), count);
     assert!(faults.is_empty() || faults.len() == count);
     let directory = Directory::new();
-    let paths = fixtures(&directory, arch);
+    let file_size = observations
+        .iter()
+        .find_map(|row| {
+            matches!(n(row, "attributes"), 0x08000000 | 0x04000000).then(|| {
+                let offset = if arch == WinArch::X86 { 8 } else { 16 };
+                let bytes = row["basic"].as_bytes();
+                let mut size = [0u8; 8];
+                for (i, value) in size.iter_mut().enumerate() {
+                    let start = (offset + i) * 2;
+                    *value = u8::from_str_radix(
+                        std::str::from_utf8(&bytes[start..start + 2]).unwrap(),
+                        16,
+                    )
+                    .unwrap();
+                }
+                usize::try_from(u64::from_le_bytes(size)).unwrap()
+            })
+        })
+        .expect("native data-section raw file length");
+    let paths = fixtures(&directory, arch, file_size);
     let (mut process, mut t) = fixture(arch, "NtCreateSection", SERVICE);
     let p = process.state_mut();
     subject(p);
@@ -237,13 +260,11 @@ fn replay_create(arch: WinArch, text: &str, count: usize) -> (usize, usize) {
             if visible {
                 let value = get(p, out);
                 if row["valid"] == "1" {
-                    let Object::ImageSection(section) = p.objects.get(value).unwrap() else {
-                        panic!("typed image")
-                    };
                     assert_eq!(u64::from(p.objects.access(value).unwrap()), n(row, "grant"));
-                    assert_eq!(section.attributes, 0x1800000);
                     let expected_maximum = if row["maximum-kind"] == "1" && row["maximum"] != "0" {
                         row["maximum"].parse::<u64>().unwrap()
+                    } else if matches!(allocation, 0x08000000 | 0x04000000) {
+                        file_size as u64
                     } else {
                         if arch == WinArch::X86 {
                             0x8000
@@ -251,7 +272,18 @@ fn replay_create(arch: WinArch, text: &str, count: usize) -> (usize, usize) {
                             0x16000
                         }
                     };
-                    assert_eq!(section.size, expected_maximum);
+                    match p.objects.get(value).unwrap() {
+                        Object::ImageSection(section) => {
+                            assert_eq!(section.attributes, 0x1800000);
+                            assert_eq!(section.size, expected_maximum);
+                        }
+                        Object::FileSection(section)
+                            if matches!(allocation, 0x08000000 | 0x04000000) =>
+                        {
+                            assert_eq!(section.size, expected_maximum);
+                        }
+                        object => panic!("unexpected section type: {object:?}"),
+                    }
                     p.objects.close(value).unwrap();
                 } else if !faults.is_empty() {
                     let expected = match faults[index]["output"] {
@@ -375,7 +407,7 @@ fn native_section_file_replays_1720_independent_win32_duplicate_grants_and_last_
         let observations = rows(text, "case ");
         assert_eq!(observations.len(), 430);
         let directory = Directory::new();
-        let paths = fixtures(&directory, arch);
+        let paths = fixtures(&directory, arch, image(arch).len());
         let (mut process, mut t) = fixture(arch, "NtCreateSection", SERVICE);
         let p = process.state_mut();
         subject(p);

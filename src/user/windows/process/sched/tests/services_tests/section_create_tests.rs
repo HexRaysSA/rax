@@ -2,6 +2,8 @@
 use super::*;
 
 const SERVICE: u32 = 0x4A;
+#[path = "file_data_section_tests.rs"]
+mod data;
 #[path = "file_section_create_tests/create.rs"]
 mod file;
 #[cfg(windows)]

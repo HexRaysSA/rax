@@ -307,6 +307,11 @@ fn create(c: &mut Ctx, wide: bool) -> ApiResult {
         return c.fail(ERROR_SHARING_VIOLATION, u64::MAX);
     }
     if matches!(disposition, 2 | 5) {
+        if crate::user::windows::object_namespace::file_data::is_live(c.p, &actual_identity) {
+            return Err(c.unsupported(
+                "overwriting a file with live data sections requires the section-resize contract",
+            ));
+        }
         if let Some(file) = file.as_mut() {
             if let Err(e) = file.set_len(0) {
                 return c.fail(host_error(&e, Some(&host), ERROR_WRITE_FAULT), u64::MAX);

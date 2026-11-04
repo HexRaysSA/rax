@@ -243,6 +243,8 @@ pub enum Object {
     ImageSection(std::sync::Arc<super::object_namespace::ImageSection>),
     /// Selected immutable data-section bytes and native grant metadata.
     DataSection(std::sync::Arc<super::object_namespace::DataSection>),
+    /// A created non-image section over a retained, live file resource.
+    FileSection(std::sync::Arc<super::object_namespace::FileSection>),
     /// A selected immutable NT symbolic link, shared across guest handles.
     SymbolicLink(std::sync::Arc<super::object_namespace::SymbolicLink>),
     /// This process's immutable captured primary-token subject; no host HANDLE.
@@ -268,7 +270,10 @@ impl Object {
             Object::Process { .. } => "Process",
             Object::Timer { .. } => "Timer",
             Object::IrTimer { .. } => "IRTimer",
-            Object::Mapping { .. } | Object::ImageSection(_) | Object::DataSection(_) => "Section",
+            Object::Mapping { .. }
+            | Object::ImageSection(_)
+            | Object::DataSection(_)
+            | Object::FileSection(_) => "Section",
             Object::Pipe { .. } => "File",
             Object::CompletionPort { .. } => "IoCompletion",
             Object::LpcPort(_) => "ALPC Port",

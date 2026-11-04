@@ -18,6 +18,7 @@
 //! | 3 | valid |
 //! | 4 | awaiting a tracked write access |
 //! | 5 | acquired private-copy charge |
+//! | 6 | shared file frame awaiting a private first write |
 //! | 12..63 | frame address in the arena |
 //!
 //! A zero entry means "not populated"; the address space then consults its
@@ -39,7 +40,8 @@ pub const VPN_BITS: u32 = 3 * FANOUT_BITS;
 pub const PTE_VALID: u64 = 1 << 3;
 pub(super) const PTE_TRACK_PRIVATE: u64 = 1 << 4;
 pub(super) const PTE_PRIVATE: u64 = 1 << 5;
-pub(super) const PTE_COPY_STATE: u64 = PTE_TRACK_PRIVATE | PTE_PRIVATE;
+pub(super) const PTE_COW: u64 = 1 << 6;
+pub(super) const PTE_COPY_STATE: u64 = PTE_TRACK_PRIVATE | PTE_PRIVATE | PTE_COW;
 /// Entry field: permission bits.
 pub const PTE_PERMS: u64 = 0x7;
 /// Entry field: frame address.

@@ -14,7 +14,9 @@
 //! a mapped but unpopulated page allocates a zeroed frame and fills it from
 //! the range's [`Backing`]; a page of a shared object is instead the
 //! object's own page, in an extent of the object attached to the arena and
-//! shared by every page (of any mapping) that lies in it. Faults are classified exactly as Linux does:
+//! shared by every page (of any mapping) that lies in it. Explicit private file
+//! views remain coherent until their first write copies a page into a private
+//! frame. Faults are classified exactly as Linux does:
 //! an address outside every VMA is *unmapped* (`SEGV_MAPERR`), an access the
 //! VMA's permissions forbid is a *permission* fault (`SEGV_ACCERR`), and a
 //! file-backed page wholly past end of file is a bus error (`SIGBUS`).
@@ -22,7 +24,7 @@
 //! # Concurrency
 //!
 //! Translation reads are lock-free. Every structural change — mapping,
-//! unmapping, protection changes, and page population — happens under the
+//! unmapping, protection changes, page population, and first-write copying — happens under the
 //! VMA lock. A frame freed by `unmap` may be reused immediately, so guest
 //! execution must not run concurrently with a mapping change on another host
 //! thread; the process scheduler guarantees this by running all guest
@@ -40,6 +42,7 @@
 mod arena;
 mod backing;
 mod copy_tracking;
+mod file_cow;
 mod mapped_file;
 pub mod pagetable;
 mod private_copy;
@@ -52,6 +55,8 @@ mod windows_arena;
 mod windows_file;
 #[cfg(any(windows, test))]
 mod windows_identity;
+#[cfg(windows)]
+mod windows_section;
 
 #[cfg(test)]
 mod tests;
@@ -72,7 +77,9 @@ use vm_memory::GuestMemoryMmap;
 
 use crate::error::{GuestMemoryFault, MemoryAccessKind, MemoryFaultKind};
 use crate::vm::memory::FlatTranslation;
-use pagetable::{PTE_COPY_STATE, PTE_FRAME, PTE_TRACK_PRIVATE, PTE_VALID, PageTable, make_pte};
+use pagetable::{
+    PTE_COPY_STATE, PTE_COW, PTE_FRAME, PTE_TRACK_PRIVATE, PTE_VALID, PageTable, make_pte,
+};
 
 /// Guest page size in bytes.
 pub const PAGE_SIZE: u64 = 4096;
@@ -226,6 +233,9 @@ struct Attached {
     refs: u64,
     /// Attached for writing.
     writable: bool,
+    /// Bytes physically attached within the arena extent. Windows file views
+    /// stop at page-rounded EOF and must be replaced after the file grows.
+    len: u64,
 }
 
 /// The attached extents: by object extent, and by arena address.
@@ -350,6 +360,16 @@ impl AddressSpace {
     /// Maps `[start, start + len)` with `mapping`, replacing anything mapped
     /// there (Linux `MAP_FIXED` semantics). Replaced pages are discarded.
     pub fn map(&self, start: u64, len: u64, mapping: Mapping) -> Result<(), MmError> {
+        self.map_with_copy(start, len, mapping, false)
+    }
+
+    fn map_with_copy(
+        &self,
+        start: u64,
+        len: u64,
+        mapping: Mapping,
+        copy: bool,
+    ) -> Result<(), MmError> {
         let end = check_range(start, len, self.inner.va_limit)?;
         let mut vmas = self.vmas();
         let replaced = vmas.insert(Vma {
@@ -362,6 +382,9 @@ impl AddressSpace {
             flags: mapping.flags,
         });
         self.release_pages(start, end);
+        if copy {
+            vmas.enable_shared_cow(start, end);
+        }
         if replaced.iter().any(|v| v.perms.contains(Perms::EXEC)) {
             self.log_code_change(start, len);
         }
@@ -401,7 +424,14 @@ impl AddressSpace {
             .for_each_populated(start >> 12, end >> 12, |_, slot| {
                 let pte = slot.load(Ordering::Acquire);
                 slot.store(
-                    make_pte(pte & PTE_FRAME, perms) | (pte & PTE_COPY_STATE),
+                    make_pte(
+                        pte & PTE_FRAME,
+                        if pte & PTE_COW != 0 {
+                            perms & !Perms::WRITE
+                        } else {
+                            perms
+                        },
+                    ) | (pte & PTE_COPY_STATE),
                     Ordering::Release,
                 );
             });
@@ -444,6 +474,7 @@ impl AddressSpace {
         let replaced = vmas.remove(new, new_end);
         self.release_pages(new, new_end);
         let tracked = vmas.private_copy_ranges(old, old_end);
+        let copied = vmas.shared_cow_ranges(old, old_end);
         let pieces = vmas.remove(old, old_end);
         let had_exec = pieces.iter().any(|v| v.perms.contains(Perms::EXEC))
             || replaced.iter().any(|v| v.perms.contains(Perms::EXEC));
@@ -454,6 +485,9 @@ impl AddressSpace {
         }
         for (start, end) in tracked {
             vmas.track_private_copy(start - old + new, end - old + new);
+        }
+        for (start, end) in copied {
+            vmas.enable_shared_cow(start - old + new, end - old + new);
         }
         let table = &self.inner.table;
         let delta_vpn = (new >> 12).wrapping_sub(old >> 12);
@@ -562,20 +596,27 @@ impl AddressSpace {
         let arena = &self.inner.arena;
         if let Some(&base) = ext.by_key.get(&key) {
             let a = ext.at.get_mut(&base).expect("keyed extents are attached");
-            if object.writable() && !a.writable {
-                attach(arena, base, object, start)?;
-                a.object = object.clone();
-                a.writable = true;
+            if object.writable() && !a.writable || offset - start >= a.len {
+                // A read-only alias of a grown file must not downgrade an
+                // extent already used by a shared writable alias.
+                let source = if a.writable { &a.object } else { object };
+                let len = attach(arena, base, source, start)?;
+                a.object = source.clone();
+                a.writable = a.object.writable();
+                a.len = len;
             }
             a.refs += 1;
             ext.pages += 1;
             return Ok(base);
         }
         let base = arena.alloc_extent()?;
-        if let Err(e) = attach(arena, base, object, start) {
-            arena.free_extent(base);
-            return Err(e);
-        }
+        let len = match attach(arena, base, object, start) {
+            Ok(len) => len,
+            Err(e) => {
+                arena.free_extent(base);
+                return Err(e);
+            }
+        };
         ext.by_key.insert(key, base);
         ext.at.insert(
             base,
@@ -584,6 +625,7 @@ impl AddressSpace {
                 object: object.clone(),
                 refs: 1,
                 writable: object.writable(),
+                len,
             },
         );
         ext.pages += 1;
@@ -717,6 +759,9 @@ impl AddressSpace {
         }
         let pte = self.inner.table.get(addr >> 12);
         if pte & PTE_VALID != 0 {
+            if access == MemoryAccessKind::Write && pte & PTE_COW != 0 {
+                return self.copy_shared_page(addr, false);
+            }
             let need = u64::from(Perms::required(access).bits());
             if pte & need == 0 {
                 return Err(fault(addr, access, MemoryFaultKind::Permission));
@@ -755,6 +800,9 @@ impl AddressSpace {
         }
         let pte = self.inner.table.get(addr >> 12);
         if pte & PTE_VALID != 0 {
+            if access == MemoryAccessKind::Write && pte & PTE_COW != 0 {
+                return self.copy_shared_page(addr, true);
+            }
             if access == MemoryAccessKind::Write {
                 self.check_raw_write(addr, pte & PTE_FRAME)?;
                 if pte & PTE_TRACK_PRIVATE != 0 {
@@ -816,6 +864,9 @@ impl AddressSpace {
         // Populated while this thread waited for the lock.
         let existing = slot.load(Ordering::Acquire);
         if existing & PTE_VALID != 0 {
+            if access == MemoryAccessKind::Write && existing & PTE_COW != 0 {
+                return self.private_shared_frame(vma, addr, existing);
+            }
             return Ok((existing & PTE_FRAME) | (addr & PAGE_MASK));
         }
         let arena = &self.inner.arena;
@@ -824,11 +875,20 @@ impl AddressSpace {
             if vma.backing.end().is_some_and(|end| file_offset >= end) {
                 return Err(fault(addr, access, MemoryFaultKind::Other));
             }
+            let copy = vmas.copies_shared_page(page);
+            if copy && access == MemoryAccessKind::Write {
+                return self.private_shared_frame(vma, addr, 0);
+            }
             let base = self
                 .ref_extent(object, file_offset)
                 .map_err(|_| fault(addr, access, MemoryFaultKind::Other))?;
             let frame = base + (file_offset & (EXTENT - 1));
-            slot.store(make_pte(frame, vma.perms) | copy_state, Ordering::Release);
+            let (perms, flags) = if copy {
+                (vma.perms & !Perms::WRITE, copy_state | PTE_COW)
+            } else {
+                (vma.perms, copy_state)
+            };
+            slot.store(make_pte(frame, perms) | flags, Ordering::Release);
             if access == MemoryAccessKind::Write && vma.perms.contains(Perms::EXEC) {
                 self.log_code_change(page, PAGE_SIZE);
             }
@@ -1084,7 +1144,12 @@ impl AddressSpace {
 }
 
 /// Attaches the extent of `object` at `start` over arena extent `base`.
-fn attach(arena: &FrameArena, base: u64, object: &SharedObject, start: u64) -> Result<(), MmError> {
+fn attach(
+    arena: &FrameArena,
+    base: u64,
+    object: &SharedObject,
+    start: u64,
+) -> Result<u64, MmError> {
     #[cfg(unix)]
     {
         use std::os::fd::AsRawFd;
@@ -1099,10 +1164,21 @@ fn attach(arena: &FrameArena, base: u64, object: &SharedObject, start: u64) -> R
             (None, Some(m)) => arena.attach_memory(base, m.as_ref(), start, len, object.writable()),
             (None, None) => return Err(MmError::OutOfMemory),
         };
-        attached.map_err(|_| MmError::OutOfMemory)
+        attached.map_err(|_| MmError::OutOfMemory)?;
+        Ok(len)
     }
     #[cfg(windows)]
     {
+        if let Some(memory) = object.memory() {
+            let len = object.extent_len(start, arena::EXTENT, PAGE_SIZE);
+            if len == 0 {
+                return Err(MmError::OutOfMemory);
+            }
+            arena
+                .attach_memory_keeping(base, memory, start, len, object.writable())
+                .map_err(|_| MmError::OutOfMemory)?;
+            return Ok(len);
+        }
         let file = object.host_file().ok_or(MmError::OutOfMemory)?;
         // Unlike a POSIX mmap, a Windows section view cannot extend past the
         // section's page-rounded size. Keep the rest of the arena extent private;
@@ -1118,7 +1194,8 @@ fn attach(arena: &FrameArena, base: u64, object: &SharedObject, start: u64) -> R
             .min(file_span);
         arena
             .attach(base, file, start, len, object.writable())
-            .map_err(|_| MmError::OutOfMemory)
+            .map_err(|_| MmError::OutOfMemory)?;
+        Ok(len)
     }
     #[cfg(not(any(unix, windows)))]
     {

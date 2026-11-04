@@ -25,6 +25,13 @@ impl VirtualMemory {
         if let Some(name) = self.mapped_filenames.get(&allocation.base) {
             return name.read().map(Some).map_err(|error| error.to_string());
         }
+        if let Some(view) = self.file_views.get(&allocation.base) {
+            return view
+                .section
+                .mapped_filename()?
+                .map(Some)
+                .ok_or_else(|| "mapped data file has no native backing-file name".to_owned());
+        }
         if let Some(view) = self.section_view(address) {
             #[cfg(windows)]
             if let Some(result) = view.section.mapped_filename() {

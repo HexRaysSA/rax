@@ -1,0 +1,4197 @@
+{
+  "profile": {
+    "kind": "profile",
+    "pointer_bytes": 8,
+    "seh_preflight": "0xC0000005"
+  },
+  "cases": [
+    {
+      "kind": "case",
+      "index": 0,
+      "file_size": 1,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000002",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 1,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 1,
+      "file_size": 1,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000004",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0xC000004E",
+        "0xC000004E",
+        "0xC000004E",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        0,
+        0,
+        0,
+        4096
+      ],
+      "phases": [
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000011"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xFFFFFFFF",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 1,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 2,
+      "file_size": 1,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000008",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 1,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 3,
+      "file_size": 1,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000002",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 1,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 4,
+      "file_size": 1,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000004",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000033",
+          "0x00000033",
+          "0x00000033"
+        ],
+        [
+          "0x00000033",
+          "0x00000033",
+          "0x00000033",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000033",
+        "0x00000033",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 1,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 5,
+      "file_size": 1,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000008",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 1,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 6,
+      "file_size": 1,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000002",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 1,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 7,
+      "file_size": 1,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000004",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0xC000004E",
+        "0xC000004E",
+        "0xC000004E",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        0,
+        0,
+        0,
+        4096
+      ],
+      "phases": [
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000011"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xFFFFFFFF",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 1,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 8,
+      "file_size": 1,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000008",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 1,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 9,
+      "file_size": 4096,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000002",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 4096,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 10,
+      "file_size": 4096,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000004",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0xC000004E",
+        "0xC000004E",
+        "0xC000004E",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        0,
+        0,
+        0,
+        4096
+      ],
+      "phases": [
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000011"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xFFFFFFFF",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 4096,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 11,
+      "file_size": 4096,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000008",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 4096,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 12,
+      "file_size": 4096,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000002",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 4096,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 13,
+      "file_size": 4096,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000004",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000033",
+          "0x00000033",
+          "0x00000033"
+        ],
+        [
+          "0x00000033",
+          "0x00000033",
+          "0x00000033",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000033",
+        "0x00000033",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 4096,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 14,
+      "file_size": 4096,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000008",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 4096,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 15,
+      "file_size": 4096,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000002",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 4096,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 16,
+      "file_size": 4096,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000004",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0xC000004E",
+        "0xC000004E",
+        "0xC000004E",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        0,
+        0,
+        0,
+        4096
+      ],
+      "phases": [
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000011"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xFFFFFFFF",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 4096,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 17,
+      "file_size": 4096,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000008",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 4096,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 18,
+      "file_size": 65537,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000002",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        69632,
+        69632,
+        69632,
+        69632
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 19,
+      "file_size": 65537,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000004",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0xC000004E",
+        "0xC000004E",
+        "0xC000004E",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        0,
+        0,
+        0,
+        69632
+      ],
+      "phases": [
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000011"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xFFFFFFFF",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 20,
+      "file_size": 65537,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000008",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        69632,
+        69632,
+        69632,
+        69632
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 21,
+      "file_size": 65537,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000002",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        69632,
+        69632,
+        69632,
+        69632
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 22,
+      "file_size": 65537,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000004",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        69632,
+        69632,
+        69632,
+        69632
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000033",
+          "0x00000033",
+          "0x00000033"
+        ],
+        [
+          "0x00000033",
+          "0x00000033",
+          "0x00000033",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000033",
+        "0x00000033",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 23,
+      "file_size": 65537,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000008",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        69632,
+        69632,
+        69632,
+        69632
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 24,
+      "file_size": 65537,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000002",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        69632,
+        69632,
+        69632,
+        69632
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 25,
+      "file_size": 65537,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000004",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0xC000004E",
+        "0xC000004E",
+        "0xC000004E",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        0,
+        0,
+        0,
+        69632
+      ],
+      "phases": [
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000011"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xFFFFFFFF",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 26,
+      "file_size": 65537,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000008",
+      "grow": 0,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        69632,
+        69632,
+        69632,
+        69632
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0xDEADBEEF",
+      "growth_query": "0xDEADBEEF",
+      "growth_basic_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+      "growth_map": "0xDEADBEEF",
+      "growth_size": 0,
+      "growth_first": "0xFFFFFFFF",
+      "growth_last": "0xFFFFFFFF",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 27,
+      "file_size": 1,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000002",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 28,
+      "file_size": 1,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000004",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0xC000004E",
+        "0xC000004E",
+        "0xC000004E",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        0,
+        0,
+        0,
+        4096
+      ],
+      "phases": [
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000011"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xFFFFFFFF",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 29,
+      "file_size": 1,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000008",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 30,
+      "file_size": 1,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000002",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 31,
+      "file_size": 1,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000004",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000033",
+          "0x00000033",
+          "0x00000033"
+        ],
+        [
+          "0x00000033",
+          "0x00000033",
+          "0x00000033",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000033",
+        "0x00000033",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 32,
+      "file_size": 1,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000008",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 33,
+      "file_size": 1,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000002",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 34,
+      "file_size": 1,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000004",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0xC000004E",
+        "0xC000004E",
+        "0xC000004E",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        0,
+        0,
+        0,
+        4096
+      ],
+      "phases": [
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000011"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xFFFFFFFF",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 35,
+      "file_size": 1,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000008",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 36,
+      "file_size": 4096,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000002",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 37,
+      "file_size": 4096,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000004",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0xC000004E",
+        "0xC000004E",
+        "0xC000004E",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        0,
+        0,
+        0,
+        4096
+      ],
+      "phases": [
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000011"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xFFFFFFFF",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 38,
+      "file_size": 4096,
+      "section_protection": "0x00000002",
+      "view_protection": "0x00000008",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 39,
+      "file_size": 4096,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000002",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 40,
+      "file_size": 4096,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000004",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000033",
+          "0x00000033",
+          "0x00000033"
+        ],
+        [
+          "0x00000033",
+          "0x00000033",
+          "0x00000033",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000033",
+        "0x00000033",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 41,
+      "file_size": 4096,
+      "section_protection": "0x00000004",
+      "view_protection": "0x00000008",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 42,
+      "file_size": 4096,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000002",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000055",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xC0000005",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 43,
+      "file_size": 4096,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000004",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0xC000004E",
+        "0xC000004E",
+        "0xC000004E",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        0,
+        0,
+        0,
+        4096
+      ],
+      "phases": [
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000011"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000022"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ],
+        [
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0xFFFFFFFF",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0xFFFFFFFF",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0xDEADBEEF",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    },
+    {
+      "kind": "case",
+      "index": 44,
+      "file_size": 4096,
+      "section_protection": "0x00000008",
+      "view_protection": "0x00000008",
+      "grow": 1,
+      "create_a": "0x00000000",
+      "create_b": "0x00000000",
+      "map_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "view_sizes": [
+        4096,
+        4096,
+        4096,
+        4096
+      ],
+      "phases": [
+        [
+          "0x00000011",
+          "0x00000011",
+          "0x00000011",
+          "0x00000011"
+        ],
+        [
+          "0x00000022",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000022"
+        ],
+        [
+          "0x00000033",
+          "0x00000022",
+          "0x00000022",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ],
+        [
+          "0x00000033",
+          "0x00000055",
+          "0x00000055",
+          "0x00000044"
+        ]
+      ],
+      "file_values": [
+        "0x00000011",
+        "0x00000022",
+        "0x00000022",
+        "0x00000022",
+        "0x00000055"
+      ],
+      "write_exception": "0x00000000",
+      "cow_exception": "0x00000000",
+      "growth_create": "0x00000000",
+      "growth_query": "0x00000000",
+      "growth_basic_hex": "000000000000000000008000000000000100010000000000",
+      "growth_map": "0x00000000",
+      "growth_size": 69632,
+      "growth_first": "0x00000055",
+      "growth_last": "0x00000066",
+      "file_size_after": 65537,
+      "delete_with_live_views": 1,
+      "delete_error": 0,
+      "exists_after_unmap": 0,
+      "unmap_statuses": [
+        "0x00000000",
+        "0x00000000",
+        "0x00000000",
+        "0x00000000"
+      ],
+      "handle_delta": 0
+    }
+  ],
+  "source_sha256": "36dcd47314f797ed6f3d5e2586217abaddd51430b804584856f38b69ea873929",
+  "image_sha256": "049b5b1c0d10cdb02678330cf7dbdfab44e4fca31973be41bf49345650a9b738",
+  "stdout_sha256": "75a156cdab8b516c58ae8f3d442fe6c44ff3e0c37bc876dc4fee28c8387c5eb3"
+}

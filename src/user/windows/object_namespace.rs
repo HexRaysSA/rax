@@ -119,7 +119,9 @@ pub(crate) fn case_probe_policy(original: u32, folded: u32, explicit: u32) -> Op
 pub(crate) mod csr;
 pub(crate) mod data;
 mod directory_alias;
+pub(crate) mod file_data;
 pub(crate) mod file_image;
+pub use file_data::FileSection;
 mod image;
 mod named;
 mod section;

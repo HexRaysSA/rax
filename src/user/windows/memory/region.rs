@@ -92,13 +92,28 @@ impl VirtualMemory {
             Some(a) => {
                 let i = (page - a.base) / PAGE_SIZE;
                 let key = |p: &PageState| (p.committed, p.reported.unwrap_or(p.protect));
-                let k = key(&a.state(i));
-                let end = a
+                let mut k = key(&a.state(i));
+                let mut end = a
                     .pages
                     .range((std::ops::Bound::Excluded(i), std::ops::Bound::Unbounded))
                     .find(|(_, p)| key(p) != k)
                     .map(|(&index, _)| index)
                     .unwrap_or(a.size / PAGE_SIZE);
+                if k.0
+                    && self.file_views.contains_key(&a.base)
+                    && matches!(k.1 & 0xFF, prot::WRITECOPY | prot::EXECUTE_WRITECOPY)
+                {
+                    let (copied, len) = self.space.private_copy_run(page, (end - i) * PAGE_SIZE);
+                    end = i + len / PAGE_SIZE;
+                    if copied {
+                        k.1 = (k.1 & !0xFF)
+                            | if k.1 & 0xFF == prot::WRITECOPY {
+                                prot::READWRITE
+                            } else {
+                                prot::EXECUTE_READWRITE
+                            };
+                    }
+                }
                 Some(RegionInfo {
                     base: page,
                     allocation_base: a.base,
@@ -159,6 +174,15 @@ impl VirtualMemory {
             let len = (end - first) * PAGE_SIZE;
             if allocation.kind == AllocKind::Private {
                 commit += len;
+            } else if self.file_views.contains_key(&allocation.base) {
+                commit += if matches!(
+                    state.protect & 0xFF,
+                    prot::WRITECOPY | prot::EXECUTE_WRITECOPY
+                ) {
+                    len
+                } else {
+                    self.space.acquired_private_bytes(start, len)
+                };
             } else if super::perms_of(state.protect).contains(crate::user::mm::Perms::WRITE) {
                 commit += self.space.private_copy_capacity(start, len);
             } else {

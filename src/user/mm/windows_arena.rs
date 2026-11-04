@@ -51,6 +51,7 @@ const PRESERVE: u32 = 2;
 const COALESCE: u32 = 1;
 const NOACCESS: u32 = 1;
 const READWRITE: u32 = 4;
+const READONLY: u32 = 2;
 const WRITECOPY: u32 = 8;
 
 #[link(name = "kernel32")]
@@ -112,6 +113,43 @@ impl Api {
     }
 }
 
+/// Replace an exact caller-owned placeholder with an owned section's view.
+/// # Safety
+/// `at` is a quiescent, page-aligned placeholder whose size is the rounded
+/// view size; `section` remains alive and supplies the requested range/access.
+pub(super) unsafe fn map_section_at(
+    section: &OwnedHandle,
+    at: *mut u8,
+    offset: u64,
+    bytes: usize,
+    writable: bool,
+) -> io::Result<()> {
+    let api = Api::get().ok_or(io::ErrorKind::Unsupported)?;
+    // SAFETY: the caller supplies the exact owned placeholder and live section.
+    let mapped = unsafe {
+        (api.map)(
+            section.as_raw_handle(),
+            GetCurrentProcess(),
+            at.cast(),
+            offset,
+            bytes,
+            REPLACE,
+            if writable { READWRITE } else { READONLY },
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    if mapped.is_null() {
+        return Err(io::Error::last_os_error());
+    }
+    if mapped != at.cast() {
+        // SAFETY: retire only the unexpected view returned by this call.
+        unsafe { (api.unmap)(GetCurrentProcess(), mapped, 0) };
+        return Err(io::ErrorKind::InvalidData.into());
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
 struct Section {
     handle: OwnedHandle,
@@ -123,6 +161,11 @@ enum Kind {
     Placeholder,
     Private,
     PrivateView(Arc<OwnedHandle>),
+    HostView {
+        memory: Arc<dyn super::HostMemory>,
+        offset: u64,
+        writable: bool,
+    },
     View {
         section: Arc<Section>,
         offset: u64,
@@ -326,6 +369,14 @@ impl WindowsArena {
                     std::ptr::null_mut(),
                     0,
                 ),
+                Kind::HostView {
+                    memory,
+                    offset,
+                    writable,
+                } => {
+                    memory.map_at(self.at(start).cast(), *offset, part.len as u64, *writable)?;
+                    self.at(start)
+                }
                 Kind::View {
                     section,
                     offset,
@@ -362,7 +413,7 @@ impl WindowsArena {
                 // size convention belongs to an ordinary MEM_RELEASE; using
                 // zero here is rejected by native Windows with ERROR_INVALID_PARAMETER.
                 Kind::Private => VirtualFree(self.at(start), part.len, RELEASE | PRESERVE),
-                Kind::View { .. } | Kind::PrivateView(_) => {
+                Kind::View { .. } | Kind::PrivateView(_) | Kind::HostView { .. } => {
                     (self.api.unmap)(GetCurrentProcess(), self.at(start), PRESERVE)
                 }
             }
@@ -495,6 +546,34 @@ impl WindowsArena {
         self.change(start, &plan)
     }
 
+    pub(super) fn attach_memory(
+        &self,
+        start: usize,
+        memory: Arc<dyn super::HostMemory>,
+        offset: u64,
+        len: usize,
+        writable: bool,
+    ) -> io::Result<()> {
+        if len == 0 || len > EXTENT as usize || len % 4096 != 0 || offset % EXTENT != 0 {
+            return Err(io::ErrorKind::InvalidInput.into());
+        }
+        let mut plan = vec![Part {
+            len,
+            kind: Kind::HostView {
+                memory,
+                offset,
+                writable,
+            },
+        }];
+        if len < EXTENT as usize {
+            plan.push(Part {
+                len: EXTENT as usize - len,
+                kind: Kind::Private,
+            });
+        }
+        self.change(start, &plan)
+    }
+
     pub(super) fn detach(&self, start: usize) -> io::Result<()> {
         self.change(
             start,
@@ -523,6 +602,13 @@ impl WindowsArena {
                     return Err(io::Error::last_os_error());
                 }
                 section.file.sync_all()?;
+            } else if matches!(&part.kind, Kind::HostView { writable: true, .. }) {
+                // File contents are flushed through the view. No retained
+                // source-file handle keeps a closed guest open's share mask.
+                // SAFETY: the live view is owned under the parts lock.
+                if unsafe { FlushViewOfFile(self.at(at), part.len) } == 0 {
+                    return Err(io::Error::last_os_error());
+                }
             }
         }
         Ok(())
@@ -538,7 +624,7 @@ impl Drop for WindowsArena {
             // have gone. Each original allocation/view base is released once.
             unsafe {
                 match part.kind {
-                    Kind::View { .. } | Kind::PrivateView(_) => {
+                    Kind::View { .. } | Kind::PrivateView(_) | Kind::HostView { .. } => {
                         (self.api.unmap)(GetCurrentProcess(), address, 0);
                     }
                     Kind::Private | Kind::Placeholder => {
@@ -555,6 +641,43 @@ mod tests {
     use super::super::{AddressSpace, Backing, Mapping, Perms, SharedObject, SpaceConfig};
     use super::*;
     use vm_memory::{Bytes, GuestAddress, GuestMemory};
+
+    #[test]
+    fn host_memory_replacement_failure_restores_the_owned_native_view() {
+        let file = super::super::anonymous_file().unwrap();
+        file.set_len(4096).unwrap();
+        // SAFETY: task-owned file, unnamed writable section, no inheritance.
+        let handle = unsafe {
+            CreateFileMappingW(
+                file.as_raw_handle(),
+                std::ptr::null(),
+                READWRITE,
+                0,
+                0,
+                std::ptr::null(),
+            )
+        };
+        assert!(!handle.is_null(), "{}", io::Error::last_os_error());
+        // SAFETY: successful native creation transferred its unique handle.
+        let handle = Arc::new(unsafe { OwnedHandle::from_raw_handle(handle) });
+        let memory: Arc<dyn super::super::HostMemory> = Arc::new(
+            super::super::windows_section::FileMemory::new(handle, 4096, true, None).unwrap(),
+        );
+        drop(file);
+        let arena = WindowsArena::new(2 * EXTENT as usize).unwrap().unwrap();
+        arena
+            .attach_memory(0, memory.clone(), 0, 4096, true)
+            .unwrap();
+        // SAFETY: live exclusively owned writable view, no guest CPU exists.
+        unsafe {
+            *arena.as_ptr() = 0x77;
+        }
+        arena.fail_installs.store(1, Ordering::Release);
+        assert!(arena.attach_memory(0, memory, 0, 4096, true).is_err());
+        assert!(arena.available());
+        // SAFETY: successful rollback restored this same owned view.
+        assert_eq!(unsafe { *arena.as_ptr() }, 0x77);
+    }
 
     #[test]
     fn private_replacement_returns_to_exact_placeholder_and_recommits() {

@@ -156,6 +156,9 @@ pub(in super::super) fn create(
                 return status(0xc000_0022);
             }
             if overwrite {
+                if crate::user::windows::object_namespace::file_data::is_live(c.p, &identity) {
+                    return Err(c.unsupported("overwriting a file with live data sections requires the section-resize contract").into());
+                }
                 prepare(c, &request)?;
                 file.set_len(0)
                     .map_err(|e| c.unsupported(format!("NT overwrite: {e}")))?;

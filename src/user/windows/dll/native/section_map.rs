@@ -6,6 +6,7 @@ use crate::user::windows::memory::{Mem, valid_protection};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 mod data;
+mod file;
 mod geometry;
 
 pub(super) fn map(c: &mut Ctx) -> ApiResult {
@@ -114,8 +115,7 @@ fn checked(c: &mut Ctx) -> ApiResult {
         return failed(c, status);
     }
     let section = match c.p.objects.get(section_handle) {
-        Some(Object::DataSection(section)) => {
-            let section = section.clone();
+        Some(object @ (Object::DataSection(_) | Object::FileSection(_))) => {
             let request = data::Request {
                 handle: section_handle,
                 base,
@@ -127,7 +127,17 @@ fn checked(c: &mut Ctx) -> ApiResult {
                 flags,
                 protection,
             };
-            return match data::map(c, section, request) {
+            let mapped = if let Object::DataSection(section) = object {
+                let section = section.clone();
+                data::map(c, section, request)
+            } else {
+                let Object::FileSection(section) = object else {
+                    unreachable!("typed file section")
+                };
+                let section = section.clone();
+                file::map(c, section, request)
+            };
+            return match mapped {
                 Ok((address, length)) => {
                     c.write_ptr(base_pointer, address)?;
                     c.write_ptr(size_pointer, length)?;

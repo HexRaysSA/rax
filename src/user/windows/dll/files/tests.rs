@@ -2,6 +2,7 @@ use super::*;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, Flow, Item, Value};
 use crate::user::windows::memory::{mem, prot};
+use crate::user::windows::objects::Object;
 use crate::user::windows::process::{Thread, WindowsConfig, WindowsProcess};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -99,7 +100,8 @@ impl Harness {
                 }
                 WinArch::X64 if i < 4 => self.thread.cpu.set_gpr([1, 2, 8, 9][i], value),
                 WinArch::X64 => p.space.w64(sp + 0x28 + 8 * (i - 4) as u64, value).unwrap(),
-                WinArch::Arm64 => self.thread.cpu.set_gpr(i, value),
+                WinArch::Arm64 if i < 8 => self.thread.cpu.set_gpr(i, value),
+                WinArch::Arm64 => p.space.w64(sp + 8 * (i - 8) as u64, value).unwrap(),
             }
         }
         let mut c = Ctx {
@@ -231,6 +233,78 @@ impl Harness {
     }
     fn cursor(&mut self, handle: u64) -> u64 {
         self.seek(handle, 0, 1)
+    }
+}
+
+#[test]
+fn file_data_sections_refuse_resize_until_section_and_final_view_retire_all_abis() {
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let file = h.open("live.bin", GENERIC_READ | GENERIC_WRITE, 7, 1, 0x80);
+        assert_eq!(h.write(file, &[0x11; 4096]), 1);
+        let output = h.memory + 0x14000;
+        assert_eq!(
+            h.value(
+                "NtCreateSection",
+                &[output, 0xF001F, 0, 0, 2, 0x08000000, file]
+            ),
+            0
+        );
+        let section = h
+            .process
+            .state()
+            .space
+            .ptr(output, arch.ptr_size())
+            .unwrap();
+        for view_only in [false, true] {
+            assert_eq!(h.seek(file, 0, 0), 0);
+            assert!(
+                matches!(h.call("SetEndOfFile", &[file]), Err(ApiErr::Unimplemented(ref why)) if why.contains("section-resize contract"))
+            );
+            h.filename("live.bin", true);
+            assert!(
+                matches!(h.call("CreateFileW", &[h.memory, GENERIC_WRITE.into(), 7, 0, 5, 0x80, 0]), Err(ApiErr::Unimplemented(ref why)) if why.contains("section-resize contract"))
+            );
+            let (name, unicode, oa, io) = (
+                h.memory + 0x15000,
+                h.memory + 0x14800,
+                h.memory + 0x14900,
+                h.memory + 0x14A00,
+            );
+            let p = h.process.state_mut();
+            let width = arch.ptr_size();
+            let units = "\\??\\C:\\live.bin".encode_utf16().collect::<Vec<_>>();
+            p.space.put_wstr(name, &units).unwrap();
+            p.space.w16(unicode, units.len() as u16 * 2).unwrap();
+            p.space
+                .w16(unicode + 2, units.len() as u16 * 2 + 2)
+                .unwrap();
+            p.space.wptr(unicode + width, width, name).unwrap();
+            let size = if arch.is64() { 48 } else { 24 };
+            p.space.wr(oa, &vec![0; size]).unwrap();
+            p.space.w32(oa, size as u32).unwrap();
+            p.space.wptr(oa + 2 * width, width, unicode).unwrap();
+            assert!(
+                matches!(h.call("NtCreateFile", &[output, 0xC0100000, oa, io, 0, 0x80, 7, 5, 0, 0, 0]), Err(ApiErr::Unimplemented(ref why)) if why.contains("section-resize contract"))
+            );
+            assert_eq!(h.size(file), 4096);
+            if !view_only {
+                let p = h.process.state_mut();
+                let Object::FileSection(backing) = p.objects.get(section).unwrap() else {
+                    panic!("Section");
+                };
+                p.vm.map_file_section(backing.clone(), 0x50000000, 0, 4096, 2)
+                    .unwrap();
+                p.objects.close(section).unwrap();
+                // No Section handle remains: the view alone must retain the
+                // exact file identity, including after its first page is read.
+                assert_eq!(p.space.u8(0x50000000).unwrap(), 0x11);
+            }
+        }
+        h.process.state_mut().vm.release(0x50000000).unwrap();
+        assert_eq!(h.value("SetEndOfFile", &[file]), 1);
+        assert_eq!(h.size(file), 0);
+        h.close(file);
     }
 }
 

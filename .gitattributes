@@ -75,3 +75,7 @@ docs/specifications/windows/native-system-policy/** -text
 # Preserve the archived native APIC primary source byte for byte.
 docs/development/kvm-native-apic/references/*.c -text
 docs/specifications/windows/native-file-create/** -text
+
+# Preserve native data-section source/observation identities and keep generated corpora out of message diffs.
+docs/specifications/windows/native-file-data-section/** -text
+docs/specifications/windows/native-file-data-section/validation/*.json -diff

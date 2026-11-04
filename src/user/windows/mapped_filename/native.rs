@@ -53,6 +53,19 @@ impl Drop for View {
 }
 
 impl View {
+    /// # Safety
+    /// `section` is a live readable adapter-owned data section for this call.
+    pub(super) unsafe fn data_section(section: Handle) -> io::Result<Self> {
+        // One byte is sufficient for a filename query and avoids reserving a
+        // second full-file virtual view solely for metadata.
+        // SAFETY: borrowed live section and fixed offset/access/count.
+        let address = unsafe { MapViewOfFile(section, 4, 0, 0, 1) };
+        if address.is_null() {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(Self(address))
+        }
+    }
     pub(super) fn image(file: &File) -> io::Result<Self> {
         // SAFETY: retained live loader file, fixed read-only SEC_IMAGE_NO_EXECUTE
         // policy, NULL security/name, and no guest handle or address forwarded.

@@ -35,6 +35,7 @@ use crate::user::mm::{AddressSpace, Mapping, MmError, PAGE_SIZE, Perms};
 mod data_section;
 pub(crate) use data_section::KernelDataView;
 mod extended;
+mod file_section;
 mod mapped_filename;
 mod prefetch;
 mod region;
@@ -545,6 +546,7 @@ pub struct VirtualMemory {
     pagefile_views: BTreeSet<u64>,
     section_views: BTreeMap<u64, section::SectionView>,
     data_views: BTreeMap<u64, data_section::DataView>,
+    file_views: BTreeMap<u64, file_section::FileView>,
     shared_views: shared_section::SharedViews,
     section_low_placements: BTreeMap<usize, section::LowPlacement>,
     default_low_image_placement: Option<u64>,
@@ -580,6 +582,7 @@ impl VirtualMemory {
             pagefile_views: BTreeSet::new(),
             section_views: BTreeMap::new(),
             data_views: BTreeMap::new(),
+            file_views: BTreeMap::new(),
             shared_views: shared_section::SharedViews::default(),
             section_low_placements: BTreeMap::new(),
             default_low_image_placement: None,
@@ -852,6 +855,7 @@ impl VirtualMemory {
         if (self.is_nls_view(base)
             || self.section_view(base).is_some()
             || self.is_data_view(base)
+            || self.is_file_view(base)
             || self.is_shared_view(base))
             && matches!(free_type, mem::RELEASE | mem::DECOMMIT)
         {
@@ -910,6 +914,7 @@ impl VirtualMemory {
         if self.section_views.contains_key(&a.base)
             || (self.data_views.contains_key(&a.base) && !kernel_data)
             || self.is_shared_view(a.base)
+            || self.is_file_view(a.base)
         {
             return Err(VmError::AlreadyCommitted);
         }
@@ -989,6 +994,7 @@ impl VirtualMemory {
         if self.section_views.contains_key(&a.base)
             || self.data_views.contains_key(&a.base)
             || self.is_shared_view(a.base)
+            || self.is_file_view(a.base)
         {
             return Err(VmError::CannotDeleteSection);
         }
@@ -1074,6 +1080,7 @@ impl VirtualMemory {
         self.pagefile_views.remove(&base);
         self.section_views.remove(&base);
         self.data_views.remove(&base);
+        self.file_views.remove(&base);
         self.forget_shared_view(base);
         self.committed -= returned;
         Ok(size)
@@ -1114,6 +1121,7 @@ impl VirtualMemory {
         }
         let (first, end) = page_range(start, len)?;
         let a = self.allocation(first).ok_or(VmError::NotAllocated)?;
+        self.check_file_protection(a.base, protect)?;
         if self.nls_views.contains(&a.base) && protect != prot::READONLY {
             return Err(VmError::InvalidProtection);
         }
@@ -1152,12 +1160,25 @@ impl VirtualMemory {
             return Err(VmError::NotCommitted);
         }
         let p = a.state(i0);
-        let old = p.reported.unwrap_or(p.protect);
+        let old = if self.file_views.contains_key(&base) {
+            self.query(first).expect("validated file page").protect
+        } else {
+            p.reported.unwrap_or(p.protect)
+        };
         // This single AddressSpace operation checks all mapping coverage
         // before changing permissions; metadata changes only on success.
         self.space
             .protect(first, end - first, effective_perms(protect))
             .map_err(mm)?;
+        if self.file_views.contains_key(&base) {
+            self.space
+                .set_file_copy_on_write(
+                    first,
+                    end - first,
+                    !matches!(protect & 0xFF, prot::READWRITE | prot::EXECUTE_READWRITE),
+                )
+                .map_err(mm)?;
+        }
         if acquire_copy_potential {
             self.space
                 .track_private_copies(first, end - first)

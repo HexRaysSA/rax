@@ -1,0 +1,47 @@
+{
+  "profile": {
+    "kind": "profile",
+    "pointer_bytes": 8
+  },
+  "cases": [
+    {
+      "kind": "case",
+      "index": 0,
+      "status": "0xC000011E",
+      "error": 1006
+    },
+    {
+      "kind": "case",
+      "index": 1,
+      "status": "0xC0000049",
+      "error": 87
+    },
+    {
+      "kind": "case",
+      "index": 2,
+      "status": "0xC000004E",
+      "error": 87
+    },
+    {
+      "kind": "case",
+      "index": 3,
+      "status": "0xC0000040",
+      "error": 8
+    },
+    {
+      "kind": "case",
+      "index": 4,
+      "status": "0xC000001F",
+      "error": 5
+    },
+    {
+      "kind": "case",
+      "index": 5,
+      "status": "0xC0000220",
+      "error": 1132
+    }
+  ],
+  "source_sha256": "67230127b8d897f9ab9bf9d4b88c420dc5b55f39a7fd7f4137ea02df751dc6ef",
+  "image_sha256": "4581874b18b6a560d7e22157bd703749dfc8eda3d7f9858d165d489d225acef6",
+  "stdout_sha256": "75f07d95ebaa4e0ee5b3978e2de1ee84534b74e0952671562059e40197cb9fcd"
+}

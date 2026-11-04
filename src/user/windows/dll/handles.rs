@@ -110,6 +110,7 @@ fn duplicate(c: &mut Ctx) -> ApiResult {
                 | Object::SymbolicLink(_)
                 | Object::ImageSection(_)
                 | Object::DataSection(_)
+                | Object::FileSection(_)
         )
     ) {
         return duplicate_directory(c, handle, to, out, desired, inherit, options);
@@ -352,6 +353,15 @@ fn duplicate_directory(
                 )) => return Err(c.unsupported(reason)),
             },
             Some(Object::DataSection(s)) => s.grant(desired, true),
+            Some(Object::FileSection(s)) => match s.grant(desired) {
+                Ok(grant) => Ok(grant),
+                Err(crate::user::windows::object_namespace::SectionGrantError::Status(status)) => {
+                    Err(status)
+                }
+                Err(crate::user::windows::object_namespace::SectionGrantError::Unavailable(
+                    reason,
+                )) => return Err(c.unsupported(reason)),
+            },
             _ => unreachable!("selected namespace resource"),
         }
     };
