@@ -82,3 +82,9 @@ The [experimental x2APIC restore control](expired-normalization.md) preserves
 the initial-count register and distinguishes completed from still-pending
 expired one-shots in 40 native controls. Its temporary raw NMI encoding is not
 an established production restoration contract.
+
+The later [masked-restoration control](masked-restoration.md) tests an LVT-mask
+alternative without artificial NMI delivery. It appears effective on fresh
+default graphs, but initialized relocated graphs retain a duplicate despite
+exact exported-bank equality. All 24 observations are retained; the candidate
+does not supply the missing general timer-phase contract.
