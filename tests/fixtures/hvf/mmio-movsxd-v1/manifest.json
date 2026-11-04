@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "cases": 768,
+  "unique_instructions": 48,
+  "case_bytes": 168,
+  "record_bytes": 152,
+  "framing_bytes": 20,
+  "guest_ram_bytes": 67108864,
+  "kernel": "6.8.0-138-generic",
+  "machine": "x86_64",
+  "tool_sha256": "e66cd530d43ec021ef08a5d062fe43e5e2caab2bc8c504115fc6dc03a69f74fa",
+  "guest_template_sha256": "1ba01779b9eed974b3cc8eb13bead2b69b9fd3b65b999876328c4d60e158eecc",
+  "native_runner_sha256": "c8707e1f0b39ba50bb3b32d216e2bc3156e40f0833fcb630ddaf3957e9b66ad6",
+  "commands": [
+    {
+      "label": "compiler-version",
+      "argv": [
+        "gcc",
+        "--version"
+      ],
+      "exit_code": 0,
+      "seconds": 0.012485825456678867
+    },
+    {
+      "label": "assembler-version",
+      "argv": [
+        "/usr/local/bin/llvm-mc",
+        "--version"
+      ],
+      "exit_code": 0,
+      "seconds": 0.037787358276546
+    },
+    {
+      "label": "assemble",
+      "argv": [
+        "/usr/local/bin/llvm-mc",
+        "-triple=i386-none-elf",
+        "-filetype=obj",
+        "guest.s",
+        "-o",
+        "guest.o"
+      ],
+      "exit_code": 0,
+      "seconds": 0.010784955695271492
+    },
+    {
+      "label": "link",
+      "argv": [
+        "/usr/local/bin/ld.lld",
+        "-m",
+        "elf_i386",
+        "-T",
+        "link.ld",
+        "guest.o",
+        "-o",
+        "guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.018956094980239868
+    },
+    {
+      "label": "runner-build",
+      "argv": [
+        "gcc",
+        "-std=gnu11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/source/tools/hvf/mmio_movsxd_native.c",
+        "-o",
+        "native"
+      ],
+      "exit_code": 0,
+      "seconds": 0.25272377021610737
+    },
+    {
+      "label": "records",
+      "argv": [
+        "/tmp/rax-movsxd-ls8epj9w/native",
+        "/tmp/rax-movsxd-ls8epj9w/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.8631402375176549
+    }
+  ],
+  "scope": "Actual Linux KVM RAM instructions; no RAX code in the reference runner. Physical Intel macOS HVF and device ordering remain unverified.",
+  "guest_elf_sha256": "17dd903b101006bfd8b8e951b39cc884c5af22907a0b36e3c924975c1ab9dde3",
+  "artifact_sha256": {
+    "cases.bin": "233684ba12858ab8dbffe00c221af1e08c4ab2e8bbada61ffbb1b2c318396c5c",
+    "records.bin": "c08e00f904ed2a4ffaac56002e67a9403e79fd973a828c64b45a0831f06852f8"
+  },
+  "temporary_artifacts_removed": true,
+  "result": "native_reference_complete"
+}

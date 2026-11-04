@@ -460,7 +460,9 @@ paging with4KiB/2MiB/1GiB leaves. LA57 and malformed/nonpresent mappings stop
 before device access. The configured CPUID physical-address width is used.
 Legacy PAE inspection never reloads a changed guest PDPT from RAM.
 
-The transfer path requires a complete scalar MOV, MOVSX or MOVZX memory operand.
+The transfer path requires a complete scalar MOV, MOVSX, MOVSXD or MOVZX memory operand.
+[MOVSXD admission and native records](../../docs/development/hvf-mmio-movsxd.md)
+cover all three operand-size forms without changing the checkpoint input format.
 Additional [scalar ALU reads](../../docs/development/hvf-mmio-alu-read.md) support
 ADD/ADC/SUB/SBB/AND/OR/XOR register results and CMP/TEST flag-only effects;
 [modifying scalar operands](../../docs/development/hvf-mmio-rmw.md) use RMW

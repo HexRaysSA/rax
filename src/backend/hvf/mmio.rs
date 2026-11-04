@@ -308,7 +308,10 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     }
     if !instruction.operands_complete
         || instruction.flow != Flow::Next
-        || !matches!(instruction.mnemonic.as_str(), "mov" | "movsx" | "movzx")
+        || !matches!(
+            instruction.mnemonic.as_str(),
+            "mov" | "movsx" | "movsxd" | "movzx"
+        )
         || instruction.operands.len() != 2
     {
         return Err("unsupported MMIO instruction operands or effects".into());
@@ -352,7 +355,10 @@ pub(crate) fn prepare<M: PhysicalMemory>(
             return Err("inconsistent MMIO register width".into());
         }
         let extension = match instruction.mnemonic.as_str() {
-            "mov" if destination.bits == memory_operand.width_bits => Extension::Plain,
+            "mov" | "movsxd" if destination.bits == memory_operand.width_bits => Extension::Plain,
+            "movsxd" if destination.bits == 64 && memory_operand.width_bits == 32 => {
+                Extension::Signed
+            }
             "movsx" if destination.shift == 0 && destination.bits > memory_operand.width_bits => {
                 Extension::Signed
             }

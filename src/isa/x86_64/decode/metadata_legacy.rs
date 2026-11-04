@@ -172,15 +172,26 @@ pub(super) fn fixed_legacy(
             "mov"
         }
         0x63 => {
-            let (_, reg, rm) = modrm(
-                ctx,
-                address_bits,
-                if bits == 64 { 4 } else { 2 },
-                bits == 64,
-            )?;
-            out.operands = vec![reg, rm];
-            out.operands_complete = false;
-            if bits == 64 { "movsxd" } else { "arpl" }
+            // SDM Vol.2B MOVSX/MOVSXD: the REX.W destination is 64-bit,
+            // but its source remains 32-bit. The other long-mode forms copy
+            // equal-width 16/32-bit operands. Legacy opcode 63 is still ARPL.
+            let source_width = if bits == 64 { width.min(4) } else { 2 };
+            let (group, reg, rm) = modrm(ctx, address_bits, source_width, bits == 64)?;
+            if bits == 64 {
+                let destination = reg_operand(
+                    group | ctx.any_rex_r(),
+                    width,
+                    ctx.has_any_rex(),
+                    false,
+                    true,
+                );
+                out.operands = vec![destination, rm];
+                "movsxd"
+            } else {
+                out.operands = vec![reg, rm];
+                out.operands_complete = false;
+                "arpl"
+            }
         }
         0xc4 | 0xc5 | 0x62 if bits != 64 => {
             if ctx.peek_u8().ok()? & 0xc0 == 0xc0 {

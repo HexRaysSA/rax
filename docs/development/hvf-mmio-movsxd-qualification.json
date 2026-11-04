@@ -1,0 +1,543 @@
+{
+  "component": "hvf-mmio-movsxd-2026-11-04",
+  "status": "locally_validated",
+  "utc": "2026-11-04T18:22:45.626815+00:00",
+  "scope": "Complete opcode63 operand metadata in 64-bit code and represented scalar MMIO load completion; no new ABI layout or checkpoint field",
+  "full_goal_complete": false,
+  "primary_source": {
+    "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "section": "Intel SDM086 Volume2B MOVSX/MOVSXD opcode and operand tables, pages 4-128/4-129"
+  },
+  "baseline": {
+    "passed": 1,
+    "failed": 2,
+    "remote": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/baseline-result.json",
+    "metadata_failure": "incomplete MOVSXD [66,63,07]",
+    "planner_failure": "unsupported MMIO instruction operands or effects"
+  },
+  "native_reference": {
+    "cases": 768,
+    "unique_encodings": 48,
+    "independent_runner": "Linux KVM; no RAX implementation linked",
+    "fixture_manifest": "tests/fixtures/hvf/mmio-movsxd-v1/manifest.json",
+    "cases_sha256": "233684ba12858ab8dbffe00c221af1e08c4ab2e8bbada61ffbb1b2c318396c5c",
+    "records_sha256": "c08e00f904ed2a4ffaac56002e67a9403e79fd973a828c64b45a0831f06852f8",
+    "native_runs_identical": 2
+  },
+  "regression_partitions": {
+    "metadata_cells": 96,
+    "pending_input_codec_roundtrips": 384,
+    "short_reply_rejections": 160,
+    "complete_mmio_target_passed": 41,
+    "native_product_record_comparisons": 768
+  },
+  "source_binding": {
+    "compiler_source_base_sha256": "a2ba7e51230529a9f4552d1e86b1ce4297ba8506212c436315f7e7d5980fcda4",
+    "test_data_annex_sha256": "22a328838bf046d88005cfff37260214f1537fd26a104f88271bea8b6fe5585d",
+    "qualified_inputs_sha256": "ca3f946fd2dd9881170024f768eaa9f997b61ad58f2667ae7c05c7008e0de559",
+    "cfg_tag": "rax_audit_batch_a2ba7e51230529a9f4552d1e86b1ce4297ba8506212c436315f7e7d5980fcda4",
+    "fresh_engine_and_owning_test_confirmed": true,
+    "stable_executable_used": true,
+    "qualification_scope": "Frozen combined candidate based on master 804f0643a, including pending RAM/native-owner and test-fixture changes. This does not qualify subsequent unrelated upstream Windows changes or the later native public-run quiescence correction."
+  },
+  "gates": [
+    {
+      "label": "movsxd",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,hvf",
+        "--test",
+        "hvf_mmio",
+        "movsxd_tests::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          4,
+          0,
+          0,
+          0,
+          37
+        ]
+      ],
+      "details": {
+        "build_argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug,hvf",
+          "--test",
+          "hvf_mmio",
+          "--no-run",
+          "--message-format=json"
+        ],
+        "build_exit_code": 0,
+        "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/hvf_mmio-898c8567c766ad28",
+        "frozen_sha256": "9f80943a1ea7621781aa99e13769ae8fb7e8e771d712311f092a3f1312cc163b",
+        "frozen_bytes": 9092200,
+        "test_argv": [
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/combined-v2/movsxd-exe-2hdavg2s/hvf_mmio-898c8567c766ad28",
+          "movsxd_tests::",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "test_exit_code": 0,
+        "owned_executable_removed": true
+      },
+      "seconds": 305.680163634941
+    },
+    {
+      "label": "hvf-mmio",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,hvf",
+        "--test",
+        "hvf_mmio",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          41,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "details": {
+        "build_argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug,hvf",
+          "--test",
+          "hvf_mmio",
+          "--no-run",
+          "--message-format=json"
+        ],
+        "build_exit_code": 0,
+        "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/hvf_mmio-898c8567c766ad28",
+        "frozen_sha256": "9f80943a1ea7621781aa99e13769ae8fb7e8e771d712311f092a3f1312cc163b",
+        "frozen_bytes": 9092200,
+        "test_argv": [
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/combined-v2/hvf-mmio-exe-x371n_6i/hvf_mmio-898c8567c766ad28",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "test_exit_code": 0,
+        "owned_executable_removed": true
+      },
+      "seconds": 1.5307770073413849
+    },
+    {
+      "label": "fmt",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "results": [],
+      "details": {},
+      "seconds": 56.99368084594607
+    },
+    {
+      "label": "check",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,hvf",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "results": [],
+      "details": {},
+      "seconds": 91.1298643052578
+    },
+    {
+      "label": "clippy",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,hvf",
+        "--all-targets",
+        "--workspace"
+      ],
+      "exit_code": 0,
+      "results": [],
+      "details": {},
+      "seconds": 262.62447018083185
+    },
+    {
+      "label": "build",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,hvf",
+        "--all-targets",
+        "--workspace"
+      ],
+      "exit_code": 0,
+      "results": [],
+      "details": {},
+      "seconds": 659.6602788819
+    },
+    {
+      "label": "no-jit",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,kvm,debug,hvf",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "results": [],
+      "details": {},
+      "seconds": 78.78855381533504
+    },
+    {
+      "label": "doc",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,hvf",
+        "--workspace",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          0,
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "details": {},
+      "seconds": 17.223875300958753
+    },
+    {
+      "label": "guest-translation",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,hvf",
+        "--test",
+        "hvf_guest_translation",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          8,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "details": {
+        "build_argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug,hvf",
+          "--test",
+          "hvf_guest_translation",
+          "--no-run",
+          "--message-format=json"
+        ],
+        "build_exit_code": 0,
+        "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/hvf_guest_translation-a1e4a3c746b9f6dd",
+        "frozen_sha256": "bf81a86dbbb0046294b8d366409e8dd2a851aa30315a7f189f4b90b113936c9e",
+        "frozen_bytes": 1138688,
+        "test_argv": [
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/combined-v3/guest-translation-exe-vwye4q2h/hvf_guest_translation-a1e4a3c746b9f6dd",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "test_exit_code": 0,
+        "owned_executable_removed": true
+      },
+      "seconds": 0.21163991000503302
+    },
+    {
+      "label": "isa-oracle",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,hvf",
+        "--test",
+        "isa_oracle",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          102,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "details": {
+        "build_argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug,hvf",
+          "--test",
+          "isa_oracle",
+          "--no-run",
+          "--message-format=json"
+        ],
+        "build_exit_code": 0,
+        "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/isa_oracle-611b5816b7721439",
+        "frozen_sha256": "b794b6dbb2a4eaa0349e3bb76d9d86fe770bae4c7d90f8481c2fe945d0a1f28d",
+        "frozen_bytes": 9263376,
+        "test_argv": [
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/combined-v3/isa-oracle-exe-s_rp0fql/isa_oracle-611b5816b7721439",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "test_exit_code": 0,
+        "owned_executable_removed": true
+      },
+      "seconds": 0.4280049614608288
+    },
+    {
+      "label": "capi",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "rax-capi",
+        "--lib",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          244,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "details": {
+        "build_argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "rax-capi",
+          "--lib",
+          "--no-run",
+          "--message-format=json"
+        ],
+        "build_exit_code": 0,
+        "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-880e1aac2c574b19",
+        "frozen_sha256": "5db131b972e9990bfb4d66397150bd62aec017f75dad942004b26a336e23e829",
+        "frozen_bytes": 32448224,
+        "test_argv": [
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/combined-v4/capi-exe-l1usaaks/rax-880e1aac2c574b19",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "test_exit_code": 0,
+        "owned_executable_removed": true
+      },
+      "seconds": 16.564758171327412
+    },
+    {
+      "label": "root-library",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,hvf",
+        "--lib",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          13259,
+          0,
+          61,
+          0,
+          0
+        ]
+      ],
+      "details": {
+        "build_argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug,hvf",
+          "--lib",
+          "--no-run",
+          "--message-format=json"
+        ],
+        "build_exit_code": 0,
+        "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-28de884a4ee75b83",
+        "frozen_sha256": "eca291eb936c2cf46476ecb31f9de0a4b96cadea0449682ac1b03891e9de990e",
+        "frozen_bytes": 747691720,
+        "test_argv": [
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/combined-v5/root-library-exe-8ut1o4jr/rax-28de884a4ee75b83",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "test_exit_code": 0,
+        "owned_executable_removed": true
+      },
+      "seconds": 26296.885060191154
+    }
+  ],
+  "c_cpp_consumers": {
+    "exit_code": 0,
+    "examples": 19,
+    "abi_objects": 7,
+    "owned_build_artifacts_removed": true,
+    "source_unchanged": true,
+    "seconds": 182.84877005778253
+  },
+  "assumptions": [
+    {
+      "id": "MX1",
+      "basis": "Intel SDM086 Volume2B pages 4-128/4-129 and independently collected native KVM records",
+      "assumption": "The three opcode63 forms use SDM operand widths and preserve flags",
+      "dependent_result": "Metadata and MMIO completion",
+      "stress_test": "All 16 GPRs, three widths, sign boundaries, nonzero neighboring bytes and two flag states",
+      "falsification_probe": "Any mismatch in the independent native register, memory or flags records",
+      "status": "confirmed within the recorded native architectural profile"
+    },
+    {
+      "id": "MX2",
+      "basis": "Existing Input and Extension wire representation and pending-input codec tests",
+      "assumption": "Existing plain/signed input records represent these loads",
+      "dependent_result": "No checkpoint schema change",
+      "stress_test": "384 pending-input codec continuations and 160 short replies",
+      "falsification_probe": "Width, destination, value or retirement differs after roundtrip",
+      "status": "confirmed"
+    },
+    {
+      "id": "MX3",
+      "basis": "Source hashes, source-specific compiler cfg, fresh Cargo build records and frozen executable hashes",
+      "assumption": "The test binary corresponds to the declared source",
+      "dependent_result": "Qualification evidence",
+      "stress_test": "Reject the observed foreign zero-test cached artifact",
+      "falsification_probe": "Source hashes differ, fresh compilation is absent or actual test counts are zero",
+      "status": "confirmed for the recorded frozen source set"
+    }
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "Physical Intel macOS HVF EPT/device execution remains unverified",
+      "blocks": "Full C-HVF closure"
+    },
+    {
+      "impact": "high",
+      "finding": "The native public-run checkpoint writer timeout was independently reproduced and corrected after this frozen qualification; its separate gate remains required",
+      "blocks": "Native-owner publication and full C-STATE/C-SMP closure"
+    },
+    {
+      "impact": "high",
+      "finding": "Complete private/timer/in-flight restoration and remaining A32/HVF profiles remain required",
+      "blocks": "Full four-finding closure"
+    }
+  ]
+}

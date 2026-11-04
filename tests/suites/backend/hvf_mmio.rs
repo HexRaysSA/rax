@@ -10,6 +10,8 @@ use std::collections::BTreeMap;
 
 #[path = "hvf_mmio/alu_read.rs"]
 mod alu_read_tests;
+#[path = "hvf_mmio/movsxd.rs"]
+mod movsxd_tests;
 #[path = "hvf_mmio/rmw.rs"]
 mod rmw_tests;
 #[derive(Default)]
@@ -218,7 +220,6 @@ fn malformed_ept_or_unrepresented_instruction_never_becomes_device_io() {
         &[0x87, 0x07],
         &[0xf0, 0x01, 0x07],
         &[0xa4],
-        &[0x48, 0x63, 0x07],
         &[0x8c, 0x07],
         &[0x0f, 0x10, 0x07],
     ] {
@@ -517,25 +518,22 @@ fn moffs_uses_every_active_segment_override_and_guest_address_width() {
     }
 }
 
-#[test]
-fn independent_guest_records_preserve_all_registers_memory_and_flags() {
-    const CASES: &[u8] = include_bytes!("../../fixtures/hvf/mmio-v1/cases.bin");
-    const RAW: &[u8] = include_bytes!("../../fixtures/hvf/mmio-v1/records.bin");
+fn compare_guest_records(cases: &[u8], raw: &[u8]) -> (usize, usize) {
     fn word(b: &[u8], i: usize) -> u32 {
         u32::from_le_bytes(b[i..i + 4].try_into().unwrap())
     }
     fn quad(b: &[u8], i: usize) -> u64 {
         u64::from_le_bytes(b[i..i + 8].try_into().unwrap())
     }
-    let count = CASES.len() / 168;
-    assert_eq!(count, 1204);
-    assert_eq!(CASES.len() % 168, 0);
-    assert_eq!(RAW.len(), 20 + count * 152);
-    assert_eq!(&RAW[..8], b"RAXMM001");
-    assert_eq!(word(RAW, 8) as usize, count);
-    assert_eq!(&RAW[12 + count * 152..], b"MM_DONE!");
+    let count = cases.len() / 168;
+    assert!(count > 0);
+    assert_eq!(cases.len() % 168, 0);
+    assert_eq!(raw.len(), 20 + count * 152);
+    assert_eq!(&raw[..8], b"RAXMM001");
+    assert_eq!(word(raw, 8) as usize, count);
+    assert_eq!(&raw[12 + count * 152..], b"MM_DONE!");
     let (mut reads, mut writes) = (0, 0);
-    for (i, case) in CASES.chunks_exact(168).enumerate() {
+    for (i, case) in cases.chunks_exact(168).enumerate() {
         let length = word(case, 144) as usize;
         assert!((1..=15).contains(&length));
         let code = &case[148..148 + length];
@@ -581,14 +579,22 @@ fn independent_guest_records_preserve_all_registers_memory_and_flags() {
             Action::Rmw(_) => panic!("MOV reference case produced an RMW plan"),
             Action::AluRead(_) => panic!("MOV reference case produced an ALU read plan"),
         }
-        let record = &RAW[12 + i * 152..12 + (i + 1) * 152];
+        let record = &raw[12 + i * 152..12 + (i + 1) * 152];
         let actual: [u64; 16] = std::array::from_fn(|index| quad(record, index * 8));
         assert_eq!(expected, actual, "registers case{i},code{code:02x?}");
         assert_eq!(memory, record[128..136], "memory case{i},code{code:02x?}");
         assert_eq!(quad(record, 136), c.rflags);
         assert_eq!(quad(record, 144), c.rflags);
     }
-    assert_eq!((reads, writes), (912, 292));
+    (reads, writes)
+}
+
+#[test]
+fn independent_guest_records_preserve_all_registers_memory_and_flags() {
+    const CASES: &[u8] = include_bytes!("../../fixtures/hvf/mmio-v1/cases.bin");
+    const RAW: &[u8] = include_bytes!("../../fixtures/hvf/mmio-v1/records.bin");
+    assert_eq!(CASES.len(), 1204 * 168);
+    assert_eq!(compare_guest_records(CASES, RAW), (912, 292));
 }
 
 #[test]

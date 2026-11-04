@@ -4399,7 +4399,9 @@
         "docs/development/arm-native-mmio-frontier/qualification.json",
         "docs/development/arm-native-mmio-frontier/README.md",
         "docs/development/arm-native-store-frontier/qualification.json",
-        "docs/development/arm-native-store-frontier/README.md"
+        "docs/development/arm-native-store-frontier/README.md",
+        "docs/development/hvf-mmio-movsxd.md",
+        "docs/development/hvf-mmio-movsxd-qualification.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4443,7 +4445,8 @@
         "intel-native-checkpoint-records-2026-10-31",
         "intel-native-host-scheduling-2026-11-01",
         "intel-interrupt-window-ack-2026-11-01",
-        "arm-native-mmio-read-frontier-2026-11-01"
+        "arm-native-mmio-read-frontier-2026-11-01",
+        "hvf-mmio-movsxd-2026-11-04"
       ]
     },
     {
@@ -198893,6 +198896,7 @@
     "kvm-native-topology-and-clock-discovery-2026-11-03",
     "kvm-native-apic-feature-admission-2026-11-03",
     "a32-core-extension-transfer-admission-2026-11-04",
-    "kvm-async-pf-pv-ipi-admission-2026-11-04"
+    "kvm-async-pf-pv-ipi-admission-2026-11-04",
+    "hvf-mmio-movsxd-2026-11-04"
   ]
 }
