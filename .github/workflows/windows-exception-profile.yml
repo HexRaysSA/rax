@@ -5,6 +5,7 @@ on:
     branches: [master, main]
     paths:
       - .github/workflows/windows-exception-profile.yml
+      - .github/actions/setup-rust/**
       - tests/suites/tooling/ci_actions_pinned.rs
       - docs/specifications/windows/native-exception-entry-profile/**
       - docs/specifications/windows/native-raise-arguments/**
@@ -57,6 +58,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
+      - .github/actions/setup-rust/**
       - tests/suites/tooling/ci_actions_pinned.rs
       - docs/specifications/windows/native-exception-entry-profile/**
       - docs/specifications/windows/native-raise-arguments/**
@@ -126,10 +128,12 @@ jobs:
         shell: pwsh
         run: |
           $csrTmp = Join-Path $env:GITHUB_WORKSPACE 'target/native-csr-build-tmp'
-          New-Item -ItemType Directory -Force $csrTmp | Out-Null
+          $csrTarget = Join-Path $env:GITHUB_WORKSPACE 'target/native-csr-cargo'
+          New-Item -ItemType Directory -Force $csrTmp, $csrTarget | Out-Null
           "TMPDIR=$csrTmp" >> $env:GITHUB_ENV
           "TMP=$csrTmp" >> $env:GITHUB_ENV
           "TEMP=$csrTmp" >> $env:GITHUB_ENV
+          "CARGO_TARGET_DIR=$csrTarget" >> $env:GITHUB_ENV
           "RUSTC_WRAPPER=" >> $env:GITHUB_ENV
           "RUSTC_WORKSPACE_WRAPPER=" >> $env:GITHUB_ENV
       - uses: ./.github/actions/setup-rust
@@ -137,6 +141,7 @@ jobs:
         with:
           toolchain: 1.95.0
           cache-key: native-csr-${{ matrix.os }}
+          workspaces: . -> target/native-csr-cargo
       - name: Observe native notification admission and completion stores
         run: python -B tools/ci/windows_key_notify.py --capture-only
       - name: Preserve native notification kernel observations

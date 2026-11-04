@@ -119,6 +119,51 @@ fn native_windows_corpus_capture_follows_rust_cache_restore() {
 }
 
 #[test]
+fn native_windows_corpus_paths_are_outside_the_rust_cache_workspace() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workflow = read_workflow(root.join(".github/workflows/windows-exception-profile.yml"))
+        .expect("failed to read native Windows workflow");
+    let job = workflow_block(&workflow, "  observe:");
+    let prepare = workflow_block(
+        &job,
+        "      - name: Prepare contained native CSR build directories",
+    );
+    for required in [
+        "$csrTarget = Join-Path $env:GITHUB_WORKSPACE 'target/native-csr-cargo'",
+        "\"CARGO_TARGET_DIR=$csrTarget\" >> $env:GITHUB_ENV",
+    ] {
+        assert!(
+            prepare.contains(required),
+            "missing Cargo-only output setting: {required}"
+        );
+    }
+    let setup = workflow_block(&job, "      - uses: ./.github/actions/setup-rust");
+    assert!(
+        setup.contains("workspaces: . -> target/native-csr-cargo"),
+        "cache restore/save must exclude native corpus directories"
+    );
+    assert_eq!(
+        workflow
+            .matches("      - .github/actions/setup-rust/**")
+            .count(),
+        2,
+        "push and pull-request filters must cover the shared cache action"
+    );
+    let action = read_workflow(root.join(".github/actions/setup-rust/action.yml"))
+        .expect("failed to read shared Rust action");
+    let input = workflow_block(&action, "  workspaces:");
+    assert!(
+        input.contains("default: \".\""),
+        "other callers retain their default workspace"
+    );
+    let cache = workflow_block(&action, "    - name: Restore cargo + target cache");
+    assert!(
+        cache.contains("workspaces: ${{ inputs.workspaces }}"),
+        "forward the caller's cache workspace mapping"
+    );
+}
+
+#[test]
 fn windows_process_suite_is_registered_and_reachable_in_ci_commands() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let manifest =

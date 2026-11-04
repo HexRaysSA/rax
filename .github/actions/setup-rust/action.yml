@@ -21,6 +21,10 @@ inputs:
     description: Extra cache discriminator so jobs with different feature sets do not collide.
     required: false
     default: ""
+  workspaces:
+    description: Cargo workspace and target-directory pairs passed to the cache action.
+    required: false
+    default: "."
   cache:
     description: Whether to enable the Swatinem/rust-cache step.
     required: false
@@ -44,6 +48,7 @@ runs:
         # huge generated-test object files are not thrashed between unrelated jobs.
         key: ${{ inputs.cache-key }}
         cache-all-crates: "true"
+        workspaces: ${{ inputs.workspaces }}
 
     - name: Export CI build defaults
       shell: bash

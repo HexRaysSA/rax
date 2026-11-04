@@ -1,0 +1,12 @@
+{
+  "title": "Swatinem/rust-cache cache workspace and path configuration",
+  "issuing_project": "Swatinem/rust-cache",
+  "source_commit": "e18b497796c12c097a38f9edb9d0641fb99eee32",
+  "source_url": "https://github.com/Swatinem/rust-cache/blob/e18b497796c12c097a38f9edb9d0641fb99eee32/src/config.ts",
+  "retrieved_utc": "2026-11-04T18:31:47.055279+00:00",
+  "file": "config.ts",
+  "bytes": 14882,
+  "sha256": "8a025248b567bbcdfa291e1f77e27b26b8714b647b52c437355cf0168e983a23",
+  "license_file": "LICENSE",
+  "qualification": "Primary input for unresolved warm-cache lifecycle stress; no observed second failure."
+}

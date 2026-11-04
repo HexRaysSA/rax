@@ -50,3 +50,27 @@ assertions remain identical on Windows, macOS and Linux. The complete tooling
 binary is checked against both LF and CRLF workflow fixtures; unrelated jobs
 remain outside each selected block. Changes to its owning Rust source trigger
 the native Windows workflow for both pushes and pull requests.
+
+The exact warm-cache run
+[41897713812](https://github.com/HexRaysSA/rax/actions/runs/41897713812)
+restored a complete target-root cache and then failed the first producer's
+existing-output guard. Restoring before capture prevents deletion of new data,
+but saving/restoring the entire target root can also retain native output
+directories. Ownership guards remain required; they are not relaxed or replaced
+with deletion.
+
+The native job now isolates Cargo output and its cache workspace together:
+
+```text
+target/
+|-- native-csr-cargo/       Cargo artifacts; cache restore/save is confined here
+|-- native-csr-build-tmp/   contained build temporaries; outside the Cargo cache
+`-- native-*/              existing native capture/artifact paths; outside cache
+```
+
+The shared Rust action forwards an optional `workspaces` input. Its default is
+`.` so other callers preserve their previous cache layout. This native job
+sets `CARGO_TARGET_DIR` to the same contained directory named by its explicit
+`. -> target/native-csr-cargo` cache mapping. Its path filters also cover the
+shared action. Qualification requires native runs on both initial and exact
+warm cache states; an initial passing run alone does not establish that boundary.
