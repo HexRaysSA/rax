@@ -15,6 +15,7 @@ mod file_attributes;
 mod file_create;
 mod file_information;
 mod file_open;
+mod file_read;
 mod file_state_set;
 mod file_write;
 mod hotpatch;
@@ -899,3 +900,11 @@ mod tests {
         assert!(matches!(continue_context(&mut c), Err(ApiErr::Fault(_))));
     }
 }
+
+// Appended to preserve every existing synthetic export ordinal.
+pub(super) static FILE_READ_EXPORTS: &[Export] = &[Export::func(
+    "NtReadFile",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, I32, Ptr, Ptr],
+    file_read::read,
+)];

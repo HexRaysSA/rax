@@ -1,0 +1,10 @@
+{
+  "checked_utc": "2026-11-04T09:05:11.991758+00:00",
+  "sources": [
+    {
+      "title": "Microsoft NtReadFile",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/devnotes/ntreadfile",
+      "contract": "nine arguments, read grant, explicit/current offsets, sector alignment, IOSB byte count, event and pending completion"
+    }
+  ]
+}

@@ -137,6 +137,12 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
         Some(Object::Null) => Ok(()),
         _ => unreachable!("validated object cannot change during synchronous write"),
     };
+    if length != 0
+        && result.is_ok()
+        && matches!(c.p.objects.get(handle), Some(Object::File(file)) if !file.null)
+    {
+        c.p.objects.note_file_io(handle);
+    }
     if let Some(Object::Event { signaled, .. }) = c.p.objects.get_mut(event) {
         *signaled = 1;
     }

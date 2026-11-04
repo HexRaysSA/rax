@@ -112,6 +112,11 @@ fn transfer(c: &mut Ctx, write: bool) -> ApiResult {
         Some(Object::Null) => Ok(if write { count } else { 0 }),
         _ => unreachable!("validated object cannot change during synchronous transfer"),
     };
+    if host_result.as_ref().is_ok_and(|count| *count != 0)
+        && matches!(c.p.objects.get(handle), Some(Object::File(file)) if !file.null)
+    {
+        c.p.objects.note_file_io(handle);
+    }
     match host_result {
         Ok(transferred) => {
             if !write {

@@ -1,0 +1,19 @@
+{
+  "schema": "rax-native-file-read-manifest-v1",
+  "sha256": {
+    "CMakeLists.txt": "47dc645e8cd8de2c0e2a7118883efd3ce2fa3be233063295b2efcfa906aa357a",
+    "README.md": "de54f51d0f4923f8d55d681d95e0e9db08759c26134fb0cfa8fb999702d31da4",
+    "observations-v1.json": "7936e1688f52cab86df15d4fd949f7677c7349fe552fc121dd27c920426e3d8d",
+    "primary-sources-v1.json": "1c56ec37f78d9f0a078dfdd5d0174192e69de16f0036593e30337bfb9c5391f7",
+    "runtime-v1.h": "7d4a32ad0b110a6eb5e21fac2b055b7297f7cb163a1d9d27725d97ff68d1babd",
+    "scalars-v1.c": "ae7ae43290a86edf1d15c31919a59c299363c472570c78df48db64c6e294db90",
+    "source-scalars-arm64-v1.json": "43a1f867bd82d18ce0488095652f42774676f4b1341100bb755e39c15c6a0b59",
+    "source-scalars-x64-v1.json": "541f8ae57852ee4c9eb1e660b941a986d45f945f98c59027ea0d52aa8d41a680",
+    "source-scalars-x86-v1.json": "fe2b895c6a5b6c177607bd1118b925ac52eba56ada03b2c6fe077c5b30978dcc",
+    "source-transitions-arm64-v1.json": "63b3d84ca12698c3a9a75338a46ec886b0af75ed13360853ed82d8f9e7fb692b",
+    "source-transitions-x64-v1.json": "ac88a25f09d790372d5a2e0a1e708c8a97910c283d237f320df9a6b1d4258a97",
+    "source-transitions-x86-v1.json": "c10968df29790d6c9354ad3708cbf147bb7d00d8ff89277838c77a647f5e14f8",
+    "transitions-v1.c": "62faf447b4edec2332fc09752c65c9465a4e60ed0c2b584cd44d30f5decf7c24",
+    "verify.py": "05365ed4743b7a8f54b38d9f3523597339f3effce389b169da30c0b097c1a35e"
+  }
+}

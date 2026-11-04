@@ -3600,3 +3600,16 @@ and completion delivery remain explicit unsupported operations, even when a
 file accepts notification flags. This group does not establish complete CMD
 or general process execution.
 [Native sources, primary references, exact evidence bounds and reproduction](../../../docs/specifications/windows/native-file-state-set/README.md).
+
+### Retained native reads
+
+`NtReadFile` now has a nine-argument service/HLE entry appended after the earlier
+export families. The [native read profile](../../../docs/specifications/windows/native-file-read/README.md)
+records 1980 independent ordinary-call observations and the explicit synchronous
+replay selection. Retained files, duplicate/independent cursors, cached EOF,
+console input, NUL and error statuses share one implementation across guest ABIs.
+Windows receives only retained owned descriptors and private aligned buffers;
+a private completion event keeps any host-pending request alive to completion.
+Asynchronous guest scheduling, pipe I/O, APC delivery and unqualified fault
+ordering remain active work. This source increment is not a whole-program
+success or complete userland-emulation claim.

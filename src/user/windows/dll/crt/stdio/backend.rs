@@ -100,7 +100,7 @@ pub(super) fn read(p: &mut Proc, object: ObjId, output: &mut [u8]) -> io::Result
             "unbounded CRT read",
         ));
     }
-    match p.objects.obj_mut(object) {
+    let result = match p.objects.obj_mut(object) {
         Some(Object::File(file)) if file.null => Ok(0),
         Some(Object::File(file)) if !file.directory && !file.overlapped => {
             let host = file
@@ -116,7 +116,13 @@ pub(super) fn read(p: &mut Proc, object: ObjId, output: &mut [u8]) -> io::Result
         Some(Object::Null) => Ok(0),
         Some(Object::Pipe { .. }) => Err(unsupported("CRT pipe I/O")),
         _ => Err(unsupported("CRT input object")),
+    };
+    if result.as_ref().is_ok_and(|count| *count != 0)
+        && matches!(p.objects.obj(object), Some(Object::File(file)) if !file.null)
+    {
+        p.objects.note_file_io_by_id(object);
     }
+    result
 }
 
 pub(super) fn write(p: &mut Proc, object: ObjId, input: &[u8], append: bool) -> Written {
@@ -147,7 +153,7 @@ pub(super) fn write(p: &mut Proc, object: ObjId, input: &[u8], append: bool) -> 
         }
     }
     let mode = p.objects.file_mode_by_id(object).unwrap_or(0);
-    match p.objects.obj_mut(object) {
+    let result = match p.objects.obj_mut(object) {
         Some(Object::File(file)) if file.null => Written {
             bytes: input.len(),
             error: None,
@@ -178,7 +184,12 @@ pub(super) fn write(p: &mut Proc, object: ObjId, input: &[u8], append: bool) -> 
         },
         Some(Object::Pipe { .. }) => fail(unsupported("CRT pipe I/O")),
         _ => fail(unsupported("CRT output object")),
+    };
+    if result.bytes != 0 && matches!(p.objects.obj(object), Some(Object::File(file)) if !file.null)
+    {
+        p.objects.note_file_io_by_id(object);
     }
+    result
 }
 
 fn console_write(writer: &mut impl Write, input: &[u8]) -> Written {

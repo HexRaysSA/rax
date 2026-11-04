@@ -7,6 +7,8 @@ pub(crate) struct FileState {
     pub position: u64,
     pub notification: u32,
     pub priority: u32,
+    /// A retained open has completed nonempty cached data I/O.
+    pub cached_io_initialized: bool,
 }
 
 impl FileState {
@@ -16,6 +18,7 @@ impl FileState {
             position: 0,
             notification: 0,
             priority: 2,
+            cached_io_initialized: false,
         }
     }
 }
@@ -30,6 +33,22 @@ impl Objects {
     pub(crate) fn file_state_mut(&mut self, handle: u64) -> Option<&mut FileState> {
         let id = self.id(handle)?;
         self.objs.get_mut(&id).map(|entry| &mut entry.file_state)
+    }
+
+    pub(crate) fn note_file_io(&mut self, handle: u64) {
+        if let Some(state) = self.file_state_mut(handle) {
+            if state.mode & 8 == 0 {
+                state.cached_io_initialized = true;
+            }
+        }
+    }
+
+    pub(crate) fn note_file_io_by_id(&mut self, id: ObjId) {
+        if let Some(entry) = self.objs.get_mut(&id) {
+            if entry.file_state.mode & 8 == 0 {
+                entry.file_state.cached_io_initialized = true;
+            }
+        }
     }
 
     pub(crate) fn file_mode_by_id(&self, id: ObjId) -> Option<u32> {
