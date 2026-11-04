@@ -1,0 +1,40 @@
+{
+  "title": "Swatinem/rust-cache pinned restore and target-cleanup implementation",
+  "issuing_project": "Swatinem/rust-cache",
+  "retrieved_utc": "2026-11-04T18:17:26.999971+00:00",
+  "license_file": "LICENSE",
+  "files": [
+    {
+      "file": "restore.ts",
+      "upstream_path": "src/restore.ts",
+      "source_url": "https://github.com/Swatinem/rust-cache/blob/e18b497796c12c097a38f9edb9d0641fb99eee32/src/restore.ts",
+      "source_commit": "e18b497796c12c097a38f9edb9d0641fb99eee32",
+      "sha256": "edb411a11128350ba8ac06d497139300dc76e396c6c08f4fc975e0ca542c75df",
+      "bytes": 2286
+    },
+    {
+      "file": "cleanup.ts",
+      "upstream_path": "src/cleanup.ts",
+      "source_url": "https://github.com/Swatinem/rust-cache/blob/e18b497796c12c097a38f9edb9d0641fb99eee32/src/cleanup.ts",
+      "source_commit": "e18b497796c12c097a38f9edb9d0641fb99eee32",
+      "sha256": "6bc07a74270645d2765e85187bab9e2e4a730809365245b6f45d1f517b80fc46",
+      "bytes": 10125
+    },
+    {
+      "file": "workspace.ts",
+      "upstream_path": "src/workspace.ts",
+      "source_url": "https://github.com/Swatinem/rust-cache/blob/e18b497796c12c097a38f9edb9d0641fb99eee32/src/workspace.ts",
+      "source_commit": "e18b497796c12c097a38f9edb9d0641fb99eee32",
+      "sha256": "49b861582a810cc7ed7e4bc79804ec1bd2775e8f013a09941aa4c3cba5dacf2d",
+      "bytes": 1910
+    },
+    {
+      "file": "LICENSE",
+      "upstream_path": "LICENSE",
+      "source_url": "https://github.com/Swatinem/rust-cache/blob/e18b497796c12c097a38f9edb9d0641fb99eee32/LICENSE",
+      "source_commit": "e18b497796c12c097a38f9edb9d0641fb99eee32",
+      "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+      "bytes": 7652
+    }
+  ]
+}

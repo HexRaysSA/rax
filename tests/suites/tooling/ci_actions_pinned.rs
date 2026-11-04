@@ -79,6 +79,46 @@ fn licensing_resolves_locked_dependencies_for_fresh_runners() {
 }
 
 #[test]
+fn native_windows_corpus_capture_follows_rust_cache_restore() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workflow = fs::read_to_string(root.join(".github/workflows/windows-exception-profile.yml"))
+        .expect("failed to read native Windows workflow");
+    let job = workflow_block(&workflow, "  observe:");
+    let prepare_marker = "      - name: Prepare contained native CSR build directories";
+    let setup_marker = "      - uses: ./.github/actions/setup-rust";
+    let capture_marker =
+        "      - name: Observe native notification admission and completion stores";
+    let prepare = job
+        .find(prepare_marker)
+        .expect("missing contained temporary directory setup");
+    let setup = job.find(setup_marker).expect("missing Rust/cache setup");
+    let capture = job
+        .find(capture_marker)
+        .expect("missing first native capture");
+    assert!(
+        prepare < setup && setup < capture,
+        "initialize contained temporary directories and restore Rust caches before native capture; a partial cache restore removes custom target corpora"
+    );
+    assert_eq!(
+        job.matches(setup_marker).count(),
+        1,
+        "a later Rust/cache setup can remove freshly captured corpora"
+    );
+    let prepare = workflow_block(&job, prepare_marker);
+    for required in [
+        "$csrTmp = Join-Path $env:GITHUB_WORKSPACE 'target/native-csr-build-tmp'",
+        "\"TMPDIR=$csrTmp\" >> $env:GITHUB_ENV",
+        "\"TMP=$csrTmp\" >> $env:GITHUB_ENV",
+        "\"TEMP=$csrTmp\" >> $env:GITHUB_ENV",
+    ] {
+        assert!(
+            prepare.contains(required),
+            "missing contained build setting: {required}"
+        );
+    }
+}
+
+#[test]
 fn windows_process_suite_is_registered_and_reachable_in_ci_commands() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let manifest =

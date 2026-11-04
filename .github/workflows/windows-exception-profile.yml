@@ -119,6 +119,22 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Prepare contained native CSR build directories
+        if: always()
+        shell: pwsh
+        run: |
+          $csrTmp = Join-Path $env:GITHUB_WORKSPACE 'target/native-csr-build-tmp'
+          New-Item -ItemType Directory -Force $csrTmp | Out-Null
+          "TMPDIR=$csrTmp" >> $env:GITHUB_ENV
+          "TMP=$csrTmp" >> $env:GITHUB_ENV
+          "TEMP=$csrTmp" >> $env:GITHUB_ENV
+          "RUSTC_WRAPPER=" >> $env:GITHUB_ENV
+          "RUSTC_WORKSPACE_WRAPPER=" >> $env:GITHUB_ENV
+      - uses: ./.github/actions/setup-rust
+        if: always()
+        with:
+          toolchain: 1.95.0
+          cache-key: native-csr-${{ matrix.os }}
       - name: Observe native notification admission and completion stores
         run: python -B tools/ci/windows_key_notify.py --capture-only
       - name: Preserve native notification kernel observations
@@ -431,22 +447,9 @@ jobs:
           name: native-wow64-csr-amd64-matrix-${{ matrix.os }}
           path: target/native-wow64-csr-amd64-matrix-v1.json
           if-no-files-found: error
-      - name: Prepare contained native CSR build directories
+      - name: Verify native corpus workflow ordering
         if: always()
-        shell: pwsh
-        run: |
-          $csrTmp = Join-Path $env:GITHUB_WORKSPACE 'target/native-csr-build-tmp'
-          New-Item -ItemType Directory -Force $csrTmp | Out-Null
-          "TMPDIR=$csrTmp" >> $env:GITHUB_ENV
-          "TMP=$csrTmp" >> $env:GITHUB_ENV
-          "TEMP=$csrTmp" >> $env:GITHUB_ENV
-          "RUSTC_WRAPPER=" >> $env:GITHUB_ENV
-          "RUSTC_WORKSPACE_WRAPPER=" >> $env:GITHUB_ENV
-      - uses: ./.github/actions/setup-rust
-        if: always()
-        with:
-          toolchain: 1.95.0
-          cache-key: native-csr-${{ matrix.os }}
+        run: cargo test --locked --no-default-features --test ci_actions_pinned -- --nocapture --test-threads=1
       - name: Execute installed pure x86 CSR leaf on the native AMD64 kernel
         if: always()
         run: cargo test --locked --no-default-features --lib wow64_csr -- --nocapture --test-threads=1

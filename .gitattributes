@@ -108,3 +108,6 @@ docs/specifications/windows/native-directory-enumeration/primary/microsoft-* -wh
 
 # Preserve the independent native FIFO readiness control and captured bytes.
 docs/specifications/posix-fifo-readiness/** -text
+
+# Preserve the pinned cache implementation and license as exact primary inputs.
+docs/development/windows-native-ci-corpus-lifetime/primary/** -text -whitespace
