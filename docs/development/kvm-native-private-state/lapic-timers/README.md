@@ -77,3 +77,8 @@ work. All four original audit findings remain open.
 The later [pending-materialization control](pending-materialization.md) tests a
 candidate capture prerequisite without executing the original guest. It leaves
 the restoration counterexample above unresolved.
+
+The [experimental x2APIC restore control](expired-normalization.md) preserves
+the initial-count register and distinguishes completed from still-pending
+expired one-shots in 40 native controls. Its temporary raw NMI encoding is not
+an established production restoration contract.
