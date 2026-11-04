@@ -1,0 +1,477 @@
+{
+  "utc": "2026-11-04T07:33:06.829734+00:00",
+  "exit_code": 0,
+  "stderr": "",
+  "observation": {
+    "controls": {
+      "lapic-pending-signal-control-v1": {
+        "source_sha256": "2a9e6713ff41cc4407bb1d01133184784fc470d2517051b80248d5af8fef36a2",
+        "build_argv": [
+          "gcc",
+          "-std=c11",
+          "-D_GNU_SOURCE",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-O2",
+          "-pthread",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/lapic-materialization-v1/lapic-pending-signal-control-v1.c",
+          "-o",
+          "/tmp/rax-lapic-materialize-4vb49rzi/lapic-pending-signal-control-v1"
+        ],
+        "runs": [
+          {
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+          },
+          {
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+          },
+          {
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+          },
+          {
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+          },
+          {
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 2,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true
+            }
+          },
+          {
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+          },
+          {
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+          },
+          {
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 2,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true
+            }
+          }
+        ]
+      },
+      "lapic-halted-signal-control-v3": {
+        "source_sha256": "93b717d0e5cd9b3ba26c985dbaa9351f7bf69674a2c068a1875c161c2c09c0aa",
+        "build_argv": [
+          "gcc",
+          "-std=c11",
+          "-D_GNU_SOURCE",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-O2",
+          "-pthread",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/lapic-materialization-v1/lapic-halted-signal-control-v3.c",
+          "-o",
+          "/tmp/rax-lapic-materialize-4vb49rzi/lapic-halted-signal-control-v3"
+        ],
+        "runs": [
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 0
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 0
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 0
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 2,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 0
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 2,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 0
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 0
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 0
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 0
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 0
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 2,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 0
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 1
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 2,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 1
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 1
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 1
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 1
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 2,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 1
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 2,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 1
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 1
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 2,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 1
+            }
+          },
+          {
+            "exit_code": 0,
+            "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+            "stderr": "",
+            "observation": {
+              "saved_current_count": 0,
+              "saved_vector_irr": 0,
+              "source_delivered": 1,
+              "restored_delivered": 1,
+              "source_destroyed_before_restore": true,
+              "materialized_irr": 2,
+              "registers_unchanged": true,
+              "ram_unchanged": true,
+              "special_registers_unchanged": true,
+              "mp_state_unchanged": true,
+              "guest_if": 1
+            }
+          }
+        ]
+      }
+    },
+    "temporary_binaries_removed": true
+  },
+  "stdout_on_error": null
+}

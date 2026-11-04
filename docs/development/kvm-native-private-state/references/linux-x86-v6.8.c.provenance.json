@@ -1,0 +1,10 @@
+{
+  "title": "Linux v6.8 arch/x86/kvm/x86.c",
+  "issuing_project": "Linux kernel",
+  "revision": "v6.8",
+  "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/x86.c",
+  "retrieved_utc": "2026-11-04T07:19:48.892830+00:00",
+  "sha256": "3898fb303a2a8eb5c8ee9b02d03425dd9ac9475457f22deedbfe2c77081b8498",
+  "bytes": 380072,
+  "license": "GPL-2.0-only; original header retained"
+}

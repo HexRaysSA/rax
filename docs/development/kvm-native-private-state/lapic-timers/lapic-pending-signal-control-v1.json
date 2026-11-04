@@ -1,0 +1,123 @@
+{
+  "utc": "2026-11-04T07:22:11.946577+00:00",
+  "source_sha256": "cdc3a84df03b9b8b20ea37b2736723111c907040b22e55fee2b61883c805480a",
+  "build_argv": [
+    "gcc",
+    "-std=c11",
+    "-D_GNU_SOURCE",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-O2",
+    "-pthread",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/lapic-pending-signal-control-v1.c",
+    "-o",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/lapic-pending-signal-control-v1"
+  ],
+  "build_exit_code": 0,
+  "build_stdout": "",
+  "build_stderr": "",
+  "runs": [
+    {
+      "index": 0,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+    },
+    {
+      "index": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true
+      }
+    },
+    {
+      "index": 2,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true
+      }
+    },
+    {
+      "index": 3,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+    },
+    {
+      "index": 4,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+    },
+    {
+      "index": 5,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+    },
+    {
+      "index": 6,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+    },
+    {
+      "index": 7,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true
+      }
+    },
+    {
+      "index": 8,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "materialization failed: regs=1 RAM=1 IRR=0\n"
+    },
+    {
+      "index": 9,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true
+      }
+    }
+  ],
+  "binary_removed": true
+}

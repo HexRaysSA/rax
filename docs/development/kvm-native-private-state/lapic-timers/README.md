@@ -73,3 +73,7 @@ boundary and first-entry gate. Unconditionally zeroing the initial count does
 not satisfy both controls. PIT phase/reinjection, periodic/deadline profiles,
 complete production rollback and physical Intel macOS remain separate required
 work. All four original audit findings remain open.
+
+The later [pending-materialization control](pending-materialization.md) tests a
+candidate capture prerequisite without executing the original guest. It leaves
+the restoration counterexample above unresolved.

@@ -1,0 +1,423 @@
+{
+  "utc": "2026-11-04T07:28:47.691322+00:00",
+  "source_sha256": "c9d433be19951557ae3c6dccca1c67d81b785c5835f4a8353acd17685081f45d",
+  "build_argv": [
+    "gcc",
+    "-std=c11",
+    "-D_GNU_SOURCE",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-O2",
+    "-pthread",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/lapic-halted-signal-control-v3.c",
+    "-o",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/lapic-halted-signal-control-v3"
+  ],
+  "build_exit_code": 0,
+  "build_stdout": "",
+  "build_stderr": "",
+  "runs": [
+    {
+      "index": 0,
+      "guest_if": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 0
+      }
+    },
+    {
+      "index": 1,
+      "guest_if": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 0
+      }
+    },
+    {
+      "index": 2,
+      "guest_if": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 0
+      }
+    },
+    {
+      "index": 3,
+      "guest_if": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 0
+      }
+    },
+    {
+      "index": 4,
+      "guest_if": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 0
+      }
+    },
+    {
+      "index": 5,
+      "guest_if": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 0
+      }
+    },
+    {
+      "index": 6,
+      "guest_if": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 0
+      }
+    },
+    {
+      "index": 7,
+      "guest_if": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 0
+      }
+    },
+    {
+      "index": 8,
+      "guest_if": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 0
+      }
+    },
+    {
+      "index": 9,
+      "guest_if": 0,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":0}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 0
+      }
+    },
+    {
+      "index": 0,
+      "guest_if": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 1
+      }
+    },
+    {
+      "index": 1,
+      "guest_if": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 1
+      }
+    },
+    {
+      "index": 2,
+      "guest_if": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 1
+      }
+    },
+    {
+      "index": 3,
+      "guest_if": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 1
+      }
+    },
+    {
+      "index": 4,
+      "guest_if": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 1
+      }
+    },
+    {
+      "index": 5,
+      "guest_if": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 1
+      }
+    },
+    {
+      "index": 6,
+      "guest_if": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 1
+      }
+    },
+    {
+      "index": 7,
+      "guest_if": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 1
+      }
+    },
+    {
+      "index": 8,
+      "guest_if": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":0,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 0,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 1
+      }
+    },
+    {
+      "index": 9,
+      "guest_if": 1,
+      "exit_code": 0,
+      "stdout": "{\"saved_current_count\":0,\"saved_vector_irr\":2,\"source_delivered\":1,\"restored_delivered\":1,\"source_destroyed_before_restore\":true,\"materialized_irr\":2,\"registers_unchanged\":true,\"ram_unchanged\":true,\"special_registers_unchanged\":true,\"mp_state_unchanged\":true,\"guest_if\":1}\n",
+      "stderr": "",
+      "observation": {
+        "saved_current_count": 0,
+        "saved_vector_irr": 2,
+        "source_delivered": 1,
+        "restored_delivered": 1,
+        "source_destroyed_before_restore": true,
+        "materialized_irr": 2,
+        "registers_unchanged": true,
+        "ram_unchanged": true,
+        "special_registers_unchanged": true,
+        "mp_state_unchanged": true,
+        "guest_if": 1
+      }
+    }
+  ],
+  "binary_removed": true
+}

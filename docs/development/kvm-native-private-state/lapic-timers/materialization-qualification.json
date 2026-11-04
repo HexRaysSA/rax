@@ -1,0 +1,114 @@
+{
+  "utc": "2026-11-04T07:30:35.262560+00:00",
+  "status": "native_capture_prerequisite_only_not_production_fix",
+  "positive_control": "lapic-halted-signal-control-v3",
+  "negative_control": "lapic-pending-signal-control-v1",
+  "native_host": "host.json",
+  "positive_observations": {
+    "0": {
+      "runs": 10,
+      "actual_absent_to_present": 5
+    },
+    "1": {
+      "runs": 10,
+      "actual_absent_to_present": 5
+    }
+  },
+  "negative_failed_to_materialize": 6,
+  "negative_runs": 10,
+  "register_sets_checked": [
+    "general registers",
+    "special registers",
+    "MP state"
+  ],
+  "RAM_checked_bytes": 2097152,
+  "guest_cpus": 1,
+  "timer_profile": "enabled unmasked expired one-shot, vector0x41, count1000000",
+  "production_hooks_active": false,
+  "complete_producer": false,
+  "assumptions": [
+    {
+      "id": "MAT1",
+      "assumption": "Queued entry-only signal and temporary HALTED prevent original guest execution",
+      "basis": "C UAPI control and primary vcpu_run ordering",
+      "dependent_result": "Candidate capture normalization",
+      "stress_test": "Guest IF0 and IF1; compare complete GPR/SREG banks and all2097152 RAMbytes",
+      "falsification_probe": "Any register/RAM/MP mismatch or remaining IRR0",
+      "status": "confirmed in20 finite native cases"
+    },
+    {
+      "id": "MAT2",
+      "assumption": "A pending signal alone materializes a queued timer",
+      "basis": "Candidate without temporary HALTED",
+      "dependent_result": "Simpler capture normalization",
+      "stress_test": "Ten identical expired one-shot source graphs",
+      "falsification_probe": "IRR remains0 with unchanged registers/RAM",
+      "status": "falsified in6of10 controls"
+    },
+    {
+      "id": "MAT3",
+      "assumption": "Observed canonicalization generalizes to full native profiles",
+      "basis": "Not established by a one-CPU one-shot fixture",
+      "dependent_result": "Full producer admission",
+      "stress_test": "Masked/periodic/deadline timers, pending INIT/SIPI, nested and1/2/4CPUs",
+      "falsification_probe": "Native controls or profile admission reveal unrepresented work",
+      "status": "unknown; not admitted to production"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Destination expiry can duplicate a delivered one-shot; preserving TMICT and avoiding the duplicate remains unresolved",
+      "blocks": "Complete C-STATE/C-SMP native producer"
+    },
+    {
+      "impact": "high",
+      "item": "PIT, periodic/deadline/masked timers, nested state, peer preflight and actual first-entry gate not covered",
+      "blocks": "Full original goal"
+    },
+    {
+      "impact": "medium",
+      "item": "Independent test process controls its signal dispositions; this is not validation of production worker cleanup",
+      "blocks": false
+    }
+  ],
+  "cleanup": "Native C executables removed; no worktree or new Cargo cache created",
+  "original_control_sources": {
+    "lapic-pending-signal-control-v1": {
+      "source": "lapic-pending-signal-control-v1.original.c",
+      "record": "lapic-pending-signal-control-v1.json",
+      "sha256": "cdc3a84df03b9b8b20ea37b2736723111c907040b22e55fee2b61883c805480a"
+    },
+    "lapic-halted-signal-control-v3": {
+      "source": "lapic-halted-signal-control-v3.original.c",
+      "record": "lapic-halted-signal-control-v3.json",
+      "sha256": "c9d433be19951557ae3c6dccca1c67d81b785c5835f4a8353acd17685081f45d"
+    }
+  },
+  "replay_sources": {
+    "lapic-pending-signal-control-v1": {
+      "source": "lapic-pending-signal-control-v1.c",
+      "sha256": "2a9e6713ff41cc4407bb1d01133184784fc470d2517051b80248d5af8fef36a2"
+    },
+    "lapic-halted-signal-control-v3": {
+      "source": "lapic-halted-signal-control-v3.c",
+      "sha256": "93b717d0e5cd9b3ba26c985dbaa9351f7bf69674a2c068a1875c161c2c09c0aa"
+    }
+  },
+  "source_formatting": "Original sources match the initial records. Active sources expand error branches for readability; materialize.py recompiles these exact bytes.",
+  "replay_validation": {
+    "record": "retained-materialization-replay-v1.json",
+    "exit_code": 0,
+    "positive": {
+      "0": {
+        "runs": 10,
+        "actual_absent_to_present": 7
+      },
+      "1": {
+        "runs": 10,
+        "actual_absent_to_present": 6
+      }
+    },
+    "negative_runs": 10
+  }
+}
