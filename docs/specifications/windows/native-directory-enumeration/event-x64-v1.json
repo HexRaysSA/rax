@@ -1,0 +1,123 @@
+{
+  "schema": "rax-native-directory-event-profile-v1",
+  "producer_file": "native-directory-event-v1.rs",
+  "source_sha256": "d2ebfbef383c5a7d29ed8482b80885c66f4d4a88ed0bdf1f1de53f947a6e94fb",
+  "compiled_target": "x86_64-pc-windows-msvc",
+  "pointer_bytes": 8,
+  "image_bytes": 146432,
+  "image_sha256": "1d857899323721ca7d32e7952974278361b36585b7ac83ca0ed08b26189161a8",
+  "host_system32_ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+  "wrapper_exit_code": 0,
+  "query_case_count": 12,
+  "rows": [
+    {
+      "legacy": false,
+      "initial": false,
+      "case": "success",
+      "returned": 0,
+      "io_status": 11936128515503554560,
+      "information": 112,
+      "event_signaled": true
+    },
+    {
+      "legacy": false,
+      "initial": false,
+      "case": "overflow",
+      "returned": 2147483653,
+      "io_status": 11936128517651038213,
+      "information": 96,
+      "event_signaled": true
+    },
+    {
+      "legacy": false,
+      "initial": false,
+      "case": "missing",
+      "returned": 3221225487,
+      "io_status": 11936128518282651045,
+      "information": 11936128518282651045,
+      "event_signaled": false
+    },
+    {
+      "legacy": false,
+      "initial": true,
+      "case": "success",
+      "returned": 0,
+      "io_status": 11936128515503554560,
+      "information": 112,
+      "event_signaled": true
+    },
+    {
+      "legacy": false,
+      "initial": true,
+      "case": "overflow",
+      "returned": 2147483653,
+      "io_status": 11936128517651038213,
+      "information": 96,
+      "event_signaled": true
+    },
+    {
+      "legacy": false,
+      "initial": true,
+      "case": "missing",
+      "returned": 3221225487,
+      "io_status": 11936128518282651045,
+      "information": 11936128518282651045,
+      "event_signaled": false
+    },
+    {
+      "legacy": true,
+      "initial": false,
+      "case": "success",
+      "returned": 0,
+      "io_status": 11936128515503554560,
+      "information": 112,
+      "event_signaled": true
+    },
+    {
+      "legacy": true,
+      "initial": false,
+      "case": "overflow",
+      "returned": 2147483653,
+      "io_status": 11936128517651038213,
+      "information": 96,
+      "event_signaled": true
+    },
+    {
+      "legacy": true,
+      "initial": false,
+      "case": "missing",
+      "returned": 3221225487,
+      "io_status": 11936128518282651045,
+      "information": 11936128518282651045,
+      "event_signaled": false
+    },
+    {
+      "legacy": true,
+      "initial": true,
+      "case": "success",
+      "returned": 0,
+      "io_status": 11936128515503554560,
+      "information": 112,
+      "event_signaled": true
+    },
+    {
+      "legacy": true,
+      "initial": true,
+      "case": "overflow",
+      "returned": 2147483653,
+      "io_status": 11936128517651038213,
+      "information": 96,
+      "event_signaled": true
+    },
+    {
+      "legacy": true,
+      "initial": true,
+      "case": "missing",
+      "returned": 3221225487,
+      "io_status": 11936128518282651045,
+      "information": 11936128518282651045,
+      "event_signaled": false
+    }
+  ],
+  "scope": "Ordinary private directory/event handles on one ARM64 Windows kernel. The x64 process runs under host compatibility; the System32 NTDLL hash does not separately bind x64 loaded-module bytes. No invalid native pointer probes."
+}

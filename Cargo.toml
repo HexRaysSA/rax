@@ -224,6 +224,10 @@ name = "user_windows"
 path = "tests/suites/user/windows/main.rs"
 
 [[test]]
+name = "windows_directory_events"
+path = "tests/suites/user/windows/directory_events.rs"
+
+[[test]]
 name = "user_windows_cli"
 path = "tests/suites/user/windows/cli.rs"
 

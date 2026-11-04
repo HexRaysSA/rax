@@ -1,0 +1,162 @@
+[
+  {
+    "file": "microsoft-nf-ntifs-ntquerydirectoryfile.md",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "wdk-ddi-src/content/ntifs/nf-ntifs-ntquerydirectoryfile.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/nf-ntifs-ntquerydirectoryfile.md",
+    "retrieved_utc": "2026-11-04T12:23:31.456672+00:00",
+    "bytes": 11260,
+    "sha256": "2523d1b824752c1313bf32dfddad7ed9266a3faf81ed600c9440fb9ee882667d"
+  },
+  {
+    "file": "microsoft-nf-ntifs-ntquerydirectoryfileex.md",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "wdk-ddi-src/content/ntifs/nf-ntifs-ntquerydirectoryfileex.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/nf-ntifs-ntquerydirectoryfileex.md",
+    "retrieved_utc": "2026-11-04T12:23:31.593435+00:00",
+    "bytes": 15112,
+    "sha256": "16b9640cd0dc6f0d00088827fb4677920ca39edeff3772f5f17332fc08284833"
+  },
+  {
+    "file": "microsoft-ns-ntifs-_file_both_dir_information.md",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "wdk-ddi-src/content/ntifs/ns-ntifs-_file_both_dir_information.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/ns-ntifs-_file_both_dir_information.md",
+    "retrieved_utc": "2026-11-04T12:23:32.031859+00:00",
+    "bytes": 5275,
+    "sha256": "f5e6b7187f0410f2aa495be3452658edee2ee0b1826a573211bfac4874e95c01"
+  },
+  {
+    "file": "microsoft-ns-ntifs-_file_directory_information.md",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "wdk-ddi-src/content/ntifs/ns-ntifs-_file_directory_information.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/ns-ntifs-_file_directory_information.md",
+    "retrieved_utc": "2026-11-04T12:23:32.269117+00:00",
+    "bytes": 4831,
+    "sha256": "faf71cd3e14a688ae021a8c1bcef66b74842b6c2427a710a513e72dd4e66aee8"
+  },
+  {
+    "file": "microsoft-ns-ntifs-_file_full_dir_information.md",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "wdk-ddi-src/content/ntifs/ns-ntifs-_file_full_dir_information.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/ns-ntifs-_file_full_dir_information.md",
+    "retrieved_utc": "2026-11-04T12:23:32.401743+00:00",
+    "bytes": 4905,
+    "sha256": "f71e565a7616b4768ad19e8aec8ebfbbffe2d52b0697b83caba1b729b620c5c4"
+  },
+  {
+    "file": "microsoft-ns-ntifs-_file_id_both_dir_information.md",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "wdk-ddi-src/content/ntifs/ns-ntifs-_file_id_both_dir_information.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/ns-ntifs-_file_id_both_dir_information.md",
+    "retrieved_utc": "2026-11-04T12:23:32.537678+00:00",
+    "bytes": 5979,
+    "sha256": "f76f3820203a0b9dbc6ef9bc306d5a2a4825e2aacc292d7bdb40b3745a540786"
+  },
+  {
+    "file": "microsoft-ns-ntifs-_file_id_full_dir_information.md",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "wdk-ddi-src/content/ntifs/ns-ntifs-_file_id_full_dir_information.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/ns-ntifs-_file_id_full_dir_information.md",
+    "retrieved_utc": "2026-11-04T12:23:32.674695+00:00",
+    "bytes": 5681,
+    "sha256": "89e5ecc3c357a1d53266bced68522414a5f08ed2aad77ee79dde4bdbc8e16ec6"
+  },
+  {
+    "file": "microsoft-ns-ntifs-_file_names_information.md",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "wdk-ddi-src/content/ntifs/ns-ntifs-_file_names_information.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/ns-ntifs-_file_names_information.md",
+    "retrieved_utc": "2026-11-04T12:23:32.911512+00:00",
+    "bytes": 3081,
+    "sha256": "6ce6b1c785f3ec8b3edfb52439bc8cd1bd43554a77858eeef82d561143c8ded4"
+  },
+  {
+    "file": "microsoft-LICENSE",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "LICENSE",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/LICENSE",
+    "retrieved_utc": "2026-11-04T12:23:33.264631+00:00",
+    "bytes": 18650,
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "microsoft-LICENSE-CODE",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "LICENSE-CODE",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/LICENSE-CODE",
+    "retrieved_utc": "2026-11-04T12:23:33.912160+00:00",
+    "bytes": 1090,
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "microsoft-ns-ntifs-file_id_extd_dir_information.md",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "wdk-ddi-src/content/ntifs/ns-ntifs-file_id_extd_dir_information.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/ns-ntifs-file_id_extd_dir_information.md",
+    "retrieved_utc": "2026-11-04T12:27:38.968123+00:00",
+    "bytes": 5240,
+    "sha256": "0f0b3d5c6ba1cb7a752d2240de834925ada08d39fac180ba6a3b0e4de2df5917"
+  },
+  {
+    "file": "microsoft-ns-ntifs-_file_id_extd_both_dir_information.md",
+    "repository": "MicrosoftDocs/windows-driver-docs-ddi",
+    "commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+    "source_path": "wdk-ddi-src/content/ntifs/ns-ntifs-_file_id_extd_both_dir_information.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/ns-ntifs-_file_id_extd_both_dir_information.md",
+    "retrieved_utc": "2026-11-04T12:27:39.314576+00:00",
+    "bytes": 5509,
+    "sha256": "d2b5ff81537fff05724b964424919736478a109f2ccc3c7062749e5729496c82"
+  },
+  {
+    "file": "microsoft-nf-fileapi-setfileinformationbyhandle.md",
+    "repository": "MicrosoftDocs/sdk-api",
+    "commit": "d43984d7c322f7d7d35704d6d1ad36dc3539703b",
+    "source_path": "sdk-api-src/content/fileapi/nf-fileapi-setfileinformationbyhandle.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/d43984d7c322f7d7d35704d6d1ad36dc3539703b/sdk-api-src/content/fileapi/nf-fileapi-setfileinformationbyhandle.md",
+    "retrieved_utc": "2026-11-04T13:03:42.646230+00:00",
+    "bytes": 9669,
+    "sha256": "3954ae6cc59d816e499aedeeb330db9d7d99ec56baf01542a531eab3f9d16c75"
+  },
+  {
+    "file": "microsoft-ns-winbase-file_basic_info.md",
+    "repository": "MicrosoftDocs/sdk-api",
+    "commit": "788888c51ea955dae21e60c5e243c0a8593df8a6",
+    "source_path": "sdk-api-src/content/winbase/ns-winbase-file_basic_info.md",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/788888c51ea955dae21e60c5e243c0a8593df8a6/sdk-api-src/content/winbase/ns-winbase-file_basic_info.md",
+    "retrieved_utc": "2026-11-04T13:03:43.702273+00:00",
+    "bytes": 3607,
+    "sha256": "a0f5398981241723394996a8e5a25a21ba6aea0af8e34cab577a37d4f2b7289a"
+  },
+  {
+    "file": "../../native-process-parameters/relocation-v1/primary/microsoft-LICENSE",
+    "bytes": 18650,
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e",
+    "repository": "MicrosoftDocs/sdk-api",
+    "commit": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE",
+    "retrieved_utc": "2026-11-04T10:58:44.519865+00:00",
+    "storage_note": "Existing byte-identical MicrosoftDocs/sdk-api redistribution notice retained."
+  },
+  {
+    "file": "../../native-process-parameters/relocation-v1/primary/microsoft-LICENSE-CODE",
+    "bytes": 1090,
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2",
+    "repository": "MicrosoftDocs/sdk-api",
+    "commit": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE-CODE",
+    "retrieved_utc": "2026-11-04T10:58:44.851440+00:00",
+    "storage_note": "Existing byte-identical MicrosoftDocs/sdk-api redistribution notice retained."
+  }
+]

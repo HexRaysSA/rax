@@ -193,7 +193,7 @@ jobs:
             --test ebpf_smir_lift \
             --test user_linux \
             --test user_darwin \
-            --test user_windows \
+            --test windows_directory_events --test user_windows \
             -- --include-ignored --test-threads=1 --nocapture
       # Host fixtures exercise production backend boundaries without creating
       # a VM. SDK parity runs on macOS; non-macOS SDK targets are cfg-empty.
@@ -272,7 +272,7 @@ jobs:
       - name: Regression runner failure propagation
         run: python -m unittest discover -s tools/ci
       - name: Windows process CLI and native library selection
-        run: cargo test --locked --no-default-features --test user_windows_cli
+        run: cargo test --locked --no-default-features --test windows_directory_events --test user_windows_cli
       - name: C API semantic regressions
         run: cargo test --locked -p rax-capi --no-default-features
       - name: Native Windows clock and NLS observations

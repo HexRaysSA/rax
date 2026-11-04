@@ -1,0 +1,125 @@
+{
+  "schema": "rax-native-directory-evidence-manifest-v1",
+  "files": [
+    {
+      "path": "cmd-comparison-v1.json",
+      "bytes": 5865,
+      "sha256": "c0b69c5462114282bdb44ce7332781f0a37ee1c045f21f41aed4540ad54f9488"
+    },
+    {
+      "path": "cmd-comparison-v1.rs",
+      "bytes": 21933,
+      "sha256": "089250c98ff5607a58275446a5c0963da8c31288ffc15702741842dbcb3b3640"
+    },
+    {
+      "path": "event-arm64-v1.json",
+      "bytes": 3338,
+      "sha256": "85ddbc58ca2d272e9abea5d8841212719edc2a8c3096d6c24e08c45d333b94a6"
+    },
+    {
+      "path": "event-x64-v1.json",
+      "bytes": 3337,
+      "sha256": "04162aeefb834896b6dface522203e1f2189e740e061d304d2ba03597e3bb0a5"
+    },
+    {
+      "path": "native-arm64-v5.json",
+      "bytes": 512594,
+      "sha256": "1787ee0a414abd22abcc25106757d8052a0025db03bd2e4ba0029a7b48361ebc"
+    },
+    {
+      "path": "native-directory-event-v1.rs",
+      "bytes": 5814,
+      "sha256": "d2ebfbef383c5a7d29ed8482b80885c66f4d4a88ed0bdf1f1de53f947a6e94fb"
+    },
+    {
+      "path": "native-directory-v5.rs",
+      "bytes": 16837,
+      "sha256": "60657f84a9aabbe061e9490b0046f5c55ece2b90217485cb28c1d1ec2d1da135"
+    },
+    {
+      "path": "native-x64-v5.json",
+      "bytes": 512591,
+      "sha256": "1fe1902eb0e82645f6917008dc7fe0ba0a1a5f446eff373686a52a1a500bda11"
+    },
+    {
+      "path": "primary/microsoft-LICENSE",
+      "bytes": 18650,
+      "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+    },
+    {
+      "path": "primary/microsoft-LICENSE-CODE",
+      "bytes": 1090,
+      "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+    },
+    {
+      "path": "primary/microsoft-nf-fileapi-setfileinformationbyhandle.md",
+      "bytes": 9669,
+      "sha256": "3954ae6cc59d816e499aedeeb330db9d7d99ec56baf01542a531eab3f9d16c75"
+    },
+    {
+      "path": "primary/microsoft-nf-ntifs-ntquerydirectoryfile.md",
+      "bytes": 11260,
+      "sha256": "2523d1b824752c1313bf32dfddad7ed9266a3faf81ed600c9440fb9ee882667d"
+    },
+    {
+      "path": "primary/microsoft-nf-ntifs-ntquerydirectoryfileex.md",
+      "bytes": 15112,
+      "sha256": "16b9640cd0dc6f0d00088827fb4677920ca39edeff3772f5f17332fc08284833"
+    },
+    {
+      "path": "primary/microsoft-ns-ntifs-_file_both_dir_information.md",
+      "bytes": 5275,
+      "sha256": "f5e6b7187f0410f2aa495be3452658edee2ee0b1826a573211bfac4874e95c01"
+    },
+    {
+      "path": "primary/microsoft-ns-ntifs-_file_directory_information.md",
+      "bytes": 4831,
+      "sha256": "faf71cd3e14a688ae021a8c1bcef66b74842b6c2427a710a513e72dd4e66aee8"
+    },
+    {
+      "path": "primary/microsoft-ns-ntifs-_file_full_dir_information.md",
+      "bytes": 4905,
+      "sha256": "f71e565a7616b4768ad19e8aec8ebfbbffe2d52b0697b83caba1b729b620c5c4"
+    },
+    {
+      "path": "primary/microsoft-ns-ntifs-_file_id_both_dir_information.md",
+      "bytes": 5979,
+      "sha256": "f76f3820203a0b9dbc6ef9bc306d5a2a4825e2aacc292d7bdb40b3745a540786"
+    },
+    {
+      "path": "primary/microsoft-ns-ntifs-_file_id_extd_both_dir_information.md",
+      "bytes": 5509,
+      "sha256": "d2b5ff81537fff05724b964424919736478a109f2ccc3c7062749e5729496c82"
+    },
+    {
+      "path": "primary/microsoft-ns-ntifs-_file_id_full_dir_information.md",
+      "bytes": 5681,
+      "sha256": "89e5ecc3c357a1d53266bced68522414a5f08ed2aad77ee79dde4bdbc8e16ec6"
+    },
+    {
+      "path": "primary/microsoft-ns-ntifs-_file_names_information.md",
+      "bytes": 3081,
+      "sha256": "6ce6b1c785f3ec8b3edfb52439bc8cd1bd43554a77858eeef82d561143c8ded4"
+    },
+    {
+      "path": "primary/microsoft-ns-ntifs-file_id_extd_dir_information.md",
+      "bytes": 5240,
+      "sha256": "0f0b3d5c6ba1cb7a752d2240de834925ada08d39fac180ba6a3b0e4de2df5917"
+    },
+    {
+      "path": "primary/microsoft-ns-winbase-file_basic_info.md",
+      "bytes": 3607,
+      "sha256": "a0f5398981241723394996a8e5a25a21ba6aea0af8e34cab577a37d4f2b7289a"
+    },
+    {
+      "path": "primary/provenance-v1.json",
+      "bytes": 9701,
+      "sha256": "086387c1d059831b53dca0333003b3ebbad8f3890515ae6ccde769508572425f"
+    },
+    {
+      "path": "verify.py",
+      "bytes": 5227,
+      "sha256": "2fe81477325c98402ded5ae12180fb554564ce04450895b1213a7923145d7fd2"
+    }
+  ]
+}

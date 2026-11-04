@@ -1,0 +1,52 @@
+name: Windows directory events
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-directory-events-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: directory events (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-2022, target: x86_64-pc-windows-msvc }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc }
+    defaults:
+      run:
+        shell: bash
+    env:
+      RUSTUP_TOOLCHAIN: 1.95.0
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Keep build temporaries in the worktree
+        run: |
+          mkdir -p .tmp-directory-events
+          native_tmp=$(cygpath -w "$PWD/.tmp-directory-events")
+          printf 'TMPDIR=%s\nTMP=%s\nTEMP=%s\n' "$native_tmp" "$native_tmp" "$native_tmp" >> "$GITHUB_ENV"
+      - name: Select native Windows ARM64 Rust host
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        run: rustup set default-host aarch64-pc-windows-msvc
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: 1.95.0
+          cache-key: directory-events-${{ matrix.target }}
+      - name: Native directory-event profile
+        run: cargo test --locked --no-default-features --test windows_directory_events -- --test-threads=1

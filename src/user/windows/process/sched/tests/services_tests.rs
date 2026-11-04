@@ -14,6 +14,9 @@ mod alpc_tests;
 #[path = "services_tests/file_read_tests.rs"]
 mod file_read_tests;
 
+#[path = "services_tests/file_directory_tests.rs"]
+mod file_directory_tests;
+
 #[path = "services_tests/file_write_tests.rs"]
 mod file_write_tests;
 

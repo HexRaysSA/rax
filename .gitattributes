@@ -100,3 +100,8 @@ docs/specifications/windows/native-process-parameters/relocation-v1/** -text
 docs/specifications/windows/native-process-parameters/relocation-v1/*.json -diff
 docs/specifications/windows/native-process-parameters/relocation-v1/implementation-v1.patch -whitespace
 docs/specifications/windows/native-process-parameters/relocation-v1/primary/microsoft-* -whitespace
+
+# Preserve independent native directory controls and pinned reference bytes.
+docs/specifications/windows/native-directory-enumeration/** -text
+docs/specifications/windows/native-directory-enumeration/*.json -diff
+docs/specifications/windows/native-directory-enumeration/primary/microsoft-* -whitespace

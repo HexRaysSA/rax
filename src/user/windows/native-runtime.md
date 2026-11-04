@@ -3628,7 +3628,15 @@ Independent native CMD controls expose the prior false positive: native exit37
 and sentinel output disagreed with the emulator's zero exit and prompt. Corrected
 captures preserve the strings through installed RTL relocation and proceed to
 unsupported `NtQueryDirectoryFileEx` without the earlier sampled exception.
-Neither command has completed at that frontier. The
+Neither command completed in that revision. The
 [relocation profile](../../../docs/specifications/windows/native-process-parameters/relocation-v1/README.md)
 retains exact source/image/DLL identities, intermediate failure, guest-layout
 regressions and the distinction between wrapper completion and guest behavior.
+
+
+### Retained directory enumeration
+
+The [directory profile](../../../docs/specifications/windows/native-directory-enumeration/README.md)
+describes the two installed NT calls, eight admitted classes, retained cursor
+ownership and matching native CMD controls. Asynchronous scheduling and APC
+delivery remain active work.

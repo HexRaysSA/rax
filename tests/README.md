@@ -73,6 +73,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `user_linux` | `suites/user/linux/main.rs` |
 | `user_windows_cli` | `suites/user/windows/cli.rs` |
 | `user_windows` | `suites/user/windows/main.rs` |
+| `windows_directory_events` | `suites/user/windows/directory_events.rs` |
 | `user_windows_memory` | `suites/user/windows_memory.rs` |
 | `x86_64_paging` | `suites/isa/x86_64/paging_contract.rs` |
 | `x86_64` | `suites/isa/x86_64/main.rs` |
@@ -299,6 +300,14 @@ overlap or mutation behavior remain unknown.
 rejected ranges, and access rejection for unavailable memory. Its four tests
 run in the Windows C API CI lane. Other hosts compile an empty target; that
 result is not Windows runtime coverage.
+
+`windows_directory_events` checks the independently captured ARM64/x64 native
+directory-query event profiles through public HLE contexts for x86, x64 and
+ARM64 guests. Its complete test runs 72 calls on each host, checking status,
+IOSB publication, event reset/signaling and untouched output tails. It runs in
+Unix core/scheduled CI and dedicated native Windows x64/ARM64 jobs. Native
+profiles and their kernel/architecture limits are recorded in
+[`native-directory-enumeration`](../docs/specifications/windows/native-directory-enumeration/README.md).
 
 The native C API CI job also runs the complete `user::mm::` library slice on
 all three operating systems. Windows-only `windows_arena::tests` cover shared

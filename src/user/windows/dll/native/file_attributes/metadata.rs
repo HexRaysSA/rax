@@ -23,6 +23,16 @@ pub(in super::super) struct Information {
     pub(in super::super) attributes: u32,
 }
 
+/// Metadata for an entry opened relative to a retained directory descriptor.
+#[cfg(unix)]
+pub(in super::super) fn descriptor(
+    c: &Ctx,
+    path: &Path,
+    file: &std::fs::File,
+) -> Checked<Information> {
+    unix::query(c, path, Some(file))
+}
+
 /// Query an already admitted object; a legacy pathname cannot substitute a new file.
 #[cfg(unix)]
 pub(in super::super) fn retained(

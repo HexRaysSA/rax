@@ -1,0 +1,525 @@
+{
+  "schema": "rax-native-directory-qualification-v1",
+  "state": "finite-directory-contract-qualified-broader-campaigns-in-progress",
+  "utc": "2026-11-04T16:05:19.221197+00:00",
+  "baseline_rax_commit": "bc0619054c33c486176844ecc41839eaffffe088",
+  "implementation_rust_sources": {
+    "src/user/windows/dll/native.rs": "7c11264b5e0050148e143019314486924ee37aa4ba92801e1996e010315c540a",
+    "src/user/windows/objects.rs": "d2f9677d124037077172e69343146aaaa410f40d3d5c5dafcf10e667b6444a8a",
+    "src/user/windows/objects/file_directory.rs": "b38b6528acb49d38df5f0b23efc61a9380805847031d11740111c167b34dcfc1",
+    "src/user/windows/dll/native/file_attributes/metadata.rs": "3191c42b379e9854d9bbe2a0a14b319560f4813e344958a4ba16d57c955f7094",
+    "src/user/windows/dll/native/file_attributes/posix.rs": "253bfa15c7d460df127ba099e24ebf750817b10dc76ff17f80132552cfd09b8f",
+    "src/user/windows/dll/native/file_directory.rs": "be15e5952ad90ede6e6d1ea274ca1af53063a46d2ed3919803bc15938cd0760f",
+    "src/user/windows/dll/native/file_directory/host.rs": "dab5e59c9cf48c46dc447bd248fe64405d49ba0d54e8f89db171dc76ade1bc5c",
+    "src/user/windows/dll/native/file_directory/records.rs": "4a4753deed1db5b6f33c8b0f878fe974de4f9b85a4f61bfafa7e95ff28f9a43c",
+    "src/user/windows/dll/native/file_directory/portable.rs": "ec0718a0e5569e09c2e99f48cae55b44f1028463ba758826fd87bcdbd218d070",
+    "src/user/windows/dll/native/file_directory/host/windows.rs": "1b301e9a9fcbed6907efb19d71f794b7bcc5f4f2561b89624d203108bc89ebec",
+    "src/user/windows/dll/native/file_directory/portable/pattern.rs": "daabb4782984de3dd4b43b97540ceeb417b536fe22c7456b938830d8262e7142",
+    "src/user/windows/dll/native/file_directory/portable/encode.rs": "e62c1f0ee27477ec914906b635a41016273c838126861caa1b573caadcecdfa2",
+    "src/user/windows/dll/native/file_directory/portable/snapshot.rs": "737010d5035879d53dc178f0aa486ea4b799458b8189d0a957c8f1a498e9c3ec",
+    "src/user/windows/process/sched/tests/services_tests.rs": "9a1f5b947d0923c13ee04128d6af45801dece36a91b267f0cb2732c4f21261ea",
+    "src/user/windows/process/sched/tests/services_tests/file_directory_tests.rs": "cb533a7e16c6abdd62b526ab01c12fb83b8a67bca30ad5d697952223eb9d141e",
+    "src/user/windows/dll/native/file_directory/portable/replay.rs": "c8ba72279e7be7d978c259fd60fb4c668e474275adfa4fe4cb45d2380deb4d2c",
+    "src/user/windows/dll/mod.rs": "87b7dc4a00552d6a92cb4eca84d70e6b138f98145d90b5dc42a6a606a000cf5f"
+  },
+  "build_and_lint_gates": [
+    {
+      "name": "windows-library-clippy-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--target",
+        "aarch64-pc-windows-msvc",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "windows-release-library-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "build",
+        "--release",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--target",
+        "aarch64-pc-windows-msvc"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "macos-library-clippy-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "macos-format-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "macos-all-targets-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "macos-windows-integration-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--test",
+        "user_windows",
+        "--test",
+        "user_windows_cli",
+        "--",
+        "--test-threads=2"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "windows-all-targets-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--target",
+        "aarch64-pc-windows-msvc"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "windows-x64-all-targets-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "macos-capi-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax-capi",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "workspace-clippy-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "linux-library-clippy-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--target",
+        "x86_64-unknown-linux-gnu",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "linux-all-targets-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--target",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "linux-library-image-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--features",
+        "x86_64-suite",
+        "--target",
+        "x86_64-unknown-linux-gnu",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "windows-library-image-v4",
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--features",
+        "x86_64-suite",
+        "--target",
+        "aarch64-pc-windows-msvc",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "linux_directory_tests": {
+    "passed": 8,
+    "failed": 0,
+    "ignored": 0,
+    "scope": "six service/replay/ordinal tests plus pattern and EA tests; Docker amd64 translation on ARM64"
+  },
+  "windows_directory_tests": {
+    "passed": 6,
+    "failed": 0,
+    "ignored": 0,
+    "scope": "all three guest ABIs, eight classes, both services, native legacy fallback, retained rename and ordinal preservation; native ARM64 Windows"
+  },
+  "integration_binaries": {
+    "macos_user_windows": {
+      "passed": 544,
+      "failed": 0,
+      "ignored": 0
+    },
+    "macos_user_windows_cli": {
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0
+    },
+    "linux_user_windows": {
+      "passed": 544,
+      "failed": 0,
+      "ignored": 0
+    },
+    "linux_user_windows_cli": {
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0
+    },
+    "macos_rax_capi": {
+      "passed": 244,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "paired_installed_cmd_cases": {
+    "passed": 2,
+    "artifact": "cmd-comparison-v1.json"
+  },
+  "complete_library_runs": {
+    "macos_v8": {
+      "passed": 9981,
+      "failed": 0,
+      "ignored": 2,
+      "filtered": 0,
+      "seconds": 2979.44,
+      "scope": "Older source image v8 only; the current source changed deliberately and v9 is qualified separately. No controller failure is claimed.",
+      "controller_state": "passed",
+      "source_unchanged": false,
+      "image_unchanged": true
+    },
+    "macos_v9": {
+      "state": "qualified",
+      "image": {
+        "path": "/Users/int/.rax-native-read-pub-20261104/target/read-qualification-v1/debug/deps/rax-f14cd5ca139937b8",
+        "bytes": 795523536,
+        "sha256": "b1eed2012bc1dc8f155b51ed46e3f186910d0804f3a953ce8d388f7ecc805ce5"
+      },
+      "own_passed": 8,
+      "own_failed": 0,
+      "passed": 9982,
+      "failed": 0,
+      "ignored": 2,
+      "filtered": 0,
+      "source_unchanged": true,
+      "full_started_utc": "2026-11-04T14:26:48.894366+00:00",
+      "finished_utc": "2026-11-04T15:42:38.019376+00:00"
+    },
+    "linux_v9_first": "Cancelled after exact container/PID/image verification confirmed native /tmp EROFS (errno 30); only task-owned Linux child interrupted. Partial failures retained; no complete-suite pass claimed.",
+    "linux_v9_corrected": "Still running complete unchanged image; one FIFO async-writer-close failure observed. Isolated same-image test passes; specific full-suite inheriting process remains unknown.",
+    "windows_v9": "Native original PID 820 is retained; host RPC observation deadline elapsed, terminal callback not yet observed. No restart or complete-suite success claimed."
+  },
+  "broader_goal": "Incomplete: async I/O, APC delivery and other process services remain active work. These finite native CMD cases do not establish complete Windows userland support.",
+  "additional_cmd_comparison": {
+    "command": "ver",
+    "native_exit": 0,
+    "guest_exit": 0,
+    "native_stdout_hex": "0d0a4d6963726f736f66742057696e646f7773205b56657273696f6e2031302e302e32393639382e313030305d0d0a",
+    "guest_stdout_hex": "0d0a0d0a",
+    "image_sha256": "7ba52655ee8277b3d266fbacedbb879ea5bbddb535be6d37b56f9496055340e5",
+    "outcome": "Counterexample: successful exit with missing version text. Cause remains unknown; separate follow-up after directory changeset.",
+    "blocks_full_goal": true
+  },
+  "directory_listing_frontier": {
+    "command": "/d /c dir /b C:\\Windows\\System32\\cmd.exe",
+    "native_exit": "Some(0)",
+    "native_stdout_hex": "636d642e6578650d0a",
+    "guest_stdout_hex": "",
+    "terminal": "TERMINAL sample=217667 instruction_budget_bound=13930752 active_exception_seen=false status=Complete(Internal(\"native NTDLL service NtQueryInformationFile: Unimplemented(\\\"NtQueryInformationFile: file information class 9\\\")\"))",
+    "image_sha256": "7ba52655ee8277b3d266fbacedbb879ea5bbddb535be6d37b56f9496055340e5",
+    "blocks_full_goal": true
+  },
+  "macos_directory_tests": {
+    "passed": 8,
+    "failed": 0,
+    "ignored": 0,
+    "scope": "Current v9 source image; six service/replay/ordinal tests plus pattern and EA tests."
+  },
+  "fifo_failure_followup": {
+    "same_image_isolated_test": "passed",
+    "independent_rust_command_controls": {
+      "macos": "Writer inherited without O_CLOEXEC; EOF delayed until child exit. O_CLOEXEC prevents inheritance.",
+      "linux": "Writer inherited without O_CLOEXEC; EOF delayed until child exit. O_CLOEXEC prevents inheritance."
+    },
+    "causal_scope": "The mechanism is confirmed under Rust Command on both platforms; the specific inheriting child in the full-suite failure remains unknown."
+  },
+  "directory_event_controls": {
+    "native_profiles": 2,
+    "native_queries": 24,
+    "guest_calls_per_host": 72,
+    "guest_abis": [
+      "arm64",
+      "x64",
+      "x86"
+    ],
+    "macos": "passed: complete 1-test binary, 72 calls",
+    "linux": "passed: complete 1-test binary, 72 calls, Docker amd64 translation on ARM64",
+    "windows": "passed: complete 1-test binary, 72 calls, native Windows ARM64",
+    "provenance_scope": "Independent ARM64 and x64 Windows API profiles; x64 compatibility on ARM64; no separate native WoW64 oracle",
+    "native_windows_test_image": {
+      "path": "/Users/int/.rax-native-read-pub-20261104/target/read-qualification-v1/aarch64-pc-windows-msvc/debug/deps/windows_directory_events-2f02789ec0fe3cd0.exe",
+      "bytes": 10351104,
+      "sha256": "c87ccc4ece72fe7d6258995b08024ecb63d74b81dcf08816a2915a2054e8e9db"
+    },
+    "source_frame": {
+      "src/user/windows/dll/native.rs": "7c11264b5e0050148e143019314486924ee37aa4ba92801e1996e010315c540a",
+      "src/user/windows/objects.rs": "d2f9677d124037077172e69343146aaaa410f40d3d5c5dafcf10e667b6444a8a",
+      "src/user/windows/objects/file_directory.rs": "b38b6528acb49d38df5f0b23efc61a9380805847031d11740111c167b34dcfc1",
+      "src/user/windows/dll/native/file_attributes/metadata.rs": "3191c42b379e9854d9bbe2a0a14b319560f4813e344958a4ba16d57c955f7094",
+      "src/user/windows/dll/native/file_attributes/posix.rs": "253bfa15c7d460df127ba099e24ebf750817b10dc76ff17f80132552cfd09b8f",
+      "src/user/windows/dll/native/file_directory.rs": "be15e5952ad90ede6e6d1ea274ca1af53063a46d2ed3919803bc15938cd0760f",
+      "src/user/windows/dll/native/file_directory/host.rs": "dab5e59c9cf48c46dc447bd248fe64405d49ba0d54e8f89db171dc76ade1bc5c",
+      "src/user/windows/dll/native/file_directory/records.rs": "4a4753deed1db5b6f33c8b0f878fe974de4f9b85a4f61bfafa7e95ff28f9a43c",
+      "src/user/windows/dll/native/file_directory/portable.rs": "ec0718a0e5569e09c2e99f48cae55b44f1028463ba758826fd87bcdbd218d070",
+      "src/user/windows/dll/native/file_directory/host/windows.rs": "1b301e9a9fcbed6907efb19d71f794b7bcc5f4f2561b89624d203108bc89ebec",
+      "src/user/windows/dll/native/file_directory/portable/pattern.rs": "daabb4782984de3dd4b43b97540ceeb417b536fe22c7456b938830d8262e7142",
+      "src/user/windows/dll/native/file_directory/portable/encode.rs": "e62c1f0ee27477ec914906b635a41016273c838126861caa1b573caadcecdfa2",
+      "src/user/windows/dll/native/file_directory/portable/snapshot.rs": "737010d5035879d53dc178f0aa486ea4b799458b8189d0a957c8f1a498e9c3ec",
+      "src/user/windows/process/sched/tests/services_tests.rs": "9a1f5b947d0923c13ee04128d6af45801dece36a91b267f0cb2732c4f21261ea",
+      "src/user/windows/process/sched/tests/services_tests/file_directory_tests.rs": "cb533a7e16c6abdd62b526ab01c12fb83b8a67bca30ad5d697952223eb9d141e",
+      "src/user/windows/dll/native/file_directory/portable/replay.rs": "c8ba72279e7be7d978c259fd60fb4c668e474275adfa4fe4cb45d2380deb4d2c",
+      "src/user/windows/dll/mod.rs": "87b7dc4a00552d6a92cb4eca84d70e6b138f98145d90b5dc42a6a606a000cf5f",
+      "Cargo.toml": "6980faeee285207a9bfed6a1e6907c41af87e8b275e5054d2cab064eb2beecb7",
+      "tests/suites/user/windows/directory_events.rs": "8f7da55849be83646260eca5f46a5745f4ef3ef3306d35fc620c11bcccfce677",
+      "docs/specifications/windows/native-directory-enumeration/event-arm64-v1.json": "85ddbc58ca2d272e9abea5d8841212719edc2a8c3096d6c24e08c45d333b94a6",
+      "docs/specifications/windows/native-directory-enumeration/event-x64-v1.json": "04162aeefb834896b6dface522203e1f2189e740e061d304d2ba03597e3bb0a5"
+    }
+  },
+  "event_integration_build_gates": [
+    {
+      "name": "directory-events-format-v1",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "fmt",
+        "--all",
+        "--check"
+      ]
+    },
+    {
+      "name": "directory-events-clippy-v1",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--test",
+        "windows_directory_events",
+        "--",
+        "-D",
+        "warnings"
+      ]
+    },
+    {
+      "name": "directory-events-ci-contract-v1",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--test",
+        "ci_actions_pinned"
+      ]
+    },
+    {
+      "name": "directory-events-linux-build-v1",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--test",
+        "windows_directory_events",
+        "--target",
+        "x86_64-unknown-linux-gnu",
+        "--no-run",
+        "--message-format=json"
+      ]
+    },
+    {
+      "name": "directory-events-windows-build-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--test",
+        "windows_directory_events",
+        "--target",
+        "aarch64-pc-windows-msvc",
+        "--no-run",
+        "--message-format=json"
+      ]
+    },
+    {
+      "name": "directory-events-windows-x64-check-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--test",
+        "windows_directory_events",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ]
+    }
+  ],
+  "event_ci_final": {
+    "tests_passed": 12,
+    "failed": 0,
+    "ignored": 0,
+    "yaml_syntax": "All three changed workflows parsed with Ruby Psych",
+    "new_test_registry": "Cargo.toml plus tests/README.md; Windows x64/ARM64 dedicated native jobs and Unix core/scheduled jobs"
+  },
+  "qualification_scope": "Cross-platform finite directory contract, complete final-source macOS library and all owning integration binaries. Broader native Windows and Linux campaigns remain independently active. The recorded FIFO failure is not converted into a pass."
+}

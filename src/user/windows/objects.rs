@@ -21,6 +21,10 @@ mod directory;
 mod etw;
 mod file_state;
 pub(crate) use file_state::{FileState, finish_file_write};
+#[cfg(unix)]
+mod file_directory;
+#[cfg(unix)]
+pub(crate) use file_directory::{DirectoryEntry, DirectoryScan};
 mod lpc;
 mod named;
 pub use lpc::LpcPort;
@@ -57,7 +61,7 @@ pub enum StdStream {
 /// An open file.
 #[derive(Debug)]
 pub struct FileObj {
-    /// The host file (`None` for a directory handle).
+    /// Retained host file or directory; legacy metadata-only objects may omit it.
     pub host: Option<std::fs::File>,
     /// Host path.
     pub host_path: PathBuf,
@@ -304,6 +308,8 @@ struct Entry {
     runtime_library: bool,
     /// Per-open NT mode, shared by duplicate handles, separate from file identity.
     file_state: FileState,
+    #[cfg(unix)]
+    directory_scan: Option<DirectoryScan>,
     refs: u32,
     name: Option<String>,
     native_name: Option<super::object_namespace::NativeName>,
@@ -392,6 +398,8 @@ impl Objects {
                 registry_views: None,
                 runtime_library: false,
                 file_state: FileState::new(file_mode),
+                #[cfg(unix)]
+                directory_scan: None,
                 refs: 0,
                 name: None,
                 native_name: None,

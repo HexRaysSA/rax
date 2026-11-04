@@ -13,6 +13,7 @@ mod directory;
 mod events;
 mod file_attributes;
 mod file_create;
+mod file_directory;
 mod file_information;
 mod file_open;
 mod file_read;
@@ -908,3 +909,19 @@ pub(super) static FILE_READ_EXPORTS: &[Export] = &[Export::func(
     &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, I32, Ptr, Ptr],
     file_read::read,
 )];
+
+/// Appended family preserves every earlier synthetic NTDLL ordinal and trap RVA.
+pub(super) static FILE_DIRECTORY_EXPORTS: &[Export] = &[
+    Export::func(
+        "NtQueryDirectoryFileEx",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, I32, I32, I32, Ptr],
+        file_directory::query_ex,
+    ),
+    Export::func(
+        "NtQueryDirectoryFile",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, I32, I32, I32, Ptr, I32],
+        file_directory::query,
+    ),
+];

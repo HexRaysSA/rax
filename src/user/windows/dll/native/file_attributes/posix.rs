@@ -158,6 +158,11 @@ pub(in super::super) fn attributes(file: &File) -> io::Result<Option<u32>> {
     decode_attributes(get(Source::File(file), ATTRIBUTES, 8)?)
 }
 
+/// Captured Windows EA records; unrelated host xattrs are never enumerated.
+pub(in super::super) fn directory_ea(file: &File) -> io::Result<Option<Vec<u8>>> {
+    get(Source::File(file), EA, 65540)
+}
+
 pub(in super::super) fn attributes_path(path: &Path) -> io::Result<Option<u32>> {
     let path = CString::new(path.as_os_str().as_bytes())
         .map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))?;
