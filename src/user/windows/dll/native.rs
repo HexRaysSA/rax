@@ -15,6 +15,7 @@ mod file_attributes;
 mod file_create;
 mod file_information;
 mod file_open;
+mod file_state_set;
 mod file_write;
 mod hotpatch;
 mod io_completion;
@@ -418,6 +419,14 @@ pub(super) static FILE_INFORMATION_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[Ptr, Ptr, Ptr, I32, I32],
     file_information::query,
+)];
+
+// The registry appends this family last, retaining every existing ordinal.
+pub(super) static FILE_STATE_SET_EXPORTS: &[Export] = &[Export::func(
+    "NtSetInformationFile",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, I32, I32],
+    file_state_set::set,
 )];
 
 // Append this table after all existing NTDLL families to preserve their

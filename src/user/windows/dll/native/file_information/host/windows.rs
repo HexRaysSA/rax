@@ -1,4 +1,4 @@
-//! Fixed read-only NT records use an owned handle and private stable buffers.
+//! Fixed NT queries and setters use an owned handle and private stable buffers.
 use super::super::super::named_object::{Checked, status};
 use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::hle::Ctx;
@@ -25,6 +25,13 @@ const _: () = assert!(std::mem::offset_of!(Overlapped, offset) == 2 * std::mem::
 
 #[link(name = "ntdll")]
 unsafe extern "system" {
+    fn NtSetInformationFile(
+        file: *mut c_void,
+        io: *mut Io,
+        input: *mut c_void,
+        length: u32,
+        class: u32,
+    ) -> i32;
     fn NtQueryInformationFile(
         file: *mut c_void,
         io: *mut Io,
@@ -79,6 +86,26 @@ pub(super) fn query(c: &Ctx, file: &FileObj, class: u32) -> Checked<Vec<u8>> {
         }
         &reopened
     };
+    request(c, handle, class, length, None)
+}
+
+pub(super) fn set(c: &Ctx, handle: &std::fs::File, class: u32, value: u64) -> Checked<()> {
+    let length = match class {
+        14 => 8,
+        16 | 41 | 43 => 4,
+        _ => return Err(c.unsupported("non-fixed host file setter").into()),
+    };
+    request(c, handle, class, length, Some(value.to_le_bytes()))?;
+    Ok(())
+}
+
+fn request(
+    c: &Ctx,
+    handle: &std::fs::File,
+    class: u32,
+    length: u32,
+    input: Option<[u8; 8]>,
+) -> Checked<Vec<u8>> {
     let io = Box::new(UnsafeCell::new(Overlapped {
         io: Io {
             status: 0x103,
@@ -87,20 +114,34 @@ pub(super) fn query(c: &Ctx, file: &FileObj, class: u32) -> Checked<Vec<u8>> {
         offset: [0; 2],
         event: std::ptr::null_mut(),
     }));
-    let output = Box::new(UnsafeCell::new(Buffer([0; 64])));
+    let mut buffer = [0; 64];
+    if let Some(input) = input {
+        buffer[..8].copy_from_slice(&input);
+    }
+    let output = Box::new(UnsafeCell::new(Buffer(buffer)));
     // SAFETY: the system ABI receives only the borrowed owned handle and
     // repr(C), initialized, suitably aligned host allocations. The whitelisted
     // length is at most56 B inside the64 B buffer. UnsafeCell admits kernel
     // mutation without shared Rust references. No callback can unwind here;
     // both boxes and the handle remain live until terminal completion below.
     let result = unsafe {
-        NtQueryInformationFile(
-            handle.as_raw_handle(),
-            io.get().cast(),
-            output.get().cast(),
-            length,
-            class,
-        )
+        if input.is_some() {
+            NtSetInformationFile(
+                handle.as_raw_handle(),
+                io.get().cast(),
+                output.get().cast(),
+                length,
+                class,
+            )
+        } else {
+            NtQueryInformationFile(
+                handle.as_raw_handle(),
+                io.get().cast(),
+                output.get().cast(),
+                length,
+                class,
+            )
+        }
     } as u32;
     if result == 0x103 {
         loop {
@@ -144,10 +185,11 @@ pub(super) fn query(c: &Ctx, file: &FileObj, class: u32) -> Checked<Vec<u8>> {
     if status_code != 0 {
         return status(status_code);
     }
-    if information != length as usize {
+    let expected = if input.is_some() { 0 } else { length as usize };
+    if information != expected {
         return Err(c
             .unsupported(format!(
-                "owned file class {class} returned {information} bytes, expected {length}"
+                "owned file class {class} returned {information} bytes, expected {expected}"
             ))
             .into());
     }

@@ -87,3 +87,6 @@ docs/specifications/windows/native-current-version/**/*.json -diff
 # Preserve native file-information controls and generated observation identities.
 docs/specifications/windows/native-file-information/** -text
 docs/specifications/windows/native-file-information/*.json -diff
+
+docs/specifications/windows/native-file-state-set/** -text
+docs/specifications/windows/native-file-state-set/*.json -diff

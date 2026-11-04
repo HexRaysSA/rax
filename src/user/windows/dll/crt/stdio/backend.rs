@@ -146,6 +146,7 @@ pub(super) fn write(p: &mut Proc, object: ObjId, input: &[u8], append: bool) -> 
             };
         }
     }
+    let mode = p.objects.file_mode_by_id(object).unwrap_or(0);
     match p.objects.obj_mut(object) {
         Some(Object::File(file)) if file.null => Written {
             bytes: input.len(),
@@ -160,7 +161,14 @@ pub(super) fn write(p: &mut Proc, object: ObjId, input: &[u8], append: bool) -> 
                     return fail(error);
                 }
             }
-            write_chunk(host, input)
+            let mut result = write_chunk(host, input);
+            if result.bytes != 0 {
+                let committed = crate::user::windows::objects::finish_file_write(host, mode);
+                if result.error.is_none() {
+                    result.error = committed.err();
+                }
+            }
+            result
         }
         Some(Object::Console(StdStream::Out)) => console_write(&mut io::stdout(), input),
         Some(Object::Console(StdStream::Err)) => console_write(&mut io::stderr(), input),

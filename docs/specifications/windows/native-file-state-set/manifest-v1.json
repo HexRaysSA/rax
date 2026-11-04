@@ -1,0 +1,77 @@
+{
+  "schema": "rax-native-file-state-set-manifest-v1",
+  "scalar_replay_cases": 12720,
+  "fault_replay_cases": 9555,
+  "native_scalar_cases": 28620,
+  "native_fault_cases": 9555,
+  "files": {
+    "CMakeLists.txt": {
+      "bytes": 1040,
+      "sha256": "eb1ac08a6741c547ab1ecdbe7329d7f0b966f69121c7dd9c6a46a9ac8d8fe73b"
+    },
+    "FILE_MODE_INFORMATION.html": {
+      "bytes": 51533,
+      "sha256": "6f3c7cb19acb4c3979e3763e557590826c53c7e01f3cfcde16a30b9b90b365ed"
+    },
+    "NtSetInformationFile.html": {
+      "bytes": 63564,
+      "sha256": "58916e7da8d50ff80691228d389651f42ee33ed56a874e78741e17da57a4d584"
+    },
+    "README.md": {
+      "bytes": 4601,
+      "sha256": "b6b50301db35ede7612ce3b9d1ee18355bdd5c961f222a396257ee5f29722a90"
+    },
+    "SetFileCompletionNotificationModes.html": {
+      "bytes": 54741,
+      "sha256": "46b1993aa98967de19d026943ab3faf1f4a79f44c5b3befe0896b30eb57eb14e"
+    },
+    "faults-v1.c": {
+      "bytes": 6837,
+      "sha256": "3c051e6607ef076838fb1cef582ea48406c262c57a824410ec6c8ef8dc05a4ee"
+    },
+    "observations-v1.json": {
+      "bytes": 10105308,
+      "sha256": "b733f5f947db785d97c847762a48c72374e6b4c86f498d082b660587988e2836"
+    },
+    "primary-sources-v1.json": {
+      "bytes": 1137,
+      "sha256": "be7897227f70e136d31b138a8d7236f1a78c7843d1b33392622e3dbf8ca10541"
+    },
+    "runtime-v1.h": {
+      "bytes": 2247,
+      "sha256": "9d474e443c49928d048af50c67735ab727c6b5f22b3fb63354da3656c922c14d"
+    },
+    "scalars-v1.c": {
+      "bytes": 8327,
+      "sha256": "af91ab396fc2654ee8136ad7d0d6d61f7c898917705c5955ecba03b358e6192b"
+    },
+    "source-faults-arm64-v2.json": {
+      "bytes": 21547,
+      "sha256": "aefba4babcedced2eead25a36f2413a6bbba0660005c51b1fa0182be2c0570a2"
+    },
+    "source-faults-x64-v2.json": {
+      "bytes": 21537,
+      "sha256": "b0ed4ac2a9753247e24f54db7fff58fa5c07458ac6cb49929c0e100416e954da"
+    },
+    "source-faults-x86-v2.json": {
+      "bytes": 21379,
+      "sha256": "e4688ff1ca76f518f5e25d25dfa659d68e81abfa35665ffd81f0568e6431c60f"
+    },
+    "source-scalars-arm64-v2.json": {
+      "bytes": 13886,
+      "sha256": "dfaab95447973c23abd5e9981618222454f04a1a241b0b852c68d1542896950a"
+    },
+    "source-scalars-x64-v2.json": {
+      "bytes": 13876,
+      "sha256": "cf82cf3e2e8ac30cc9d4b40885ec4596eaa55a22220a9caa6942da347aad83ce"
+    },
+    "source-scalars-x86-v2.json": {
+      "bytes": 13718,
+      "sha256": "2faf38e3883e26a39b3d938557945f87a34955e5944862be72098a73390789ad"
+    },
+    "verify.py": {
+      "bytes": 3483,
+      "sha256": "0cbb3f58c4b8edea824b90ce3e5a669098bc468cb08a21bc6f47e31329fe608e"
+    }
+  }
+}

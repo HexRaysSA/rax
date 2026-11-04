@@ -17,3 +17,13 @@ pub(super) fn query(c: &Ctx, file: &FileObj, class: u32) -> Checked<Vec<u8>> {
         .unsupported("owned file-information adapter unavailable")
         .into())
 }
+
+#[cfg(windows)]
+pub(in super::super) fn set(
+    c: &Ctx,
+    handle: &std::fs::File,
+    class: u32,
+    value: u64,
+) -> Checked<()> {
+    windows::set(c, handle, class, value)
+}

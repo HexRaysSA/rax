@@ -28,6 +28,9 @@ mod volume_query_tests;
 #[path = "services_tests/file_information_tests.rs"]
 mod file_information_tests;
 
+#[path = "services_tests/file_state_set_tests.rs"]
+mod file_state_set_tests;
+
 #[path = "services_tests/semaphore_replay_tests.rs"]
 mod semaphore_replay_tests;
 

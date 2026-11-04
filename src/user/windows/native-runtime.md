@@ -3578,3 +3578,25 @@ private scratch, copies only the record and stores optional length afterward.
 Handle/type/access faults and last-error effects follow 28,236 independent
 native calls, including 6,600 interior-page cases with no partial output stores.
 [Producer, primary references, reproduction and exact observation scope](../../../docs/specifications/windows/native-token-statistics/README.md).
+
+
+### Fixed file-object state setters
+
+`NtSetInformationFile` supports classes 14 (position), 16 (mode), 41
+(completion-notification flags), and 43 (I/O priority). Per-open state is shared
+by duplicated handles and remains independent of per-handle grants and other
+opens. Position changes affect retained file I/O. Mode changes enforce portable
+write-through behavior in native, Win32, and CRT write consumers; Windows uses
+an owned native handle and private fixed input. Guest pointers and handles never
+reach the host service. Pending requests retain their buffers through observed
+completion. No host standard stream or unrelated host thread is modified.
+
+Independent controls recorded 28,620 scalar calls and 9,555 fault calls on one
+ARM64 build29698 kernel through three process ABIs. The frozen replay contains
+22,275 selected calls, including native/WoW64 probe order, state surviving late
+IOSB faults, status-union padding, and input/IOSB aliases. Delete-on-close is a
+separate lifetime property, absent from the captured queried mode. Async I/O
+and completion delivery remain explicit unsupported operations, even when a
+file accepts notification flags. This group does not establish complete CMD
+or general process execution.
+[Native sources, primary references, exact evidence bounds and reproduction](../../../docs/specifications/windows/native-file-state-set/README.md).

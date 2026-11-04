@@ -109,6 +109,7 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
     if let Some(Object::Event { signaled, .. }) = c.p.objects.get_mut(event) {
         *signaled = 0;
     }
+    let mode = c.p.objects.file_mode(handle).unwrap_or(0);
     let result = match c.p.objects.get_mut(handle) {
         Some(Object::File(file)) if file.null => Ok(()),
         Some(Object::File(file)) => {
@@ -122,7 +123,10 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
             } else {
                 Ok(())
             };
-            seek.and_then(|()| host.write_all(&bytes))
+            seek.and_then(|()| {
+                let written = host.write_all(&bytes);
+                written.and(crate::user::windows::objects::finish_file_write(host, mode))
+            })
         }
         Some(Object::Console(StdStream::Out)) => {
             c.p.cfg.console.write_all(OutputStream::Stdout, &bytes)

@@ -2,7 +2,7 @@
 //! The independent native corpus owns class/length/probe/publication behavior.
 //! Host adapters receive only admitted File objects and fixed class numbers.
 
-mod host;
+pub(super) mod host;
 mod publish;
 mod records;
 

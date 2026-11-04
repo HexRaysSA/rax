@@ -19,6 +19,8 @@ mod desktop;
 pub use desktop::Desktop;
 mod directory;
 mod etw;
+mod file_state;
+pub(crate) use file_state::{FileState, finish_file_write};
 mod lpc;
 mod named;
 pub use lpc::LpcPort;
@@ -301,7 +303,7 @@ struct Entry {
     /// Read-only installed-library authority, retained independently of a catalog.
     runtime_library: bool,
     /// Per-open NT mode, shared by duplicate handles, separate from file identity.
-    file_mode: u32,
+    file_state: FileState,
     refs: u32,
     name: Option<String>,
     native_name: Option<super::object_namespace::NativeName>,
@@ -373,8 +375,11 @@ impl Objects {
         };
         let file_mode = match &obj {
             Object::File(file) => {
-                (if file.overlapped { 0 } else { 0x20 })
-                    | if file.delete_on_close { 0x1000 } else { 0 }
+                if file.overlapped {
+                    0
+                } else {
+                    0x20
+                }
             }
             Object::Console(_) | Object::Null | Object::Pipe { .. } => 0x20,
             _ => 0,
@@ -386,7 +391,7 @@ impl Objects {
                 registry_tags,
                 registry_views: None,
                 runtime_library: false,
-                file_mode,
+                file_state: FileState::new(file_mode),
                 refs: 0,
                 name: None,
                 native_name: None,
@@ -548,13 +553,13 @@ impl Objects {
     pub(crate) fn set_file_mode(&mut self, id: ObjId, options: u32) {
         let entry = self.objs.get_mut(&id).expect("new file object");
         assert!(matches!(entry.obj, Object::File(_)));
-        entry.file_mode = options & 0x103e;
+        entry.file_state.mode = options & 0x3e;
     }
 
     pub(crate) fn file_mode(&self, handle: u64) -> Option<u32> {
         self.objs
             .get(&self.id(handle)?)
-            .map(|entry| entry.file_mode)
+            .map(|entry| entry.file_state.mode)
     }
 
     pub(crate) fn runtime_library(&self, handle: u64) -> bool {

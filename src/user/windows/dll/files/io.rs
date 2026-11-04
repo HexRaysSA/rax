@@ -77,6 +77,7 @@ fn transfer(c: &mut Ctx, write: bool) -> ApiResult {
     // A single scheduler host thread keeps every guest output valid until copy.
     // Host read/write failures can have partial host effects; they are not
     // misrepresented as an atomic transaction or retried from byte zero.
+    let mode = c.p.objects.file_mode(handle).unwrap_or(0);
     let host_result = match c.p.objects.get_mut(handle) {
         Some(Object::File(file)) if file.null => Ok(if write { count } else { 0 }),
         Some(Object::File(file)) => match file.host.as_mut() {
@@ -84,10 +85,10 @@ fn transfer(c: &mut Ctx, write: bool) -> ApiResult {
                 if write {
                     if count != 0 && grant & APPEND_DATA != 0 && !can_set_end(grant) {
                         file.seek(SeekFrom::End(0))
-                            .and_then(|_| write_all(file, &bytes))
+                            .and_then(|_| write_all(file, &bytes, mode))
                             .map(|_| count)
                     } else {
-                        write_all(file, &bytes).map(|_| count)
+                        write_all(file, &bytes, mode).map(|_| count)
                     }
                 } else {
                     read_file(file, &mut bytes)
@@ -149,8 +150,13 @@ fn read_file(file: &mut std::fs::File, bytes: &mut [u8]) -> std::io::Result<usiz
     Ok(done)
 }
 
-fn write_all(writer: &mut impl Write, bytes: &[u8]) -> std::io::Result<()> {
-    writer.write_all(bytes)
+fn write_all(writer: &mut std::fs::File, bytes: &[u8], mode: u32) -> std::io::Result<()> {
+    let written = writer.write_all(bytes);
+    // An error can follow a nonempty accepted prefix. Commit that prefix too,
+    // while preserving the original transfer error if both operations fail.
+    written.and(crate::user::windows::objects::finish_file_write(
+        writer, mode,
+    ))
 }
 
 pub(super) fn read(c: &mut Ctx) -> ApiResult {

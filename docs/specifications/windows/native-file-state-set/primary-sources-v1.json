@@ -1,0 +1,26 @@
+[
+  {
+    "title": "NtSetInformationFile",
+    "issuer": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile",
+    "retrieved_utc": "2026-11-04T06:50:51.492116+00:00",
+    "file": "NtSetInformationFile.html",
+    "sha256": "58916e7da8d50ff80691228d389651f42ee33ed56a874e78741e17da57a4d584"
+  },
+  {
+    "title": "FILE_MODE_INFORMATION",
+    "issuer": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_mode_information",
+    "retrieved_utc": "2026-11-04T06:50:51.725054+00:00",
+    "file": "FILE_MODE_INFORMATION.html",
+    "sha256": "6f3c7cb19acb4c3979e3763e557590826c53c7e01f3cfcde16a30b9b90b365ed"
+  },
+  {
+    "title": "SetFileCompletionNotificationModes",
+    "issuer": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setfilecompletionnotificationmodes",
+    "retrieved_utc": "2026-11-04T06:50:52.061205+00:00",
+    "file": "SetFileCompletionNotificationModes.html",
+    "sha256": "46b1993aa98967de19d026943ab3faf1f4a79f44c5b3befe0896b30eb57eb14e"
+  }
+]

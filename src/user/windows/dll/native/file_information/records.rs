@@ -65,7 +65,11 @@ pub(super) fn query(c: &Ctx, handle: u64, object: &Object, class: u32) -> Checke
         Object::File(file) if !file.null => Some(file),
         _ => None,
     };
-    let synchronous = c.p.objects.file_mode(handle).unwrap_or(0) & 0x30 != 0;
+    let state =
+        c.p.objects
+            .file_state(handle)
+            .expect("resolved file object");
+    let synchronous = state.mode & 0x30 != 0;
     if matches!(class, 4 | 34 | 35) && grant & 0x80 == 0 || class == 43 && grant & 1 == 0 {
         return status(STATUS_ACCESS_DENIED);
     }
@@ -80,8 +84,14 @@ pub(super) fn query(c: &Ctx, handle: u64, object: &Object, class: u32) -> Checke
                 .to_vec(),
             Publication::InformationFirst,
         ),
-        41 => inline(0u32.to_le_bytes().to_vec(), Publication::InformationFirst),
-        43 => inline(2u32.to_le_bytes().to_vec(), Publication::InformationFirst),
+        41 => inline(
+            state.notification.to_le_bytes().to_vec(),
+            Publication::InformationFirst,
+        ),
+        43 => inline(
+            state.priority.to_le_bytes().to_vec(),
+            Publication::InformationFirst,
+        ),
         51 => inline(
             if let Some(file) = file {
                 super::host::query(c, file, class)?
@@ -95,7 +105,11 @@ pub(super) fn query(c: &Ctx, handle: u64, object: &Object, class: u32) -> Checke
             super::host::query(c, file.expect("ordinary file"), class)?,
             Publication::InformationFirst,
         ),
-        14 if file.is_none() => inline(0u64.to_le_bytes().to_vec(), Publication::Full),
+        14 if file.is_none()
+            || file.is_some_and(|f| f.host.is_none() || cfg!(unix) && f.directory) =>
+        {
+            inline(state.position.to_le_bytes().to_vec(), Publication::Full)
+        }
         _ => {
             if let Some(file) = file {
                 let data = super::host::query(c, file, class)?;

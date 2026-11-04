@@ -20,7 +20,8 @@ file object. A renamed pathname cannot replace a retained file.
 Console, null, and modeled pipe handles use the shared guest resource contract.
 These queries never operate on the host's unrelated standard handles. Completion
 flags initially equal zero and the modeled I/O priority initially equals Normal;
-no file-information setter currently changes them. General guest file access and
+the [fixed file-state setters](../native-file-state-set/README.md) retain changes
+to these defaults. General guest file access and
 read-only installed-library authority retain their existing policy.
 
 Microsoft documents the [query prototype and class contracts](https://learn.microsoft.com/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationfile),
