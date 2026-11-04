@@ -1,0 +1,72 @@
+{
+  "macos": {
+    "rows": [
+      {
+        "argv": [
+          "/bin/echo",
+          "RAX_PROCESS_MATRIX_MAC_A7F3C2"
+        ],
+        "native_exit": 0,
+        "guest_exit": 0,
+        "native_stdout_hex": "5241585f50524f434553535f4d41545249585f4d41435f4137463343320a",
+        "guest_stdout_hex": "5241585f50524f434553535f4d41545249585f4d41435f4137463343320a",
+        "native_stderr_hex": "",
+        "guest_stderr_hex": ""
+      },
+      {
+        "argv": [
+          "/bin/sh",
+          "-c",
+          "exit 37"
+        ],
+        "native_exit": 37,
+        "guest_exit": 37,
+        "native_stdout_hex": "",
+        "guest_stdout_hex": "",
+        "native_stderr_hex": "",
+        "guest_stderr_hex": ""
+      }
+    ],
+    "separate_sysroot": false,
+    "image_sha256": "4f9ea5e23ac418308cb9af76e91904470640711c61a92f590fb0d8bb2d98e7a7"
+  },
+  "linux": {
+    "rows": [
+      {
+        "argv": [
+          "/bin/echo",
+          "RAX_PROCESS_MATRIX_LINUX_A7F3C2"
+        ],
+        "native_exit": 0,
+        "guest_exit": 0,
+        "native_stdout_hex": "5241585f50524f434553535f4d41545249585f4c494e55585f4137463343320a",
+        "guest_stdout_hex": "5241585f50524f434553535f4d41545249585f4c494e55585f4137463343320a",
+        "native_stderr_hex": "",
+        "guest_stderr_hex": ""
+      },
+      {
+        "argv": [
+          "/bin/sh",
+          "-c",
+          "exit 37"
+        ],
+        "native_exit": 37,
+        "guest_exit": 37,
+        "native_stdout_hex": "",
+        "guest_stdout_hex": "",
+        "native_stderr_hex": "",
+        "guest_stderr_hex": ""
+      }
+    ],
+    "host": {
+      "system": "Linux",
+      "node": "34a0ab266f12",
+      "release": "7.2.12-orbstack-00394-gbecdd6130068",
+      "version": "#1 SMP PREEMPT Thu Oct 22 22:17:17 UTC 2026",
+      "machine": "x86_64"
+    },
+    "separate_sysroot": false,
+    "cpu": "Docker amd64 translation on AArch64; not physical x86 ISA qualification"
+  },
+  "scope": "Parent-revision Linux/macOS normal-program comparisons; Linux/Darwin source paths have no edits in this change; Linux amd64 executes through translation on ARM64, not a physical x86 CPU"
+}

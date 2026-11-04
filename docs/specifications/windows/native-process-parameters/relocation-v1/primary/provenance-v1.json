@@ -1,0 +1,43 @@
+[
+  {
+    "file": "../../phnt-ntrtl.h",
+    "bytes": 340232,
+    "sha256": "8d37faeb36dd01d0f9931cc25ce35857848deacb28b21196b8a76732e2f3f3a3",
+    "repository": "winsiderss/phnt",
+    "source_path": "ntrtl.h",
+    "commit": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "commit_utc": "2026-03-26T00:14:46Z",
+    "source_url": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntrtl.h",
+    "retrieved_utc": "2026-11-04T10:55:10.517424+00:00",
+    "storage_note": "Byte-identical to the existing pinned full header; existing source and MIT license retained."
+  },
+  {
+    "file": "microsoft-process-parameters.md",
+    "bytes": 2358,
+    "sha256": "b12d292c0bb544473569d6bcc7795f8afea714f3d8b094e8ae9ede7c65cabdaf",
+    "repository": "MicrosoftDocs/sdk-api",
+    "source_path": "sdk-api-src/content/winternl/ns-winternl-rtl_user_process_parameters.md",
+    "commit": "0797841e74f7d55cba99a08948b601604799ef07",
+    "commit_utc": "2020-09-18T18:31:11Z",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/0797841e74f7d55cba99a08948b601604799ef07/sdk-api-src/content/winternl/ns-winternl-rtl_user_process_parameters.md",
+    "retrieved_utc": "2026-11-04T10:55:11.706377+00:00"
+  },
+  {
+    "file": "microsoft-LICENSE",
+    "bytes": 18650,
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e",
+    "repository": "MicrosoftDocs/sdk-api",
+    "commit": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE",
+    "retrieved_utc": "2026-11-04T10:58:44.519865+00:00"
+  },
+  {
+    "file": "microsoft-LICENSE-CODE",
+    "bytes": 1090,
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2",
+    "repository": "MicrosoftDocs/sdk-api",
+    "commit": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE-CODE",
+    "retrieved_utc": "2026-11-04T10:58:44.851440+00:00"
+  }
+]

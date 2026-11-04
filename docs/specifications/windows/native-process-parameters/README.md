@@ -1,5 +1,11 @@
 # Modern Windows process-parameter extent
 
+This page records the original fixed-prefix correction and its historical
+validation. Current construction also includes initialized strings in the
+declared allocation, preserves zero header padding, and follows the live PEB
+pointer. See the [relocation follow-up](relocation-v1/README.md) for its
+source-bound ordinary process comparisons and current limitations.
+
 This change reserves and zeroes the complete `RTL_USER_PROCESS_PARAMETERS`
 layout through Windows 11 22H2 `HeapMemoryTypeMask`. The previous reservation
 ended before `RedirectionDllName`; subsequent heap strings occupied fields read
@@ -43,11 +49,12 @@ renamed identifiers. Its `STRING` member is replaced by the equivalent SDK
 | Heap block alignment | 8 | 16 |
 | Added rounded heap backing | 712 - 680 = 32 | 1104 - 1040 = 64 |
 
-All calculations are exact integer byte counts. RAX allocates the header and
-its pointed-to strings separately. Its `Length` and `MaximumLength` identify
-the header extent. The native suspended-child values include additional storage
-and are larger; this change does not claim to reproduce their aggregate byte
-counts or allocation addresses.
+All calculations are exact integer byte counts. At the historical revision,
+RAX allocated the header and its pointed-to strings separately; `Length` and
+`MaximumLength` identified only the header extent. The native suspended-child
+values included additional storage and were larger. The relocation follow-up
+replaces that allocation policy; historical aggregate counts and addresses are
+retained without treating them as the current construction contract.
 
 Construction continues to use O(S) zero/copy work for S parameter/string bytes
 and the existing heap bookkeeping. This change adds a constant 32/56 header

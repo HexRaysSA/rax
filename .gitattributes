@@ -94,3 +94,9 @@ docs/specifications/windows/native-file-state-set/*.json -diff
 # Immutable source-bound native file-read profiles.
 docs/specifications/windows/native-file-read/** -text
 docs/specifications/windows/native-file-read/*.json -diff
+
+# Preserve immutable parameter-relocation captures, source overlays and references.
+docs/specifications/windows/native-process-parameters/relocation-v1/** -text
+docs/specifications/windows/native-process-parameters/relocation-v1/*.json -diff
+docs/specifications/windows/native-process-parameters/relocation-v1/implementation-v1.patch -whitespace
+docs/specifications/windows/native-process-parameters/relocation-v1/primary/microsoft-* -whitespace

@@ -1,0 +1,409 @@
+{
+  "captured_utc": "2026-11-04T11:58:06.745943+00:00",
+  "source_sha256": {
+    "src/user/windows/process/start.rs": "36d603f4884792902f89af682dd8c836c1a7f8a53c873f6ce0abc51e10e46bdc",
+    "src/user/windows/process/start/parameters_tests.rs": "dbd932f159b4fc3f678b4638027b304533b0d7ca8a69703aa170f364600633a6",
+    "src/user/windows/process/mod.rs": "c764643c1b4dff1b0ea4d0868a28b2bec8635d7d292d355921e1bc25f21bcd28",
+    "src/user/windows/dll/kernel.rs": "b45530360df8caaa2a063d20ac09512e8d06b3554b7e41e571b72e49c1217b03",
+    "src/user/windows/dll/crt/startup/storage.rs": "36ddbc0033fb77678a9795c9b6fd3889ea85b00954bd9ffe2bd70559844d4362",
+    "src/user/windows/dll/crt/stdio/storage_tests.rs": "20007d8aef79578917152f558664c05d5f863f21a17d4d5f5313bb94dd5c4f5d",
+    "src/user/windows/dll/crt/stdio/storage.rs": "e58124f854f31e52f552a0b5aaaa69719a4503940d2432e2f8c1e358d3559b0e"
+  },
+  "build_and_host_gates": [
+    {
+      "name": "gate-evidence-v2",
+      "exit_code": 0,
+      "argv": [
+        "python3",
+        "-B",
+        "docs/specifications/windows/native-file-read/verify.py"
+      ]
+    },
+    {
+      "name": "gate-format-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "fmt",
+        "--all",
+        "--check"
+      ]
+    },
+    {
+      "name": "gate-diff-v2",
+      "exit_code": 0,
+      "argv": [
+        "git",
+        "diff",
+        "--no-ext-diff",
+        "--check"
+      ]
+    },
+    {
+      "name": "gate-windows-library-clippy-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--target",
+        "aarch64-pc-windows-msvc",
+        "--",
+        "-D",
+        "warnings"
+      ]
+    },
+    {
+      "name": "gate-windows-tests-check-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--tests",
+        "--features",
+        "x86_64-suite",
+        "--target",
+        "aarch64-pc-windows-msvc"
+      ]
+    },
+    {
+      "name": "gate-macos-library-clippy-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--",
+        "-D",
+        "warnings"
+      ]
+    },
+    {
+      "name": "gate-macos-selected-tests-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--features",
+        "x86_64-suite",
+        "--",
+        "--test-threads=1",
+        "modern_parameter_",
+        "declared_parameter_block_",
+        "parameter_unicode_length_",
+        "live_parameter_replacement_",
+        "crt::startup::",
+        "crt::stdio::",
+        "get_command_line_",
+        "process::embedded_tests::",
+        "file_data_",
+        "builtin_tables_"
+      ]
+    },
+    {
+      "name": "gate-linux-all-targets-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--target",
+        "x86_64-unknown-linux-gnu"
+      ]
+    },
+    {
+      "name": "gate-linux-library-clippy-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--target",
+        "x86_64-unknown-linux-gnu",
+        "--",
+        "-D",
+        "warnings"
+      ]
+    },
+    {
+      "name": "gate-linux-test-build-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--features",
+        "x86_64-suite",
+        "--no-run",
+        "--target",
+        "x86_64-unknown-linux-gnu",
+        "--message-format=json"
+      ]
+    },
+    {
+      "name": "gate-windows-arm64-all-targets-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--target",
+        "aarch64-pc-windows-msvc"
+      ]
+    },
+    {
+      "name": "gate-windows-test-build-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--features",
+        "x86_64-suite",
+        "--no-run",
+        "--target",
+        "aarch64-pc-windows-msvc",
+        "--message-format=json"
+      ]
+    },
+    {
+      "name": "gate-windows-x64-all-targets-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ]
+    },
+    {
+      "name": "gate-macos-capi-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax-capi",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ]
+    },
+    {
+      "name": "gate-macos-all-targets-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets"
+      ]
+    },
+    {
+      "name": "gate-workspace-clippy-v2",
+      "exit_code": 0,
+      "argv": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets"
+      ]
+    }
+  ],
+  "selected_regressions": {
+    "macos": {
+      "passed": 134,
+      "failed": 0,
+      "ignored": 0
+    },
+    "linux": {
+      "passed": 134,
+      "failed": 0,
+      "ignored": 0,
+      "test_filters": 10,
+      "image": {
+        "path": "/Users/int/.rax-native-read-pub-20261104/target/read-qualification-v1/x86_64-unknown-linux-gnu/debug/deps/rax-9af1d7ee0e3bc159",
+        "bytes": 771076568,
+        "sha256": "c80f4503e3c96f3479457bba05f3224a29cdecab30e50c3e2a4e89174d9fbafb"
+      },
+      "execution": "Docker amd64 translation on AArch64; not physical x86 qualification"
+    },
+    "windows": {
+      "passed_distinct": 133,
+      "first_run_passed": 130,
+      "first_run_fixture_failures": [
+        "user::windows::process::embedded_tests::closed_loader_never_falls_back_to_existing_host_dependencies",
+        "user::windows::process::embedded_tests::native_console_owner_startup_has_detached_redirected_parameters_for_both_stream_routes",
+        "user::windows::process::embedded_tests::supplied_dependencies_run_static_and_dynamic_loader_lifecycles_all_abis"
+      ],
+      "fixture_corrected_rerun_passed": [
+        "user::windows::process::embedded_tests::closed_loader_never_falls_back_to_existing_host_dependencies",
+        "user::windows::process::embedded_tests::native_console_owner_startup_has_detached_redirected_parameters_for_both_stream_routes",
+        "user::windows::process::embedded_tests::supplied_dependencies_run_static_and_dynamic_loader_lifecycles_all_abis"
+      ],
+      "all_assertions_preserved": true,
+      "test_image_unchanged": true,
+      "image": {
+        "path": "/Users/int/.rax-native-read-pub-20261104/target/read-qualification-v1/aarch64-pc-windows-msvc/debug/deps/rax-1f20513ced4d4622.exe",
+        "bytes": 746825728,
+        "sha256": "292f6661f29c83ad8d0eb57e8dcf674cc4921487923bf8811d39cfb4b45bc9cf"
+      },
+      "owning_passed": 5,
+      "fixture_root": "C:\\Users\\int\\.rax-native-read-pub-20261104",
+      "fixture_files": 33
+    }
+  },
+  "capi": {
+    "macos_passed": 244,
+    "failed": 0,
+    "ignored": 0
+  },
+  "integration": {
+    "macos": [
+      [
+        "ok",
+        "544",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      [
+        "ok",
+        "8",
+        "0",
+        "0",
+        "0",
+        "0"
+      ]
+    ],
+    "linux": [
+      {
+        "name": "user_windows",
+        "summary": [
+          [
+            "ok",
+            "544",
+            "0",
+            "0",
+            "0",
+            "0"
+          ]
+        ]
+      },
+      {
+        "name": "user_windows_cli",
+        "summary": [
+          [
+            "ok",
+            "8",
+            "0",
+            "0",
+            "0",
+            "0"
+          ]
+        ]
+      }
+    ]
+  },
+  "full_unoptimized_macos": {
+    "passed": 9972,
+    "failed": 2,
+    "ignored": 2,
+    "filtered": 0,
+    "failure_names": [
+      "user::linux::tests::sockets::abstract_names_and_autobind",
+      "user::linux::tests::sockets::unix_names_bind_resolve_and_report"
+    ],
+    "temporary_path_probe": {
+      "long_in_tree_temp_exit": 101,
+      "short_in_tree_temp_exit": 0,
+      "same_binary": true,
+      "source_edits": false,
+      "rerun_passed": 2
+    }
+  },
+  "additional_checked_optimized_campaign": {
+    "status": "running at this qualification snapshot",
+    "scope": "complete library at opt-level2 with debug assertions/overflow checks and short in-tree temp; not counted as passed",
+    "observed_failure": "user::darwin::wait::fifo_tests::named_fifo_eof_after_last_writer_close_is_readable",
+    "exact_same_binary_rerun_exit": 0,
+    "cause": "unknown; retained for the full process goal, outside this parameter correction"
+  },
+  "full_process_goal": "not complete; both CMD commands preserve relocated parameters then stop at unsupported NtQueryDirectoryFileEx",
+  "public_api": "RAX C ABI1.16.0 unchanged; no dependency/default/permission change",
+  "assertion_scope": "Distinct native Windows count is 130 first-run successes plus three fixture-path-corrected rerun successes with the identical image; no skipped or weakened cases."
+}

@@ -1063,13 +1063,14 @@ pub(crate) fn prepare(
         0
     };
     let mut handles = [0; 3];
-    if p.params != 0 {
+    let parameters = p.current_parameters().map_err(|f| load_error(f.into()))?;
+    if parameters != 0 || p.peb != 0 {
         let o = offsets(p.arch);
         for (index, off) in [o.pp_std_input, o.pp_std_output, o.pp_std_error]
             .into_iter()
             .enumerate()
         {
-            let at = address(p, p.params, off, o.ptr, false).map_err(load_error)?;
+            let at = address(p, parameters, off, o.ptr, false).map_err(load_error)?;
             handles[index] = p.space.ptr(at, o.ptr).map_err(|f| load_error(f.into()))?;
         }
     }

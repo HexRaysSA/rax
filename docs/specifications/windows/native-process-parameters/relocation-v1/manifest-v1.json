@@ -1,0 +1,17 @@
+{
+  "schema": "rax-windows-parameter-relocation-evidence-v1",
+  "scope": "Frozen captures and implementation overlay; no whole-program completion claim",
+  "sha256": {
+    "captures-v1.json": "7a26f06d5f09302ab5e03b412b3266a005a00ea9ef8247987efd6c8177a2b9e7",
+    "collector-sources-v1.json": "e61559a09c3bc06431a801ab60b4b4f8a07d57d4eea019dc568a6ef5c731468a",
+    "comparison-scope-v1.json": "3a39a47d8ae273d8d44594d1741e9f5025eda54b58a0ed34f0b103bc80d96536",
+    "implementation-source-v1.json": "1aceeffdbe0ebb68008ef7a5515451e1b8d70e15e199739c78e580a1611792b1",
+    "implementation-v1.patch": "801f43b5b3d1f3d7146f6ff811f8dff59af24cba60f1841a601bea3f256c0b62",
+    "primary/microsoft-LICENSE": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e",
+    "primary/microsoft-LICENSE-CODE": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2",
+    "primary/microsoft-process-parameters.md": "b12d292c0bb544473569d6bcc7795f8afea714f3d8b094e8ae9ede7c65cabdaf",
+    "primary/provenance-v1.json": "e8e88e7629731bda8744b082b5219ebac2b6537b9de0d39bd6d6e25bc2a0980e",
+    "verify.py": "474a83cc6f9fd0eaa1d4bd86b1c99de35ca39147f9d5861ab4b9b726a7421476",
+    "qualification-v1.json": "30084bbf8d1816f0433739c9ac8464b300f8add08f848d2e4dd83711c2eb66bf"
+  }
+}

@@ -138,14 +138,18 @@ fn unicode(p: &Proc, field: u64) -> Result<Vec<u16>, LoadError> {
 
 fn environment(p: &Proc) -> Result<Vec<Vec<u16>>, LoadError> {
     let o = offsets(p.arch);
+    let parameters = p.current_parameters().map_err(access)?;
     let base = p
         .space
-        .ptr(source_address(p, p.params, o.pp_environment, o.ptr)?, o.ptr)
+        .ptr(
+            source_address(p, parameters, o.pp_environment, o.ptr)?,
+            o.ptr,
+        )
         .map_err(access)?;
     let bytes = p
         .space
         .ptr(
-            source_address(p, p.params, o.pp_environment_size, o.ptr)?,
+            source_address(p, parameters, o.pp_environment_size, o.ptr)?,
             o.ptr,
         )
         .map_err(access)?;
@@ -184,7 +188,8 @@ fn environment(p: &Proc) -> Result<Vec<Vec<u16>>, LoadError> {
 }
 
 fn inputs(p: &Proc) -> Result<(Vec<u16>, Vec<u16>, Vec<Vec<u16>>), LoadError> {
-    if p.params == 0 {
+    let parameters = p.current_parameters().map_err(access)?;
+    if parameters == 0 && p.peb == 0 {
         // Test/bootstrap Proc values may have no parameter block. This profile
         // does not substitute config arguments or a host environment.
         let mut path = Vec::new();
@@ -197,13 +202,13 @@ fn inputs(p: &Proc) -> Result<(Vec<u16>, Vec<u16>, Vec<Vec<u16>>), LoadError> {
         }
         return Ok((Vec::new(), path, Vec::new()));
     }
-    if p.params % p.arch.ptr_size() != 0 {
+    if parameters % p.arch.ptr_size() != 0 {
         return Err(malformed("process-parameter alignment"));
     }
     let o = offsets(p.arch);
     Ok((
-        unicode(p, source_address(p, p.params, o.pp_command_line, 0)?)?,
-        unicode(p, source_address(p, p.params, o.pp_image_path_name, 0)?)?,
+        unicode(p, source_address(p, parameters, o.pp_command_line, 0)?)?,
+        unicode(p, source_address(p, parameters, o.pp_image_path_name, 0)?)?,
         environment(p)?,
     ))
 }
@@ -612,6 +617,70 @@ mod tests {
 
     fn value(p: &Proc, state: &StartupState, index: usize) -> u64 {
         p.space.ptr(state.cells[index], p.arch.ptr_size()).unwrap()
+    }
+
+    #[test]
+    fn live_peb_parameter_pointer_supersedes_initial_allocation_all_abis() {
+        for arch in WinArch::ALL {
+            let mut p = process(arch, 8 << 20);
+            parameters(&mut p, &[b'x' as u16], &[b'x' as u16], &[0, 0]);
+            let original = p.params;
+            let command: Vec<_> = "live.exe \"caf\u{00e9} \u{1f9ea}\""
+                .encode_utf16()
+                .collect();
+            let path: Vec<_> = "C:\\live\\live.exe".encode_utf16().collect();
+            let env: Vec<_> = "LIVE=yes\0\0".encode_utf16().collect();
+            parameters(&mut p, &command, &path, &env);
+            let live = p.params;
+            p.params = original;
+            let o = offsets(arch);
+            p.peb = allocate(&mut p, &vec![0; PAGE_SIZE as usize]).unwrap();
+            p.space
+                .wptr(p.peb + o.peb_process_parameters, o.ptr, live)
+                .unwrap();
+            p.space
+                .wr(original, &vec![0xDD; o.pp_size as usize])
+                .unwrap();
+            assert_eq!(
+                inputs(&p).unwrap(),
+                (
+                    command.clone(),
+                    path.clone(),
+                    vec!["LIVE=yes".encode_utf16().collect()]
+                )
+            );
+            let state = prepare(&mut p, &GOOD_DLL, 0, &[]).unwrap();
+            assert_eq!(state.command_line, command);
+            assert_eq!(
+                state.environment,
+                vec!["LIVE=yes".encode_utf16().collect::<Vec<_>>()]
+            );
+            let image = value(&p, &state, 10);
+            assert_eq!(p.space.wstr(image, path.len() + 1).unwrap(), path);
+            release(&mut p, state).unwrap();
+            let before = p.vm.committed_bytes();
+            for (pointer, status) in [
+                (0, STATUS_ACCESS_VIOLATION),
+                (live + 1, STATUS_INVALID_PARAMETER),
+                (0xFFFF_F000, STATUS_ACCESS_VIOLATION),
+            ] {
+                p.space
+                    .wptr(p.peb + o.peb_process_parameters, o.ptr, pointer)
+                    .unwrap();
+                assert_eq!(
+                    prepare(&mut p, &GOOD_DLL, 0, &[]).err().unwrap().status,
+                    status,
+                    "{arch}: {pointer:#x}"
+                );
+                assert_eq!(p.vm.committed_bytes(), before);
+            }
+            p.peb = u64::MAX;
+            assert_eq!(
+                prepare(&mut p, &GOOD_DLL, 0, &[]).err().unwrap().status,
+                STATUS_ACCESS_VIOLATION
+            );
+            assert_eq!(p.vm.committed_bytes(), before);
+        }
     }
 
     #[test]

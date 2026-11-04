@@ -296,7 +296,8 @@ pub struct Proc {
     pub pid: u32,
     /// The PEB.
     pub peb: u64,
-    /// `RTL_USER_PROCESS_PARAMETERS`.
+    /// Initial owned process-parameter allocation. Installed RTL can relocate
+    /// it; live parameter readers follow PEB.ProcessParameters.
     pub params: u64,
     /// Process-owned ANSI command line, materialized on first request.
     pub ansi_command_line: Option<u64>,
@@ -354,6 +355,25 @@ pub struct Proc {
 }
 
 impl Proc {
+    /// Resolve the live guest pointer; installed RTL can relocate the initial block.
+    /// Synthetic bootstrap/test Proc values without a PEB retain their source.
+    pub(crate) fn current_parameters(&self) -> Result<u64, super::memory::MemFault> {
+        use super::memory::{Mem, MemFault};
+
+        if self.peb == 0 {
+            return Ok(self.params);
+        }
+        let o = super::layout::offsets(self.arch);
+        let address = self
+            .peb
+            .checked_add(o.peb_process_parameters)
+            .ok_or(MemFault {
+                addr: self.peb,
+                write: false,
+            })?;
+        self.space.ptr(address, o.ptr)
+    }
+
     /// Reclaims retired scheduler and LPC views with the same allocation
     /// identity at every existing native/HLE/teardown boundary.
     pub(crate) fn reclaim_scheduler_views(&mut self) -> Result<(), super::memory::VmError> {

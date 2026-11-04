@@ -3613,3 +3613,22 @@ a private completion event keeps any host-pending request alive to completion.
 Asynchronous guest scheduling, pipe I/O, APC delivery and unqualified fault
 ordering remain active work. This source increment is not a whole-program
 success or complete userland-emulation claim.
+
+### Relocatable process-parameter storage
+
+Initialized command, image, current-directory and DLL-path strings now belong to
+the declared process-parameter allocation, including their terminators. Zero
+heap-alignment padding separates the known fixed prefix from those strings.
+Installed ARM64 RTL reads a private pointer at +0x448, beyond the retained PHNT
+prefix; string data must not occupy that default-zero slot. Its semantic name
+remains unknown. Win32 and CRT consumers follow the live PEB pointer after RTL
+relocates the block, while the original allocation retains its ownership identity.
+
+Independent native CMD controls expose the prior false positive: native exit37
+and sentinel output disagreed with the emulator's zero exit and prompt. Corrected
+captures preserve the strings through installed RTL relocation and proceed to
+unsupported `NtQueryDirectoryFileEx` without the earlier sampled exception.
+Neither command has completed at that frontier. The
+[relocation profile](../../../docs/specifications/windows/native-process-parameters/relocation-v1/README.md)
+retains exact source/image/DLL identities, intermediate failure, guest-layout
+regressions and the distinction between wrapper completion and guest behavior.

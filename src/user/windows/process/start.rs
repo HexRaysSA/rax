@@ -90,43 +90,104 @@ fn alloc(p: &mut Proc, size: u64) -> Result<u64, SpawnError> {
         .ok_or_else(|| memory("process heap exhausted"))
 }
 
-fn unicode(p: &mut Proc, field: u64, value: &str) -> Result<(), SpawnError> {
-    let units: Vec<_> = value.encode_utf16().collect();
-    let bytes = units
-        .len()
-        .checked_mul(2)
-        .filter(|n| *n <= 0xFFFC)
-        .ok_or_else(|| {
-            SpawnError::BadImage("process parameter exceeds UNICODE_STRING length".into())
-        })?;
-    let buffer = alloc(p, bytes as u64 + 2)?;
-    p.space
-        .put_wstr(buffer, &units)
-        .map_err(|e| memory(format!("{e:?}")))?;
-    p.space
-        .w16(field, bytes as u16)
-        .map_err(|e| memory(format!("{e:?}")))?;
-    p.space
-        .w16(field + 2, bytes as u16 + 2)
-        .map_err(|e| memory(format!("{e:?}")))?;
-    p.space
-        .wptr(field + p.arch.ptr_size(), p.arch.ptr_size(), buffer)
-        .map_err(|e| memory(format!("{e:?}")))
+struct ParameterString {
+    field: u64,
+    units: Vec<u16>,
+    bytes: u16,
+}
+impl ParameterString {
+    fn new(field: u64, value: &str) -> Result<Self, SpawnError> {
+        let units: Vec<_> = value.encode_utf16().collect();
+        let bytes = units
+            .len()
+            .checked_mul(2)
+            .filter(|n| *n <= 0xfffc)
+            .ok_or_else(|| {
+                SpawnError::BadImage("process parameter exceeds UNICODE_STRING length".into())
+            })?;
+        Ok(Self {
+            field,
+            units,
+            bytes: bytes as u16,
+        })
+    }
+}
+
+fn align_parameter(value: u64, alignment: u64) -> Result<u64, SpawnError> {
+    value
+        .checked_add(alignment - 1)
+        .map(|n| n & !(alignment - 1))
+        .ok_or_else(|| memory("process-parameter size overflow"))
 }
 
 fn params(p: &mut Proc, image_path: &str) -> Result<(), SpawnError> {
     let o = *offsets(p.arch);
-    p.params = alloc(p, o.pp_size)?;
+    let cwd = String::from_utf16_lossy(&p.cwd);
+    let command = if let Some(command) = &p.cfg.command_line {
+        command.clone()
+    } else {
+        let mut command = quote_program(p.cfg.argv0.as_deref().unwrap_or(image_path))?;
+        for argument in &p.cfg.args {
+            command.push(' ');
+            command.push_str(&quote_arg(argument));
+        }
+        command
+    };
+    let dll_path = p
+        .native
+        .as_ref()
+        .map(|runtime| runtime.guest_directory.clone())
+        .unwrap_or_else(|| loader::system_dir(p.arch).into());
+    let strings = [
+        ParameterString::new(o.pp_current_directory, &cwd)?,
+        ParameterString::new(o.pp_image_path_name, image_path)?,
+        ParameterString::new(o.pp_command_line, &command)?,
+        ParameterString::new(o.pp_dll_path, &dll_path)?,
+    ];
+    // Keep the fixed header's ordinary heap-alignment padding zero. Installed
+    // build29698 ARM64 RTL reads a pointer at +0x448, immediately after PHNT's
+    // 22H2 prefix; placing the first UTF-16 string there makes it a pointer.
+    let strings_offset = align_parameter(o.pp_size, 2 * o.ptr)?;
+    let mut total = strings_offset;
+    for string in &strings {
+        total = align_parameter(total, o.ptr)?;
+        total = total
+            .checked_add(u64::from(string.bytes) + 2)
+            .ok_or_else(|| memory("process-parameter size overflow"))?;
+    }
+    total = align_parameter(total, o.ptr)?;
+    let declared =
+        u32::try_from(total).map_err(|_| memory("process-parameter extent exceeds ULONG"))?;
+    // RTL relocates MaximumLength bytes and rebases these Unicode pointers.
+    // Every string, including its terminator, must belong to this one block.
+    p.params = alloc(p, total)?;
     let at = p.params;
-    p.space
-        .w32(at + o.pp_maximum_length, o.pp_size as u32)
-        .map_err(|e| memory(format!("{e:?}")))?;
-    p.space
-        .w32(at + o.pp_length, o.pp_size as u32)
-        .map_err(|e| memory(format!("{e:?}")))?;
+    for field in [o.pp_maximum_length, o.pp_length] {
+        p.space
+            .w32(at + field, declared)
+            .map_err(|e| memory(format!("{e:?}")))?;
+    }
     p.space
         .w32(at + o.pp_flags, 1)
         .map_err(|e| memory(format!("{e:?}")))?;
+    let mut cursor = strings_offset;
+    for string in strings {
+        cursor = align_parameter(cursor, o.ptr)?;
+        let buffer = at + cursor;
+        p.space
+            .put_wstr(buffer, &string.units)
+            .map_err(|e| memory(format!("{e:?}")))?;
+        p.space
+            .w16(at + string.field, string.bytes)
+            .map_err(|e| memory(format!("{e:?}")))?;
+        p.space
+            .w16(at + string.field + 2, string.bytes + 2)
+            .map_err(|e| memory(format!("{e:?}")))?;
+        p.space
+            .wptr(at + string.field + o.ptr, o.ptr, buffer)
+            .map_err(|e| memory(format!("{e:?}")))?;
+        cursor += u64::from(string.bytes) + 2;
+    }
     // Both configured routes provide standard streams without a native guest
     // console session. Match DETACHED_PROCESS with STARTF_USESTDHANDLES rather
     // than asking installed KernelBase to create a ConDrv console server.
@@ -146,26 +207,6 @@ fn params(p: &mut Proc, image_path: &str) -> Result<(), SpawnError> {
             .wptr(at + off, o.ptr, u64::from(handle))
             .map_err(|e| memory(format!("{e:?}")))?;
     }
-    let cwd = String::from_utf16_lossy(&p.cwd);
-    unicode(p, at + o.pp_current_directory, &cwd)?;
-    unicode(p, at + o.pp_image_path_name, image_path)?;
-    let command = if let Some(command) = &p.cfg.command_line {
-        command.clone()
-    } else {
-        let mut command = quote_program(p.cfg.argv0.as_deref().unwrap_or(image_path))?;
-        for argument in &p.cfg.args {
-            command.push(' ');
-            command.push_str(&quote_arg(argument));
-        }
-        command
-    };
-    unicode(p, at + o.pp_command_line, &command)?;
-    let dll_path = p
-        .native
-        .as_ref()
-        .map(|runtime| runtime.guest_directory.clone())
-        .unwrap_or_else(|| loader::system_dir(p.arch).into());
-    unicode(p, at + o.pp_dll_path, &dll_path)?;
     let mut env = p
         .cfg
         .env

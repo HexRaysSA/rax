@@ -159,16 +159,18 @@ fn real_legacy_data_writes_exact_array_preserves_adjacent_bytes_and_is_not_owned
 #[test]
 fn source_fault_and_bad_data_metadata_have_no_allocation_or_pin_effects() {
     run(|c| {
-        let saved = c.p.params;
+        let field =
+            c.p.peb + crate::user::windows::layout::offsets(c.arch()).peb_process_parameters;
+        let saved = c.read_ptr(field).unwrap();
         let before = c.p.vm.committed_bytes();
-        c.p.params = 1;
+        c.write_ptr(field, 1).unwrap();
         let dll = crate::user::windows::dll::find("ucrtbase.dll").unwrap();
         assert_eq!(
             prepare(c.p, dll, 0, &[]).err().unwrap().status,
             STATUS_ACCESS_VIOLATION
         );
         assert_eq!(c.p.vm.committed_bytes(), before);
-        c.p.params = saved;
+        c.write_ptr(field, saved).unwrap();
         let base = image(c);
         let before = c.p.vm.committed_bytes();
         for symbol in [
@@ -215,8 +217,13 @@ fn late_data_preflight_fault_is_atomic_before_any_export_write() {
 #[test]
 fn missing_standard_handles_are_unassociated_and_unsupported_pipes_still_pin() {
     run(|c| {
-        let saved = c.p.params;
-        c.p.params = 0;
+        let o = *offsets(c.arch());
+        let field = c.p.peb + o.peb_process_parameters;
+        let saved = c.read_ptr(field).unwrap();
+        let at = area(c);
+        // A valid replacement block with zero standard handles is independent
+        // of the still-valid console handles in the initial parameter block.
+        c.write_ptr(field, at).unwrap();
         let candidate = fresh(c, RuntimeKind::Ucrt);
         for fd in 0..3 {
             let d = candidate.state.descriptor(fd).unwrap();
@@ -224,9 +231,7 @@ fn missing_standard_handles_are_unassociated_and_unsupported_pipes_still_pin() {
             assert_eq!(d.handle, c.arch().ptr(u64::MAX - 1));
         }
         candidate.abort(c.p).unwrap();
-        c.p.params = saved;
-        let at = area(c);
-        let o = *offsets(c.arch());
+        c.write_ptr(field, saved).unwrap();
         let pipe = u64::from(c.p.objects.insert(Object::Pipe {
             pipe: 1,
             write: true,
@@ -235,7 +240,7 @@ fn missing_standard_handles_are_unassociated_and_unsupported_pipes_still_pin() {
         for off in [o.pp_std_input, o.pp_std_output, o.pp_std_error] {
             c.mem().wptr(at + off, o.ptr, pipe).unwrap();
         }
-        c.p.params = at;
+        c.write_ptr(field, at).unwrap();
         let candidate = fresh(c, RuntimeKind::Ucrt);
         assert_eq!(candidate.state.descriptor(1).unwrap().object, Some(pipe_id));
         assert!(candidate.state.validate_descriptor(c.p, 1, true).is_ok());
@@ -244,20 +249,20 @@ fn missing_standard_handles_are_unassociated_and_unsupported_pipes_still_pin() {
             c.p.objects.close(pipe).unwrap(),
             Some(Object::Pipe { .. })
         ));
-        c.p.params = saved;
+        c.write_ptr(field, saved).unwrap();
         // A small synthetic params allocation contains the three source fields.
         let id = c.p.objects.create(Object::Null);
         let handle = u64::from(c.p.objects.open(id, false));
         for off in [o.pp_std_input, o.pp_std_output, o.pp_std_error] {
             c.mem().wptr(at + off, o.ptr, handle).unwrap();
         }
-        c.p.params = at;
+        c.write_ptr(field, at).unwrap();
         let candidate = fresh(c, RuntimeKind::Ucrt);
         candidate.abort(c.p).unwrap();
         let last = c.p.objects.close(handle).unwrap();
         assert!(matches!(last, Some(Object::Null)));
         assert!(c.p.objects.obj(id).is_none());
-        c.p.params = saved;
+        c.write_ptr(field, saved).unwrap();
     });
 }
 

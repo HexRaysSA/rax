@@ -302,24 +302,27 @@ fn get_std_handle(c: &mut Ctx) -> ApiResult {
     let Some(off) = std_offset(c, value) else {
         return c.fail(ERROR_INVALID_PARAMETER, u64::MAX);
     };
-    Flow::ret(c.read_ptr(c.p.params + off)?)
+    Flow::ret(c.read_ptr(c.p.current_parameters()? + off)?)
 }
 fn set_std_handle(c: &mut Ctx) -> ApiResult {
     let (value, handle) = (c.u32(0)?, c.ptr(1)?);
     let Some(off) = std_offset(c, value) else {
         return c.fail(ERROR_INVALID_PARAMETER, 0);
     };
-    c.write_ptr(c.p.params + off, handle)?;
+    c.write_ptr(c.p.current_parameters()? + off, handle)?;
     Flow::bool(true)
 }
 fn command_line_w(c: &mut Ctx) -> ApiResult {
-    Flow::ret(c.read_ptr(c.p.params + offsets(c.arch()).pp_command_line + c.psize())?)
+    Flow::ret(
+        c.read_ptr(c.p.current_parameters()? + offsets(c.arch()).pp_command_line + c.psize())?,
+    )
 }
 fn command_line_a(c: &mut Ctx) -> ApiResult {
     if let Some(address) = c.p.ansi_command_line {
         return Flow::ret(address);
     }
-    let address = c.read_ptr(c.p.params + offsets(c.arch()).pp_command_line + c.psize())?;
+    let address =
+        c.read_ptr(c.p.current_parameters()? + offsets(c.arch()).pp_command_line + c.psize())?;
     let wide = c.mem().wstr(address, 32768)?;
     // The personality's named process ACP profile is Windows-1252 best fit.
     let bytes = super::crt::startup::encode_process_ansi(&wide);
@@ -578,6 +581,111 @@ mod tests {
     use crate::user::windows::memory::prot;
     use crate::user::windows::process::{WindowsConfig, WindowsProcess};
 
+    #[test]
+    fn live_parameter_replacement_controls_command_line_and_standard_handles_all_abis() {
+        use crate::user::windows::arch::WinArch;
+        for arch in WinArch::ALL {
+            let image: &[u8] = match arch {
+                WinArch::X86 => {
+                    include_bytes!("../../../../tests/fixtures/user/windows/bin/x86/smoke.exe")
+                }
+                WinArch::X64 => {
+                    include_bytes!("../../../../tests/fixtures/user/windows/bin/x64/smoke.exe")
+                }
+                WinArch::Arm64 => {
+                    include_bytes!("../../../../tests/fixtures/user/windows/bin/arm64/smoke.exe")
+                }
+            };
+            let mut config = WindowsConfig::new("old-command.exe", vec![]);
+            config.seed = Some(1);
+            config.arena_bytes = 64 << 20;
+            let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
+            let p = process.state_mut();
+            let o = offsets(arch);
+            let original = p.params;
+            let header = p.space.bytes(original, o.pp_size as usize).unwrap();
+            let replacement = p
+                .heaps
+                .alloc(&mut p.vm, p.process_heap, o.pp_size + 128, true)
+                .unwrap();
+            p.space.wr(replacement, &header).unwrap();
+            let command = "new-command.exe /d /c exit 37";
+            let buffer = replacement + o.pp_size;
+            p.space
+                .put_wstr(buffer, &command.encode_utf16().collect::<Vec<_>>())
+                .unwrap();
+            p.space
+                .wptr(replacement + o.pp_command_line + o.ptr, o.ptr, buffer)
+                .unwrap();
+            p.space
+                .wptr(p.peb + o.peb_process_parameters, o.ptr, replacement)
+                .unwrap();
+            p.space
+                .wr(original, &vec![0xDD; o.pp_size as usize])
+                .unwrap();
+            let tid = *p.threads.keys().next().unwrap();
+            let mut thread = p.threads.remove(&tid).unwrap();
+            let sp = thread.cpu.sp();
+            let api = |name| {
+                EXPORTS
+                    .iter()
+                    .find_map(|export| match &export.item {
+                        Item::Func(api) if api.name == name => Some(api),
+                        _ => None,
+                    })
+                    .unwrap()
+            };
+            let mut c = Ctx {
+                p,
+                t: &mut thread,
+                api: api("GetCommandLineW"),
+                entry_pc: 0,
+                entry_sp: sp,
+                ret_addr: 0,
+                cursor: sp,
+            };
+            let integer = |flow| match flow {
+                Flow::Ret(Value::Int(value)) => value,
+                _ => panic!("integer API result expected"),
+            };
+            assert_eq!(integer(command_line_w(&mut c).unwrap()), buffer);
+            c.api = api("GetCommandLineA");
+            let narrow = integer(command_line_a(&mut c).unwrap());
+            assert_eq!(
+                c.mem().bytes(narrow, command.len() + 1).unwrap(),
+                [command.as_bytes(), &[0]].concat()
+            );
+            for (index, (selector, offset)) in [
+                (-10i32, o.pp_std_input),
+                (-11, o.pp_std_output),
+                (-12, o.pp_std_error),
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let handle = 0x1234_0000 + index as u64;
+                c.api = api("SetStdHandle");
+                for (index, value) in [u64::from(selector as u32), handle].into_iter().enumerate() {
+                    match arch {
+                        WinArch::X86 => c
+                            .mem()
+                            .w32(sp + 4 + index as u64 * 4, value as u32)
+                            .unwrap(),
+                        WinArch::X64 => c.t.cpu.set_gpr([1, 2][index], value),
+                        WinArch::Arm64 => c.t.cpu.set_gpr(index, value),
+                    }
+                }
+                assert_eq!(integer(set_std_handle(&mut c).unwrap()), 1);
+                assert_eq!(c.read_ptr(replacement + offset).unwrap(), handle);
+                c.api = api("GetStdHandle");
+                assert_eq!(integer(get_std_handle(&mut c).unwrap()), handle);
+            }
+            c.write_ptr(c.p.peb + o.peb_process_parameters, 0).unwrap();
+            c.api = api("GetCommandLineW");
+            assert!(matches!(command_line_w(&mut c), Err(ApiErr::Fault(_))));
+        }
+    }
+
     fn command_line_trial(
         arch: crate::user::windows::arch::WinArch,
         command: &str,
@@ -625,7 +733,7 @@ mod tests {
             Flow::Ret(Value::Int(pointer)) => pointer,
             _ => panic!("GetCommandLineA must return a pointer"),
         };
-        let field = c.p.params + offsets(arch).pp_command_line + c.psize();
+        let field = c.p.current_parameters().unwrap() + offsets(arch).pp_command_line + c.psize();
         let wide = c.read_ptr(field).unwrap();
         let before = c.p.heaps.blocks(c.p.process_heap);
         c.write_ptr(field, 0).unwrap();
