@@ -115,3 +115,9 @@ docs/development/windows-native-ci-corpus-lifetime/primary/** -text -whitespace
 # Preserve independent class 9 controls, captures and primary reference bytes.
 docs/specifications/windows/native-file-name-information/** -text
 docs/specifications/windows/native-file-name-information/primary/** -text -whitespace
+
+# Preserve independent class 5 controls, captures and pinned primary sources.
+docs/specifications/windows/native-volume-attributes/** -text
+docs/specifications/windows/native-volume-attributes/primary/** -text -whitespace
+docs/specifications/windows/native-volume-attributes/observations-*.json -diff
+docs/specifications/windows/native-volume-attributes/faults-*.log -diff

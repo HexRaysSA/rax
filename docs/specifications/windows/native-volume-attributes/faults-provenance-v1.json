@@ -1,0 +1,73 @@
+{
+  "views": [
+    {
+      "view": "arm64",
+      "cpp_source_sha256": "1ee152382b51791f816f8ec7e324cd3adc72bacc883a3686a1eb23e3b78f5775",
+      "collector_source_sha256": "ba5c170e7003e7d7e494568de296ff3cfad67116b965ffb167ad42500b07d64e",
+      "image_sha256": "a64d6cfebf28782373af88d8603c974169d73f0ab435d2bae527f7cff7a796fe",
+      "native_pid": 1572,
+      "native_creation": "134383061139645933",
+      "receipt_sha256": "f67596eea0d92f3ae4efd0d97968572f21ff44ecab74a5592cf996dce7aa4d84",
+      "stdout_sha256": "230c099808246d20d0673829bd2ca7d7e72b8b80c52ca2e1b2e16eaae6ceb24e",
+      "calls": 3146,
+      "exit_code": 0,
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "module_identity_scope": "Guarded filesystem context, not loaded-child-module attestation."
+    },
+    {
+      "view": "x64",
+      "cpp_source_sha256": "1ee152382b51791f816f8ec7e324cd3adc72bacc883a3686a1eb23e3b78f5775",
+      "collector_source_sha256": "542ef8f69b5d23af81d79faa4edd2884b4ee65abaf874f36f297bafdb9776d52",
+      "image_sha256": "6c9dfd8e6c619bac52752d4f3b675546d8ac8159dbe4ca034c0d20aaff4b7748",
+      "native_pid": 1716,
+      "native_creation": "134383061155615462",
+      "receipt_sha256": "00af87e698806a67647b9a77667262484275d12d8f9de235091f3dc222cdc618",
+      "stdout_sha256": "46058974ac31392d4da31a5cb83ae3357645e5c3fb2c8f8831f1e0b587cbacbf",
+      "calls": 3146,
+      "exit_code": 0,
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "module_identity_scope": "Guarded filesystem context, not loaded-child-module attestation."
+    },
+    {
+      "view": "x86",
+      "cpp_source_sha256": "1ee152382b51791f816f8ec7e324cd3adc72bacc883a3686a1eb23e3b78f5775",
+      "collector_source_sha256": "505ef90895f444fa9ac576660c1719474b12f0637ee601a96a54583c4861eead",
+      "image_sha256": "922e4ed07702ca6aa61902db2ae31b8e17f14e515d9d6b8a1bef6607ef844884",
+      "native_pid": 4632,
+      "native_creation": "134383061436742722",
+      "receipt_sha256": "0357cc0f6d40d40a80654c45debc6e6767dfa6a5415eaefd5b8ea4fc4060eb94",
+      "stdout_sha256": "ce528a95eca5b33f25f37d170deaabfe85f13179f624f2d48ccf241bd5c86395",
+      "calls": 3146,
+      "exit_code": 0,
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "module_identity_scope": "Guarded filesystem context, not loaded-child-module attestation."
+    },
+    {
+      "view": "x86-laa",
+      "cpp_source_sha256": "1ee152382b51791f816f8ec7e324cd3adc72bacc883a3686a1eb23e3b78f5775",
+      "collector_source_sha256": "267b1228a14bee3031b8f32f0b19c21194f55fe5ab43508f53ed542856f77a8b",
+      "image_sha256": "16191c52e73227f50b299f6125edf3cdb3c76fcd928293c326d6a07c192994b4",
+      "native_pid": 6608,
+      "native_creation": "134383061436340801",
+      "receipt_sha256": "8b342a1d456127944c4816df35290941a76fda4dcb5417ca20b432b75c22a629",
+      "stdout_sha256": "3eb5a1376e23749366a95ea82f5c505548f791a6228fce9f480d845e744f9bd1",
+      "calls": 3146,
+      "exit_code": 0,
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "module_identity_scope": "Guarded filesystem context, not loaded-child-module attestation."
+    }
+  ],
+  "shared_queries": 1904,
+  "pending": 0,
+  "native_jobs_restarted": false,
+  "native_jobs_signalled": false,
+  "branch_cleanup_receipt": "../windows-file-backed-sections-v1/branch-cleanup-close-v33.json"
+}

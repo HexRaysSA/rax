@@ -1,0 +1,39 @@
+{
+  "issuing_organization": "Microsoft",
+  "title": "Native volume query and filesystem-attribute record",
+  "retrieved_utc": "2026-11-04T22:16:52.094340+00:00",
+  "files": [
+    {
+      "file": "ns-ntifs-_file_fs_attribute_information.md",
+      "source_url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/ns-ntifs-_file_fs_attribute_information.md",
+      "source_commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+      "bytes": 8218,
+      "sha256": "59907003356cc9acc45895491cd44c3d515c161817787e65e47453b3a3e49758",
+      "git_blob": "715385a201c5ab58dd4c06a0ce565957e02fb1b5"
+    },
+    {
+      "file": "nf-ntifs-ntqueryvolumeinformationfile.md",
+      "source_url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/wdk-ddi-src/content/ntifs/nf-ntifs-ntqueryvolumeinformationfile.md",
+      "source_commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+      "bytes": 8397,
+      "sha256": "8ef98794894f322e0480d2e9f98c1bc3259745e00dd181bf444aa7bef34246c2",
+      "git_blob": "686bd6cf88a60d3aa71078b7706609b054d85ada"
+    },
+    {
+      "file": "LICENSE",
+      "source_url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/LICENSE",
+      "source_commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+      "git_blob": "e056e7c3ec54533985dfb3a4c6ef70dab8ca2e42",
+      "bytes": 18650,
+      "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+    },
+    {
+      "file": "LICENSE-CODE",
+      "source_url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/7515063cea4c9e98db6a92986c5b4ddb0463fd16/LICENSE-CODE",
+      "source_commit": "7515063cea4c9e98db6a92986c5b4ddb0463fd16",
+      "git_blob": "b17b032a43088ac7f3d2f3e34a2431c778a95e6f",
+      "bytes": 1090,
+      "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+    }
+  ]
+}

@@ -140,6 +140,11 @@ fn native_volume_device_query_native_and_wow_probe_order_preserves_reached_guard
 #[path = "volume_query_tests/replay.rs"]
 mod replay;
 
+#[path = "volume_query_tests/attributes.rs"]
+mod attributes;
+#[path = "volume_query_tests/attributes_faults.rs"]
+mod attributes_faults;
+
 #[test]
 fn native_volume_device_query_file_null_and_reduced_grants_match_standard_null_all_abis() {
     use crate::user::windows::fs::{FileIdentity, FileLifetime};
@@ -177,7 +182,7 @@ fn native_volume_device_query_file_null_and_reduced_grants_match_standard_null_a
 #[test]
 fn native_volume_device_query_unimplemented_classes_are_explicit_without_output_or_guard_changes() {
     for arch in WinArch::ALL {
-        for class in [0, 1, 3, 5, u32::MAX] {
+        for class in [0, 1, 3, u32::MAX] {
             let (mut process, mut t, base) = setup(arch);
             let p = process.state_mut();
             p.vm.protect(base, PAGE_SIZE, prot::READWRITE | prot::GUARD)

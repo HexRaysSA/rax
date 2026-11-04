@@ -2,6 +2,7 @@
 
 This increment implements `NtQueryVolumeInformationFile` class 4,
 `FileFsDeviceInformation`, for admitted file objects and standard devices.
+Class 5 is covered separately by [filesystem attributes](../native-volume-attributes/README.md).
 Other information classes remain explicit unsupported operations. The service
 shares the existing NT export factory and native/WoW64 dispatch; it adds no
 public C ABI layout, package option, dependency or permission expansion.
@@ -148,3 +149,8 @@ The seven focused volume-device tests pass on Windows ARM64 build29695,
 macOS ARM64 and Linux x86-64 container execution. Each run includes all1056
 retained observations and the independent payload-binding regression. This
 fixture-only change does not alter the production host adapter.
+
+The class5 increment also shares private native request ownership with this
+class4 adapter. A completion-API error no longer releases a still-pending NT
+request: the original IOSB must be terminal before private buffers are freed.
+All captured class4 caller-memory semantics remain a separate replay gate.
