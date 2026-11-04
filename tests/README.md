@@ -306,6 +306,8 @@ directory-query event profiles through public HLE contexts for x86, x64 and
 ARM64 guests. Its complete test runs 72 calls on each host, checking status,
 IOSB publication, event reset/signaling and untouched output tails. It runs in
 Unix core/scheduled CI and dedicated native Windows x64/ARM64 jobs. Native
+Windows expectations come from direct calls on the current kernel; Unix
+mapped-volume expectations retain the frozen profiles. Native
 profiles and their kernel/architecture limits are recorded in
 [`native-directory-enumeration`](../docs/specifications/windows/native-directory-enumeration/README.md).
 

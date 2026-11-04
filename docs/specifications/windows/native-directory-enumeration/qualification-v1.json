@@ -521,5 +521,14 @@
     "yaml_syntax": "All three changed workflows parsed with Ruby Psych",
     "new_test_registry": "Cargo.toml plus tests/README.md; Windows x64/ARM64 dedicated native jobs and Unix core/scheduled jobs"
   },
-  "qualification_scope": "Cross-platform finite directory contract, complete final-source macOS library and all owning integration binaries. Broader native Windows and Linux campaigns remain independently active. The recorded FIFO failure is not converted into a pass."
+  "qualification_scope": "Cross-platform finite directory contract, complete final-source macOS library and all owning integration binaries. Broader native Windows and Linux campaigns remain independently active. The recorded FIFO failure is not converted into a pass.",
+  "ci_kernel_profile_followup": {
+    "initial_run": "https://github.com/HexRaysSA/rax/actions/runs/41864274778",
+    "diagnostic_run": "https://github.com/HexRaysSA/rax/actions/runs/41873364989",
+    "native_arm64_ci": "passed on build 26200",
+    "native_x64_ci": "RAX matched independent build-20348 publication; frozen build-29698 expectation failed",
+    "correction": "Windows event tests compare against direct current-kernel native calls; complete IOSB bytes remain checked. Portable profiles unchanged.",
+    "production_runtime_changed": false,
+    "corrected_ci_state": "pending"
+  }
 }

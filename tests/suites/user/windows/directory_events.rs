@@ -14,6 +14,10 @@ const PAGE_BYTES: u64 = 4096;
 const RESERVE_COMMIT: u32 = 0x3000;
 const READ_WRITE: u32 = 4;
 
+#[cfg(windows)]
+#[path = "directory_events/native.rs"]
+mod native;
+
 struct Directory(PathBuf);
 
 impl Directory {
@@ -104,6 +108,8 @@ fn image(arch: WinArch) -> &'static [u8] {
 
 #[test]
 fn directory_events_match_native_profiles_for_all_guest_abis() {
+    #[cfg(windows)]
+    let native_rows = native::capture();
     let profiles = [
         include_str!(
             "../../../../docs/specifications/windows/native-directory-enumeration/event-arm64-v1.json"
@@ -135,10 +141,31 @@ fn directory_events_match_native_profiles_for_all_guest_abis() {
             let rows = profile["rows"].as_array().unwrap();
             assert_eq!(rows.len(), 12);
             for row in rows {
+                // Native publication differs across the measured Windows hosts.
+                // Match every frozen case against a direct query on this host.
+                #[cfg(windows)]
+                let row = native_rows
+                    .iter()
+                    .find(|native| {
+                        native["legacy"] == row["legacy"]
+                            && native["initial"] == row["initial"]
+                            && native["case"] == row["case"]
+                    })
+                    .expect("every reference case has a native host observation");
                 let legacy = row["legacy"].as_bool().unwrap();
                 let initial = row["initial"].as_bool().unwrap();
                 let case = row["case"].as_str().unwrap();
                 let expected = row["returned"].as_u64().unwrap();
+                let required_status: u64 = match case {
+                    "success" => 0,
+                    "overflow" => 0x8000_0005,
+                    "missing" => 0xc000_000f,
+                    _ => panic!("unknown native directory control case: {case}"),
+                };
+                assert_eq!(
+                    expected, required_status,
+                    "native fixture must execute {case}"
+                );
                 let pointer_bytes = p.arch.ptr_size();
                 let attributes = base + 0x80;
                 let path = base + 0x200;
@@ -225,28 +252,21 @@ fn directory_events_match_native_profiles_for_all_guest_abis() {
                     }
                     _ => panic!("directory query changed the event object type"),
                 }
-                assert_eq!(
-                    u64::from(p.space.u32(io).unwrap()),
-                    row["io_status"].as_u64().unwrap() & 0xffff_ffff
-                );
-                if pointer_bytes == 8 {
-                    assert_eq!(p.space.u32(io + 4).unwrap(), 0xa5a5_a5a5);
-                }
+                let status = row["io_status"].as_u64().unwrap().to_le_bytes();
                 let information = row["information"].as_u64().unwrap();
-                let projected = if pointer_bytes == 4 {
-                    u64::from(information as u32)
-                } else {
-                    information
-                };
+                let width = pointer_bytes as usize;
+                let mut expected_io = [0xa5; 16];
+                expected_io[..width].copy_from_slice(&status[..width]);
+                expected_io[width..2 * width].copy_from_slice(&information.to_le_bytes()[..width]);
                 assert_eq!(
-                    p.space.ptr(io + pointer_bytes, pointer_bytes).unwrap(),
-                    projected
+                    p.space.bytes(io, 16).unwrap(),
+                    expected_io,
+                    "{arch}/{case}/initial={initial}/legacy={legacy}: complete IOSB"
                 );
                 if case == "missing" {
-                    assert_eq!(p.space.bytes(io, 16).unwrap(), [0xa5; 16]);
                     assert_eq!(p.space.bytes(output, 616).unwrap(), [0xa5; 616]);
                 } else {
-                    assert!(information <= length);
+                    assert!((1..=length).contains(&information));
                     assert_eq!(
                         p.space
                             .bytes(output + information, 616 - information as usize)

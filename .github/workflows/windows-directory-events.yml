@@ -60,8 +60,12 @@ jobs:
           rustc --edition 2024 --target "${{ matrix.target }}" \
             docs/specifications/windows/native-directory-enumeration/native-directory-event-v1.rs \
             -o target/native-directory-event-control/native-directory-events.exe
+          powershell.exe -NoLogo -NoProfile -Command \
+            "(Get-FileHash -Algorithm SHA256 -LiteralPath 'target/native-directory-event-control/native-directory-events.exe').Hash"
           target/native-directory-event-control/native-directory-events.exe \
             > target/native-directory-event-control/native.jsonl
+          powershell.exe -NoLogo -NoProfile -Command \
+            "(Get-FileHash -Algorithm SHA256 -LiteralPath 'target/native-directory-event-control/native-directory-events.exe').Hash"
           cat target/native-directory-event-control/native.jsonl
       - name: Native directory-event profile
         run: cargo test --locked --no-default-features --test windows_directory_events -- --test-threads=1

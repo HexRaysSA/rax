@@ -93,6 +93,22 @@ def verify():
         event_results.append(rows)
     assert event_results[0] == event_results[1]
 
+    ci = json.loads((root / "ci-event-profiles-v1.json").read_text())
+    assert digest(root / ci["source_file"]) == ci["source_sha256"]
+    assert len(ci["profiles"]) == 2
+    for profile in ci["profiles"]:
+        assert len(profile["host_system32_ntdll_sha256"]) == 64
+        rows = profile["rows"]
+        assert len(rows) == 12
+        assert {(r["legacy"], r["initial"], r["case"]) for r in rows} == keys
+        for row, frozen in zip(rows, event_results[0]):
+            if profile["kernel_version"] == "10.0.20348.0" and row["case"] == "missing":
+                assert row["returned"] == 0xC000000F
+                assert row["io_status"] == (poison & 0xFFFFFFFF00000000) | 0xC000000F
+                assert row["information"] == 0 and row["event_signaled"] is True
+            else:
+                assert row == frozen
+
     comparison = json.loads((root / "cmd-comparison-v1.json").read_text())
     assert len(comparison["cases"]) == 2
     for case in comparison["cases"]:
@@ -106,7 +122,7 @@ def verify():
     assert by_name["exit37"]["guest_stdout_hex"] == ""
     assert bytes.fromhex(by_name["echo"]["guest_stdout_hex"]) == b"RAX_PROCESS_MATRIX_A7F3C2\r\n"
     assert by_name["echo"]["guest_exit"] == 0
-    print("verified 674 native directory queries, 24 event queries, 6 EA setters, and 2 CMD comparisons")
+    print("verified 674 native directory queries, 48 event queries, 6 EA setters, and 2 CMD comparisons")
 
 
 if __name__ == "__main__":

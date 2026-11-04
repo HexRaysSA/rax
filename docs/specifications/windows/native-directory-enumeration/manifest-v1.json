@@ -2,6 +2,11 @@
   "schema": "rax-native-directory-evidence-manifest-v1",
   "files": [
     {
+      "path": "ci-event-profiles-v1.json",
+      "bytes": 7028,
+      "sha256": "c226f3fee6b903aa7207d9f6aa8b7a4ed4f0da4cc87bed7cf198e8d5145f3023"
+    },
+    {
       "path": "cmd-comparison-v1.json",
       "bytes": 5865,
       "sha256": "c0b69c5462114282bdb44ce7332781f0a37ee1c045f21f41aed4540ad54f9488"
@@ -118,8 +123,8 @@
     },
     {
       "path": "verify.py",
-      "bytes": 5227,
-      "sha256": "2fe81477325c98402ded5ae12180fb554564ce04450895b1213a7923145d7fd2"
+      "bytes": 6060,
+      "sha256": "33c71624ef882013e599d3c506c5cbecf54b4e172051d6772e0db50d8fe2e554"
     }
   ]
 }

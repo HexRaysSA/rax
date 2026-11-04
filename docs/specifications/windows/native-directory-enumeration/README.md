@@ -126,6 +126,21 @@ This complements the service-number dispatch tests; projecting pointer-width
 fields to the x86 guest does not supply an independent native WoW64 oracle.
 The target runs on Unix CI and in dedicated native Windows x64/ARM64 jobs.
 
+The frozen event profile is specific to its measured kernel. Independent CI
+controls on Windows Server 2022 build 20348 publish `STATUS_NO_SUCH_FILE`,
+zero information and a signaled event for a first unmatched query. Windows
+11 build 26200 instead matches the retained build-29698 untouched-IOSB,
+cleared-event result. `ci-event-profiles-v1.json` preserves both observations;
+the first capture did not record executable digests. CI now hashes the
+separately compiled producer before and after execution.
+
+On Windows, the test reuses that unchanged producer's native calls in process,
+redirecting only its JSON record sink, and compares each guest query against
+the current host's corresponding observation. The control calls no RAX API.
+Unix mapped-volume tests retain the frozen profiles. All 16 guest IOSB bytes
+are compared, including the untouched tail of the eight-byte x86 IOSB. The
+event assertion remains an exact comparison with its selected native row.
+
 The prior installed CMD control stopped at service `NtQueryDirectoryFileEx`
 while querying `Users` under `C:\\`. The directory implementation advanced
 the observed ARM64 controls to actual command completion: `exit 37` returned
