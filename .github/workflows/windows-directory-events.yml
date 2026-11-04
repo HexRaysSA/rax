@@ -48,5 +48,20 @@ jobs:
         with:
           toolchain: 1.95.0
           cache-key: directory-events-${{ matrix.target }}
+      - name: Native kernel and producer identity
+        shell: pwsh
+        run: |
+          [Environment]::OSVersion.VersionString
+          Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $env:SystemRoot 'System32\ntdll.dll')
+          Get-FileHash -Algorithm SHA256 -LiteralPath 'docs/specifications/windows/native-directory-enumeration/native-directory-event-v1.rs'
+      - name: Independent native directory-event observations
+        run: |
+          mkdir -p target/native-directory-event-control
+          rustc --edition 2024 --target "${{ matrix.target }}" \
+            docs/specifications/windows/native-directory-enumeration/native-directory-event-v1.rs \
+            -o target/native-directory-event-control/native-directory-events.exe
+          target/native-directory-event-control/native-directory-events.exe \
+            > target/native-directory-event-control/native.jsonl
+          cat target/native-directory-event-control/native.jsonl
       - name: Native directory-event profile
         run: cargo test --locked --no-default-features --test windows_directory_events -- --test-threads=1

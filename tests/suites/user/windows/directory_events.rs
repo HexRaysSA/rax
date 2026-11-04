@@ -216,7 +216,12 @@ fn directory_events_match_native_profiles_for_all_guest_abis() {
                 );
                 match p.objects.get(event).unwrap() {
                     Object::Event { signaled, .. } => {
-                        assert_eq!(*signaled != 0, row["event_signaled"].as_bool().unwrap())
+                        assert_eq!(
+                            *signaled != 0,
+                            row["event_signaled"].as_bool().unwrap(),
+                            "{arch}/{case}/initial={initial}/legacy={legacy}: IOSB={:?}; expected={row}",
+                            p.space.bytes(io, 16).unwrap()
+                        )
                     }
                     _ => panic!("directory query changed the event object type"),
                 }
