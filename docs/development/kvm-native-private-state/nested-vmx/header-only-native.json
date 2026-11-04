@@ -1,0 +1,36 @@
+{
+  "utc": "2026-11-03T22:08:05.806613+00:00",
+  "commands": [
+    {
+      "argv": [
+        "cc",
+        "-std=gnu11",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v2/probe.c",
+        "-o",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v2/probe-bin"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v2/probe-bin"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"phase\":\"setup\",\"vmx_basic\":60816187455798992,\"cr0_fixed0\":2147483681,\"cr4_fixed0\":8192}\n{\"phase\":\"source_vmxon\",\"result\":0,\"errno\":0,\"reason\":2,\"rip\":4102,\"rax\":2,\"port\":128}\n{\"phase\":\"source_output_completion\",\"result\":-1,\"errno\":4,\"reason\":2,\"rip\":4104,\"rax\":2,\"port\":128}\n{\"phase\":\"captured\",\"capacity\":8320,\"size\":128,\"format\":0,\"flags\":0,\"vmxon_pa\":32768,\"vmcs12_pa\":18446744073709551615}\n{\"phase\":\"setup\",\"vmx_basic\":60816187455798992,\"cr0_fixed0\":2147483681,\"cr4_fixed0\":8192}\n{\"phase\":\"public_only_vmxoff\",\"result\":0,\"errno\":0,\"reason\":8,\"rip\":4104,\"rax\":2,\"port\":0}\n{\"phase\":\"setup\",\"vmx_basic\":60816187455798992,\"cr0_fixed0\":2147483681,\"cr4_fixed0\":8192}\n{\"phase\":\"private_restore_vmxoff\",\"result\":0,\"errno\":0,\"reason\":2,\"rip\":4109,\"rax\":2,\"port\":129}\n{\"phase\":\"private_output_completion\",\"result\":-1,\"errno\":4,\"reason\":2,\"rip\":4111,\"rax\":2,\"port\":129}\n{\"phase\":\"private_halt\",\"result\":0,\"errno\":0,\"reason\":5,\"rip\":4112,\"rax\":2,\"port\":0}\n{\"phase\":\"complete\",\"source_free_private_restore\":true}\n",
+      "stderr": ""
+    }
+  ],
+  "source_sha256": "833d73583d9d6de970a7657985c35f1f57c62698d69b26ef58590f36b446764a",
+  "host": "Linux abyss 6.8.0-138-generic #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "headers": {
+    "/usr/include/linux/kvm.h": "d8a78f6d925507350cf545ea1d82961f87143896d4db672db7e878e6af3fc847",
+    "/usr/include/x86_64-linux-gnu/asm/kvm.h": "2600204930ed2279aa82513d022781d86a7cb4b5cd5dfdf1345dfcb652604d36"
+  },
+  "scope": "Independent direct KVM UAPI source-free VMXON/VMXOFF continuation; no RAX checkpoint producer implemented."
+}

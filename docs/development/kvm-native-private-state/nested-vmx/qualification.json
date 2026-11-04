@@ -1,0 +1,35 @@
+{
+  "status": "prototype_qualified_not_integrated",
+  "full_producer_complete": false,
+  "full_audit_goal_complete": false,
+  "header_only": {
+    "bytes": 128,
+    "source_free_continuation": true,
+    "sdk_returned_none_despite_live_vmxon": true
+  },
+  "loaded_vmcs": {
+    "bytes": 4224,
+    "source_free_continuation": true,
+    "pointer": "0x9000",
+    "guest_rip_field": "0x4142434445464748",
+    "inactive_record_clears_active_target": true,
+    "active_record_reapplies": true
+  },
+  "envelope_controls": {
+    "rejected_before_target_mutation": 6,
+    "missing_target_capacity_rejected": true
+  },
+  "capacity_bytes": 8320,
+  "actual_codec_roundtrip": true,
+  "remaining": [
+    "Active L2 guest/shadow-VMCS and nested pending-event continuation.",
+    "Integration with the complete native CPU/private/shared/in-flight checkpoint producer.",
+    "CPUID/vendor/feature admission, complete VMCS-field validation, IRQ/PIT/LAPIC/clock coordination and rollback/poisoning.",
+    "Actual1/2/4 CPU source-free VM bundles and continuation/replay."
+  ],
+  "scope": "Independent SDK/prototype evidence; no claim that the current RAX native checkpoint producer is complete.",
+  "build_cleanup": [
+    "build-cleanup-v2.json",
+    "build-cleanup-v3.json"
+  ]
+}

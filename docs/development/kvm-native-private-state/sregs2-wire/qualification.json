@@ -1,0 +1,48 @@
+{
+  "status": "native_sregs2_wire_component_qualified_not_integrated",
+  "main_applied": false,
+  "full_cpu_producer": false,
+  "full_goal": false,
+  "graphs": 6,
+  "source_cpus": 14,
+  "source_free_exact_restores": 28,
+  "legacy_cache_losses": 14,
+  "malformed_rejected_without_native_change": 84,
+  "guest_entered": false,
+  "source_sha256": {
+    "Cargo.toml": "0f47006ad77066fd39fcac342a924d65b265a3eac8f05c470367215d312ec3cc",
+    "src/bank.rs": "85681232d178e9c99e4ad0aca6674aec5632759cc5c0f72bc63981c99d274fe5",
+    "src/main.rs": "07bfc56baa64889decdd12fc7a25c083cfe9c899a5711ee987331175f0c1f352",
+    "src/codec.rs": "ababd7fee6222b3967a195b05c5d004408a672d54cb8bf72f894c0e4953413e3",
+    "src/sregs2.rs": "8b0207ffe51f323fe01b0ea448cd63124a0c629e321422a885aeae851345967e"
+  },
+  "assumptions": [
+    {
+      "id": "PAE1",
+      "assumption": "Cached PAE pointers can differ from their physical table",
+      "stress_test": "Seed distinct cached pointers while backing RAM remains zero, then observe legacy setter loss",
+      "status": "confirmed on 14 CPUs",
+      "basis": "Archived kvm-bindings 0.14.2 UAPI/serialization source and exact physical KVM observations in native.json",
+      "dependent_result": "Only the component qualification described by this record; no complete CPU or VM checkpoint claim",
+      "falsification_probe": "Build the retained companion manifest with the recorded dependency lock and run the retained probe; any equality/rejection assertion failure falsifies this component claim"
+    },
+    {
+      "id": "PAE2",
+      "assumption": "An explicit SREGS2 wire record must retain every UAPI field",
+      "stress_test": "JSON and actual production codec roundtrip, source destruction, fresh target SET/GET full-structure equality",
+      "status": "confirmed for 28 restores",
+      "basis": "Archived kvm-bindings 0.14.2 UAPI/serialization source and exact physical KVM observations in native.json",
+      "dependent_result": "Only the component qualification described by this record; no complete CPU or VM checkpoint claim",
+      "falsification_probe": "Build the retained companion manifest with the recorded dependency lock and run the retained probe; any equality/rejection assertion failure falsifies this component claim"
+    },
+    {
+      "id": "PAE3",
+      "assumption": "The SREGS2 envelope does not replace architectural admission or native rollback",
+      "stress_test": "Six malformed records per CPU reject without a native setter or state change",
+      "status": "retained boundary",
+      "basis": "Archived kvm-bindings 0.14.2 UAPI/serialization source and exact physical KVM observations in native.json",
+      "dependent_result": "Only the component qualification described by this record; no complete CPU or VM checkpoint claim",
+      "falsification_probe": "Build the retained companion manifest with the recorded dependency lock and run the retained probe; any equality/rejection assertion failure falsifies this component claim"
+    }
+  ]
+}

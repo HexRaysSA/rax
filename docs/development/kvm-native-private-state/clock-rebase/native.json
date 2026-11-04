@@ -1,0 +1,80 @@
+{
+  "utc": "2026-11-04T01:18:07.621372+00:00",
+  "exit_code": 0,
+  "commands": [
+    {
+      "label": "fmt",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--manifest-path",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-wire-contract-v2/source/Cargo.toml",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.06186485569924116,
+      "log": "",
+      "source_unchanged": true
+    },
+    {
+      "label": "build",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--manifest-path",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-wire-contract-v2/source/Cargo.toml",
+        "--offline"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.0902377823367715,
+      "log": "   Compiling rax-kvm-clock-contract v0.1.0 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-wire-contract-v2/source)\nwarning: function `deserialize` is never used\n  --> src/codec.rs:20:8\n   |\n20 | pub fn deserialize<'a, T>(bytes: &'a [u8]) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^\n   |\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `deserialize_strict` is never used\n  --> src/codec.rs:28:8\n   |\n28 | pub fn deserialize_strict<'a, T>(bytes: &'a [u8]) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^^^^^^^^\n\nwarning: function `serialize_into` is never used\n  --> src/codec.rs:41:8\n   |\n41 | pub fn serialize_into<W, T>(mut writer: W, value: &T) -> Result<(), uklad::error::EncodeError>\n   |        ^^^^^^^^^^^^^^\n\nwarning: function `deserialize_from` is never used\n  --> src/codec.rs:51:8\n   |\n51 | pub fn deserialize_from<R, T>(mut reader: R) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^^^^^^\n\nwarning: function `serialize_limited` is never used\n  --> src/codec.rs:61:8\n   |\n61 | pub fn serialize_limited<T>(value: &T, limit: usize) -> Result<Vec<u8>, uklad::error::EncodeError>\n   |        ^^^^^^^^^^^^^^^^^\n\nwarning: function `deserialize_from_limited` is never used\n   --> src/codec.rs:118:8\n    |\n118 | pub fn deserialize_from_limited<R, T, const LIMIT: usize>(\n    |        ^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: `rax-kvm-clock-contract` (bin \"rax-kvm-clock-contract\") generated 6 warnings\n    Finished `dev` profile [optimized] target(s) in 1.08s\n",
+      "source_unchanged": true
+    },
+    {
+      "label": "clippy",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "clippy",
+        "--manifest-path",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-wire-contract-v2/source/Cargo.toml",
+        "--locked",
+        "--offline",
+        "--bin",
+        "rax-kvm-clock-contract"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.3943215627223253,
+      "log": "    Checking rax-kvm-clock-contract v0.1.0 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-wire-contract-v2/source)\nwarning: function `deserialize` is never used\n  --> src/codec.rs:20:8\n   |\n20 | pub fn deserialize<'a, T>(bytes: &'a [u8]) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^\n   |\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `deserialize_strict` is never used\n  --> src/codec.rs:28:8\n   |\n28 | pub fn deserialize_strict<'a, T>(bytes: &'a [u8]) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^^^^^^^^\n\nwarning: function `serialize_into` is never used\n  --> src/codec.rs:41:8\n   |\n41 | pub fn serialize_into<W, T>(mut writer: W, value: &T) -> Result<(), uklad::error::EncodeError>\n   |        ^^^^^^^^^^^^^^\n\nwarning: function `deserialize_from` is never used\n  --> src/codec.rs:51:8\n   |\n51 | pub fn deserialize_from<R, T>(mut reader: R) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^^^^^^\n\nwarning: function `serialize_limited` is never used\n  --> src/codec.rs:61:8\n   |\n61 | pub fn serialize_limited<T>(value: &T, limit: usize) -> Result<Vec<u8>, uklad::error::EncodeError>\n   |        ^^^^^^^^^^^^^^^^^\n\nwarning: function `deserialize_from_limited` is never used\n   --> src/codec.rs:118:8\n    |\n118 | pub fn deserialize_from_limited<R, T, const LIMIT: usize>(\n    |        ^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: `rax-kvm-clock-contract` (bin \"rax-kvm-clock-contract\") generated 6 warnings\n    Finished `dev` profile [optimized] target(s) in 0.35s\n",
+      "source_unchanged": true
+    },
+    {
+      "label": "run",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/rax-kvm-clock-contract"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.4265625663101673,
+      "log": "{\"clock_tolerance_ns\":1000000,\"complete_checkpoint_producer\":false,\"cpu_count\":1,\"guest_entered\":false,\"irqchip\":false,\"json_and_production_codec\":true,\"malformed_or_target_controls\":38,\"offline_delay_ms_per_target\":20,\"offsets_unchanged_after_rejection\":true,\"source_free_exact_cpu_phases\":2,\"source_graph_destroyed\":true}\n{\"clock_tolerance_ns\":1000000,\"complete_checkpoint_producer\":false,\"cpu_count\":2,\"guest_entered\":false,\"irqchip\":false,\"json_and_production_codec\":true,\"malformed_or_target_controls\":38,\"offline_delay_ms_per_target\":20,\"offsets_unchanged_after_rejection\":true,\"source_free_exact_cpu_phases\":4,\"source_graph_destroyed\":true}\n{\"clock_tolerance_ns\":1000000,\"complete_checkpoint_producer\":false,\"cpu_count\":4,\"guest_entered\":false,\"irqchip\":false,\"json_and_production_codec\":true,\"malformed_or_target_controls\":38,\"offline_delay_ms_per_target\":20,\"offsets_unchanged_after_rejection\":true,\"source_free_exact_cpu_phases\":8,\"source_graph_destroyed\":true}\n{\"clock_tolerance_ns\":1000000,\"complete_checkpoint_producer\":false,\"cpu_count\":1,\"guest_entered\":false,\"irqchip\":true,\"json_and_production_codec\":true,\"malformed_or_target_controls\":38,\"offline_delay_ms_per_target\":20,\"offsets_unchanged_after_rejection\":true,\"source_free_exact_cpu_phases\":2,\"source_graph_destroyed\":true}\n{\"clock_tolerance_ns\":1000000,\"complete_checkpoint_producer\":false,\"cpu_count\":2,\"guest_entered\":false,\"irqchip\":true,\"json_and_production_codec\":true,\"malformed_or_target_controls\":38,\"offline_delay_ms_per_target\":20,\"offsets_unchanged_after_rejection\":true,\"source_free_exact_cpu_phases\":4,\"source_graph_destroyed\":true}\n{\"clock_tolerance_ns\":1000000,\"complete_checkpoint_producer\":false,\"cpu_count\":4,\"guest_entered\":false,\"irqchip\":true,\"json_and_production_codec\":true,\"malformed_or_target_controls\":38,\"offline_delay_ms_per_target\":20,\"offsets_unchanged_after_rejection\":true,\"source_free_exact_cpu_phases\":8,\"source_graph_destroyed\":true}\n",
+      "source_unchanged": true
+    }
+  ],
+  "final_companion_lock_sha256": "467cf985386cca0e5837c6703d29e1d17718c0bd3fe583e33b3467441cf672b5",
+  "root_lock_unchanged": true,
+  "sole_cargo_target": "/tmp/rax-kvm-native-entry-ixif9sv1/target",
+  "executable_cleanup": {
+    "path": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/rax-kvm-clock-contract",
+    "bytes": 826176,
+    "sha256": "960c9c45cc7d06ffd0c91a23173cc9366c20c2fa8146c40da51123db475c88ee",
+    "process_terminal": true
+  },
+  "source_sha256": {
+    "Cargo.toml": "916f0f05726ca3284ea925a356249513b4524d8a5f7bec022ad14b9af3d67325",
+    "src/bank.rs": "85681232d178e9c99e4ad0aca6674aec5632759cc5c0f72bc63981c99d274fe5",
+    "src/clock.rs": "8a55e299693d89d4cf6d738ac7f4a1298880e8a1b85ff93fe2f3ac95965357fa",
+    "src/main.rs": "3ab1afa4c57eea32a6dc386782cd3e801a3b6820a73b95db76fd5d399f86120e",
+    "src/codec.rs": "ababd7fee6222b3967a195b05c5d004408a672d54cb8bf72f894c0e4953413e3"
+  },
+  "scope": "Exact qualified native clock helper; extended whole companion adds actual legacy-codec oversized/empty CPU lengths, version and trailing-data controls. No main product change or guest execution.",
+  "complete_native_producer": false
+}

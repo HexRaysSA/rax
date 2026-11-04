@@ -1,0 +1,69 @@
+{
+  "utc": "2026-11-03T22:21:19.376748+00:00",
+  "removed": [
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-wrapper-v1/probe-bin",
+      "bytes": 8742840,
+      "sha256": "f780a197bfcc8f00aeef586889495fd9193e25de117a455eb32d82b9e567e666"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-wrapper-v1/helper.o",
+      "bytes": 21488,
+      "sha256": "df1f3db9fc37fa5df30043c7eed81ee4dd25cb84cb55fda476aaa8246f41fb2a"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-image-v1/probe-bin",
+      "bytes": 8997280,
+      "sha256": "7fc3648a3e1bfb8edcb34ebfd73f95fbde42d0be331d921fbac13df77161fbf9"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-image-v1/helper.o",
+      "bytes": 21704,
+      "sha256": "029349d2c0617a3eb2c2fcca5ec12b876a5ba97ab12b48a5bd2d42e1bdc6bcbd"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v3/probe-bin",
+      "bytes": 21216,
+      "sha256": "fd9b40f989e8bc6fc9c7cf2c9bf7342a4e120a50e54a1fb0d9e7c22653b36a54"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-image-v2/probe-bin",
+      "bytes": 9000848,
+      "sha256": "8e7d43a369e427c47419b36540ef6e2006e0c3304fad98fdee8e20aefc08772c"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-image-v2/helper.o",
+      "bytes": 22440,
+      "sha256": "fa2e11def4057ecfca0e44fb8424553b940b572ba2d85eae546b0b4f0467d589"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v4/probe-bin",
+      "bytes": 21216,
+      "sha256": "36d5acbae298ed94f958d5f3221cad97e005433de2bd837e7b72c5de7f89fb63"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-image-v3/probe-bin",
+      "bytes": 9001696,
+      "sha256": "a723cd1f6157d5608a590f0303ff8fd4a209090845b2d1cff4bff3111d3cf7a1"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-image-v3/helper.o",
+      "bytes": 22976,
+      "sha256": "06657601919d1b4e9694762a2b941285b4b0ccd965bd6c072f4c7dc3906b7c4e"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-image-v4/probe-bin",
+      "bytes": 9004112,
+      "sha256": "251b520a3c13ca7bb50a8ff178811e4cc3d075663491e63a468b672e0574a401"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-image-v4/helper.o",
+      "bytes": 22976,
+      "sha256": "d427e6c5d89704fdc2d4bfeec0e492c344672c74e953f13c1627db72493e6863"
+    }
+  ],
+  "total_bytes": 44900792,
+  "active_references": [],
+  "sources_and_terminal_receipts_retained": true,
+  "live_native_memory_validation_untouched": true
+}

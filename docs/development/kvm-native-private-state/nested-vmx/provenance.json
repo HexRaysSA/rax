@@ -1,0 +1,74 @@
+{
+  "issuing_organizations": [
+    "Linux kernel contributors",
+    "Ubuntu",
+    "rust-vmm"
+  ],
+  "retrieved_utc": "2026-11-03T22:23:54.078895+00:00",
+  "source_kind": "Existing installed native compiler/headers and Cargo registry sources; no source text changed.",
+  "kernel": "Linux6.8.0-138-generic on physical Intel Haswell abyss",
+  "installed_header_package": "linux-libc-dev6.8.0-147.147",
+  "installed_vmx_header_package": "linux-headers-6.8.0-147-generic",
+  "header_revision_boundary": "Installed headers are newer than the running kernel; exact hashes are pinned and this API/layout was exercised against the running kernel. Exact Ubuntu source URL for these installed bytes is unknown.",
+  "sdk": {
+    "kvm_ioctls": "0.25.1",
+    "kvm_bindings": "0.14.2"
+  },
+  "api_reference": {
+    "path": "docs/development/kvm-public-state/references/kvm-api-v6.8.rst",
+    "sections": [
+      "4.114 KVM_GET_NESTED_STATE",
+      "4.115 KVM_SET_NESTED_STATE"
+    ],
+    "sha256": "efba2788716266a451103fabfd1f9edfe390b76d07a464e71f840cc278936155"
+  },
+  "references": {
+    "references/host-asm-kvm.h": {
+      "bytes": 13358,
+      "sha256": "2600204930ed2279aa82513d022781d86a7cb4b5cd5dfdf1345dfcb652604d36"
+    },
+    "references/host-linux-kvm.h": {
+      "bytes": 63774,
+      "sha256": "d8a78f6d925507350cf545ea1d82961f87143896d4db672db7e878e6af3fc847"
+    },
+    "references/host-vmx.h": {
+      "bytes": 26715,
+      "sha256": "cf5711bcce956d968018b0beb579c21bf688beae7570aec045541a36a12eee5f"
+    },
+    "references/kvm-bindings-0.14.2-nested.rs": {
+      "bytes": 3839,
+      "sha256": "59d51392ba87a88303a73e0fd38406365d93ddb835affd7049b94740e7529865"
+    },
+    "references/kvm-bindings-LICENSE": {
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "references/kvm-ioctls-0.25.1-vcpu.rs": {
+      "bytes": 140981,
+      "sha256": "3e8ce56ff3caa5367318921a30c5f47b8f8048cd5dec864e1092b6425a7d746a"
+    },
+    "references/kvm-ioctls-LICENSE-APACHE": {
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "references/kvm-ioctls-LICENSE-MIT": {
+      "bytes": 1024,
+      "sha256": "6ae314acf8e015716cdfbed46fdc6ded0a599411b8b98cd61c87f9940f85ffc7"
+    }
+  },
+  "prototype": {
+    "source": "nested.rs",
+    "sha256": "326eeb74cab78f6e0af97db0f277319a44adc930028c182a36cb17495f112e50",
+    "integrated": false
+  },
+  "fixture_manifest": {
+    "active-vmcs.bin": {
+      "bytes": 4224,
+      "sha256": "7ee8877455a2e97cf2fa8716065e68099887ec606d66eb1966ea9b9e60407b04"
+    },
+    "inactive.bin": {
+      "bytes": 128,
+      "sha256": "b75a8ea10e866c0aebcbfa9f56997ef9b0867679ffdbf3da9264e634168cecae"
+    }
+  }
+}

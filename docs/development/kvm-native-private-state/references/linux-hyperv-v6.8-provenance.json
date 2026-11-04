@@ -1,0 +1,9 @@
+{
+  "file": "linux-hyperv-v6.8.c",
+  "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/hyperv.c",
+  "bytes": 78567,
+  "sha256": "336a440a80b492bf78e965630397995fd4b3e7e49cc220e53c440ca9ba52b15e",
+  "retrieved_utc": "2026-11-03T23:20:17.964006+00:00",
+  "license": "GPL-2.0-only; original SPDX and copyright notices retained",
+  "scope": "Unmodified Linux v6.8 Hyper-V implementation, distinct from the actual Ubuntu running-kernel revision."
+}

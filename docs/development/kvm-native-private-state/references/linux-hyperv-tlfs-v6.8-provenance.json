@@ -1,0 +1,9 @@
+{
+  "file": "linux-hyperv-tlfs-v6.8.h",
+  "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/include/asm/hyperv-tlfs.h",
+  "bytes": 22896,
+  "sha256": "a03e7c8ae00c35ee39c64c2bb38e2abeb234c01c342c6066acf796910ea432bf",
+  "retrieved_utc": "2026-11-03T23:29:09.177682+00:00",
+  "license_header": "/* SPDX-License-Identifier: GPL-2.0 */",
+  "scope": "Unmodified primary constant definitions; original notices retained."
+}

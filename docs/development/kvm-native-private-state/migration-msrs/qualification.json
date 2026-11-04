@@ -1,0 +1,23 @@
+{
+  "utc": "2026-11-03T23:48:42.256850+00:00",
+  "status": "native_capture_and_stored_restore_prototype_not_integrated",
+  "main_applied": false,
+  "complete_native_producer": false,
+  "complete_clock_restore": false,
+  "native_graphs": 6,
+  "source_free_cpu_banks": 14,
+  "stored_registers_without_lapic": 89,
+  "stored_registers_with_lapic": 92,
+  "retained_counter_registers_per_cpu": 3,
+  "malformed_records_rejected_with_stored_bank_unchanged": 112,
+  "helper_sha256": "682a54f714ab77faa3be3a33dd5f26a0c6168cc50b5fef5792d79a3d35f97500",
+  "source_interface": "Stopped actual RAX-owned native SDK CPU/VM/RAM graphs with exact CPUID/admission code; no guest entered.",
+  "remaining": [
+    "Coordinated common-cut/first-entry clock restoration for all retained counters and native clock phase.",
+    "Cross-CPU/shared alias coordination, complete cross-bank/CPUID capability admission and integration of disposable-stage readback before any live publication.",
+    "Complete CPU/nested/XCR/XSAVE/event/MP/LAPIC banks, shared controllers/timers and in-flight native/device completion.",
+    "Integration with complete coordinated publication/rollback and actual source-free VM bundle continuation at1/2/4 CPUs."
+  ],
+  "read_only_value_controls_rejected_after_disposable_stage": 28,
+  "stored_bank_readback_checked": true
+}

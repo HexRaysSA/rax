@@ -1,0 +1,33 @@
+{
+  "utc": "2026-11-04T01:05:00.571005+00:00",
+  "exit_code": 1,
+  "commands": [
+    {
+      "label": "compile",
+      "argv": [
+        "cc",
+        "-std=gnu11",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-rebase-v1/probe.c",
+        "-o",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-rebase-v1/probe-bin"
+      ],
+      "exit_code": 1,
+      "elapsed_seconds": 1.5396578246727586,
+      "log": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-rebase-v1/probe.c: In function \u2018main\u2019:\n/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-rebase-v1/probe.c:177:20: error: format \u2018%lu\u2019 expects argument of type \u2018long unsigned int\u2019, but argument 10 has type \u2018__u64\u2019 {aka \u2018long long unsigned int\u2019} [-Werror=format=]\n  177 |             printf(\"{\\\"cpu_count\\\":%u,\\\"irqchip\\\":%s,\\\"source_graph_destroyed\\\":true,\"\n      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n......\n  186 |                    f.khz[0], f.clock.flags, f.clock.host_tsc,\n      |                                             ~~~~~~~~~~~~~~~~\n      |                                                    |\n      |                                                    __u64 {aka long long unsigned int}\nIn file included from /tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-rebase-v1/probe.c:3:\n/usr/include/inttypes.h:105:41: note: format string is defined here\n  105 | # define PRIu64         __PRI64_PREFIX \"u\"\n/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-rebase-v1/probe.c:177:20: error: format \u2018%lu\u2019 expects argument of type \u2018long unsigned int\u2019, but argument 11 has type \u2018__u64\u2019 {aka \u2018long long unsigned int\u2019} [-Werror=format=]\n  177 |             printf(\"{\\\"cpu_count\\\":%u,\\\"irqchip\\\":%s,\\\"source_graph_destroyed\\\":true,\"\n      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n......\n  187 |                    f.clock.clock, observed.clock, after_get - before_set);\n      |                    ~~~~~~~~~~~~~\n      |                           |\n      |                           __u64 {aka long long unsigned int}\n/usr/include/inttypes.h:105:41: note: format string is defined here\n  105 | # define PRIu64         __PRI64_PREFIX \"u\"\n/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-rebase-v1/probe.c:177:20: error: format \u2018%lu\u2019 expects argument of type \u2018long unsigned int\u2019, but argument 12 has type \u2018__u64\u2019 {aka \u2018long long unsigned int\u2019} [-Werror=format=]\n  177 |             printf(\"{\\\"cpu_count\\\":%u,\\\"irqchip\\\":%s,\\\"source_graph_destroyed\\\":true,\"\n      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n......\n  187 |                    f.clock.clock, observed.clock, after_get - before_set);\n      |                                   ~~~~~~~~~~~~~~\n      |                                           |\n      |                                           __u64 {aka long long unsigned int}\n/usr/include/inttypes.h:105:41: note: format string is defined here\n  105 | # define PRIu64         __PRI64_PREFIX \"u\"\ncc1: all warnings being treated as errors\n"
+    }
+  ],
+  "source_sha256": "872b94a6e08d15b5e8d8fbf861aae29fce6349e323e3334ece79a859f88933d3",
+  "source_unchanged": true,
+  "headers_sha256": {
+    "/usr/include/linux/kvm.h": "d8a78f6d925507350cf545ea1d82961f87143896d4db672db7e878e6af3fc847",
+    "/usr/include/x86_64-linux-gnu/asm/kvm.h": "2600204930ed2279aa82513d022781d86a7cb4b5cd5dfdf1345dfcb652604d36"
+  },
+  "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+  "kernel": "Linux abyss 6.8.0-138-generic #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "cleanup": null,
+  "scope": "Independent direct-UAPI common native TSC-offset/VM-clock protocol, fresh source-free 1/2/4 CPU graphs with both kernel IRQchip modes. No guest enters and this is not an integrated checkpoint producer."
+}

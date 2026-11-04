@@ -1,0 +1,33 @@
+{
+  "utc": "2026-11-03T22:17:49.015582+00:00",
+  "commands": [
+    {
+      "argv": [
+        "cc",
+        "-std=gnu11",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v4/probe.c",
+        "-o",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v4/probe-bin"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v4/probe-bin"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"phase\":\"setup\",\"vmx_basic\":60816187455798992,\"cr0_fixed0\":2147483681,\"cr4_fixed0\":8192}\n{\"phase\":\"source_vmxon\",\"result\":0,\"errno\":0,\"reason\":2,\"rip\":4131,\"rax\":2,\"port\":128}\n{\"phase\":\"source_output_completion\",\"result\":-1,\"errno\":4,\"reason\":2,\"rip\":4133,\"rax\":2,\"port\":128}\n{\"phase\":\"captured\",\"capacity\":8320,\"size\":4224,\"format\":0,\"flags\":0,\"vmxon_pa\":32768,\"vmcs12_pa\":36864}\n{\"phase\":\"setup\",\"vmx_basic\":60816187455798992,\"cr0_fixed0\":2147483681,\"cr4_fixed0\":8192}\n{\"phase\":\"public_only_vmxoff\",\"result\":0,\"errno\":0,\"reason\":8,\"rip\":4133,\"rax\":2,\"port\":0}\n{\"phase\":\"setup\",\"vmx_basic\":60816187455798992,\"cr0_fixed0\":2147483681,\"cr4_fixed0\":8192}\n{\"phase\":\"private_restore_vmxoff\",\"result\":0,\"errno\":0,\"reason\":2,\"rip\":4156,\"rax\":2,\"port\":129}\n{\"phase\":\"private_output_completion\",\"result\":-1,\"errno\":4,\"reason\":2,\"rip\":4158,\"rax\":2,\"port\":129}\n{\"phase\":\"private_halt\",\"result\":0,\"errno\":0,\"reason\":5,\"rip\":4159,\"rax\":2,\"port\":0}\n{\"phase\":\"complete\",\"source_free_private_restore\":true}\n",
+      "stderr": ""
+    }
+  ],
+  "source_sha256": {
+    "probe.c": "72add95169fbd4df6f4e340a5e94aab9116915b26a0e69c5849c8439cde8aeb6"
+  },
+  "scope": "Loaded VMCS source-free continuation with nonzero GUEST_RIP field0x4142434445464748; complete actual-size VMCS12 tail retained. Not a complete checkpoint producer or active L2 guest."
+}

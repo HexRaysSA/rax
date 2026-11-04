@@ -1,0 +1,78 @@
+{
+  "utc": "2026-11-04T00:38:35.893352+00:00",
+  "exit_code": 0,
+  "commands": [
+    {
+      "label": "fmt",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--manifest-path",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/bank-wire-contract-v1/source/Cargo.toml",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.17776622995734215,
+      "log": "",
+      "source_unchanged": true
+    },
+    {
+      "label": "build",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--manifest-path",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/bank-wire-contract-v1/source/Cargo.toml"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 17.28531775996089,
+      "log": "    Updating crates.io index\n     Locking 2 packages to latest Rust 1.98.0 compatible versions\n      Adding zerocopy v0.8.23 (available: v0.8.63)\n      Adding zerocopy-derive v0.8.23 (available: v0.8.63)\n Downloading crates ...\n  Downloaded zerocopy-derive v0.8.23\n  Downloaded zerocopy v0.8.23\n   Compiling syn v3.0.5\n   Compiling syn v2.0.119\n   Compiling libc v0.2.189\n   Compiling zerocopy v0.8.23\n   Compiling vmm-sys-util v0.15.0\n   Compiling serde_derive v1.0.229\n   Compiling serde v1.0.229\n   Compiling zerocopy-derive v0.8.23\n   Compiling uklad v1.0.0\n   Compiling kvm-bindings v0.14.2\n   Compiling kvm-ioctls v0.25.1\n   Compiling rax-kvm-bank-contract v0.1.0 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/bank-wire-contract-v1/source)\nwarning: function `deserialize` is never used\n  --> src/codec.rs:20:8\n   |\n20 | pub fn deserialize<'a, T>(bytes: &'a [u8]) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^\n   |\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `deserialize_strict` is never used\n  --> src/codec.rs:28:8\n   |\n28 | pub fn deserialize_strict<'a, T>(bytes: &'a [u8]) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^^^^^^^^\n\nwarning: function `serialize_into` is never used\n  --> src/codec.rs:41:8\n   |\n41 | pub fn serialize_into<W, T>(mut writer: W, value: &T) -> Result<(), uklad::error::EncodeError>\n   |        ^^^^^^^^^^^^^^\n\nwarning: function `deserialize_from` is never used\n  --> src/codec.rs:51:8\n   |\n51 | pub fn deserialize_from<R, T>(mut reader: R) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^^^^^^\n\nwarning: function `serialize_limited` is never used\n  --> src/codec.rs:61:8\n   |\n61 | pub fn serialize_limited<T>(value: &T, limit: usize) -> Result<Vec<u8>, uklad::error::EncodeError>\n   |        ^^^^^^^^^^^^^^^^^\n\nwarning: function `deserialize_from_limited` is never used\n   --> src/codec.rs:118:8\n    |\n118 | pub fn deserialize_from_limited<R, T, const LIMIT: usize>(\n    |        ^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: `rax-kvm-bank-contract` (bin \"rax-kvm-bank-contract\") generated 6 warnings\n    Finished `dev` profile [optimized] target(s) in 17.27s\n",
+      "source_unchanged": true
+    },
+    {
+      "label": "clippy",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "clippy",
+        "--manifest-path",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/bank-wire-contract-v1/source/Cargo.toml",
+        "--locked",
+        "--offline",
+        "--bin",
+        "rax-kvm-bank-contract"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 5.021570987999439,
+      "log": "    Checking libc v0.2.189\n    Checking serde v1.0.229\n    Checking zerocopy v0.8.23\n    Checking uklad v1.0.0\n    Checking vmm-sys-util v0.15.0\n    Checking kvm-bindings v0.14.2\n    Checking kvm-ioctls v0.25.1\n    Checking rax-kvm-bank-contract v0.1.0 (/tmp/rax-kvm-native-entry-ixif9sv1/observations/bank-wire-contract-v1/source)\nwarning: function `deserialize` is never used\n  --> src/codec.rs:20:8\n   |\n20 | pub fn deserialize<'a, T>(bytes: &'a [u8]) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^\n   |\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `deserialize_strict` is never used\n  --> src/codec.rs:28:8\n   |\n28 | pub fn deserialize_strict<'a, T>(bytes: &'a [u8]) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^^^^^^^^\n\nwarning: function `serialize_into` is never used\n  --> src/codec.rs:41:8\n   |\n41 | pub fn serialize_into<W, T>(mut writer: W, value: &T) -> Result<(), uklad::error::EncodeError>\n   |        ^^^^^^^^^^^^^^\n\nwarning: function `deserialize_from` is never used\n  --> src/codec.rs:51:8\n   |\n51 | pub fn deserialize_from<R, T>(mut reader: R) -> Result<T, uklad::error::DecodeError>\n   |        ^^^^^^^^^^^^^^^^\n\nwarning: function `serialize_limited` is never used\n  --> src/codec.rs:61:8\n   |\n61 | pub fn serialize_limited<T>(value: &T, limit: usize) -> Result<Vec<u8>, uklad::error::EncodeError>\n   |        ^^^^^^^^^^^^^^^^^\n\nwarning: function `deserialize_from_limited` is never used\n   --> src/codec.rs:118:8\n    |\n118 | pub fn deserialize_from_limited<R, T, const LIMIT: usize>(\n    |        ^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: `rax-kvm-bank-contract` (bin \"rax-kvm-bank-contract\") generated 6 warnings\n    Finished `dev` profile [optimized] target(s) in 4.78s\n",
+      "source_unchanged": true
+    },
+    {
+      "label": "run",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/rax-kvm-bank-contract"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.1265406170859933,
+      "log": "{\"captured_banks\":10,\"complete_private_producer\":false,\"cpu_count\":1,\"irqchip\":false,\"json_and_actual_legacy_codec\":true,\"malformed_packets_rejected\":160,\"native_setters_during_decode\":false,\"source_graph_destroyed_before_decode\":true}\n{\"captured_banks\":19,\"complete_private_producer\":false,\"cpu_count\":2,\"irqchip\":false,\"json_and_actual_legacy_codec\":true,\"malformed_packets_rejected\":304,\"native_setters_during_decode\":false,\"source_graph_destroyed_before_decode\":true}\n{\"captured_banks\":37,\"complete_private_producer\":false,\"cpu_count\":4,\"irqchip\":false,\"json_and_actual_legacy_codec\":true,\"malformed_packets_rejected\":592,\"native_setters_during_decode\":false,\"source_graph_destroyed_before_decode\":true}\n{\"captured_banks\":12,\"complete_private_producer\":false,\"cpu_count\":1,\"irqchip\":true,\"json_and_actual_legacy_codec\":true,\"malformed_packets_rejected\":192,\"native_setters_during_decode\":false,\"source_graph_destroyed_before_decode\":true}\n{\"captured_banks\":22,\"complete_private_producer\":false,\"cpu_count\":2,\"irqchip\":true,\"json_and_actual_legacy_codec\":true,\"malformed_packets_rejected\":352,\"native_setters_during_decode\":false,\"source_graph_destroyed_before_decode\":true}\n{\"captured_banks\":42,\"complete_private_producer\":false,\"cpu_count\":4,\"irqchip\":true,\"json_and_actual_legacy_codec\":true,\"malformed_packets_rejected\":672,\"native_setters_during_decode\":false,\"source_graph_destroyed_before_decode\":true}\n",
+      "source_unchanged": true
+    }
+  ],
+  "final_companion_lock_sha256": "9dbfdd31c25ad50c636fa1d8a02de2e2ab16a4e739b7fb021ba7bab99b218ee7",
+  "root_lock_unchanged": true,
+  "sole_cargo_target": "/tmp/rax-kvm-native-entry-ixif9sv1/target",
+  "executable_cleanup": {
+    "path": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/rax-kvm-bank-contract",
+    "bytes": 1063016,
+    "sha256": "7ee9565c62e214c5d89b94a1a3d0943ed6a47117259e542ad4efd1f9770a7937",
+    "process_terminal": true
+  },
+  "source_sha256": {
+    "Cargo.toml": "d9658bcef49371918920fcd31f8c8d94c3b0886b74e4903cdafea0bf77948547",
+    "src/bank.rs": "85681232d178e9c99e4ad0aca6674aec5632759cc5c0f72bc63981c99d274fe5",
+    "src/main.rs": "da3f29cf244917d7fbbb2c0cfed56409b013c616272175528479927198ee2494",
+    "src/codec.rs": "ababd7fee6222b3967a195b05c5d004408a672d54cb8bf72f894c0e4953413e3"
+  },
+  "scope": "Fixed-bank wire component with sealed layout-checked SDK types and exact RAX codec source. The tiny companion package uses the sole native Cargo cache and adds no worktree or complete source export.",
+  "complete_native_producer": false
+}

@@ -1,0 +1,47 @@
+{
+  "utc": "2026-11-04T01:08:33.574995+00:00",
+  "exit_code": 0,
+  "commands": [
+    {
+      "label": "compile",
+      "argv": [
+        "cc",
+        "-std=gnu11",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-rebase-v2/probe.c",
+        "-o",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-rebase-v2/probe-bin"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.44730714336037636,
+      "log": ""
+    },
+    {
+      "label": "run",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-rebase-v2/probe-bin"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.1307188207283616,
+      "log": "{\"cpu_count\":1,\"irqchip\":false,\"source_graph_destroyed\":true,\"naive_phase_losses\":0,\"exact_rebased_phases\":1,\"bracketed_unscaled_tsc_reads\":1,\"clock_capture_interval_ticks\":4684,\"tsc_khz\":3491913,\"source_clock_flags\":14,\"source_host_tsc\":354810480987363080,\"source_clock_ns\":10000001626,\"restored_clock_ns\":10000004089,\"clock_set_get_interval_ns\":6450,\"guest_entered\":false,\"complete_checkpoint_producer\":false}\n{\"cpu_count\":2,\"irqchip\":false,\"source_graph_destroyed\":true,\"naive_phase_losses\":1,\"exact_rebased_phases\":2,\"bracketed_unscaled_tsc_reads\":2,\"clock_capture_interval_ticks\":4692,\"tsc_khz\":3491913,\"source_clock_flags\":0,\"source_host_tsc\":0,\"source_clock_ns\":10000001661,\"restored_clock_ns\":10000002837,\"clock_set_get_interval_ns\":3722,\"guest_entered\":false,\"complete_checkpoint_producer\":false}\n{\"cpu_count\":4,\"irqchip\":false,\"source_graph_destroyed\":true,\"naive_phase_losses\":3,\"exact_rebased_phases\":4,\"bracketed_unscaled_tsc_reads\":4,\"clock_capture_interval_ticks\":4380,\"tsc_khz\":3491913,\"source_clock_flags\":0,\"source_host_tsc\":0,\"source_clock_ns\":10000001928,\"restored_clock_ns\":10000004281,\"clock_set_get_interval_ns\":6862,\"guest_entered\":false,\"complete_checkpoint_producer\":false}\n{\"cpu_count\":1,\"irqchip\":true,\"source_graph_destroyed\":true,\"naive_phase_losses\":0,\"exact_rebased_phases\":1,\"bracketed_unscaled_tsc_reads\":1,\"clock_capture_interval_ticks\":4132,\"tsc_khz\":3491913,\"source_clock_flags\":14,\"source_host_tsc\":354810481233112416,\"source_clock_ns\":10000001371,\"restored_clock_ns\":10000003143,\"clock_set_get_interval_ns\":4145,\"guest_entered\":false,\"complete_checkpoint_producer\":false}\n{\"cpu_count\":2,\"irqchip\":true,\"source_graph_destroyed\":true,\"naive_phase_losses\":1,\"exact_rebased_phases\":2,\"bracketed_unscaled_tsc_reads\":2,\"clock_capture_interval_ticks\":2728,\"tsc_khz\":3491913,\"source_clock_flags\":0,\"source_host_tsc\":0,\"source_clock_ns\":10000001018,\"restored_clock_ns\":10000002842,\"clock_set_get_interval_ns\":5732,\"guest_entered\":false,\"complete_checkpoint_producer\":false}\n{\"cpu_count\":4,\"irqchip\":true,\"source_graph_destroyed\":true,\"naive_phase_losses\":3,\"exact_rebased_phases\":4,\"bracketed_unscaled_tsc_reads\":4,\"clock_capture_interval_ticks\":4582,\"tsc_khz\":3491913,\"source_clock_flags\":0,\"source_host_tsc\":0,\"source_clock_ns\":10000001887,\"restored_clock_ns\":10000004039,\"clock_set_get_interval_ns\":6848,\"guest_entered\":false,\"complete_checkpoint_producer\":false}\n"
+    }
+  ],
+  "source_sha256": "7fb5732f88e4909a983bc9955ee7c9a4570b87fb2a1e8fa22c24bb5f6e5340e7",
+  "source_unchanged": true,
+  "headers_sha256": {
+    "/usr/include/linux/kvm.h": "d8a78f6d925507350cf545ea1d82961f87143896d4db672db7e878e6af3fc847",
+    "/usr/include/x86_64-linux-gnu/asm/kvm.h": "2600204930ed2279aa82513d022781d86a7cb4b5cd5dfdf1345dfcb652604d36"
+  },
+  "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+  "kernel": "Linux abyss 6.8.0-138-generic #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "cleanup": {
+    "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/clock-rebase-v2/probe-bin",
+    "bytes": 16960,
+    "sha256": "279fdb909057d52fdce53dd8f51416f9a50db594cbf8438ef07759d94ee9eebf",
+    "process_terminal": true
+  },
+  "scope": "Independent direct-UAPI common native TSC-offset/VM-clock protocol, fresh source-free 1/2/4 CPU graphs with both kernel IRQchip modes. No guest enters and this is not an integrated checkpoint producer."
+}

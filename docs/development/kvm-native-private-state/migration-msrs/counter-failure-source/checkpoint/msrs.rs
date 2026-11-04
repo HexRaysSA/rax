@@ -1,0 +1,162 @@
+//! Profile-admitted migration MSRs; advancing clocks have their own producer.
+use crate::error::{Error, Result};
+use kvm_bindings::{CpuId, Msrs, kvm_msr_entry};
+use kvm_ioctls::{Kvm, VcpuFd};
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+
+const TSC: u32 = 0x10;
+const HYPERV_REFERENCE_TIME: u32 = 0x4000_0020;
+const ASYNC_PF_INTERRUPT: u32 = 0x4b56_4d06;
+const ASYNC_PF_INTERRUPT_FEATURE: u32 = 1 << 14;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct Plan {
+    indices: Vec<u32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(super) struct Register {
+    pub(super) index: u32,
+    pub(super) value: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(super) struct Image {
+    registers: Vec<Register>,
+}
+
+fn invalid(message: impl std::fmt::Display) -> Error {
+    Error::InvalidConfig(format!("native KVM migration MSR bank: {message}"))
+}
+
+fn table(entries: &[kvm_msr_entry]) -> Result<Msrs> {
+    Msrs::from_entries(entries).map_err(invalid)
+}
+
+impl Plan {
+    /// Preserve the kernel's migration order. Neither advancing clock MSR is
+    /// ordinary stored state. ASYNC_PF_INT additionally needs the actual KVM
+    /// guest feature and kernel LAPIC; GET support alone does not imply SET.
+    pub(super) fn capture(kvm: &Kvm, guest: &CpuId, irqchip: bool) -> Result<Self> {
+        let features = if super::super::cpuid::has_kvm_signature(guest.as_slice()) {
+            guest
+                .as_slice()
+                .iter()
+                .find(|entry| entry.function == 0x4000_0001 && entry.index == 0)
+                .map_or(0, |entry| entry.eax)
+        } else {
+            0
+        };
+        let indices = kvm.get_msr_index_list()?;
+        let mut seen = HashSet::new();
+        let mut admitted = Vec::new();
+        for &index in indices.as_slice() {
+            if !seen.insert(index) {
+                return Err(invalid("duplicate kernel migration index"));
+            }
+            let feature = match index {
+                0x11 | 0x12 => Some(1 << 0),
+                0x4b56_4d00 | 0x4b56_4d01 => Some(1 << 3),
+                0x4b56_4d02 => Some(1 << 4),
+                0x4b56_4d03 => Some(1 << 5),
+                0x4b56_4d04 => Some(1 << 6),
+                0x4b56_4d05 => Some(1 << 12),
+                0x4b56_4d06 | 0x4b56_4d07 => Some(ASYNC_PF_INTERRUPT_FEATURE),
+                _ => None,
+            };
+            if matches!(index, TSC | HYPERV_REFERENCE_TIME)
+                || feature.is_some_and(|feature| features & feature == 0)
+                || (index == ASYNC_PF_INTERRUPT && !irqchip)
+            {
+                continue;
+            }
+            admitted.push(index);
+        }
+        Ok(Self { indices: admitted })
+    }
+
+    pub(super) fn indices(&self) -> &[u32] {
+        &self.indices
+    }
+}
+
+impl Image {
+    pub(super) fn capture(cpu: &VcpuFd, plan: &Plan) -> Result<Self> {
+        let entries: Vec<_> = plan
+            .indices
+            .iter()
+            .map(|&index| kvm_msr_entry {
+                index,
+                ..Default::default()
+            })
+            .collect();
+        let mut native = table(&entries)?;
+        let count = cpu.get_msrs(&mut native)?;
+        if count != entries.len() {
+            return Err(invalid(format_args!(
+                "read completed {count} of {} entries",
+                entries.len()
+            )));
+        }
+        Ok(Self {
+            registers: native
+                .as_slice()
+                .iter()
+                .map(|entry| Register {
+                    index: entry.index,
+                    value: entry.data,
+                })
+                .collect(),
+        })
+    }
+
+    pub(super) fn registers(&self) -> &[Register] {
+        &self.registers
+    }
+
+    pub(super) fn from_registers(registers: Vec<Register>, plan: &Plan) -> Result<Self> {
+        let image = Self { registers };
+        image.validate(plan)?;
+        Ok(image)
+    }
+
+    pub(super) fn validate(&self, plan: &Plan) -> Result<()> {
+        if self.registers.len() != plan.indices.len()
+            || self
+                .registers
+                .iter()
+                .map(|entry| entry.index)
+                .ne(plan.indices.iter().copied())
+        {
+            return Err(invalid(
+                "record order or membership differs from the selected profile",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Apply only to an exclusively stopped disposable destination or under a
+    /// complete native rollback transaction. SET_MSRS may mutate a prefix on
+    /// failure; this helper does not make the kernel batch transactional.
+    pub(super) fn restore(&self, cpu: &VcpuFd, plan: &Plan) -> Result<()> {
+        self.validate(plan)?;
+        let entries: Vec<_> = self
+            .registers
+            .iter()
+            .map(|entry| kvm_msr_entry {
+                index: entry.index,
+                data: entry.value,
+                ..Default::default()
+            })
+            .collect();
+        let count = cpu.set_msrs(&table(&entries)?)?;
+        if count != entries.len() {
+            return Err(invalid(format_args!(
+                "write completed {count} of {} entries; destination may be partially changed",
+                entries.len()
+            )));
+        }
+        Ok(())
+    }
+}

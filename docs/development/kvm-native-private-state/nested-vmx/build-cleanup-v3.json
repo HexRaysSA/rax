@@ -1,0 +1,18 @@
+{
+  "utc": "2026-11-03T22:25:12.721313+00:00",
+  "removed": [
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-image-v5/probe-bin",
+      "bytes": 9019128,
+      "sha256": "e38ed5bec4851839a11ee85f74360869b0bdffede83cb8e00fc39a072b5d166f"
+    },
+    {
+      "path": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-image-v5/helper.o",
+      "bytes": 22976,
+      "sha256": "6c232b6b505b13a540fe40a6c47ce238b1f006de6cddf2d108fba30f583bf219"
+    }
+  ],
+  "total_bytes": 9042104,
+  "active_references": [],
+  "raw_fixtures_sources_and_terminal_receipts_retained": true
+}

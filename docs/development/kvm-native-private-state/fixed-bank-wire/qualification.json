@@ -1,0 +1,45 @@
+{
+  "status": "native_wire_component_qualified_not_integrated",
+  "main_applied": false,
+  "full_cpu_producer": false,
+  "full_goal": false,
+  "graphs": 6,
+  "cpu_banks": 142,
+  "malformed_packets_rejected": 2272,
+  "root_lock_changed": false,
+  "source_sha256": {
+    "Cargo.toml": "d9658bcef49371918920fcd31f8c8d94c3b0886b74e4903cdafea0bf77948547",
+    "src/bank.rs": "85681232d178e9c99e4ad0aca6674aec5632759cc5c0f72bc63981c99d274fe5",
+    "src/main.rs": "da3f29cf244917d7fbbb2c0cfed56409b013c616272175528479927198ee2494",
+    "src/codec.rs": "ababd7fee6222b3967a195b05c5d004408a672d54cb8bf72f894c0e4953413e3"
+  },
+  "assumptions": [
+    {
+      "id": "WIRE1",
+      "assumption": "Only the sealed fixed SDK structures are admitted as native POD banks",
+      "stress_test": "Roundtrip all 12 admitted kinds using actual native GET results",
+      "status": "confirmed for captured layouts",
+      "basis": "Archived kvm-bindings 0.14.2 UAPI/serialization source and exact physical KVM observations in native.json",
+      "dependent_result": "Only the component qualification described by this record; no complete CPU or VM checkpoint claim",
+      "falsification_probe": "Build the retained companion manifest with the recorded dependency lock and run the retained probe; any equality/rejection assertion failure falsifies this component claim"
+    },
+    {
+      "id": "WIRE2",
+      "assumption": "The strict bank must not inherit SDK legacy padding and truncation",
+      "stress_test": "Observe SDK normalization and reject 16 malformed JSON/binary packets per fixture",
+      "status": "confirmed for 142 fixtures",
+      "basis": "Archived kvm-bindings 0.14.2 UAPI/serialization source and exact physical KVM observations in native.json",
+      "dependent_result": "Only the component qualification described by this record; no complete CPU or VM checkpoint claim",
+      "falsification_probe": "Build the retained companion manifest with the recorded dependency lock and run the retained probe; any equality/rejection assertion failure falsifies this component claim"
+    },
+    {
+      "id": "WIRE3",
+      "assumption": "Wire validation alone does not admit architectural contents or supply transactional restoration",
+      "stress_test": "No native SET occurs during decoding; full CPU/shared/inflight producer remains absent",
+      "status": "retained boundary",
+      "basis": "Archived kvm-bindings 0.14.2 UAPI/serialization source and exact physical KVM observations in native.json",
+      "dependent_result": "Only the component qualification described by this record; no complete CPU or VM checkpoint claim",
+      "falsification_probe": "Build the retained companion manifest with the recorded dependency lock and run the retained probe; any equality/rejection assertion failure falsifies this component claim"
+    }
+  ]
+}

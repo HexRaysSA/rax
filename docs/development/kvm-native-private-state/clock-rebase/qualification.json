@@ -1,0 +1,71 @@
+{
+  "status": "native_unscaled_clock_component_qualified_not_integrated",
+  "main_applied": false,
+  "full_goal_complete": false,
+  "source_graphs": 6,
+  "source_free_exact_cpu_phases": 28,
+  "malformed_or_target_controls": 228,
+  "independent_direct_uapi_phases": 14,
+  "independent_naive_phase_losses": 8,
+  "guest_entered": false,
+  "first_entry_gate_implemented": false,
+  "complete_clock_or_checkpoint_producer": false,
+  "host_profile": "Physical Intel Haswell Linux 6.8.0-138; original unscaled native TSC rate, matching destination rate; no guest execution",
+  "source_sha256": {
+    "Cargo.toml": "916f0f05726ca3284ea925a356249513b4524d8a5f7bec022ad14b9af3d67325",
+    "src/bank.rs": "85681232d178e9c99e4ad0aca6674aec5632759cc5c0f72bc63981c99d274fe5",
+    "src/clock.rs": "8a55e299693d89d4cf6d738ac7f4a1298880e8a1b85ff93fe2f3ac95965357fa",
+    "src/main.rs": "3ab1afa4c57eea32a6dc386782cd3e801a3b6820a73b95db76fd5d399f86120e",
+    "src/codec.rs": "ababd7fee6222b3967a195b05c5d004408a672d54cb8bf72f894c0e4953413e3"
+  },
+  "native_lock_sha256": "467cf985386cca0e5837c6703d29e1d17718c0bd3fe583e33b3467441cf672b5",
+  "clock_tolerance_ns": 1000000,
+  "offline_delay_ms_per_destination": 20,
+  "assumptions": [
+    {
+      "id": "CLK1",
+      "assumption": "The selected native TSC profile is unscaled and user TSC reads are permitted",
+      "basis": "Original fresh native rate, get-TSC/offset brackets and physical native execution",
+      "dependent_result": "Common-delta offset arithmetic",
+      "stress_test": "Every CPU in one/two/four graphs, both IRQchip modes, wraparound offset arithmetic",
+      "falsification_probe": "A native GET_TSC falls outside its serialized host-TSC/offset bracket or the target rate differs",
+      "status": "confirmed for the exercised native profile"
+    },
+    {
+      "id": "CLK2",
+      "assumption": "Restoring CPU TSC values independently need not retain their relative phases",
+      "basis": "Archived kernel synchronization/offset code and actual independent C negative controls",
+      "dependent_result": "Use a common delta through the direct offset attribute",
+      "stress_test": "Deliberate one-ms inter-CPU restore delay and source phase separation",
+      "falsification_probe": "Native offset readback differs from the requested common delta or any relative phase changes",
+      "status": "confirmed: eight naive phase losses; all 14 direct and 28 serialized phase controls pass"
+    },
+    {
+      "id": "CLK3",
+      "assumption": "Captured VM time and a host-TSC sample are not an atomic cross-domain observation",
+      "basis": "Serialized before/after TSC sample interval around KVM_GET_CLOCK",
+      "dependent_result": "Retain capture/publication uncertainty instead of claiming zero error",
+      "stress_test": "Divergent CPU phases clear the kernel HOST_TSC/STABLE flags in two/four-CPU cases",
+      "falsification_probe": "A zero or fabricated interval replaces the actual bracket, or HOST_TSC is assumed valid when absent",
+      "status": "retained explicit boundary"
+    },
+    {
+      "id": "CLK4",
+      "assumption": "The callback must run at a real common first-entry gate inside a complete rollback transaction",
+      "basis": "The helper has no owning VMM hook and native setters can change a prefix",
+      "dependent_result": "Full producer integration remains incomplete",
+      "stress_test": "Guest entry during or before multi-CPU publication; native setter failure after an accepted prefix",
+      "falsification_probe": "Any guest entry before completion or failed rollback without a VM-wide entry poison disproves full integration",
+      "status": "not yet established; required integration work"
+    },
+    {
+      "id": "CLK5",
+      "assumption": "CPU references supplied by the owner correspond to distinct retained CPU identities",
+      "basis": "Fresh indexed native constructors and complete ID/rate preflight",
+      "dependent_result": "Graph association and target binding",
+      "stress_test": "Duplicate/reordered IDs, missing CPUs, mismatched rates, huge binary counts",
+      "falsification_probe": "An aliased native FD or changed CPU identity is accepted as a complete owning graph",
+      "status": "confirmed for the exercised constructors; complete owning-graph association remains required"
+    }
+  ]
+}

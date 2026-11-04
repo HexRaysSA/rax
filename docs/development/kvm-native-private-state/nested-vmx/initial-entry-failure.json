@@ -1,0 +1,37 @@
+{
+  "utc": "2026-11-03T22:07:25.864347+00:00",
+  "commands": [
+    {
+      "argv": [
+        "cc",
+        "-std=gnu11",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v1/probe.c",
+        "-o",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v1/probe-bin"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v1/probe-bin"
+      ],
+      "exit_code": -6,
+      "stdout": "{\"phase\":\"setup\",\"vmx_basic\":60816187455798992,\"cr0_fixed0\":2147483681,\"cr4_fixed0\":8192}\n{\"phase\":\"source_vmxon\",\"result\":0,\"errno\":0,\"reason\":9,\"rip\":4096,\"rax\":0,\"port\":0}\n",
+      "stderr": "probe-bin: /tmp/rax-kvm-native-entry-ixif9sv1/observations/nested-state-v1/probe.c:128: main: Assertion `enter(&source,0,\"source_vmxon\")==KVM_EXIT_IO' failed.\n"
+    }
+  ],
+  "source_sha256": "680e633ff9ea6b7b35d6c3f597db38f9508b6f4ed69ea21ab8f7abd9172a4590",
+  "host": "Linux abyss 6.8.0-138-generic #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+  "headers": {
+    "/usr/include/linux/kvm.h": "d8a78f6d925507350cf545ea1d82961f87143896d4db672db7e878e6af3fc847",
+    "/usr/include/x86_64-linux-gnu/asm/kvm.h": "2600204930ed2279aa82513d022781d86a7cb4b5cd5dfdf1345dfcb652604d36"
+  },
+  "scope": "Independent direct KVM UAPI source-free VMXON/VMXOFF continuation; no RAX checkpoint producer implemented."
+}

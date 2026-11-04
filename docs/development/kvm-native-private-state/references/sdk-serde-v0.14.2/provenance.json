@@ -1,0 +1,57 @@
+{
+  "root": "/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/kvm-bindings-0.14.2",
+  "files": [
+    {
+      "path": "Cargo.toml",
+      "bytes": 1534,
+      "sha256": "37e7df7a7ae71bab10b6e5a2446f2ac134386aa2df367188d2f7ba05ac345d93"
+    },
+    {
+      "path": "Cargo.toml.orig",
+      "bytes": 1055,
+      "sha256": "4337030476fd952e56d30110bd8e14db3ac46276bea954182bce86fd27bddd38"
+    },
+    {
+      "path": "src/lib.rs",
+      "bytes": 828,
+      "sha256": "3c962ff44953f7a448ae4477777bcaf52b52290524ba3f431d0ffbbb4b8cc227"
+    },
+    {
+      "path": "src/serialize.rs",
+      "bytes": 2955,
+      "sha256": "7a4da6b5d8e451972900d0e4c6b5260377304fdb4ed0456a0582e445978fd36e"
+    },
+    {
+      "path": "src/x86_64/serialize.rs",
+      "bytes": 9996,
+      "sha256": "d7a9bbe203f34bccc7092a22f0f04b316aee00e240f4c122d571b7b9de083ae5"
+    },
+    {
+      "path": "src/x86_64/bindings.rs",
+      "bytes": 261362,
+      "sha256": "5e65c0e0fc5d42c7a32c1161865fc7356a140ed4d1b21a4a57c1816d7df599ca"
+    },
+    {
+      "path": "src/x86_64/fam_wrappers.rs",
+      "bytes": 10483,
+      "sha256": "cb5e3535aced75ce589d6e7c9a24c867e4133cb40b4be744644942f73bd4bb30"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": ".cargo_vcs_info.json",
+      "bytes": 110,
+      "sha256": "05267091e9dfdac78e91f8b187565f32ac8ead0b58da2ecd9f6208ceb032f352"
+    }
+  ],
+  "package_checksum": "e3819cba3d5b448587dbed4b186fb61b0a8d02c5eb88846c9463aa514afe61a8",
+  "archive_matches_root_lock": true,
+  "installed_files_match_package": true,
+  "license": "Apache-2.0",
+  "retrieved_utc": "2026-11-04T00:04:08.060101+00:00",
+  "source_url": "https://crates.io/api/v1/crates/kvm-bindings/0.14.2/download",
+  "scope": "Installed SDK files match the cached immutable crate byte for byte; archive SHA256 matches the root lock. Original notices retained. Main SDK serde feature remains disabled; no dependency or production-source mutation."
+}
