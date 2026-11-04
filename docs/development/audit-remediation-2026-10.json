@@ -1030,7 +1030,8 @@
         "src/isa/arm/decoder/aarch32/neon/load_store.rs",
         "tests/suites/backend/a32_fp_controls/structure_memory.rs",
         "docs/development/a32-structure-admission/qualification.json",
-        "docs/development/a32-block-admission/qualification.json"
+        "docs/development/a32-block-admission/qualification.json",
+        "docs/development/a32-core-transfers/qualification.json"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
@@ -1046,7 +1047,8 @@
         "Selected classic A32/A64 synchronous trapping,TFV/underflow controls and actual1/2/4 prepared-context producer files are locally qualified. The historical FP-group full root run retained one separately reproduced ptrace/fork test failure. Its test-only isolation followup qualifies a new root run (11944 passed, 0 failed, 35 ignored); see fork-test-isolation/qualification.json. Newer FP8/BF16/FPMR/streaming/security/debug,complete native/private/startup/IRQ/clock/replay and physical Intel requirements stay open; no original finding closure. See a32-fp-traps/qualification.json.",
         "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
         "Represented A32/Thumb structure operand spans and R15 bases now select the existing Undefined outcome before access controls; full owning suites and workspace gates are qualified in a32-structure-admission/qualification.json. This does not close broader profile/security/debug or any full original finding.",
-        "Scalar VFP block list/base decode admission before FP access is component-qualified with five observed owning regressions, all582 complete owning cases and eight canonical gates. Broader profile/security/debug/native requirements remain open; no full finding closure. See a32-block-admission/qualification.json."
+        "Scalar VFP block list/base decode admission before FP access is component-qualified with five observed owning regressions, all582 complete owning cases and eight canonical gates. Broader profile/security/debug/native requirements remain open; no full finding closure. See a32-block-admission/qualification.json.",
+        "A32/T32 VMOV core-extension R15 admission before FP access and distinct byte-lane versus paired-register execution dispatch; no additional native FP admission. Unfiltered macOS root: 12275 passed, 2 long-TMPDIR-sensitive socket failures, 35 ignored; retained failing result is not relabeled green. Same executable reproduces both failures at the original TMPDIR and passes the entire 16-case socket module at a short TMPDIR. Two separately signed native ARM64 owner controls pass. Physical A32 and Intel HVF execution remain unproven. Remaining complete A32 profiles/security/debug, complete native/private/shared/in-flight producer and coordinated restore, platform SMP/IRQ/clock/replay and physical Intel requirements remain open."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1078,7 +1080,8 @@
         "a32-synchronous-fp-traps-2026-11-02",
         "aarch64-fpexc32-access-2026-11-02",
         "a32-structure-operand-admission-2026-11-03",
-        "a32-vfp-block-operand-admission-2026-11-03"
+        "a32-vfp-block-operand-admission-2026-11-03",
+        "a32-core-extension-transfer-admission-2026-11-04"
       ]
     },
     {
@@ -2817,7 +2820,8 @@
         "tests/suites/backend/kvm/smp/timers.rs",
         "docs/development/kvm-native-apic/qualification.json",
         "docs/development/kvm-native-apic/canonical-gates.json",
-        "docs/development/kvm-native-apic/linux-startup.json"
+        "docs/development/kvm-native-apic/linux-startup.json",
+        "docs/development/kvm-native-apic/async-pf/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2878,7 +2882,8 @@
         "Native1/2/4 Vmm.run startup, two AP fixed-IPI/EOI/HLT rounds, legacy CPUID identity and pending INIT/input/public-observation ordering are component-qualified in kvm-native-smp/qualification.json. Full topology geometry, complete native/shared/in-flight checkpoint production, clocks/replay and physical Intel remain open; no original finding closure.",
         "Cold direct-kernel KVM MP1.4 CPU/controller discovery is component-qualified in kvm-native-discovery/qualification.json:3 original failures become6 native discovery/startup passes,10 native IO cases pass, and17 canonical gates pass. Linux discovers requested1/2/4 CPU IDs; MPS-only OS activation still requires the separately reproduced PIT speaker repair. Full topology, LAPIC/TSC calibration, native private/shared/in-flight checkpoint production, clocks/replay and physical Intel remain open.",
         "Native PC channel2/port0x61 ownership is component-qualified in kvm-pit-speaker/qualification.json. All3 width regressions fail the original library; final10 native SMP/discovery/PIT/generic-API controls and10 native IO cases pass with17 canonical gates. Final Linux activates exactly1/2/4 CPUs, with complete numeric console lines. Generic create_pit2 flags remain unchanged. LAPIC/TSC calibration, topology, full native private/shared/in-flight checkpoints, clocks/replay and physical Intel remain open.",
-        "Managed native APIC feature admission is component-qualified: kernel LAPIC/capability dependencies determine deadline, x2APIC and PV-unhalt; raw SDK CPUs retain explicit CPUID ownership. Unchanged owning target20pass7fail becomes27pass;10 IO,13 profile and16 public-state cases pass. All18 canonical commands pass. Linux activates1/2/4 CPUs and reports deadline available. Legacy periodic calibration, full native private/shared/in-flight checkpoints, remaining profiles, clocks/replay and physical Intel remain open; no original finding closure."
+        "Managed native APIC feature admission is component-qualified: kernel LAPIC/capability dependencies determine deadline, x2APIC and PV-unhalt; raw SDK CPUs retain explicit CPUID ownership. Unchanged owning target20pass7fail becomes27pass;10 IO,13 profile and16 public-state cases pass. All18 canonical commands pass. Linux activates1/2/4 CPUs and reports deadline available. Legacy periodic calibration, full native private/shared/in-flight checkpoints, remaining profiles, clocks/replay and physical Intel remain open; no original finding closure.",
+        "Kernel-LAPIC-dependent admission of KVM asynchronous-PF bits 4/10/14 and PV-IPI bit 11 for managed configured/SDK-profile CPUs; raw SDK CPUID ownership retained. Native compilation reuses one complete immutable export via three exactly reconstructible module dispatchers. No post-integration Linux Cargo workspace run or additional unfiltered native root execution is claimed. Native root lint reports four existing unrelated numeric-literal warnings. No physical Intel macOS evidence. Complete native CPU/private/shared/in-flight checkpoint production, coordinated replay, remaining A32/HVF profiles and physical Intel macOS qualification remain required."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2965,7 +2970,8 @@
         "kvm-native-mp-firmware-discovery-2026-11-03",
         "kvm-native-pc-pit-speaker-ownership-2026-11-03",
         "kvm-native-topology-and-clock-discovery-2026-11-03",
-        "kvm-native-apic-feature-admission-2026-11-03"
+        "kvm-native-apic-feature-admission-2026-11-03",
+        "kvm-async-pf-pv-ipi-admission-2026-11-04"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -3672,7 +3678,8 @@
         "tests/suites/backend/kvm/smp/timers.rs",
         "docs/development/kvm-native-apic/qualification.json",
         "docs/development/kvm-native-apic/canonical-gates.json",
-        "docs/development/kvm-native-apic/linux-startup.json"
+        "docs/development/kvm-native-apic/linux-startup.json",
+        "docs/development/kvm-native-apic/async-pf/qualification.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3723,7 +3730,8 @@
         "Native1/2/4 Vmm.run startup, two AP fixed-IPI/EOI/HLT rounds, legacy CPUID identity and pending INIT/input/public-observation ordering are component-qualified in kvm-native-smp/qualification.json. Full topology geometry, complete native/shared/in-flight checkpoint production, clocks/replay and physical Intel remain open; no original finding closure.",
         "Cold direct-kernel KVM MP1.4 CPU/controller discovery is component-qualified in kvm-native-discovery/qualification.json:3 original failures become6 native discovery/startup passes,10 native IO cases pass, and17 canonical gates pass. Linux discovers requested1/2/4 CPU IDs; MPS-only OS activation still requires the separately reproduced PIT speaker repair. Full topology, LAPIC/TSC calibration, native private/shared/in-flight checkpoint production, clocks/replay and physical Intel remain open.",
         "Native PC channel2/port0x61 ownership is component-qualified in kvm-pit-speaker/qualification.json. All3 width regressions fail the original library; final10 native SMP/discovery/PIT/generic-API controls and10 native IO cases pass with17 canonical gates. Final Linux activates exactly1/2/4 CPUs, with complete numeric console lines. Generic create_pit2 flags remain unchanged. LAPIC/TSC calibration, topology, full native private/shared/in-flight checkpoints, clocks/replay and physical Intel remain open.",
-        "Managed native APIC feature admission is component-qualified: kernel LAPIC/capability dependencies determine deadline, x2APIC and PV-unhalt; raw SDK CPUs retain explicit CPUID ownership. Unchanged owning target20pass7fail becomes27pass;10 IO,13 profile and16 public-state cases pass. All18 canonical commands pass. Linux activates1/2/4 CPUs and reports deadline available. Legacy periodic calibration, full native private/shared/in-flight checkpoints, remaining profiles, clocks/replay and physical Intel remain open; no original finding closure."
+        "Managed native APIC feature admission is component-qualified: kernel LAPIC/capability dependencies determine deadline, x2APIC and PV-unhalt; raw SDK CPUs retain explicit CPUID ownership. Unchanged owning target20pass7fail becomes27pass;10 IO,13 profile and16 public-state cases pass. All18 canonical commands pass. Linux activates1/2/4 CPUs and reports deadline available. Legacy periodic calibration, full native private/shared/in-flight checkpoints, remaining profiles, clocks/replay and physical Intel remain open; no original finding closure.",
+        "Kernel-LAPIC-dependent admission of KVM asynchronous-PF bits 4/10/14 and PV-IPI bit 11 for managed configured/SDK-profile CPUs; raw SDK CPUID ownership retained. Native compilation reuses one complete immutable export via three exactly reconstructible module dispatchers. No post-integration Linux Cargo workspace run or additional unfiltered native root execution is claimed. Native root lint reports four existing unrelated numeric-literal warnings. No physical Intel macOS evidence. Complete native CPU/private/shared/in-flight checkpoint production, coordinated replay, remaining A32/HVF profiles and physical Intel macOS qualification remain required."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3786,7 +3794,8 @@
         "kvm-native-mp-firmware-discovery-2026-11-03",
         "kvm-native-pc-pit-speaker-ownership-2026-11-03",
         "kvm-native-topology-and-clock-discovery-2026-11-03",
-        "kvm-native-apic-feature-admission-2026-11-03"
+        "kvm-native-apic-feature-admission-2026-11-03",
+        "kvm-async-pf-pv-ipi-admission-2026-11-04"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -10483,12 +10492,15 @@
     "record_replay": "explicit, deterministic only, includes external events and entropy",
     "incomplete_v7_checkpoints": "reject",
     "proofs": "complete existing bounded SMIR/SBPF families",
-    "publication": "commit completed semantic groups through red; no push",
+    "publication": "Commit each completed semantic group through exact-path git add/red, push master after each commit, verify remote master, and remove branches after they join master.",
     "group_workflow": [
       "validate owned changes",
       "git add -- <explicit owned paths>",
       "red -m --staged --run <same explicit owned paths>",
-      "verify actual commit and worktree"
+      "verify exact commit paths, blobs, parent and signature",
+      "git push origin master:master",
+      "verify live remote master and preserve unrelated local state",
+      "remove completed merged branches and unused owned build folders"
     ]
   },
   "quality_gates": [
@@ -198772,6 +198784,35 @@
       "scope": "Kernel-controller/capability-derived native APIC feature admission, four managed CPUID cases and1/2/4 periodic/deadline IRQ/EOI/secondary-HLT witnesses. Preserve raw SDK CPUID ownership.",
       "qualification": "docs/development/kvm-native-apic/qualification.json",
       "validation": "Unchanged whole owning20pass7fail; complete changed production27 SMP+10 IO+13 selected profile+16 selected public-state pass;18 canonical commands pass; independent Linux1/2/4 startup reports deadline available. Full native restoration and original audit goal remain open."
+    },
+    {
+      "id": "a32-core-extension-transfer-admission-2026-11-04",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_validated",
+      "full_goal_complete": false,
+      "scope": "A32/T32 VMOV core-extension R15 admission before FP access and distinct byte-lane versus paired-register execution dispatch; no additional native FP admission.",
+      "qualification": "docs/development/a32-core-transfers/qualification.json",
+      "commit": "df4834911e095e6d6549c8774fcc0fbefe12bf99",
+      "validation": "Final integrated main workspace formatting and all-target Clippy passed. Complete arm/arm_vfp_a32/isa_oracle binaries passed 46850/524/102 cases with zero failures, ignores or filters. Complete product and mixed executor match all 216 independent QEMU records. Mixed controls additionally cover 80 invalid combinations and 20 failed predicates.",
+      "validation_limits": "Unfiltered macOS root: 12275 passed, 2 long-TMPDIR-sensitive socket failures, 35 ignored; retained failing result is not relabeled green. Same executable reproduces both failures at the original TMPDIR and passes the entire 16-case socket module at a short TMPDIR. Two separately signed native ARM64 owner controls pass. Physical A32 and Intel HVF execution remain unproven.",
+      "remaining": "Remaining complete A32 profiles/security/debug, complete native/private/shared/in-flight producer and coordinated restore, platform SMP/IRQ/clock/replay and physical Intel requirements remain open."
+    },
+    {
+      "id": "kvm-async-pf-pv-ipi-admission-2026-11-04",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_validated",
+      "full_goal_complete": false,
+      "scope": "Kernel-LAPIC-dependent admission of KVM asynchronous-PF bits 4/10/14 and PV-IPI bit 11 for managed configured/SDK-profile CPUs; raw SDK CPUID ownership retained.",
+      "qualification": "docs/development/kvm-native-apic/async-pf/qualification.json",
+      "commit": "ba71711947ed093b4ddddceeeabc52992d5df253",
+      "validation": "Complete physical Haswell KVM production graph: 27 SMP, 10 I/O and 14 minimal owning cases pass with zero top-level ignores/filters. Pure admission 8-pass/2-fail baseline becomes 10-pass/0-fail. Actual managed guest #GP/success and PV-IPI acceptance controls are retained. Final-main packaged workspace formatting/Clippy and separate native complete-library/root-test Clippy compilation pass.",
+      "validation_limits": "Native compilation reuses one complete immutable export via three exactly reconstructible module dispatchers. No post-integration Linux Cargo workspace run or additional unfiltered native root execution is claimed. Native root lint reports four existing unrelated numeric-literal warnings. No physical Intel macOS evidence.",
+      "remaining": "Complete native CPU/private/shared/in-flight checkpoint production, coordinated replay, remaining A32/HVF profiles and physical Intel macOS qualification remain required."
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -198850,6 +198891,8 @@
     "kvm-native-mp-firmware-discovery-2026-11-03",
     "kvm-native-pc-pit-speaker-ownership-2026-11-03",
     "kvm-native-topology-and-clock-discovery-2026-11-03",
-    "kvm-native-apic-feature-admission-2026-11-03"
+    "kvm-native-apic-feature-admission-2026-11-03",
+    "a32-core-extension-transfer-admission-2026-11-04",
+    "kvm-async-pf-pv-ipi-admission-2026-11-04"
   ]
 }
