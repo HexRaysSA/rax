@@ -1,0 +1,41 @@
+{
+  "state": "owning-PE-decoder-validated-over-both-live-NTDLL-views",
+  "utc": "2026-11-05T07:42:51.883581+00:00",
+  "source": "native-loaded-view-parser-v1.rs",
+  "source_sha256": "d43982d642c33123d27f439752f5a27a7a90d245b0093e63cbbf9f373835dc88",
+  "rows": [
+    {
+      "arch": "arm64",
+      "pid": 6600,
+      "creation": "134383379069036093",
+      "exit_code": 0,
+      "source_sha256": "b79f91ab69dc96ec9ab180caabbc35091f450c8caa72516ebda830b50b02ca64",
+      "image_sha256": "9a273689c301b24bb9c6d29d9e7e66ee81e4d098ed082ef27162d2e6fad510c0",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "receipt_sha256": "5862355da5477ec2366ffabc4931302d29b73c6c550e51422ab375361c28f5bd",
+      "observation_file": "observations-arm64-29698-v1.log",
+      "observation_sha256": "52b46323715cecba9d8ef4801ec2069c77def51dbf356d7349c39ec559ff5db3",
+      "code_ranges_match_independent_llvm": true
+    },
+    {
+      "arch": "x64",
+      "pid": 5680,
+      "creation": "134383378140659535",
+      "exit_code": 0,
+      "source_sha256": "b79f91ab69dc96ec9ab180caabbc35091f450c8caa72516ebda830b50b02ca64",
+      "image_sha256": "b65520627828285c76e208148434357f563a08f4fc61235e306698e668aa144e",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "receipt_sha256": "10037f7b719b470e12e13ab453b5d223605434a1edbfd7e5140a2d37c06666fd",
+      "observation_file": "observations-x64-29698-v1.log",
+      "observation_sha256": "1581543e31d033c9acdfaf6a2399b649ed1d2371058519546b5f52bb91d744b6",
+      "code_ranges_match_independent_llvm": true
+    }
+  ],
+  "code_range_count": 15,
+  "entry_range_count": 2078,
+  "redirection_count": 2078,
+  "independent_llvm_version": "23.0.0git",
+  "independent_llvm_record_sha256": "40acf6cef4f32fe62780a5cacbbe5708d100408bf6c416f4886bec0ef6387e59",
+  "scope": "ARM64 Windows host, native ARM64 and translated x64 caller views. Parser checks only; not guest execution, physical AMD64 qualification or full process completion.",
+  "transport": "ARM64 initial RPC255 before root/delivery/claim/progress/receipt/process creation; absence confirmed by read-only metadata, then exact original bootstrap delivered once. No native child restarted."
+}

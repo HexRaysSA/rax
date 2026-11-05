@@ -214,7 +214,13 @@ impl Scheduler {
             } else if t.cpu.pc() == p.traps.thread_start() && !t.apcs.is_empty() {
                 begin_apcs(p, &mut t, None)
             } else {
-                let stop = t.cpu.run(p.cfg.slice_insns.max(1));
+                let stop = if p.modules.has_hybrid_code() {
+                    t.cpu.run_guarded(p.cfg.slice_insns.max(1), |pc| {
+                        p.modules.check_instruction(p.arch, pc)
+                    })
+                } else {
+                    t.cpu.run(p.cfg.slice_insns.max(1))
+                };
                 handle_stop(p, &mut t, stop)
             };
             apply_outcome(p, t, outcome, &mut self.last_exit);
@@ -1016,6 +1022,7 @@ mod tests {
             timestamp: 0,
             exports: Default::default(),
             pdata: Default::default(),
+            hybrid: None,
             no_seh: false,
             safe_seh: None,
             tls: Some(ModuleTls {

@@ -35,6 +35,7 @@ pub mod apiset;
 pub(crate) mod apiset_schema;
 pub mod builtin;
 mod dynamic;
+mod hybrid;
 mod image_copies;
 pub mod ldr;
 mod native_image;
@@ -65,6 +66,7 @@ use super::traps::{SLOT_SIZE, SlotKind};
 use crate::user::image::pe::exports::{
     ExportDirectory, ExportTarget, ForwardSymbol, parse_forwarder,
 };
+use crate::user::image::pe::hybrid::HybridMetadata;
 use crate::user::image::pe::imports::{self, ImportRef};
 use crate::user::image::pe::loadcfg::LoadConfig;
 use crate::user::image::pe::tls::TlsDirectory;
@@ -160,6 +162,8 @@ pub struct Module {
     pub exports: DataDirectory,
     /// The exception directory (`.pdata`).
     pub pdata: DataDirectory,
+    /// Code ISA/ABI ranges from the same selected view as exports and bytes.
+    pub(crate) hybrid: Option<Arc<HybridMetadata>>,
     /// Whether the image has `IMAGE_DLLCHARACTERISTICS_NO_SEH`.
     pub no_seh: bool,
     /// x86 SafeSEH handler table: sorted handler RVAs, when present.
@@ -648,6 +652,7 @@ pub fn load_exe(
         .next()
         .unwrap_or(&win_path)
         .to_string();
+    let hybrid = hybrid::decode(pe)?;
     let base = map_pe(p, pe, &name)?;
     let h = pe.headers();
     let module = Module {
@@ -665,6 +670,7 @@ pub fn load_exe(
         timestamp: h.time_date_stamp,
         exports: h.directory(dir::EXPORT),
         pdata: h.directory(dir::EXCEPTION),
+        hybrid,
         no_seh: h.dll_characteristics & crate::user::image::pe::IMAGE_DLLCHARACTERISTICS_NO_SEH
             != 0,
         safe_seh: None,
@@ -816,6 +822,7 @@ fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadErr
             size: img.export_dir.1,
         },
         pdata: DataDirectory::default(),
+        hybrid: None,
         no_seh: false,
         safe_seh: None,
         tls: None,
@@ -1142,6 +1149,11 @@ fn load_image(
     admit_new_module(p)?;
     let pe = PeImage::parse(bytes)
         .map_err(|e| LoadError::new(STATUS_INVALID_IMAGE_FORMAT, format!("{}: {e}", path)))?;
+    let selected = native_image::select(p, &pe, host_path.as_deref())?;
+    let pe = selected
+        .as_ref()
+        .map(|image| image.pe.clone())
+        .unwrap_or(pe);
     let h = pe.headers();
     if WinArch::from_machine(h.machine) != Some(p.arch) {
         return Err(LoadError::new(
@@ -1158,7 +1170,10 @@ fn load_image(
             "native runtime image mapping exceeds 64 MiB",
         ));
     }
-    let selected_native = native_image::map(p, &pe, host_path.as_deref())?;
+    let hybrid = hybrid::decode(&pe)?;
+    let selected_native = selected
+        .map(|image| native_image::map_selected(p, &pe, image.section, &image.template))
+        .transpose()?;
     let filename = if selected_native.is_none() {
         file.as_ref()
             .map(super::mapped_filename::Filename::image)
@@ -1203,6 +1218,7 @@ fn load_image(
         timestamp: h.time_date_stamp,
         exports: h.directory(dir::EXPORT),
         pdata: h.directory(dir::EXCEPTION),
+        hybrid,
         no_seh: h.dll_characteristics & crate::user::image::pe::IMAGE_DLLCHARACTERISTICS_NO_SEH
             != 0,
         safe_seh: None,

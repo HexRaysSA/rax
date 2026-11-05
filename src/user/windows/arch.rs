@@ -422,12 +422,25 @@ impl WinCpu {
     /// step because the OS-neutral x86 run API has only a time-slice bound.
     /// A zero budget executes no instruction on every architecture.
     pub fn run(&mut self, budget: u64) -> CpuStop {
+        self.run_guarded(budget, |_| Ok(()))
+    }
+
+    /// Runs with an instruction-boundary personality guard. Rejection occurs
+    /// before instruction decoding and leaves the current instruction intact.
+    pub(crate) fn run_guarded(
+        &mut self,
+        budget: u64,
+        mut guard: impl FnMut(u64) -> Result<(), String>,
+    ) -> CpuStop {
         if budget == 0 {
             return CpuStop::Yield;
         }
         match self {
             WinCpu::X86(cpu, _) => {
                 for ordinal in 0..budget {
+                    if let Err(error) = guard(cpu.pc()) {
+                        return CpuStop::Internal(error);
+                    }
                     if let Err(error) = super::system_time::observe(ordinal, cpu.space()) {
                         return CpuStop::Internal(error);
                     }
@@ -443,7 +456,10 @@ impl WinCpu {
                 }
                 CpuStop::Yield
             }
-            WinCpu::Arm64(cpu) => match cpu.run_observed(budget, super::system_time::observe) {
+            WinCpu::Arm64(cpu) => match cpu.run_observed_pc(budget, |ordinal, pc, space| {
+                guard(pc)?;
+                super::system_time::observe(ordinal, space)
+            }) {
                 A64Exit::Svc { imm, pc } => CpuStop::Svc { imm, pc },
                 A64Exit::Brk { imm, pc } => CpuStop::Brk { imm, pc },
                 A64Exit::Undefined { pc, reason } => CpuStop::Undefined { pc, reason },
@@ -627,6 +643,50 @@ mod tests {
                 matches!(stop, CpuStop::X86Event(_) | CpuStop::Brk { imm: 0, .. }),
                 "{arch}: {stop:?}"
             );
+        }
+    }
+
+    #[test]
+    fn instruction_guard_stops_after_a_branch_before_decoding_its_target() {
+        for arch in WinArch::ALL {
+            let code: Vec<u8> = if arch == WinArch::Arm64 {
+                // B +8; NOP; MOVZ X0,#0xABCD.
+                [0x1400_0002u32, 0xD503_201F, 0xD295_79A0]
+                    .into_iter()
+                    .flat_map(u32::to_le_bytes)
+                    .collect()
+            } else {
+                // JMP +2; NOP; NOP; MOV EAX,0xABCD.
+                vec![0xEB, 2, 0x90, 0x90, 0xB8, 0xCD, 0xAB, 0, 0]
+            };
+            let space = space(&code);
+            let mut cpu = WinCpu::new(arch, &space);
+            cpu.set_pc(CODE);
+            cpu.set_gpr(0, 0x55);
+            let mut visits = Vec::new();
+            assert!(matches!(
+                cpu.run_guarded(0, |pc| {
+                    visits.push(pc);
+                    Err("zero budget must not visit".into())
+                }),
+                CpuStop::Yield
+            ));
+            assert!(visits.is_empty());
+            let target = CODE + if arch == WinArch::Arm64 { 8 } else { 4 };
+            let stop = cpu.run_guarded(10, |pc| {
+                visits.push(pc);
+                if pc == target {
+                    Err("ISA transition".into())
+                } else {
+                    Ok(())
+                }
+            });
+            assert!(matches!(stop, CpuStop::Internal(ref message) if message == "ISA transition"));
+            assert_eq!(visits, [CODE, target], "{arch}");
+            assert_eq!(cpu.pc(), target);
+            assert_eq!(cpu.gpr(0), 0x55);
+            assert!(matches!(cpu.run(1), CpuStop::Yield));
+            assert_eq!(cpu.gpr(0), 0xABCD);
         }
     }
 

@@ -14,7 +14,9 @@ const MAX_DLL_BYTES: u64 = 64 << 20;
 
 mod code_integrity_policies;
 mod code_integrity_policy;
+mod image;
 mod system;
+pub(crate) use image::SelectedImage;
 
 pub(crate) fn flush_information(runtime: &NativeRuntime) -> Result<[u8; 32], String> {
     system::capture_flush(&runtime.version, runtime.object_namespace.native_machine)
@@ -117,13 +119,13 @@ impl NativeRuntime {
                 "native code integrity policies have not been captured".into()
             ),
         };
-        let ntdll = PeImage::parse(read_image(
-            &runtime
-                .dll("ntdll.dll")?
-                .ok_or_else(|| invalid("installed NTDLL missing"))?,
-        )?)
-        .map_err(|e| invalid(format!("installed NTDLL: {e}")))?;
-        if WinArch::from_machine(ntdll.headers().machine) != Some(arch) {
+        let ntdll_path = runtime
+            .dll("ntdll.dll")?
+            .ok_or_else(|| invalid("installed NTDLL missing"))?;
+        let ntdll = PeImage::parse(read_image(&ntdll_path)?)
+            .map_err(|e| invalid(format!("installed NTDLL: {e}")))?;
+        let projected_x64 = arch == WinArch::X64 && ntdll.headers().machine == 0xAA64;
+        if WinArch::from_machine(ntdll.headers().machine) != Some(arch) && !projected_x64 {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 "installed NTDLL architecture does not match the guest",
@@ -152,6 +154,16 @@ impl NativeRuntime {
             // that RTL with SyChpe32 dependencies requiring hybrid exports/code.
             // Keep the real host machine and WoW64 CPU information unchanged.
             runtime.object_namespace.select_wow_section_root(false)?;
+        }
+        if projected_x64 {
+            let selected = runtime
+                .installed_view(arch, &ntdll, &ntdll_path)?
+                .ok_or_else(|| invalid("installed NTDLL requires an explicit AMD64 kernel view"))?;
+            if selected.pe.headers().machine != arch.machine() {
+                return Err(invalid(
+                    "installed NTDLL projection does not match the guest",
+                ));
+            }
         }
         runtime.nls = Some(super::nls::snapshot(
             &runtime.registry,
@@ -272,7 +284,7 @@ mod platform {
         } else {
             WinArch::X86
         };
-        let guest = if arch == native {
+        let guest = if arch == native || native == WinArch::Arm64 && arch == WinArch::X64 {
             system.clone()
         } else if arch == WinArch::X86 {
             match directory(GetSystemWow64DirectoryW) {

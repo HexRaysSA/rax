@@ -35,8 +35,10 @@
 //! work on a mapped image buffer as well as on an image in guest memory.
 
 pub mod exports;
+pub mod hybrid;
 pub mod imports;
 pub mod loadcfg;
+mod mapped;
 pub mod pdata;
 pub mod relocs;
 pub mod resources;
@@ -93,6 +95,9 @@ pub enum PeError {
     SectionDataOutOfFile { index: usize },
     /// `AddressOfEntryPoint` lies outside the image.
     BadEntryPoint(u32),
+    /// A selected mapped view does not retain the source image's identity
+    /// and section geometry, or does not contain exactly `SizeOfImage` bytes.
+    MappedViewMismatch,
 }
 
 impl fmt::Display for PeError {
@@ -138,6 +143,9 @@ impl fmt::Display for PeError {
                 write!(f, "section {index}'s data lies outside the file")
             }
             PeError::BadEntryPoint(rva) => write!(f, "entry point {rva:#x} lies outside the image"),
+            PeError::MappedViewMismatch => {
+                f.write_str("mapped PE view disagrees with its source image identity or extent")
+            }
         }
     }
 }
@@ -262,6 +270,7 @@ pub struct PeImage {
     bytes: Arc<[u8]>,
     headers: PeHeaders,
     sections: Vec<SectionHeader>,
+    mapped: Option<Arc<[u8]>>,
 }
 
 /// Returns whether `bytes` begins with an MS-DOS header that points at a PE
@@ -281,11 +290,12 @@ impl PeImage {
     /// Parses and validates an image file.
     pub fn parse(bytes: impl Into<Arc<[u8]>>) -> Result<Self, PeError> {
         let bytes: Arc<[u8]> = bytes.into();
-        let (headers, sections) = decode(&bytes)?;
+        let (headers, sections) = decode(&bytes, false)?;
         Ok(PeImage {
             bytes,
             headers,
             sections,
+            mapped: None,
         })
     }
 
@@ -327,6 +337,9 @@ impl PeImage {
     /// VirtualSize, the remainder of the section is zero-filled." A
     /// low-alignment image is the file's first `SizeOfImage` bytes.
     pub fn memory_image(&self) -> Vec<u8> {
+        if let Some(mapped) = &self.mapped {
+            return mapped.to_vec();
+        }
         let size = self.mapped_size() as usize;
         let mut image = vec![0u8; size];
         if self.low_alignment() {
@@ -429,7 +442,7 @@ fn section_file_range(headers: &PeHeaders, s: &SectionHeader) -> (u64, u64) {
 }
 
 /// Decodes and validates the headers and the section table.
-fn decode(bytes: &[u8]) -> Result<(PeHeaders, Vec<SectionHeader>), PeError> {
+fn decode(bytes: &[u8], mapped: bool) -> Result<(PeHeaders, Vec<SectionHeader>), PeError> {
     let r = Reader(bytes);
     // The MS-DOS header is 64 bytes; e_lfanew is its last field.
     r.slice(0, 64)?;
@@ -618,7 +631,7 @@ fn decode(bytes: &[u8]) -> Result<(PeHeaders, Vec<SectionHeader>), PeError> {
                 return Err(PeError::BadSectionLayout { index });
             }
         }
-        if len != 0 && r.slice(off, len).is_err() {
+        if !mapped && len != 0 && r.slice(off, len).is_err() {
             return Err(PeError::SectionDataOutOfFile { index });
         }
     }

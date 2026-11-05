@@ -1,0 +1,147 @@
+{
+  "state": "projected-known-dll-loader-candidate-qualified",
+  "utc": "2026-11-05T08:32:25.544666+00:00",
+  "baseline_head": "58aeaa9a07e0e9db978be356efdd9a7282cf4d33",
+  "source_frame": {
+    "src/user/cpu/aarch64.rs": "7b160e704ca0bed80eb0291aeb39bb0f60a7da30b85df25daa60b5139641da09",
+    "src/user/image/pe/loadcfg.rs": "3636c12c0358e80e32abe8c3e80306ee056cafc1ba69015a31c55eea05ca933c",
+    "src/user/image/pe/mod.rs": "72b288079169e746741e730099e449fbc2b8d8eb063cb74e7eb335334cc92bbc",
+    "src/user/image/pe/tests.rs": "ff11e4e5ae22e3cffcc3429d12d81d309811de8efb27e08b3a732aad871b297b",
+    "src/user/windows/arch.rs": "f4ca87c47f79a0ab1e0f9c0d0478f7c8b6914617b00ecbf12d3ffe2292b029fb",
+    "src/user/windows/loader/dynamic_tests.rs": "bb8331d89f29ddd4da6f1b43817c3f1d63a535be737e342fee3d95096bb83bec",
+    "src/user/windows/loader/mod.rs": "d423d55338719ae9de1eb755f51852226622c3f10d6178f9527f9c555d4311a9",
+    "src/user/windows/loader/native_image.rs": "c4be16abf3c1df503fac74d3fbbfc88ec4f85edc9652e95f0631d8bcdfdd573a",
+    "src/user/windows/loader/native_image_tests.rs": "299983a0417b73d5f9343ac6f7d6eb77aa792242dcefecac8c90e063774553a4",
+    "src/user/windows/native.rs": "21b90f104ad5c79b22180fed05fe3d8733d85a0dd684e94237ff770247271ec2",
+    "src/user/windows/process/lifecycle.rs": "9df7b50a02c73765e411558f5db437d3fc00694114def75798ceb1b7fd0035d5",
+    "src/user/windows/process/sched.rs": "cf84749863959782a2357ca7426f76c46cad63fb68c841f9cad235448ba5856c",
+    "src/user/image/pe/mapped.rs": "4f0b5f3ef54e1ead886f1eda581f577a9937ca7c17c92d74b410a16008c61fc8",
+    "src/user/image/pe/mapped_tests.rs": "54337bd90842dcd7c8a1b03f595ebbcf36e1cb7740fbc22d5c337df63bd07671",
+    "src/user/image/pe/hybrid.rs": "661d6f2b909f0af1b75e0990d7ea4cf525ca4f5407ea6bd5d8d263badf4d5f55",
+    "src/user/image/pe/hybrid_tests.rs": "11f8891656eec3a28b4516537b0ce2bb149cbf634c550ad3b1518c123d0eb979",
+    "src/user/windows/native/image.rs": "d7ff9341a7ce3c9bd18f5169a728acd15be91b218b5c2d272c2715fe93963e74",
+    "src/user/windows/loader/hybrid.rs": "1208808cdc22a10e04cedffcf72c9fcf87f0bda498aeedd80a6a544289d570cd",
+    "src/user/windows/loader/hybrid_tests.rs": "b5e76085bf4eabbdf285664ccde30e64a0a41ceb6b9a1298663a7a788938d79c"
+  },
+  "rows": [
+    {
+      "platform": "macos",
+      "passed": 159,
+      "failed": 0,
+      "ignored": 0,
+      "image": {
+        "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/library-arm64x-view-v3-macos-v1",
+        "bytes": 840639648,
+        "sha256": "4a358e9213d3a11803f0ae88f26646425ac6493f70c03cc46e18975580df4da8"
+      },
+      "native": null,
+      "receipt_sha256": "eeae1f6c353ee46559ae18897df19fcfadd50a266c5d1043e725f07aac2a2583",
+      "stdout_sha256": "da7fd23558aefdeeda3505a5e9d7fabeab2788174c86a90c24a7cd93309a235b"
+    },
+    {
+      "platform": "linux",
+      "passed": 159,
+      "failed": 0,
+      "ignored": 0,
+      "image": {
+        "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/library-arm64x-view-v3-linux-v1",
+        "bytes": 816110280,
+        "sha256": "68887e6158332cbb769ae1805bd7a3129ed85fc54d227b29bc2b20c94b1ca724"
+      },
+      "native": null,
+      "receipt_sha256": "972ebceef73e44c11da92f05c4774fbe5494ac427732fc3f9868a84ac2342322",
+      "stdout_sha256": "d858e5a99e3119f461915d1baa54e3ffcdb0663574e2aab236033af594c11a8c"
+    },
+    {
+      "platform": "arm64",
+      "passed": 164,
+      "failed": 0,
+      "ignored": 0,
+      "image": {
+        "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/library-arm64x-view-v3-arm64-v1.exe",
+        "bytes": 788131328,
+        "sha256": "a298ffe7e47fbb11d239eec2bb4882f8ded8e3bd3f1f1feecbe163ef4d293030"
+      },
+      "native": {
+        "pid": 8680,
+        "creation": "134383402769804438",
+        "source_binding_sha256": "4c522ab927cf40e859dac8450a52b5a3301e89fc87587a6ffea9103554edc983",
+        "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf",
+        "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+      },
+      "receipt_sha256": "4de5f499f72a0712a6f804dc28a8c3c0a186b9cd9cf8d1e0c75d2003f5e4de03",
+      "stdout_sha256": "f9eed4bd9013f99177b8777e71c3456b6b1ebd650bd6001edef1ea8caedd12cc"
+    },
+    {
+      "platform": "x64",
+      "passed": 164,
+      "failed": 0,
+      "ignored": 0,
+      "image": {
+        "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/library-arm64x-view-v3-x64-v1.exe",
+        "bytes": 799865856,
+        "sha256": "077b6ea2877c6f54384e45c20a19294a18774d8b1520856fd9a6a7b074d88b42"
+      },
+      "native": {
+        "pid": 1304,
+        "creation": "134383401501972643",
+        "source_binding_sha256": "316462b0de1401f722565114d53cb9b9a24c8a00345ac0230cc933b4077d5974",
+        "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf",
+        "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+      },
+      "receipt_sha256": "1751cc6eb692895b3509a4ec4e2d6198e44d830e6ea42b6f5c721b957bd00f9a",
+      "stdout_sha256": "e71012d9b3754ff99883d5cd21ddc08e74f9beed4432c9da4ea4dea0923acb8b"
+    }
+  ],
+  "passed": 646,
+  "failed": 0,
+  "ignored": 0,
+  "clippy": {
+    "rows": [
+      {
+        "platform": "macos",
+        "exit_code": 0,
+        "owned_diagnostics": 0,
+        "other_diagnostics": []
+      },
+      {
+        "platform": "linux",
+        "exit_code": 0,
+        "owned_diagnostics": 0,
+        "other_diagnostics": []
+      },
+      {
+        "platform": "arm64",
+        "exit_code": 0,
+        "owned_diagnostics": 0,
+        "other_diagnostics": [
+          "\"stdcall\" is not a supported ABI for the current target"
+        ]
+      },
+      {
+        "platform": "x64",
+        "exit_code": 0,
+        "owned_diagnostics": 0,
+        "other_diagnostics": [
+          "\"stdcall\" is not a supported ABI for the current target"
+        ]
+      }
+    ],
+    "source_unchanged": true
+  },
+  "assumptions": [
+    {
+      "id": "VIEW1",
+      "status": "confirmed",
+      "basis": "Source-bound native pre/post DLL hashes and two loaded-view probes; both KnownDLL scouts and full native module selections completed."
+    }
+  ],
+  "scope": "Full affected module selections on native macOS ARM64, Linux amd64 translation, native Windows ARM64 and translated Windows x64. Selected existing service regressions included. Does not establish arbitrary program execution, ARM64EC transitions, physical AMD64 qualification, or completion of the full process goal.",
+  "remaining_high_impact": [
+    "ARM64EC execution/register/context transitions, helper bindings, mixed-ISA unwind and image-extension execution classification remain required.",
+    "Projected non-KnownDLL images and complete mixed-ISA startup remain required."
+  ],
+  "broad_integration": "Separate ongoing native macOS registered process integration run; not counted as a completed gate."
+}

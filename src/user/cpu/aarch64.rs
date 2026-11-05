@@ -295,6 +295,16 @@ impl A64UserCpu {
         budget: u64,
         mut observe: impl FnMut(u64, &AddressSpace) -> Result<(), String>,
     ) -> A64Exit {
+        self.run_observed_pc(budget, |ordinal, _, space| observe(ordinal, space))
+    }
+
+    /// The personality observes the exact PC before every instruction.
+    /// A rejected observation leaves the instruction unexecuted.
+    pub(crate) fn run_observed_pc(
+        &mut self,
+        budget: u64,
+        mut observe: impl FnMut(u64, u64, &AddressSpace) -> Result<(), String>,
+    ) -> A64Exit {
         if !self.space.available() {
             return A64Exit::Internal("guest memory arena is inaccessible".into());
         }
@@ -320,10 +330,10 @@ impl A64UserCpu {
     fn run_inner(
         &mut self,
         budget: u64,
-        observe: &mut impl FnMut(u64, &AddressSpace) -> Result<(), String>,
+        observe: &mut impl FnMut(u64, u64, &AddressSpace) -> Result<(), String>,
     ) -> A64Exit {
         for ordinal in 0..budget {
-            if let Err(error) = observe(ordinal, &self.space) {
+            if let Err(error) = observe(ordinal, self.cpu.get_pc(), &self.space) {
                 return A64Exit::Internal(error);
             }
             let pc = self.cpu.get_pc();

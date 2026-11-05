@@ -1,0 +1,18 @@
+arch=aarch64 machine=aa64 actual_base=7ffa1b310000 preferred_base=7ffa1b310000 size=473000 version=2 code=15 entries=2078 redirects=2078
+export=NtQueryInformationProcess rva=11a0 kind=Some(Arm64) bytes=[21, 03, 00, d4, c0, 03, 5f, d6, 00, 00, 00, 00, 00, 00, 00, 00]
+00001000-0017ffbc Arm64
+00180000-00316fc0 Arm64Ec
+00317000-0032a070 Amd64
+0032b000-0032b600 Arm64
+0032c000-0032c2b0 Amd64
+0032d000-0032d480 Arm64
+0032e000-0032e2b0 Amd64
+0032f000-0032f600 Arm64
+00330000-003302b0 Amd64
+00331000-00331600 Arm64
+00332000-003322b0 Amd64
+00333000-003331f8 Arm64
+00335000-0033526c Arm64Ec
+00336000-003369cc Arm64
+00338000-00339100 Arm64Ec
+external_handles_opened=0 process_signals=0 host_state_changed=false

@@ -1,0 +1,42 @@
+[
+  {
+    "path": "llvm-Object-COFF.h",
+    "url": "https://raw.githubusercontent.com/llvm/llvm-project/952b6f071f7d0ec3e8cc004bb131b9544e949d7c/llvm/include/llvm/Object/COFF.h",
+    "revision": "952b6f071f7d0ec3e8cc004bb131b9544e949d7c",
+    "bytes": 50493,
+    "sha256": "214d3f4a186be95dee7df0d19edaf04408b45f9d243152e2a4c2fb2f762f2320",
+    "retrieved_utc": "2026-11-05T07:23:59.601252+00:00"
+  },
+  {
+    "path": "llvm-COFFObjectFile.cpp",
+    "url": "https://raw.githubusercontent.com/llvm/llvm-project/952b6f071f7d0ec3e8cc004bb131b9544e949d7c/llvm/lib/Object/COFFObjectFile.cpp",
+    "revision": "952b6f071f7d0ec3e8cc004bb131b9544e949d7c",
+    "bytes": 90275,
+    "sha256": "444fc3fafbca8d2c047df81fd22cf295de05d2d06f7c08524464dd143b881743",
+    "retrieved_utc": "2026-11-05T07:23:59.967665+00:00"
+  },
+  {
+    "path": "llvm-LICENSE.TXT",
+    "url": "https://raw.githubusercontent.com/llvm/llvm-project/952b6f071f7d0ec3e8cc004bb131b9544e949d7c/llvm/LICENSE.TXT",
+    "revision": "952b6f071f7d0ec3e8cc004bb131b9544e949d7c",
+    "bytes": 15141,
+    "sha256": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
+    "retrieved_utc": "2026-11-05T07:24:00.320516+00:00"
+  },
+  {
+    "path": "arm64ec-windows-abi-conventions.md",
+    "url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f29e25fb8f05bb38cf0246476b5c1fc92bf33876/docs/build/arm64ec-windows-abi-conventions.md",
+    "revision": "f29e25fb8f05bb38cf0246476b5c1fc92bf33876",
+    "bytes": 16785,
+    "sha256": "e16b942eba426624b993b9bba50aade8d52e07229bd5064e2b8cb6193da99b9a",
+    "retrieved_utc": "2026-11-05T07:24:01.205188+00:00"
+  },
+  {
+    "path": "MicrosoftDocs-LICENSE",
+    "url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f29e25fb8f05bb38cf0246476b5c1fc92bf33876/LICENSE",
+    "revision": "f29e25fb8f05bb38cf0246476b5c1fc92bf33876",
+    "bytes": 18653,
+    "sha256": "9bbc1ea9fe5c96df01b311a2ac864d5b18fc87b9948bfd14770e4b44db755ee9",
+    "retrieved_utc": "2026-11-05T07:24:01.524617+00:00"
+  }
+]

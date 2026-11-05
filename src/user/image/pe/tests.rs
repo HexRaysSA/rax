@@ -14,6 +14,12 @@ use super::*;
 #[path = "audit_tests.rs"]
 mod audit;
 
+#[path = "mapped_tests.rs"]
+mod mapped;
+
+#[path = "hybrid_tests.rs"]
+mod hybrid;
+
 /// One section of a synthetic image.
 #[derive(Clone)]
 struct Sec {

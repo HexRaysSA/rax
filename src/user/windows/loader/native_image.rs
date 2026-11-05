@@ -1,59 +1,30 @@
-//! Initial installed NTDLL shares the selected kernel image's address contract.
+//! Installed projected images share their selected kernel address contracts.
 use super::*;
 use crate::user::windows::object_namespace::{ImageSection, ImageTemplate};
 #[cfg(test)]
 #[path = "native_image_tests.rs"]
 mod tests;
 
-pub(super) fn map(
+pub(super) fn select(
     p: &mut Proc,
     pe: &PeImage,
     path: Option<&Path>,
-) -> Result<Option<u64>, LoadError> {
+) -> Result<Option<super::super::native::SelectedImage>, LoadError> {
     let Some(runtime) = p.native.as_ref() else {
         return Ok(None);
     };
     let Some(path) = path else {
         return Ok(None);
     };
-    let selected = runtime.dll("ntdll.dll").map_err(|e| {
+    runtime.installed_view(p.arch, pe, path).map_err(|error| {
         LoadError::new(
-            STATUS_DLL_NOT_FOUND,
-            format!("selected NTDLL identity: {e}"),
+            STATUS_NOT_SUPPORTED,
+            format!("selected installed image: {error}"),
         )
-    })?;
-    if selected.as_deref() != Some(path) {
-        return Ok(None);
-    }
-    if p.arch == WinArch::X86 && runtime.object_namespace.native_machine.is_none() {
-        // Kernels lacking this identity API predate image extensions. Keep
-        // the existing file bootstrap instead of guessing a compatibility root.
-        return Ok(None);
-    }
-    let root = if p.arch == WinArch::X86 && runtime.object_namespace.native_machine != Some(0x14C) {
-        "\\KnownDlls32\\ntdll.dll"
-    } else {
-        "\\KnownDlls\\ntdll.dll"
-    };
-    let section = runtime
-        .object_namespace
-        .lookup_section(None, &root.encode_utf16().collect::<Vec<_>>(), 0x40, false)
-        .map_err(|e| {
-            LoadError::new(
-                STATUS_NOT_SUPPORTED,
-                format!("selected NTDLL section: {e:?}"),
-            )
-        })?;
-    let image = section
-        .image_for(p.arch)
-        .map_err(|e| LoadError::new(STATUS_NOT_SUPPORTED, format!("selected NTDLL image: {e}")))?;
-    if image.extensions.iter().all(Option::is_none) {
-        return Ok(None);
-    }
-    map_selected(p, pe, section, &image).map(Some)
+    })
 }
 
-fn map_selected(
+pub(super) fn map_selected(
     p: &mut Proc,
     pe: &PeImage,
     section: Arc<ImageSection>,
@@ -72,7 +43,7 @@ fn map_selected(
     {
         return Err(LoadError::new(
             STATUS_INVALID_IMAGE_FORMAT,
-            "installed NTDLL file and pinned section identities disagree",
+            "installed file and pinned section identities disagree",
         ));
     }
     let base = image.preferred;
@@ -81,7 +52,7 @@ fn map_selected(
     if !p.vm.is_free(base, image.allocation_size()) {
         return Err(LoadError::new(
             STATUS_CONFLICTING_ADDRESSES,
-            "selected NTDLL preferred image and extension range is occupied",
+            "selected installed preferred image and extension range is occupied",
         ));
     }
     p.vm.map_section_image(
@@ -95,6 +66,11 @@ fn map_selected(
         false,
         false,
     )
-    .map_err(|e| LoadError::new(e.status(), "cannot map selected NTDLL and extensions"))?;
+    .map_err(|e| {
+        LoadError::new(
+            e.status(),
+            "cannot map selected installed image and extensions",
+        )
+    })?;
     Ok(base)
 }

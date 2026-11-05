@@ -24,6 +24,8 @@ pub struct LoadConfig {
     pub guard_cf_dispatch_function_pointer: Option<u64>,
     /// `GuardFlags`, if present.
     pub guard_flags: Option<u32>,
+    /// `CHPEMetadataPointer` VA, if the declared structure includes it.
+    pub chpe_metadata_pointer: Option<u64>,
 }
 
 impl LoadConfig {
@@ -63,6 +65,7 @@ impl LoadConfig {
             guard_cf_check_function_pointer: word(72, 112)?,
             guard_cf_dispatch_function_pointer: word(76, 120)?,
             guard_flags,
+            chpe_metadata_pointer: word(124, 200)?,
         }))
     }
 }

@@ -471,6 +471,7 @@ mod tests {
             timestamp: 0,
             exports: Default::default(),
             pdata: Default::default(),
+            hybrid: None,
             no_seh: false,
             safe_seh: None,
             tls: (callbacks != 0).then_some(ModuleTls {

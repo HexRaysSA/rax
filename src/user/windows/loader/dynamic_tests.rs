@@ -527,6 +527,7 @@ fn historical_slot_cap_rejects_new_images_before_allocation_but_reuses_live_modu
         timestamp: 0,
         exports: DataDirectory::default(),
         pdata: DataDirectory::default(),
+        hybrid: None,
         no_seh: false,
         safe_seh: None,
         tls: None,
