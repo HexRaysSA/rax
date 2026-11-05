@@ -692,3 +692,6 @@ mod structure_memory;
 
 #[path = "a32_fp_controls/block_memory.rs"]
 mod block_memory;
+
+#[path = "a32_fp_controls/misc_registers.rs"]
+mod misc_registers;

@@ -78,7 +78,8 @@ impl Aarch32Decoder {
         let q = ((raw >> 6) & 1) != 0;
         let vd = (raw >> 12) & 0xF;
         let vm = raw & 0xF;
-        if q && ((vd | vm) & 1) != 0 {
+        let size = (raw >> 18) & 0x3;
+        if size != 0 || (q && ((vd | vm) & 1) != 0) {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
@@ -451,16 +452,17 @@ impl Aarch32Decoder {
         let op = (raw >> 7) & 0xF;
         let mnemonic = match op {
             0b0001 => Mnemonic::VTRN,
-            0b0010 if !q && size == 0b10 => Mnemonic::VTRN,
             0b0010 => Mnemonic::VUZP,
-            0b0011 if !q && size == 0b10 => Mnemonic::VTRN,
             0b0011 => Mnemonic::VZIP,
             _ => return None,
         };
 
         let vd = (raw >> 12) & 0xF;
         let vm = raw & 0xF;
-        if size == 0b11 || (q && ((vd | vm) & 1) != 0) {
+        if size == 0b11
+            || (!q && size == 0b10 && matches!(mnemonic, Mnemonic::VUZP | Mnemonic::VZIP))
+            || (q && ((vd | vm) & 1) != 0)
+        {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,

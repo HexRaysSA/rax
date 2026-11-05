@@ -1,0 +1,129 @@
+{
+  "pdf": "docs/specifications/arm/aarch32-isa-2025-03.pdf",
+  "sha256": "29b5436067ef93655c2a62b3886ba45ca6772f4b4ad30e9d28b33b00bf2a9dda",
+  "document": "Arm DDI0597 ID032025",
+  "sections": [
+    {
+      "pdf_page": 1152,
+      "header": [
+        "VMVN (register)",
+        "",
+        "  Vector Bitwise NOT (register) takes a value from a register, inverts the value of each bit, and places the result in the destination register. The registers",
+        "  can be either doubleword or quadword.",
+        "  Depending on settings in the CPACR, NSACR, and HCPTR registers, and the Security state and PE mode in which the instruction is executed, an",
+        "  attempt to execute the instruction might be UNDEFINED, or trapped to Hyp mode. For more information see Enabling Advanced SIMD and floating-",
+        "  point support."
+      ],
+      "guards": [
+        "attempt to execute the instruction might be UNDEFINED, or trapped to Hyp mode. For more information see Enabling Advanced SIMD and floating-",
+        "if size != '00' then UNDEFINED;",
+        "if Q == '1' && (Vd<0> == '1' || Vm<0> == '1') then UNDEFINED;",
+        "constant d = UInt(D:Vd); constant m = UInt(M:Vm); constant regs = if Q == '0' then 1 else 2;",
+        "if size != '00' then UNDEFINED;",
+        "if Q == '1' && (Vd<0> == '1' || Vm<0> == '1') then UNDEFINED;",
+        "constant d = UInt(D:Vd); constant m = UInt(M:Vm); constant regs = if Q == '0' then 1 else 2;"
+      ]
+    },
+    {
+      "pdf_page": 1444,
+      "header": [
+        "VTRN",
+        "",
+        "  Vector Transpose treats the elements of its operand vectors as elements of 2 x 2 matrices, and transposes the matrices.",
+        "  The elements of the vectors can be 8-bit, 16-bit, or 32-bit. There is no distinction between data types.",
+        "  The following figure shows an example of the operation of VTRN doubleword operations.",
+        "     VTRN.32                              VTRN.16                                  VTRN.8",
+        "            1                 0               3             2       1       0         7 6 5 4 3 2 1 0"
+      ],
+      "guards": [
+        "attempt to execute the instruction might be UNDEFINED, or trapped to Hyp mode. For more information see Enabling Advanced SIMD and floating-",
+        "if size == '11' then UNDEFINED;",
+        "if Q == '1' && (Vd<0> == '1' || Vm<0> == '1') then UNDEFINED;",
+        "constant d = UInt(D:Vd); constant m = UInt(M:Vm); constant regs = if Q == '0' then 1 else 2;"
+      ]
+    },
+    {
+      "pdf_page": 1461,
+      "header": [
+        "VUZP",
+        "",
+        "  Vector Unzip de-interleaves the elements of two vectors.",
+        "  The elements of the vectors can be 8-bit, 16-bit, or 32-bit. There is no distinction between data types.",
+        "  The following figure shows an example of the operation of VUZP doubleword operation for data type 8.",
+        "               VUZP.8, doubleword",
+        "            Register state before operation Register state after operation"
+      ],
+      "guards": [
+        "attempt to execute the instruction might be UNDEFINED, or trapped to Hyp mode. For more information see Enabling Advanced SIMD and floating-",
+        "if size == '11' || (Q == '0' && size == '10') then UNDEFINED;",
+        "if Q == '1' && (Vd<0> == '1' || Vm<0> == '1') then UNDEFINED;"
+      ]
+    },
+    {
+      "pdf_page": 1462,
+      "header": [
+        "Encoding for the 64-bit SIMD vector variant",
+        "",
+        "Applies when (Q == 0)",
+        "",
+        "  VUZP{<c>}{<q>}.<dt> <Dd>, <Dm>",
+        "",
+        ""
+      ],
+      "guards": [
+        "if size == '11' || (Q == '0' && size == '10') then UNDEFINED;",
+        "if Q == '1' && (Vd<0> == '1' || Vm<0> == '1') then UNDEFINED;"
+      ]
+    },
+    {
+      "pdf_page": 1465,
+      "header": [
+        "VZIP",
+        "",
+        "  Vector Zip interleaves the elements of two vectors.",
+        "  The elements of the vectors can be 8-bit, 16-bit, or 32-bit. There is no distinction between data types.",
+        "  The following figure shows an example of the operation of VZIP doubleword operation for data type 8.",
+        "               VZIP.8, doubleword",
+        "            Register state before operation Register state after operation"
+      ],
+      "guards": [
+        "attempt to execute the instruction might be UNDEFINED, or trapped to Hyp mode. For more information see Enabling Advanced SIMD and floating-",
+        "if size == '11' || (Q == '0' && size == '10') then UNDEFINED;",
+        "if Q == '1' && (Vd<0> == '1' || Vm<0> == '1') then UNDEFINED;"
+      ]
+    },
+    {
+      "pdf_page": 1466,
+      "header": [
+        "Encoding for the 64-bit SIMD vector variant",
+        "",
+        "Applies when (Q == 0)",
+        "",
+        "  VZIP{<c>}{<q>}.<dt> <Dd>, <Dm>",
+        "",
+        ""
+      ],
+      "guards": [
+        "if size == '11' || (Q == '0' && size == '10') then UNDEFINED;",
+        "if Q == '1' && (Vd<0> == '1' || Vm<0> == '1') then UNDEFINED;"
+      ]
+    }
+  ],
+  "issuing_organization": "Arm",
+  "source_url": "https://documentation-service.arm.com/static/67e40a9c4191d739c8e9bd2c",
+  "retrieved_at": "2026-10-28T04:36:31.297192+00:00",
+  "retrieval_metadata_source": "docs/specifications/arm/cluster-provenance.json",
+  "primary_preserved_unchanged": true,
+  "license": "Original PDF notices retained unchanged.",
+  "asl": {
+    "path": "docs/architecture/arm/asl/arm_instrs.asl",
+    "sha256": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+    "revision": "unknown; primaryPDF supplies2025revision",
+    "sections": [
+      "aarch32_VMVN_r_A",
+      "aarch32_VTRN_A",
+      "aarch32_VUZP_A",
+      "aarch32_VZIP_A"
+    ]
+  }
+}

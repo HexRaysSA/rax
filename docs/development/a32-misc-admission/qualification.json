@@ -1,0 +1,377 @@
+{
+  "scope": "VMVN register size and VUZP/VZIP doubleword admission; separately allocated VTRN preserved. No broad A32-FP or four-finding closure.",
+  "host_triple": "aarch64-apple-darwin",
+  "qualified_code_and_test_sha256": {
+    "src/isa/arm/decoder/aarch32/neon/two_regs.rs": "ae0e404a8a923248ddf2d1bd536051b652bfb87c6ce3047c2e7209e2c4a4736d",
+    "tests/suites/backend/a32_fp_controls.rs": "1dc5d0a75813e90f94d9393b91ff5ae9be71453646ec8cd854148d02d94cc649",
+    "tests/suites/isa/arm/aarch32/vfp.rs": "5bdb45dd06aa8b756470aba6ccd137217e69e89b24bde884b25fa1352747268e",
+    "tests/suites/backend/a32_fp_controls/misc_registers.rs": "17f1ec9ae14d79b18d09552830522f56fb490d03a6512fbe8699dbab9cba95e8"
+  },
+  "owning_targets": {
+    "jit-a32_fp_controls": {
+      "cargo_build_argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite,smir-jit",
+        "--test",
+        "a32_fp_controls",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "test_argv_suffix": [
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "passed": 94,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "jit-a32_fp_pairs": {
+      "cargo_build_argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite,smir-jit",
+        "--test",
+        "a32_fp_pairs",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "test_argv_suffix": [
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "jit-arm_vfp_a32": {
+      "cargo_build_argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite,smir-jit",
+        "--test",
+        "arm_vfp_a32",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "test_argv_suffix": [
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "passed": 524,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "jit-arm": {
+      "cargo_build_argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite,smir-jit",
+        "--test",
+        "arm",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "test_argv_suffix": [
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "passed": 46850,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "no-jit-a32_fp_controls": {
+      "cargo_build_argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite",
+        "--test",
+        "a32_fp_controls",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "test_argv_suffix": [
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "passed": 94,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "no-jit-a32_fp_pairs": {
+      "cargo_build_argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite",
+        "--test",
+        "a32_fp_pairs",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "test_argv_suffix": [
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "no-jit-arm_vfp_a32": {
+      "cargo_build_argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite",
+        "--test",
+        "arm_vfp_a32",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "test_argv_suffix": [
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "passed": 524,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "no-jit-arm": {
+      "cargo_build_argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite",
+        "--test",
+        "arm",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "test_argv_suffix": [
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "passed": 46850,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    }
+  },
+  "owning_targets_source_digest": "6dd0f47f617550d2f99ab3e1a3fa4a5b42f6776d24024fb7db79dddb48032c29",
+  "successful_full_library_and_workspace_source_digest": "123f39ed44484efc30108d14539d8f81a9ff3e5d9318f40aec0780ab83848d02",
+  "same_affected_code_bytes_in_both_sources": true,
+  "workspace_checks": [
+    {
+      "label": "fmt",
+      "argv": [
+        "cargo",
+        "+stable",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "root-library",
+      "argv": [
+        "/tmp/rax-audit-root-corrected-4c6pok98/build/debug/deps/rax-cbbec34421e26e80",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          12406,
+          0,
+          36,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "label": "capi",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "rax-capi",
+        "--lib",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          244,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "label": "clippy",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite,smir-jit",
+        "--all-targets",
+        "--workspace"
+      ],
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "build",
+      "argv": [
+        "cargo",
+        "+stable",
+        "build",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite,smir-jit",
+        "--all-targets",
+        "--workspace"
+      ],
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "no-jit-check",
+      "argv": [
+        "cargo",
+        "+stable",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "results": []
+    },
+    {
+      "label": "doc",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite,smir-jit",
+        "--workspace",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          0,
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "full_library_ignored_tests": 36,
+  "doctests": {
+    "executed": 0,
+    "ignored": 5
+  },
+  "baseline_canonical_decode_cases": 65536,
+  "baseline_mismatches": {
+    "VMVN": 7680,
+    "VUZP": 2048,
+    "VZIP": 2048,
+    "VTRN": 0
+  },
+  "retained_nonpassing_attempt": "The earlier full-library run on the owning-target source was superseded after an unrelated FIFO isolation failure. Its full-library result is not counted as green. The source-preserving corrected full run above passed.",
+  "physical_aarch32_validation": false,
+  "documentation_delta": "This receipt and its README link were added after the successful source-frozen qualification; code/test bytes above are unchanged.",
+  "assumptions": [
+    {
+      "id": "MC1",
+      "assumption": "Mandatory decode guards precede access denials and effects.",
+      "stress_test": "All register/size/Q fields, enabled and denied execution, failed Thumb IT, and mixed-width fault/retirement checks.",
+      "status": "Verified within the stated canonical and runtime corpus."
+    },
+    {
+      "id": "MC2",
+      "assumption": "Separate legal VTRN and VMVN positive encodings retain data behavior.",
+      "stress_test": "Full owning VFP and ARM targets under JIT and non-JIT feature sets.",
+      "status": "Passed."
+    }
+  ],
+  "full_goal_complete": false
+}

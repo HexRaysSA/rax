@@ -2144,7 +2144,7 @@ fn neon_vmvn_register_inverts_d_and_q_registers() {
         Mnemonic::VMVN
     );
     assert_eq!(
-        Aarch32Decoder::decode(0xF3B4_05C2).unwrap().mnemonic,
+        Aarch32Decoder::decode(0xF3B0_05C2).unwrap().mnemonic,
         Mnemonic::VMVN
     );
     assert_eq!(
@@ -2166,7 +2166,7 @@ fn neon_vmvn_register_inverts_d_and_q_registers() {
     cpu.vfp.write_d_bits(2, 0x0123_4567_89ab_cdef);
     cpu.vfp.write_d_bits(3, 0xfedc_ba98_7654_3210);
     assert!(matches!(
-        exec_one(&mut cpu, &mut mem, 0xF3B4_05C2),
+        exec_one(&mut cpu, &mut mem, 0xF3B0_05C2),
         ExecResult::Continue
     ));
     assert_eq!(cpu.vfp.read_d_bits(0), 0xfedc_ba98_7654_3210);
@@ -2423,11 +2423,11 @@ fn neon_pairwise_permute_transposes_unzips_and_zips_vectors() {
     );
     assert_eq!(
         Aarch32Decoder::decode(0xF3BA_0102).unwrap().mnemonic,
-        Mnemonic::VTRN
+        Mnemonic::UNDEFINED
     );
     assert_eq!(
         Aarch32Decoder::decode(0xF3BA_0182).unwrap().mnemonic,
-        Mnemonic::VTRN
+        Mnemonic::UNDEFINED
     );
     assert_eq!(
         Aarch32Decoder::decode(0xF3BE_0082).unwrap().mnemonic,
@@ -2494,7 +2494,7 @@ fn neon_pairwise_permute_transposes_unzips_and_zips_vectors() {
     cpu.vfp.write_d_bits(0, 0x0706_0504_0302_0100);
     cpu.vfp.write_d_bits(2, 0x2726_2524_2322_2120);
     assert!(matches!(
-        exec_one(&mut cpu, &mut mem, 0xF3BA_0102),
+        exec_one(&mut cpu, &mut mem, 0xF3BA_0082),
         ExecResult::Continue
     ));
     assert_eq!(cpu.vfp.read_d_bits(0), 0x2322_2120_0302_0100);
