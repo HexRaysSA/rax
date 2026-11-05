@@ -1,0 +1,58 @@
+{
+  "cases": 6728,
+  "reserved_cases": 8,
+  "all_match": true,
+  "steps": [
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv7a-none-eabi",
+        "-filetype=obj",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-shift-qemu-zuo2sdo7/guest.S",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-shift-qemu-zuo2sdo7/guest.o"
+      ],
+      "exit_code": 0,
+      "seconds": 0.4727271660231054
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-shift-qemu-zuo2sdo7/guest.ld",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-shift-qemu-zuo2sdo7/guest.o",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-shift-qemu-zuo2sdo7/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.1169775000307709
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-arm",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a15",
+        "-m",
+        "128M",
+        "-nographic",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting",
+        "-kernel",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-shift-qemu-zuo2sdo7/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.7200750829651952
+    }
+  ],
+  "owned_compilation_directory_removed": true,
+  "harness_sha256": "527697500295b4a310c7a889e309cc181d09bf1bafc3bacd2f5da63d314c5c6a",
+  "guest_source_sha256": "640331a04fc988053bef2ef5738afa95fb61e015f283fe96cb3ea82e6848cfb3",
+  "elf_sha256": "12ad61a58c6caec2b69c42db1d2a5dadb705526f214f3b05c228d6add2309192",
+  "observations_sha256": "192c5d35b85d9b0c8963a2259fd0211c79afcf819ae9d7ce480843e01d61cc3e",
+  "scope": "QEMU Cortex-A15; no physical AArch32 validation."
+}

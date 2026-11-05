@@ -701,3 +701,6 @@ mod scalar_selector;
 
 #[path = "a32_fp_controls/multiply_long_selector.rs"]
 mod multiply_long_selector;
+
+#[path = "a32_fp_controls/shift_immediate.rs"]
+mod shift_immediate;

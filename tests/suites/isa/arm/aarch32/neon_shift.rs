@@ -305,12 +305,18 @@ fn neon_shift_left_and_insert_immediate_update_expected_bits() {
         exec_one(&mut cpu, &mut mem, 0xF2AC_1552),
         ExecResult::Undefined
     ));
-    let invalid_zero_shift =
-        DecodedInsn::new(Mnemonic::VSHL, ExecutionState::Aarch32, 0xF288_0511, 4);
+    // DDI0597 VSHL (immediate): imm6=8 selects 8-bit elements and shift=0.
+    // This is a legal copy, independently confirmed by the QEMU controls.
+    cpu.vfp.write_d_bits(1, 0x11aa_55ff_807f_0201);
+    let mut expected = cpu.vfp.dregs;
+    expected[0] = expected[1];
+    let zero_shift = Aarch32Decoder::decode(0xF288_0511).unwrap();
+    assert_eq!(zero_shift.mnemonic, Mnemonic::VSHL);
     assert!(matches!(
-        Executor::new(&mut cpu, &mut mem).execute(&invalid_zero_shift),
-        ExecResult::Undefined
+        Executor::new(&mut cpu, &mut mem).execute(&zero_shift),
+        ExecResult::Continue
     ));
+    assert_eq!(cpu.vfp.dregs, expected);
 }
 
 #[test]

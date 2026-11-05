@@ -42,15 +42,16 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
 
-        let imm = (insn.raw >> 16) & 0x3F;
-        let size = match imm {
-            8..=15 => NeonSize::B8,
-            16..=31 => NeonSize::H16,
-            32..=63 => NeonSize::S32,
-            _ => return ExecResult::Undefined,
+        let Some((imm, element_bits)) =
+            crate::isa::arm::decoder::Aarch32Decoder::neon_shift_immediate_fields(insn.raw)
+        else {
+            return ExecResult::Undefined;
         };
-        let ebytes = (size.bits() / 8) as u8;
+        let ebytes = (element_bits / 8) as u8;
         let unsigned = ((insn.raw >> 24) & 1) != 0;
+        if insn.mnemonic == Mnemonic::VSRI && !unsigned {
+            return ExecResult::Undefined;
+        }
         let op = match insn.mnemonic {
             Mnemonic::VSHR => 0,
             Mnemonic::VRSHR => 1,
@@ -78,23 +79,17 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
 
-        let mask = if size.bits() == 32 {
-            u64::from(u32::MAX)
-        } else {
-            (1u64 << size.bits()) - 1
-        };
-        let right_shift = (size.bits() * 2) - imm;
-        let left_shift = imm - size.bits();
+        let mask = u64::MAX >> (64 - element_bits);
+        let right_shift = (element_bits * 2) - imm;
+        let left_shift = imm - element_bits;
         if matches!(
             insn.mnemonic,
             Mnemonic::VSHR | Mnemonic::VRSHR | Mnemonic::VSRA | Mnemonic::VRSRA | Mnemonic::VSRI
-        ) && (right_shift == 0 || right_shift > size.bits())
+        ) && (right_shift == 0 || right_shift > element_bits)
         {
             return ExecResult::Undefined;
         }
-        if matches!(insn.mnemonic, Mnemonic::VSHL | Mnemonic::VSLI)
-            && (left_shift == 0 || left_shift > size.bits())
-        {
+        if matches!(insn.mnemonic, Mnemonic::VSHL | Mnemonic::VSLI) && left_shift >= element_bits {
             return ExecResult::Undefined;
         }
         let round_const = if matches!(insn.mnemonic, Mnemonic::VRSHR | Mnemonic::VRSRA) {
@@ -125,9 +120,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                             }
                         } else {
                             let value =
-                                Self::neon_sign_extend_elem_u64(elem, size.bits()) + round_const;
-                            let shifted =
-                                Self::neon_pack_signed_elem_i128(value >> right_shift, size.bits());
+                                Self::neon_sign_extend_elem_u64(elem, element_bits) + round_const;
+                            let shifted = Self::neon_pack_signed_elem_i128(
+                                value >> right_shift,
+                                element_bits,
+                            );
                             if matches!(op, 2 | 3) {
                                 old_elem.wrapping_add(shifted) & mask
                             } else {
@@ -140,6 +137,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                         let insert_mask = (mask << left_shift) & mask;
                         (old_elem & !insert_mask) | ((elem << left_shift) & insert_mask)
                     }
+                    6 if right_shift == element_bits => old_elem,
                     6 => {
                         let insert_mask = mask >> right_shift;
                         (old_elem & !insert_mask) | ((elem >> right_shift) & insert_mask)
@@ -200,18 +198,16 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             _ => return ExecResult::Undefined,
         };
 
-        let imm = (insn.raw >> 16) & 0x3F;
-        let size = match imm {
-            8..=15 => NeonSize::B8,
-            16..=31 => NeonSize::H16,
-            32..=63 => NeonSize::S32,
-            _ => return ExecResult::Undefined,
+        let Some((imm, element_bits)) =
+            crate::isa::arm::decoder::Aarch32Decoder::neon_shift_immediate_fields(insn.raw)
+        else {
+            return ExecResult::Undefined;
         };
-        let shift = imm - size.bits();
-        if shift == 0 || shift > size.bits() {
+        let shift = imm - element_bits;
+        if shift >= element_bits {
             return ExecResult::Undefined;
         }
-        let ebytes = (size.bits() / 8) as u8;
+        let ebytes = (element_bits / 8) as u8;
 
         let d_bit = ((insn.raw >> 22) & 1) as u8;
         let vd = ((insn.raw >> 12) & 0xF) as u8;
@@ -234,15 +230,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             let mut out = Vec::with_capacity(elements.len());
             for elem in elements {
                 let (result, saturated) = if signed_to_unsigned {
-                    let value = Self::neon_sign_extend_elem_u64(elem, size.bits()) << shift;
-                    Self::neon_unsigned_saturate(value, size.bits())
+                    let value = Self::neon_sign_extend_elem_u64(elem, element_bits) << shift;
+                    Self::neon_unsigned_saturate(value, element_bits)
                 } else if unsigned_bit {
-                    Self::neon_unsigned_saturate((elem as i128) << shift, size.bits())
+                    Self::neon_unsigned_saturate((elem as i128) << shift, element_bits)
                 } else {
-                    let value = Self::neon_sign_extend_elem_u64(elem, size.bits()) << shift;
-                    let (value, saturated) = Self::neon_signed_saturate_i128(value, size.bits());
+                    let value = Self::neon_sign_extend_elem_u64(elem, element_bits) << shift;
+                    let (value, saturated) = Self::neon_signed_saturate_i128(value, element_bits);
                     (
-                        Self::neon_pack_signed_elem_i128(value, size.bits()),
+                        Self::neon_pack_signed_elem_i128(value, element_bits),
                         saturated,
                     )
                 };

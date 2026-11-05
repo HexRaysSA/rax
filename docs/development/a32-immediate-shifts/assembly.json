@@ -1,0 +1,110 @@
+[
+  {
+    "instruction": "vshl.i8 d0, d0, #0",
+    "thumb": false,
+    "bytes": "100588f2",
+    "raw": 4069000464
+  },
+  {
+    "instruction": "vshl.i64 d0, d0, #0",
+    "thumb": false,
+    "bytes": "900580f2",
+    "raw": 4068476304
+  },
+  {
+    "instruction": "vshr.u64 d0, d0, #1",
+    "thumb": false,
+    "bytes": "9000bff3",
+    "raw": 4089381008
+  },
+  {
+    "instruction": "vshr.u64 d0, d0, #64",
+    "thumb": false,
+    "bytes": "900080f3",
+    "raw": 4085252240
+  },
+  {
+    "instruction": "vsli.64 d0, d0, #0",
+    "thumb": false,
+    "bytes": "900580f3",
+    "raw": 4085253520
+  },
+  {
+    "instruction": "vsri.64 d0, d0, #64",
+    "thumb": false,
+    "bytes": "900480f3",
+    "raw": 4085253264
+  },
+  {
+    "instruction": "vqshl.s64 d0, d0, #0",
+    "thumb": false,
+    "bytes": "900780f2",
+    "raw": 4068476816
+  },
+  {
+    "instruction": "vqshl.s64 d0, d0, #63",
+    "thumb": false,
+    "bytes": "9007bff2",
+    "raw": 4072605584
+  },
+  {
+    "instruction": "vqshlu.s64 d0, d0, #0",
+    "thumb": false,
+    "bytes": "900680f3",
+    "raw": 4085253776
+  },
+  {
+    "instruction": "vshl.i8 d0, d0, #0",
+    "thumb": true,
+    "bytes": "88ef1005",
+    "raw": 4018668816
+  },
+  {
+    "instruction": "vshl.i64 d0, d0, #0",
+    "thumb": true,
+    "bytes": "80ef9005",
+    "raw": 4018144656
+  },
+  {
+    "instruction": "vshr.u64 d0, d0, #1",
+    "thumb": true,
+    "bytes": "bfff9000",
+    "raw": 4290707600
+  },
+  {
+    "instruction": "vshr.u64 d0, d0, #64",
+    "thumb": true,
+    "bytes": "80ff9000",
+    "raw": 4286578832
+  },
+  {
+    "instruction": "vsli.64 d0, d0, #0",
+    "thumb": true,
+    "bytes": "80ff9005",
+    "raw": 4286580112
+  },
+  {
+    "instruction": "vsri.64 d0, d0, #64",
+    "thumb": true,
+    "bytes": "80ff9004",
+    "raw": 4286579856
+  },
+  {
+    "instruction": "vqshl.s64 d0, d0, #0",
+    "thumb": true,
+    "bytes": "80ef9007",
+    "raw": 4018145168
+  },
+  {
+    "instruction": "vqshl.s64 d0, d0, #63",
+    "thumb": true,
+    "bytes": "bfef9007",
+    "raw": 4022273936
+  },
+  {
+    "instruction": "vqshlu.s64 d0, d0, #0",
+    "thumb": true,
+    "bytes": "80ff9006",
+    "raw": 4286580368
+  }
+]

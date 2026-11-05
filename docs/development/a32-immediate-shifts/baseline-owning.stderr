@@ -1,0 +1,117 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling libc v0.2.189
+   Compiling syn v3.0.5
+   Compiling serde_core v1.0.229
+   Compiling jobserver v0.1.35
+   Compiling find-msvc-tools v0.1.12
+   Compiling version_check v0.9.5
+   Compiling shlex v2.0.1
+   Compiling cc v1.4.5
+   Compiling generic-array v0.14.7
+   Compiling cfg-if v1.0.4
+   Compiling pkg-config v0.3.34
+   Compiling zstd-sys v2.1.2+zstd.1.5.7
+   Compiling typenum v1.20.1
+   Compiling objc2 v0.6.4
+   Compiling thiserror v2.0.20
+   Compiling cfg_aliases v0.2.2
+   Compiling objc2-encode v4.1.0
+   Compiling once_cell v1.21.4
+   Compiling utf8parse v0.2.2
+   Compiling anstyle-parse v1.0.0
+   Compiling tracing-core v0.1.36
+   Compiling nix v0.31.3
+   Compiling thiserror-impl v2.0.20
+   Compiling syn v2.0.119
+   Compiling log v0.4.34
+   Compiling zstd-safe v8.2.0
+   Compiling regex-syntax v0.8.11
+   Compiling colorchoice v1.0.5
+   Compiling anstyle v1.0.14
+   Compiling serde v1.0.229
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling zmij v1.0.23
+   Compiling anstyle-query v1.1.5
+   Compiling bitflags v2.13.2
+   Compiling anstream v1.0.0
+   Compiling tracing-attributes v0.1.31
+   Compiling regex-automata v0.4.18
+   Compiling block2 v0.6.2
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling scroll_derive v0.13.2
+   Compiling serde_derive v1.0.229
+   Compiling strsim v0.11.1
+   Compiling lazy_static v1.5.0
+   Compiling serde_json v1.0.151
+   Compiling pin-project-lite v0.2.17
+   Compiling winnow v1.0.4
+   Compiling heck v0.5.0
+   Compiling clap_lex v1.1.0
+   Compiling getrandom v0.4.3
+   Compiling clap_derive v4.6.4
+   Compiling clap_builder v4.6.6
+   Compiling toml_parser v1.1.5+spec-1.1.0
+   Compiling tracing v0.1.44
+   Compiling sharded-slab v0.1.7
+   Compiling scroll v0.13.0
+   Compiling matchers v0.2.0
+   Compiling digest v0.10.7
+   Compiling dispatch2 v0.3.1
+   Compiling vm-memory v0.17.1 (/Users/int/dev/rax/vendor/vm-memory)
+   Compiling tracing-log v0.2.0
+   Compiling serde_spanned v1.1.2
+   Compiling toml_datetime v1.1.2+spec-1.1.0
+   Compiling thread_local v1.1.10
+   Compiling cpufeatures v0.2.17
+   Compiling smallvec v1.16.0
+   Compiling memchr v2.8.3
+   Compiling toml_writer v1.1.3+spec-1.1.0
+   Compiling plain v0.2.3
+   Compiling nu-ansi-term v0.50.3
+   Compiling itoa v1.0.18
+   Compiling tracing-subscriber v0.3.23
+   Compiling goblin v0.10.7
+   Compiling toml v1.1.8+spec-1.1.0
+   Compiling sha2 v0.10.9
+   Compiling linux-loader v0.13.2 (https://github.com/19h/linux-loader?rev=f745b555942c4e840a784bca61e6f3976d101960#f745b555)
+   Compiling zstd v0.14.3
+   Compiling ctrlc v3.5.2
+   Compiling clap v4.6.6
+   Compiling uklad v1.0.0
+   Compiling rax v0.1.0 (/Users/int/dev/rax)
+    Finished `test` profile [optimized] target(s) in 4m 59s
+     Running tests/suites/backend/a32_fp_controls.rs (/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-a32-shift-owner-c5zbni5h/debug/deps/a32_fp_controls-d83b96d0a6f2297b)
+
+thread 'shift_immediate::every_immediate_count_matches_independent_integer_formulas' (367794855) panicked at tests/suites/backend/a32_fp_controls/shift_immediate.rs:176:33:
+assertion `left == right` failed: raw=f2bf0090, pattern=80007fff07060505
+  left: [13835128419790291586, 3853319726573333745, 7706639453146667490, 15413278906293334980, 12379813738877118345, 6312883404044685075, 12625766808089370150, 6804789542469188685, 13609579084938377370, 8772414096167203125, 17544828192334406250, 16642912310959260885, 14839080548208970155, 11231417022708388695, 4016089971707225775, 8032179943414451550, 16064359886828903100, 13681975699948254585, 8917207326186957555, 17834414652373915110, 17222085231038278605, 15997426388367005595, 13548108703024459575, 8649473332339367535, 17298946664678735070, 16151149255647918525, 13855554437586285435, 9264364801463019255, 81985529216486895, 163971058432973790, 327942116865947580, 655884233731895160]
+ right: [13835128421937775234, 3853319726573333745, 7706639453146667490, 15413278906293334980, 12379813738877118345, 6312883404044685075, 12625766808089370150, 6804789542469188685, 13609579084938377370, 8772414096167203125, 17544828192334406250, 16642912310959260885, 14839080548208970155, 11231417022708388695, 4016089971707225775, 8032179943414451550, 16064359886828903100, 13681975699948254585, 8917207326186957555, 17834414652373915110, 17222085231038278605, 15997426388367005595, 13548108703024459575, 8649473332339367535, 17298946664678735070, 16151149255647918525, 13855554437586285435, 9264364801463019255, 81985529216486895, 163971058432973790, 327942116865947580, 655884233731895160]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'shift_immediate::legal_immediate_forms_reach_access_traps_and_failed_it_suppresses_effects' (367794856) panicked at tests/suites/backend/a32_fp_controls/shift_immediate.rs:290:17:
+raw=f2800090
+
+thread 'shift_immediate::mixed_width_legal_shifts_select_fp_traps_before_zero_retirement_effects' (367794858) panicked at tests/suites/backend/a32_fp_controls/shift_immediate.rs:320:13:
+raw=f2800090
+
+thread 'shift_immediate::reserved_fixed_selectors_are_undefined_before_fp_access' (367794860) panicked at tests/suites/backend/a32_fp_controls/shift_immediate.rs:347:17:
+assertion `left == right` failed: raw=f2880410
+  left: VSRI
+ right: UNDEFINED
+
+thread 'shift_immediate::signed_to_unsigned_zero_shift_saturates_and_qc_remains_sticky' (367794861) panicked at tests/suites/backend/a32_fp_controls/shift_immediate.rs:267:17:
+assertion failed: matches!(Executor::new(&mut cpu, &mut memory).execute(&decode(raw, thumb)),
+    ExecResult::Continue)
+
+thread 'shift_immediate::llvm_assembled_qemu_controls_match_exact_vectors_and_status' (367794857) panicked at tests/suites/backend/a32_fp_controls/shift_immediate.rs:244:13:
+raw=f2880510
+
+thread 'shift_immediate::all_register_fields_preserve_d_q_alignment_at_every_lane_width_and_count' (367794854) panicked at tests/suites/backend/a32_fp_controls/shift_immediate.rs:212:33:
+assertion `left == right` failed: raw=f2870090
+  left: UNDEFINED
+ right: VSHR
+scalar mode matrix: 64312 completed, 73928 precise bounces
+error: test failed, to rerun pass `--test a32_fp_controls`

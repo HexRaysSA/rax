@@ -1,0 +1,58 @@
+{
+  "utc": "2026-11-05T16:53:33.480115+00:00",
+  "primary": {
+    "path": "docs/specifications/arm/aarch32-isa-2025-03.pdf",
+    "revision": "Arm DDI0597 ID032025",
+    "sha256": "29b5436067ef93655c2a62b3886ba45ca6772f4b4ad30e9d28b33b00bf2a9dda",
+    "one_based_pdf_pages": {
+      "VQSHL_VQSHLU_immediate": [
+        1244,
+        1245
+      ],
+      "VSHL_immediate": [
+        1337,
+        1338
+      ],
+      "VSHR": [
+        1346,
+        1347
+      ],
+      "VSLI": [
+        1355,
+        1356
+      ],
+      "VSRI": [
+        1365,
+        1366
+      ]
+    }
+  },
+  "tools": {
+    "/Users/int/local/bin/llvm-mc": {
+      "path": "/Users/int/local/bin/llvm-mc",
+      "version": [
+        "LLVM (http://llvm.org/):",
+        "  LLVM version 23.0.0git",
+        "  Optimized build."
+      ],
+      "sha256": "0311e88d2281780e2784cd7657bcdc71b70044fa4c530c89a5431a45acc1b971"
+    },
+    "/Users/int/local/bin/ld.lld": {
+      "path": "/Users/int/local/bin/lld",
+      "version": [
+        "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d) (compatible with GNU linkers)"
+      ],
+      "sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd"
+    },
+    "/opt/homebrew/bin/qemu-system-arm": {
+      "path": "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-arm",
+      "version": [
+        "QEMU emulator version 11.1.2",
+        "Copyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers"
+      ],
+      "sha256": "121d02f5d368300139d1ae21dc75595b434d7b6318c221b23886fdb28aecd876"
+    }
+  },
+  "original_18_llvm_qemu_controls": "Original independent named-instruction encodings and 18 guest results retained in the audit work directory; the current 6728-case batch extends the reference scope.",
+  "historical_log_normalization": "Published baseline stdout/stderr remove trailing empty lines only. Original logs remain in the audit work directory."
+}

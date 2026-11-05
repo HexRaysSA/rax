@@ -1,0 +1,7 @@
+{
+  "cases": 18,
+  "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+  "harness_sha256": "c3255bc8285bbd3f8fbaf96100dad076a3b6504e15cb9405eb1b3e48c4e36e02",
+  "scope": "Actual public software decoder/executor; not physical AArch32.",
+  "owned_executable_removed": true
+}

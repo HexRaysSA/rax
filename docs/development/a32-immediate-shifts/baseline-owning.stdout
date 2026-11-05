@@ -1,0 +1,129 @@
+
+running 114 tests
+test base_precision::absent_and_reserved_precision_fields_reject_before_effects ... ok
+test block_memory::unallocated_half_block_and_legacy_odd_double_lists_do_not_gain_fp_execution ... ok
+test base_precision::single_only_profile_rejects_double_arithmetic_and_both_conversion_directions ... ok
+test el0_fp_undefined_is_routed_to_hyp_by_hcr_tge ... ok
+test fp_hyp_entry_preserves_the_fault_pc_syndrome_and_banked_frame ... ok
+test base_precision::scalar_storage_needs_scalar_fp_but_not_double_arithmetic ... ok
+test base_precision::vfp_v2_retains_arithmetic_but_rejects_v3_constants_and_fixed_conversions ... ok
+test hcptr_tcpac_traps_both_cpacr_directions_without_effects ... ok
+test base_precision::single_only_profile_retains_single_ops_and_raw_64_bit_storage ... ok
+test block_memory::mixed_width_scalar_block_failures_do_not_retire_or_become_fp_traps ... ok
+test base_precision::divide_and_square_root_require_their_own_supported_field_values ... ok
+test hyp_hcptr_written_by_the_guest_controls_fp_admission ... ok
+test base_precision::single_double_conversion_needs_both_precision_fields ... ok
+test hyp_bypasses_cpacr_permissions_and_asedis ... ok
+test hyp_nsacr_clamps_fp_and_advsimd_access ... ok
+test block_memory::scalar_block_pc_base_only_allows_arm_without_writeback ... ok
+test id_views::a64_mvfr_id_reads_do_not_require_fp_data_access_permission ... ok
+test id_views::guest_writes_to_mvfr_aliases_are_undefined_before_any_state_change ... ok
+test id_views::a64_mrs_and_arm_thumb_vmrs_share_the_selected_fp_profile ... ok
+test id_views::mixed_width_instruction_admission_uses_the_reported_profile_before_access_traps ... ok
+test id_views::ns_el1_tid3_traps_mvfr_alias_reads_with_complete_iss_and_no_effects ... ok
+test id_views::half_capability_upper_bound_preserves_absent_and_reserved_field_values ... ok
+test id_views::mvfr_aliases_agree_in_saved_state_and_smir_and_after_reset ... ok
+test id_views::read_only_profile_rejects_internal_and_smir_writes_without_mutation ... ok
+test id_views::trusted_profile_is_zero_extended_and_preserved_across_fresh_cpu_restore ... ok
+test id_views::tid3_respects_el2_presence_security_and_vhe_host_controls ... ok
+test invalid_fp_system_registers_preserve_the_existing_diagnostic_exit ... ok
+test misc_registers::mixed_width_reserved_misc_forms_do_not_become_higher_el_fp_traps ... ok
+test mixed_a32_cptr_el3_traps_from_both_security_states ... ok
+test misc_registers::reserved_misc_forms_precede_access_denials_without_effects ... ok
+test mixed_el0_effective_fpexc_enable_does_not_modify_stored_fpexc ... ok
+test misc_registers::failed_thumb_it_suppresses_reserved_misc_operand_faults ... ok
+test mixed_a32_cptr_el2_traps_before_register_effects ... ok
+test multiply_long_selector::legal_long_forms_preserve_the_independent_qemu_results_and_other_registers ... ok
+test mixed_a32_failed_predicates_suppress_higher_fp_traps ... ok
+test mixed_a32_fpexc_disable_precedes_higher_fp_trap ... ok
+test ns_el1_cannot_reprogram_secure_or_hyp_controls ... ok
+test multiply_long_selector::mixed_width_reserved_long_forms_remain_undefined_before_higher_el_fp_traps ... ok
+test mixed_cpacr_guest_writes_reach_the_enclosing_pe ... ok
+test mixed_cpacr_tcpac_routes_both_directions_before_register_effects ... ok
+test block_memory::failed_thumb_it_suppresses_all_scalar_block_operand_failures ... ok
+test multiply_long_selector::ordinary_integer_long_neighbors_retain_signed_and_unsigned_semantics ... ok
+test ns_cpacr_clamps_readback_and_preserves_inaccessible_bits_on_write ... ok
+test ns_hcptr_clamps_readback_and_preserves_inaccessible_bits_on_write ... ok
+test multiply_long_selector::reserved_long_selectors_precede_access_denials_without_architectural_effects ... ok
+test register_banks::absent_and_reserved_register_banks_do_not_enable_fp ... ok
+test multiply_long_selector::failed_thumb_conditions_suppress_reserved_long_selector_faults ... ok
+test register_banks::d16_block_transfer_end_is_checked_before_writeback ... ok
+test register_banks::absent_registers_precede_fp_access_traps ... ok
+test register_banks::d16_profile_does_not_execute_advanced_simd ... ok
+test register_banks::d16_register_memory_and_core_transfers ... ok
+test register_banks::d16_scalar_sources_destinations_and_opcode_bits ... ok
+test register_banks::full_register_bank_preserves_all_positive_controls ... ok
+test register_banks::mixed_width_full_bank_executes_all_controls_and_retires_once ... ok
+test restricted_modes::restricted_vfp_controls_do_not_disable_storage_or_advanced_simd ... ok
+test misc_registers::misc_register_fields_obey_primary_size_and_alignment_constraints ... ok
+test restricted_modes::aarch32_lifter_retains_the_scalar_fp_interpreter_frontier ... ok
+test restricted_modes::failed_arm_predicate_suppresses_the_runtime_mode_check ... ok
+test restricted_modes::scalar_capability_reserved_values_do_not_disable_independent_operations ... ok
+test restricted_modes::access_traps_precede_the_selected_runtime_support_code_bounce ... ok
+test restricted_modes::failed_thumb_predicate_suppresses_the_runtime_mode_check ... ok
+test scalar_selector::scalar_and_widening_positive_neighbors_preserve_their_defined_data_paths ... ok
+test restricted_modes::restricted_capabilities_do_not_force_guest_fpscr_writes_or_reads ... ok
+test restricted_modes::mixed_width_profile_identity_and_restricted_modes_share_the_same_capabilities ... ok
+test scalar_selector::failed_thumb_it_suppresses_reserved_scalar_operand_faults ... ok
+test restricted_modes::reserved_scalar_control_capabilities_precede_access_traps ... ok
+test block_memory::scalar_block_boundary_operands_precede_access_faults_without_effects ... ok
+test scalar_selector::mixed_width_reserved_scalar_forms_do_not_become_higher_el_fp_traps ... ok
+test scalar_selector::reserved_scalar_forms_precede_access_denials_without_effects ... ok
+test shift_immediate::every_immediate_count_matches_independent_integer_formulas ... FAILED
+test shift_immediate::legal_immediate_forms_reach_access_traps_and_failed_it_suppresses_effects ... FAILED
+test shift_immediate::mixed_width_legal_shifts_select_fp_traps_before_zero_retirement_effects ... FAILED
+test shift_immediate::reserved_fixed_selectors_are_undefined_before_fp_access ... FAILED
+test shift_immediate::signed_to_unsigned_zero_shift_saturates_and_qc_remains_sticky ... FAILED
+test shift_immediate::llvm_assembled_qemu_controls_match_exact_vectors_and_status ... FAILED
+test simd_base::implemented_simd_integer_and_structure_profiles_execute_all_forms ... ok
+test simd_base::missing_structure_memory_capability_rejects_before_effects ... ok
+test simd_base::missing_simd_integer_and_structure_capabilities_reject_before_effects ... ok
+test simd_base::simd_base_absence_precedes_access_denial ... ok
+test block_memory::scalar_block_list_fields_are_validated_during_arm_and_thumb_decode ... ok
+test simd_base::reserved_simd_integer_and_structure_fields_do_not_enable_instructions ... ok
+test simd_base::structure_memory_absence_precedes_access_denial ... ok
+test simd_base::unrelated_simd_classes_and_scalar_vfp_remain_available ... ok
+test simd_base::reserved_structure_memory_fields_do_not_enable_instructions ... ok
+test simd_single::absent_simdsp_rejects_arithmetic ... ok
+test simd_single::absent_simdsp_rejects_estimates_steps_sign_and_rounding ... ok
+test simd_single::absent_simdsp_rejects_half_multiply_accumulation_into_single_precision ... ok
+test simd_single::absent_simdsp_rejects_pairwise_operations ... ok
+test simd_single::absent_simdsp_rejects_integer_fixed_and_cross_precision_conversions ... ok
+test simd_single::absent_simdsp_rejects_register_and_zero_comparisons ... ok
+test simd_single::absent_simdsp_rejects_vector_and_lane_multiplication ... ok
+test simd_single::absent_simdsp_precedes_access_denial ... ok
+test simd_single::full_simdsp_profile_executes_all_controls ... ok
+test simd_single::advertised_fp32_does_not_override_missing_integer_prerequisite ... ok
+test standalone_backend_guest_programs_hyp_controls_and_traps_without_retirement ... ok
+test simd_single::integer_storage_scalar_and_pure_half_operations_do_not_require_simdsp ... ok
+test restricted_modes::restricted_profiles_advertise_the_selected_support_code_subarchitecture ... ok
+test thumb_fp_and_cp15_trap_syndromes_retain_the_passed_it_condition ... ok
+test thumb32_fp_undefined_frame_uses_the_architectural_lr_offset ... ok
+test unallocated_fp_coprocessor_transfers_do_not_become_nops ... ok
+test unallocated_vmrs_opcode_and_register_forms_fault_before_effects ... ok
+test structure_memory::last_valid_structure_registers_execute_or_take_the_selected_fp_trap ... ok
+test structure_memory::failed_thumb_it_suppresses_invalid_structure_operands_and_access_checks ... ok
+test structure_memory::structure_lists_and_pc_bases_reject_during_arm_and_thumb_decode ... ok
+test vmrs_id_traps_preserve_registers_and_encode_the_complete_iss ... ok
+test structure_memory::mixed_width_structure_operand_failures_do_not_retire_or_raise_fp_syndromes ... ok
+test simd_single::reserved_simdsp_values_do_not_enable_fp32 ... ok
+test shift_immediate::all_register_fields_preserve_d_q_alignment_at_every_lane_width_and_count ... FAILED
+test scalar_selector::scalar_size_three_fallback_preserves_all_vext_neighbors ... ok
+test structure_memory::invalid_structure_operands_precede_all_represented_access_denials ... ok
+test shift_immediate::modified_immediate_and_narrowing_widening_neighbors_keep_their_allocation ... ok
+test multiply_long_selector::all_long_register_fields_obey_the_fixed_selector_and_destination_alignment ... ok
+test scalar_selector::scalar_register_fields_reject_reserved_sizes_before_widening_dispatch ... ok
+test restricted_modes::scalar_mode_matrix_preserves_the_unsupported_instruction_frontier ... ok
+
+failures:
+
+failures:
+    shift_immediate::all_register_fields_preserve_d_q_alignment_at_every_lane_width_and_count
+    shift_immediate::every_immediate_count_matches_independent_integer_formulas
+    shift_immediate::legal_immediate_forms_reach_access_traps_and_failed_it_suppresses_effects
+    shift_immediate::llvm_assembled_qemu_controls_match_exact_vectors_and_status
+    shift_immediate::mixed_width_legal_shifts_select_fp_traps_before_zero_retirement_effects
+    shift_immediate::reserved_fixed_selectors_are_undefined_before_fp_access
+    shift_immediate::signed_to_unsigned_zero_shift_saturates_and_qc_remains_sticky
+
+test result: FAILED. 107 passed; 7 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.95s

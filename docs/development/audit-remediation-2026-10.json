@@ -1083,7 +1083,8 @@
         "a32-vfp-block-operand-admission-2026-11-03",
         "a32-core-extension-transfer-admission-2026-11-04",
         "a32-scalar-selector-admission-2026-11-05",
-        "a32-long-selector-admission-2026-11-05"
+        "a32-long-selector-admission-2026-11-05",
+        "a32-immediate-shift-width-count-selectors-2026-11-05"
       ]
     },
     {
@@ -199127,6 +199128,19 @@
       "qualification": "docs/development/hvf-streaming-fpsr-sdk/current-host-reproduction.json",
       "assumptions": "docs/development/hvf-streaming-fpsr-sdk/README.md",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-immediate-shift-width-count-selectors-2026-11-05",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_validated",
+      "scope": "Interpret L:imm6 consistently for A32/T32 ordinary immediate shifts, permit legal zero left shifts, preserve sticky saturation QC, avoid full-width host shifts, and reject reserved VSRI/VQSHL/VQSHLU selectors before FP access. Narrowing/widening remain a separate encoding group.",
+      "qualification": "docs/development/a32-immediate-shifts/qualification.json",
+      "validation": "Complete JIT/no-JIT controls each pass 114 tests; ARM 46850, pairs 5, VFP 524, A32 native 26, Thumb native 25, C API 246. All-target build, Clippy and formatting pass; doctest command executes zero and ignores five. Independent QEMU passes 6720 legal plus 8 reserved controls.",
+      "initial_failure": "An existing VFP assertion incorrectly required Undefined for VSHL.I8 D0,D1,#0; its failing complete run is retained, the assertion is corrected using the primary specification and independent QEMU, and the complete VFP/native targets pass afterward.",
+      "remaining": "72 independently confirmed reserved narrowing/widening admissions still execute with vector changes; complete other profile/backend/private/interrupt/replay requirements and native streaming-FPSR loss remain open.",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -199219,6 +199233,7 @@
     "pc-firmware-and-shared-software-ioapic-2026-11-05",
     "a32-long-selector-admission-2026-11-05",
     "native-intel-firmware-discovery-206-2026-11-05",
-    "native-arm-streaming-fpsr-sdk-27.2-2026-11-05"
+    "native-arm-streaming-fpsr-sdk-27.2-2026-11-05",
+    "a32-immediate-shift-width-count-selectors-2026-11-05"
   ]
 }

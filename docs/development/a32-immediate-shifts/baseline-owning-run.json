@@ -1,0 +1,23 @@
+{
+  "state": "completed",
+  "argv": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "--no-default-features",
+    "--features",
+    "x86_64-suite,smir-jit,hvf,debug",
+    "--test",
+    "a32_fp_controls",
+    "--",
+    "--nocapture"
+  ],
+  "wrapper_pid": 79671,
+  "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-a32-shift-owner-c5zbni5h",
+  "engine_source_digest": "7486bbb826935340306636193ba50237f239e99a31e82ec8a140213a86c09f6e",
+  "pid": 79897,
+  "exit_code": 101,
+  "seconds": 301.7274902499048,
+  "engine_source_unchanged": true
+}

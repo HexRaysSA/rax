@@ -1,0 +1,12 @@
+---- neon_shift::neon_shift_left_and_insert_immediate_update_expected_bits stdout ----
+
+thread 'neon_shift::neon_shift_left_and_insert_immediate_update_expected_bits' (368540412) panicked at tests/suites/isa/arm/aarch32/neon_shift.rs:310:5:
+assertion failed: matches!(Executor::new(&mut cpu, &mut mem).execute(&invalid_zero_shift),
+    ExecResult::Undefined)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    neon_shift::neon_shift_left_and_insert_immediate_update_expected_bits
+
+test result: FAILED. 523 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.59s

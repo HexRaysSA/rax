@@ -58,27 +58,26 @@ impl Aarch32Decoder {
             return None;
         }
 
+        // DDI0597 ID032025: L:imm6=0000xxx selects related encodings.
+        Self::neon_shift_immediate_fields(raw)?;
         let mnemonic = match (raw >> 8) & 0xF {
             0b0000 => Mnemonic::VSHR,
             0b0001 => Mnemonic::VSRA,
             0b0010 => Mnemonic::VRSHR,
             0b0011 => Mnemonic::VRSRA,
-            0b0100 => Mnemonic::VSRI,
+            0b0100 if ((raw >> 24) & 1) != 0 => Mnemonic::VSRI,
+            0b0100 => Mnemonic::UNDEFINED,
             0b0101 if ((raw >> 24) & 1) == 0 => Mnemonic::VSHL,
             0b0101 => Mnemonic::VSLI,
             0b0110 if ((raw >> 24) & 1) != 0 => Mnemonic::VQSHLU,
+            0b0110 => Mnemonic::UNDEFINED,
             0b0111 => Mnemonic::VQSHL,
             _ => return None,
         };
 
-        let imm = (raw >> 16) & 0x3F;
-        let valid_imm = (8..64).contains(&imm);
         let q = ((raw >> 6) & 1) != 0;
         let vd = (raw >> 12) & 0xF;
         let vm = raw & 0xF;
-        if !valid_imm {
-            return None;
-        }
         if q && ((vd | vm) & 1) != 0 {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
@@ -89,6 +88,20 @@ impl Aarch32Decoder {
         }
 
         Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    /// Decode L:imm6 and its element width in bits for ordinary immediate shifts.
+    /// Narrowing/widening and modified-immediate encodings have separate fields.
+    pub(crate) fn neon_shift_immediate_fields(raw: u32) -> Option<(u32, u32)> {
+        let immediate = ((raw >> 16) & 0x3f) | (((raw >> 7) & 1) << 6);
+        let element_bits = match immediate {
+            8..=15 => 8,
+            16..=31 => 16,
+            32..=63 => 32,
+            64..=127 => 64,
+            _ => return None,
+        };
+        Some((immediate, element_bits))
     }
 
     pub(crate) fn decode_neon_widen_move(raw: u32) -> Option<DecodedInsn> {
