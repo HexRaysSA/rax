@@ -1,0 +1,133 @@
+{
+  "utc": "2026-11-05T09:37:32.924554+00:00",
+  "scope": "Preserve SDK exception intercepts during VMCS construction; native correction remains unqualified.",
+  "native_run": {
+    "id": 42001141985,
+    "head": "77df26fc01dcd33c43bcad448a1f70ab5dcdaa7d",
+    "passed": 118,
+    "expected": 130,
+    "success": false,
+    "engine_source_digest": "42ac9af33cfa997ad896a6c2f5a3c022802477ffad657b8f3ba1a8d3cc8e67db",
+    "error": "native Intel context: saved exception intercepts differ from policy",
+    "artifact": {
+      "artifact_id": 13402863111,
+      "zip_sha256": "833ead763551148729fbdb0db1cfec5355b904ad8549a594ec5297811fbba413",
+      "all_downloaded_files_match_archive": true,
+      "files": [
+        "availability/result.json",
+        "commit.stderr",
+        "availability.stderr",
+        "availability.stdout",
+        "commit.stdout",
+        "engine-source.json",
+        "guest.stderr",
+        "guest.stdout",
+        "kernel.stderr",
+        "kernel.stdout",
+        "observations.jsonl",
+        "os.stderr",
+        "os.stdout",
+        "result.json",
+        "sdk.stderr",
+        "sdk.stdout",
+        "verify-signature.stdout",
+        "verify-signature.stderr"
+      ]
+    },
+    "raw_sha256": {
+      "native-partial-42001141985.jsonl": "e13fea8b1cccc0a5556fcb495f822642bc430092a2997e3a4b64b6a75da0c078",
+      "native-partial-42001141985.stderr": "c21e0aa3af3ff6fb17b64e266c8e7c82deea5f271aa36fd9856a7aedfc49bd56",
+      "native-partial-42001141985.json": "09ad9e4e1f45caeeec545f37c119419e6a77c2ae3edfcd3466b7ff400ddbd497"
+    }
+  },
+  "baseline": {
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--target",
+      "x86_64-apple-darwin",
+      "--test",
+      "hvf_controls",
+      "constructor_preserves_sdk_owned_exception_intercepts",
+      "--",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 101,
+    "seconds": 0.7403227909235284
+  },
+  "corrected": {
+    "label": "controls",
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--target",
+      "x86_64-apple-darwin",
+      "--test",
+      "hvf_controls"
+    ],
+    "exit_code": 0,
+    "seconds": 49.2230456660036
+  },
+  "complete_counts": {
+    "passed": 11,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "source_sha256": {
+    "src/backend/hvf/controls.rs": "aa59e7d90ba82b37fc2c66fa89a7f89b38d3cca80e32cb5837287e52af754fda",
+    "tests/suites/backend/hvf_controls.rs": "cb133cc1851529d4b3ed3c7c2bf315b98b5a65061975436b9bb6511edb601c59"
+  },
+  "qualification_boundary": "The complete host-independent controls target imports the actual initializer directly. The combined library includes pending deadline implementation; no native corrected guest or complete owner qualification is inferred.",
+  "full_goal_complete": false,
+  "previous_compiled_source_sha256": {
+    "src/backend/hvf/controls.rs": "4dacfaea60860aa32ac21e479facce027e2e7108a406b8811745017f78f933c5",
+    "tests/suites/backend/hvf_controls.rs": "cb133cc1851529d4b3ed3c7c2bf315b98b5a65061975436b9bb6511edb601c59"
+  },
+  "comment_clarification": "The exact post-entry bitmap difference is an inference; source comments now distinguish the initial #MC observation from that unrecorded difference.",
+  "current_standalone_complete_control_tests": {
+    "commands": [
+      {
+        "command": [
+          "rustc",
+          "+stable",
+          "--edition=2024",
+          "--test",
+          "tests/suites/backend/hvf_controls.rs",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-exception-controls-30vb8iie/controls"
+        ],
+        "exit_code": 0,
+        "seconds": 0.18790520797483623,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-exception-controls-30vb8iie/controls",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 0.019354417105205357,
+        "stdout": "\nrunning 11 tests\ntest complete_initialization_reads_four_banks_before_eight_exact_writes ... ok\ntest every_individual_capability_bit_obeys_required_and_allowed_masks ... ok\ntest every_capability_api_error_stops_before_any_vmcs_mutation ... ok\ntest constructor_preserves_sdk_owned_exception_intercepts ... ok\ntest native_profile_ignores_enabled_xsave_lengths_but_retains_capabilities ... ok\ntest native_profile_preserves_xsave_component_offsets_and_other_feature_bits ... ok\ntest sdk_private_link_pointer_is_not_written ... ok\ntest every_missing_requested_control_is_reported_before_any_write ... ok\ntest contradictory_masks_fail_for_every_bank_and_bit_before_writes ... ok\ntest every_write_failure_preserves_prior_commits_and_stops_the_sequence ... ok\ntest seeded_full_width_masks_preserve_all_mandatory_and_forbidden_bits ... ok\n\ntest result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s\n\n",
+        "stderr": ""
+      }
+    ],
+    "owned_build_removed": true,
+    "passed": 11,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  }
+}

@@ -46,6 +46,11 @@ handle. Explicitly retaining the mock fixed that harness defect; the crash is
 recorded in [qualification](control-mask-qualification.json), not counted as a
 successful test. The native mask correction still requires a new hosted run.
 
+The subsequent [run 42001141985](exception-intercepts.md) passes the mask check
+and reaches a separate exception-intercept policy rejection at private capture,
+after 118 passing cases. This supports the mask correction without establishing
+complete native capture or continuation.
+
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
 | A1 | SDK mask constraints explain the stale private producer policy | Constructor correction | Compare pre/post-entry masks in the independent matrix; reproduce native capture failure in the owner model; rerun native RAX | Matrix and model confirmed; corrected native continuation unqualified |

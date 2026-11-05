@@ -62,6 +62,8 @@ native HVF guest execution.
 
 The later [run 41992554080](control-mask-policy.md) passes 118 ordered native
 RAX cases before private checkpoint capture rejects SDK-normalized masks.
-Its retained result supersedes the first-control failure as the current native
-frontier. High impact: native private continuation, the remaining cases and the
-full audit findings remain unqualified.
+Run 42001141985 subsequently passes the mask check and reaches a different
+[exception-intercept policy rejection](exception-intercepts.md), again after
+118 cases. Its retained result is the current native frontier. High impact:
+native private continuation, the remaining cases and the full audit findings
+remain unqualified.

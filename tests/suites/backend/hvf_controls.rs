@@ -21,6 +21,7 @@ struct Host {
     committed: Vec<(hv_vmx_vmcs_field_t, u64)>,
     fail_at: Option<usize>,
     reject_link_pointer: bool,
+    exception_bitmap: u64,
 }
 impl Host {
     fn new() -> Self {
@@ -30,6 +31,7 @@ impl Host {
             committed: vec![],
             fail_at: None,
             reject_link_pointer: false,
+            exception_bitmap: 0,
         }
     }
     fn call(&mut self, call: Call) -> Result<(), usize> {
@@ -58,7 +60,26 @@ impl ControlAccess for Host {
             return Err(self.trace.len() - 1);
         }
         self.committed.push((field, data));
+        if field == hv_vmx_vmcs_field_t::VMCS_CTRL_EXC_BITMAP {
+            self.exception_bitmap = data;
+        }
         Ok(())
+    }
+}
+
+#[test]
+fn constructor_preserves_sdk_owned_exception_intercepts() {
+    for bitmap in [0, 1 << 18, (1 << 1) | (1 << 3), u64::from(u32::MAX)] {
+        let mut host = Host::new();
+        host.exception_bitmap = bitmap;
+        initialize(&mut host).unwrap();
+        assert_eq!(host.exception_bitmap, bitmap, "lost SDK bitmap {bitmap:#x}");
+        assert!(
+            !host
+                .committed
+                .iter()
+                .any(|(field, _)| { *field == hv_vmx_vmcs_field_t::VMCS_CTRL_EXC_BITMAP })
+        );
     }
 }
 #[test]
@@ -131,7 +152,7 @@ fn seeded_full_width_masks_preserve_all_mandatory_and_forbidden_bits() {
     }
 }
 #[test]
-fn complete_initialization_reads_four_banks_before_nine_exact_writes() {
+fn complete_initialization_reads_four_banks_before_eight_exact_writes() {
     let mut h = Host::new();
     h.caps[0] |= 1 << 1;
     initialize(&mut h).unwrap();
@@ -150,14 +171,13 @@ fn complete_initialization_reads_four_banks_before_nine_exact_writes() {
             ),
             (VMCS_CTRL_CPU_BASED2, (1 << 1) | (1 << 3) | (1 << 7)),
             (VMCS_CTRL_VMENTRY_CONTROLS, (1 << 9) | (1 << 15)),
-            (VMCS_CTRL_EXC_BITMAP, 0),
             (VMCS_CTRL_CR0_MASK, 1 << 5),
             (VMCS_CTRL_CR0_SHADOW, 1 << 5),
             (VMCS_CTRL_CR4_MASK, 0),
             (VMCS_CTRL_CR4_SHADOW, 0),
         ]
     );
-    assert_eq!(h.trace.len(), 13);
+    assert_eq!(h.trace.len(), 12);
 }
 #[test]
 fn every_capability_api_error_stops_before_any_vmcs_mutation() {
@@ -214,7 +234,7 @@ fn contradictory_masks_fail_for_every_bank_and_bit_before_writes() {
 fn every_write_failure_preserves_prior_commits_and_stops_the_sequence() {
     let mut baseline = Host::new();
     initialize(&mut baseline).unwrap();
-    for fail in 4..13 {
+    for fail in 4..12 {
         let mut h = Host::new();
         h.fail_at = Some(fail);
         assert_eq!(initialize(&mut h), Err(ControlError::Host(fail)));
