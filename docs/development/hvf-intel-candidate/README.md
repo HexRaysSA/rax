@@ -18,11 +18,11 @@ the local checks ran. The complete path inventory is in [candidate.json](candida
 
 | Input | Value |
 |---|---|
-| Base source commit | `b80cf96df5197eba99c37900d25cc6f9029fb5dc` |
-| Changed source paths | 109 |
-| Patch size | 597528 bytes |
-| Patch SHA-256 | `6dada2ad5c94c0785698369d9f467d088be182bd0fbd265aa236d28a4eb5b479` |
-| Base source fingerprint | `7d31c9dd6323d69b382d58468c324f5cae169dcf1ffa49e476fb1dfba801938c` |
+| Base source commit | `e1a5fc616ebf6291872fcae3b8987a669f789c68` |
+| Changed source paths | 108 |
+| Patch size | 592943 bytes |
+| Patch SHA-256 | `a9a57a32fb831f8abf13a8dcb13d8e5a5c3c0b13465731759c348d790cf06680` |
+| Base source fingerprint | `08f96e80659eab582c76c8d2f8687c71e18c0f994722b895900f449d791e7565` |
 | Candidate source fingerprint | `81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708` |
 
 Fingerprints are SHA-256 of a JSON object mapping relative source paths to file
@@ -54,7 +54,7 @@ new output directory:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 tools/hvf/build_native_candidate.py \
-  --repo . --base-ref b80cf96df5197eba99c37900d25cc6f9029fb5dc \
+  --repo . --base-ref e1a5fc616ebf6291872fcae3b8987a669f789c68 \
   --expected-target-digest 81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708 \
   --output /tmp/rax-native-candidate-new
 ```

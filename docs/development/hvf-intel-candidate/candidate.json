@@ -1,8 +1,8 @@
 {
   "version": 1,
   "patch": "candidate.patch",
-  "base_commit": "b80cf96df5197eba99c37900d25cc6f9029fb5dc",
-  "patch_sha256": "6dada2ad5c94c0785698369d9f467d088be182bd0fbd265aa236d28a4eb5b479",
+  "base_commit": "e1a5fc616ebf6291872fcae3b8987a669f789c68",
+  "patch_sha256": "a9a57a32fb831f8abf13a8dcb13d8e5a5c3c0b13465731759c348d790cf06680",
   "paths": [
     "Cargo.lock",
     "Cargo.toml",
@@ -82,7 +82,6 @@
     "src/machine/pc/owned_setup.rs",
     "src/machine/pc/ram.rs",
     "src/machine/s5l8900/runtime/time/selected_tests.rs",
-    "src/user/windows/process/sched/tests/services_tests/file_directory_tests.rs",
     "src/vm/memory.rs",
     "src/vm/memory/checkpoint.rs",
     "src/vm/runtime.rs",
@@ -114,7 +113,7 @@
     "tools/hvf/intel_mmio_native_guest.rs",
     "tools/hvf/intel_mmio_native_probe.py"
   ],
-  "base_source_digest": "7d31c9dd6323d69b382d58468c324f5cae169dcf1ffa49e476fb1dfba801938c",
+  "base_source_digest": "08f96e80659eab582c76c8d2f8687c71e18c0f994722b895900f449d791e7565",
   "target_source_digest": "81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708",
-  "target_source_tree": "c27a3fafeccdb9ae4fe378148b51b67d18f7fb5e"
+  "target_source_tree": "f695c380d561895a2ee5e52fb1c196fbfbeb84a4"
 }
