@@ -12,7 +12,7 @@ import tempfile
 
 import intel_mmio_prepared as prepared
 
-EXPECTED_CASES = 146
+EXPECTED_CASES = 149
 
 
 def sha(path):
