@@ -1,0 +1,6 @@
+
+thread 'smir::interpret::tests::x87::part3::lifted_x87_transcendentals_match_native_x87_within_combined_error_bounds' (364261912) panicked at src/smir/interpret/tests/x87/part3.rs:122:5:
+assertion `left == right` failed: FPTAN: exponent
+  left: 16383
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

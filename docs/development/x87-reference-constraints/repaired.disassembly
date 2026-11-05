@@ -1,0 +1,22 @@
+103855db8: 48 8d 4d b0                 	leaq	-0x50(%rbp), %rcx
+103855dbc: 48 8d 55 a0                 	leaq	-0x60(%rbp), %rdx
+103855dc0: 48 8d 75 c8                 	leaq	-0x38(%rbp), %rsi
+103855dc4: db e3                       	fninit
+103855dc6: db 2a                       	fldt	(%rdx)
+103855dc8: d9 f2                       	fptan
+103855dca: df e0                       	fnstsw	%ax
+103855dcc: db 39                       	fstpt	(%rcx)
+103855dce: db 3e                       	fstpt	(%rsi)
+103855dd0: eb 7e                       	jmp	0x103855e50 <__RNvNtNtNtNtNtCs4osGJUC6a3y_3rax4smir9interpret5tests3x875part3s_72lifted_x87_transcendentals_match_native_x87_within_combined_error_bounds+0xa00>
+
+103855df4: 48 8d 4d b0                 	leaq	-0x50(%rbp), %rcx
+103855df8: 48 8d 55 a0                 	leaq	-0x60(%rbp), %rdx
+103855dfc: 48 8d 75 c8                 	leaq	-0x38(%rbp), %rsi
+103855e00: db e3                       	fninit
+103855e02: db 2a                       	fldt	(%rdx)
+103855e04: d9 fb                       	fsincos
+103855e06: df e0                       	fnstsw	%ax
+103855e08: db 39                       	fstpt	(%rcx)
+103855e0a: db 3e                       	fstpt	(%rsi)
+103855e0c: eb 42                       	jmp	0x103855e50 <__RNvNtNtNtNtNtCs4osGJUC6a3y_3rax4smir9interpret5tests3x875part3s_72lifted_x87_transcendentals_match_native_x87_within_combined_error_bounds+0xa00>
+

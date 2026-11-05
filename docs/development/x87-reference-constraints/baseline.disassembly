@@ -1,0 +1,18 @@
+103855db8: 48 8d 45 b0                 	leaq	-0x50(%rbp), %rax
+103855dbc: 48 8d 4d a0                 	leaq	-0x60(%rbp), %rcx
+103855dc0: 48 8d 55 c8                 	leaq	-0x38(%rbp), %rdx
+103855dc4: db e3                       	fninit
+103855dc6: db 29                       	fldt	(%rcx)
+103855dc8: d9 f2                       	fptan
+103855dca: df e0                       	fnstsw	%ax
+103855dcc: db 38                       	fstpt	(%rax)
+103855dce: db 3a                       	fstpt	(%rdx)
+103855df4: 48 8d 45 b0                 	leaq	-0x50(%rbp), %rax
+103855df8: 48 8d 4d a0                 	leaq	-0x60(%rbp), %rcx
+103855dfc: 48 8d 55 c8                 	leaq	-0x38(%rbp), %rdx
+103855e00: db e3                       	fninit
+103855e02: db 29                       	fldt	(%rcx)
+103855e04: d9 fb                       	fsincos
+103855e06: df e0                       	fnstsw	%ax
+103855e08: db 38                       	fstpt	(%rax)
+103855e0a: db 3a                       	fstpt	(%rdx)

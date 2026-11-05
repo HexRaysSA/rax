@@ -416,6 +416,12 @@ unsafe fn native_x87(
     let mut primary = [0u8; 10];
     let mut pushed = [0u8; 10];
     let status: u16;
+    // FNSTSW writes AX before the output-buffer pointers are consumed by FSTP.
+    // Use an early output so neither pointer can share RAX with the status.
+    // SAFETY: each source and destination covers one ten-byte binary80 value;
+    // the independent local output arrays remain live through each assembly
+    // block. The selected sequence balances the x87 stack after FNINIT, uses
+    // no integer stack storage, and preserves integer arithmetic flags.
     match opcode {
         0xF0 => unsafe {
             asm!(
@@ -426,7 +432,7 @@ unsafe fn native_x87(
                 "fstp tbyte ptr [{primary}]",
                 x = in(reg) x.as_ptr(),
                 primary = in(reg) primary.as_mut_ptr(),
-                lateout("ax") status,
+                out("ax") status,
                 options(nostack, preserves_flags),
             );
         },
@@ -441,7 +447,7 @@ unsafe fn native_x87(
                 x = in(reg) x.as_ptr(),
                 y = in(reg) y.unwrap().as_ptr(),
                 primary = in(reg) primary.as_mut_ptr(),
-                lateout("ax") status,
+                out("ax") status,
                 options(nostack, preserves_flags),
             );
         },
@@ -456,7 +462,7 @@ unsafe fn native_x87(
                 x = in(reg) x.as_ptr(),
                 primary = in(reg) primary.as_mut_ptr(),
                 pushed = in(reg) pushed.as_mut_ptr(),
-                lateout("ax") status,
+                out("ax") status,
                 options(nostack, preserves_flags),
             );
         },
@@ -471,7 +477,7 @@ unsafe fn native_x87(
                 x = in(reg) x.as_ptr(),
                 y = in(reg) y.unwrap().as_ptr(),
                 primary = in(reg) primary.as_mut_ptr(),
-                lateout("ax") status,
+                out("ax") status,
                 options(nostack, preserves_flags),
             );
         },
@@ -486,7 +492,7 @@ unsafe fn native_x87(
                 x = in(reg) x.as_ptr(),
                 y = in(reg) y.unwrap().as_ptr(),
                 primary = in(reg) primary.as_mut_ptr(),
-                lateout("ax") status,
+                out("ax") status,
                 options(nostack, preserves_flags),
             );
         },
@@ -501,7 +507,7 @@ unsafe fn native_x87(
                 x = in(reg) x.as_ptr(),
                 primary = in(reg) primary.as_mut_ptr(),
                 pushed = in(reg) pushed.as_mut_ptr(),
-                lateout("ax") status,
+                out("ax") status,
                 options(nostack, preserves_flags),
             );
         },
@@ -514,7 +520,7 @@ unsafe fn native_x87(
                 "fstp tbyte ptr [{primary}]",
                 x = in(reg) x.as_ptr(),
                 primary = in(reg) primary.as_mut_ptr(),
-                lateout("ax") status,
+                out("ax") status,
                 options(nostack, preserves_flags),
             );
         },
@@ -527,7 +533,7 @@ unsafe fn native_x87(
                 "fstp tbyte ptr [{primary}]",
                 x = in(reg) x.as_ptr(),
                 primary = in(reg) primary.as_mut_ptr(),
-                lateout("ax") status,
+                out("ax") status,
                 options(nostack, preserves_flags),
             );
         },

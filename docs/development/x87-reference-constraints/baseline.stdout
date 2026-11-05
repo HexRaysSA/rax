@@ -1,0 +1,11 @@
+
+running 1 test
+test smir::interpret::tests::x87::part3::lifted_x87_transcendentals_match_native_x87_within_combined_error_bounds ... FAILED
+
+failures:
+
+failures:
+    smir::interpret::tests::x87::part3::lifted_x87_transcendentals_match_native_x87_within_combined_error_bounds
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 13417 filtered out; finished in 0.00s
+

@@ -1,0 +1,137 @@
+{
+  "status": "locally_validated_with_explicit_unrelated_owning_failure",
+  "base_commit": "95b070404c6d7d0668133b178de1a15c233a81fe",
+  "baseline_engine_source_digest": "678813ec75ccf2c9505daea20e5d76feaa71c6267dfc4ada5a6e0c492d0776d1",
+  "baseline_test_source_sha256": "531e15ed401453af98a102420f31eda41bd6ed1827fdf63fb28057f47b00fa70",
+  "baseline": {
+    "argv": [
+      "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2/x86_64-apple-darwin/debug/deps/rax-b9d3e9232acbd7e6",
+      "smir::interpret::tests::x87::part3::lifted_x87_transcendentals_match_native_x87_within_combined_error_bounds",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 101,
+    "seconds": 0.01894929097034037,
+    "executable_sha256": "4ee664b67ed8ca0aaa7b5240702671abe79de79841cbbda963400ca75958e41f",
+    "scope": "Diagnostic on exact in-flight x86 owning executable; not a replacement for the full root gate."
+  },
+  "cause": "FNSTSW AX precedes FSTP through an input pointer assigned RAX. The lateout constraint incorrectly permits input/output register overlap before that input has been consumed.",
+  "repair": "All eight native_x87 status operands use out(\"ax\"), excluding its overlapping register aliases from every input.",
+  "primary_reference": {
+    "title": "The Rust Reference: Inline assembly",
+    "source_url": "https://doc.rust-lang.org/reference/inline-assembly.html",
+    "retrieved_utc": "2026-11-05T14:45:49.169453+00:00",
+    "path": "docs/specifications/rust/reference-inline-assembly.html",
+    "bytes": 211887,
+    "sha256": "098bafb3df1bfc8edd9d0f904d438045d37dc371867c5a4834f8e9039646befe",
+    "revision": "unknown; official live reference fetched on recorded date",
+    "sections": [
+      "asm.operand-type.supported-operands.out",
+      "asm.operand-type.supported-operands.lateout"
+    ],
+    "status": "Local primary reference; not staged."
+  },
+  "assumptions": [
+    {
+      "id": "X1",
+      "assumption": "The failing process ran the captured executable and actual native-reference instruction sequence.",
+      "basis": "Owning executable SHA-256 plus disassembly; isolated one-test failure.",
+      "dependent_result": "Register lifetime error explains the observed native pushed result remaining zero.",
+      "stress_test": "FPTAN and FSINCOS both retain the pushed-result address across FNSTSW.",
+      "falsification_probe": "Disassembly has no buffer pointer in RAX at FNSTSW or the binary differs from the captured SHA-256.",
+      "status": "confirmed"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Incorrect native-reference constraints can silently corrupt memory or invalidate differential results.",
+      "in_scope": true
+    },
+    {
+      "impact": "medium",
+      "item": "Rosetta execution is not a physical Intel architectural oracle; no discrepancy is attributed to Rosetta.",
+      "in_scope": false
+    }
+  ],
+  "corrected_validation": {
+    "focused": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib",
+        "smir::interpret::tests::x87::part3::lifted_x87_transcendentals_match_native_x87_within_combined_error_bounds",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "wrapper_pid": 57450,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "e8f1b1c6649ec44c8c63798667f76cdb39b97c9a3767c79ea0688782a6e8efca",
+      "pid": 57451,
+      "exit_code": 0,
+      "seconds": 267.51047191699035,
+      "engine_source_unchanged": true
+    },
+    "executable_sha256": "6c2fb8dcb71a8c4c43534228039e250d5cf2b211142686d15b877484bfb9816f",
+    "compiled_disassembly": "repaired.disassembly",
+    "full_target": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "wrapper_pid": 57450,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "e8f1b1c6649ec44c8c63798667f76cdb39b97c9a3767c79ea0688782a6e8efca",
+      "pid": 62604,
+      "exit_code": 101,
+      "seconds": 3304.5447603749344,
+      "engine_source_unchanged": false,
+      "tests_passed": 13412,
+      "tests_failed": 1,
+      "tests_ignored": 5,
+      "filtered_out": 0,
+      "sole_failure": "vm::runtime::pc_owned_capture_tests::missing_pc_component_is_rejected_before_cpu_ram_or_cmos_changes"
+    },
+    "source_guard_reconciliation": {
+      "compiled_engine_source_digest": "e8f1b1c6649ec44c8c63798667f76cdb39b97c9a3767c79ea0688782a6e8efca",
+      "current_firmware_engine_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+      "only_later_source_changes": [
+        "src/isa/x86_64/memory/shared_ioapic.rs: two new MMIO tests",
+        "src/vm/runtime/checkpoint_restore.rs: preserve the prior PC component check order"
+      ],
+      "reconstruction_matches_original_digest": true,
+      "x87_test_source_sha256": "4dbe7d39b24335e7041988648aaf3e0c8a3c7f6452f0df3a9ed539969762451f",
+      "x87_source_unchanged_since_corrected_compilation": true
+    },
+    "unrelated_failure_disposition": {
+      "cause": "The new I/O APIC requirement changed the existing PC component rejection diagnostic.",
+      "current_firmware_repair": "Original PC component validation precedes the new I/O APIC requirement.",
+      "evidence": "docs/development/pc-firmware-discovery/qualification.json",
+      "final_pc_target_passed": 22,
+      "final_arm64_library_passed": 12457,
+      "final_firmware_x86_library": "Still running; this record does not claim that target passed."
+    }
+  },
+  "publication_parent": "551302a7bc7d2f49f16681afa7ab72cb4c81ad75",
+  "upstream_scope_note": "Disjoint Windows ARM64EC changes fast-forwarded with no merge commit; the captured complete owning run retains its original source/executable identity."
+}
