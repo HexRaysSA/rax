@@ -1,0 +1,41 @@
+name: Portable SMIR framing
+
+on:
+  push:
+    paths:
+      - 'src/smir/**'
+      - 'tools/smir-format/**'
+      - 'docs/specifications/smir/portable/**'
+      - '.github/workflows/smir-format.yml'
+  pull_request:
+    paths:
+      - 'src/smir/**'
+      - 'tools/smir-format/**'
+      - 'docs/specifications/smir/portable/**'
+      - '.github/workflows/smir-format.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  framing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+          cache-key: portable-smir-framing
+      - name: Specification and inventories
+        run: |
+          python3 tools/smir-format/check_spec.py
+          python3 tools/smir-format/inventory.py --check
+      - name: Complete framing harness and independent codecs
+        env:
+          CXX: clang++
+        run: |
+          rustc --edition 2024 --test src/smir/portable/mod.rs -o "$RUNNER_TEMP/smir-framing-tests"
+          "$RUNNER_TEMP/smir-framing-tests"
+          python3 -m unittest discover -s tools/smir-format -p 'test_*.py' -v

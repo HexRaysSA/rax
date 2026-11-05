@@ -62,6 +62,8 @@ pub mod ir;
 pub mod lift;
 pub mod lower;
 pub mod optimize;
+/// Experimental portable module framing; decoding does not admit execution.
+pub mod portable;
 
 // Compatibility module aliases. The canonical locations are under `ir/`, but
 // these preserve the existing public Rust paths while downstream users migrate.
