@@ -1,0 +1,463 @@
+{
+  "utc": "2026-11-05T05:13:38.445330+00:00",
+  "scope": "Mandatory PL011 image for complete native AArch64 files; no wire change or complete native-backend claim. Tests ran in the combined pending backend workspaces before later Intel-only and concurrent remote Windows changes.",
+  "baseline": {
+    "source": "6dccc1f435e012c6bbbadf2a27fada8351d15ab745cbd4a9d626d7c3db71d4af",
+    "source_unchanged": true,
+    "negative_gates": [
+      {
+        "label": "missing-uart-save",
+        "argv": [
+          "/tmp/rax-arm-uart-baseline-qraehsmn/build/debug/deps/rax-3cdb78d6f8bffa01",
+          "vm::snapshot::native_bundle_tests::native_missing_uart_rejects_before_replacing_the_destination_file",
+          "--exact",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 101,
+        "results": [
+          [
+            0,
+            1,
+            0,
+            0,
+            10165
+          ]
+        ],
+        "seconds": 0.03590266697574407
+      },
+      {
+        "label": "missing-uart-reader",
+        "argv": [
+          "/tmp/rax-arm-uart-baseline-qraehsmn/build/debug/deps/rax-3cdb78d6f8bffa01",
+          "vm::snapshot::native_bundle_tests::native_reader_rejects_a_framed_file_without_its_uart_owner",
+          "--exact",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 101,
+        "results": [
+          [
+            0,
+            1,
+            0,
+            0,
+            10165
+          ]
+        ],
+        "seconds": 0.0349812499480322
+      },
+      {
+        "label": "native-missing-uart",
+        "argv": [
+          "/tmp/rax-arm-uart-baseline-qraehsmn/build/debug/deps/rax-3cdb78d6f8bffa01",
+          "vm::runtime::native_checkpoint_tests::uart::native_missing_uart_rejects_before_cpu_ram_and_device_publication",
+          "--exact",
+          "--test-threads=1",
+          "--nocapture",
+          "--include-ignored"
+        ],
+        "exit_code": 101,
+        "results": [
+          [
+            0,
+            1,
+            0,
+            0,
+            10165
+          ]
+        ],
+        "seconds": 55.66147233301308
+      }
+    ]
+  },
+  "corrected_component_gates": [
+    {
+      "label": "uart-positive",
+      "argv": [
+        "/tmp/rax-arm-uart-corrected-mi4hwhwx/build/debug/deps/rax-3cdb78d6f8bffa01",
+        "vm::snapshot::native_bundle_tests::native_uart_files_preserve_the_destroyed_sources_fifo_and_controls",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          1,
+          0,
+          0,
+          0,
+          10165
+        ]
+      ],
+      "seconds": 0.04654587502591312
+    },
+    {
+      "label": "missing-uart-save",
+      "argv": [
+        "/tmp/rax-arm-uart-corrected-mi4hwhwx/build/debug/deps/rax-3cdb78d6f8bffa01",
+        "vm::snapshot::native_bundle_tests::native_missing_uart_rejects_before_replacing_the_destination_file",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          1,
+          0,
+          0,
+          0,
+          10165
+        ]
+      ],
+      "seconds": 0.017188500030897558
+    },
+    {
+      "label": "missing-uart-reader",
+      "argv": [
+        "/tmp/rax-arm-uart-corrected-mi4hwhwx/build/debug/deps/rax-3cdb78d6f8bffa01",
+        "vm::snapshot::native_bundle_tests::native_reader_rejects_a_framed_file_without_its_uart_owner",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          1,
+          0,
+          0,
+          0,
+          10165
+        ]
+      ],
+      "seconds": 0.033796750009059906
+    },
+    {
+      "label": "native-arm-file-namespace",
+      "argv": [
+        "/tmp/rax-arm-uart-corrected-mi4hwhwx/build/debug/deps/rax-3cdb78d6f8bffa01",
+        "vm::snapshot::native_bundle_tests::",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          15,
+          0,
+          0,
+          0,
+          10151
+        ]
+      ],
+      "seconds": 0.09925299999304116
+    },
+    {
+      "label": "native-missing-uart",
+      "argv": [
+        "/tmp/rax-arm-uart-corrected-mi4hwhwx/build/debug/deps/rax-3cdb78d6f8bffa01",
+        "vm::runtime::native_checkpoint_tests::uart::native_missing_uart_rejects_before_cpu_ram_and_device_publication",
+        "--test-threads=1",
+        "--nocapture",
+        "--include-ignored"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          1,
+          0,
+          0,
+          0,
+          10165
+        ]
+      ],
+      "seconds": 59.62590758304577
+    },
+    {
+      "label": "native-file-continuation",
+      "argv": [
+        "/tmp/rax-arm-uart-corrected-mi4hwhwx/build/debug/deps/rax-3cdb78d6f8bffa01",
+        "vm::runtime::native_checkpoint_tests::actual_native_vmm_restores_one_two_four_cpu_files_and_continues_pending_mmio",
+        "--test-threads=1",
+        "--nocapture",
+        "--include-ignored"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          1,
+          0,
+          0,
+          0,
+          10165
+        ]
+      ],
+      "seconds": 186.67002674995456
+    },
+    {
+      "label": "native-active-uart",
+      "argv": [
+        "/tmp/rax-arm-uart-corrected-mi4hwhwx/build/debug/deps/rax-3cdb78d6f8bffa01",
+        "vm::runtime::native_checkpoint_tests::active_uart_spi_file_restore_preserves_priority_reassertion_and_deassertion",
+        "--test-threads=1",
+        "--nocapture",
+        "--include-ignored"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          1,
+          0,
+          0,
+          0,
+          10165
+        ]
+      ],
+      "seconds": 63.4429170419462
+    }
+  ],
+  "component_executable": {
+    "path": "/tmp/rax-arm-uart-corrected-mi4hwhwx/build/debug/deps/rax-3cdb78d6f8bffa01",
+    "unsigned_sha256": "1a971702ab2ecce6528b1a2acaaeab930f3045debc6e34e848f0198ddd4c99fc",
+    "sha256": "38c6e9cf75a248efa0e78e0d649493e827337ba0aea7a9c8ab1584242d6bee96",
+    "hypervisor_entitlement": true
+  },
+  "complete_workspace_qualification": {
+    "exit_code": 0,
+    "commands": [
+      {
+        "label": "fmt",
+        "argv": [
+          "cargo",
+          "+stable",
+          "fmt",
+          "--all",
+          "--check"
+        ],
+        "exit_code": 0,
+        "results": [],
+        "seconds": 14.859939709072933
+      },
+      {
+        "label": "library-jit",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "hvf,debug,x86_64-suite,smir-jit",
+          "--lib",
+          "--no-run",
+          "--message-format=json"
+        ],
+        "exit_code": 0,
+        "seconds": 249.95920062507503
+      },
+      {
+        "label": "library-jit-sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          "/tmp/rax-audit-root-corrected-4c6pok98/entitlements.plist",
+          "--timestamp=none",
+          "/tmp/rax-audit-root-corrected-4c6pok98/build/debug/deps/rax-cbbec34421e26e80"
+        ],
+        "exit_code": 0,
+        "results": [],
+        "seconds": 0.57644891703967
+      },
+      {
+        "label": "library-jit-verify-signature",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "--verbose=1",
+          "/tmp/rax-audit-root-corrected-4c6pok98/build/debug/deps/rax-cbbec34421e26e80"
+        ],
+        "exit_code": 0,
+        "results": [],
+        "seconds": 0.34481708297971636
+      },
+      {
+        "label": "fifo-namespace",
+        "argv": [
+          "/tmp/rax-audit-root-corrected-4c6pok98/build/debug/deps/rax-cbbec34421e26e80",
+          "user::darwin::wait::fifo_tests::",
+          "--test-threads=2",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "results": [
+          [
+            6,
+            0,
+            0,
+            0,
+            12436
+          ]
+        ],
+        "seconds": 0.07384349999483675
+      },
+      {
+        "label": "root-library",
+        "argv": [
+          "/tmp/rax-audit-root-corrected-4c6pok98/build/debug/deps/rax-cbbec34421e26e80",
+          "--test-threads=2",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "results": [
+          [
+            12406,
+            0,
+            36,
+            0,
+            0
+          ]
+        ],
+        "seconds": 7352.662891624961
+      },
+      {
+        "label": "capi",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "rax-capi",
+          "--lib",
+          "--",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "results": [
+          [
+            244,
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        "seconds": 109.82776900008321
+      },
+      {
+        "label": "clippy",
+        "argv": [
+          "cargo",
+          "+stable",
+          "clippy",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "hvf,debug,x86_64-suite,smir-jit",
+          "--all-targets",
+          "--workspace"
+        ],
+        "exit_code": 0,
+        "results": [],
+        "seconds": 103.34049745800439
+      },
+      {
+        "label": "build",
+        "argv": [
+          "cargo",
+          "+stable",
+          "build",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "hvf,debug,x86_64-suite,smir-jit",
+          "--all-targets",
+          "--workspace"
+        ],
+        "exit_code": 0,
+        "results": [],
+        "seconds": 241.63597399997525
+      },
+      {
+        "label": "no-jit-check",
+        "argv": [
+          "cargo",
+          "+stable",
+          "check",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "hvf,debug,x86_64-suite",
+          "--lib"
+        ],
+        "exit_code": 0,
+        "results": [],
+        "seconds": 34.40765766694676
+      },
+      {
+        "label": "doc",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "hvf,debug,x86_64-suite,smir-jit",
+          "--workspace",
+          "--doc"
+        ],
+        "exit_code": 0,
+        "results": [
+          [
+            0,
+            0,
+            5,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        "seconds": 5.999535374925472
+      }
+    ],
+    "source_unchanged": true,
+    "qualified_inputs_sha256": "123f39ed44484efc30108d14539d8f81a9ff3e5d9318f40aec0780ab83848d02",
+    "unchanged_semantic_gate_evidence": "/Users/int/dev/rax-audit-work/four-findings-hvf-arm-uart/native-file-admission-v1/corrected-v1",
+    "physical_intel_hvf_validation": false,
+    "full_goal_complete": false
+  },
+  "matching_owned_input_sha256": {
+    "src/vm/snapshot/bundle.rs": "16f614b3eb9d979a7abe0ea5d427073d0bc16e661901b780d5b1781e1cf6eebb",
+    "src/vm/snapshot/native_bundle_tests.rs": "f397605176b521833ecd52f493c8c03124d79d8d31ca782cffbf16c1d89cb3eb",
+    "src/vm/runtime/native_checkpoint_tests.rs": "014638373d5488554b3c45b8238beefe27799c0cc433c02a13004dc78751ccaf",
+    "src/vm/runtime/native_checkpoint_uart_tests.rs": "2bb707b5a60df28a558517c5b26fb373e3c586f9eef9bd4da23ea4e4f29ae3b6"
+  },
+  "earlier_root_attempt": {
+    "status": "incomplete and retained, not qualified",
+    "exit_code": -15,
+    "cause": "Recorded interruption during Darwin FIFO tests; a later source phase isolated those fixtures before its complete root run.",
+    "component_passes_retained": true
+  },
+  "native_negative_test_scope": "Actual SDK state and RAM/controller preservation before target entry; this negative test does not execute guest instructions. The separate continuation and active-UART tests execute native guest work.",
+  "physical_intel_hvf_validation": false,
+  "full_goal_complete": false,
+  "publication_scope": "Combined qualification includes pending Intel-controller changes elsewhere in bundle.rs. Publication contains only the ARM UART admission branch in that file, plus the corresponding test changes and documentation; it excludes those Intel changes. Whole-file hashes identify the tested combined workspace, not an isolated published master tree."
+}

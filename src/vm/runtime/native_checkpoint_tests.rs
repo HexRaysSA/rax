@@ -6,6 +6,9 @@ use crate::vm::snapshot::{HVF_AARCH64_CONTEXT, SnapshotBundle};
 use std::sync::atomic::{AtomicU64, Ordering};
 use vm_memory::{Bytes, GuestAddress, GuestMemory};
 
+#[path = "native_checkpoint_uart_tests.rs"]
+mod uart;
+
 static NEXT: AtomicU64 = AtomicU64::new(0);
 const CODE: u64 = 0x4000_1000;
 const UART: u64 = 0x0900_0000;

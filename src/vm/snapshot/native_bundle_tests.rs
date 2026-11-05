@@ -5,6 +5,7 @@ use crate::backend::arm64_hvf_context::{
 };
 use crate::config::{ArchKind, BackendKind};
 use crate::vm::vcpu::Aarch64CpuState;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -42,7 +43,7 @@ fn complete_file(count: u8) -> SnapshotBundle {
         riscv_platform: None,
         arm_cluster: None,
         pc: None,
-        pl011: None,
+        pl011: Some(captured_uart()),
     };
     let mut clock = crate::vm::timing::TimingContext::default().checkpoint_state();
     clock.elapsed_nanos = saved.base.elapsed_nanos;
@@ -53,6 +54,94 @@ fn complete_file(count: u8) -> SnapshotBundle {
         .unwrap()
         .with_physical_memory(physical(true))
         .unwrap()
+}
+
+fn captured_uart() -> crate::devices::pl011::Pl011Checkpoint {
+    use crate::devices::bus::MmioDevice;
+    use crate::devices::pl011::{Pl011, Pl011MmioDevice};
+    let uart = Arc::new(std::sync::Mutex::new(Pl011::new()));
+    let base = crate::machine::arm_virt::AARCH64_UART_BASE;
+    let mut port = Pl011MmioDevice::new(base, uart.clone());
+    port.write(base + 0x30, &0x301u32.to_le_bytes());
+    port.write(base + 0x38, &16u32.to_le_bytes());
+    let mut uart = uart.lock().unwrap();
+    uart.queue_input(&[0xab, 0xcd, 0xef]);
+    assert!(uart.irq_pending());
+    uart.checkpoint().unwrap()
+}
+
+#[test]
+fn native_uart_files_preserve_the_destroyed_sources_fifo_and_controls() {
+    use crate::devices::bus::MmioDevice;
+    use crate::devices::pl011::{Pl011, Pl011MmioDevice};
+    for count in [1, 2, 4] {
+        let saved = complete_file(count);
+        let expected = saved.execution().unwrap().pl011.clone().unwrap();
+        let path = TestPath::new();
+        saved.save(&path.0).unwrap();
+        drop(saved);
+        let loaded = SnapshotBundle::load(&path.0).unwrap();
+        let actual = loaded.execution().unwrap().pl011.clone().unwrap();
+        assert_eq!(actual, expected);
+        let uart = Arc::new(std::sync::Mutex::new(Pl011::new()));
+        uart.lock().unwrap().restore_checkpoint(actual);
+        let base = crate::machine::arm_virt::AARCH64_UART_BASE;
+        let mut port = Pl011MmioDevice::new(base, uart.clone());
+        assert!(uart.lock().unwrap().irq_pending());
+        for byte in [0xab, 0xcd, 0xef] {
+            let mut data = [0; 4];
+            port.read(base, &mut data);
+            assert_eq!(u32::from_le_bytes(data), byte);
+        }
+        assert!(!uart.lock().unwrap().irq_pending());
+        let mut data = [0; 4];
+        port.read(base + 0x30, &mut data);
+        assert_eq!(u32::from_le_bytes(data), 0x301);
+        port.read(base + 0x38, &mut data);
+        assert_eq!(u32::from_le_bytes(data), 16);
+    }
+}
+
+#[test]
+fn native_missing_uart_rejects_before_replacing_the_destination_file() {
+    let mut accepted = Vec::new();
+    for count in [1, 2, 4] {
+        let mut saved = complete_file(count);
+        saved.execution.as_mut().unwrap().pl011 = None;
+        assert!(saved.validate().is_ok());
+        let path = TestPath::new();
+        std::fs::write(&path.0, b"prior checkpoint").unwrap();
+        match saved.save(&path.0) {
+            Ok(()) => accepted.push(count),
+            Err(error) => {
+                assert!(error.to_string().contains("PL011"), "{error}");
+                assert_eq!(std::fs::read(&path.0).unwrap(), b"prior checkpoint");
+            }
+        }
+    }
+    assert!(
+        accepted.is_empty(),
+        "missing UART accepted for {accepted:?} CPUs"
+    );
+}
+
+#[test]
+fn native_reader_rejects_a_framed_file_without_its_uart_owner() {
+    let mut accepted = Vec::new();
+    for count in [1, 2, 4] {
+        let mut saved = complete_file(count);
+        saved.execution.as_mut().unwrap().pl011 = None;
+        let path = TestPath::new();
+        codec::save_bundle_atomic(&saved, &path.0).unwrap();
+        match SnapshotBundle::load(&path.0) {
+            Ok(_) => accepted.push(count),
+            Err(error) => assert!(error.to_string().contains("PL011"), "{error}"),
+        }
+    }
+    assert!(
+        accepted.is_empty(),
+        "missing UART loaded for {accepted:?} CPUs"
+    );
 }
 struct TestPath(std::path::PathBuf);
 impl TestPath {

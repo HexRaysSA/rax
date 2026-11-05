@@ -277,7 +277,7 @@ impl SnapshotBundle {
         Ok(bundle)
     }
     /// Builders may temporarily lack later sections. Materialized native files
-    /// must include every byte in the SDK-mapped RAM window.
+    /// require their platform owners and every byte in the SDK-mapped RAM window.
     pub(crate) fn validate_complete(&self) -> Result<()> {
         self.validate()?;
         self.validate_clint_graph()?;
@@ -293,6 +293,16 @@ impl SnapshotBundle {
                 )
             })?;
             let spans = if self.base.config.arch == crate::config::ArchKind::Aarch64 {
+                if self
+                    .execution
+                    .as_ref()
+                    .and_then(|state| state.pl011.as_ref())
+                    .is_none()
+                {
+                    return Err(Error::InvalidConfig(
+                        "native AArch64 checkpoint requires its PL011 UART image".into(),
+                    ));
+                }
                 vec![(
                     crate::machine::arm_virt::AARCH64_RAM_BASE,
                     self.base.memory_size,

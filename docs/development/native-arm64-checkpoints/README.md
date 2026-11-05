@@ -9,7 +9,7 @@ Full C-STATE, C-SMP and C-HVF remain incomplete. Streaming FPSR preservation,
 already-entered VM reconstruction, complete clock/timer/debug/replay and writer
 coordination, broader I/O/IRQ profiles and physical Intel execution remain open.
 
-## Current qualification
+## Historical qualification
 
 [qualification.json](qualification.json) records exact source manifests, command
 receipts, primary sources, assumptions and boundaries.
@@ -23,18 +23,47 @@ receipts, primary sources, assumptions and boundaries.
 The two final production changes narrow AFFINITY_INFO's level argument to its
 specified uint32 width and use wrapping PC addition. Earlier represented inputs
 have identical behavior; their new edge cases passed on the final signed binary.
-Current workspace production-library check, Clippy, workspace format and explicit
-owned Rust format checks passed. No full current root library, all-target,
-current C API runtime or native Intel execution is claimed.
+Those historical checks covered production-library check, Clippy and format.
+The UART ownership group below records later complete-library and workspace
+results. None of these ARM results establishes native Intel execution.
+
+## UART ownership admission, 2026-11-05
+
+[UART qualification](uart-qualification.json) records three observed pre-fix
+failures: save, load and native restore accepted a missing UART image. The
+corrected source rejects each before destination publication. Fifteen portable
+native ARM file tests passed. Three signed physical Apple Silicon tests passed:
+pre-entry rejection preserving CPU/RAM/UART/coordinator state, actual 1/2/4-CPU
+file continuation, and an active UART interrupt continuation. The negative
+pre-entry test exercises SDK state, not guest instruction execution.
+
+The complete owning library on the combined source passed 12406 tests with
+zero failures and 36 ignored. C API passed 244; format, workspace Clippy,
+all-target build, no-JIT library check and doctest commands succeeded. Doctests
+executed zero examples and ignored five. An earlier interrupted root attempt is
+retained and is not counted as a pass. These are results for the recorded source
+and executable, before later Intel and concurrent Windows changes. The tested
+combined bundle source also includes pending Intel-controller changes, excluded
+from this UART publication. The ARM admission branch and corresponding test
+changes are retained. The UART admission check itself takes constant time and
+storage.
 
 ## Producer graph and admission
 
 A native AArch64 bundle contains the complete ordered public CPU set, one
 `HVF_AARCH64_CONTEXT` private record per CPU, one required shared VM record,
 and physical memory covering the actual native RAM window. The private CPU
-and shared VM records use distinct inner version tags, `RAXHVA04` and
+and shared VM records use distinct inner version tags, `RAXHVA06` and
 `RAXHVM02`. Required outer section 16 uses `RAXVMC01` framing. Older readers
 reject unknown required sections rather than discarding them.
+
+Complete native files also require coordinator, clock and PL011 UART images.
+The UART image preserves its unread receive FIFO and control registers. A
+missing UART image rejects before file replacement or destination CPU, RAM,
+device and coordinator publication; restore must not retain an unrelated
+destination console state. This admission requirement uses the existing
+execution section and does not change a wire tag or register layout. Raw CPU
+and shared-context codecs remain available for intermediate record inspection.
 
 Native public projections have no software keyed execution object. File
 admission validates them against typed native records. Standalone and software
@@ -83,14 +112,14 @@ Reconstructing a running native VM for in-place restoration remains unfinished.
 Bare CPU projections and standalone private CPU imports cannot replace the
 coordinated CPU/RAM/device transaction.
 
-An outgoing scalar MMIO store retains its address and complete operand after PC
-advance. Native entry re-emits that store until successful caller dispatch is
-acknowledged through `VCpu::complete_io_out`. The VMM acknowledges only after
-its output dispatch succeeds. The typed private record preserves the pending
-store through a real file and rejects conflicting input/output transactions,
-invalid scalar widths and wrapping output extents. Native schema 04 is required;
-the earlier experimental native schemas are rejected. The v12 signed native test passed real file restoration, repeated pending
-exits, actual VMM device dispatch/acknowledgement and guest PSCI shutdown.
+An outgoing scalar MMIO store retains the faulting PC, address and complete
+operand until successful dispatch is acknowledged through
+`VCpu::complete_io_out`. Acknowledgement is recorded before publishing the
+absolute next PC; a failed PC write retries retirement without redispatch.
+Schema `RAXHVA06` explicitly imports V4/V5 records with their historical
+already-advanced PC. See [the store-frontier qualification](../arm-native-store-frontier/README.md).
+The historical v12 signed native test covered real file restoration, repeated
+pending exits, VMM dispatch/acknowledgement and guest PSCI shutdown.
 
 A failed native destination-register write preserves the full device reply.
 After file restoration, the original error is surfaced, then the same reply is
@@ -158,10 +187,11 @@ the corrected v6 tests passed.
 
 | ID | Assumption | Stress test and falsification probe | Status |
 |---|---|---|---|
-| N1 | Stopped owner operations coherently capture and restore native public/private state. | Compare every field before guest continuation and execute across all streaming/ZA modes. | v9 full private-state comparisons and scalar continuation passed; v11 corrected active SME test pending. |
+| N1 | Stopped owner operations coherently capture and restore native public/private state. | Compare every field before guest continuation and execute across all streaming/ZA modes. | Represented non-streaming continuation passed; streaming FPSR preservation remains open as documented below. |
 | N2 | Complete native files require independently admitted CPU/backend/VM and physical RAM records. | Remove records, alter identity/profile/projection/topology, and replace native RAM with a low-only image; require rejection before publication. | Represented v8 admission tests passed. |
 | N3 | A late shared SDK error can restore the prior CPU/RAM/GIC state. | Submit well-framed invalid SDK GIC bytes after changing source CPU/RAM/IRQ data; compare every target private record and RAM after rejection. | v8 actual SDK rejection and rollback passed. |
 | N4 | Consumed input survives a failed native destination write. | Inject one write failure, save/load a real file, resume, and verify that the next PL011 byte remains unread. | v8 passed. |
+| N5 | A complete native ARM file owns its UART state. | Remove only the UART image; require save/load and pre-entry native restore rejection before destination changes; retain FIFO/control and active-IRQ positive controls for 1/2/4 CPUs. | Three pre-fix rejection tests failed; all corrected component tests passed. |
 
 The exact 2025-12 [ZERO (tile) instruction XML and notice](../../specifications/arm/native-context-feature-registers/sme-zero-provenance.json)
 are retained unchanged from the previously pinned Arm archive. The operation
