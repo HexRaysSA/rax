@@ -15,10 +15,14 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - name: Observe signed native Intel HVF availability
         run: python3 tools/hvf/native_intel_availability.py --output "$RUNNER_TEMP/hvf-intel-availability"
+      - name: Inspect native SDK VMCS field support
+        run: python3 tools/hvf/intel_vmcs_native.py --output "$RUNNER_TEMP/hvf-intel-vmcs"
       - name: Preserve host identity and SDK result
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: native-intel-hvf-availability-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/hvf-intel-availability
+          path: |
+            ${{ runner.temp }}/hvf-intel-availability
+            ${{ runner.temp }}/hvf-intel-vmcs
           if-no-files-found: error
