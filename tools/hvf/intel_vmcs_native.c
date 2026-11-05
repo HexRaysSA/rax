@@ -3,6 +3,7 @@
 #include "native_intel_availability.c"
 #undef main
 #include <Hypervisor/hv_vmx.h>
+#include <stdbool.h>
 #include "probe_fields.h"
 
 int main(void)
@@ -47,7 +48,45 @@ int main(void)
             count++;
         }
     }
-    printf("],\"field_count\":%zu,\"vcpu_destroy_status\":", count);
+    printf("],\"field_count\":%zu,\"msrs\":[", count);
+    size_t msr_count = 0;
+    if (cpu_status == HV_SUCCESS) {
+        for (size_t index = 0; index < sizeof(probe_msrs) / sizeof(probe_msrs[0]); index++) {
+            uint64_t before = 0, after = 0, readback = 0;
+            uint32_t msr = probe_msrs[index].id;
+            hv_return_t before_status = hv_vcpu_read_msr(cpu, msr, &before);
+            hv_return_t enable_status = hv_vcpu_enable_native_msr(cpu, msr, true);
+            hv_return_t after_status = hv_vcpu_read_msr(cpu, msr, &after);
+            printf("%s{\"name\":\"%s\",\"id\":%u,\"before_read_status\":%u,"
+                   "\"enable_native_status\":%u,\"after_read_status\":%u,\"before_value\":",
+                   index ? "," : "", probe_msrs[index].name, msr,
+                   (uint32_t)before_status, (uint32_t)enable_status, (uint32_t)after_status);
+            if (before_status == HV_SUCCESS) {
+                printf("%llu", (unsigned long long)before);
+            } else {
+                printf("null");
+            }
+            printf(",\"value\":");
+            if (after_status == HV_SUCCESS) {
+                hv_return_t write_status = hv_vcpu_write_msr(cpu, msr, after);
+                hv_return_t readback_status = hv_vcpu_read_msr(cpu, msr, &readback);
+                printf("%llu,\"same_value_write_status\":%u,\"readback_status\":%u,"
+                       "\"readback\":", (unsigned long long)after, (uint32_t)write_status,
+                       (uint32_t)readback_status);
+                if (readback_status == HV_SUCCESS) {
+                    printf("%llu", (unsigned long long)readback);
+                } else {
+                    printf("null");
+                }
+            } else {
+                printf("null,\"same_value_write_status\":null,\"readback_status\":null,"
+                       "\"readback\":null");
+            }
+            printf("}");
+            msr_count++;
+        }
+    }
+    printf("],\"msr_count\":%zu,\"vcpu_destroy_status\":", msr_count);
     hv_return_t cpu_destroy = HV_SUCCESS;
     if (cpu_status == HV_SUCCESS) {
         cpu_destroy = hv_vcpu_destroy(cpu);

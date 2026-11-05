@@ -48,7 +48,17 @@ def main():
             r"^\s+(VMCS_\w+)\s*=\s*(0x[0-9a-fA-F]+)", registers.read_text(), re.M)}
         assert identifiers and len(identifiers) == len(set(identifiers))
         fields = [{"name": name, "id": values[name]} for name in identifiers]
+        msr_names = re.search(r"pub\(crate\) const MSRS: &\[u32\] = &\[(.*?)\];",
+                              context.read_text(), re.S).group(1)
+        msr_values = {name: int(value.replace("_", ""), 16) for name, value in re.findall(
+            r"pub\(crate\) const (\w+): u32 = (0x[0-9a-fA-F_]+);", context.read_text())}
+        msrs = [{"name": name, "id": msr_values[name]}
+                for name in re.findall(r"\b[A-Z][A-Z_0-9]*\b", msr_names)]
+        msrs.extend([{"name": "IA32_PAT", "id": 0x277},
+                     {"name": "IA32_DEBUGCTL", "id": 0x1D9},
+                     {"name": "IA32_PERF_GLOBAL_CTRL", "id": 0x38F}])
         (args.output / "fields.json").write_text(json.dumps(fields, indent=2) + "\n")
+        (args.output / "msrs.json").write_text(json.dumps(msrs, indent=2) + "\n")
         run("os", ["sw_vers"])
         run("sdk", ["xcrun", "--sdk", "macosx", "--show-sdk-version"])
         run("compiler", ["xcrun", "--sdk", "macosx", "clang", "--version"])
@@ -58,6 +68,9 @@ def main():
             header = "struct probe_field { unsigned id; const char *name; };\n"
             header += "static const struct probe_field probe_fields[] = {\n"
             header += "".join('    {%d, "%s"},\n' % (row["id"], row["name"]) for row in fields)
+            header += "};\n"
+            header += "static const struct probe_field probe_msrs[] = {\n"
+            header += "".join('    {%d, "%s"},\n' % (row["id"], row["name"]) for row in msrs)
             header += "};\n"
             (scratch / "probe_fields.h").write_text(header)
             result["generated_fields_sha256"] = hashlib.sha256(header.encode()).hexdigest()
@@ -83,6 +96,9 @@ def main():
             assert vmcs["field_count"] == len(fields)
             assert [(row["id"], row["name"]) for row in vmcs["fields"]] == [
                 (row["id"], row["name"]) for row in fields]
+            assert vmcs["msr_count"] == len(msrs)
+            assert [(row["id"], row["name"]) for row in vmcs["msrs"]] == [
+                (row["id"], row["name"]) for row in msrs]
             assert all(sha(root / name) == digest for name, digest in result["candidate_sources"].items())
             result["success"] = True
     except (OSError, ValueError, AttributeError, KeyError, AssertionError,
