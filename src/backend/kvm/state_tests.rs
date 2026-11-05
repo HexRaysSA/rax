@@ -1,7 +1,20 @@
 //! Native KVM producer regressions. These cases require a usable `/dev/kvm`.
 use super::*;
 
-fn native_xsave(cpu: &KvmVcpu) -> kvm_bindings::Xsave {
+#[path = "state_deferred_tests.rs"]
+mod deferred;
+
+// These bank fixtures borrow their unregistered native core directly. Keep
+// the same worker/completion path without acquiring a managed wrapper lease.
+fn fixture_exit(cpu: &mut NativeCore) -> Result<VcpuExit> {
+    loop {
+        if let Some(exit) = cpu.run_host_slice(std::time::Duration::from_millis(10))? {
+            return Ok(exit);
+        }
+    }
+}
+
+fn native_xsave(cpu: &NativeCore) -> kvm_bindings::Xsave {
     let size = cpu
         .memory_owner
         .vm_fd
@@ -17,7 +30,7 @@ fn native_xsave(cpu: &KvmVcpu) -> kvm_bindings::Xsave {
     image
 }
 
-fn seed_legacy_registers(cpu: &KvmVcpu, fpu: &kvm_bindings::kvm_fpu) {
+fn seed_legacy_registers(cpu: &NativeCore, fpu: &kvm_bindings::kvm_fpu) {
     let mut image = native_xsave(cpu);
     // SAFETY: only the fixed region is borrowed. Its initialized storage and
     // FAM length remain unchanged; no native operation is active here.
@@ -51,42 +64,63 @@ fn seed_legacy_registers(cpu: &KvmVcpu, fpu: &kvm_bindings::kvm_fpu) {
     unsafe { cpu.vcpu_fd.set_xsave2(&image).unwrap() };
 }
 
-fn cpu() -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
+fn cpu() -> (Kvm, Arc<MemoryOwner>, NativeCore) {
     cpu_with_irqchip(false)
 }
 
-fn cpu_with_irqchip(irqchip: bool) -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
+fn cpu_with_irqchip(irqchip: bool) -> (Kvm, Arc<MemoryOwner>, NativeCore) {
     cpu_with_irqchip_and_id(irqchip, 0)
 }
 
-fn cpu_with_irqchip_and_id(irqchip: bool, id: u32) -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
+fn cpu_with_irqchip_and_id(irqchip: bool, id: u32) -> (Kvm, Arc<MemoryOwner>, NativeCore) {
     let kvm = Kvm::new().expect("native KVM tests require /dev/kvm");
     let vm = kvm.create_vm().unwrap();
     if irqchip {
         vm.create_irq_chip().unwrap();
     }
     let memory = GuestMemoryWrapper::new(2 * 1024 * 1024).unwrap();
-    memory.register(&vm).unwrap();
-    let vcpu_fd = vm.create_vcpu(u64::from(id)).unwrap();
+    let memory_owner = Arc::new(MemoryOwner {
+        vm_fd: vm,
+        checkpoint_kvm: Kvm::new().unwrap(),
+        registered: Mutex::new(vec![memory.memory().clone()]),
+        irqchip_created: AtomicBool::new(irqchip),
+        irq_lines: Mutex::new(irq::Lines::default()),
+        external_vm_access: AtomicBool::new(false),
+        powered_off: AtomicBool::new(false),
+        exclusion: RwLock::new(()),
+        waiting_writers: Mutex::new(0),
+        entry_ready: Condvar::new(),
+        poisoned: AtomicBool::new(false),
+        managed_cpus: Mutex::new(BTreeMap::new()),
+        sdk_cpus: AtomicUsize::new(0),
+        resume_clock: Mutex::new(None),
+    });
+    // SAFETY: the owner already retains the mmap and closes its VM FD before
+    // backing release. This fixture has not created or entered any CPU yet.
+    unsafe { memory.register(&memory_owner.vm_fd).unwrap() };
+    let vcpu_fd = memory_owner.vm_fd.create_vcpu(u64::from(id)).unwrap();
     vcpu_fd
         .set_cpuid2(
             &kvm.get_supported_cpuid(kvm_bindings::KVM_MAX_CPUID_ENTRIES)
                 .unwrap(),
         )
         .unwrap();
-    let memory_owner = Arc::new(MemoryOwner {
-        vm_fd: vm,
-        registered: Mutex::new(vec![memory.memory().clone()]),
-        irqchip_created: AtomicBool::new(irqchip),
-    });
-    let cpu = KvmVcpu {
+    let cpu = NativeCore {
+        native_tsc_khz: vcpu_fd.get_tsc_khz().ok(),
+        configured_cpuid: kvm
+            .get_supported_cpuid(kvm_bindings::KVM_MAX_CPUID_ENTRIES)
+            .unwrap(),
         vcpu_fd,
         id,
         pending_io_in: None,
+        native_io_unsettled: false,
         io: super::io::State::default(),
         memory_owner: memory_owner.clone(),
         _memory: Arc::new(memory.memory().clone()),
         state_failure: None,
+        deferred_exit: None,
+        servicing_io: false,
+        userspace_halted: false,
     };
     (kvm, memory_owner, cpu)
 }
@@ -142,7 +176,7 @@ fn public_state_reads_native_xmm_and_debug_registers() {
     assert_eq!(state.sregs.dr3, debug.db[3]);
 }
 
-fn encoded_state(cpu: &KvmVcpu) -> Vec<u8> {
+fn encoded_state(cpu: &NativeCore) -> Vec<u8> {
     crate::codec::serialize_limited(&cpu.get_state().unwrap(), 1024 * 1024).unwrap()
 }
 
@@ -360,7 +394,7 @@ fn registered_native_ram_outlives_the_registration_borrow() {
     assert!(matches!(cpu.run().unwrap(), kvm_ioctls::VcpuExit::Hlt));
 }
 
-fn real_mode_entry(cpu: &mut KvmVcpu, program: &[u8]) {
+fn real_mode_entry(cpu: &mut NativeCore, program: &[u8]) {
     use vm_memory::{Bytes, GuestAddress};
     cpu._memory
         .write_slice(program, GuestAddress(0x1000))
@@ -401,7 +435,7 @@ fn native_guest_consumes_the_overlaid_mmx_and_xmm_banks() {
     state.regs.mm[0] = 0x1122_3344_5566_7788;
     state.regs.xmm[0] = [0x0123_4567_89ab_cdef, 0xfedc_ba98_7654_3210];
     cpu.set_state(&CpuState::X86_64(state)).unwrap();
-    assert!(matches!(cpu.run().unwrap(), VcpuExit::Hlt));
+    assert!(matches!(fixture_exit(&mut cpu).unwrap(), VcpuExit::Hlt));
     let mut result = [0; 24];
     cpu._memory
         .read_slice(&mut result, GuestAddress(0x2000))
@@ -417,7 +451,7 @@ fn public_overlay_rejection_keeps_the_uncompleted_native_input() {
     let (_kvm, _vm, mut cpu) = cpu();
     real_mode_entry(&mut cpu, &[0xe4, 0x70, 0xf4]); // IN AL,0x70; HLT.
     assert!(matches!(
-        cpu.run().unwrap(),
+        fixture_exit(&mut cpu).unwrap(),
         VcpuExit::IoIn {
             port: 0x70,
             size: 1
@@ -437,7 +471,7 @@ fn public_overlay_rejection_keeps_the_uncompleted_native_input() {
     assert_eq!(cpu.vcpu_fd.get_regs().unwrap(), before);
     assert!(cpu.pending_io_in.is_some());
     cpu.complete_io_in(&[0x5a]);
-    assert!(matches!(cpu.run().unwrap(), VcpuExit::Hlt));
+    assert!(matches!(fixture_exit(&mut cpu).unwrap(), VcpuExit::Hlt));
     assert_eq!(cpu.vcpu_fd.get_regs().unwrap().rax & 255, 0x5a);
 }
 
@@ -470,7 +504,7 @@ fn public_overlay_preserves_native_halted_and_startup_mp_states() {
     }
 }
 
-fn native_special(cpu: &KvmVcpu) -> kvm_bindings::kvm_sregs2 {
+fn native_special(cpu: &NativeCore) -> kvm_bindings::kvm_sregs2 {
     use kvm_bindings::kvm_sregs2;
     use std::os::fd::AsRawFd;
     let mut value = kvm_sregs2::default();
@@ -488,7 +522,7 @@ fn native_special(cpu: &KvmVcpu) -> kvm_bindings::kvm_sregs2 {
     value
 }
 
-fn set_native_special(cpu: &KvmVcpu, value: &kvm_bindings::kvm_sregs2) {
+fn set_native_special(cpu: &NativeCore, value: &kvm_bindings::kvm_sregs2) {
     use kvm_bindings::kvm_sregs2;
     use std::os::fd::AsRawFd;
     // SAFETY: the retained UAPI defines this input ioctl and struct. The
@@ -504,7 +538,7 @@ fn set_native_special(cpu: &KvmVcpu, value: &kvm_bindings::kvm_sregs2) {
     assert_eq!(result, 0, "{}", std::io::Error::last_os_error());
 }
 
-fn cached_pae_cpu() -> (Kvm, Arc<MemoryOwner>, KvmVcpu) {
+fn cached_pae_cpu() -> (Kvm, Arc<MemoryOwner>, NativeCore) {
     use vm_memory::{Bytes, GuestAddress};
     let (kvm, vm, cpu) = cpu();
     let mut special = native_special(&cpu);
@@ -614,7 +648,7 @@ fn native_init_waits_for_owned_input_completion_before_eligibility_changes() {
     use crate::vm::vcpu::VcpuExit;
     use std::time::Duration;
     use vm_memory::{Bytes, GuestAddress};
-    fn prepare(cpu: &KvmVcpu, pc: u64) {
+    fn prepare(cpu: &NativeCore, pc: u64) {
         let mut special = cpu.vcpu_fd.get_sregs().unwrap();
         special.cs.base = 0;
         special.cs.selector = 0;
@@ -638,7 +672,7 @@ fn native_init_waits_for_owned_input_completion_before_eligibility_changes() {
             })
             .unwrap();
     }
-    fn exit(cpu: &mut KvmVcpu) -> VcpuExit {
+    fn exit(cpu: &mut NativeCore) -> VcpuExit {
         for _ in 0..10 {
             if let Some(exit) = cpu.run_host_slice(Duration::from_millis(100)).unwrap() {
                 return exit;
@@ -676,18 +710,26 @@ fn native_init_waits_for_owned_input_completion_before_eligibility_changes() {
                 .unwrap(),
         )
         .unwrap();
-    let mut bsp = KvmVcpu {
+    let mut bsp = NativeCore {
+        native_tsc_khz: vcpu_fd.get_tsc_khz().ok(),
+        configured_cpuid: kvm
+            .get_supported_cpuid(kvm_bindings::KVM_MAX_CPUID_ENTRIES)
+            .unwrap(),
         vcpu_fd,
         id: 0,
         pending_io_in: None,
+        native_io_unsettled: false,
         io: super::io::State::default(),
         memory_owner: owner,
         _memory: ap._memory.clone(),
         state_failure: None,
+        deferred_exit: None,
+        servicing_io: false,
+        userspace_halted: false,
     };
     prepare(&bsp, 0x2000);
     assert!(matches!(exit(&mut bsp), VcpuExit::IoOut { port: 0x80, .. }));
-    bsp.complete_io_out().unwrap();
+    bsp.acknowledge_native_output().unwrap();
     let before_observation = ap.vcpu_fd.get_regs().unwrap();
     let _public = ap.get_state().unwrap();
     assert_eq!(

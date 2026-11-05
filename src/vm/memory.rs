@@ -133,66 +133,55 @@ impl GuestMemoryWrapper {
         })
     }
 
+    /// Register the PC RAM intervals in a caller-owned native VM.
+    ///
+    /// Prefer `KvmVm::register_memory`, which retains the backing automatically.
+    ///
+    /// # Safety
+    /// The caller must retain every registered mapping until the VM and all
+    /// native CPU references are destroyed or the slots are removed. Backing
+    /// must remain readable/writable for the native slot permissions.
+    /// A borrowed `VmFd` does not retain this wrapper or its backing.
+    ///
+    /// ```compile_fail
+    /// fn register(mem: &rax::vm::memory::GuestMemoryWrapper, vm: &kvm_ioctls::VmFd) {
+    ///     mem.register(vm).unwrap();
+    /// }
+    /// ```
     #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
-    pub fn register(&self, vm_fd: &VmFd) -> Result<()> {
-        use tracing::debug;
-
-        // Register memory up to (but not past) the KVM TSS/identity gap.
-        // KVM's vCPU creation fails with EEXIST if any memory slot is registered
-        // at addresses >= the TSS/identity map address. We leave a gap for KVM's
-        // internal structures and do NOT register memory above this gap.
-        //
-        // The backing memory above the gap is still allocated (via mmap), which
-        // allows the host to handle any overflow accesses if needed, but KVM
-        // won't try to map it as guest RAM.
+    pub unsafe fn register(&self, vm_fd: &VmFd) -> Result<()> {
+        use crate::machine::pc::ram;
+        let layout = ram::Layout::new(self.reported_size)?;
+        // Preserve historical lower padding while leaving the entire PC device
+        // window unmapped. Only configured overflow RAM is mapped above4GiB;
+        // the rest of the allocation remains backing, not additional RAM.
+        let ranges = std::iter::once(0..ram::LOW_END).chain(layout.high());
         let mut slot = 0u32;
-
-        for region in self.mem.iter() {
-            let region_start = region.start_addr().raw_value();
-            let region_end = region_start + region.len();
-            let host_base = region.as_ptr() as u64;
-
-            // Only register memory up to the gap - do NOT register anything at or above it
-            let effective_end = region_end.min(KVM_TSS_IDENTITY_GAP_START);
-
-            if region_start >= effective_end {
-                // This entire region is at or above the gap, skip it
-                debug!(
-                    region_start = format!("{:#x}", region_start),
-                    region_end = format!("{:#x}", region_end),
-                    gap_start = format!("{:#x}", KVM_TSS_IDENTITY_GAP_START),
-                    "skipping memory region at/above TSS gap"
-                );
-                continue;
+        for planned in ranges {
+            for region in self.mem.iter() {
+                let region_start = region.start_addr().raw_value();
+                let region_end = region_start + region.len();
+                let start = region_start.max(planned.start);
+                let end = region_end.min(planned.end);
+                if start >= end {
+                    continue;
+                }
+                let host_address = region.as_ptr() as u64 + (start - region_start);
+                let descriptor = kvm_userspace_memory_region {
+                    slot,
+                    guest_phys_addr: start,
+                    memory_size: end - start,
+                    userspace_addr: host_address,
+                    flags: 0,
+                };
+                // SAFETY: the intersection is inside this retained mmap and its
+                // checked page-aligned PC interval. The matching host offset
+                // preserves alignment/provenance. The caller retains backing
+                // through all native users with the slot's access permissions;
+                // the synchronous ioctl retains no Rust reference.
+                unsafe { vm_fd.set_user_memory_region(descriptor)? };
+                slot += 1;
             }
-
-            let size = effective_end - region_start;
-            let host_addr = host_base;
-
-            info!(
-                slot,
-                guest_start = format!("{:#x}", region_start),
-                guest_end = format!("{:#x}", effective_end),
-                size = size,
-                "registering guest memory"
-            );
-
-            let mem_region = kvm_userspace_memory_region {
-                slot,
-                guest_phys_addr: region_start,
-                memory_size: size,
-                userspace_addr: host_addr,
-                flags: 0,
-            };
-            debug!(
-                slot,
-                guest_addr = format!("{:#x}", region_start),
-                "calling set_user_memory_region"
-            );
-            unsafe { vm_fd.set_user_memory_region(mem_region)? };
-            debug!(slot, "set_user_memory_region succeeded");
-
-            slot += 1;
         }
         Ok(())
     }
@@ -213,7 +202,7 @@ impl GuestMemoryWrapper {
         self.actual_size
     }
 
-    /// Infallible convenience capture of reported RAM (excluding padding).
+    /// Infallible convenience capture of the legacy reported-length prefix.
     /// Panics if complete capture is impossible; checkpoint paths should use
     /// `try_read_all` to return allocation/backing/I/O failures to their caller.
     pub fn read_all(&self) -> Vec<u8> {
@@ -221,8 +210,9 @@ impl GuestMemoryWrapper {
             .expect("failed to capture complete reported guest RAM")
     }
 
-    /// Capture every byte of reported RAM with checked allocation and I/O.
-    /// Reserved backing padding is outside the base checkpoint format.
+    /// Capture the contiguous reported-length prefix with checked allocation.
+    /// The legacy base format omits physical RAM outside this prefix. Complete
+    /// snapshot bundles separately retain every mapped backing region.
     pub fn try_read_all(&self) -> Result<Vec<u8>> {
         use vm_memory::Bytes;
         let size = usize::try_from(self.reported_size).map_err(|_| {
@@ -258,7 +248,7 @@ impl GuestMemoryWrapper {
         }
         Ok(())
     }
-    /// Restore exactly the reported RAM extent; reject mismatches before writes.
+    /// Restore the legacy contiguous prefix; reject length mismatches before writes.
     pub fn write_all(&self, data: &[u8]) -> Result<()> {
         use vm_memory::Bytes;
         self.validate_restore_len(data.len())?;

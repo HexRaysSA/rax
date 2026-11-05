@@ -1,0 +1,1494 @@
+{
+  "utc": "2026-11-04T16:36:45.331938+00:00",
+  "status": "corrected_software_INIT_constructor_reset_and_complete_frozen_Apple_library_qualified",
+  "before_cpu_startup_sha256": "11e0d820475213bd194be4125e6e3429685164bbdd3fbea2360836ab343dfaf5",
+  "current_cpu_startup_sha256": "97baa092ce21bc0e010f1176c8acdfd0e33e56e9601b67467c4b440524192f75",
+  "baseline": {
+    "utc": "2026-11-04T16:33:38.913628+00:00",
+    "commands": [
+      {
+        "label": "native-build",
+        "argv": [
+          "gcc",
+          "-std=gnu11",
+          "-O2",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/init-cache-controls-v3/native-control.c",
+          "-o",
+          "/tmp/rax-init-cache-q__p7y2f/native"
+        ],
+        "exit_code": 0,
+        "seconds": 0.21454327180981636
+      },
+      {
+        "label": "native",
+        "argv": [
+          "/tmp/rax-init-cache-q__p7y2f/native"
+        ],
+        "exit_code": 0,
+        "seconds": 0.1079169437289238
+      },
+      {
+        "label": "software-build",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+          "--edition=2024",
+          "-C",
+          "target-cpu=x86-64-v3",
+          "-L",
+          "dependency=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps",
+          "--extern",
+          "rax=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/librax-f9fe1929e6efc050.rlib",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/init-cache-controls-v3/software-control.rs",
+          "-o",
+          "/tmp/rax-init-cache-q__p7y2f/software"
+        ],
+        "exit_code": 0,
+        "seconds": 0.37243497371673584
+      },
+      {
+        "label": "software-baseline",
+        "argv": [
+          "/tmp/rax-init-cache-q__p7y2f/software"
+        ],
+        "exit_code": 101,
+        "seconds": 0.003825157880783081
+      }
+    ],
+    "sources_sha256": {
+      "native-control.c": "3000daefdce098022cb44c728ff6e1149cadbb3ea6832a499d4560e02ce01970",
+      "software-control.rs": "febe99891f9c00965e16f4964c81dfc52c866d161bab4934ef9a09a33daa8a7d"
+    },
+    "engine_sha256": "ef6779f33c3f179739c12e2452fff51f4d454b92c584be1eb375a435381e5d19",
+    "native_observations": [
+      {
+        "cpus": 1,
+        "id": 0,
+        "cache": 0,
+        "expected": 16,
+        "after_init": 16,
+        "guest_cr0": 16
+      },
+      {
+        "cpus": 1,
+        "id": 0,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "after_init": 1073741840,
+        "guest_cr0": 1073741840
+      },
+      {
+        "cpus": 1,
+        "id": 0,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "after_init": 1610612752,
+        "guest_cr0": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 0,
+        "cache": 0,
+        "expected": 16,
+        "after_init": 16,
+        "guest_cr0": 16
+      },
+      {
+        "cpus": 2,
+        "id": 1,
+        "cache": 0,
+        "expected": 16,
+        "after_init": 16,
+        "guest_cr0": 16
+      },
+      {
+        "cpus": 2,
+        "id": 0,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "after_init": 1073741840,
+        "guest_cr0": 1073741840
+      },
+      {
+        "cpus": 2,
+        "id": 1,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "after_init": 1073741840,
+        "guest_cr0": 1073741840
+      },
+      {
+        "cpus": 2,
+        "id": 0,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "after_init": 1610612752,
+        "guest_cr0": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 1,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "after_init": 1610612752,
+        "guest_cr0": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 0,
+        "cache": 0,
+        "expected": 16,
+        "after_init": 16,
+        "guest_cr0": 16
+      },
+      {
+        "cpus": 4,
+        "id": 1,
+        "cache": 0,
+        "expected": 16,
+        "after_init": 16,
+        "guest_cr0": 16
+      },
+      {
+        "cpus": 4,
+        "id": 2,
+        "cache": 0,
+        "expected": 16,
+        "after_init": 16,
+        "guest_cr0": 16
+      },
+      {
+        "cpus": 4,
+        "id": 3,
+        "cache": 0,
+        "expected": 16,
+        "after_init": 16,
+        "guest_cr0": 16
+      },
+      {
+        "cpus": 4,
+        "id": 0,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "after_init": 1073741840,
+        "guest_cr0": 1073741840
+      },
+      {
+        "cpus": 4,
+        "id": 1,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "after_init": 1073741840,
+        "guest_cr0": 1073741840
+      },
+      {
+        "cpus": 4,
+        "id": 2,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "after_init": 1073741840,
+        "guest_cr0": 1073741840
+      },
+      {
+        "cpus": 4,
+        "id": 3,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "after_init": 1073741840,
+        "guest_cr0": 1073741840
+      },
+      {
+        "cpus": 4,
+        "id": 0,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "after_init": 1610612752,
+        "guest_cr0": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 1,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "after_init": 1610612752,
+        "guest_cr0": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 2,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "after_init": 1610612752,
+        "guest_cr0": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 3,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "after_init": 1610612752,
+        "guest_cr0": 1610612752
+      }
+    ],
+    "software_baseline": [
+      {
+        "cpus": 1,
+        "id": 0,
+        "cache": 0,
+        "expected": 16,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 1,
+        "id": 0,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 1,
+        "id": 0,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 0,
+        "cache": 0,
+        "expected": 16,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 1,
+        "cache": 0,
+        "expected": 16,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 0,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 1,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 0,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 1,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 0,
+        "cache": 0,
+        "expected": 16,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 1,
+        "cache": 0,
+        "expected": 16,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 2,
+        "cache": 0,
+        "expected": 16,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 3,
+        "cache": 0,
+        "expected": 16,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 0,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 1,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 2,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 3,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 0,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 1,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 2,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 3,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752
+      }
+    ],
+    "baseline_mismatches": 14,
+    "native_matched": 21,
+    "owned_build_removed": true,
+    "production_fix_qualified": false,
+    "full_goal_complete": false
+  },
+  "native_scope": "Physical Intel Linux KVM INIT delivery, GET_MP_STATE acceptance, and native MOV-from-CR0 readback after explicit entry preparation; this does not qualify SIPI startup or a bare-metal INIT",
+  "failed_fixture_attempts": [
+    {
+      "name": "init-cache-controls-v1",
+      "outcome": "unicast INIT reported zero recipients; exact exit code not recorded by initial driver; raw stderr retained",
+      "raw_remote": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/init-cache-controls-v1"
+    },
+    {
+      "name": "init-cache-controls-v2",
+      "outcome": "per-CPU CPUID/APIC identity confirmed; unicast INIT still reported zero recipients; native process exit1 recorded",
+      "raw_remote": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/init-cache-controls-v2"
+    }
+  ],
+  "successful_control_fixture": "Broadcast physical INIT with strict recipient count, per-CPU reset-register assertions and independent native CR0 readback",
+  "unicast_fixture_cause": "unknown; no KVM defect attribution is made",
+  "assumption_register": [
+    {
+      "id": "I1",
+      "claim": "INIT preserves CR0.CD/NW and clears the other CR0 fields except ET",
+      "basis": "Intel SDM086 Vol3A Table11-1 note2; Linux6.8 kvm_vcpu_reset; 21 native controls",
+      "falsification_probe": "Any accepted native INIT changes CD/NW in the three admitted cache settings",
+      "dependent_result": "CR0 masking fix",
+      "status": "confirmed"
+    }
+  ],
+  "pending_gates": [
+    "corrected public RAX probe: all21 expected to match",
+    "new regression and complete root library binary",
+    "complete affected x86_64 integration target",
+    "workspace formatting, Clippy/build/doctests"
+  ],
+  "full_goal_complete": false,
+  "reset_extension": {
+    "status": "applied_unqualified",
+    "initial_and_reset_cr0": "0x60000010",
+    "prior_initial_and_reset_cr0": "0x00000000",
+    "failed_combined_candidate": {
+      "source": "508802a97422285740f7e2c43c82d69df113f9c1250d93217300e5f7565fbfdd",
+      "startup_tests": {
+        "passed": 0,
+        "failed": 2,
+        "ignored": 0,
+        "filtered": 13348
+      },
+      "unit_executable_sha256": "00d864a530a193a62f0b04f15a25b68b80b5f20c5f0b6ba501f7950bf80338df"
+    },
+    "scope": "CR0 constructor/reset defaults and INIT cache retention; no full architectural power-on claim",
+    "native_control": "Also checks initial KVM CR0 before seeding every CPU",
+    "baseline_control": {
+      "baseline_engine_sha256": "ef6779f33c3f179739c12e2452fff51f4d454b92c584be1eb375a435381e5d19",
+      "commands": [
+        {
+          "label": "native-build",
+          "argv": [
+            "gcc",
+            "-std=gnu11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-O2",
+            "/tmp/rax-kvm-native-entry-ixif9sv1/observations/init-cache-controls-v4/native-control.c",
+            "-o",
+            "/tmp/rax-init-reset-control-4jce5am9/native"
+          ],
+          "exit_code": 0
+        },
+        {
+          "label": "native",
+          "argv": [
+            "/tmp/rax-init-reset-control-4jce5am9/native"
+          ],
+          "exit_code": 0
+        },
+        {
+          "label": "software-build",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+            "--edition=2024",
+            "/tmp/rax-kvm-native-entry-ixif9sv1/observations/init-cache-controls-v4/software-control.rs",
+            "--extern",
+            "rax=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/librax-f9fe1929e6efc050.rlib",
+            "-L",
+            "dependency=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps",
+            "-o",
+            "/tmp/rax-init-reset-control-4jce5am9/software"
+          ],
+          "exit_code": 0
+        },
+        {
+          "label": "software",
+          "argv": [
+            "/tmp/rax-init-reset-control-4jce5am9/software"
+          ],
+          "exit_code": 101
+        }
+      ],
+      "native_observations": [
+        {
+          "cpus": 1,
+          "id": 0,
+          "cache": 0,
+          "expected": 16,
+          "after_init": 16,
+          "guest_cr0": 16
+        },
+        {
+          "cpus": 1,
+          "id": 0,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "after_init": 1073741840,
+          "guest_cr0": 1073741840
+        },
+        {
+          "cpus": 1,
+          "id": 0,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "after_init": 1610612752,
+          "guest_cr0": 1610612752
+        },
+        {
+          "cpus": 2,
+          "id": 0,
+          "cache": 0,
+          "expected": 16,
+          "after_init": 16,
+          "guest_cr0": 16
+        },
+        {
+          "cpus": 2,
+          "id": 1,
+          "cache": 0,
+          "expected": 16,
+          "after_init": 16,
+          "guest_cr0": 16
+        },
+        {
+          "cpus": 2,
+          "id": 0,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "after_init": 1073741840,
+          "guest_cr0": 1073741840
+        },
+        {
+          "cpus": 2,
+          "id": 1,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "after_init": 1073741840,
+          "guest_cr0": 1073741840
+        },
+        {
+          "cpus": 2,
+          "id": 0,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "after_init": 1610612752,
+          "guest_cr0": 1610612752
+        },
+        {
+          "cpus": 2,
+          "id": 1,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "after_init": 1610612752,
+          "guest_cr0": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 0,
+          "cache": 0,
+          "expected": 16,
+          "after_init": 16,
+          "guest_cr0": 16
+        },
+        {
+          "cpus": 4,
+          "id": 1,
+          "cache": 0,
+          "expected": 16,
+          "after_init": 16,
+          "guest_cr0": 16
+        },
+        {
+          "cpus": 4,
+          "id": 2,
+          "cache": 0,
+          "expected": 16,
+          "after_init": 16,
+          "guest_cr0": 16
+        },
+        {
+          "cpus": 4,
+          "id": 3,
+          "cache": 0,
+          "expected": 16,
+          "after_init": 16,
+          "guest_cr0": 16
+        },
+        {
+          "cpus": 4,
+          "id": 0,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "after_init": 1073741840,
+          "guest_cr0": 1073741840
+        },
+        {
+          "cpus": 4,
+          "id": 1,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "after_init": 1073741840,
+          "guest_cr0": 1073741840
+        },
+        {
+          "cpus": 4,
+          "id": 2,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "after_init": 1073741840,
+          "guest_cr0": 1073741840
+        },
+        {
+          "cpus": 4,
+          "id": 3,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "after_init": 1073741840,
+          "guest_cr0": 1073741840
+        },
+        {
+          "cpus": 4,
+          "id": 0,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "after_init": 1610612752,
+          "guest_cr0": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 1,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "after_init": 1610612752,
+          "guest_cr0": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 2,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "after_init": 1610612752,
+          "guest_cr0": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 3,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "after_init": 1610612752,
+          "guest_cr0": 1610612752
+        }
+      ],
+      "baseline_observations": [
+        {
+          "cpus": 1,
+          "id": 0,
+          "cache": 0,
+          "expected": 16,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 1,
+          "id": 0,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 1,
+          "id": 0,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 2,
+          "id": 0,
+          "cache": 0,
+          "expected": 16,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 2,
+          "id": 1,
+          "cache": 0,
+          "expected": 16,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 2,
+          "id": 0,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 2,
+          "id": 1,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 2,
+          "id": 0,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 2,
+          "id": 1,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 0,
+          "cache": 0,
+          "expected": 16,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 1,
+          "cache": 0,
+          "expected": 16,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 2,
+          "cache": 0,
+          "expected": 16,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 3,
+          "cache": 0,
+          "expected": 16,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 0,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 1,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 2,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 3,
+          "cache": 1073741824,
+          "expected": 1073741840,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 0,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 1,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 2,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        },
+        {
+          "cpus": 4,
+          "id": 3,
+          "cache": 1610612736,
+          "expected": 1610612752,
+          "actual": 1610612752,
+          "initial_cr0": 0,
+          "after_reset": 0,
+          "reset_expected": 1610612752
+        }
+      ],
+      "baseline_init_mismatches": 14,
+      "baseline_initial_cr0_mismatches": 21,
+      "baseline_reset_cr0_mismatches": 21,
+      "owned_build_artifacts_removed": true,
+      "source_sha256": {
+        "native-control.c": "9a160a9c3afbf5d4bb69510759354e034751bb6e9ab78b877f6541c136cd4733",
+        "software-control.rs": "4b4aa42138811afc6bedce4977731ae26cac20d3ed312bca951ab09ef493bd7c"
+      },
+      "result": "native_control_passed_and_baseline_defects_reproduced"
+    },
+    "failed_combined_gate_record": {
+      "exit_code": 1,
+      "error": "{'label': 'init-regression', 'argv': ['/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo', 'test', '--locked', '--offline', '--no-default-features', '--features', 'x86_64-suite,smir-jit,kvm,debug,hvf', '--lib', 'isa::x86_64::cpu::vcpu_impl::startup::tests::', '--', '--test-threads=1', '--nocapture'], 'exit_code': 101, 'results': [[0, 2, 0, 0, 13348]], 'details': {'build_argv': ['/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo', 'test', '--locked', '--offline', '--no-default-features', '--features', 'x86_64-suite,smir-jit,kvm,debug,hvf', '--lib', '--no-run', '--message-format=json'], 'build_exit_code': 0, 'artifact': '/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-071900dc9a027111', 'frozen_sha256': '00d864a530a193a62f0b04f15a25b68b80b5f20c5f0b6ba501f7950bf80338df', 'frozen_bytes': 765659136, 'test_argv': ['/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/init-cache-qualification-v1/init-regression-exe-gdknkoz4/rax-071900dc9a027111', 'isa::x86_64::cpu::vcpu_impl::startup::tests::', '--test-threads=1', '--nocapture'], 'test_exit_code': 101, 'owned_executable_removed': True}, 'seconds': 5.261766561307013}",
+      "commands": [
+        {
+          "label": "fmt",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "fmt",
+            "--all",
+            "--check"
+          ],
+          "exit_code": 0,
+          "results": [],
+          "details": {},
+          "seconds": 66.83115460257977
+        },
+        {
+          "label": "check",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "check",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,kvm,debug,hvf",
+            "--lib"
+          ],
+          "exit_code": 0,
+          "results": [],
+          "details": {},
+          "seconds": 130.40474892035127
+        },
+        {
+          "label": "clock-context",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,kvm,debug,hvf",
+            "--lib",
+            "vm::timing::",
+            "--",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "results": [
+            [
+              14,
+              0,
+              0,
+              0,
+              13336
+            ]
+          ],
+          "details": {
+            "build_argv": [
+              "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,kvm,debug,hvf",
+              "--lib",
+              "--no-run",
+              "--message-format=json"
+            ],
+            "build_exit_code": 0,
+            "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-071900dc9a027111",
+            "frozen_sha256": "00d864a530a193a62f0b04f15a25b68b80b5f20c5f0b6ba501f7950bf80338df",
+            "frozen_bytes": 765659136,
+            "test_argv": [
+              "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/init-cache-qualification-v1/clock-context-exe-idme2jjk/rax-071900dc9a027111",
+              "vm::timing::",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "test_exit_code": 0,
+            "owned_executable_removed": true
+          },
+          "seconds": 760.0746299093589
+        },
+        {
+          "label": "lapic-clock",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,kvm,debug,hvf",
+            "--lib",
+            "devices::lapic::",
+            "--",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "results": [
+            [
+              124,
+              0,
+              0,
+              0,
+              13226
+            ]
+          ],
+          "details": {
+            "build_argv": [
+              "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,kvm,debug,hvf",
+              "--lib",
+              "--no-run",
+              "--message-format=json"
+            ],
+            "build_exit_code": 0,
+            "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-071900dc9a027111",
+            "frozen_sha256": "00d864a530a193a62f0b04f15a25b68b80b5f20c5f0b6ba501f7950bf80338df",
+            "frozen_bytes": 765659136,
+            "test_argv": [
+              "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/init-cache-qualification-v1/lapic-clock-exe-thea1rom/rax-071900dc9a027111",
+              "devices::lapic::",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "test_exit_code": 0,
+            "owned_executable_removed": true
+          },
+          "seconds": 9.14914371445775
+        },
+        {
+          "label": "s5l-clock",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,kvm,debug,hvf",
+            "--lib",
+            "machine::s5l8900::runtime::time::",
+            "--",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "results": [
+            [
+              9,
+              0,
+              0,
+              0,
+              13341
+            ]
+          ],
+          "details": {
+            "build_argv": [
+              "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,kvm,debug,hvf",
+              "--lib",
+              "--no-run",
+              "--message-format=json"
+            ],
+            "build_exit_code": 0,
+            "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-071900dc9a027111",
+            "frozen_sha256": "00d864a530a193a62f0b04f15a25b68b80b5f20c5f0b6ba501f7950bf80338df",
+            "frozen_bytes": 765659136,
+            "test_argv": [
+              "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/init-cache-qualification-v1/s5l-clock-exe-k_r3l4pp/rax-071900dc9a027111",
+              "machine::s5l8900::runtime::time::",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "test_exit_code": 0,
+            "owned_executable_removed": true
+          },
+          "seconds": 5.79372108541429
+        },
+        {
+          "label": "clock-publication",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,kvm,debug,hvf",
+            "--lib",
+            "vm::memory::checkpoint::",
+            "--",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "results": [
+            [
+              6,
+              0,
+              0,
+              0,
+              13344
+            ]
+          ],
+          "details": {
+            "build_argv": [
+              "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,kvm,debug,hvf",
+              "--lib",
+              "--no-run",
+              "--message-format=json"
+            ],
+            "build_exit_code": 0,
+            "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-071900dc9a027111",
+            "frozen_sha256": "00d864a530a193a62f0b04f15a25b68b80b5f20c5f0b6ba501f7950bf80338df",
+            "frozen_bytes": 765659136,
+            "test_argv": [
+              "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/init-cache-qualification-v1/clock-publication-exe-1le8xckk/rax-071900dc9a027111",
+              "vm::memory::checkpoint::",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "test_exit_code": 0,
+            "owned_executable_removed": true
+          },
+          "seconds": 7.461732257157564
+        },
+        {
+          "label": "init-regression",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,kvm,debug,hvf",
+            "--lib",
+            "isa::x86_64::cpu::vcpu_impl::startup::tests::",
+            "--",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 101,
+          "results": [
+            [
+              0,
+              2,
+              0,
+              0,
+              13348
+            ]
+          ],
+          "details": {
+            "build_argv": [
+              "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,kvm,debug,hvf",
+              "--lib",
+              "--no-run",
+              "--message-format=json"
+            ],
+            "build_exit_code": 0,
+            "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-071900dc9a027111",
+            "frozen_sha256": "00d864a530a193a62f0b04f15a25b68b80b5f20c5f0b6ba501f7950bf80338df",
+            "frozen_bytes": 765659136,
+            "test_argv": [
+              "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/init-cache-qualification-v1/init-regression-exe-gdknkoz4/rax-071900dc9a027111",
+              "isa::x86_64::cpu::vcpu_impl::startup::tests::",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "test_exit_code": 101,
+            "owned_executable_removed": true
+          },
+          "seconds": 5.261766561307013
+        }
+      ],
+      "full_goal_complete": false
+    }
+  },
+  "corrected_public_control": {
+    "commands": [
+      {
+        "label": "compile",
+        "argv": [
+          "rustc",
+          "+stable",
+          "--edition=2024",
+          "--target",
+          "x86_64-apple-darwin",
+          "-C",
+          "opt-level=0",
+          "-C",
+          "debug-assertions=yes",
+          "-C",
+          "overflow-checks=yes",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/debug/deps",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/x86_64-apple-darwin/debug/deps",
+          "--extern",
+          "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/x86_64-apple-darwin/debug/deps/librax-4d54be5232e16cdd.rlib",
+          "/Users/int/dev/rax/docs/development/x86-init-cache-controls/software-control.rs",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-init-software-a77ouf2h/control"
+        ],
+        "exit_code": 0,
+        "seconds": 0.5188982079271227
+      },
+      {
+        "label": "execute",
+        "argv": [
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-init-software-a77ouf2h/control"
+        ],
+        "exit_code": 0,
+        "seconds": 0.1332307499833405
+      }
+    ],
+    "source_sha256": "4b4aa42138811afc6bedce4977731ae26cac20d3ed312bca951ab09ef493bd7c",
+    "library_sha256": "9d7674bcb424330cee6edf87a836d9f9a3806cfafab3709950b7a88fe36bbdce",
+    "scope": "Actual RAX software x86 CPU execution through Rosetta; not native HVF guest execution.",
+    "observations": [
+      {
+        "cpus": 1,
+        "id": 0,
+        "cache": 0,
+        "expected": 16,
+        "actual": 16,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 1,
+        "id": 0,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1073741840,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 1,
+        "id": 0,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 0,
+        "cache": 0,
+        "expected": 16,
+        "actual": 16,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 1,
+        "cache": 0,
+        "expected": 16,
+        "actual": 16,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 0,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1073741840,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 1,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1073741840,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 0,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 2,
+        "id": 1,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 0,
+        "cache": 0,
+        "expected": 16,
+        "actual": 16,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 1,
+        "cache": 0,
+        "expected": 16,
+        "actual": 16,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 2,
+        "cache": 0,
+        "expected": 16,
+        "actual": 16,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 3,
+        "cache": 0,
+        "expected": 16,
+        "actual": 16,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 0,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1073741840,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 1,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1073741840,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 2,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1073741840,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 3,
+        "cache": 1073741824,
+        "expected": 1073741840,
+        "actual": 1073741840,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 0,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 1,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 2,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      },
+      {
+        "cpus": 4,
+        "id": 3,
+        "cache": 1610612736,
+        "expected": 1610612752,
+        "actual": 1610612752,
+        "initial_cr0": 1610612752,
+        "after_reset": 1610612752,
+        "reset_expected": 1610612752
+      }
+    ],
+    "mismatches": 0,
+    "constructor_reset_mismatches": 0,
+    "observations_count": 21,
+    "owned_build_removed": true,
+    "success": true
+  },
+  "latest_frozen_apple_library": {
+    "state": "completed",
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--target",
+      "aarch64-apple-darwin",
+      "--lib",
+      "--no-run",
+      "--message-format=json"
+    ],
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th",
+    "wrapper_pid": 40774,
+    "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+    "compile_pid": 40815,
+    "compile_exit_code": 0,
+    "compile_seconds": 132.1211951659061,
+    "compile_source_unchanged": true,
+    "executable": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/aarch64-apple-darwin/debug/deps/rax-d3a0c2b6ab47e3e6",
+    "executable_sha256": "62ad17a95a2249482c4f7e5c45de5748d96917d430619fdc71b13650a1790654",
+    "test_pid": 64100,
+    "run_command": [
+      "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/aarch64-apple-darwin/debug/deps/rax-d3a0c2b6ab47e3e6",
+      "--nocapture",
+      "--test-threads=4"
+    ],
+    "exit_code": 0,
+    "test_seconds": 3192.9056761249667,
+    "source_changed_since_frozen_compile": true,
+    "success": true,
+    "owned_build_retained": "Shared with current SDK-owner qualification; remove only after every active owner is terminal.",
+    "counts": {
+      "passed": 12440,
+      "failed": 0,
+      "ignored": 36,
+      "filtered": 0
+    },
+    "later_source_delta": [
+      "src/backend/hvf/intel_init.rs",
+      "src/backend/hvf/intel_worker.rs",
+      "src/backend/hvf/mod.rs"
+    ],
+    "scope_note": "Frozen source816828...; later INIT changes are confined to the Intel-only adapter."
+  }
+}

@@ -6,8 +6,11 @@ use super::PhysicalMemory;
 use super::{
     Action, Context, ExitRecord, Flow, Instruction, Operand, OperandKind, Plan, RegisterPart,
 };
-use crate::devices::bus::MmioRmwOp;
+use crate::devices::bus::{MmioRmwOp, MmioShift};
 use crate::isa::x86_64::flags::{self, bits};
+
+#[path = "shift.rs"]
+mod shift;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum FlagEffect {
@@ -22,6 +25,7 @@ enum FlagEffect {
     Negate,
     Compare,
     Bit(u8),
+    Shift,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -94,6 +98,14 @@ impl RmwInput {
                 | MmioRmwOp::BitReset(actual)
                 | MmioRmwOp::BitComplement(actual),
             ) => expected == actual && self.register.is_none(),
+            (FlagEffect::Shift, MmioRmwOp::Shift { kind, carry, .. }) => {
+                self.register.is_none()
+                    && carry
+                        == (matches!(
+                            kind,
+                            MmioShift::RotateCarryLeft | MmioShift::RotateCarryRight
+                        ) && self.flags_before & bits::CF != 0)
+            }
             _ => false,
         };
         if !compatible {
@@ -171,6 +183,12 @@ impl RmwInput {
             FlagEffect::Bit(bit) => {
                 rflags = (rflags & !bits::CF) | u64::from(old & (1u64 << bit) != 0);
             }
+            FlagEffect::Shift => {
+                let MmioRmwOp::Shift { kind, count, .. } = self.operation else {
+                    return Err("inconsistent shift completion".into());
+                };
+                rflags = shift::flags(kind, self.size, count, old, result, self.flags_before);
+            }
         }
         if matches!(self.flags, FlagEffect::Increment | FlagEffect::Decrement) {
             rflags = (rflags & !bits::CF) | (self.flags_before & bits::CF);
@@ -234,6 +252,14 @@ pub(super) fn prepare<M: PhysicalMemory>(
             | "bts"
             | "btr"
             | "btc"
+            | "shl"
+            | "sal"
+            | "shr"
+            | "sar"
+            | "rol"
+            | "ror"
+            | "rcl"
+            | "rcr"
     ) {
         return Ok(None);
     }
@@ -258,6 +284,10 @@ pub(super) fn prepare<M: PhysicalMemory>(
         _ => return Err("unsupported MMIO RMW width".into()),
     };
     let unary = matches!(mnemonic, "inc" | "dec" | "not" | "neg");
+    let shift = matches!(
+        mnemonic,
+        "shl" | "sal" | "shr" | "sar" | "rol" | "ror" | "rcl" | "rcr"
+    );
     if instruction.operands.len() != if unary { 1 } else { 2 }
         || instruction.operands.iter().any(|o| o.conditional)
     {
@@ -270,12 +300,39 @@ pub(super) fn prepare<M: PhysicalMemory>(
         if !other.read || (other.write && !matches!(mnemonic, "xchg" | "xadd")) {
             return Err("unsupported MMIO RMW source effects".into());
         }
-        source(context, other, size)?
+        source(context, other, if shift { 1 } else { size })?
     };
     let carry = context.rflags & bits::CF != 0;
     let mut operand = operand.clone();
     let mut register = None;
     let (operation, flags) = match mnemonic {
+        "shl" | "sal" | "shr" | "sar" | "rol" | "ror" | "rcl" | "rcr" => {
+            let kind = match mnemonic {
+                "rol" => MmioShift::RotateLeft,
+                "ror" => MmioShift::RotateRight,
+                "rcl" => MmioShift::RotateCarryLeft,
+                "rcr" => MmioShift::RotateCarryRight,
+                "shl" | "sal" => MmioShift::Left,
+                "shr" => MmioShift::LogicalRight,
+                _ => MmioShift::ArithmeticRight,
+            };
+            if part.is_some_and(|part| part.index != 1 || part.bits != 8 || part.shift != 0)
+                || value > 255
+            {
+                return Err("invalid MMIO shift count".into());
+            }
+            (
+                MmioRmwOp::Shift {
+                    kind,
+                    count: value as u8,
+                    carry: matches!(
+                        kind,
+                        MmioShift::RotateCarryLeft | MmioShift::RotateCarryRight
+                    ) && carry,
+                },
+                FlagEffect::Shift,
+            )
+        }
         "add" => (
             MmioRmwOp::Add {
                 value,

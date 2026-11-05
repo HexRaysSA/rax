@@ -5,6 +5,9 @@ use crate::config::{ArchKind, BackendKind};
 use std::sync::atomic::{AtomicU64, Ordering};
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
+#[path = "intel_bundle_tests/file_owners.rs"]
+mod file_owners;
+
 static NEXT: AtomicU64 = AtomicU64::new(0);
 struct TestPath(std::path::PathBuf);
 impl TestPath {
@@ -56,7 +59,7 @@ fn inputs(count: u8) -> Inputs {
             ram_size: 4096,
             regions: vec![(0, 4096)],
             fixed_holes: vec![],
-            pending_irqs: vec![33],
+            pending_irqs: vec![],
             resume_clock: None,
             anchor: 1000,
         }
@@ -93,13 +96,14 @@ fn complete(count: u8) -> SnapshotBundle {
     clock.elapsed_nanos = bundle.base.elapsed_nanos;
     let memory = GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 4096)]).unwrap();
     memory.write_slice(&[0x51; 4096], GuestAddress(0)).unwrap();
-    bundle
+    let bundle = bundle
         .with_execution(execution)
         .unwrap()
         .with_clock(clock)
         .unwrap()
         .with_physical_memory(PhysicalMemorySnapshot::capture(&memory).unwrap())
-        .unwrap()
+        .unwrap();
+    file_owners::with_owned_devices(bundle)
 }
 
 #[test]

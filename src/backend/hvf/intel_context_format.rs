@@ -12,11 +12,15 @@ use serde::{Deserialize, Serialize};
 #[path = "intel_context_tests.rs"]
 pub(crate) mod tests;
 
-const CPU_TAG: &[u8; 8] = b"RAXHVI01";
-const VM_TAG: &[u8; 8] = b"RAXHVG01";
+const CPU_TAG: &[u8; 8] = b"RAXHVI02";
+const DEADLINE_CPU_TAG: &[u8; 8] = b"RAXHVI03";
+const LEGACY_CPU_TAG: &[u8; 8] = b"RAXHVI01";
+const VM_TAG: &[u8; 8] = b"RAXHVG02";
+const LEGACY_VM_TAG: &[u8; 8] = b"RAXHVG01";
 const CPU_LIMIT: usize = MAX_IMAGE + 128 * 1024;
 const VM_LIMIT: usize = 64 * 1024 * 1024;
-pub(crate) const MAX_CPU_CONTEXT: u64 = (CPU_LIMIT + 8) as u64;
+pub(crate) const MAX_CPU_CONTEXT: u64 =
+    (CPU_LIMIT + 8 + crate::devices::lapic::tsc_deadline::Image::BYTES) as u64;
 pub(crate) const STAR: u32 = 0xc000_0081;
 pub(crate) const LSTAR: u32 = 0xc000_0082;
 pub(crate) const CSTAR: u32 = 0xc000_0083;
@@ -308,6 +312,10 @@ impl ClockBinding {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Context {
+    /// Older producers never implemented deadline writes. Their absent image
+    /// imports an unarmed timer; new records preserve its full shared owner.
+    #[serde(skip)]
+    pub deadline: Option<crate::devices::lapic::tsc_deadline::Image>,
     pub id: u32,
     pub profile: Profile,
     pub public: X86_64CpuState,
@@ -357,9 +365,12 @@ impl Context {
         let mut emulator = self.profile.xsave.project(&self.fp, &mut regs)?;
         emulator.kernel_gs_base = self.msr(KERNEL_GS_BASE)?;
         emulator.tsc_aux = self.msr(TSC_AUX)? as u32;
-        // The current intercepted PAT profile is fixed. Retain the raw SDK
-        // VMCS field separately without claiming mutable PAT execution.
-        emulator.pat = crate::isa::x86_64::execute::system::IA32_PAT_RESET;
+        // This field is authoritative software-owned architectural state;
+        // the SDK provides no VMCS or MSR interface for guest PAT.
+        if !crate::isa::x86_64::execute::system::is_valid_pat(self.emulator.pat) {
+            return Err(invalid("invalid architectural PAT state"));
+        }
+        emulator.pat = self.emulator.pat;
         emulator.misc_enable = 0x0085_0089;
         emulator.halted = self.halted;
         emulator.interrupt_inhibit =
@@ -367,6 +378,9 @@ impl Context {
         Ok((X86_64CpuState { regs, sregs }, emulator))
     }
     pub fn validate(&self) -> Result<()> {
+        if self.deadline.is_some_and(|image| !image.valid()) {
+            return Err(invalid("armed deadline outside deadline mode"));
+        }
         self.profile.validate()?;
         if self.clock.at(self.anchor) != self.guest_tsc {
             return Err(invalid("guest time point differs from its clock binding"));
@@ -486,21 +500,85 @@ impl Context {
     }
     pub fn encode(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let mut raw = CPU_TAG.to_vec();
+        let mut raw = if self.deadline.is_some() {
+            DEADLINE_CPU_TAG.to_vec()
+        } else {
+            CPU_TAG.to_vec()
+        };
         raw.extend(crate::codec::serialize_limited(self, CPU_LIMIT).map_err(invalid)?);
+        if let Some(deadline) = self.deadline {
+            raw.extend(deadline.encode());
+        }
         Ok(raw)
     }
     pub fn decode(raw: &[u8]) -> Result<Self> {
-        if raw.len() > CPU_LIMIT + CPU_TAG.len() {
+        if raw.len() as u64 > MAX_CPU_CONTEXT {
             return Err(invalid("CPU record exceeds its byte limit"));
         }
-        let raw = raw
-            .strip_prefix(CPU_TAG)
-            .ok_or_else(|| invalid("unknown CPU producer/version"))?;
-        let context: Self =
+        let (raw, legacy, deadline) = if let Some(raw) = raw.strip_prefix(DEADLINE_CPU_TAG) {
+            let length = raw
+                .len()
+                .checked_sub(crate::devices::lapic::tsc_deadline::Image::BYTES)
+                .ok_or_else(|| invalid("truncated deadline producer"))?;
+            let (body, trailer) = raw.split_at(length);
+            let image = crate::devices::lapic::tsc_deadline::Image::decode(trailer)
+                .ok_or_else(|| invalid("invalid deadline producer"))?;
+            (body, false, Some(image))
+        } else if let Some(raw) = raw.strip_prefix(CPU_TAG) {
+            (raw, false, None)
+        } else if let Some(raw) = raw.strip_prefix(LEGACY_CPU_TAG) {
+            (raw, true, None)
+        } else {
+            return Err(invalid("unknown CPU producer/version"));
+        };
+        let mut context: Self =
             crate::codec::deserialize_limited::<_, CPU_LIMIT>(raw).map_err(invalid)?;
+        context.deadline = deadline;
+        if legacy {
+            context.migrate_fixed_pat_legacy()?;
+        }
         context.validate()?;
         Ok(context)
+    }
+
+    fn migrate_fixed_pat_legacy(&mut self) -> Result<()> {
+        let private = [
+            V::VMCS_GUEST_LINK_POINTER as u32,
+            V::VMCS_GUEST_IA32_PAT as u32,
+        ];
+        let mut candidates = vmcs_candidates();
+        candidates.extend(private);
+        candidates.sort_unstable();
+        if self
+            .profile
+            .fields
+            .windows(2)
+            .any(|pair| pair[0] >= pair[1])
+            || self
+                .profile
+                .fields
+                .iter()
+                .any(|id| !candidates.contains(id))
+            || candidates
+                .iter()
+                .any(|id| !optional_field(*id) && !self.profile.fields.contains(id))
+        {
+            return Err(invalid(
+                "legacy SDK VMCS field schema is incomplete or unknown",
+            ));
+        }
+        bank(&self.vmcs, &self.profile.fields)?;
+        if self.vmcs(private[0])? != u64::MAX
+            || !crate::isa::x86_64::execute::system::is_valid_pat(self.vmcs(private[1])?)
+            || self.emulator.pat != crate::isa::x86_64::execute::system::IA32_PAT_RESET
+        {
+            return Err(invalid("legacy fixed-PAT producer state is inconsistent"));
+        }
+        // The old producer exposed a fixed reset PAT and ignored guest PAT
+        // writes. Preserve that architectural value, not its opaque SDK slot.
+        self.profile.fields.retain(|id| !private.contains(id));
+        self.vmcs.retain(|field| !private.contains(&field.id));
+        Ok(())
     }
 }
 
@@ -519,6 +597,18 @@ pub(crate) struct GlobalContext {
     pub anchor: u64,
 }
 impl GlobalContext {
+    /// Historical detached assertions lack the line/deassertion history needed
+    /// to reconstruct the bus-owned controller. Empty legacy records retain
+    /// their exact wire representation and need no source reconstruction.
+    pub(crate) fn require_controller_owned_irqs(&self) -> Result<()> {
+        if !self.pending_irqs.is_empty() {
+            return Err(invalid(
+                "detached legacy IRQ assertions cannot reconstruct controller source state",
+            ));
+        }
+        Ok(())
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.cpus == 0
             || self.ram_size == 0
@@ -557,12 +647,19 @@ impl GlobalContext {
         if raw.len() > VM_LIMIT + VM_TAG.len() {
             return Err(invalid("VM record exceeds its byte limit"));
         }
-        let raw = raw
-            .strip_prefix(VM_TAG)
-            .ok_or_else(|| invalid("unknown VM producer/version"))?;
+        let (raw, legacy) = if let Some(raw) = raw.strip_prefix(VM_TAG) {
+            (raw, false)
+        } else if let Some(raw) = raw.strip_prefix(LEGACY_VM_TAG) {
+            (raw, true)
+        } else {
+            return Err(invalid("unknown VM producer/version"));
+        };
         let context: Self =
             crate::codec::deserialize_limited::<_, VM_LIMIT>(raw).map_err(invalid)?;
         context.validate()?;
+        if legacy && context.ram_size > crate::machine::pc::ram::LOW_END {
+            return Err(invalid("legacy flat RAM crosses the PC device window"));
+        }
         Ok(context)
     }
 }
@@ -632,9 +729,7 @@ pub(crate) fn vmcs_candidates() -> Vec<u32> {
         VMCS_GUEST_GS_SELECTOR,
         VMCS_GUEST_LDTR_SELECTOR,
         VMCS_GUEST_TR_SELECTOR,
-        VMCS_GUEST_LINK_POINTER,
         VMCS_GUEST_IA32_DEBUGCTL,
-        VMCS_GUEST_IA32_PAT,
         VMCS_GUEST_IA32_EFER,
         VMCS_GUEST_IA32_PERF_GLOBAL_CTRL,
         VMCS_GUEST_PDPTE0,

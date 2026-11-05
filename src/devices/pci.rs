@@ -21,6 +21,10 @@ use std::collections::HashMap;
 mod checkpoint;
 pub use checkpoint::PciCheckpoint;
 
+#[cfg(test)]
+#[path = "pci/ram_profile_tests.rs"]
+mod ram_profile_tests;
+
 /// PCI configuration space ports.
 pub const PCI_CONFIG_ADDRESS: u16 = 0xcf8;
 pub const PCI_CONFIG_DATA: u16 = 0xcfc;
@@ -357,35 +361,43 @@ impl PciStub {
         self.recompute_bases();
     }
 
+    /// Decode one complete BAR window when refreshing live routing.
+    fn decoded_base(functions: &HashMap<FunctionKey, ConfigSpace>, ep: &PciEndpoint) -> u64 {
+        let Some(cs) = functions.get(&ep.key) else {
+            return 0;
+        };
+        let Some(bar) = cs.bars.get(ep.bar_index).copied().flatten() else {
+            return 0;
+        };
+        if bar.io != ep.io || u64::from(bar.size) != ep.bar_size || !bar.size.is_power_of_two() {
+            return 0;
+        }
+        let offset = BAR0_OFFSET + ep.bar_index * 4;
+        let raw = cs.get_u32(offset);
+        let high = if !ep.io && bar.bits64 {
+            if ep.bar_index + 1 >= NUM_BARS || cs.bars[ep.bar_index + 1].is_some() {
+                return 0;
+            }
+            u64::from(cs.get_u32(offset + 4)) << 32
+        } else {
+            0
+        };
+        let low = low_bits_mask(ep.io);
+        let base = (high | u64::from(raw & !low)) & !(ep.bar_size - 1);
+        let decode = cs.get_u32(0x04) & if ep.io { 1 } else { 2 } != 0;
+        let probing = raw & !low == u32::MAX & !low;
+        if decode && base != 0 && !probing && base.checked_add(ep.bar_size).is_some() {
+            base
+        } else {
+            0
+        }
+    }
+
     /// Recompute every endpoint's live BAR base from its config space. Called
     /// after any config write (cheap — there are only a handful of endpoints).
     fn recompute_bases(&mut self) {
-        for idx in 0..self.endpoints.len() {
-            let ep = &self.endpoints[idx];
-            let (cmd, raw) = match self.functions.get(&ep.key) {
-                Some(cs) => (
-                    (cs.get_u32(0x04) & 0xffff) as u16,
-                    cs.get_u32(BAR0_OFFSET + ep.bar_index * 4),
-                ),
-                None => (0, 0),
-            };
-            // COMMAND bit 0 = I/O decode enable, bit 1 = memory decode enable.
-            let decode = if ep.io {
-                cmd & 0x1 != 0
-            } else {
-                cmd & 0x2 != 0
-            };
-            let low = low_bits_mask(ep.io);
-            let size = ep.bar_size.max(1) as u32;
-            let addr_mask = !(size.wrapping_sub(1));
-            let base = (raw & addr_mask & !low) as u64;
-            // Treat an all-ones size probe (or zero/disabled) as "not routable".
-            let probing = (raw & !low) == (0xffff_ffffu32 & !low);
-            self.endpoints[idx].current_base = if decode && base != 0 && !probing {
-                base
-            } else {
-                0
-            };
+        for ep in &mut self.endpoints {
+            ep.current_base = Self::decoded_base(&self.functions, ep);
         }
     }
 

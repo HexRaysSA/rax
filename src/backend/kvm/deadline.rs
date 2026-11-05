@@ -4,11 +4,12 @@
 //! mask that unmasks its thread-directed monotonic timer. KVM returns EINTR
 //! before delivering that signal. The pending timer notification expires with
 //! the worker; the caller's mask and process dispositions remain untouched.
-use super::KvmVcpu;
+use super::NativeCore;
 use crate::error::{Error, Result};
-use crate::vm::vcpu::{VCpu, VcpuExit};
+use crate::vm::vcpu::VcpuExit;
 use std::os::fd::{AsRawFd, RawFd};
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 /// Linux x86-64's kernel sigset is eight bytes, unlike libc's sigset_t.
@@ -115,10 +116,9 @@ impl Deadline {
                 "invalid native monotonic clock sample".into(),
             ));
         }
-        let deadline_ns = i128::from(now.tv_sec) * 1_000_000_000
-            + i128::from(now.tv_nsec)
-            + i128::from(value.tv_sec) * 1_000_000_000
-            + i128::from(value.tv_nsec);
+        let now_ns = i128::from(now.tv_sec) * 1_000_000_000 + i128::from(now.tv_nsec);
+        let deadline_ns =
+            now_ns + i128::from(value.tv_sec) * 1_000_000_000 + i128::from(value.tv_nsec);
         let deadline_ns = i64::try_from(deadline_ns)
             .map_err(|_| Error::InvalidConfig("KVM host deadline exceeds native ktime_t".into()))?;
         // Linux v6.8 ktime_set/timespec64_to_ktime saturate even at the
@@ -128,6 +128,14 @@ impl Deadline {
                 "KVM host deadline reaches the native saturation boundary".into(),
             ));
         }
+        // A requested interval is an upper bound: a host interrupt may yield
+        // earlier. Keep each native entry finite for VM writer exclusion even
+        // when an SDK caller requests a long host slice. Validate the original
+        // deadline above so oversized/saturating requests still reject.
+        let writer_deadline_ns = i64::try_from(now_ns + 10_000_000).map_err(|_| {
+            Error::InvalidConfig("KVM writer deadline exceeds native ktime_t".into())
+        })?;
+        let deadline_ns = deadline_ns.min(writer_deadline_ns);
         let spec = libc::itimerspec {
             it_interval: libc::timespec {
                 tv_sec: 0,
@@ -189,17 +197,32 @@ impl Drop for Deadline {
     }
 }
 
-fn worker(cpu: &mut KvmVcpu, value: libc::timespec) -> Result<Option<VcpuExit>> {
+fn worker(
+    cpu: &mut NativeCore,
+    value: libc::timespec,
+    activate_resume: bool,
+) -> Result<Option<VcpuExit>> {
     let mut deadline = Deadline {
         fd: cpu.vcpu_fd.as_raw_fd(),
         mask_installed: false,
         timer: None,
     };
     let result = match deadline.arm(value) {
-        Ok(()) => catch_unwind(AssertUnwindSafe(|| cpu.run())),
+        Ok(()) => catch_unwind(AssertUnwindSafe(|| {
+            if activate_resume {
+                // The parent retains VM write exclusion through this worker.
+                // Start clocks after worker/signal setup, immediately before
+                // the first authorized native attempt.
+                cpu.activate_resume_clock()?;
+            }
+            cpu.run_native()
+        })),
         Err(error) => Ok(Err(error)),
     };
     if let Err(cleanup) = deadline.finish() {
+        if activate_resume {
+            cpu.memory_owner.poisoned.store(true, Ordering::Release);
+        }
         let failure = format!("KVM host deadline cleanup failed: {cleanup}; guest entry disabled");
         cpu.state_failure = Some(failure.clone());
         return Err(Error::Emulator(failure));
@@ -208,6 +231,9 @@ fn worker(cpu: &mut KvmVcpu, value: libc::timespec) -> Result<Option<VcpuExit>> 
         Ok(Err(Error::Kvm(error))) if error.errno() == libc::EINTR => Ok(None),
         Ok(result) => result.map(Some),
         Err(_) => {
+            if activate_resume {
+                cpu.memory_owner.poisoned.store(true, Ordering::Release);
+            }
             let failure = "KVM host entry worker panicked; guest entry disabled".to_string();
             cpu.state_failure = Some(failure.clone());
             Err(Error::Emulator(failure))
@@ -218,7 +244,24 @@ fn worker(cpu: &mut KvmVcpu, value: libc::timespec) -> Result<Option<VcpuExit>> 
 /// One worker/timer per entry; O(1) work/storage outside native execution.
 /// Kernel scheduling may delay the yield beyond the requested interval.
 /// No host timer or worker identity belongs to the guest checkpoint record.
-pub(super) fn run(cpu: &mut KvmVcpu, limit: Duration) -> Result<Option<VcpuExit>> {
+pub(super) fn run(cpu: &mut NativeCore, limit: Duration) -> Result<Option<VcpuExit>> {
+    run_mode(cpu, limit, false)
+}
+
+/// The caller must retain VM-wide write exclusion for this complete call.
+pub(super) fn run_at_resume(cpu: &mut NativeCore, limit: Duration) -> Result<Option<VcpuExit>> {
+    run_mode(cpu, limit, true)
+}
+
+fn run_mode(
+    cpu: &mut NativeCore,
+    limit: Duration,
+    activate_resume: bool,
+) -> Result<Option<VcpuExit>> {
+    cpu.memory_owner.ready()?;
+    if cpu.memory_owner.powered_off.load(Ordering::Acquire) {
+        return Ok(Some(VcpuExit::Shutdown));
+    }
     cpu.state_ready()?;
     let value = interval(limit)?;
     if matches!(
@@ -232,7 +275,7 @@ pub(super) fn run(cpu: &mut KvmVcpu, limit: Duration) -> Result<Option<VcpuExit>
     let result = std::thread::scope(|scope| {
         std::thread::Builder::new()
             .name("rax-kvm-entry".into())
-            .spawn_scoped(scope, || worker(cpu, value))
+            .spawn_scoped(scope, || worker(cpu, value, activate_resume))
             .map(|thread| thread.join())
     });
     match result {

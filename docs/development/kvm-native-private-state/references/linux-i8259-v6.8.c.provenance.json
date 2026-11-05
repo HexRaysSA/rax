@@ -1,0 +1,9 @@
+{
+  "title": "Linux v6.8 arch/x86/kvm/i8259.c",
+  "organization": "Linux kernel contributors",
+  "revision": "v6.8",
+  "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/i8259.c",
+  "retrieved_utc": "2026-11-04T05:39:53.910191+00:00",
+  "sha256": "ff92b4ccfead313a2556f84cf0ece22f3a630327e1a73129ed0d98d0d30c0d68",
+  "license": "Preserved verbatim with upstream notices"
+}

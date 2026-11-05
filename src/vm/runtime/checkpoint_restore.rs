@@ -73,6 +73,14 @@ impl Vmm {
             .clock()
             .map(|state| timing_context.prepare_checkpoint_state(state))
             .transpose()?;
+        // Legacy wall bundles rebase only nanoseconds. Retained device epochs
+        // still need that incoming base before the final clock publication;
+        // diagnostic counters and notifications keep the historical contract.
+        let publication_clock = bundle.clock().copied().unwrap_or_else(|| {
+            let mut state = timing_context.checkpoint_state();
+            state.elapsed_nanos = snapshot.elapsed_nanos;
+            state
+        });
         if snapshot.config.vcpus > 1 && bundle.cpus().is_none() {
             return Err(Error::InvalidConfig(
                 "checkpoint is missing additional CPU state".to_string(),
@@ -400,7 +408,7 @@ impl Vmm {
                     }
                 }
             }
-            publication = Some(bindings.enter_for_restore(bundle.clock())?);
+            publication = Some(bindings.enter_for_restore(Some(&publication_clock))?);
             let scope = publication.as_ref().expect("publication installed");
             if bundle.vm_context().is_some() && replacements.iter().any(Option::is_some) {
                 return Err(Error::InvalidConfig(

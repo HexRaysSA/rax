@@ -1,0 +1,257 @@
+{
+  "utc": "2026-11-03T20:10:56.452014+00:00",
+  "exit_code": 0,
+  "full_source_verified": true,
+  "protected_state_unchanged": true,
+  "protected_before": {
+    "trace_sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d",
+    "trace_signature": [
+      16,
+      402539738,
+      1793639372346188555,
+      1793639372346188555
+    ],
+    "processes": "  PID STARTED                      COMMAND\n28735 Tue Oct 27 17:32:09 2026     /Users/int/dev/rax/target/debug/rax-user --arch arm64 /Users/int/dev/rax/target/tmp/user-darwin/ptrace_attach_stopped.arm64\n28737 Tue Oct 27 17:32:10 2026     /Users/int/dev/rax/target/debug/rax-user --arch arm64 /Users/int/dev/rax/target/tmp/user-darwin/ptrace_attach_stopped_self.arm64 self\n",
+    "original_binary_exists": false
+  },
+  "protected_after": {
+    "trace_sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d",
+    "trace_signature": [
+      16,
+      402539738,
+      1793639372346188555,
+      1793639372346188555
+    ],
+    "processes": "  PID STARTED                      COMMAND\n28735 Tue Oct 27 17:32:09 2026     /Users/int/dev/rax/target/debug/rax-user --arch arm64 /Users/int/dev/rax/target/tmp/user-darwin/ptrace_attach_stopped.arm64\n28737 Tue Oct 27 17:32:10 2026     /Users/int/dev/rax/target/debug/rax-user --arch arm64 /Users/int/dev/rax/target/tmp/user-darwin/ptrace_attach_stopped_self.arm64 self\n",
+    "original_binary_exists": false
+  },
+  "physical_Intel_execution": false,
+  "scope": "Intel cross-build and SDK simulation through Rosetta on Apple M4 Max, plus native ARM host compilation and SDK controls. No physical Intel Hypervisor guest executed.",
+  "commands": [
+    {
+      "label": "intel-debug-check",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [],
+      "coverage_verified": true,
+      "elapsed_seconds": 44.70104137505405,
+      "utc": "2026-11-03T19:44:58.812641+00:00",
+      "log_sha256": "c322f841ce6a376347b5efd0568ada3ee18e2914cdd1fe05c25e657f383387e2",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/macos-intel-debug-check-v1.json"
+    },
+    {
+      "label": "intel-no-debug-check",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [],
+      "coverage_verified": true,
+      "elapsed_seconds": 37.169891291996464,
+      "utc": "2026-11-03T19:45:36.035447+00:00",
+      "log_sha256": "a5b379c5af15f7167c0d9809791de3b6c1af852945f983a3b0d1115608fce06b",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/macos-intel-no-debug-check-v1.json"
+    },
+    {
+      "label": "intel-sdk-debug",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--test",
+        "hvf_owner",
+        "--test",
+        "hvf_memory",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [
+        [
+          52,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          18,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          10,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "coverage_verified": true,
+      "elapsed_seconds": 608.6755280840443,
+      "utc": "2026-11-03T19:55:44.770786+00:00",
+      "log_sha256": "e3ecb735e500d5927d7ddc526afc92c389a1818471be4ed950b2a6f821f67253",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/macos-intel-sdk-debug-v1.json"
+    },
+    {
+      "label": "intel-sdk-no-debug",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [
+        [
+          49,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "coverage_verified": true,
+      "elapsed_seconds": 644.0980181249324,
+      "utc": "2026-11-03T20:06:28.922485+00:00",
+      "log_sha256": "3736ec13202677f0c7c9316bcd86a6ffd2fc1e21cc954cbe82237a86a25e31b5",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/macos-intel-sdk-no-debug-v1.json"
+    },
+    {
+      "label": "arm-sdk",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "hvf_memory",
+        "--test",
+        "hvf_owner",
+        "--test",
+        "hvf_controls",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_run_loop",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [
+        [
+          9,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          18,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          37,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          10,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          14,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "coverage_verified": true,
+      "elapsed_seconds": 181.1320640000049,
+      "utc": "2026-11-03T20:09:30.146883+00:00",
+      "log_sha256": "58defcc920c13f5409118b00cbe74045ec8da0a9c60be355b038f236c845fa43",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/macos-arm-sdk-v1.json"
+    },
+    {
+      "label": "arm-all-targets",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [],
+      "coverage_verified": true,
+      "elapsed_seconds": 85.57972729101311,
+      "utc": "2026-11-03T20:10:55.779416+00:00",
+      "log_sha256": "3e8e074cef27798269635dbb2518a4eab172c238522165ee93f82e8b67ecd240",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/macos-arm-all-targets-v1.json"
+    }
+  ]
+}

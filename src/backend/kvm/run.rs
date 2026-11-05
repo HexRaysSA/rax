@@ -1,7 +1,8 @@
 //! Native exit conversion and explicit userspace I/O completion ownership.
-use super::{KvmVcpu, io};
+use super::{NativeCore, io};
 use crate::error::{Error, Result};
 use crate::vm::vcpu::VcpuExit;
+use std::sync::atomic::Ordering;
 
 /// No native reference escapes this conversion. Input buffers remain mapped
 /// by the owning vCPU; output operands are copied before another native entry.
@@ -33,7 +34,7 @@ unsafe fn port_descriptor(
     Ok((descriptor.size, descriptor.count))
 }
 
-fn public_event(event: io::Event) -> VcpuExit {
+pub(super) fn public_event(event: io::Event) -> VcpuExit {
     match event {
         io::Event::Input(io::Input::Port {
             port,
@@ -55,7 +56,7 @@ fn public_event(event: io::Event) -> VcpuExit {
     }
 }
 
-impl KvmVcpu {
+impl NativeCore {
     fn fail_native_io(&mut self, error: impl std::fmt::Display) -> Error {
         let failure = format!("KVM native I/O failed: {error}; guest entry disabled");
         self.state_failure = Some(failure.clone());
@@ -134,7 +135,13 @@ impl KvmVcpu {
                 },
                 data.len(),
             ),
-            kvm_ioctls::VcpuExit::Hlt => NativeExit::Direct(VcpuExit::Hlt),
+            kvm_ioctls::VcpuExit::Hlt => {
+                // With a userspace controller KVM advances RIP past HLT but
+                // leaves MP_STATE runnable. A later KVM_RUN would otherwise
+                // execute the following instruction without any wake event.
+                self.userspace_halted = !self.memory_owner.irqchip_created.load(Ordering::Acquire);
+                NativeExit::Direct(VcpuExit::Hlt)
+            }
             kvm_ioctls::VcpuExit::Shutdown => NativeExit::Direct(VcpuExit::Shutdown),
             kvm_ioctls::VcpuExit::SystemEvent(type_, flags) => {
                 NativeExit::Direct(VcpuExit::SystemEvent {
@@ -151,7 +158,23 @@ impl KvmVcpu {
     }
 
     pub(super) fn run_native(&mut self) -> Result<VcpuExit> {
+        self.memory_owner.ready()?;
+        if self.memory_owner.powered_off.load(Ordering::Acquire) {
+            return Ok(VcpuExit::Shutdown);
+        }
         self.state_ready()?;
+        if self.native_io_unsettled && !self.io.has_native_completion() {
+            return Err(self.fail_native_io("native completion lost its owned transfer"));
+        }
+        if let Some(exit) = &self.deferred_exit {
+            if matches!(exit, VcpuExit::Shutdown | VcpuExit::SystemEvent { .. }) {
+                return Ok(exit.clone());
+            }
+            return Ok(self
+                .deferred_exit
+                .take()
+                .expect("observed deferred native exit"));
+        }
         if let Some(event) = self.io.event().map_err(Error::Emulator)? {
             if matches!(event, io::Event::Input(_)) {
                 return Err(Error::InvalidConfig(
@@ -159,6 +182,9 @@ impl KvmVcpu {
                 ));
             }
             return Ok(public_event(event));
+        }
+        if self.userspace_halted {
+            return Ok(VcpuExit::Hlt);
         }
         self.copy_input_reply()?;
         let native = match self.read_native_exit() {
@@ -170,6 +196,7 @@ impl KvmVcpu {
                     .finish_native_completion()
                     .map_err(Error::Emulator)?;
                 self.pending_io_in = None;
+                self.native_io_unsettled = false;
                 return Err(Error::Kvm(error));
             }
             Err(error) => return Err(self.fail_native_io(error)),
@@ -178,13 +205,18 @@ impl KvmVcpu {
             .finish_native_completion()
             .map_err(Error::Emulator)?;
         self.pending_io_in = None;
+        self.native_io_unsettled = false;
         let staged = match native {
             NativeExit::Input(request, pointer, length) => {
+                self.native_io_unsettled = true;
                 self.io.begin_input(request, length).map(|()| {
                     self.pending_io_in = Some((pointer, length));
                 })
             }
-            NativeExit::Output(request, length) => self.io.begin_output(request, length),
+            NativeExit::Output(request, length) => {
+                self.native_io_unsettled = true;
+                self.io.begin_output(request, length)
+            }
             NativeExit::Direct(exit) => return Ok(exit),
         };
         if let Err(error) = staged {

@@ -1,0 +1,10 @@
+{
+  "file": "elf-header-gabi-4.3.html",
+  "title": "ELF Object File Format4.3 DRAFT,2.ELF Header",
+  "issuing_organization": "Xinuos / System V ABI maintainers",
+  "source_url": "https://gabi.xinuos.com/elf/02-eheader.html",
+  "retrieved_utc": "2026-11-03T19:10:46.412944+00:00",
+  "bytes": 38802,
+  "sha256": "29b7528dfc69641e93d39ef57cd75d38c1d5fcd9f9837d43ee24b4e5fe579019",
+  "scope": "Section2.1 e_entry virtual address; original copyright notices retained."
+}

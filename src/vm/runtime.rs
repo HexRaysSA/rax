@@ -54,9 +54,9 @@ extern "C" fn sigusr1_handler(_sig: libc::c_int) {
     CHECKPOINT_SIGNAL.store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
-/// A zeroed [`BootInfo`] for the given arch, used when resuming from a
-/// checkpoint (where no kernel is loaded, so there is no real boot info — the
-/// machine state comes entirely from the checkpoint).
+/// A construction seed without a kernel entry state. Native PC reservation
+/// addresses still describe its fixed platform; guest CPU state comes from
+/// the checkpoint instead of a boot-time register injection.
 fn null_boot_info(arch: ArchKind) -> BootInfo {
     match arch {
         ArchKind::Hexagon => BootInfo::Hexagon(HexagonBootInfo {
@@ -81,15 +81,23 @@ fn null_boot_info(arch: ArchKind) -> BootInfo {
             dtb_addr: None,
             initial_sp: None,
         }),
-        ArchKind::X86_64 => BootInfo::X86_64(X86_64BootInfo {
-            entry_point: 0,
-            boot_params_addr: vm_memory::GuestAddress(0),
-            tss_addr: 0,
-            identity_map_addr: 0,
-            real_mode: None,
-        }),
+        ArchKind::X86_64 => {
+            let (tss_addr, identity_map_addr) =
+                crate::machine::pc::PcMachine::kvm_setup_addresses();
+            BootInfo::X86_64(X86_64BootInfo {
+                entry_point: 0,
+                boot_params_addr: vm_memory::GuestAddress(0),
+                tss_addr,
+                identity_map_addr,
+                real_mode: None,
+            })
+        }
     }
 }
+
+mod bus_owner;
+mod checkpoint_io;
+use bus_owner::BusOwner;
 
 #[cfg(test)]
 mod tests {
@@ -261,8 +269,8 @@ pub struct Vmm {
     vm: Box<dyn Vm>,
     backend_kind: BackendKind,
     guest_mem: GuestMemoryWrapper,
-    io_bus: IoBus,
-    mmio_bus: MmioBus,
+    io_bus: BusOwner<IoBus>,
+    mmio_bus: BusOwner<MmioBus>,
     serial: Arc<std::sync::Mutex<Serial16550>>,
     /// PL011 console device (AArch64 machines only).
     pl011: Option<Arc<std::sync::Mutex<Pl011>>>,
@@ -331,10 +339,17 @@ fn drive_legacy_serial_irq(
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ConstructionMode {
+    Boot,
+    RestoreTarget,
+    Checkpoint,
+}
+
 impl Vmm {
     /// Build a fresh machine: load the kernel and set boot-time CPU state.
     pub fn new(config: VmConfig) -> Result<Self> {
-        Self::build(config, false, false)
+        Self::build(config, ConstructionMode::Boot)
     }
 
     /// Build a machine for base checkpoint restoration, skipping kernel loading,
@@ -342,7 +357,7 @@ impl Vmm {
     /// base state through [`restore_snapshot`](Self::restore_snapshot); expanded
     /// private/platform/SMP state is a separate checkpoint contract.
     pub fn new_resume(config: VmConfig) -> Result<Self> {
-        Self::build(config, true, false)
+        Self::build(config, ConstructionMode::RestoreTarget)
     }
 
     /// Construct and restore the represented bundle without reopening kernel,
@@ -370,17 +385,20 @@ impl Vmm {
         let mode = bundle
             .clock()
             .map_or(crate::vm::timing::ClockMode::Wall, |clock| clock.mode);
-        let mut vm =
-            Self::build_with_contexts(config, true, true, bundle.backend_contexts(), mode)?;
+        let mut vm = Self::build_with_contexts(
+            config,
+            ConstructionMode::Checkpoint,
+            bundle.backend_contexts(),
+            mode,
+        )?;
         vm.restore_snapshot_bundle(bundle)?;
         Ok(vm)
     }
 
-    fn build(config: VmConfig, resume: bool, detached_media: bool) -> Result<Self> {
+    fn build(config: VmConfig, construction: ConstructionMode) -> Result<Self> {
         Self::build_with_contexts(
             config,
-            resume,
-            detached_media,
+            construction,
             None,
             crate::vm::timing::ClockMode::Wall,
         )
@@ -388,11 +406,12 @@ impl Vmm {
 
     fn build_with_contexts(
         config: VmConfig,
-        resume: bool,
-        detached_media: bool,
+        construction: ConstructionMode,
         contexts: Option<&crate::vm::snapshot::BackendContexts>,
         clock_mode: crate::vm::timing::ClockMode,
     ) -> Result<Self> {
+        let resume = construction != ConstructionMode::Boot;
+        let detached_media = construction == ConstructionMode::Checkpoint;
         config.validate_clock_mode(clock_mode)?;
         let timing_context = Arc::new(crate::vm::timing::TimingContext::with_mode(clock_mode));
         let _timing = timing_context.enter();
@@ -466,6 +485,13 @@ impl Vmm {
         let mut io_bus = IoBus::new();
         let mut mmio_bus = MmioBus::new();
         let pc_devices = machine.setup_owned_devices(&mut io_bus, &mut mmio_bus)?;
+        // KVM creates its kernel IRQ chip later, and staging targets may not
+        // initialize one. Its transient flag cannot select a software owner.
+        if matches!(config.backend, BackendKind::Emulator | BackendKind::Hvf) {
+            if let Some(pc) = &pc_devices {
+                vm.bind_software_ioapic(pc.ioapic.clone())?;
+            }
+        }
 
         // PCI host bridge (x86). Owned here so it can be shared with the
         // emulator MMU for BAR-mapped MMIO routing. The bridge (config ports
@@ -588,7 +614,7 @@ impl Vmm {
                 .downcast_ref::<crate::backend::hvf::HvfVm>()
                 .ok_or_else(|| Error::InvalidConfig("expected HVF VM".into()))?;
             hvf_vm.register_memory_with_mmio(&guest_mem, &mmio_bus.ranges(), pci_bridge.clone())?;
-            mmio_bus.set_ram_fallback(Arc::new(guest_mem.memory().clone()), guest_mem.size());
+            mmio_bus.set_ram_fallback(Arc::new(guest_mem.memory().clone()), guest_mem.size())?;
         }
 
         // Load kernel — skipped when resuming (the kernel is already present in
@@ -599,19 +625,24 @@ impl Vmm {
             machine.load_kernel_with_devices(guest_mem.memory(), &config, pc_devices.as_ref())?
         };
 
-        // Initialize VM (backend-specific). Skipped on resume: the emulator
-        // backend needs none, and a resumed machine takes its full CPU/segment
-        // state from the checkpoint rather than the boot-time init.
+        // A checkpoint rebuilds the native PC platform before allocating any
+        // CPU, so CPUID admission sees the same kernel controller profile as
+        // cold boot. The staging API remains an uninitialized restore target.
+        // CPU boot injection and firmware RAM publication still occur only on
+        // cold boot; captured CPU and RAM state are installed below instead.
         #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
-        if !resume && matches!(config.backend, BackendKind::Kvm) {
+        if construction != ConstructionMode::RestoreTarget
+            && matches!(config.backend, BackendKind::Kvm)
+        {
             let kvm_vm = vm
                 .as_any()
                 .downcast_ref::<KvmVm>()
                 .ok_or_else(|| Error::InvalidConfig("expected KVM VM".to_string()))?;
             machine.init_vm(kvm_vm, &boot_info)?;
-            if boot_info
-                .as_x86_64()
-                .is_some_and(|boot| boot.real_mode.is_none())
+            if !resume
+                && boot_info
+                    .as_x86_64()
+                    .is_some_and(|boot| boot.real_mode.is_none())
             {
                 kvm_vm.publish_pc_multiprocessor_tables(guest_mem.memory(), config.vcpus)?;
             }
@@ -735,8 +766,8 @@ impl Vmm {
             vm,
             backend_kind: config.backend,
             guest_mem,
-            io_bus,
-            mmio_bus,
+            io_bus: BusOwner::new(io_bus),
+            mmio_bus: BusOwner::new(mmio_bus),
             serial,
             pl011,
             s3c_uart,
@@ -814,11 +845,13 @@ impl Vmm {
         let pic = self.pic.lock().map_err(|_| lock_err("pic"))?.clone();
         let pit = self.pit.lock().map_err(|_| lock_err("pit"))?.clone();
         let serial = self.serial.lock().map_err(|_| lock_err("serial"))?.clone();
-        let lapic = self
-            .lapic
-            .lock()
-            .map_err(|_| lock_err("lapic"))?
-            .checkpoint_registers();
+        let lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
+        if lapic.has_pending_eoi() {
+            return Err(Error::InvalidConfig(
+                "pending LAPIC EOI capture requires a complete snapshot bundle".into(),
+            ));
+        }
+        let lapic = lapic.checkpoint_registers();
         Ok(DeviceState {
             pic,
             pit,
@@ -1013,6 +1046,9 @@ mod lapic_tests;
 
 #[path = "runtime/lapic.rs"]
 mod lapic;
+
+#[path = "runtime/pc_interrupts.rs"]
+mod pc_interrupts;
 
 #[cfg(test)]
 mod execution_tests;

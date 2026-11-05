@@ -333,7 +333,50 @@
     "src/vm/snapshot/execution_deadline.rs": "44b9eea93ddc6b94f1298ebd8eba2fb06406fd916f3e17d7792bdb2e72ef7057",
     "tests/suites/backend/hvf_intel_owner/native_msr.rs": "16cf5548521b969821a0651a94324326bda32dd5ed0d7616a227860dabd23637"
   },
-  "unfiltered_current_library": "Running frozen Apple Silicon executable; terminal result not yet available.",
+  "unfiltered_current_library": {
+    "state": "completed",
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--target",
+      "aarch64-apple-darwin",
+      "--lib",
+      "--no-run",
+      "--message-format=json"
+    ],
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th",
+    "wrapper_pid": 40774,
+    "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+    "compile_pid": 40815,
+    "compile_exit_code": 0,
+    "compile_seconds": 132.1211951659061,
+    "compile_source_unchanged": true,
+    "executable": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/aarch64-apple-darwin/debug/deps/rax-d3a0c2b6ab47e3e6",
+    "executable_sha256": "62ad17a95a2249482c4f7e5c45de5748d96917d430619fdc71b13650a1790654",
+    "test_pid": 64100,
+    "run_command": [
+      "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/aarch64-apple-darwin/debug/deps/rax-d3a0c2b6ab47e3e6",
+      "--nocapture",
+      "--test-threads=4"
+    ],
+    "exit_code": 0,
+    "test_seconds": 3192.9056761249667,
+    "source_changed_since_frozen_compile": true,
+    "success": true,
+    "owned_build_retained": "Shared with current SDK-owner qualification; remove only after every active owner is terminal.",
+    "counts": {
+      "passed": 12440,
+      "failed": 0,
+      "ignored": 36,
+      "filtered": 0
+    },
+    "scope_note": "Frozen engine816828... passed before Intel-only INIT changes; later source delta is explicit in the startup qualification."
+  },
   "initial_wake_test_failures": [
     {
       "record": "complete-results.json",
@@ -517,5 +560,48 @@
       "sha256": "f4b290b3ad03994b4c52627ff1f2e49e00b35e435482d50557572bce29097fec"
     },
     "full_goal_complete": false
+  },
+  "complete_companion_binaries": {
+    "result": {
+      "state": "completed",
+      "wrapper_pid": 65129,
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_memory",
+        "--test",
+        "hvf_owner",
+        "--test",
+        "hvf_controls",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th",
+      "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+      "child_pid": 65132,
+      "exit_code": 0,
+      "seconds": 7.209674624959007,
+      "source_unchanged": true
+    },
+    "counts": {
+      "hvf_controls": 11,
+      "hvf_memory": 18,
+      "hvf_mmio": 55,
+      "hvf_owner": 14
+    },
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
   }
 }

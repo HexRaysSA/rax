@@ -1,0 +1,9 @@
+{
+  "title": "Linux v6.8 arch/x86/kvm/irq_comm.c",
+  "organization": "Linux kernel contributors",
+  "revision": "v6.8",
+  "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/irq_comm.c",
+  "retrieved_utc": "2026-11-04T05:44:07.782140+00:00",
+  "sha256": "a544a2d7e9a0be8894ef8a3fb1e1797350fae8f38a5eac3c06909cf7f3ba5185",
+  "license": "Preserved verbatim with upstream notices"
+}

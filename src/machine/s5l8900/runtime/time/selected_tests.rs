@@ -116,3 +116,66 @@ fn shared_publication_uses_incoming_logical_time_and_excludes_preparation() {
     first.resume_at(first.capture_time()).unwrap();
     assert_eq!(first.elapsed(), Duration::new(7, 12));
 }
+
+#[test]
+fn stopped_wall_publication_retains_its_target_owner_and_incoming_epoch() {
+    use crate::vm::memory::checkpoint::CheckpointBindings;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use vm_memory::{GuestAddress, GuestMemoryMmap};
+    let target = Arc::new(TimingContext::new());
+    let binding = target.enter();
+    let mut first = ElapsedClock::suspended(ElapsedImage {
+        seconds: 7,
+        nanos: 11,
+    })
+    .unwrap();
+    let mut second = ElapsedClock::suspended(ElapsedImage {
+        seconds: 13,
+        nanos: 17,
+    })
+    .unwrap();
+    let first_epoch = Arc::new(OnceLock::new());
+    let second_epoch = Arc::new(OnceLock::new());
+    first.bind_publication_epoch(first_epoch.clone()).unwrap();
+    second.bind_publication_epoch(second_epoch.clone()).unwrap();
+    let mut incoming = target.checkpoint_state();
+    incoming.elapsed_nanos = 21;
+    let memory = GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 4096)]).unwrap();
+    let bindings = CheckpointBindings::new(&memory, vec![]);
+    let scope = bindings.enter_for_restore(Some(&incoming)).unwrap();
+    let active = Arc::new(AtomicBool::new(false));
+    scope
+        .prepare_s3c_clock(&memory, None, active.clone(), first_epoch)
+        .unwrap()
+        .commit();
+    scope
+        .prepare_s3c_clock(
+            &memory,
+            None,
+            Arc::new(AtomicBool::new(false)),
+            second_epoch,
+        )
+        .unwrap()
+        .commit();
+    target
+        .prepare_stopped_checkpoint_state(&incoming)
+        .unwrap()
+        .commit();
+    drop(scope);
+    drop(binding);
+    assert!(active.load(Ordering::Acquire));
+    let foreign = Arc::new(TimingContext::new());
+    let _foreign = foreign.enter();
+    std::thread::sleep(Duration::from_millis(3));
+    assert_eq!(first.elapsed(), Duration::new(7, 11));
+    assert_eq!(second.elapsed(), Duration::new(13, 17));
+    assert!(target.resume_wall_at(std::time::Instant::now()));
+    std::thread::sleep(Duration::from_millis(2));
+    let before = target.elapsed_nanos().wrapping_sub(21);
+    let observed = first.elapsed().saturating_sub(Duration::new(7, 11));
+    let after = target.elapsed_nanos().wrapping_sub(21);
+    assert!((u128::from(before)..=u128::from(after)).contains(&observed.as_nanos()));
+    assert!(second.elapsed() >= Duration::new(13, 2_000_017));
+    first.resume_at(first.capture_time()).unwrap();
+    assert!(first.elapsed() >= Duration::new(7, 2_000_011));
+}

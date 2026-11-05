@@ -191,19 +191,6 @@ fn test_icr_register() {
 fn test_lvt_registers() {
     let mut lapic = LocalApic::new(0);
 
-    // Test all LVT registers
-    let lvt_offsets = [
-        (LAPIC_LVT_TIMER, &mut lapic.lvt_timer),
-        (LAPIC_LVT_THERMAL, &mut lapic.lvt_thermal),
-        (LAPIC_LVT_PMC, &mut lapic.lvt_pmc),
-        (LAPIC_LVT_LINT0, &mut lapic.lvt_lint0),
-        (LAPIC_LVT_LINT1, &mut lapic.lvt_lint1),
-        (LAPIC_LVT_ERROR, &mut lapic.lvt_error),
-    ];
-
-    // Re-create lapic to avoid borrow issues
-    let mut lapic = LocalApic::new(0);
-
     // Test LVT Timer
     lapic.write_register(LAPIC_LVT_TIMER, 0x00030020);
     assert_eq!(lapic.read_register(LAPIC_LVT_TIMER), 0x00030020);

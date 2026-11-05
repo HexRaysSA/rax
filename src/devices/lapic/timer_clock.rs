@@ -1,18 +1,18 @@
 //! Runtime-only timer domain; complete snapshots transport relative timer age.
 use crate::host::time::Instant;
-use crate::vm::timing::{ClockMode, TimingContext};
+use crate::vm::timing::TimingContext;
 use std::sync::Arc;
 
 #[derive(Clone, Default)]
 pub(super) struct TimerClock {
-    retired: Option<Arc<TimingContext>>,
+    owner: Option<Arc<TimingContext>>,
     origin_nanos: u64,
 }
 
 impl std::fmt::Debug for TimerClock {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TimerClock")
-            .field("retired", &self.retired.is_some())
+            .field("owned", &self.owner.is_some())
             .field("origin_nanos", &self.origin_nanos)
             .finish()
     }
@@ -25,11 +25,10 @@ pub(super) struct TimerSample {
 }
 
 impl TimerClock {
-    pub fn selected(clock: Option<Arc<TimingContext>>) -> Self {
-        let retired = clock.filter(|clock| clock.mode() == ClockMode::Retired);
-        let origin_nanos = retired.as_ref().map_or(0, |clock| clock.elapsed_nanos());
+    pub fn selected(owner: Option<Arc<TimingContext>>) -> Self {
+        let origin_nanos = owner.as_ref().map_or(0, |clock| clock.elapsed_nanos());
         Self {
-            retired,
+            owner,
             origin_nanos,
         }
     }
@@ -38,13 +37,13 @@ impl TimerClock {
     /// This avoids rebasing a device against the target's old time domain.
     pub fn prepared(clock: Arc<TimingContext>, incoming_nanos: u64) -> Self {
         Self {
-            retired: (clock.mode() == ClockMode::Retired).then_some(clock),
+            owner: Some(clock),
             origin_nanos: incoming_nanos,
         }
     }
 
     pub fn restart(&mut self) {
-        if let Some(clock) = &self.retired {
+        if let Some(clock) = &self.owner {
             self.origin_nanos = clock.elapsed_nanos();
         }
     }
@@ -53,7 +52,7 @@ impl TimerClock {
     /// observation gaps must remain below one complete nanosecond-clock cycle.
     /// The VMM's finite retirement quanta provide this bound during execution.
     pub fn sample(&self, wall_origin: Instant, wall_now: Instant) -> TimerSample {
-        if let Some(clock) = &self.retired {
+        if let Some(clock) = &self.owner {
             let now = clock.elapsed_nanos();
             TimerSample {
                 elapsed_nanos: u128::from(now.wrapping_sub(self.origin_nanos)),
@@ -77,6 +76,10 @@ impl TimerClock {
     /// Controller replacement retains the target VM's live clock identity.
     /// The incoming origin already belongs to its prepared checkpoint epoch.
     pub fn retain_target_binding(&mut self, target: &Self) {
-        self.retired = target.retired.clone();
+        self.owner = target.owner.clone();
     }
 }
+
+#[cfg(test)]
+#[path = "timer_clock_tests.rs"]
+mod tests;

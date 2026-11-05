@@ -105,6 +105,7 @@ pub struct EmulatorVm {
     riscv_platform: OnceLock<Arc<riscv::platform::Platform>>,
     created_cpus: std::sync::Mutex<Vec<u32>>,
     irq_pending: std::sync::Mutex<Vec<u32>>,
+    software_ioapic: super::software_irq::SoftwareIoApic,
     arch: ArchKind,
     hexagon_isa: HexagonIsa,
     hexagon_endian: Endianness,
@@ -125,6 +126,7 @@ impl EmulatorVm {
             riscv_platform: OnceLock::new(),
             created_cpus: std::sync::Mutex::new(Vec::new()),
             irq_pending: std::sync::Mutex::new(Vec::new()),
+            software_ioapic: super::software_irq::SoftwareIoApic::default(),
             arch,
             hexagon_isa,
             hexagon_endian,
@@ -150,6 +152,18 @@ impl EmulatorVm {
 }
 
 impl Vm for EmulatorVm {
+    fn bind_software_ioapic(
+        &self,
+        controller: Arc<std::sync::Mutex<crate::devices::ioapic::IoApic>>,
+    ) -> Result<()> {
+        if self.arch != ArchKind::X86_64 {
+            return Err(Error::InvalidConfig(
+                "software I/O APIC requires an x86 PC".into(),
+            ));
+        }
+        self.software_ioapic.bind(controller)
+    }
+
     fn configure_cpu_topology(&self, count: u8, ram_end: u64) -> Result<()> {
         if self.arch != ArchKind::Aarch64 && !self.boots_all_riscv_harts() {
             return Ok(());
@@ -276,6 +290,9 @@ impl Vm for EmulatorVm {
     }
 
     fn set_irq_line(&self, irq: u32, level: bool) -> Result<()> {
+        if self.arch == ArchKind::X86_64 {
+            return self.software_ioapic.set_irq_line(irq, level);
+        }
         if let Some(cluster) = self.arm_cluster.get() {
             return cluster.set_irq_line(irq, level);
         }

@@ -1,0 +1,26 @@
+{
+  "utc": "2026-11-03T21:00:54.235714+00:00",
+  "controller_absent": true,
+  "all_three_gates_passed": true,
+  "active_references": [],
+  "removed": [
+    {
+      "path": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/macos-target-v2",
+      "inode": 406830080,
+      "birthtime": 1793738694.0979285,
+      "files": 1533,
+      "bytes": 1748832986
+    },
+    {
+      "path": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/macos-tmp-v2",
+      "inode": 406830081,
+      "birthtime": 1793738694.0979612,
+      "files": 0,
+      "bytes": 0
+    }
+  ],
+  "total_bytes": 1748832986,
+  "protected_state_unchanged": true,
+  "protected_target_untouched": true,
+  "logs_sources_and_receipts_retained": true
+}

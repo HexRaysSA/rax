@@ -47,8 +47,12 @@ counter; both are retained as harness failures, not successful qualification.
 Clippy passes for the library and affected Intel owner/control targets. The
 expanded consumer compiles, links, signs and passes strict signature validation
 against the same corrected library on Apple Silicon. Its temporary compiler
-directory was removed. The unfiltered current Apple Silicon library run remains
-in progress; the group checks above are not a substitute for its terminal result.
+directory was removed. The frozen unfiltered Apple Silicon library run then
+passes 12,440 tests, with 36 ignored, none failed and no test filter, on the
+same engine source digest. Later INIT changes are confined to the Intel-only
+adapter and require their separate owner/native startup controls. All four
+complete companion binaries also pass: 11 control, 18 memory, 55 MMIO and
+14 owner tests, with no failures, ignores or filters.
 
 The [native consumer](../../../tools/hvf/intel_mmio_native_guest.rs) now registers
 146 cases. Existing RAM/MMIO/PAT/reserved-MSR cases retain identifiers 0-129.
@@ -93,8 +97,8 @@ source identities and limits.
 | A2 | Masked expiry follows the selected measured KVM profile | Mask transition semantics | Independent KVM repetitions; native RAX cases 139/140 | Confirmed for the recorded KVM and native RAX cases |
 | A3 | SDK virtual TSC sampling agrees with guest TSC after rebasing | Deadline timing | Native case 145; ordered counter samples must enclose the emulated MSR read | Confirmed in this native control |
 
-High-impact remaining gates: complete unfiltered library execution, native
-multi-CPU startup/scheduling, the complete KVM producer and the remaining
+High-impact remaining gates: native multi-CPU startup/scheduling, the complete
+KVM producer and the remaining
 A32-FP/MMIO profiles. Medium impact: the hosted Intel runner is itself a hypervisor
 guest; no bare-metal qualification follows. Timer operations use constant
 storage and at most 256 vector transfers per poll. Execution framing uses time

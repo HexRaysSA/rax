@@ -1,0 +1,128 @@
+{
+  "utc": "2026-11-03T18:12:20.845754+00:00",
+  "compile_code": 0,
+  "compile_log": "",
+  "run_code": 0,
+  "run_log": "{\"configured_bytes\":3221229568,\"e820\":[{\"address\":0,\"bytes\":654336,\"type\":1},{\"address\":654336,\"bytes\":394240,\"type\":2},{\"address\":1048576,\"bytes\":3220164608,\"type\":1},{\"address\":3221213184,\"bytes\":16384,\"type\":2}],\"high_ram_present\":false,\"initrd_address\":3221209088,\"initrd_bytes\":64,\"initrd_payload_matches_declared_address\":true,\"ram_overlaps_pci_hole\":false,\"scope\":\"Actual cold native VMM construction and boot-parameter publication; ELF64PT_LOAD kernel with64-byte initrd; no guest instruction entered.\"}\n{\"configured_bytes\":4294967296,\"e820\":[{\"address\":0,\"bytes\":654336,\"type\":1},{\"address\":654336,\"bytes\":394240,\"type\":2},{\"address\":1048576,\"bytes\":4293902336,\"type\":1},{\"address\":4294950912,\"bytes\":16384,\"type\":2}],\"high_ram_present\":false,\"initrd_address\":4294946816,\"initrd_bytes\":64,\"initrd_payload_matches_declared_address\":true,\"ram_overlaps_pci_hole\":true,\"scope\":\"Actual cold native VMM construction and boot-parameter publication; ELF64PT_LOAD kernel with64-byte initrd; no guest instruction entered.\"}\n{\"configured_bytes\":5368709120,\"e820\":[{\"address\":0,\"bytes\":654336,\"type\":1},{\"address\":654336,\"bytes\":394240,\"type\":2},{\"address\":1048576,\"bytes\":5367644160,\"type\":1},{\"address\":5368692736,\"bytes\":16384,\"type\":2}],\"high_ram_present\":false,\"initrd_address\":1073721344,\"initrd_bytes\":64,\"initrd_payload_matches_declared_address\":false,\"ram_overlaps_pci_hole\":true,\"scope\":\"Actual cold native VMM construction and boot-parameter publication; ELF64PT_LOAD kernel with64-byte initrd; no guest instruction entered.\"}\n",
+  "observations": [
+    {
+      "configured_bytes": 3221229568,
+      "e820": [
+        {
+          "address": 0,
+          "bytes": 654336,
+          "type": 1
+        },
+        {
+          "address": 654336,
+          "bytes": 394240,
+          "type": 2
+        },
+        {
+          "address": 1048576,
+          "bytes": 3220164608,
+          "type": 1
+        },
+        {
+          "address": 3221213184,
+          "bytes": 16384,
+          "type": 2
+        }
+      ],
+      "high_ram_present": false,
+      "initrd_address": 3221209088,
+      "initrd_bytes": 64,
+      "initrd_payload_matches_declared_address": true,
+      "ram_overlaps_pci_hole": false,
+      "scope": "Actual cold native VMM construction and boot-parameter publication; ELF64PT_LOAD kernel with64-byte initrd; no guest instruction entered."
+    },
+    {
+      "configured_bytes": 4294967296,
+      "e820": [
+        {
+          "address": 0,
+          "bytes": 654336,
+          "type": 1
+        },
+        {
+          "address": 654336,
+          "bytes": 394240,
+          "type": 2
+        },
+        {
+          "address": 1048576,
+          "bytes": 4293902336,
+          "type": 1
+        },
+        {
+          "address": 4294950912,
+          "bytes": 16384,
+          "type": 2
+        }
+      ],
+      "high_ram_present": false,
+      "initrd_address": 4294946816,
+      "initrd_bytes": 64,
+      "initrd_payload_matches_declared_address": true,
+      "ram_overlaps_pci_hole": true,
+      "scope": "Actual cold native VMM construction and boot-parameter publication; ELF64PT_LOAD kernel with64-byte initrd; no guest instruction entered."
+    },
+    {
+      "configured_bytes": 5368709120,
+      "e820": [
+        {
+          "address": 0,
+          "bytes": 654336,
+          "type": 1
+        },
+        {
+          "address": 654336,
+          "bytes": 394240,
+          "type": 2
+        },
+        {
+          "address": 1048576,
+          "bytes": 5367644160,
+          "type": 1
+        },
+        {
+          "address": 5368692736,
+          "bytes": 16384,
+          "type": 2
+        }
+      ],
+      "high_ram_present": false,
+      "initrd_address": 1073721344,
+      "initrd_bytes": 64,
+      "initrd_payload_matches_declared_address": false,
+      "ram_overlaps_pci_hole": true,
+      "scope": "Actual cold native VMM construction and boot-parameter publication; ELF64PT_LOAD kernel with64-byte initrd; no guest instruction entered."
+    }
+  ],
+  "inputs_sha256": {
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-e820-baseline-v2.rs": "6f9fc84a8e22b41dcaffaeef18c5ef826090f3a4c987203b358fb84bcb1357a1",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-topology-v1/librax_native_profile_v2.rlib": "1f5e25ce1f48ae401bc34c9fecc3b3d96dfbefcbe5d7907a75f2509402067241",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libbitflags-a6b87e5eab8e7c48.rlib": "35f4de4b9e4783c495e921c5d2400f3d8f7e3671b097c1dfae8a53a36f561732",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libclap-f40a16bd34655559.rlib": "1ed5e0c28b73cf18c50e8ba393328d88f2aae99b21b24b6c9f27ea6a121b9b23",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libctrlc-06073517bc9bf207.rlib": "ae28d02b8f2c8be0a746f1dff4693e8e79d21cbf6fe0265b32de4a777ee33f10",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libgetrandom-8bff5ffa6c2642d1.rlib": "6b1a06752a52aadf182ed0e27c2225c5bbd3bd1472bf6e27c6af8b7e6ae616be",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libgoblin-f29df64d8a0d5575.rlib": "57cff45f14f835cdd259bcfa4556bff5e3cdb408ef09a6fdae4a8e3c8fd9abec",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libkvm_bindings-330f2ce9add16da9.rlib": "2a53ab4f2f0e7ec4897b2eac63cc157702458d1b666b9d896f136756aa30d3fa",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libkvm_ioctls-5b5848d9fe5e5692.rlib": "e5852de200447c5cc1f09f82bac4a452ee16d8227e80cef9adcd4779b11a90f3",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/liblibc-5f779de372c18185.rlib": "09551cb9d2a167064f0089910076074ba48d083f5841798b030d61c65e1cc159",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/liblinux_loader-a9c2b03f1934d50e.rlib": "6fe00f9a6f555303a4a14fd19d619d8939a94cadeccac1d9543e83294fa5887d",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libserde-3e67dcae90e817b2.rlib": "820552774d09b86de58c21ffcf3ade97fc04d14e9c0073e38e2f3b948c4e52c4",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libserde_json-3cf86c9d4ba0a654.rlib": "d46be2e3bbcc4ac9cb5d2971ca6e6529e4acea7760aec0ceb329120b13b897dd",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libsha2-cc2764cc7cbcd32e.rlib": "ba1b79e6e7d58d382d1510d03a501a82e91fdbc01379e0bbc104f104fe72c0e6",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libthiserror-ecfaae9503fed691.rlib": "d3013fe6cd61f5a31303f8ca3b2e6e05a02b0444191f406c53944f3eed22802d",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libtoml-0f645ea9f94972e5.rlib": "703d7eb2594ac865ef3c406d2f35dc843080976f136a21e129750489a308d1de",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libtracing-c9937cc7d9810ad2.rlib": "0c9eb2eca40975927d6eccbb3a8aa051e250c568a1e4c1a3798853acc54d5f33",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libtracing_subscriber-e7937ff9851257d1.rlib": "7298c50eb0e624fd6d4e20e023b316867c84f5fceb93e0f6a657b78a0ec978f7",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libuklad-ce9e9f07a4bf1c2e.rlib": "e6cd618976c2360891e5dece2dbbf8636e9151cdbd70493938207e74a58c78af",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libvm_memory-fa4f714aacf98adc.rlib": "548f0cc8239009e0a4680e68b15075b9e75f72327f2c450f5e351dad1c75b981",
+    "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libzstd-621945e3655e6fe2.rlib": "4de6ccd2a95a9a4faaeec84dbffbf0fbb842960e2a5913165648f6997563a6b1"
+  },
+  "inputs_unchanged": true,
+  "binary_sha256": "b2a2df40e789956fe665d7482da52cea798491ad1222a533c0b466eb7d17d6af",
+  "scope": "Three fresh cold native VMMs against unchanged complete topology production library. Inspect actual E820 rows and payload bytes at the declared initrd address; no guest entry. No active source export is changed."
+}

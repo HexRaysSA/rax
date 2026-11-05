@@ -201,6 +201,19 @@ impl HvfVm {
 
 #[cfg(target_arch = "x86_64")]
 impl Vm for HvfVm {
+    fn bind_software_ioapic(
+        &self,
+        controller: Arc<Mutex<crate::devices::ioapic::IoApic>>,
+    ) -> Result<()> {
+        let _boundary = self
+            .lifetime
+            .quiescence
+            .write()
+            .map_err(|_| Error::Emulator("Intel HVF exclusion lock poisoned".into()))?;
+        self.lifetime.ready()?;
+        self.lifetime.software_ioapic.bind(controller)
+    }
+
     fn configure_cpu_topology(&self, count: u8, ram_end: u64) -> Result<()> {
         let _boundary = self.lifetime.stopped()?;
         if count == 0 || ram_end == 0 {
@@ -272,22 +285,16 @@ impl Vm for HvfVm {
     }
 
     fn set_irq_line(&self, irq: u32, level: bool) -> Result<()> {
+        // Capture holds PC controller locks before native exclusion. Acquire
+        // this source in the same order, with no mutation until both succeed.
+        let mut source = self.lifetime.software_ioapic.source(irq)?;
         let _boundary = self
             .lifetime
             .quiescence
             .read()
             .map_err(|_| Error::Emulator("Intel HVF exclusion lock poisoned".into()))?;
         self.lifetime.ready()?;
-        if level {
-            let mut irqs = self
-                .lifetime
-                .pending_irqs
-                .lock()
-                .map_err(|_| Error::Emulator("Intel HVF IRQ queue lock poisoned".into()))?;
-            if !irqs.contains(&irq) {
-                irqs.push(irq);
-            }
-        }
+        source.set_level(level);
         Ok(())
     }
 
@@ -309,6 +316,7 @@ struct HvfCore {
     /// CPUID configuration
     cpuid_config: CpuidConfig,
     priority: priority_native::State,
+    deadline: crate::devices::lapic::tsc_deadline::Handle,
     apic_base: AtomicU64,
     /// Scalar input request and terminal completion failure.
     port_input: port_io::InputState,
@@ -318,6 +326,8 @@ struct HvfCore {
     /// Whether the vCPU is halted
     halted: bool,
     shutdown: bool,
+    /// Architectural PAT is software-owned: the SDK exposes no PAT access.
+    pat: u64,
     checkpoint_profile: Option<crate::backend::intel_hvf_context::Profile>,
     pending_request: Option<crate::backend::intel_hvf_context::Packet>,
     execution_failure: Option<String>,
@@ -363,6 +373,7 @@ impl HvfCore {
             memory_layout: lifetime.memory_layout.clone(),
             cpuid_config,
             priority: priority_native::new(),
+            deadline: crate::devices::lapic::tsc_deadline::TimerLvt::new(1 << 16).handle(),
             apic_base: AtomicU64::new(apic_profile::initial_apic_base(id)),
             port_input: port_io::InputState::default(),
             mmio_input: mmio::InputState::default(),
@@ -370,6 +381,7 @@ impl HvfCore {
             native_step: native_step::State::default(),
             halted: false,
             shutdown: false,
+            pat: rosetta::MsrDefaults::default().pat,
             checkpoint_profile: None,
             pending_request: None,
             execution_failure: None,
@@ -558,8 +570,22 @@ impl HvfCore {
         Ok(())
     }
 
+    fn check_msr_access(&self) -> Result<bool> {
+        let protected = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_CR0)? & 1 != 0;
+        let flags = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS)?;
+        let selector = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_CS_SELECTOR)?;
+        if protected && (flags & (1 << 17) != 0 || selector & 3 != 0) {
+            self.inject_fault(xsetbv::XsetbvFault::GeneralProtection)?;
+            return Ok(false);
+        }
+        Ok(true)
+    }
+
     /// Handle RDMSR exit.
     fn handle_rdmsr(&self) -> Result<Option<VcpuExit>> {
+        if !self.check_msr_access()? {
+            return Ok(None);
+        }
         let ecx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RCX)? as u32;
         if ecx == 0x1b {
             self.handle_apic_base(None)?;
@@ -608,9 +634,12 @@ impl HvfCore {
                 )?
             }
             0x1A0 => rosetta::MsrDefaults::default().misc_enable, // IA32_MISC_ENABLE
-            0x277 => rosetta::MsrDefaults::default().pat,         // IA32_PAT
+            0x277 => self.pat,                                    // IA32_PAT
             0x10 => self.read_guest_tsc()?,
-            0x6E0 => 0, // IA32_TSC_DEADLINE
+            0x6E0 => {
+                self.deadline.expire(self.read_guest_tsc()?);
+                self.deadline.read()
+            }
             _ => {
                 debug!(msr = format!("{:#x}", ecx), "Unhandled RDMSR");
                 self.inject_fault(xsetbv::XsetbvFault::GeneralProtection)?;
@@ -630,6 +659,9 @@ impl HvfCore {
 
     /// Handle WRMSR exit.
     fn handle_wrmsr(&mut self) -> Result<Option<VcpuExit>> {
+        if !self.check_msr_access()? {
+            return Ok(None);
+        }
         let ecx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RCX)? as u32;
         let eax = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX)? as u32;
         let edx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RDX)? as u32;
@@ -640,6 +672,13 @@ impl HvfCore {
         }
 
         match ecx {
+            0x277 => {
+                if !crate::isa::x86_64::execute::system::is_valid_pat(value) {
+                    self.inject_fault(xsetbv::XsetbvFault::GeneralProtection)?;
+                    return Ok(None);
+                }
+                self.pat = value;
+            }
             0x10 => self.write_guest_tsc(value)?,
             0xC0000080 => {
                 // IA32_EFER
@@ -688,8 +727,8 @@ impl HvfCore {
                 )?;
             }
             0x6E0 => {
-                // IA32_TSC_DEADLINE
-                debug!(value = format!("{:#x}", value), "WRMSR IA32_TSC_DEADLINE");
+                self.deadline.expire(self.read_guest_tsc()?);
+                self.deadline.write(value);
             }
             _ => {
                 debug!(

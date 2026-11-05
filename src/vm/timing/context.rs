@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 enum ClockSource {
-    Wall { base: u64, start: Instant },
+    Wall { base: u64, start: Option<Instant> },
     Retired { nanos: u64, units: u64, phase: u8 },
 }
 impl ClockSource {
@@ -36,7 +36,8 @@ impl ClockSource {
     fn state(&self) -> (u64, u64, u8) {
         match self {
             Self::Wall { base, start } => {
-                (base.wrapping_add(start.elapsed().as_nanos() as u64), 0, 0)
+                let elapsed = start.map_or(0, |start| start.elapsed().as_nanos() as u64);
+                (base.wrapping_add(elapsed), 0, 0)
             }
             Self::Retired {
                 nanos,
@@ -66,7 +67,7 @@ impl TimingContext {
         let clock = match mode {
             ClockMode::Wall => ClockSource::Wall {
                 base: 0,
-                start: Instant::now(),
+                start: Some(Instant::now()),
             },
             ClockMode::Retired => ClockSource::Retired {
                 nanos: 0,
@@ -108,7 +109,9 @@ impl TimingContext {
                 start,
             } => {
                 *anchor = base;
-                *start = Instant::now();
+                if start.is_some() {
+                    *start = Some(Instant::now());
+                }
             }
             ClockSource::Retired { nanos, phase, .. } => {
                 *nanos = base;
@@ -171,19 +174,56 @@ impl TimingContext {
         Ok(PreparedClockRestore {
             target: self,
             state: *state,
+            stopped: false,
         })
+    }
+    /// Prepare a wall-clock import that remains frozen through RAM and device
+    /// publication. Its native owner resumes it at the common first-entry gate.
+    pub(crate) fn prepare_stopped_checkpoint_state(
+        &self,
+        state: &ClockState,
+    ) -> Result<PreparedClockRestore<'_>> {
+        let mut prepared = self.prepare_checkpoint_state(state)?;
+        if state.mode != ClockMode::Wall {
+            return Err(Error::InvalidConfig(
+                "stopped native publication requires wall clock mode".into(),
+            ));
+        }
+        prepared.stopped = true;
+        Ok(prepared)
+    }
+    /// Check the canonical phase before applying any native clock setters.
+    /// The owner excludes independent clock writers through activation.
+    pub(crate) fn is_stopped_at(&self, nanos: u64) -> bool {
+        matches!(
+            &*self.clock.lock().unwrap_or_else(|p| p.into_inner()),
+            ClockSource::Wall { base, start: None } if *base == nanos
+        )
+    }
+    /// Resume once at the owner's measured entry instant. Publication work
+    /// since that instant counts as runtime; repeated calls do not re-anchor.
+    pub(crate) fn resume_wall_at(&self, at: Instant) -> bool {
+        let mut clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
+        let ClockSource::Wall { start, .. } = &mut *clock else {
+            return false;
+        };
+        if start.is_some() {
+            return false;
+        }
+        *start = Some(at);
+        true
     }
     pub fn restore_checkpoint_state(&self, state: &ClockState) -> Result<()> {
         self.prepare_checkpoint_state(state)?.commit();
         Ok(())
     }
-    fn apply_checkpoint_state(&self, state: &ClockState) {
+    fn apply_checkpoint_state(&self, state: &ClockState, stopped: bool) {
         // Mode is immutable after construction; the prepared token admitted it.
         let mut clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
         *clock = match state.mode {
             ClockMode::Wall => ClockSource::Wall {
                 base: state.elapsed_nanos,
-                start: Instant::now(),
+                start: (!stopped).then(Instant::now),
             },
             ClockMode::Retired => ClockSource::Retired {
                 nanos: state.elapsed_nanos,
@@ -266,9 +306,15 @@ pub(super) fn with_current<T>(f: impl FnOnce(&TimingContext) -> T) -> Option<T> 
 pub(crate) struct PreparedClockRestore<'a> {
     target: &'a TimingContext,
     state: ClockState,
+    stopped: bool,
 }
 impl PreparedClockRestore<'_> {
     pub(crate) fn commit(self) {
-        self.target.apply_checkpoint_state(&self.state);
+        self.target
+            .apply_checkpoint_state(&self.state, self.stopped);
     }
 }
+
+#[cfg(test)]
+#[path = "stopped_tests.rs"]
+mod tests;

@@ -3,14 +3,27 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
 
+#[path = "shift.rs"]
+mod shift;
+pub use shift::MmioShift;
+
 /// A scalar MMIO read/modify/write transformation. Even an unsuccessful
 /// comparison writes the old value back, matching x86 CMPXCHG bus semantics.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MmioRmwOp {
     Exchange(u64),
-    CompareExchange { expected: u64, replacement: u64 },
-    Add { value: u64, carry: bool },
-    Subtract { value: u64, borrow: bool },
+    CompareExchange {
+        expected: u64,
+        replacement: u64,
+    },
+    Add {
+        value: u64,
+        carry: bool,
+    },
+    Subtract {
+        value: u64,
+        borrow: bool,
+    },
     And(u64),
     Or(u64),
     Xor(u64),
@@ -19,6 +32,11 @@ pub enum MmioRmwOp {
     BitSet(u8),
     BitReset(u8),
     BitComplement(u8),
+    Shift {
+        kind: MmioShift,
+        count: u8,
+        carry: bool,
+    },
 }
 
 impl MmioRmwOp {
@@ -26,6 +44,18 @@ impl MmioRmwOp {
     pub fn validate(self, size: u8) -> Result<()> {
         if !matches!(size, 1 | 2 | 4 | 8) {
             return Err(Error::InvalidConfig("invalid scalar MMIO RMW width".into()));
+        }
+        if let Self::Shift {
+            kind, carry: true, ..
+        } = self
+            && !matches!(
+                kind,
+                MmioShift::RotateCarryLeft | MmioShift::RotateCarryRight
+            )
+        {
+            return Err(Error::InvalidConfig(
+                "non-carry MMIO shift has a carry input".into(),
+            ));
         }
         if let Self::BitSet(bit) | Self::BitReset(bit) | Self::BitComplement(bit) = self {
             if u32::from(bit) >= u32::from(size) * 8 {
@@ -71,6 +101,7 @@ impl MmioRmwOp {
             Self::BitSet(bit) => old | (1u64 << bit),
             Self::BitReset(bit) => old & !(1u64 << bit),
             Self::BitComplement(bit) => old ^ (1u64 << bit),
+            Self::Shift { kind, count, carry } => kind.apply(old, size, count, carry),
         };
         bytes.copy_from_slice(&value.to_le_bytes()[..usize::from(size)]);
         Ok(())

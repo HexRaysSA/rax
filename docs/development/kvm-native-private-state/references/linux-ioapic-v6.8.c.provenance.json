@@ -1,0 +1,9 @@
+{
+  "title": "Linux v6.8 arch/x86/kvm/ioapic.c",
+  "organization": "Linux kernel contributors",
+  "revision": "v6.8",
+  "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/ioapic.c",
+  "retrieved_utc": "2026-11-04T05:39:53.512995+00:00",
+  "sha256": "430e267cc903e01369c4b4e1d3b61d2e05e12c0c50f8d243238b09296354e76a",
+  "license": "Preserved verbatim with upstream notices"
+}

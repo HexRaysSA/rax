@@ -1,5 +1,6 @@
 //! Owned PC setup and boot helper; the VMM never uses the legacy global slot.
 use super::*;
+use std::fs::File;
 impl PcMachine {
     pub(super) fn setup_pc_devices(
         &self,
@@ -39,11 +40,11 @@ impl PcMachine {
             Box::new(SharedIoDevice::new(fw_cfg.clone())),
         )?;
 
-        // I/O APIC MMIO window at 0xFEC00000 (24 redirection entries).
+        // I/O APIC indexed registers and version-0x20 directed EOI window.
         mmio_bus.register(
             MmioRange {
                 base: 0xFEC0_0000,
-                len: 0x20,
+                len: crate::devices::ioapic::IOAPIC_SIZE,
             },
             Box::new(crate::devices::bus::SharedMmioDevice::new(ioapic.clone())),
         )?;
@@ -216,7 +217,8 @@ impl PcMachine {
 
         // Use the configured memory size (what we report to the kernel via e820),
         // NOT the actual allocated size (which includes padding for per-CPU overflow).
-        let mem_size = config.memory.bytes();
+        let ram_layout = super::ram::Layout::new(config.memory.bytes())?;
+        let mem_size = ram_layout.reported;
         if mem_size <= KERNEL_LOAD_ADDR + KVM_RESERVED_SIZE {
             return Err(Error::InvalidConfig(
                 "memory is too small for kernel and reserved pages".to_string(),
@@ -224,7 +226,7 @@ impl PcMachine {
         }
 
         // Calculate reserved_start for e820 and initrd placement (within reported memory)
-        let reserved_start = align_down(mem_size - KVM_RESERVED_SIZE, PAGE_SIZE);
+        let reserved_start = align_down(ram_layout.low_end - KVM_RESERVED_SIZE, PAGE_SIZE);
 
         // Place identity map and TSS addresses in the MMIO gap below 4GB.
         // These must NOT overlap with registered guest memory slots.
@@ -233,10 +235,11 @@ impl PcMachine {
         // The memory registration leaves a gap at KVM_TSS_IDENTITY_GAP_START for this purpose.
         let (tss_addr, identity_map_addr) = Self::kvm_setup_addresses();
 
-        let (loader_result, is_elf, elf_phys_entry) = Self::load_kernel_image(mem, config)?;
+        let (loader_result, is_elf, elf_phys_entry, low_kernel_end) =
+            Self::load_kernel_image(mem, config, ram_layout, reserved_start)?;
 
         let kernel_end = loader_result.kernel_end as u64;
-        if kernel_end >= reserved_start {
+        if low_kernel_end >= reserved_start {
             return Err(Error::KernelLoad(
                 "kernel image overlaps reserved KVM region".to_string(),
             ));
@@ -257,7 +260,7 @@ impl PcMachine {
 
         let entry_point = if is_elf {
             // ELF kernel (vmlinux) - simpler boot process
-            // The entry point is directly from the ELF header
+            // The loader resolves the ELF header entry to its physical segment.
             let mut params = boot_params::default();
 
             // Configure VGA text mode console (80x25, mode 3)
@@ -276,13 +279,13 @@ impl PcMachine {
             if let Some(initrd_path) = &config.initrd {
                 let initrd_max = reserved_start - 1;
                 let (initrd_addr, initrd_size) =
-                    Self::load_initrd(mem, initrd_path, initrd_max, kernel_end)?;
+                    Self::load_initrd(mem, initrd_path, initrd_max, low_kernel_end)?;
                 params.hdr.ramdisk_image = initrd_addr.raw_value() as u32;
                 params.hdr.ramdisk_size = initrd_size as u32;
             }
 
             // Build e820 memory map
-            let e820_entries = Self::build_e820(mem_size, reserved_start);
+            let e820_entries = Self::build_e820(ram_layout, reserved_start);
             debug!(entries = e820_entries.len(), "built e820 map");
             params.e820_entries = e820_entries.len() as u8;
             for (index, entry) in e820_entries.iter().enumerate() {
@@ -292,14 +295,13 @@ impl PcMachine {
             let boot_params = BootParams::new(&params, GuestAddress(BOOT_PARAMS_ADDR));
             LinuxBootConfigurator::write_bootparams(&boot_params, mem)?;
 
-            // For ELF vmlinux, use the physical address of the first LOAD segment
-            // This is where startup_64 (or a jump to it) is located
-            // Note: We use the parsed PhysAddr, NOT the ELF e_entry which may be different
+            // The loader resolves the linked ELF entry to its loaded physical
+            // segment before entering through the bootstrap identity mapping.
             let entry = elf_phys_entry.unwrap_or(loader_result.kernel_load.raw_value());
             debug!(
                 entry = format!("{:#x}", entry),
                 kernel_end = format!("{:#x}", kernel_end),
-                "ELF kernel entry point (physical start of first LOAD segment)"
+                "ELF kernel entry point"
             );
             entry
         } else if let Some(setup_header) = loader_result.setup_header {
@@ -349,12 +351,12 @@ impl PcMachine {
                 };
                 let initrd_max = initrd_addr_max.min(reserved_start - 1);
                 let (initrd_addr, initrd_size) =
-                    Self::load_initrd(mem, initrd_path, initrd_max, kernel_end)?;
+                    Self::load_initrd(mem, initrd_path, initrd_max, low_kernel_end)?;
                 params.hdr.ramdisk_image = initrd_addr.raw_value() as u32;
                 params.hdr.ramdisk_size = initrd_size as u32;
             }
 
-            let e820_entries = Self::build_e820(mem_size, reserved_start);
+            let e820_entries = Self::build_e820(ram_layout, reserved_start);
             debug!(entries = e820_entries.len(), "built e820 map");
             params.e820_entries = e820_entries.len() as u8;
             for (index, entry) in e820_entries.iter().enumerate() {
@@ -399,7 +401,7 @@ impl PcMachine {
             if let Some(initrd_path) = &config.initrd {
                 let initrd_max = reserved_start - 1;
                 let (initrd_addr, initrd_size) =
-                    Self::load_initrd(mem, initrd_path, initrd_max, kernel_end)?;
+                    Self::load_initrd(mem, initrd_path, initrd_max, low_kernel_end)?;
                 info!(
                     initrd_addr = format!("{:#x}", initrd_addr.raw_value()),
                     initrd_size = initrd_size,

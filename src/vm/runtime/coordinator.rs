@@ -47,7 +47,7 @@ impl Vmm {
     fn poll_vm_clocks(&mut self) -> Result<()> {
         if !matches!(
             self.checkpoint_config.arch,
-            ArchKind::Aarch64 | ArchKind::Riscv64
+            ArchKind::Aarch64 | ArchKind::Riscv64 | ArchKind::X86_64
         ) {
             return Ok(());
         }
@@ -219,6 +219,7 @@ impl Vmm {
         if self.checkpoint_config.arch != ArchKind::X86_64 {
             return Ok(());
         }
+        self.route_pc_interrupts()?;
         for (index, cpu) in self.vcpus.iter_mut().enumerate() {
             if let Some(eligible) = cpu.native_run_eligibility()? {
                 self.coordinator.online[index] = eligible;

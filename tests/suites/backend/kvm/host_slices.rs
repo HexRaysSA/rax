@@ -17,6 +17,11 @@ use std::time::{Duration, Instant};
 static HANDLED: AtomicUsize = AtomicUsize::new(0);
 const CHILD: &str = "RAX_KVM_HOST_SLICE_TEST_CHILD";
 
+#[path = "host_slices/checkpoint.rs"]
+mod checkpoint;
+#[path = "host_slices/halt.rs"]
+mod halt;
+
 fn in_child(name: &str, test: impl FnOnce()) {
     if std::env::var(CHILD).as_deref() == Ok(name) {
         test();

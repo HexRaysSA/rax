@@ -3,7 +3,7 @@ use crate::error::{Error, Result};
 mod fallback;
 mod override_device;
 mod rmw;
-pub use rmw::MmioRmwOp;
+pub use rmw::{MmioRmwOp, MmioShift};
 
 pub trait IoDevice: Send {
     fn read(&mut self, port: u16) -> u8;
@@ -241,8 +241,10 @@ impl MmioBus {
         &mut self,
         memory: std::sync::Arc<vm_memory::GuestMemoryMmap>,
         reported: u64,
-    ) {
-        self.fallback.ram = Some((memory, reported));
+    ) -> Result<()> {
+        let layout = crate::machine::pc::ram::Layout::new(reported)?;
+        self.fallback.ram = Some((memory, layout));
+        Ok(())
     }
 
     pub fn register(&mut self, range: MmioRange, dev: Box<dyn MmioDevice>) -> Result<()> {

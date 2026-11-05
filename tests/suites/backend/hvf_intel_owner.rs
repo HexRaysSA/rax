@@ -17,6 +17,12 @@ static SDK: Mutex<Sdk> = Mutex::new(Sdk::new());
 #[path = "hvf_intel_owner/native_msr.rs"]
 mod native_msr;
 
+#[path = "hvf_intel_owner/native_pat.rs"]
+mod native_pat;
+
+#[path = "hvf_intel_owner/native_irq.rs"]
+mod native_irq;
+
 #[path = "hvf_intel_owner/native_context.rs"]
 mod native_context;
 
@@ -337,6 +343,10 @@ pub unsafe extern "C" fn hv_vmx_vcpu_read_vmcs(id: u32, field: u32, output: *mut
     if output.is_null() {
         return -1;
     }
+    // Actual Intel SDK sweep: these fields are private to the hypervisor.
+    if matches!(field, 0x2800 | 0x2804 | 0x2808 | 0x4828) {
+        return 0xfae9_4003u32 as i32;
+    }
     let mut rejected = false;
     let result = access(id, "read-vmcs", |cpu| {
         if field == 0x4002 && cpu.window_exits != 0 {
@@ -363,6 +373,9 @@ pub unsafe extern "C" fn hv_vmx_vcpu_read_vmcs(id: u32, field: u32, output: *mut
 
 #[unsafe(no_mangle)]
 pub extern "C" fn hv_vmx_vcpu_write_vmcs(id: u32, field: u32, value: u64) -> i32 {
+    if matches!(field, 0x2800 | 0x2804 | 0x2808 | 0x4828) {
+        return 0xfae9_4003u32 as i32;
+    }
     let mut rejected = false;
     let result = access(id, "write-vmcs", |cpu| {
         if field == 0x4002 && cpu.window_exits != 0 {
@@ -520,6 +533,12 @@ pub extern "C" fn hv_vcpu_set_tsc_relative(id: u32, offset: i64) -> i32 {
 }
 
 fn fixture() -> (Box<dyn rax::backend::Vm>, GuestMemoryWrapper) {
+    fixture_with_ioapic(Arc::new(Mutex::new(rax::devices::ioapic::IoApic::new())))
+}
+
+fn fixture_with_ioapic(
+    ioapic: Arc<Mutex<rax::devices::ioapic::IoApic>>,
+) -> (Box<dyn rax::backend::Vm>, GuestMemoryWrapper) {
     std::hint::black_box(hv_tsc_clock as extern "C" fn() -> u64);
     std::hint::black_box(hv_vcpu_set_tsc_relative as extern "C" fn(u32, i64) -> i32);
     *SDK.lock()
@@ -527,6 +546,7 @@ fn fixture() -> (Box<dyn rax::backend::Vm>, GuestMemoryWrapper) {
     SDK.clear_poison();
     let backend = HvfBackend::new().unwrap();
     let vm = backend.create_vm().unwrap();
+    vm.bind_software_ioapic(ioapic).unwrap();
     let memory = GuestMemoryWrapper::new(0x4000).unwrap();
     vm.as_any()
         .downcast_ref::<HvfVm>()

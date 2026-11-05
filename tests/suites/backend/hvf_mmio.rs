@@ -10,10 +10,14 @@ use std::collections::BTreeMap;
 
 #[path = "hvf_mmio/alu_read.rs"]
 mod alu_read_tests;
+#[path = "hvf_mmio/bit_test.rs"]
+mod bit_test_tests;
 #[path = "hvf_mmio/movsxd.rs"]
 mod movsxd_tests;
 #[path = "hvf_mmio/rmw.rs"]
 mod rmw_tests;
+#[path = "hvf_mmio/shifts.rs"]
+mod shift_tests;
 #[derive(Default)]
 struct Ram {
     bytes: BTreeMap<u64, u8>,

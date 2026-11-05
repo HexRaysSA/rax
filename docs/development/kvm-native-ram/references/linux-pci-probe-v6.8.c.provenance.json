@@ -1,0 +1,9 @@
+{
+  "file": "linux-pci-probe-v6.8.c",
+  "title": "Linux v6.8 PCI detection and setup",
+  "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/drivers/pci/probe.c",
+  "retrieved_utc": "2026-11-03T19:29:07.428171+00:00",
+  "bytes": 89670,
+  "sha256": "f8f76b2d9fa2f4f56ea8f9e62f1e82ab762d880662a97bbe1d37af1c2e72993c",
+  "notices": "Original source bytes and license/copyright notices retained unchanged."
+}

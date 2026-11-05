@@ -18,7 +18,7 @@ use crate::isa::x86_64::cpu::X86_64Vcpu;
 const CD_SECTOR: usize = 2048;
 
 /// The E820 memory map for `total` bytes of RAM: standard low-memory layout
-/// (conventional + EBDA/ROM holes) plus one usable extended region. Each entry
+/// (conventional + EBDA/ROM holes), low RAM and overflow above the PCI hole. Each entry
 /// is (base, length, type) where type 1 = usable, 2 = reserved.
 fn e820_map(total: u64) -> Vec<(u64, u64, u32)> {
     let mut v = vec![
@@ -26,8 +26,20 @@ fn e820_map(total: u64) -> Vec<(u64, u64, u32)> {
         (0x0009_FC00, 0x0000_0400, 2), // EBDA, reserved
         (0x000E_0000, 0x0002_0000, 2), // BIOS ROM area, reserved
     ];
-    if total > 0x10_0000 {
-        v.push((0x10_0000, total - 0x10_0000, 1)); // extended memory, usable
+    if let Ok(layout) = crate::machine::pc::ram::Layout::new(total) {
+        if layout.low_end > 0x10_0000 {
+            v.push((0x10_0000, layout.low_end - 0x10_0000, 1));
+        }
+        if layout.low_end == crate::machine::pc::ram::LOW_END {
+            v.push((
+                layout.low_end,
+                crate::machine::pc::ram::HIGH_START - layout.low_end,
+                2,
+            ));
+        }
+        if let Some(high) = layout.high() {
+            v.push((high.start, high.end - high.start, 1));
+        }
     }
     v
 }
@@ -225,8 +237,7 @@ fn int13(vcpu: &mut X86_64Vcpu) -> Result<()> {
     Ok(())
 }
 
-/// INT 15h — miscellaneous system services. Reported unsupported for now
-/// (callers fall back to defaults); a real E820 map can be added when needed.
+/// INT15h memory discovery, including the PC RAM/device-hole geometry.
 fn int15(vcpu: &mut X86_64Vcpu) {
     if std::env::var_os("RAX_RM_TRACE").is_some() {
         eprintln!(
@@ -280,7 +291,10 @@ fn int15(vcpu: &mut X86_64Vcpu) {
         // 16 MiB. Both register pairs carry the same values per the ABI.
         0xE801 if total != 0 => {
             let kib_1_16 = ((total.min(0x100_0000).saturating_sub(0x10_0000)) / 1024) as u16;
-            let blocks_above_16 = (total.saturating_sub(0x100_0000) / 0x1_0000) as u16;
+            let blocks_above_16 = (total
+                .min(crate::machine::pc::ram::LOW_END)
+                .saturating_sub(0x100_0000)
+                / 0x1_0000) as u16;
             vcpu.regs.rax = (vcpu.regs.rax & !0xFFFF) | kib_1_16 as u64;
             vcpu.regs.rcx = (vcpu.regs.rcx & !0xFFFF) | kib_1_16 as u64;
             vcpu.regs.rbx = (vcpu.regs.rbx & !0xFFFF) | blocks_above_16 as u64;
@@ -336,5 +350,21 @@ mod tests {
 
         assert!(active(&with_cd));
         assert!(!active(&without_cd));
+    }
+}
+
+#[cfg(test)]
+mod large_ram_tests {
+    #[test]
+    fn legacy_e820_excludes_the_pci_hole_and_reports_all_overflow_ram() {
+        for bytes in [(3u64 << 30) + 4096, 4 << 30, 64 << 30] {
+            let rows = super::e820_map(bytes);
+            assert!(
+                rows.iter()
+                    .filter(|row| row.2 == 1)
+                    .all(|row| row.0 + row.1 <= 3 << 30 || row.0 >= 4 << 30)
+            );
+            assert!(rows.contains(&(4 << 30, bytes - (3 << 30), 1)));
+        }
     }
 }

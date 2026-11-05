@@ -5,7 +5,7 @@
 //! APICs. It replaces the legacy 8259 PIC cascade for interrupt routing in
 //! APIC mode.
 //!
-//! MMIO interface (default base 0xFEC00000, 0x20 bytes):
+//! MMIO interface (default base 0xFEC00000, through offset 0x43):
 //! - IOREGSEL (offset 0x00): an 8-bit index latch selecting which internal
 //!   32-bit register the data window addresses.
 //! - IOWIN    (offset 0x10): the 32-bit data window into the indexed register.
@@ -33,13 +33,14 @@ use super::bus::MmioDevice;
 
 /// Fixed MMIO base address of the I/O APIC.
 pub const IOAPIC_BASE: u64 = 0xFEC00000;
-/// Size of the MMIO window (covers IOREGSEL and IOWIN).
-pub const IOAPIC_SIZE: u64 = 0x20;
+/// Size of the MMIO window, including the version-0x20 directed EOI register.
+pub const IOAPIC_SIZE: u64 = 0x44;
 
 /// Offset of the index-select register (IOREGSEL).
 const IOREGSEL: u64 = 0x00;
 /// Offset of the data window register (IOWIN).
 const IOWIN: u64 = 0x10;
+const EOI: u64 = 0x40;
 
 /// Indexed register: IOAPIC identification.
 const REG_ID: u32 = 0x00;
@@ -156,7 +157,7 @@ impl IoApic {
                 let offset = (idx - REG_REDTBL_BASE) as usize;
                 let entry = offset / 2;
                 let old = self.redirection_table[entry];
-                let new = if offset % 2 == 0 {
+                let mut new = if offset % 2 == 0 {
                     // Low half: preserve read-only bits (delivery status, IRR).
                     let masked = (value as u64) & (RTE_WRITABLE_MASK & 0xFFFF_FFFF);
                     let ro = old & (!RTE_WRITABLE_MASK & 0xFFFF_FFFF);
@@ -165,11 +166,20 @@ impl IoApic {
                     // High half: destination field, no read-only bits here.
                     (old & 0x0000_0000_FFFF_FFFF) | ((value as u64) << 32)
                 };
+                // Switching to edge mode clears the old level's EOI wait.
+                if new & RTE_TRIGGER_MODE == 0 {
+                    new &= !RTE_REMOTE_IRR;
+                }
                 self.redirection_table[entry] = new;
 
-                // If the line is currently asserted and was just unmasked,
-                // (re)evaluate it so a previously-blocked level/edge delivers.
-                if offset % 2 == 0 && self.line_asserted[entry] {
+                // A changed route replaces an unaccepted message's metadata.
+                // Masking or withdrawing an unaccepted level cancels it.
+                self.refresh_pending(entry);
+                // An asserted level can be delivered after unmasking. A masked
+                // edge was lost and requires a new inactive->active transition.
+                if self.redirection_table[entry] & RTE_TRIGGER_MODE != 0
+                    && self.line_asserted[entry]
+                {
                     self.evaluate_entry(entry);
                 }
             }
@@ -184,8 +194,12 @@ impl IoApic {
         if entry >= IOAPIC_NUM_RTE {
             return;
         }
-        self.line_asserted[entry] = asserted;
-        if asserted {
+        let previous = std::mem::replace(&mut self.line_asserted[entry], asserted);
+        let level = self.redirection_table[entry] & RTE_TRIGGER_MODE != 0;
+        if !asserted && level {
+            self.cancel_pending(entry);
+        }
+        if asserted && (level || !previous) {
             self.evaluate_entry(entry);
         }
     }
@@ -193,8 +207,13 @@ impl IoApic {
     /// Evaluate a redirection entry and, if unmasked, record a pending delivery.
     fn evaluate_entry(&mut self, entry: usize) {
         let rte = self.redirection_table[entry];
-        if rte & RTE_MASK != 0 {
-            // Masked: do not deliver.
+        if rte & RTE_MASK != 0
+            || (rte & RTE_TRIGGER_MODE != 0 && rte & RTE_REMOTE_IRR != 0)
+            || self
+                .pending
+                .iter()
+                .any(|request| usize::from(request.gsi) == entry)
+        {
             return;
         }
         let vector = (rte & RTE_VECTOR_MASK) as u8;
@@ -206,6 +225,7 @@ impl IoApic {
             destination,
             level_triggered,
         });
+        self.redirection_table[entry] |= RTE_DELIVERY_STATUS;
     }
 
     /// Whether there are pending deliveries awaiting routing.
@@ -220,7 +240,11 @@ impl IoApic {
 
     /// Take (and clear) all pending deliveries for the VMM to route to LAPICs.
     pub fn take_pending(&mut self) -> Vec<PendingIrq> {
-        std::mem::take(&mut self.pending)
+        let pending = std::mem::take(&mut self.pending);
+        for request in &pending {
+            self.accept(request);
+        }
+        pending
     }
 
     /// Get the I/O APIC ID (bits 24-27 of IOAPICID).
@@ -278,6 +302,11 @@ impl MmioDevice for IoApic {
                     }
                 }
                 self.write_indexed(self.ioregsel as u32, value);
+            }
+            EOI if byte_off == 0 => {
+                if let Some(&vector) = data.first() {
+                    self.end_of_interrupt(vector);
+                }
             }
             _ => {}
         }
@@ -418,6 +447,7 @@ mod tests {
         // Unmask entry 3 with a vector, then assert.
         let low_idx = (REG_REDTBL_BASE + 3 * 2) as u8;
         write_reg(&mut io, low_idx, 0x0000_0030); // vector 0x30, mask=0
+        io.set_irq(3, false);
         io.set_irq(3, true);
         assert!(io.has_pending());
     }
@@ -452,7 +482,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unmask_while_asserted_delivers() {
+    fn test_unmask_while_level_asserted_delivers() {
         let mut io = IoApic::new();
         let entry = 10usize;
         let low_idx = (REG_REDTBL_BASE + (entry as u32) * 2) as u8;
@@ -462,7 +492,7 @@ mod tests {
         assert!(!io.has_pending());
 
         // Now unmask with a vector while the line is still asserted.
-        write_reg(&mut io, low_idx, 0x0000_0050); // vector 0x50, mask=0
+        write_reg(&mut io, low_idx, 0x0000_8050); // vector 0x50, level, mask=0
         assert!(io.has_pending());
         assert_eq!(io.take_pending()[0].vector, 0x50);
     }
@@ -478,3 +508,10 @@ mod tests {
 #[path = "ioapic/checkpoint.rs"]
 mod checkpoint;
 pub(crate) use checkpoint::{IoApicCheckpoint, PreparedIoApicCheckpoint};
+
+#[cfg(test)]
+#[path = "ioapic/irq_tests.rs"]
+mod irq_tests;
+
+#[path = "ioapic/delivery.rs"]
+mod delivery;

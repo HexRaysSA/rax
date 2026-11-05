@@ -17,6 +17,12 @@ pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
 const MAX_CONTROL: usize = 4096;
 const MAX_REQUESTS: usize = 1_048_576;
 
+#[path = "execution_eoi.rs"]
+mod eoi;
+
+#[path = "execution_deadline.rs"]
+mod deadline;
+
 fn invalid(message: impl std::fmt::Display) -> Error {
     Error::Emulator(format!("execution checkpoint: {message}"))
 }
@@ -41,6 +47,7 @@ mod tests {
                     vector: 0x41,
                     target: crate::devices::lapic::IpiTarget::Physical(1),
                 }]),
+                eois: VecDeque::new(),
             }],
         }
         .encoded()
@@ -257,6 +264,11 @@ impl ExecutionSnapshot {
     }
 
     pub(crate) fn validate(&self, base: &Snapshot) -> Result<()> {
+        if base.devices.lapic.has_pending_eoi() {
+            return Err(invalid(
+                "base controller projection contains unrepresented EOI state",
+            ));
+        }
         let count = usize::from(base.config.vcpus);
         if count == 0
             || self.online.len() != count
@@ -304,17 +316,31 @@ impl ExecutionSnapshot {
         if encode(&first.registers)? != encode(&base.devices.lapic)? {
             return Err(invalid("BSP controller disagrees with base checkpoint"));
         }
-        if self
-            .local_apics
-            .iter()
-            .any(|apic| apic.queued.len() > MAX_REQUESTS)
-        {
+        if self.local_apics.iter().any(|apic| {
+            apic.queued.len() > MAX_REQUESTS
+                || apic.eois.len() > MAX_REQUESTS
+                || apic.eois.iter().any(|vector| *vector < 16)
+                || apic.registers.has_pending_eoi()
+        }) {
             return Err(invalid("IPI queue exceeds format limit"));
         }
         Ok(())
     }
 
     pub(super) fn encoded(&self) -> Result<Vec<u8>> {
+        if self
+            .local_apics
+            .iter()
+            .any(|apic| apic.registers.has_pending_eoi())
+        {
+            return Err(invalid(
+                "controller projection contains hidden EOI broadcasts",
+            ));
+        }
+        self.encode_deadlines(self.encode_eois(self.encoded_base()?)?)
+    }
+
+    fn encoded_base(&self) -> Result<Vec<u8>> {
         let mut raw = Vec::new();
         if self.riscv_platform.is_some()
             && (self.pc.is_some() || self.pl011.is_some() || self.arm_cluster.is_some())
@@ -411,6 +437,12 @@ impl ExecutionSnapshot {
         if raw.len() as u64 > MAX_SECTION {
             return Err(invalid("execution section exceeds format limit"));
         }
+        if let Some(restored) = Self::decode_deadlines(raw, expected_count)? {
+            return Ok(restored);
+        }
+        if let Some(restored) = Self::decode_eois(raw, expected_count)? {
+            return Ok(restored);
+        }
         struct Reader<'a>(&'a [u8]);
         impl<'a> Reader<'a> {
             fn take(&mut self, count: usize) -> Result<&'a [u8]> {
@@ -494,6 +526,7 @@ impl ExecutionSnapshot {
             local_apics.push(LapicCheckpoint {
                 registers,
                 queued,
+                eois: VecDeque::new(),
                 timer_age_nanos: (armed != 0).then_some(age),
             });
         }

@@ -130,13 +130,17 @@ impl HvfCore {
             .map(|(exit, length)| -> Result<_> { Ok((Packet::from_exit(&exit)?, length)) })
             .transpose()?;
         let mut context = Context {
+            deadline: Some(self.deadline.snapshot()),
             id: self.id,
             profile,
             public: X86_64CpuState {
                 regs: Default::default(),
                 sregs: Default::default(),
             },
-            emulator: EmulatorState::default(),
+            emulator: EmulatorState {
+                pat: self.pat,
+                ..EmulatorState::default()
+            },
             registers,
             vmcs,
             msrs,
@@ -194,7 +198,7 @@ impl HvfCore {
         let mut emulator = self.native_profile()?.xsave.project(&fp, &mut registers)?;
         emulator.kernel_gs_base = native_msr::read(self.vcpu_id, wire::KERNEL_GS_BASE)?;
         emulator.tsc_aux = native_msr::read(self.vcpu_id, wire::TSC_AUX)? as u32;
-        emulator.pat = rosetta::MsrDefaults::default().pat;
+        emulator.pat = self.pat;
         emulator.misc_enable = rosetta::MsrDefaults::default().misc_enable;
         emulator.halted = self.halted;
         emulator.interrupt_inhibit = vmcs_read(
@@ -215,7 +219,7 @@ impl HvfCore {
             || emulator.tsc_adjust != 0
             || emulator.umwait_control != 0
             || emulator.misc_enable != rosetta::MsrDefaults::default().misc_enable
-            || emulator.pat != rosetta::MsrDefaults::default().pat
+            || !crate::isa::x86_64::execute::system::is_valid_pat(emulator.pat)
         {
             return Err(Error::InvalidConfig(
                 "native Intel state contains unsupported software-private controls".into(),
@@ -251,6 +255,7 @@ impl HvfCore {
             }
         }
         context.halted = emulator.halted;
+        context.emulator.pat = emulator.pat;
         let (public, projection) = context.projection()?;
         context.public = public;
         context.emulator = projection;
@@ -416,6 +421,13 @@ impl HvfCore {
         self.priority
             .restore_checkpoint(context.tpr, context.priority_failure.clone())
             .map_err(Error::Emulator)?;
+        let deadline = context.deadline.unwrap_or_else(|| {
+            let mut image = self.deadline.snapshot();
+            image.deadline = 0;
+            image.pending = [0; 4];
+            image
+        });
+        self.deadline.restore(deadline);
         self.apic_base.store(context.apic_base, Ordering::SeqCst);
         self.native_step = debug;
         self.port_input = context.port_input.clone();
@@ -426,6 +438,7 @@ impl HvfCore {
         self.restore_failure = context.restore_failure.clone();
         self.halted = context.halted;
         self.shutdown = context.shutdown;
+        self.pat = context.emulator.pat;
         self.pending_clock = pending_clock;
         Ok(())
     }

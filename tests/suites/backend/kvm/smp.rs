@@ -11,6 +11,8 @@ use std::process::Command;
 mod apic_profile;
 #[path = "smp/discovery.rs"]
 mod discovery;
+#[path = "smp/events.rs"]
+mod events;
 #[path = "smp/pit_speaker.rs"]
 mod pit_speaker;
 #[path = "smp/timers.rs"]

@@ -1,5 +1,5 @@
 //! Stable deferred-exit representation, independent of host/debug build flags.
-use crate::devices::bus::MmioRmwOp;
+use crate::devices::bus::{MmioRmwOp, MmioShift};
 use crate::error::{Error, Result};
 use crate::vm::vcpu::VcpuExit;
 use serde::{Deserialize, Serialize};
@@ -29,13 +29,25 @@ impl RmwContext {
             MmioRmwOp::BitSet(a) => (9, a.into(), 0, false),
             MmioRmwOp::BitReset(a) => (10, a.into(), 0, false),
             MmioRmwOp::BitComplement(a) => (11, a.into(), 0, false),
+            MmioRmwOp::Shift { kind, count, carry } => {
+                let kind = match kind {
+                    MmioShift::RotateLeft => 12,
+                    MmioShift::RotateRight => 13,
+                    MmioShift::RotateCarryLeft => 14,
+                    MmioShift::RotateCarryRight => 15,
+                    MmioShift::Left => 16,
+                    MmioShift::LogicalRight => 17,
+                    MmioShift::ArithmeticRight => 18,
+                };
+                (kind, count.into(), 0, carry)
+            }
         };
         Self { kind, a, b, carry }
     }
     fn into_op(self, size: u8) -> Result<MmioRmwOp> {
         let invalid = || Error::Emulator("x86 context: invalid deferred RMW descriptor".into());
         if (self.kind != 1 && self.b != 0)
-            || (!matches!(self.kind, 2 | 3) && self.carry)
+            || (!matches!(self.kind, 2 | 3 | 14 | 15) && self.carry)
             || (matches!(self.kind, 7 | 8) && self.a != 0)
         {
             return Err(invalid());
@@ -62,12 +74,32 @@ impl RmwContext {
             9 => MmioRmwOp::BitSet(self.a.try_into().map_err(|_| invalid())?),
             10 => MmioRmwOp::BitReset(self.a.try_into().map_err(|_| invalid())?),
             11 => MmioRmwOp::BitComplement(self.a.try_into().map_err(|_| invalid())?),
+            12..=18 => {
+                let kind = match self.kind {
+                    12 => MmioShift::RotateLeft,
+                    13 => MmioShift::RotateRight,
+                    14 => MmioShift::RotateCarryLeft,
+                    15 => MmioShift::RotateCarryRight,
+                    16 => MmioShift::Left,
+                    17 => MmioShift::LogicalRight,
+                    _ => MmioShift::ArithmeticRight,
+                };
+                MmioRmwOp::Shift {
+                    kind,
+                    count: self.a.try_into().map_err(|_| invalid())?,
+                    carry: self.carry,
+                }
+            }
             _ => return Err(invalid()),
         };
         op.validate(size)?;
         Ok(op)
     }
 }
+
+#[cfg(test)]
+#[path = "exit_tests.rs"]
+mod tests;
 
 #[derive(Serialize, Deserialize)]
 pub(super) enum ExitContext {

@@ -2,6 +2,38 @@
 use super::*;
 use crate::backend::intel_hvf_xsave::{Component, Layout};
 
+#[test]
+fn deadline_cpu_record_preserves_lvt_arm_and_queued_vectors_without_changing_old_records() {
+    use crate::devices::lapic::tsc_deadline::Image;
+    let old = context();
+    let legacy = old.encode().unwrap();
+    assert!(legacy.starts_with(b"RAXHVI02"));
+    let loaded = Context::decode(&legacy).unwrap();
+    assert!(loaded.deadline.is_none());
+    assert_eq!(loaded.encode().unwrap(), legacy);
+    let mut current = old;
+    current.deadline = Some(Image {
+        lvt: 0x40051,
+        deadline: u64::MAX,
+        pending: [0, 1 << 17, 0, 0],
+    });
+    let raw = current.encode().unwrap();
+    assert!(raw.starts_with(b"RAXHVI03"));
+    let decoded = Context::decode(&raw).unwrap();
+    assert_eq!(decoded.deadline, current.deadline);
+    assert_eq!(decoded.encode().unwrap(), raw);
+    for end in 0..raw.len() {
+        assert!(Context::decode(&raw[..end]).is_err(), "prefix {end}");
+    }
+    let mut bad = raw.clone();
+    let image = bad.len() - Image::BYTES;
+    bad[image..image + 4].copy_from_slice(&0x51u32.to_le_bytes());
+    assert!(Context::decode(&bad).is_err());
+    let mut trailing = raw;
+    trailing.push(0);
+    assert!(Context::decode(&trailing).is_err());
+}
+
 pub(crate) fn context() -> Context {
     let layout = Layout {
         mask: 7,
@@ -46,6 +78,7 @@ pub(crate) fn context() -> Context {
         tsc_hz: None,
     };
     let mut context = Context {
+        deadline: None,
         id: 0,
         registers: register_ids()
             .into_iter()
@@ -125,9 +158,98 @@ fn bounded_cpu_codec_rejects_every_truncation_and_trailing_byte() {
     trailing.push(0);
     assert!(Context::decode(&trailing).is_err());
     let mut tag = encoded;
-    tag[7] = b'2';
+    tag[7] = b'9';
     assert!(Context::decode(&tag).is_err());
     assert!(Context::decode(&vec![0; CPU_LIMIT + 9]).is_err());
+}
+
+#[test]
+fn software_owned_pat_roundtrips_without_sdk_private_vmcs_fields() {
+    for pat in [0, 0x0101_0101_0101_0101, 0x0405_0607_0001_0406] {
+        let mut saved = context();
+        saved.emulator.pat = pat;
+        refresh(&mut saved);
+        let raw = saved.encode().unwrap();
+        assert_eq!(&raw[..8], b"RAXHVI02");
+        let loaded = Context::decode(&raw).unwrap();
+        assert_eq!(loaded.emulator.pat, pat);
+        assert_eq!(loaded.encode().unwrap(), raw);
+        for id in [V::VMCS_GUEST_LINK_POINTER, V::VMCS_GUEST_IA32_PAT] {
+            assert!(!loaded.profile.fields.contains(&(id as u32)));
+        }
+    }
+    for entry in 0..8 {
+        for invalid in [2, 3, 8, 0x80, 0xff] {
+            let mut saved = context();
+            saved.emulator.pat = u64::from(invalid as u8) << (entry * 8);
+            assert!(saved.projection().is_err());
+            assert!(saved.encode().is_err());
+        }
+    }
+}
+
+fn legacy_cpu_record(saved: &Context) -> Vec<u8> {
+    let mut raw = b"RAXHVI01".to_vec();
+    raw.extend(crate::codec::serialize_limited(saved, CPU_LIMIT).unwrap());
+    raw
+}
+
+fn legacy_cpu_context() -> Context {
+    let mut saved = context();
+    for (id, value) in [
+        (V::VMCS_GUEST_LINK_POINTER, u64::MAX),
+        (V::VMCS_GUEST_IA32_PAT, 0),
+    ] {
+        saved.profile.fields.push(id as u32);
+        saved.vmcs.push(Register {
+            id: id as u32,
+            value,
+        });
+    }
+    saved.profile.fields.sort_unstable();
+    saved.vmcs.sort_unstable_by_key(|field| field.id);
+    saved
+}
+
+#[test]
+fn legacy_fixed_pat_migration_preserves_the_architectural_reset_value() {
+    let saved = legacy_cpu_context();
+    let migrated = Context::decode(&legacy_cpu_record(&saved)).unwrap();
+    assert_eq!(
+        migrated.emulator.pat,
+        crate::isa::x86_64::execute::system::IA32_PAT_RESET
+    );
+    assert_eq!(migrated.encode().unwrap(), context().encode().unwrap());
+    for corruption in 0..6 {
+        let mut saved = saved.clone();
+        match corruption {
+            0 => {
+                saved
+                    .vmcs
+                    .iter_mut()
+                    .find(|field| field.id == 0x2800)
+                    .unwrap()
+                    .value = 0
+            }
+            1 => {
+                saved
+                    .vmcs
+                    .iter_mut()
+                    .find(|field| field.id == 0x2804)
+                    .unwrap()
+                    .value = 2
+            }
+            2 => saved.emulator.pat = 0,
+            3 => saved.profile.fields.retain(|id| *id != 0x2800),
+            4 => saved.vmcs.retain(|field| field.id != 0x2804),
+            5 => saved.profile.fields.swap(0, 1),
+            _ => unreachable!(),
+        }
+        assert!(
+            Context::decode(&legacy_cpu_record(&saved)).is_err(),
+            "corruption {corruption}"
+        );
+    }
 }
 
 #[test]
@@ -320,6 +442,15 @@ fn shared_codec_preserves_irq_order_and_rejects_ambiguous_mappings() {
     let raw = saved.encode().unwrap();
     let loaded = GlobalContext::decode(&raw).unwrap();
     assert_eq!(loaded.pending_irqs, [33, 17, 44]);
+    assert!(loaded.require_controller_owned_irqs().is_err());
+    let mut controller_owned = loaded.clone();
+    controller_owned.pending_irqs.clear();
+    assert!(controller_owned.require_controller_owned_irqs().is_ok());
+    let empty_raw = controller_owned.encode().unwrap();
+    assert_eq!(
+        GlobalContext::decode(&empty_raw).unwrap().encode().unwrap(),
+        empty_raw
+    );
     assert_eq!(loaded.regions, saved.regions);
     for corruption in 0..5 {
         let mut saved = saved.clone();
@@ -418,4 +549,25 @@ fn clock_binding_distinguishes_running_and_pending_domains_and_rejects_incoheren
     let mut saved = context();
     saved.clock.offset ^= 1;
     assert!(saved.validate().is_err());
+}
+
+#[test]
+fn shared_ram_layout_version_preserves_legacy_low_memory_and_rejects_large_flat_records() {
+    for bytes in [4096, 3 << 30, (3 << 30) + 4096, 4 << 30, 64 << 30] {
+        let saved = GlobalContext {
+            cpus: 1,
+            ram_size: bytes,
+            regions: vec![(0, bytes + (4 << 30))],
+            fixed_holes: vec![],
+            pending_irqs: vec![],
+            resume_clock: None,
+            anchor: 0,
+        };
+        let raw = saved.encode().unwrap();
+        assert_eq!(&raw[..8], b"RAXHVG02");
+        assert_eq!(GlobalContext::decode(&raw).unwrap().ram_size, bytes);
+        let mut legacy = raw;
+        legacy[..8].copy_from_slice(b"RAXHVG01");
+        assert_eq!(GlobalContext::decode(&legacy).is_ok(), bytes <= 3 << 30);
+    }
 }

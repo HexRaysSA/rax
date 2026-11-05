@@ -1,0 +1,25 @@
+{
+  "utc": "2026-11-03T20:48:32.284338+00:00",
+  "controller_absent": true,
+  "active_binary_references": [],
+  "removed": {
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-memory-layout-v1/pci-compatibility-source-v5/strict_v3-tests": {
+      "bytes": 10730736,
+      "sha256": "1c406db94445dbff7f70dea8f302817302d86ace979f3adbcb803200d000bf8a"
+    },
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-memory-layout-v1/pci-compatibility-source-v5/corrected_v5-tests": {
+      "bytes": 10732504,
+      "sha256": "058a82bbb3bd886fec0a313194ec977e2cbc4410c90b406585625dbb0ee876c3"
+    },
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-memory-layout-v1/pci-compatibility-source-v5/public_v2-tests": {
+      "bytes": 10609432,
+      "sha256": "be5ef79bbcd7bc2e711f29c8f8ce20beb16add67006c3e474e5ff7970ebb282f"
+    },
+    "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-memory-layout-v1/pci-compatibility-source-v5/owning_v2-tests": {
+      "bytes": 10646224,
+      "sha256": "4a710b71dc1ea261c593084ca86629760dbdbac77c8c9519614439ad068ba333"
+    }
+  },
+  "total_bytes": 42718896,
+  "sources_and_receipts_retained": true
+}

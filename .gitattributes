@@ -128,3 +128,9 @@ docs/specifications/windows/native-process-error-mode/primary/** -text -whitespa
 docs/specifications/windows/native-process-error-mode/observations-*.log -diff
 docs/specifications/windows/native-process-error-mode/bounds-*.log -diff
 docs/specifications/windows/native-process-error-mode/inheritance-*.log -diff
+
+# Preserve the archived ELF ABI pages without normalizing their source bytes.
+docs/development/kvm-native-ram/references/*.html binary
+
+# Preserve the deployed Rust synchronization contract as archived.
+docs/development/kvm-native-owner/references/*.html binary

@@ -1,0 +1,13 @@
+{
+  "title": "std::sync::RwLock",
+  "issuer": "The Rust Project",
+  "version": "Rust1.98.0",
+  "compiler": "rustc1.98.0 (88d9e12ae 2026-08-18)",
+  "source_path": "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/doc/rust/html/std/sync/struct.RwLock.html",
+  "canonical_url": "https://doc.rust-lang.org/1.98.0/std/sync/struct.RwLock.html",
+  "retrieved_utc": "2026-11-04T11:42:44.506631+00:00",
+  "retrieval": "Unmodified documentation copied from the deployed Rust toolchain",
+  "sha256": "da83c125d71083cd67400d84a4a7bb40a296dcaa0a88f46c8ee30ae80504ba94",
+  "bytes": 62990,
+  "relevant_contract": "Lock priority depends on the OS; no particular policy is guaranteed. A waiting writer may or may not block readers."
+}

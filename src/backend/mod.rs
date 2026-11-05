@@ -43,12 +43,29 @@ use crate::error::{Error, Result};
 use crate::vm::vcpu::VCpu;
 
 mod checkpoint;
+mod software_irq;
 pub use checkpoint::CheckpointBoundary;
 
 /// Abstract VM interface.
 ///
 /// Represents a virtual machine that can create vCPUs and manage interrupts.
 pub trait Vm: Send + Sync {
+    /// Native x86 PIC/IOAPIC/LAPIC ownership excludes duplicate software routing.
+    fn uses_native_x86_irqchip(&self) -> bool {
+        false
+    }
+
+    /// Bind software GSI publication to the controller owned by the PC buses
+    /// and checkpoints. Rebinding to a different controller must fail.
+    fn bind_software_ioapic(
+        &self,
+        _controller: Arc<std::sync::Mutex<crate::devices::ioapic::IoApic>>,
+    ) -> Result<()> {
+        Err(Error::InvalidConfig(
+            "backend does not support a software I/O APIC binding".into(),
+        ))
+    }
+
     /// Exclude hardware entry and backend-owned external mutations until the
     /// complete CPU/controller/RAM operation has finished.
     fn checkpoint_boundary(&self) -> Result<CheckpointBoundary<'_>> {

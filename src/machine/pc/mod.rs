@@ -5,6 +5,7 @@ pub mod acpi;
 /// El-Torito (BIOS CD) boot support for legacy/real-mode boot (e.g. TempleOS).
 pub mod bios_boot;
 pub(crate) mod multiprocessor;
+pub(crate) mod ram;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod native_imports {
     pub use linux_loader::cmdline::Cmdline;
@@ -92,9 +93,6 @@ mod native_imports {
     }
 }
 
-use std::fs::File;
-use std::io::Read;
-
 use goblin::elf::Elf as GoblinElf;
 use native_imports::*;
 use tracing::{debug, info};
@@ -137,12 +135,18 @@ const BOOT_STACK_ADDR: u64 = 0x8ff0;
 
 // Page table addresses for identity mapping and kernel space
 const PML4_ADDR: u64 = 0x9000;
-const PDPTE_ADDR: u64 = 0xa000; // PDPTE for PML4[0] - identity map first 1GB
+const PDPTE_ADDR: u64 = 0xa000; // PDPTE for PML4[0] - initial identity mapping
 const PDE_ADDR: u64 = 0xb000; // PDE for PDPTE[0] - 512 x 2MB pages = 1GB
 // Additional page tables for kernel virtual address space
 const PDPTE_KERNEL_ADDR: u64 = 0xc000; // PDPTE for PML4[511] - kernel text
 const PDE_KERNEL_ADDR: u64 = 0xd000; // PDE for PDPTE_KERNEL[510/511]
 const PDPTE_DIRECT_ADDR: u64 = 0xe000; // PDPTE for PML4[273] - direct map
+
+// Cover the complete configured RAM cap plus its physical device-window gap.
+const BOOTSTRAP_RAM_GIB: u64 =
+    (crate::vm::memory::MAX_GUEST_MEMORY_BYTES + ram::HIGH_START - ram::LOW_END + (1 << 30) - 1)
+        >> 30;
+const _: () = assert!(BOOTSTRAP_RAM_GIB <= 512);
 
 const BOOT_CS: u16 = 0x10;
 const BOOT_DS: u16 = 0x18;
@@ -173,7 +177,7 @@ impl PcMachine {
         PcMachine
     }
 
-    fn kvm_setup_addresses() -> (u64, u64) {
+    pub(crate) fn kvm_setup_addresses() -> (u64, u64) {
         let identity_map_addr = KVM_TSS_IDENTITY_GAP_START;
         let tss_addr = KVM_TSS_IDENTITY_GAP_START + PAGE_SIZE;
         (tss_addr, identity_map_addr)
@@ -188,144 +192,167 @@ impl PcMachine {
         Ok(cmdline_builder)
     }
 
-    /// Load kernel image - just load the binary at KERNEL_LOAD_ADDR
-    /// The kernel handles its own decompression if needed
+    /// Resolve the linked entry into one admitted segment's physical address.
+    /// Legacy images that already supply a physical entry retain that convention.
+    fn elf_physical_entry(
+        entry: u64,
+        segments: &[&goblin::elf::program_header::ProgramHeader],
+    ) -> Result<u64> {
+        let mut physical = None;
+        for header in segments {
+            let end = header
+                .p_vaddr
+                .checked_add(header.p_memsz)
+                .ok_or_else(|| Error::KernelLoad("ELF virtual extent wraps".into()))?;
+            if entry >= header.p_vaddr && entry < end {
+                let candidate = header
+                    .p_paddr
+                    .checked_add(entry - header.p_vaddr)
+                    .ok_or_else(|| Error::KernelLoad("ELF entry translation wraps".into()))?;
+                if physical.is_some_and(|previous| previous != candidate) {
+                    return Err(Error::KernelLoad("ELF entry mapping is ambiguous".into()));
+                }
+                physical = Some(candidate);
+            }
+        }
+        let physical = physical.or_else(|| {
+            segments
+                .iter()
+                .any(|header| {
+                    entry
+                        .checked_sub(header.p_paddr)
+                        .is_some_and(|offset| offset < header.p_memsz)
+                })
+                .then_some(entry)
+        });
+        physical
+            .filter(|address| *address < BOOTSTRAP_RAM_GIB << 30)
+            .ok_or_else(|| {
+                Error::KernelLoad("ELF entry is outside the bootable load segments".into())
+            })
+    }
+
+    /// Load an admitted PC kernel and retain the occupied low-RAM endpoint
+    /// separately from high ELF segments, so a 32-bit initrd pointer stays low.
     fn load_kernel_image(
         mem: &GuestMemoryMmap,
-        kernel: &VmConfig,
-    ) -> Result<(KernelLoaderResult, bool, Option<u64>)> {
-        info!(path = %kernel.kernel.display(), "loading kernel image");
-
-        // Read the entire kernel file
-        let kernel_data = std::fs::read(&kernel.kernel)?;
+        config: &VmConfig,
+        layout: ram::Layout,
+        reserved_start: u64,
+    ) -> Result<(KernelLoaderResult, bool, Option<u64>, u64)> {
+        let kernel_data = std::fs::read(&config.kernel)?;
         let kernel_size = kernel_data.len() as u64;
-
-        info!(
-            size = kernel_size,
-            load_addr = format!("{:#x}", KERNEL_LOAD_ADDR),
-            "loading kernel binary"
-        );
-
-        // Check for bzImage format by looking for "HdrS" magic at offset 0x202
-        let is_bzimage =
-            kernel_data.len() > 0x206 && kernel_data[0x202..0x206] == [0x48, 0x64, 0x72, 0x53]; // "HdrS"
-
+        let is_bzimage = kernel_data.get(0x202..0x206) == Some(b"HdrS");
         if is_bzimage {
-            info!("detected bzImage kernel format");
-            // Use linux-loader's BzImage loader which properly parses the setup header.
-            // `KernelLoader::load` wants `F: Read + ReadVolatile + Seek`. We already
-            // have the whole image in `kernel_data`, so wrap it in a Cursor: that
-            // satisfies all three bounds on every target. (A bare `File` would force
-            // vm-memory's `rawfd`-only `ReadVolatile for File` impl, which does not
-            // exist on Windows — and reusing the buffer avoids a redundant re-read.)
-            let mut kernel_image = std::io::Cursor::new(kernel_data.as_slice());
-            // BzImage::load(mem, kernel_offset, kernel_image, highmem_start_address)
-            // - kernel_offset: where to load the kernel (None = use code32_start from header)
-            // - highmem_start_address: start of high memory (should be 0 for full access)
+            let mut image = std::io::Cursor::new(kernel_data.as_slice());
             let result = BzImage::load(
                 mem,
-                Some(GuestAddress(KERNEL_LOAD_ADDR)), // kernel_offset
-                &mut kernel_image,
-                Some(GuestAddress(0)), // highmem_start_address
+                Some(GuestAddress(KERNEL_LOAD_ADDR)),
+                &mut image,
+                Some(GuestAddress(0)),
             )
-            .map_err(|e| Error::KernelLoad(format!("failed to load bzImage: {}", e)))?;
-
-            info!(
-                kernel_load = format!("{:#x}", result.kernel_load.raw_value()),
-                kernel_end = format!("{:#x}", result.kernel_end),
-                has_setup_header = result.setup_header.is_some(),
-                "bzImage loaded"
-            );
-
-            return Ok((result, false, None));
+            .map_err(|error| Error::KernelLoad(format!("failed to load bzImage: {error}")))?;
+            let end = result.kernel_end as u64;
+            if end >= reserved_start {
+                return Err(Error::KernelLoad(
+                    "kernel image overlaps reserved low RAM".into(),
+                ));
+            }
+            return Ok((result, false, None, end));
         }
-
-        // Not bzImage - load at KERNEL_LOAD_ADDR as raw binary
-        mem.write_slice(&kernel_data, GuestAddress(KERNEL_LOAD_ADDR))?;
-
-        let result = KernelLoaderResult {
-            kernel_load: GuestAddress(KERNEL_LOAD_ADDR),
-            kernel_end: KERNEL_LOAD_ADDR + kernel_size,
-            setup_header: None,
-            pvh_boot_cap: PvhBootCapability::PvhEntryNotPresent,
-        };
-
-        // Check if it's ELF to get entry point, otherwise use load address
-        let mut kernel_file = File::open(&kernel.kernel)?;
-        let mut magic = [0u8; 4];
-        kernel_file.read_exact(&mut magic)?;
-
-        if magic == [0x7f, b'E', b'L', b'F'] {
+        if kernel_data.starts_with(b"\x7fELF") {
             let elf = GoblinElf::parse(&kernel_data)
-                .map_err(|e| Error::KernelLoad(format!("failed to parse ELF: {}", e)))?;
-
-            // Load each LOAD segment to its correct physical address
-            let mut max_phys_end = KERNEL_LOAD_ADDR;
-            for ph in elf.program_headers.iter() {
-                if ph.p_type == goblin::elf::program_header::PT_LOAD {
-                    let phys_addr = ph.p_paddr;
-                    let file_offset = ph.p_offset as usize;
-                    let file_size = ph.p_filesz as usize;
-                    let mem_size = ph.p_memsz as usize;
-
-                    info!(
-                        phys_addr = format!("{:#x}", phys_addr),
-                        virt_addr = format!("{:#x}", ph.p_vaddr),
-                        file_offset = format!("{:#x}", file_offset),
-                        file_size = format!("{:#x}", file_size),
-                        mem_size = format!("{:#x}", mem_size),
-                        "loading ELF LOAD segment"
-                    );
-
-                    // Load file content
-                    if file_size > 0 && file_offset + file_size <= kernel_data.len() {
-                        mem.write_slice(
-                            &kernel_data[file_offset..file_offset + file_size],
-                            GuestAddress(phys_addr),
-                        )?;
+                .map_err(|error| Error::KernelLoad(format!("failed to parse ELF: {error}")))?;
+            let segments: Vec<_> = elf
+                .program_headers
+                .iter()
+                .filter(|header| header.p_type == goblin::elf::program_header::PT_LOAD)
+                .collect();
+            if segments.iter().all(|header| header.p_memsz == 0) {
+                return Err(Error::KernelLoad(
+                    "ELF kernel has no loadable memory".into(),
+                ));
+            }
+            let mut kernel_end = KERNEL_LOAD_ADDR;
+            let mut low_end = KERNEL_LOAD_ADDR;
+            // Admit every segment before publishing any file or BSS bytes.
+            for header in &segments {
+                if header.p_filesz > header.p_memsz {
+                    return Err(Error::KernelLoad(
+                        "ELF file extent exceeds its memory extent".into(),
+                    ));
+                }
+                if header.p_memsz == 0 {
+                    continue;
+                }
+                if header.p_filesz != 0 {
+                    header
+                        .p_offset
+                        .checked_add(header.p_filesz)
+                        .filter(|end| *end <= kernel_size)
+                        .ok_or_else(|| {
+                            Error::KernelLoad("ELF file extent is outside its input".into())
+                        })?;
+                }
+                if header.p_paddr < BIOS_END || !layout.contains(header.p_paddr, header.p_memsz) {
+                    return Err(Error::KernelLoad(
+                        "ELF segment is outside usable PC RAM".into(),
+                    ));
+                }
+                let end = header.p_paddr + header.p_memsz;
+                if header.p_paddr < ram::LOW_END {
+                    if end > reserved_start {
+                        return Err(Error::KernelLoad(
+                            "ELF segment overlaps reserved low RAM".into(),
+                        ));
                     }
-
-                    // Zero BSS (mem_size > file_size)
-                    if mem_size > file_size {
-                        let bss_start = phys_addr + file_size as u64;
-                        let bss_size = mem_size - file_size;
-                        let zeros = vec![0u8; bss_size];
-                        mem.write_slice(&zeros, GuestAddress(bss_start))?;
-                    }
-
-                    let seg_end = phys_addr + mem_size as u64;
-                    if seg_end > max_phys_end {
-                        max_phys_end = seg_end;
-                    }
+                    low_end = low_end.max(end);
+                }
+                kernel_end = kernel_end.max(end);
+            }
+            let entry = Self::elf_physical_entry(elf.header.e_entry, &segments)?;
+            for header in segments.into_iter().filter(|header| header.p_memsz != 0) {
+                let begin = header.p_offset as usize;
+                let end = begin + header.p_filesz as usize;
+                if begin != end {
+                    mem.write_slice(&kernel_data[begin..end], GuestAddress(header.p_paddr))?;
+                }
+                // A large sparse BSS does not require an equally large host
+                // allocation. Every chunk stays in the admitted segment.
+                let zeros = [0u8; 64 * 1024];
+                let mut address = header.p_paddr + header.p_filesz;
+                let end = header.p_paddr + header.p_memsz;
+                while address < end {
+                    let count = (end - address).min(zeros.len() as u64) as usize;
+                    mem.write_slice(&zeros[..count], GuestAddress(address))?;
+                    address += count as u64;
                 }
             }
-
-            // Update kernel_end to reflect actual loaded size
             let result = KernelLoaderResult {
                 kernel_load: GuestAddress(KERNEL_LOAD_ADDR),
-                kernel_end: max_phys_end,
+                kernel_end,
                 setup_header: None,
                 pvh_boot_cap: PvhBootCapability::PvhEntryNotPresent,
             };
-
-            // The ELF entry point for vmlinux. Modern kernels built with
-            // CONFIG_PHYSICAL_START have e_entry as a physical address.
-            // The kernel expects to start with identity mapping (phys == virt)
-            // and sets up its own virtual address mapping during early boot.
-            // The __pi___startup_64 code verifies: (kernel_base >> 46) == 0
-            // which requires running at the physical address, not virtual.
-            let entry = elf.header.e_entry;
-
-            info!(
-                entry = format!("{:#x}", entry),
-                kernel_end = format!("{:#x}", max_phys_end),
-                "ELF kernel entry point"
-            );
-            Ok((result, true, Some(entry)))
-        } else {
-            info!("raw binary kernel, entry at load address");
-            Ok((result, false, None))
+            return Ok((result, true, Some(entry), low_end));
         }
+        let end = KERNEL_LOAD_ADDR
+            .checked_add(kernel_size)
+            .filter(|end| *end < reserved_start)
+            .ok_or_else(|| Error::KernelLoad("raw kernel overlaps reserved low RAM".into()))?;
+        if !layout.contains(KERNEL_LOAD_ADDR, kernel_size) {
+            return Err(Error::KernelLoad(
+                "raw kernel is outside usable PC RAM".into(),
+            ));
+        }
+        mem.write_slice(&kernel_data, GuestAddress(KERNEL_LOAD_ADDR))?;
+        let result = KernelLoaderResult {
+            kernel_load: GuestAddress(KERNEL_LOAD_ADDR),
+            kernel_end: end,
+            setup_header: None,
+            pvh_boot_cap: PvhBootCapability::PvhEntryNotPresent,
+        };
+        Ok((result, false, None, end))
     }
 
     fn load_initrd(
@@ -340,12 +367,11 @@ impl PcMachine {
         if size == 0 {
             return Err(Error::KernelLoad("initrd is empty".to_string()));
         }
-        if max_addr < size {
-            return Err(Error::KernelLoad(
-                "initrd does not fit in guest memory".to_string(),
-            ));
-        }
-        let start = align_down(max_addr.saturating_sub(size), PAGE_SIZE);
+        let available_end = max_addr
+            .checked_add(1)
+            .and_then(|end| end.checked_sub(size))
+            .ok_or_else(|| Error::KernelLoad("initrd does not fit in guest memory".into()))?;
+        let start = align_down(available_end, PAGE_SIZE);
         if start < kernel_end {
             return Err(Error::KernelLoad(
                 "initrd overlaps kernel image".to_string(),
@@ -356,7 +382,7 @@ impl PcMachine {
         Ok((start_addr, size))
     }
 
-    fn build_e820(mem_size: u64, reserved_start: u64) -> Vec<boot_e820_entry> {
+    fn build_e820(layout: ram::Layout, reserved_start: u64) -> Vec<boot_e820_entry> {
         let mut entries = Vec::new();
         if LOW_MEM_END > 0 {
             entries.push(boot_e820_entry {
@@ -379,11 +405,23 @@ impl PcMachine {
                 type_: E820_RAM,
             });
         }
-        if mem_size > reserved_start {
+        if layout.low_end > reserved_start {
+            let reserved_end = if layout.low_end == ram::LOW_END {
+                ram::HIGH_START
+            } else {
+                layout.low_end
+            };
             entries.push(boot_e820_entry {
                 addr: reserved_start,
-                size: mem_size - reserved_start,
+                size: reserved_end - reserved_start,
                 type_: E820_RESERVED,
+            });
+        }
+        if let Some(high) = layout.high() {
+            entries.push(boot_e820_entry {
+                addr: high.start,
+                size: high.end - high.start,
+                type_: E820_RAM,
             });
         }
         entries
@@ -497,7 +535,7 @@ impl PcMachine {
     /// Set up page tables for identity mapping and kernel virtual address space.
     ///
     /// Creates the following mappings:
-    /// - PML4[0]: Identity maps first 1GB (virtual 0x0 -> physical 0x0)
+    /// - PML4[0]: Identity maps the complete PC RAM capacity and device window
     /// - PML4[273]: Direct physical memory map at 0xffff888000000000
     /// - PML4[511]: Kernel text area at 0xffffffff80000000
     fn setup_page_tables(mem: &GuestMemoryMmap) -> Result<()> {
@@ -511,7 +549,7 @@ impl PcMachine {
         mem.write_slice(&zero_page, GuestAddress(PDPTE_DIRECT_ADDR))?;
 
         // === PML4 entries ===
-        // PML4[0] - Identity map (virtual 0x0 - 0x7FFFFFFFFF -> physical 0x0 - 0x7FFFFFFFFF)
+        // PML4[0] selects the PDPT populated for the complete PC RAM cap below.
         let pml4_entry_0: u64 = PDPTE_ADDR | 0x3; // Present + Writable
         mem.write_obj(pml4_entry_0, GuestAddress(PML4_ADDR + 0 * 8))?;
 
@@ -526,17 +564,19 @@ impl PcMachine {
 
         // === PDPTE for identity mapping (PML4[0]) ===
         // Use 1GB huge pages directly in PDPTE to cover more memory
-        // Each entry covers 1GB, we create 8 entries for 8GB coverage
-        for i in 0u64..8 {
+        // One PDPT contains512 one-GiB leaves. The configured cap plus the
+        // device window needs65; the compile-time bound prevents page overflow.
+        for i in 0u64..BOOTSTRAP_RAM_GIB {
             let pdpte_entry: u64 = (i << 30) | 0x83; // Present + Writable + Huge (1GB page)
             mem.write_obj(pdpte_entry, GuestAddress(PDPTE_ADDR + i * 8))?;
         }
 
         // === PDPTE for direct map (PML4[273] at 0xffff888000000000) ===
         // The direct map provides physical memory access at high virtual addresses.
-        // Map first 8GB properly (8 entries), rest wrap to physical 0
+        // Cover every possible configured physical RAM address. Retain the
+        // historical physical-zero aliases beyond the supported PC extent.
         for i in 0u64..512 {
-            let phys_addr = if i < 8 { i << 30 } else { 0 }; // First 8 entries = 8GB, rest = 0
+            let phys_addr = if i < BOOTSTRAP_RAM_GIB { i << 30 } else { 0 };
             let pdpte_entry: u64 = phys_addr | 0x83; // Present + Writable + Huge (1GB page)
             mem.write_obj(pdpte_entry, GuestAddress(PDPTE_DIRECT_ADDR + i * 8))?;
         }
@@ -825,10 +865,40 @@ mod tests {
 
     #[test]
     fn build_e820_layout() {
-        let entries = PcMachine::build_e820(512 * 1024 * 1024, 0x1fffc000);
+        let entries =
+            PcMachine::build_e820(ram::Layout::new(512 * 1024 * 1024).unwrap(), 0x1fffc000);
         assert!(entries.len() >= 3);
         let first_type = unsafe { std::ptr::read_unaligned(std::ptr::addr_of!(entries[0].type_)) };
         assert_eq!(first_type, E820_RAM);
+    }
+
+    #[test]
+    fn e820_conserves_large_ram_and_excludes_the_entire_device_window() {
+        for bytes in [(3 << 30) + PAGE_SIZE, 4 << 30, 5 << 30, 64 << 30] {
+            let layout = ram::Layout::new(bytes).unwrap();
+            let reserved = layout.low_end - KVM_RESERVED_SIZE;
+            let entries = PcMachine::build_e820(layout, reserved);
+            let rows: Vec<_> = entries
+                .iter()
+                .map(|entry| (entry.addr, entry.size, entry.type_))
+                .collect();
+            assert!(
+                rows.windows(2)
+                    .all(|pair| pair[0].0 + pair[0].1 <= pair[1].0)
+            );
+            let usable: u64 = rows
+                .iter()
+                .filter(|row| row.2 == E820_RAM)
+                .map(|row| row.1)
+                .sum();
+            assert_eq!(usable, bytes - (BIOS_END - LOW_MEM_END) - KVM_RESERVED_SIZE);
+            assert!(
+                rows.iter()
+                    .filter(|row| row.2 == E820_RAM)
+                    .all(|row| row.0 + row.1 <= ram::LOW_END || row.0 >= ram::HIGH_START)
+            );
+            assert!(rows.contains(&(ram::HIGH_START, bytes - ram::LOW_END, E820_RAM)));
+        }
     }
 
     #[test]

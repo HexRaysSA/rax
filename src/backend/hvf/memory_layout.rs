@@ -69,24 +69,25 @@ impl Layout {
         if reported & (PAGE - 1) != 0 {
             return Err("unaligned HVF reported RAM".into());
         }
-        let ram = if reported == 0 {
-            Vec::new()
-        } else {
-            vec![Span {
-                start: 0,
-                end: reported,
-            }]
-        };
+        let ram: Vec<_> = crate::machine::pc::ram::Layout::new(reported)
+            .map_err(|error| error.to_string())?
+            .ranges()
+            .map(|range| Span {
+                start: range.start,
+                end: range.end,
+            })
+            .collect();
         let mut bytes = Vec::new();
         for hole in holes {
             if hole.start >= hole.end {
                 return Err("invalid HVF device extent".into());
             }
-            if hole.start < reported {
-                bytes.push(Span {
-                    start: hole.start,
-                    end: hole.end.min(reported),
-                });
+            for region in &ram {
+                let start = hole.start.max(region.start);
+                let end = hole.end.min(region.end);
+                if start < end {
+                    bytes.push(Span { start, end });
+                }
             }
         }
         bytes.sort_by_key(|s| s.start);

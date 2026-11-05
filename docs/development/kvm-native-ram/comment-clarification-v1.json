@@ -1,0 +1,14 @@
+{
+  "utc": "2026-11-03T20:12:22.585169+00:00",
+  "path": "src/machine/pc/owned_setup.rs",
+  "before_sha256": "05688ca1ec4fd58e564fae9435d1a6ed15cb1bd0c123d060d0575e06e351bac1",
+  "after_sha256": "942332f87f0739ecd3529bbb8ab5b04d8be7b7bcf69be4b9fde10d2497664feb",
+  "before_line": "// The entry point is directly from the ELF header",
+  "after_line": "// The loader resolves the ELF header entry to its physical segment.",
+  "only_change_is_one_ordinary_comment": true,
+  "other20_owned_sources_unchanged": true,
+  "compiled_source_manifest": "qualified-source-v3/manifest.json",
+  "publication_source_manifest": "qualified-source-v4/manifest.json",
+  "runtime_validation_reused": true,
+  "reason": "Clarify an existing comment; no Rust token, documentation comment, macro or runtime source-text input changed. The frozen native export remains untouched. macOS validation completed before this edit."
+}

@@ -1,5 +1,5 @@
 //! Select the VM clock before any device or vCPU retains its timing identity.
-use super::Vmm;
+use super::{ConstructionMode, Vmm};
 use crate::config::VmConfig;
 use crate::error::{Error, Result};
 use crate::vm::timing::ClockMode;
@@ -16,7 +16,7 @@ impl Vmm {
     /// This is not a physical cycle model or an external-event replay mode.
     /// Native backends reject Retired before host VM/resource construction.
     pub fn new_with_clock(config: VmConfig, mode: ClockMode) -> Result<Self> {
-        Self::build_with_contexts(config, false, false, None, mode)
+        Self::build_with_contexts(config, ConstructionMode::Boot, None, mode)
     }
 
     /// Build an empty machine for restoration with an explicit clock.
@@ -26,7 +26,7 @@ impl Vmm {
     /// selects the saved mode before constructing devices and vCPUs. Legacy
     /// base-only snapshots contain no complete clock phase/retirement record.
     pub fn new_resume_with_clock(config: VmConfig, mode: ClockMode) -> Result<Self> {
-        Self::build_with_contexts(config, true, false, None, mode)
+        Self::build_with_contexts(config, ConstructionMode::RestoreTarget, None, mode)
     }
 }
 

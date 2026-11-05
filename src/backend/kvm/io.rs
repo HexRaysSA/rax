@@ -5,6 +5,10 @@
 //! accepting a device reply alone does not establish that native boundary.
 //! Metadata checks take O(1); retained payloads take O(n) bytes and copy time.
 
+#[path = "io_terminal.rs"]
+mod terminal;
+pub(super) use terminal::Image as TerminalImage;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Input {
     Port { port: u16, size: u8, count: u32 },
@@ -103,7 +107,7 @@ pub(super) struct State {
 }
 
 impl State {
-    fn healthy(&self) -> Result<(), String> {
+    pub(super) fn healthy(&self) -> Result<(), String> {
         self.failure.clone().map_or(Ok(()), Err)
     }
 

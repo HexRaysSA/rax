@@ -1,6 +1,6 @@
 //! Public register banks retain captured XSAVE, event and APIC fields.
 //! Complete migration still needs the private CPU/shared/in-flight producer.
-use super::{KvmVcpu, convert, special, xsave};
+use super::{NativeCore, convert, special, xsave};
 use crate::error::{Error, Result};
 use crate::vm::vcpu::CpuState;
 use crate::vm::vcpu::X86_64CpuState;
@@ -48,14 +48,14 @@ struct Image {
 }
 
 impl Image {
-    fn read(cpu: &KvmVcpu) -> Result<Self> {
+    fn read(cpu: &NativeCore) -> Result<Self> {
         // GET_MP_STATE accepts pending INIT/SIPI events. Sample it before
         // the register/event banks so they describe the resulting CPU state.
         let mp = cpu.vcpu_fd.get_mp_state()?;
         Self::read_banks(cpu, Some(mp))
     }
 
-    fn read_banks(cpu: &KvmVcpu, mp: Option<kvm_mp_state>) -> Result<Self> {
+    fn read_banks(cpu: &NativeCore, mp: Option<kvm_mp_state>) -> Result<Self> {
         let entries: Vec<_> = MSRS
             .iter()
             .map(|&index| kvm_msr_entry {
@@ -102,7 +102,7 @@ impl Image {
         Ok(X86_64CpuState { regs, sregs })
     }
 
-    fn write(&self, cpu: &KvmVcpu) -> Result<()> {
+    fn write(&self, cpu: &mut NativeCore) -> Result<()> {
         let mp = self.mp.ok_or_else(|| {
             Error::InvalidConfig("KVM register projection has no native MP rollback state".into())
         })?;
@@ -126,6 +126,10 @@ impl Image {
         cpu.vcpu_fd
             .set_mp_state(mp)
             .map_err(|error| stage("SET_MP_STATE", error))?;
+        // Userspace-controller KVM_RUN imports this input even when it exits
+        // immediately. Keep successful publication and rollback synchronized
+        // with the special register bank instead of restoring an old CR8.
+        cpu.vcpu_fd.get_kvm_run().cr8 = self.special.legacy.cr8;
         Ok(())
     }
 
@@ -176,12 +180,22 @@ impl Image {
     }
 }
 
-impl KvmVcpu {
-    pub(super) fn state_ready(&self) -> Result<()> {
-        match &self.state_failure {
-            Some(error) => Err(Error::Emulator(error.clone())),
-            None => Ok(()),
+impl NativeCore {
+    pub(super) fn native_state_ready(&self) -> Result<()> {
+        self.memory_owner.ready()?;
+        if let Some(error) = &self.state_failure {
+            return Err(Error::Emulator(error.clone()));
         }
+        Ok(())
+    }
+
+    pub(super) fn state_ready(&self) -> Result<()> {
+        self.native_state_ready()?;
+        // An invalid/duplicate completion can fail while no native request is
+        // pending. Fence state capture, import and entry before a getter or
+        // setter can acknowledge startup or erase that sticky protocol error.
+        // The diagnostic PC getter retains its native register-only path.
+        self.io.healthy().map_err(Error::Emulator)
     }
 
     pub(super) fn public_state(&self) -> Result<CpuState> {
@@ -199,7 +213,7 @@ impl KvmVcpu {
                 "KVM backend only supports x86_64 state".into(),
             ));
         };
-        if self.io.has_native_completion() {
+        if self.native_io_unsettled || self.io.has_native_completion() {
             return Err(Error::InvalidConfig(
                 "KVM public state overlay requires native I/O completion".into(),
             ));
@@ -216,6 +230,10 @@ impl KvmVcpu {
             }
             return Err(error);
         }
+        // Register publication does not acknowledge a native result retained
+        // by I/O settlement. Normal delivery owns its consumption/stickiness;
+        // clearing it here could permit entry before the caller sees a fault
+        // or a terminal event.
         Ok(())
     }
 }

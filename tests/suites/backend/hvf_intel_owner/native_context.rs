@@ -577,11 +577,38 @@ fn native_raw_record_restores_full_tpr_apic_role_and_pending_guest_event() {
 }
 
 #[test]
-fn shared_record_restores_irq_queue_and_rejects_incomplete_topology() {
+fn shared_record_keeps_sources_in_the_bus_controller_and_rejects_incomplete_topology() {
+    fn controller_image(
+        controller: &Mutex<rax::devices::ioapic::IoApic>,
+    ) -> (Vec<u32>, Vec<rax::devices::ioapic::PendingIrq>) {
+        use rax::devices::bus::MmioDevice;
+        let mut controller = controller.lock().unwrap();
+        let mut selected = [0; 4];
+        controller.read(0xfec0_0000, &mut selected);
+        let mut registers = Vec::new();
+        for index in 0u8..0x40 {
+            controller.write(0xfec0_0000, &[index]);
+            let mut value = [0; 4];
+            controller.read(0xfec0_0010, &mut value);
+            registers.push(u32::from_le_bytes(value));
+        }
+        controller.write(0xfec0_0000, &selected);
+        (registers, controller.pending().to_vec())
+    }
+
     let _serial = SERIAL
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let (vm, memory) = fixture();
+    let ioapic = Arc::new(Mutex::new(rax::devices::ioapic::IoApic::new()));
+    {
+        use rax::devices::bus::MmioDevice;
+        let mut controller = ioapic.lock().unwrap();
+        for pin in [17u8, 20, 21] {
+            controller.write(0xfec0_0000, &[0x10 + 2 * pin]);
+            controller.write(0xfec0_0010, &(0x8051u32 + u32::from(pin)).to_le_bytes());
+        }
+    }
+    let (vm, memory) = fixture_with_ioapic(ioapic.clone());
     let first = vm
         .create_vcpu(0, Arc::new(memory.memory().clone()))
         .unwrap();
@@ -592,19 +619,49 @@ fn shared_record_restores_irq_queue_and_rejects_incomplete_topology() {
     assert!(vm.capture_checkpoint_vm_context(&boundary).is_err());
     drop(boundary);
     drop(extra);
-    vm.set_irq_line(33, true).unwrap();
+    vm.set_irq_line(20, true).unwrap();
     vm.set_irq_line(17, true).unwrap();
-    vm.set_irq_line(33, true).unwrap();
+    vm.set_irq_line(20, true).unwrap();
+    assert_eq!(ioapic.lock().unwrap().pending().len(), 2);
+    for gsi in [24, 33, 44, u32::MAX] {
+        assert!(vm.set_irq_line(gsi, true).is_err());
+        assert!(vm.set_irq_line(gsi, false).is_err());
+    }
     let boundary = vm.checkpoint_boundary().unwrap();
     let saved = vm.capture_checkpoint_vm_context(&boundary).unwrap();
     drop(boundary);
-    vm.set_irq_line(44, true).unwrap();
+    vm.set_irq_line(20, false).unwrap();
+    vm.set_irq_line(21, true).unwrap();
+    let controller_after = controller_image(&ioapic);
     let boundary = vm.checkpoint_boundary().unwrap();
     let changed = vm.capture_checkpoint_vm_context(&boundary).unwrap();
-    assert_ne!(changed, saved);
+    // CPU/global import does not replay source setters or rewind the PC-owned
+    // controller. The complete VMM restore commits that controller separately.
+    assert_eq!(changed, saved);
     vm.restore_checkpoint_vm_context(&boundary, saved.as_ref())
         .unwrap();
     assert_eq!(vm.capture_checkpoint_vm_context(&boundary).unwrap(), saved);
+    assert_eq!(controller_image(&ioapic), controller_after);
+    type SharedWire = (
+        u8,
+        u64,
+        Vec<(u64, u64)>,
+        Vec<(u64, u64)>,
+        Vec<u32>,
+        Option<u64>,
+        u64,
+    );
+    let mut detached = saved.clone().unwrap();
+    let mut wire: SharedWire = rax::codec::deserialize_strict(&detached.data[8..]).unwrap();
+    wire.4 = vec![20];
+    detached.data.truncate(8);
+    detached.data.extend(rax::codec::serialize(&wire).unwrap());
+    assert!(
+        vm.restore_checkpoint_vm_context(&boundary, Some(&detached))
+            .is_err()
+    );
+    assert_eq!(vm.capture_checkpoint_vm_context(&boundary).unwrap(), saved);
+    assert_eq!(controller_image(&ioapic), controller_after);
     let mut foreign = saved.clone().unwrap();
     foreign.kind = rax::vm::snapshot::HVF_AARCH64_CONTEXT;
     assert!(
@@ -628,6 +685,7 @@ fn native_emulator_projection_round_trips_x87_mxcsr_kernel_gs_and_auxiliary_stat
         .unwrap();
     let mut emulator = cpu.get_emulator_state().unwrap();
     assert_eq!(emulator.pat, 0x0007_0406_0007_0406);
+    emulator.pat = 0x0405_0607_0001_0406;
     emulator.kernel_gs_base = 0xffff_8000_1234_0000;
     emulator.tsc_aux = 0x89ab_cdef;
     emulator.mxcsr = 0x5f81;
@@ -650,7 +708,7 @@ fn native_emulator_projection_round_trips_x87_mxcsr_kernel_gs_and_auxiliary_stat
         panic!("wrong architecture")
     };
     assert_eq!(public.regs.mm[3], 1 << 63);
-    emulator.pat = 0;
+    emulator.pat = 2; // Reserved PAT memory type.
     let calls = SDK.lock().unwrap().trace.len();
     assert!(cpu.set_emulator_state(&emulator).is_err());
     assert_eq!(SDK.lock().unwrap().trace.len(), calls);

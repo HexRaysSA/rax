@@ -22,6 +22,8 @@ impl Vmm {
         for cpu in &self.vcpus {
             prepared.push(cpu.prepare_checkpoint_capture()?);
         }
+        self.settle_checkpoint_io()?;
+        self.refresh_pc_irq_sources()?;
         // Match dispatch: UART/PCI endpoints, PC inventory, shared platform, legacy devices,
         // owned S3C UARTs and GICs, then physical RAM. No guest callback runs
         // while the physical domain is held.

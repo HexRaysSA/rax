@@ -53,7 +53,13 @@ mod bindings {
         let mut sdk = SDK.lock().unwrap();
         assert_eq!(flags, 7);
         assert_eq!(pointer as usize, sdk.backing + address as usize);
-        assert!(address + size as u64 <= sdk.reported);
+        let end = if sdk.reported > 3 << 30 {
+            sdk.reported + (1 << 30)
+        } else {
+            sdk.reported
+        };
+        assert!(address + size as u64 <= end);
+        assert!(address + size as u64 <= 3 << 30 || address >= 4 << 30);
         sdk.calls += 1;
         if sdk.fail == Some(sdk.calls) {
             return -1;

@@ -11,11 +11,12 @@ mod error {
     pub use rax::error::{Error, Result};
 }
 #[cfg(feature = "hvf")]
-#[path = "../../../src/backend/checkpoint.rs"]
-mod backend;
+mod devices {
+    pub use rax::devices::{bus, ioapic};
+}
 #[cfg(feature = "hvf")]
-#[path = "hvf_owner/lifetime.rs"]
-mod lifetime;
+#[path = "hvf_owner/backend.rs"]
+mod backend;
 
 struct Core {
     born: ThreadId,

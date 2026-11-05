@@ -5,6 +5,7 @@ use super::*;
 pub(crate) struct LapicCheckpoint {
     pub(crate) registers: LocalApic,
     pub(crate) queued: std::collections::VecDeque<IpiRequest>,
+    pub(crate) eois: std::collections::VecDeque<u8>,
     pub(crate) timer_age_nanos: Option<u128>,
 }
 
@@ -13,6 +14,7 @@ impl LocalApic {
     pub(crate) fn checkpoint_registers(&self) -> Self {
         let mut registers = self.clone();
         registers.timer_clock = TimerClock::default();
+        registers.pending_eois.clear();
         registers
     }
 
@@ -29,9 +31,11 @@ impl LocalApic {
         });
         let mut registers = self.checkpoint_registers();
         registers.pending_ipis.clear();
+        registers.pending_eois.clear();
         LapicCheckpoint {
             registers,
             queued: self.pending_ipis.clone(),
+            eois: self.pending_eois.clone(),
             timer_age_nanos,
         }
     }
@@ -52,6 +56,7 @@ impl LapicCheckpoint {
     pub(crate) fn prepare(&self, now: Instant) -> LocalApic {
         let mut apic = self.registers.clone();
         apic.pending_ipis = self.queued.clone();
+        apic.pending_eois = self.eois.clone();
         apic.coordinated_ipis = true;
         apic.timer_start = self.timer_age_nanos.map(|_| now);
         apic.timer_elapsed_base_nanos = self.timer_age_nanos.unwrap_or(0);
@@ -62,6 +67,49 @@ impl LapicCheckpoint {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn level_eoi_broadcasts_retain_trigger_mode_and_respect_suppression() {
+        for suppressed in [false, true] {
+            let mut apic = LocalApic::new(0);
+            apic.write_register(LAPIC_SVR, 0x1ff | (u32::from(suppressed) << 12));
+            apic.receive_external_interrupt(0x51, true);
+            assert_eq!(apic.read_register(0x1a0), 1 << 17);
+            apic.ack_interrupt(0x51);
+            apic.write_register(LAPIC_EOI, 0);
+            assert_eq!(apic.read_register(0x120), 0);
+            assert_eq!(apic.read_register(0x1a0), 1 << 17);
+            assert_eq!(apic.take_pending_eoi(), (!suppressed).then_some(0x51));
+            apic.write_register(LAPIC_EOI, 0);
+            assert_eq!(apic.take_pending_eoi(), None);
+            // A subsequent edge replaces that vector's trigger-mode bit.
+            apic.receive_external_interrupt(0x51, false);
+            assert_eq!(apic.read_register(0x1a0), 0);
+            apic.ack_interrupt(0x51);
+            apic.write_register(LAPIC_EOI, 0);
+            assert_eq!(apic.take_pending_eoi(), None);
+        }
+    }
+
+    #[test]
+    fn completed_eoi_broadcast_fifo_survives_source_free_checkpoint_and_init() {
+        let mut source = LocalApic::new(3);
+        for vector in [0x51, 0x61, 0x51] {
+            source.receive_external_interrupt(vector, true);
+            source.ack_interrupt(vector);
+            source.write_register(LAPIC_EOI, 0);
+        }
+        let saved = source.checkpoint_at(Instant::now());
+        assert_eq!(saved.eois, [0x51, 0x61, 0x51]);
+        assert!(saved.registers.pending_eois.is_empty());
+        drop(source);
+        let mut restored = saved.prepare(Instant::now());
+        restored.reset_for_init();
+        for vector in [0x51, 0x61, 0x51] {
+            assert_eq!(restored.take_pending_eoi(), Some(vector));
+        }
+        assert_eq!(restored.take_pending_eoi(), None);
+    }
 
     #[test]
     fn forty_second_timer_age_does_not_wrap_the_nanosecond_frequency_product() {

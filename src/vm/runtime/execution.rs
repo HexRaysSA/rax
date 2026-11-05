@@ -183,24 +183,7 @@ impl Vmm {
                 }
             }
 
-            // Tick the PIT and check for timer interrupts
-            if let Ok(mut pit) = self.pit.lock() {
-                let timer_due = pit.tick() || pit.has_pending_interrupt();
-                if timer_due {
-                    if let Ok(mut pic) = self.pic.lock() {
-                        // A software-emulated guest can take longer than one
-                        // PIT period per host iteration. Coalesce the timer
-                        // event until the PIC is idle; otherwise fixed-priority
-                        // IRQ0 is recreated continuously and lower IRQs starve.
-                        if !pic.has_active_irq() {
-                            // The PIT OUT pin produces one edge per event.
-                            // Pulse the PIC input and leave it low afterward.
-                            pic.pulse_irq(0);
-                            pit.clear_interrupt();
-                        }
-                    }
-                }
-            }
+            self.poll_pc_pit()?;
 
             self.route_interprocessor_requests()?;
             for index in 0..self.vcpus.len() {
@@ -279,65 +262,35 @@ impl Vmm {
                 }
                 VcpuExit::IoIn { port, size } => {
                     debug!(port = port, size = size, "PIO read");
-                    let data = port_io::read(&mut self.io_bus, &self.serial, port, size, 1)?;
+                    let data = port_io::read(self.io_bus.get_mut()?, &self.serial, port, size, 1)?;
                     vcpu.complete_io_in(&data);
                     vcpu.io_completion_result()?;
                 }
                 VcpuExit::IoInString { port, size, count } => {
-                    let data = port_io::read(&mut self.io_bus, &self.serial, port, size, count)?;
+                    let data =
+                        port_io::read(self.io_bus.get_mut()?, &self.serial, port, size, count)?;
                     vcpu.complete_io_in(&data);
                     vcpu.io_completion_result()?;
                 }
                 VcpuExit::IoOut { port, data } => {
                     debug!(port = port, size = data.len(), "PIO write");
 
-                    let acpi_shutdown = port == 0x604
-                        && data.len() >= 2
-                        && u16::from_le_bytes([data[0], data[1]]) == 0x2000;
-                    if acpi_shutdown {
-                        info!("ACPI shutdown requested");
-                        shutdown = true;
-                    } else {
-                        let is_serial = port >= SERIAL_BASE && port < SERIAL_BASE + 8;
-                        if is_serial {
-                            let pending = if let Ok(mut serial) = self.serial.lock() {
-                                for (i, byte) in data.iter().enumerate() {
-                                    IoDevice::write(&mut *serial, port + i as u16, *byte);
-                                }
-                                serial.has_pending_interrupt()
-                            } else {
-                                false
-                            };
-                            // Drive the serial IRQ (TX-empty / line-status), same as
-                            // the RX path above.
-                            drive_legacy_serial_irq(
-                                &*self.vm,
-                                self.backend_kind,
-                                &self.pic,
-                                self.serial_irq,
-                                pending,
-                            );
-                        } else if port == 0xE9 {
-                            // Bochs debug port - output directly
-                            for byte in &data {
-                                eprint!("{}", *byte as char);
-                            }
-                        } else if port == 0x1F0 || port == 0x170 {
-                            // IDE/ATAPI data register: write every byte of the PIO
-                            // word/dword to the SAME fixed port (see the IoIn path).
-                            for i in 0..data.len() {
-                                self.io_bus.write(port, &data[i..i + 1])?;
-                            }
-                        } else {
-                            self.io_bus.write(port, &data)?;
-                        }
-                    }
+                    shutdown = port_io::write(
+                        self.io_bus.get_mut()?,
+                        &self.serial,
+                        &self.pic,
+                        &*self.vm,
+                        self.backend_kind,
+                        self.serial_irq,
+                        port,
+                        &data,
+                    )?;
                     vcpu.complete_io_out()?;
                 }
                 VcpuExit::MmioRead { addr, size } => {
                     let mut data = vec![0u8; size as usize];
                     mmio::read(
-                        &mut self.mmio_bus,
+                        self.mmio_bus.get_mut()?,
                         &self.local_apics,
                         turn.cpu_index,
                         addr,
@@ -348,7 +301,7 @@ impl Vmm {
                 }
                 VcpuExit::MmioWrite { addr, data } => {
                     mmio::write(
-                        &mut self.mmio_bus,
+                        self.mmio_bus.get_mut()?,
                         &self.local_apics,
                         turn.cpu_index,
                         addr,
@@ -362,7 +315,7 @@ impl Vmm {
                     operation,
                 } => {
                     let old = mmio::rmw(
-                        &mut self.mmio_bus,
+                        self.mmio_bus.get_mut()?,
                         &self.local_apics,
                         turn.cpu_index,
                         addr,

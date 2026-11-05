@@ -1,0 +1,176 @@
+{
+  "version": 1,
+  "observations": [
+    {
+      "level": 0,
+      "phase": "initial",
+      "remote_irr": 0,
+      "pending": 0,
+      "in_service": 0,
+      "trigger": 0,
+      "ioapic_irr": 0
+    },
+    {
+      "level": 0,
+      "phase": "masked_assert",
+      "remote_irr": 0,
+      "pending": 0,
+      "in_service": 0,
+      "trigger": 0,
+      "ioapic_irr": 1048576
+    },
+    {
+      "level": 0,
+      "phase": "native_unmask",
+      "remote_irr": 0,
+      "pending": 0,
+      "in_service": 0,
+      "trigger": 0,
+      "ioapic_irr": 1048576
+    },
+    {
+      "level": 0,
+      "phase": "assert",
+      "remote_irr": 0,
+      "pending": 1,
+      "in_service": 0,
+      "trigger": 0,
+      "ioapic_irr": 0
+    },
+    {
+      "level": 0,
+      "phase": "repeat_assert",
+      "remote_irr": 0,
+      "pending": 1,
+      "in_service": 0,
+      "trigger": 0,
+      "ioapic_irr": 1048576
+    },
+    {
+      "level": 0,
+      "phase": "eoi_asserted",
+      "remote_irr": 0,
+      "pending": 0,
+      "in_service": 0,
+      "trigger": 0,
+      "ioapic_irr": 1048576
+    },
+    {
+      "level": 0,
+      "phase": "deassert",
+      "remote_irr": 0,
+      "pending": 0,
+      "in_service": 0,
+      "trigger": 0,
+      "ioapic_irr": 0
+    },
+    {
+      "level": 0,
+      "phase": "eoi_deasserted",
+      "remote_irr": 0,
+      "pending": 0,
+      "in_service": 0,
+      "trigger": 0,
+      "ioapic_irr": 0
+    },
+    {
+      "level": 0,
+      "phase": "new_assert",
+      "remote_irr": 0,
+      "pending": 1,
+      "in_service": 0,
+      "trigger": 0,
+      "ioapic_irr": 0
+    },
+    {
+      "level": 1,
+      "phase": "initial",
+      "remote_irr": 0,
+      "pending": 0,
+      "in_service": 0,
+      "trigger": 0,
+      "ioapic_irr": 0
+    },
+    {
+      "level": 1,
+      "phase": "masked_assert",
+      "remote_irr": 0,
+      "pending": 0,
+      "in_service": 0,
+      "trigger": 0,
+      "ioapic_irr": 1048576
+    },
+    {
+      "level": 1,
+      "phase": "native_unmask",
+      "remote_irr": 1,
+      "pending": 1,
+      "in_service": 0,
+      "trigger": 1,
+      "ioapic_irr": 1048576
+    },
+    {
+      "level": 1,
+      "phase": "assert",
+      "remote_irr": 1,
+      "pending": 1,
+      "in_service": 0,
+      "trigger": 1,
+      "ioapic_irr": 1048576
+    },
+    {
+      "level": 1,
+      "phase": "repeat_assert",
+      "remote_irr": 1,
+      "pending": 1,
+      "in_service": 0,
+      "trigger": 1,
+      "ioapic_irr": 1048576
+    },
+    {
+      "level": 1,
+      "phase": "eoi_asserted",
+      "remote_irr": 1,
+      "pending": 1,
+      "in_service": 0,
+      "trigger": 1,
+      "ioapic_irr": 1048576
+    },
+    {
+      "level": 1,
+      "phase": "deassert",
+      "remote_irr": 1,
+      "pending": 1,
+      "in_service": 0,
+      "trigger": 1,
+      "ioapic_irr": 0
+    },
+    {
+      "level": 1,
+      "phase": "eoi_deasserted",
+      "remote_irr": 0,
+      "pending": 0,
+      "in_service": 0,
+      "trigger": 1,
+      "ioapic_irr": 0
+    },
+    {
+      "level": 1,
+      "phase": "new_assert",
+      "remote_irr": 1,
+      "pending": 1,
+      "in_service": 0,
+      "trigger": 1,
+      "ioapic_irr": 1048576
+    }
+  ],
+  "source_sha256": "ffb1b797759d082db10c5ba6af4cbbe019baa06bdf0d8ce028e56534861d618b",
+  "host": {
+    "kernel": "6.8.0-138-generic",
+    "machine": "x86_64",
+    "compiler": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "cpuinfo": "processor\t: 0\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 63\nmodel name\t: Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz\nstepping\t: 2\nmicrocode\t: 0x49\ncpu MHz\t\t: 3591.822\ncache size\t: 15360 KB\nphysical id\t: 0\nsiblings\t: 12\ncore id\t\t: 0\ncpu cores\t: 6\napicid\t\t: 0\ninitial apicid\t: 0\nfpu\t\t: yes\nfpu_exception\t: yes\ncpuid level\t: 15\nwp\t\t: yes\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm cpuid_fault epb pti intel_ppin ssbd ibrs ibpb stibp tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm xsaveopt cqm_llc cqm_occup_llc dtherm ida arat pln pts vnmi md_clear flush_l1d ibpb_exit_to_user\nvmx flags\t: vnmi preemption_timer posted_intr invvpid ept_x_only ept_ad ept_1gb flexpriority apicv tsc_offset vtpr mtf vapic ept vpid unrestricted_guest vapic_reg vid ple shadow_vmcs\nbugs\t\t: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds swapgs itlb_multihit mmio_stale_data vmscape\nbogomips\t: 6984.10\nclflush size\t: 64\ncache_alignment\t: 64\naddress sizes\t: 46 bits physical, 48 bits virtual\npower management:"
+  },
+  "scope": "Linux KVM IOAPIC UAPI and actual guest IOAPIC-unmask/LAPIC-EOI writes. The in-service frontier is explicitly installed with KVM_SET_LAPIC. This does not establish interrupt-handler execution or Intel macOS HVF delivery.",
+  "owned_build_artifacts_removed": true
+}

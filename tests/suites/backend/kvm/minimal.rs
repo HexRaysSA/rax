@@ -194,3 +194,11 @@ fn test_kvm_vcpu_creation_simple() {
     // Cleanup
     unsafe { libc::munmap(mem_ptr, mem_size) };
 }
+
+#[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+#[path = "memory_layout.rs"]
+mod memory_layout;
+
+#[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+#[path = "resume_platform.rs"]
+mod resume_platform;

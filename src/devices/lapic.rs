@@ -13,6 +13,7 @@ use crate::host::time::Instant;
 
 #[path = "lapic/timer_clock.rs"]
 mod timer_clock;
+pub(crate) mod tsc_deadline;
 use serde::{Deserialize, Serialize};
 use timer_clock::TimerClock;
 
@@ -148,7 +149,7 @@ pub struct LocalApic {
     /// Interrupt Command Register (64-bit)
     icr: u64,
     /// LVT Timer Register
-    lvt_timer: u32,
+    lvt_timer: tsc_deadline::TimerLvt,
     /// LVT Thermal Sensor Register
     lvt_thermal: u32,
     /// LVT Performance Counter Register
@@ -182,6 +183,10 @@ pub struct LocalApic {
     /// the execution checkpoint section carries this complete FIFO explicitly.
     #[serde(skip)]
     pending_ipis: std::collections::VecDeque<IpiRequest>,
+    /// Broadcasts emitted by completed level EOIs. The coordinator transfers
+    /// them to external controllers; complete execution checkpoints own them.
+    #[serde(skip)]
+    pending_eois: std::collections::VecDeque<u8>,
     #[serde(skip)]
     coordinated_ipis: bool,
     /// Pending NMI to deliver
@@ -211,7 +216,7 @@ impl LocalApic {
             irr: [0; 8],
             esr: 0,
             icr: 0,
-            lvt_timer: LVT_MASK, // Masked initially
+            lvt_timer: tsc_deadline::TimerLvt::new(LVT_MASK),
             lvt_thermal: LVT_MASK,
             lvt_pmc: LVT_MASK,
             lvt_lint0: 0x700, // ExtInt mode, not masked - virtual wire mode
@@ -226,6 +231,7 @@ impl LocalApic {
             timer_pending: false,
             pending_ipi: None,
             pending_ipis: Default::default(),
+            pending_eois: Default::default(),
             coordinated_ipis: false,
             nmi_pending: false,
         }
@@ -240,6 +246,29 @@ impl LocalApic {
         self.tpr.handle()
     }
 
+    pub(crate) fn deadline_handle(&self) -> tsc_deadline::Handle {
+        self.lvt_timer.handle()
+    }
+
+    /// Sample this CPU's virtual TSC outside all native callbacks. Expired
+    /// vectors transfer to the same IRR used by ordinary controller routing.
+    pub(crate) fn poll_tsc_deadline(&mut self, now: u64) {
+        let timer = self.deadline_handle();
+        timer.expire(now);
+        for (word, mut pending) in timer.take_pending().into_iter().enumerate() {
+            while pending != 0 {
+                let bit = pending.trailing_zeros();
+                let vector = (word * 64 + bit as usize) as u8;
+                pending &= pending - 1;
+                if vector < 16 {
+                    self.record_error(1 << 6); // Send illegal vector.
+                } else {
+                    self.set_irr(vector);
+                }
+            }
+        }
+    }
+
     /// Keep CPU bindings live when replacing captured controller state.
     pub(crate) fn replace_state(&mut self, mut restored: Self) {
         restored
@@ -247,6 +276,8 @@ impl LocalApic {
             .retain_target_binding(&self.timer_clock);
         std::mem::swap(&mut restored.tpr, &mut self.tpr);
         restored.tpr.restore_from(&self.tpr);
+        std::mem::swap(&mut restored.lvt_timer, &mut self.lvt_timer);
+        restored.lvt_timer.restore_from(&self.lvt_timer);
         *self = restored;
     }
 
@@ -271,17 +302,17 @@ impl LocalApic {
 
     /// Get the timer mode from LVT timer register
     fn timer_mode(&self) -> u32 {
-        (self.lvt_timer & LVT_TIMER_MODE_MASK) >> LVT_TIMER_MODE_SHIFT
+        (self.lvt_timer.value() & LVT_TIMER_MODE_MASK) >> LVT_TIMER_MODE_SHIFT
     }
 
     /// Check if timer is masked
     fn timer_masked(&self) -> bool {
-        (self.lvt_timer & LVT_MASK) != 0
+        (self.lvt_timer.value() & LVT_MASK) != 0
     }
 
     /// Get the timer vector
     pub fn timer_vector(&self) -> u8 {
-        (self.lvt_timer & 0xFF) as u8
+        (self.lvt_timer.value() & 0xFF) as u8
     }
 
     // floor(elapsed_ns * frequency_hz / 1e9) without a potentially
@@ -355,7 +386,8 @@ impl LocalApic {
                 }
             }
             TIMER_MODE_TSC_DEADLINE => {
-                // TSC-deadline mode uses MSR, not implemented yet
+                // The CPU's virtual TSC, sampled by poll_tsc_deadline, owns
+                // this mode independently of the initial-count clock.
             }
             _ => {}
         }
@@ -426,6 +458,7 @@ impl LocalApic {
         let version = self.version;
         let pending = self.pending_ipi.take();
         let pending_ipis = std::mem::take(&mut self.pending_ipis);
+        let pending_eois = std::mem::take(&mut self.pending_eois);
         let coordinated = self.coordinated_ipis;
         self.replace_state(Self::new(u32::from(self.apic_id())));
         self.id = id;
@@ -435,6 +468,7 @@ impl LocalApic {
         self.lvt_lint1 = LVT_MASK;
         self.pending_ipi = pending;
         self.pending_ipis = pending_ipis;
+        self.pending_eois = pending_eois;
         self.coordinated_ipis = coordinated;
     }
 
@@ -627,6 +661,30 @@ impl LocalApic {
         let idx = (vector / 32) as usize;
         let bit = vector % 32;
         self.irr[idx] |= 1 << bit;
+        self.tmr[idx] &= !(1 << bit);
+    }
+
+    /// An external fixed/lowest-priority message carries its trigger mode.
+    pub(crate) fn receive_external_interrupt(&mut self, vector: u8, level: bool) -> bool {
+        if !self.is_enabled() {
+            return false;
+        }
+        self.receive_fixed_interrupt(vector);
+        if vector < 16 {
+            return false;
+        }
+        if level {
+            self.tmr[usize::from(vector / 32)] |= 1 << (vector % 32);
+        }
+        true
+    }
+
+    pub(crate) fn take_pending_eoi(&mut self) -> Option<u8> {
+        self.pending_eois.pop_front()
+    }
+
+    pub(crate) fn has_pending_eoi(&self) -> bool {
+        !self.pending_eois.is_empty()
     }
 
     /// Acknowledge interrupt (move from IRR to ISR)
@@ -645,6 +703,11 @@ impl LocalApic {
                 for bit in (0..32).rev() {
                     if self.isr[i] & (1 << bit) != 0 {
                         self.isr[i] &= !(1 << bit);
+                        // SVR[12] suppresses EOI broadcasts. Directed I/O APIC
+                        // EOI writes remain independent of this local setting.
+                        if self.tmr[i] & (1 << bit) != 0 && self.svr & (1 << 12) == 0 {
+                            self.pending_eois.push_back((i * 32 + bit) as u8);
+                        }
                         return;
                     }
                 }
@@ -698,7 +761,7 @@ impl LocalApic {
             LAPIC_ESR => self.esr,
             LAPIC_ICR_LOW => self.icr as u32,
             LAPIC_ICR_HIGH => (self.icr >> 32) as u32,
-            LAPIC_LVT_TIMER => self.lvt_timer,
+            LAPIC_LVT_TIMER => self.lvt_timer.value(),
             LAPIC_LVT_THERMAL => self.lvt_thermal,
             LAPIC_LVT_PMC => self.lvt_pmc,
             LAPIC_LVT_LINT0 => self.lvt_lint0,
@@ -706,6 +769,9 @@ impl LocalApic {
             LAPIC_LVT_ERROR => self.lvt_error,
             LAPIC_TIMER_ICR => self.timer_initial_count,
             LAPIC_TIMER_CCR => {
+                if self.timer_mode() == TIMER_MODE_TSC_DEADLINE {
+                    return 0;
+                }
                 // Current count must be computed dynamically on every read
                 // The kernel uses this for timer calibration
                 if self.timer_initial_count == 0 {
@@ -786,7 +852,16 @@ impl LocalApic {
                 self.icr = (self.icr & 0x00000000FFFFFFFF) | ((value as u64) << 32);
             }
             LAPIC_LVT_TIMER => {
-                self.lvt_timer = value;
+                let old_mode = self.timer_mode();
+                self.lvt_timer.write(value);
+                if old_mode != self.timer_mode()
+                    && (old_mode == TIMER_MODE_TSC_DEADLINE
+                        || self.timer_mode() == TIMER_MODE_TSC_DEADLINE)
+                {
+                    // Mode selection does not start a count-down timer.
+                    self.timer_start = None;
+                    self.timer_current_count = 0;
+                }
                 tracing::debug!(
                     "LVT Timer set: vector={:#x}, mode={}, masked={}",
                     value & 0xFF,
@@ -810,6 +885,9 @@ impl LocalApic {
                 self.lvt_error = value;
             }
             LAPIC_TIMER_ICR => {
+                if self.timer_mode() == TIMER_MODE_TSC_DEADLINE {
+                    return;
+                }
                 self.timer_initial_count = value;
                 self.timer_current_count = value;
                 if value > 0 {

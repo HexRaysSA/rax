@@ -1,0 +1,821 @@
+{
+  "utc": "2026-11-04T07:49:50.269857+00:00",
+  "status": "frozen_library_and_native_146_qualified_additional_startup_run_pending",
+  "full_goal_complete": false,
+  "baseline": {
+    "owning_receipt": "owning-baseline-v1.json",
+    "owning_passed": 4,
+    "owning_failed": 5,
+    "owning_ignored": 0,
+    "owning_filtered": 0,
+    "ram_observations": "native-ram-baseline-v1.json",
+    "e820_observations": "native-e820-baseline-v2.json"
+  },
+  "mapping_component": {
+    "receipt": "component-mapping-v1.json",
+    "baseline_passed": 16,
+    "baseline_failed": 2,
+    "changed_passed": 18,
+    "sdk": "deterministic native adapter model",
+    "physical_intel_executed": false
+  },
+  "queue": {
+    "production_controller": 3261659,
+    "canonical_controller": 3263881,
+    "macos_controller": 77797,
+    "frozen_source_payload": "source-payload-v6.json",
+    "full_source_exports": 1,
+    "additional_git_worktrees": 0,
+    "superseded_canonical_controller": 3182486,
+    "superseded_canonical_stopped_before_compilation": true,
+    "linux_controller": 3279894,
+    "production_state": "terminal:18 commands pass",
+    "macos_state": "terminal:6 commands pass; owned build outputs removed",
+    "linux_observation_state": "terminal:3 firmware maps verified within90s windows",
+    "canonical_last_observed_stage": "pci-checkpoint",
+    "canonical_passed_gates": [
+      "fmt",
+      "clippy",
+      "build"
+    ],
+    "canonical_observed_utc": "2026-11-03T20:31:53.264039+00:00",
+    "canonical_state": "terminal: pci-checkpoint16pass1fail; corrected source not yet qualified",
+    "canonical_recovery_controller": 3360145,
+    "macos_correction_controller": 90456,
+    "macos_correction_state": "terminal: all3 gates pass; owned build directories removed",
+    "canonical_correction_controller": 3395651,
+    "canonical_correction_state": "live: waits for full frozenV3 library diagnostics before updating the single export",
+    "remaining_diagnostic_controller": 3389124,
+    "remaining_diagnostic_state": "live: unfiltered root library; endpoint16/runtime15/controller19 passed",
+    "remaining_diagnostic_passed_counts": {
+      "pci-endpoint-checkpoint": 16,
+      "runtime-pci-checkpoint": 15,
+      "controller-checkpoint": 19
+    }
+  },
+  "assumptions": [
+    {
+      "id": "RAM1",
+      "assumption": "The configured PC RAM quantity is conserved by splitting at the existing 3GiB device window and placing overflow at4GiB.",
+      "basis": "Existing RAX TSS/identity-map gap and device addresses; confirmed baseline mismatches between configured RAM, native slots and published E820.",
+      "dependent_result": "Shared layout, native RAM registration and boot metadata.",
+      "stress_test": "0,4KiB,3GiB,3GiB+4KiB,4GiB and64GiB; hole/padding/wrap extents.",
+      "falsification_probe": "Usable layout capacity differs from rounded configured bytes, or either native mapper maps the device window.",
+      "status": "Confirmed in complete native V3 production and canonical affected targets; final PCI compatibility correction requires qualification."
+    },
+    {
+      "id": "RAM2",
+      "assumption": "Existing native VM/CPU owners retain submitted RAM for the lifetime of native slots.",
+      "basis": "Managed registration retains a clone before the first slot mutation; owner field drop order closes CPU/VM FDs before releasing backing.",
+      "dependent_result": "Safe managed registration and the unsafe raw-VM helper contract.",
+      "stress_test": "Partial slot registration failure and dropping the public VM before its managed CPU.",
+      "falsification_probe": "Safe raw registration compiles without an unsafe block, or a managed CPU outlives retained RAM.",
+      "status": "Confirmed by successful partial-registration public API controls against complete geometry-matched baseline and final libraries; native prefix overlap and2 strong backing owners directly observed. Raw-helper unsafe boundary separately verified by compiler-contract controls."
+    },
+    {
+      "id": "RAM3",
+      "assumption": "PC direct boot starts an ELF payload at its physical address; a linked virtual e_entry must resolve through an admitted PT_LOAD, with legacy physical-entry input retained.",
+      "basis": "ELF gABI4.3 e_entry and p_vaddr/p_paddr definitions; actual four failing native entry cases under the historical policy.",
+      "dependent_result": "ELF entry admission and physical bootstrap execution.",
+      "stress_test": "Low/high translated entries, legacy physical entries, entry outside segments, ambiguous mappings and the final page of64GiB configured RAM.",
+      "falsification_probe": "A valid low/high marker guest does not execute, or invalid/ambiguous entry modifies any segment before rejection.",
+      "status": "Confirmed in complete native V3 production and canonical affected targets; final PCI compatibility correction requires qualification."
+    },
+    {
+      "id": "RAM4",
+      "assumption": "The existing RAXPCI01 record already encodes route bases as u64; both old32-bit and new64-bit routes must equal the route derived from captured configuration.",
+      "basis": "Existing wire codec uses long(); original public32-bit and probe/disable controls pass while64-bit routing and incoherent restore regressions fail.",
+      "dependent_result": "Strict equality requirement withdrawn; preserve saved route independently of BAR bytes and COMMAND.",
+      "stress_test": "Upper BAR writes, disabled/probed decode, unpaired BAR5, endpoint wrap, forged route and32-bit roundtrip.",
+      "falsification_probe": "A coherent old32-bit checkpoint rejects, or restore accepts a serialized route different from captured BAR/COMMAND configuration.",
+      "status": "falsified: existing replacing_function_without_recompute_preserves_cached_route owning test requires independent cached routing state"
+    },
+    {
+      "id": "RAM5",
+      "assumption": "The existing one-GiB bootstrap-page mechanism can cover the configured64GiB quantity plus the one-GiB device gap within one512-entry PDPT.",
+      "basis": "64+1=65GiB physical extent;65 entries are within512 entries and retain the existing4KiB table allocation.",
+      "dependent_result": "Execution from the last configured high-RAM page without the previous8GiB limit.",
+      "stress_test": "Native marker guest at65GiB minus4096bytes with64GiB configured RAM.",
+      "falsification_probe": "The final-page guest fails while the legacy low physical-entry control passes.",
+      "status": "Confirmed in complete native V3 production and canonical affected targets; final PCI compatibility correction requires qualification."
+    },
+    {
+      "id": "RAM6",
+      "assumption": "A PCI checkpoint preserves the independent cached route, including legacy truncated64-bit routing, provided its alignment and endpoint extent are valid.",
+      "basis": "Existing unchanged17-case PCI checkpoint target explicitly requires cached route preservation after add_function replaces configuration without recompute.",
+      "dependent_result": "Full-width routing and restore without changing add_function or the RAXPCI01 wire format.",
+      "stress_test": "Replaced64-bit config with decode enabled/disabled; legacy truncated route; unaligned and wrapping serialized routes.",
+      "falsification_probe": "Existing17-case owning target fails; corrected eight profile cases fail; a malformed route changes any target state.",
+      "status": "confirmed in actual PCI component: corrected36pass0fail including original17 owning cases; retained pending complete production gates"
+    }
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "Full native private/shared/in-flight checkpoint producer and physical Intel HVF qualification remain incomplete.",
+      "blocks": "Full audit-goal closure; does not substitute mapping tests for capture/restore proof."
+    },
+    {
+      "impact": "medium",
+      "finding": "Software backing remains historically flat and padded, and KVM preserves its historical lower padding; firmware advertises only configured RAM.",
+      "blocks": false
+    },
+    {
+      "impact": "medium",
+      "finding": "Legacy Intel HVF VM records larger than3GiB have different historical flat physical geometry. New records version that geometry; ambiguous large legacy records reject.",
+      "blocks": "Compatibility must be covered before this group is qualified."
+    },
+    {
+      "impact": "medium",
+      "finding": "The legacy base Snapshot and GuestMemoryWrapper read_all/write_all APIs still represent the contiguous reported prefix only. Complete bundles separately capture every physical backing region, including high RAM. This group does not reinterpret the base format.",
+      "blocks": "Base-format use must not be reported as complete high-RAM capture/restore."
+    },
+    {
+      "impact": "medium",
+      "finding": "PC ELF boot translates the entry for this board physical startup convention; it does not install arbitrary ELF virtual mappings or provide a general ELF process loader. The historical bootstrap also requires one-GiB page support.",
+      "blocks": false
+    },
+    {
+      "impact": "medium",
+      "finding": "Historical truncated64-bit PCI cached routes are independent saved state and must remain restorable; they are recomputed with full-width decoding only on a subsequent configuration write.",
+      "blocks": "Existing owning and new compatibility controls must pass before qualification."
+    }
+  ],
+  "first_full_compile": {
+    "exit_code": 1,
+    "diagnostic": "E0433: missing File import in the ISO-loading helper",
+    "corrected_in": "src/machine/pc/owned_setup.rs",
+    "api_observer_failure": "Original observer incorrectly used the completed-label list as proof of compiler success; no API contract test ran. Replacement observer requires an actual successful library receipt."
+  },
+  "fallback_baseline": {
+    "status": "Observed in complete root module: five existing controls pass and three new cases fail.",
+    "cases": [
+      "high_ram_fallback_reads_writes_and_rmw_stop_at_configured_capacity",
+      "pc_device_window_remains_open_bus_despite_retained_backing",
+      "high_64_bit_pci_bar_preserves_collateral_ram_and_transaction_width"
+    ],
+    "upstream_included": "93b0467bbd6cf1a930706d00d161d0b74f7a642d",
+    "fix": "Physical low/high layout controls collateral read/write/RMW; PCI64 routes derive both BAR dwords and checked endpoints."
+  },
+  "diagnostic_v2": {
+    "receipt": "diagnostic-baseline-final-v2.json",
+    "full_source_verified": true,
+    "production_library_sha256": "2e03974137c50ef3fcc37622338ec26b48b669393945c51069c26a2499b55f47",
+    "owning_minimal_passed": 9,
+    "owning_minimal_failed": 0,
+    "mapping_passed": 18,
+    "smp_passed": 27,
+    "native_io_passed": 10,
+    "fallback_passed": 5,
+    "fallback_failed": 3,
+    "coverage_metadata_errors": "Original tuple/list comparison rejected a real9-pass result; later count expectation omitted one of five existing controls. Original receipts retained; actual passing commands were not rerun to fix metadata. Corrected aggregate verifies final numeric rows."
+  },
+  "entry_baseline": {
+    "receipt": "entry-baseline-v2.json",
+    "passed": 10,
+    "failed": 4,
+    "ignored": 0,
+    "filtered": 0,
+    "library": "Unchanged complete diagnostic-v2 production library",
+    "cases": "Linked virtual entries with low/high physical payloads; invalid entry rejection before writes; final page of64GiB configured RAM, physical end65GiB."
+  },
+  "pci_baseline": {
+    "receipt": "pci-baseline-v1.json",
+    "passed": 2,
+    "failed": 4,
+    "ignored": 0,
+    "filtered": 0,
+    "library": "Unchanged complete diagnostic-v2 production library; public API type reexports only, no implementation substitution.",
+    "interpretation": "Original six-case baseline retained as historical observation; one route/config equality assertion was invalidated by the existing compatibility contract. Superseded eight-case baseline pending."
+  },
+  "registration_contract": {
+    "receipt": "registration-api-v2.json",
+    "baseline_safe_compiles": true,
+    "changed_safe_compiles": false,
+    "diagnostic": "E0133",
+    "changed_explicit_unsafe_compiles": true
+  },
+  "production_v3": {
+    "receipt": "production-v3.json",
+    "commands": 18,
+    "passed": true,
+    "source_content_verified": true,
+    "library_sha256": "73a2242ae71abf44fc1c9c39284bd9734c674ca721f1d6f2d5e54be5c6010b3b",
+    "owning_minimal": [
+      14,
+      0,
+      0,
+      0,
+      0
+    ],
+    "mapping": [
+      18,
+      0,
+      0,
+      0,
+      0
+    ],
+    "smp": [
+      27,
+      0,
+      0,
+      0,
+      0
+    ],
+    "native_io": [
+      10,
+      0,
+      0,
+      0,
+      0
+    ],
+    "fallback_selected_passed": 9,
+    "pci_selected_passed": 17,
+    "filtered_root_namespaces_explicit": true
+  },
+  "change_surface": {
+    "memory_mmu": "Affected: native physical RAM geometry, retained backing ownership and collateral MMIO access. Software guest virtual-address translation semantics are unchanged.",
+    "machine_boot": "Affected: ELF physical entry resolution/admission, bootstrap page coverage, E820, initrd placement and legacy E801 reporting.",
+    "backend": "Affected: KVM slots and unsafe raw registration contract; HVF mapping and shared-record geometry version.",
+    "device": "Affected: full-width PCI64 BAR decoding and independent cached-route checkpoint preservation with alignment/extent validation.",
+    "cpu_state": "Affected: Intel shared VM record geometry tag; native CPU record schema is unchanged. Complete private/in-flight producers remain a separate requirement.",
+    "public_rust": "Affected: raw borrowed-VM registration now requires unsafe; safe managed registration retains ownership. Actual compiler-contract controls and compile-fail documentation cover this boundary.",
+    "c_abi": "No C/C++ layouts, enums, exported signatures or ABI versions changed. Workspace build checks still include rax-capi.",
+    "direct_decode_execute_smir_jit_oracle": "No guest instruction decoder, ISA executor, SMIR representation/interpreter/optimizer, JIT lowerer/runtime or stateless oracle changed. Tests execute native marker guests for the changed boot and memory path."
+  },
+  "independent_linux_ram": {
+    "receipt": "linux-early-ram-v3.json",
+    "rows": [
+      {
+        "configured_cpus": 4,
+        "configured_ram_bytes": 5368709120,
+        "spans": [
+          [
+            0,
+            654336,
+            "usable"
+          ],
+          [
+            654336,
+            1048576,
+            "reserved"
+          ],
+          [
+            1048576,
+            3221209088,
+            "usable"
+          ],
+          [
+            3221209088,
+            4294967296,
+            "reserved"
+          ],
+          [
+            4294967296,
+            6442450944,
+            "usable"
+          ]
+        ],
+        "complete_smp_bringup_observed": false,
+        "observation_limit_seconds": 90
+      },
+      {
+        "configured_cpus": 2,
+        "configured_ram_bytes": 5368709120,
+        "spans": [
+          [
+            0,
+            654336,
+            "usable"
+          ],
+          [
+            654336,
+            1048576,
+            "reserved"
+          ],
+          [
+            1048576,
+            3221209088,
+            "usable"
+          ],
+          [
+            3221209088,
+            4294967296,
+            "reserved"
+          ],
+          [
+            4294967296,
+            6442450944,
+            "usable"
+          ]
+        ],
+        "complete_smp_bringup_observed": false,
+        "observation_limit_seconds": 90
+      },
+      {
+        "configured_cpus": 1,
+        "configured_ram_bytes": 5368709120,
+        "spans": [
+          [
+            0,
+            654336,
+            "usable"
+          ],
+          [
+            654336,
+            1048576,
+            "reserved"
+          ],
+          [
+            1048576,
+            3221209088,
+            "usable"
+          ],
+          [
+            3221209088,
+            4294967296,
+            "reserved"
+          ],
+          [
+            4294967296,
+            6442450944,
+            "usable"
+          ]
+        ],
+        "complete_smp_bringup_observed": false,
+        "observation_limit_seconds": 90
+      }
+    ],
+    "all_firmware_maps_verified": true,
+    "scope": "Independent Ubuntu Linux kernel consumes the5GiB E820 low/hole/high layout in1/2/4 CPU configurations. Each observation requests graceful CLI exit after90s; no complete SMP bringup or full OS boot is established by these runs."
+  },
+  "ignored_root_inventory": {
+    "receipt": "root-ignored-list-v3.json",
+    "count": 26,
+    "independently_exercised_native_controls": 20,
+    "not_exercised_here": "Complete KVM producer backlog1; microkernel byte/lower witnesses2; GDB child/tool cases3. Full audit requirements remain open."
+  },
+  "partial_registration": {
+    "receipt": "registration-failure-v3.json",
+    "control_source": "controls/partial-registration.rs",
+    "geometry_matched_baseline_passed": 1,
+    "fixed_final_passed": 1,
+    "actual_partial_prefix_verified": true,
+    "strong_region_owners_after_failure": 2,
+    "raw_vm_closed_before_original_backings_drop": true,
+    "fixed_pass_not_repeated": true,
+    "scope": "Preserved managed-registration lifetime behavior under the newly supported multi-slot geometry; this is not a new lifetime defect. Earlier APIC-library attempts never reach the high slot because that historical mapper omits all high RAM."
+  },
+  "macos": {
+    "receipt": "macos-gates-v1.json",
+    "commands_passed": 6,
+    "full_source_verified": true,
+    "protected_state_unchanged": true,
+    "physical_Intel_execution": false,
+    "host": "Apple M4 Max; Intel SDK binaries execute through Rosetta."
+  },
+  "publication_source_delta": {
+    "receipt": "comment-clarification-v1.json",
+    "only_ordinary_comment_changed": false,
+    "all21_production_sources_recorded": true,
+    "latest_change": "PCI cached-route compatibility correction; V3 and MacV1 receipts precede this change.",
+    "candidate_manifest": "qualified-source-v5/manifest.json",
+    "production_paths": 21,
+    "semantic_changes_since_v4": [
+      "src/devices/pci.rs",
+      "src/devices/pci/checkpoint.rs",
+      "src/devices/pci/ram_profile_tests.rs"
+    ]
+  },
+  "pci_compatibility_correction": {
+    "receipt": "pci-compatibility-v5.json",
+    "strict_v3": [
+      33,
+      3,
+      0,
+      0,
+      0
+    ],
+    "corrected_v5": [
+      36,
+      0,
+      0,
+      0,
+      0
+    ],
+    "original_public_v2": [
+      3,
+      5,
+      0,
+      0,
+      0
+    ],
+    "original_owning_v2": [
+      17,
+      0,
+      0,
+      0,
+      0
+    ],
+    "inputs_unchanged": true,
+    "complete_production_qualification": false
+  },
+  "root_library_scope_note": "Full unfiltered library run includes hardware-gated native cases that self-skip on this Intel host (observed AVX-512F/BW absence). A passing broad summary is not an architectural oracle for those unaffected profiles. RAM/SMP native owning targets have explicit nonzero counts and separate receipts.",
+  "pci_component_build_cleanup": {
+    "receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/pci-component-build-cleanup-v5.json",
+    "removed_bytes": 42718896,
+    "controller_absent": true,
+    "no_process_references": true,
+    "sources_and_receipts_retained": true
+  },
+  "macos_correction": {
+    "receipt": "macos-gates-v2.json",
+    "commands_passed": 3,
+    "full_source_verified": true,
+    "all21_candidate_source_hashes_match": true,
+    "protected_state_unchanged": true,
+    "physical_Intel_execution": false,
+    "cleanup_receipt": "macos-build-cleanup-v2.json",
+    "removed_build_bytes": 1748832986
+  },
+  "canonical_intermediate_v3": {
+    "receipt": "canonical-intermediate-v3.json",
+    "passed_gates": [
+      "fmt",
+      "clippy",
+      "build",
+      "no-jit",
+      "doc",
+      "pc-unit",
+      "bios-unit",
+      "intel-context",
+      "physical-bundles",
+      "profile-unit",
+      "public-state",
+      "io-unit",
+      "port-unit",
+      "native-xsave",
+      "portable-xsave",
+      "coordinator",
+      "native-smp",
+      "native-io",
+      "minimal",
+      "mapping",
+      "realmode",
+      "workflow",
+      "fallback",
+      "pci-unit"
+    ],
+    "failed_gate": "pci-checkpoint",
+    "failed_result": [
+      16,
+      1,
+      0,
+      0,
+      0
+    ],
+    "source_content_verified": true,
+    "qualification": false,
+    "replaced_by": "V5 correction currently awaiting unfilteredV3 diagnostic completion"
+  },
+  "canonical_validation_v5": {
+    "utc": "2026-11-04T03:46:52.256139+00:00",
+    "stage": "running",
+    "label": "root-library",
+    "completed": [
+      "fmt",
+      "clippy",
+      "build",
+      "no-jit",
+      "doc",
+      "native-smp",
+      "native-io",
+      "minimal",
+      "mapping",
+      "realmode",
+      "pci-checkpoint",
+      "pci-endpoint-checkpoint",
+      "runtime-pci-checkpoint",
+      "controller-checkpoint"
+    ],
+    "controller_pid": 3395651,
+    "controller_live": true,
+    "children": [
+      "3932395"
+    ]
+  },
+  "canonical_v5_owned_source_hashes_match": true,
+  "previous_unfiltered_root_diagnostic": {
+    "passed": 13186,
+    "failed": 4,
+    "ignored": 26,
+    "classification": "Reproduced host socket-capacity and Linux-kernel-version assumptions; three test-only fixes have 32 targeted passes, with full-library qualification pending.",
+    "evidence": "../native-host-test-assumptions/qualification.json"
+  },
+  "canonical_live_v5_observed_failures": {
+    "record": "canonical-live-v5-known-failures-v1.json",
+    "controller_pid": 3395651,
+    "terminal": false,
+    "observed_failed_rows": 4,
+    "fixture_inputs": "Original host-dependent fixtures; corrected three paths are in the later I/O and CPU-owner candidates",
+    "qualifies_publication": false
+  },
+  "historical_status": "native_primary_gates_passed_full_library_running_with_known_fixture_failures",
+  "current_source_qualification": {
+    "scope": "Frozen combined source manifests, not an isolated current-master claim",
+    "complete_roots": {
+      "apple_silicon": {
+        "source": "1eaabbca2b33c15b828f635924caf909decf8a4efeac83e32516da209a69436d",
+        "result": {
+          "label": "arm-root-library",
+          "argv": [
+            "/tmp/rax-intel-sdk-fix-829t60cl/root-library-frozen",
+            "--test-threads=2",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "results": [
+            [
+              12408,
+              0,
+              36,
+              0,
+              0
+            ]
+          ],
+          "seconds": 5695.576232250081
+        },
+        "source_guard": "The later aggregate reports intentional Intel-only byte changes; the frozen test executable passed. Its source boundary is retained in the reconciled receipt.",
+        "reconciled_receipt_sha256": "646c1cfba1a756b8c3c9b2892150529655720a8dd4e4ea4871adf48ddb0b0428"
+      },
+      "linux_intel": {
+        "source": "f3248cac569b33836b6b909e5fff90b81266d5d8163a71a7b6eadcce7d8f12da",
+        "source_unchanged": true,
+        "result": {
+          "label": "root-library",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,kvm,debug,hvf",
+            "--lib",
+            "--",
+            "--test-threads=2",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "results": [
+            [
+              13330,
+              0,
+              82,
+              0,
+              0
+            ]
+          ],
+          "details": {
+            "build_argv": [
+              "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,kvm,debug,hvf",
+              "--lib",
+              "--no-run",
+              "--message-format=json"
+            ],
+            "build_exit_code": 0,
+            "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-8081b61cdd974c3e",
+            "frozen_sha256": "93349697d1dcafebea76cfd3d41b0cd921f3748c979acbb2e43735d8dec7a3ac",
+            "frozen_bytes": 750542528,
+            "test_argv": [
+              "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-scalar-selector-admission-v1/cargo-qualification-v2/root-library-exe-u7fh515h/rax-8081b61cdd974c3e",
+              "--test-threads=2",
+              "--nocapture"
+            ],
+            "test_exit_code": 0,
+            "owned_executable_removed": true
+          },
+          "seconds": 13469.007209348492
+        }
+      }
+    },
+    "source_closure": {
+      "target_source_digest": "81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708",
+      "paths": 108,
+      "comparisons": {
+        "linux_full_root": {
+          "source_digest": "f3248cac569b33836b6b909e5fff90b81266d5d8163a71a7b6eadcce7d8f12da",
+          "matching_files": 101,
+          "mismatches": [
+            {
+              "path": "src/backend/hvf/intel_checkpoint.rs",
+              "recorded": "c0e0635cbda251e521d99e4bfa8db1b6d89e43265584497532c601fd37d97d90",
+              "current": "c41b88099ebed6254f4841be44e4b70eda13ce4476198e934d21b5654dfc592f"
+            },
+            {
+              "path": "src/backend/hvf/intel_context_format.rs",
+              "recorded": "4d011693e42ddcd3a31697e07a27702a5d67ae08e61b80ae29cf2cb7609063d6",
+              "current": "0da0de67cf145e1df75cd73248a4b38514b976346fbbfd68731b78b53b83089c"
+            },
+            {
+              "path": "src/backend/hvf/intel_context_tests.rs",
+              "recorded": "e80a00f6357721ccf24c7e865937e930e9a64e93712f78781535cbb8b308f1df",
+              "current": "4f593fc722e81c078cfb0db94b37c566ff8d9de7e98568355b1660c72aab203e"
+            },
+            {
+              "path": "src/backend/hvf/mod.rs",
+              "recorded": "0e40779a98a8291fc2c8ca831018e80f625065a88365ad7baee4cb9edacada63",
+              "current": "b1fb13b1a71250f4a3fc6caf5339346d2436ada2dd6814d05dcc6e46651048af"
+            },
+            {
+              "path": "src/vm/snapshot/bundle.rs",
+              "recorded": "c9218d115f634ab6eb0b46db09143fab6287b882b50533c31dff46a2501173a1",
+              "current": "16f614b3eb9d979a7abe0ea5d427073d0bc16e661901b780d5b1781e1cf6eebb"
+            },
+            {
+              "path": "tools/hvf/intel_mmio_native_guest.rs",
+              "recorded": null,
+              "current": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec"
+            },
+            {
+              "path": "tools/hvf/intel_mmio_native_probe.py",
+              "recorded": null,
+              "current": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc"
+            }
+          ]
+        },
+        "apple_full_root": {
+          "source_digest": "1eaabbca2b33c15b828f635924caf909decf8a4efeac83e32516da209a69436d",
+          "matching_files": 105,
+          "mismatches": [
+            {
+              "path": "src/backend/hvf/mod.rs",
+              "recorded": "bd062e21a727446f6c36093ffedfa6459d41cb54e0e1bf32f39988da2294240f",
+              "current": "b1fb13b1a71250f4a3fc6caf5339346d2436ada2dd6814d05dcc6e46651048af"
+            },
+            {
+              "path": "tools/hvf/intel_mmio_native_guest.rs",
+              "recorded": "f67f8dfcddb3295a3e140d121884f22a3c2c25647c33ec23a3c4826726dac81c",
+              "current": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec"
+            },
+            {
+              "path": "tools/hvf/intel_mmio_native_probe.py",
+              "recorded": "5191ca78dbd4ae8d852f69759c021c0ea41c984bcafec3a7c4095303619ea61e",
+              "current": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc"
+            }
+          ]
+        },
+        "intel_sdk_owner": {
+          "source_digest": "e3d042950fbd740c1490078cf7180504644e46c77051f068a054f15e5d5793f5",
+          "matching_files": 106,
+          "mismatches": [
+            {
+              "path": "tools/hvf/intel_mmio_native_guest.rs",
+              "recorded": null,
+              "current": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec"
+            },
+            {
+              "path": "tools/hvf/intel_mmio_native_probe.py",
+              "recorded": null,
+              "current": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc"
+            }
+          ],
+          "complete_target": {
+            "label": "complete-owner",
+            "argv": [
+              "/tmp/rax-intel-attach-order-hvt9ynjt/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "exit_code": 0,
+            "seconds": 637.55594858306,
+            "results": [
+              [
+                59,
+                0,
+                0,
+                0,
+                0
+              ]
+            ]
+          },
+          "runtime_claim": "SDK model only; no native guest executes"
+        }
+      },
+      "cross_build": {
+        "source": "cross-export-after-upstream-v1",
+        "target_source_digest": "81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708",
+        "scope": "Both consumer files match the signed 130-case cross-build; temporary builds and exported executables removed after inspection."
+      }
+    },
+    "historical_progress_fields": "Earlier queue/controller/live fields retain their original chronological observations; they are not current process states. All qualification builds are terminal and their owned caches have been removed.",
+    "native_guest_execution": "Run 41978606771 failed the first RAM-only control; returned exit unknown. See ../hvf-intel-frontier/qualification.json.",
+    "full_goal_complete": false
+  },
+  "latest_frozen_apple_library": {
+    "state": "completed",
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--target",
+      "aarch64-apple-darwin",
+      "--lib",
+      "--no-run",
+      "--message-format=json"
+    ],
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th",
+    "wrapper_pid": 40774,
+    "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+    "compile_pid": 40815,
+    "compile_exit_code": 0,
+    "compile_seconds": 132.1211951659061,
+    "compile_source_unchanged": true,
+    "executable": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/aarch64-apple-darwin/debug/deps/rax-d3a0c2b6ab47e3e6",
+    "executable_sha256": "62ad17a95a2249482c4f7e5c45de5748d96917d430619fdc71b13650a1790654",
+    "test_pid": 64100,
+    "run_command": [
+      "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/aarch64-apple-darwin/debug/deps/rax-d3a0c2b6ab47e3e6",
+      "--nocapture",
+      "--test-threads=4"
+    ],
+    "exit_code": 0,
+    "test_seconds": 3192.9056761249667,
+    "source_changed_since_frozen_compile": true,
+    "success": true,
+    "owned_build_retained": "Shared with current SDK-owner qualification; remove only after every active owner is terminal.",
+    "counts": {
+      "passed": 12440,
+      "failed": 0,
+      "ignored": 36,
+      "filtered": 0
+    },
+    "later_source_delta": [
+      "src/backend/hvf/intel_init.rs",
+      "src/backend/hvf/intel_worker.rs",
+      "src/backend/hvf/mod.rs"
+    ],
+    "scope_note": "Frozen source816828...; later INIT changes are confined to the Intel-only adapter."
+  },
+  "latest_companion_binaries": {
+    "result": {
+      "state": "completed",
+      "wrapper_pid": 65129,
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_memory",
+        "--test",
+        "hvf_owner",
+        "--test",
+        "hvf_controls",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th",
+      "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+      "child_pid": 65132,
+      "exit_code": 0,
+      "seconds": 7.209674624959007,
+      "source_unchanged": true
+    },
+    "counts": {
+      "hvf_controls": 11,
+      "hvf_memory": 18,
+      "hvf_mmio": 55,
+      "hvf_owner": 14
+    },
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "latest_native_146": {
+    "run_id": 42010491792,
+    "passed": 146,
+    "failed": 0,
+    "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+    "scope": "RAM/MMIO/PAT/reserved-MSR/deadline/TSC controls. Startup control is separate."
+  },
+  "native_startup_149": "Run42014912978 in progress; no terminal outcome claimed."
+}

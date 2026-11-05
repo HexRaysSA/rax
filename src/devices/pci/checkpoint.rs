@@ -29,6 +29,18 @@ struct Decoded {
     functions: HashMap<FunctionKey, ConfigSpace>,
     bases: Vec<u64>,
 }
+
+fn valid_cached_base(ep: &PciEndpoint, base: u64) -> bool {
+    // add_function can replace config space without refreshing the endpoint's
+    // cached route. Preserve that independent state, including historical
+    // truncated 64-bit routes, instead of deriving a different restore target.
+    base == 0
+        || ep.bar_size.is_power_of_two()
+            && base & (ep.bar_size - 1 | u64::from(low_bits_mask(ep.io))) == 0
+            && base.checked_add(ep.bar_size).is_some()
+            && (!ep.io || base <= u64::from(u32::MAX))
+}
+
 impl PciStub {
     /// Capture without calling any endpoint handler. Functions are canonicalized
     /// by raw key; endpoint order is retained because overlap routing uses it.
@@ -65,11 +77,11 @@ impl PciStub {
             }
         }
         for ep in &self.endpoints {
-            if ep.bar_index >= NUM_BARS
-                || ep.bar_size > u32::MAX as u64
-                || ep.current_base > u32::MAX as u64
-            {
+            if ep.bar_index >= NUM_BARS || ep.bar_size > u32::MAX as u64 {
                 return Err(invalid("unsupported PCI checkpoint endpoint"));
+            }
+            if !valid_cached_base(ep, ep.current_base) {
+                return Err(invalid("invalid PCI checkpoint cached route"));
             }
             put_key(&mut w, ep.key);
             w.byte(ep.bar_index as u8);
@@ -186,7 +198,7 @@ impl PciStub {
             let io = r.boolean()?;
             let base = r.long()?;
             if (key, index, size, io) != (ep.key, ep.bar_index, ep.bar_size, ep.io)
-                || base > u32::MAX as u64
+                || !valid_cached_base(ep, base)
             {
                 return Err(invalid("PCI checkpoint endpoint topology mismatch"));
             }

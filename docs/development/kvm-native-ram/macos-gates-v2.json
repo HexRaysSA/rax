@@ -1,0 +1,196 @@
+{
+  "utc": "2026-11-03T21:00:52.201264+00:00",
+  "exit_code": 0,
+  "full_source_verified": true,
+  "protected_state_unchanged": true,
+  "protected_before": {
+    "trace_sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d",
+    "trace_signature": [
+      16,
+      402539738,
+      1793639372346188555,
+      1793639372346188555
+    ],
+    "processes": "  PID STARTED                      COMMAND\n28735 Tue Oct 27 17:32:09 2026     /Users/int/dev/rax/target/debug/rax-user --arch arm64 /Users/int/dev/rax/target/tmp/user-darwin/ptrace_attach_stopped.arm64\n28737 Tue Oct 27 17:32:10 2026     /Users/int/dev/rax/target/debug/rax-user --arch arm64 /Users/int/dev/rax/target/tmp/user-darwin/ptrace_attach_stopped_self.arm64 self\n",
+    "original_binary_exists": false
+  },
+  "protected_after": {
+    "trace_sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d",
+    "trace_signature": [
+      16,
+      402539738,
+      1793639372346188555,
+      1793639372346188555
+    ],
+    "processes": "  PID STARTED                      COMMAND\n28735 Tue Oct 27 17:32:09 2026     /Users/int/dev/rax/target/debug/rax-user --arch arm64 /Users/int/dev/rax/target/tmp/user-darwin/ptrace_attach_stopped.arm64\n28737 Tue Oct 27 17:32:10 2026     /Users/int/dev/rax/target/debug/rax-user --arch arm64 /Users/int/dev/rax/target/tmp/user-darwin/ptrace_attach_stopped_self.arm64 self\n",
+    "original_binary_exists": false
+  },
+  "physical_Intel_execution": false,
+  "scope": "Intel cross-build and SDK simulation through Rosetta on Apple M4 Max, plus complete affected ARM PCI/checkpoint targets and PCI unit namespace for cached-route compatibility. Prior V1 unchanged-plane checks are separate receipts. No physical Intel Hypervisor guest executed.",
+  "commands": [
+    {
+      "label": "intel-sdk-debug",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--test",
+        "hvf_owner",
+        "--test",
+        "hvf_memory",
+        "--test",
+        "pci_checkpoint",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [
+        [
+          52,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          18,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          10,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          17,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "coverage_verified": true,
+      "elapsed_seconds": 615.8672942920821,
+      "utc": "2026-11-03T20:55:11.804674+00:00",
+      "log_sha256": "2ba629c878549195ff681511092e5862ac54dd8fd92546f2131faf0ebb5a1b76",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/macos-v2.json"
+    },
+    {
+      "label": "arm-owning",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "pci_checkpoint",
+        "--test",
+        "pci_endpoint_checkpoint",
+        "--test",
+        "runtime_pci_checkpoint",
+        "--test",
+        "controller_checkpoint",
+        "--test",
+        "hvf_memory",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [
+        [
+          19,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          18,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          17,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          16,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          15,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "coverage_verified": true,
+      "elapsed_seconds": 106.52069150004536,
+      "utc": "2026-11-03T20:56:58.376840+00:00",
+      "log_sha256": "bd3bb47ade40cdfd9a45e1065ea3930936ebb3af8c3c75c7a32aedd8c7886773",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/macos-v2.json"
+    },
+    {
+      "label": "arm-pci-unit",
+      "argv": [
+        "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "devices::pci::",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "results": [
+        [
+          19,
+          0,
+          0,
+          0,
+          12293
+        ]
+      ],
+      "coverage_verified": true,
+      "elapsed_seconds": 232.44910304201767,
+      "utc": "2026-11-03T21:00:50.879044+00:00",
+      "log_sha256": "6456c9bc1f6405d2b7f1e0e89603f20850e5a1eaaea4517ac9f0143f7f9bab8f",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/macos-v2.json"
+    }
+  ]
+}

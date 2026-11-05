@@ -2,6 +2,187 @@
 use super::*;
 use rax::vm::vcpu::{CpuState, VcpuExit};
 
+fn deadline_msr(cpu: &mut dyn rax::vm::vcpu::VCpu, id: u32, write: Option<u64>) -> u64 {
+    use std::time::Duration;
+    {
+        let mut sdk = SDK.lock().unwrap();
+        let native = sdk.cpus.get_mut(&id).unwrap();
+        let value = write.unwrap_or(0x1234_5678_8765_4321);
+        native.registers.insert(0, 0x1000);
+        native.registers.insert(1, 2);
+        native.registers.insert(2, value & 0xffff_ffff);
+        native.registers.insert(3, 0x6e0);
+        native.registers.insert(4, value >> 32);
+        native.registers.insert(36, 1);
+        native.vmcs.insert(0x802, 0);
+        native.vmcs.insert(0x440c, 2);
+        native.vmcs.insert(0x4016, 0);
+        native.exits = [if write.is_some() { 32 } else { 31 }, 0x8000_0021]
+            .into_iter()
+            .collect();
+    }
+    assert!(matches!(
+        cpu.run_host_slice(Duration::from_secs(1)).unwrap(),
+        Some(VcpuExit::FailEntry {
+            reason: 0x8000_0021
+        })
+    ));
+    let CpuState::X86_64(state) = cpu.get_state().unwrap() else {
+        panic!("wrong architecture")
+    };
+    assert_eq!(state.regs.rip, 0x1002);
+    state.regs.rax | (state.regs.rdx << 32)
+}
+
+#[test]
+fn deadline_msr_round_trips_through_the_attached_local_controller() {
+    use rax::devices::bus::MmioDevice;
+    use rax::devices::lapic::{LapicDevice, LocalApic};
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (vm, memory) = fixture();
+    let mut cpu = vm
+        .create_vcpu(0, Arc::new(memory.memory().clone()))
+        .unwrap();
+    let lapic = Arc::new(Mutex::new(LocalApic::new(0)));
+    let mut device = LapicDevice::new(lapic.clone());
+    device.write(0xfee0_0320, &0x0004_0051u32.to_le_bytes());
+    cpu.attach_local_apic(lapic);
+    for expected in [u64::MAX, 0x1234_5678_8765_4321, 0] {
+        deadline_msr(cpu.as_mut(), 0, Some(expected));
+        assert_eq!(deadline_msr(cpu.as_mut(), 0, None), expected);
+    }
+}
+
+#[test]
+fn deadline_private_restore_retains_each_cpu_arm_and_untransferred_expiry() {
+    use rax::devices::bus::MmioDevice;
+    use rax::devices::lapic::{LapicDevice, LocalApic};
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    for count in [1, 2, 4] {
+        let (vm, memory) = fixture();
+        let mut cpus = Vec::new();
+        let mut controllers = Vec::new();
+        for id in 0..count {
+            let mut cpu = vm
+                .create_vcpu(id, Arc::new(memory.memory().clone()))
+                .unwrap();
+            let lapic = Arc::new(Mutex::new(LocalApic::new(id)));
+            LapicDevice::new(lapic.clone()).write(0xfee0_0320, &(0x40051 + id).to_le_bytes());
+            cpu.attach_local_apic(lapic.clone());
+            deadline_msr(cpu.as_mut(), id, Some(u64::MAX - u64::from(id)));
+            cpus.push(cpu);
+            controllers.push(lapic);
+        }
+        let boundary = vm.checkpoint_boundary().unwrap();
+        let saved: Vec<_> = cpus
+            .iter()
+            .map(|cpu| cpu.capture_checkpoint_record(&boundary, None).unwrap())
+            .collect();
+        drop(boundary);
+        for (id, (cpu, (public, private))) in cpus.iter_mut().zip(&saved).enumerate() {
+            deadline_msr(cpu.as_mut(), id as u32, Some(0));
+            cpu.restore_checkpoint_context(&public.state, &public.emulator, private.as_ref())
+                .unwrap();
+        }
+        SDK.lock().unwrap().tsc = u64::MAX;
+        for (id, cpu) in cpus.iter_mut().enumerate() {
+            cpu.poll_vm_clock().unwrap();
+            assert_eq!(
+                controllers[id].lock().unwrap().get_pending_vector(),
+                None,
+                "polling before first entry must use the saved TSC"
+            );
+            assert_eq!(
+                deadline_msr(cpu.as_mut(), id as u32, None),
+                u64::MAX - id as u64
+            );
+            deadline_msr(cpu.as_mut(), id as u32, Some(1));
+            assert_eq!(deadline_msr(cpu.as_mut(), id as u32, None), 0);
+            let boundary = vm.checkpoint_boundary().unwrap();
+            let (public, private) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+            drop(boundary);
+            cpu.poll_vm_clock().unwrap();
+            let vector = 0x51 + id as u8;
+            assert_eq!(
+                controllers[id].lock().unwrap().get_pending_vector(),
+                Some(vector)
+            );
+            controllers[id].lock().unwrap().ack_interrupt(vector);
+            LapicDevice::new(controllers[id].clone()).write(0xfee0_00b0, &0u32.to_le_bytes());
+            cpu.restore_checkpoint_context(&public.state, &public.emulator, private.as_ref())
+                .unwrap();
+            cpu.poll_vm_clock().unwrap();
+            assert_eq!(
+                controllers[id].lock().unwrap().get_pending_vector(),
+                Some(vector)
+            );
+            controllers[id].lock().unwrap().ack_interrupt(vector);
+            LapicDevice::new(controllers[id].clone()).write(0xfee0_00b0, &0u32.to_le_bytes());
+            cpu.poll_vm_clock().unwrap();
+            assert_eq!(
+                controllers[id].lock().unwrap().get_pending_vector(),
+                None,
+                "expiry transfers only once after each restore"
+            );
+        }
+        drop(cpus);
+        drop(vm);
+    }
+}
+
+#[test]
+fn deadline_expiry_authorizes_a_halted_cpus_next_native_entry() {
+    use rax::devices::bus::MmioDevice;
+    use rax::devices::lapic::{LapicDevice, LocalApic};
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (vm, memory) = fixture();
+    let mut cpu = vm
+        .create_vcpu(0, Arc::new(memory.memory().clone()))
+        .unwrap();
+    let lapic = Arc::new(Mutex::new(LocalApic::new(0)));
+    LapicDevice::new(lapic.clone()).write(0xfee0_0320, &0x40051u32.to_le_bytes());
+    cpu.attach_local_apic(lapic.clone());
+    deadline_msr(cpu.as_mut(), 0, Some(1));
+    {
+        let mut sdk = SDK.lock().unwrap();
+        let native = sdk.cpus.get_mut(&0).unwrap();
+        native.registers.insert(1, 0x202);
+        native.vmcs.insert(0x4824, 0);
+        native.exits = [12].into_iter().collect();
+    }
+    assert!(matches!(cpu.run().unwrap(), VcpuExit::Hlt));
+    assert!(cpu.get_emulator_state().unwrap().halted);
+    cpu.poll_vm_clock().unwrap();
+    let vector = lapic.lock().unwrap().get_pending_vector().unwrap();
+    assert_eq!(vector, 0x51);
+    assert!(cpu.inject_interrupt(vector).unwrap());
+    assert!(!cpu.get_emulator_state().unwrap().halted);
+    let entries = {
+        let mut sdk = SDK.lock().unwrap();
+        let native = sdk.cpus.get_mut(&0).unwrap();
+        // SDM086 Vol.3C28.7.2: a vectoring VM entry starts in the active state.
+        // Merely accepting the request need not change the activity field.
+        assert_eq!(native.vmcs[&0x4826], 1);
+        assert_eq!(native.vmcs[&0x4016], 0x8000_0051);
+        native.exits = [0x8000_0021].into_iter().collect();
+        native.deadlines.len()
+    };
+    assert!(matches!(
+        cpu.run_host_slice(std::time::Duration::from_secs(1))
+            .unwrap(),
+        Some(VcpuExit::FailEntry {
+            reason: 0x8000_0021
+        })
+    ));
+    assert_eq!(SDK.lock().unwrap().cpus[&0].deadlines.len(), entries + 1);
+}
+
 #[test]
 fn public_state_import_refreshes_native_control_read_shadows() {
     let _serial = SERIAL

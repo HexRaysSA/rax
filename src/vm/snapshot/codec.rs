@@ -101,6 +101,11 @@ fn write_to_parts<W: Write>(
     physical: Option<&PhysicalMemorySnapshot>,
     writer: &mut W,
 ) -> Result<()> {
+    if snapshot.devices.lapic.has_pending_eoi() {
+        return Err(invalid(
+            "base checkpoint cannot discard pending LAPIC EOI broadcasts",
+        ));
+    }
     // Public base save validates its CPU payload before entering this framing
     // layer. Extensions additionally require admission of their whole graph.
     if cpus.is_some() || backend_contexts.is_some() || vm_context.is_some() {

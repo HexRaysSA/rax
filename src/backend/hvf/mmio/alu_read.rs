@@ -1,4 +1,4 @@
-//! Read-only device operands for integer arithmetic and flag-only comparisons.
+//! Read-only device operands for integer arithmetic, comparisons and bit tests.
 use super::{
     Context, ExitRecord, Flow, Instruction, OperandKind, PhysicalMemory, Plan, RegisterPart,
 };
@@ -16,6 +16,7 @@ enum Operation {
     Xor,
     Compare,
     Test,
+    BitTest(u8),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -34,9 +35,21 @@ impl AluReadInput {
         if !matches!(self.size, 1 | 2 | 4 | 8) || !(1..=15).contains(&self.length) {
             return Err("invalid MMIO ALU read width/length".into());
         }
-        let flags_only = matches!(self.operation, Operation::Compare | Operation::Test);
+        let flags_only = matches!(
+            self.operation,
+            Operation::Compare | Operation::Test | Operation::BitTest(_)
+        );
         if self.destination.is_none() != flags_only || (!flags_only && self.memory_left) {
             return Err("invalid MMIO ALU result destination".into());
+        }
+        if let Operation::BitTest(bit) = self.operation {
+            if self.size == 1
+                || u32::from(bit) >= u32::from(self.size) * 8
+                || !self.memory_left
+                || self.other != 0
+            {
+                return Err("invalid MMIO bit-test descriptor".into());
+            }
         }
         if let Some((part, _)) = self.destination {
             if !part.valid() || part.bits != u32::from(self.size) * 8 {
@@ -73,6 +86,7 @@ impl AluReadInput {
             Operation::And | Operation::Test => left & right,
             Operation::Or => left | right,
             Operation::Xor => left ^ right,
+            Operation::BitTest(bit) => (memory >> bit) & 1,
         };
         let mut updated = self.flags_before;
         match self.operation {
@@ -86,6 +100,7 @@ impl AluReadInput {
             Operation::Sbb => {
                 flags::update_flags_sbb(&mut updated, left, right, carry, result, self.size)
             }
+            Operation::BitTest(_) => updated = (updated & !bits::CF) | result,
             _ => flags::update_flags_logic(&mut updated, result, self.size),
         }
         let register = self
@@ -111,6 +126,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
         "xor" => Operation::Xor,
         "cmp" => Operation::Compare,
         "test" => Operation::Test,
+        "bt" => Operation::BitTest(0),
         _ => return Ok(None),
     };
     if !instruction.operands_complete
@@ -153,7 +169,19 @@ pub(super) fn prepare<M: PhysicalMemory>(
         }
         _ => return Err("unsupported MMIO ALU source".into()),
     };
-    let flags_only = matches!(operation, Operation::Compare | Operation::Test);
+    let bit_test = matches!(operation, Operation::BitTest(_));
+    let operation = if bit_test {
+        if size == 1 || !memory_left {
+            return Err("unsupported MMIO bit-test operands".into());
+        }
+        Operation::BitTest((value & (u64::from(size) * 8 - 1)) as u8)
+    } else {
+        operation
+    };
+    let flags_only = matches!(
+        operation,
+        Operation::Compare | Operation::Test | Operation::BitTest(_)
+    );
     let destination = if flags_only {
         if other.write {
             return Err("flag-only MMIO operation modifies a source".into());
@@ -166,12 +194,23 @@ pub(super) fn prepare<M: PhysicalMemory>(
         let part = part.ok_or("MMIO ALU result must be a register")?;
         Some((part, context.registers[part.index]))
     };
-    super::validate_memory(context, memory, record, operand, size)?;
+    let mut addressed = operand.clone();
+    if bit_test && other.kind == OperandKind::Register {
+        // Register offsets address a signed bit string. Immediate offsets
+        // select a bit within the addressed word and never move its base.
+        let shift = 64 - u32::from(size) * 8;
+        let signed = ((value << shift) as i64) >> shift;
+        let words = signed.div_euclid(i64::from(size) * 8);
+        addressed.displacement = addressed
+            .displacement
+            .wrapping_add((words * i64::from(size)) as u64);
+    }
+    super::validate_memory(context, memory, record, &addressed, size)?;
     let input = AluReadInput {
         size,
         length: u64::from(instruction.size),
         operation,
-        other: value,
+        other: if bit_test { 0 } else { value },
         memory_left,
         flags_before: context.rflags,
         destination,

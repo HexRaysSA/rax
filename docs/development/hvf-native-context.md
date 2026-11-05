@@ -1,7 +1,15 @@
 # Intel HVF checkpoint producer
 
 The Intel backend emits producer kind `7` (`HVF_INTEL_CONTEXT`) for CPU and
-shared VM records. Their inner tags distinguish `RAXHVI01` and `RAXHVG01`.
+shared VM records. Current inner tags distinguish `RAXHVI02` and `RAXHVG02`.
+The CPU tag versions software-owned architectural PAT state. Explicit
+`RAXHVI01` input migrates only when its field schema, disabled link pointer,
+valid raw PAT slot, and fixed reset-value architectural PAT are consistent;
+ambiguous or malformed records reject before SDK writes.
+The shared tag versions the PC RAM geometry: explicit `RAXHVG01` input remains
+compatible through 3 GiB; larger legacy flat layouts reject. See
+[native PC RAM layout](kvm-native-ram/README.md). The original qualification
+record retains the tag used by that earlier run.
 Files require both records, the ordered CPU projections, execution/clock state,
 and the complete physical backing image. A public register projection alone is
 rejected for native restore.
@@ -25,9 +33,16 @@ FXSAVE's abridged tags. XSAVE initial components ignore stale register bytes.
 Standard MXCSR handling is independent of the SSE in-use bit; compacted images
 use their corresponding initialization rule. Public overlays materialize initial
 legacy state before marking it in use and preserve opaque host components.
-PAT and IA32_MISC_ENABLE remain the existing fixed intercepted profile; a public
-emulator-state setter rejects a different PAT instead of claiming mutable PAT
-execution through an unused VMCS field. The raw VMCS field is retained.
+PAT is software-owned architectural state: intercepted RDMSR/WRMSR and public
+emulator-state import/export use the same validated value, retained in each
+private CPU record. Reserved PAT byte values and unprivileged MSR accesses inject
+#GP(0) without retiring the instruction. The SDK-private link-pointer and PAT
+VMCS slots are excluded from initialization and checkpoint field banks.
+IA32_MISC_ENABLE retains the existing fixed intercepted profile. Architectural
+PAT readback does not qualify physical memory-cache-type behavior. The
+[native SDK observations](hvf-intel-sdk/README.md) record the constructor failure
+and the SDK access restrictions that motivated this change; corrected native
+guest qualification remains pending.
 
 The profile identifies guest CPUID configuration, supported host CPUID leaves,
 XSAVE component geometry/MXCSR mask, VMX capabilities, admitted VMCS fields,

@@ -36,17 +36,13 @@ impl Lifetime {
         let cpus = self.topology()?;
         let (ram_size, regions, fixed_holes) =
             native_memory::checkpoint_shape(&self.memory_layout)?;
-        let pending_irqs = self
-            .pending_irqs
-            .lock()
-            .map_err(|_| Error::Emulator("native IRQ queue lock poisoned".into()))?
-            .clone();
+        self.software_ioapic.require_bound()?;
         let context = GlobalContext {
             cpus,
             ram_size,
             regions,
             fixed_holes,
-            pending_irqs,
+            pending_irqs: Vec::new(),
             resume_clock: *self
                 .resume_clock
                 .lock()
@@ -66,6 +62,8 @@ impl Lifetime {
                 Error::InvalidConfig("native Intel checkpoint requires its shared VM record".into())
             })?;
         let context = GlobalContext::decode(&record.data)?;
+        context.require_controller_owned_irqs()?;
+        self.software_ioapic.require_bound()?;
         let (ram_size, regions, fixed_holes) =
             native_memory::checkpoint_shape(&self.memory_layout)?;
         if context.cpus != self.topology()?
@@ -135,15 +133,10 @@ impl Lifetime {
         boundary.require_owner(self.identity())?;
         self.ready()?;
         let context = self.admit_shared(record)?;
-        let mut irqs = self
-            .pending_irqs
-            .lock()
-            .map_err(|_| Error::Emulator("native IRQ queue lock poisoned".into()))?;
         let mut clock = self
             .resume_clock
             .lock()
             .map_err(|_| Error::Emulator("native clock epoch lock poisoned".into()))?;
-        *irqs = context.pending_irqs;
         *clock = if rollback { context.resume_clock } else { None };
         Ok(())
     }

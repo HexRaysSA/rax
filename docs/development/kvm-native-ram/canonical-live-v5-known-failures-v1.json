@@ -1,0 +1,41 @@
+{
+  "utc": "2026-11-04T07:49:21.653394+00:00",
+  "controller_pid": 3395651,
+  "controller_live": true,
+  "controller_command": "python3 /tmp/rax-kvm-native-entry-ixif9sv1/observations/native-memory-layout-v1/cargo-v5.py ",
+  "terminal": false,
+  "log": "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-memory-layout-v1/ram-root-library-v5.log",
+  "observed_failed_rows": 4,
+  "failure_excerpts": [
+    "test user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::a_one_way_enumeration_does_not_export_thread_rights ... ok\ntest user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::attributes::remote_cache_attribute_preserves_values_and_publishes_code_invalidation ... ok\ntest user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::attach_reply_waits_for_a_full_output_queue ... ok\ntest user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::disconnected_tracer_does_not_strand_a_fatal_reply ... ok\ntest user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::disconnected_tracer_does_not_strand_ordinary_exit ... ok\ntest user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::exec_transfers_the_pending_output_barrier ... ok\ntest user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::fatal_trace_reply_is_flushed_before_exit ... ok\ntest user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::ordinary_exit_flushes_queued_mach_reply ... ok\ntest user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::ordinary_exit_flushes_queued_trace_reply ... ok\ntest user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::repeated_trace_me_detects_disconnected_tracer_with_pending_output ... ok\ntest user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link ... \nthread 'user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link' (3954735) panicked at src/user/darwin/syscall/bsd/ptrace/remote_mach_backpressure_tests.rs:47:5:\nassertion failed: !tracee.proc.tracing.family.mach.parent_server.exports.contains_key(&(instance,\n                Object::Task))\nFAILED",
+    "test user::linux::tests::mqueue::an_unlinked_queue_lives_while_it_is_open ... ok\ntest user::linux::tests::mqueue::messages_come_highest_priority_first ... ok\ntest user::linux::tests::mqueue::mq_getsetattr_sets_only_nonblocking ... ok\ntest user::linux::tests::mqueue::mq_open_checks_in_the_kernels_order ... ok\ntest user::linux::tests::mqueue::queues_are_charged_to_their_creators_rlimit_and_counted ... ok\ntest user::linux::tests::mqueue::waiting_tasks_are_handed_messages_and_slots ... ok\ntest user::linux::tests::mseal::a_seal_keeps_what_could_not_be_written ... ok\ntest user::linux::tests::mseal::a_seal_refuses_unmapping_remapping_and_reprotecting ... ok\ntest user::linux::tests::mseal::brk_and_shmdt_keep_sealed_pages ... ok\ntest user::linux::tests::mseal::mseal_checks_in_the_kernels_order ... ok\ntest user::linux::tests::netlink::a_passed_socket_is_the_same_socket ... ok\ntest user::linux::tests::netlink::addresses_dump_by_family ... \nthread 'user::linux::tests::netlink::addresses_dump_by_family' (3956111) panicked at src/user/linux/tests/netlink.rs:490:13:\nassertion failed: v6.last().unwrap().len() > 1\nFAILED",
+    "test user::linux::tests::mseal::mseal_checks_in_the_kernels_order ... ok\ntest user::linux::tests::netlink::a_passed_socket_is_the_same_socket ... ok\ntest user::linux::tests::netlink::addresses_dump_by_family ... \nthread 'user::linux::tests::netlink::addresses_dump_by_family' (3956111) panicked at src/user/linux/tests/netlink.rs:490:13:\nassertion failed: v6.last().unwrap().len() > 1\nFAILED\ntest user::linux::tests::netlink::creation_follows_netlink_create ... ok\ntest user::linux::tests::netlink::links_dump_with_a_loopback ... ok\ntest user::linux::tests::netlink::netlink_lacks_streams_and_answers_its_calls ... ok\ntest user::linux::tests::netlink::options_follow_netlink_setsockopt ... \nthread 'user::linux::tests::netlink::options_follow_netlink_setsockopt' (3956115) panicked at src/user/linux/tests/netlink.rs:538:9:\nassertion `left == right` failed\n  left: -22\n right: 0\nFAILED",
+    "test user::mm::tests::vma_insert_replaces_and_splits_overlaps ... ok\ntest user::mm::tests::vma_remove_splits_and_reports_pieces ... ok\ntest user::mm::tests::vma_source_offsets_follow_splits ... ok\ntest user::mm::windows_identity::tests::concurrent_duplicate_registration_has_one_live_identity ... ok\ntest user::mm::windows_identity::tests::delayed_destructor_preserves_replacement_and_exhaustion_is_transactional ... ok\ntest user::mm::windows_identity::tests::full_volume_and_file_id_distinguish_live_objects ... ok\ntest user::mm::windows_identity::tests::last_owner_reaps_entry_and_reopen_does_not_reuse_token ... ok\ntest user::readiness::tests::delayed_wake_including_more_than_64_levels_and_duplicates ... ok\ntest user::readiness::tests::error_only_socket_watch_ignores_data_and_retains_hangup_with_unread_data ... ok\ntest user::readiness::tests::error_only_socket_watch_observes_a_later_close_with_data_already_queued ... ok\ntest user::readiness::tests::error_only_socket_watch_reports_peer_exit_without_read_interest ... ok\ntest user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer ... \nthread 'user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer' (3956723) panicked at src/user/readiness.rs:518:21:\nassertion failed: queued < 16 * 1024 * 1024\nFAILED"
+  ],
+  "status": {
+    "utc": "2026-11-04T03:46:52.256139+00:00",
+    "stage": "running",
+    "label": "root-library",
+    "completed": [
+      "fmt",
+      "clippy",
+      "build",
+      "no-jit",
+      "doc",
+      "native-smp",
+      "native-io",
+      "minimal",
+      "mapping",
+      "realmode",
+      "pci-checkpoint",
+      "pci-endpoint-checkpoint",
+      "runtime-pci-checkpoint",
+      "controller-checkpoint"
+    ]
+  },
+  "fixture_source_sha256": {
+    "src/user/readiness.rs": "5b0f6018ddde7a0dd3dbddca1f152607d796a67758124d6fd29ddaa4078926b4",
+    "src/user/linux/tests/netlink.rs": "8d1ebc1ade3b4dcf239383fc5bfbe5e32c8e69c24d78659110f76c9d3ccf0342",
+    "src/user/darwin/syscall/bsd/ptrace/remote_mach_backpressure_tests.rs": "b5ba21ac9d92f6be0f7d26aeeb030299959d9277a606b19d99f26927c64873fb"
+  }
+}

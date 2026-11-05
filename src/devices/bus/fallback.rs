@@ -3,13 +3,14 @@
 use super::{MmioRmwOp, Result};
 use crate::devices::pci::PciStub;
 use crate::error::Error;
+use crate::machine::pc::ram::Layout;
 use std::sync::{Arc, Mutex};
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 #[derive(Default)]
 pub(super) struct Fallback {
     pub pci: Option<Arc<Mutex<PciStub>>>,
-    pub ram: Option<(Arc<GuestMemoryMmap>, u64)>,
+    pub ram: Option<(Arc<GuestMemoryMmap>, Layout)>,
 }
 impl Fallback {
     pub fn chunk(&self, address: u64, remaining: usize) -> Result<usize> {
@@ -27,9 +28,13 @@ impl Fallback {
                 }
             }
         }
-        if let Some((_, end)) = &self.ram {
-            if *end > address {
-                count = count.min(*end - address);
+        if let Some((_, layout)) = &self.ram {
+            for range in layout.ranges() {
+                for boundary in [range.start, range.end] {
+                    if boundary > address {
+                        count = count.min(boundary - address);
+                    }
+                }
             }
         }
         Ok(count as usize)
@@ -44,8 +49,8 @@ impl Fallback {
                 return Ok(());
             }
         }
-        if let Some((ram, end)) = &self.ram {
-            if address < *end {
+        if let Some((ram, layout)) = &self.ram {
+            if layout.contains(address, bytes.len() as u64) {
                 ram.read_slice(bytes, GuestAddress(address))?;
                 return Ok(());
             }
@@ -63,8 +68,8 @@ impl Fallback {
                 return Ok(());
             }
         }
-        if let Some((ram, end)) = &self.ram {
-            if address < *end {
+        if let Some((ram, layout)) = &self.ram {
+            if layout.contains(address, bytes.len() as u64) {
                 crate::vm::memory::write_guest_memory(ram, address, bytes)?;
             }
         }
@@ -79,8 +84,8 @@ impl Fallback {
                 return Ok(old);
             }
         }
-        if let Some((ram, end)) = &self.ram {
-            if address < *end {
+        if let Some((ram, layout)) = &self.ram {
+            if layout.contains(address, u64::from(size)) {
                 return crate::vm::memory::reservations::MemoryDomain::for_memory(ram)
                     .read_modify_write(ram, address, size, operation);
             }

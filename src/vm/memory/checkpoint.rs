@@ -75,6 +75,7 @@ impl CheckpointBindings {
             bindings: self,
             capture_epoch,
             activation_clock,
+            importing_clock: incoming.is_some(),
             activation_epoch: OnceLock::new(),
             memory: RefCell::new(memory),
             gics,
@@ -95,6 +96,7 @@ pub struct CheckpointPublication<'bindings> {
     bindings: &'bindings CheckpointBindings,
     capture_epoch: crate::vm::timing::ClockEpoch,
     activation_clock: crate::vm::timing::ClockEpoch,
+    importing_clock: bool,
     activation_epoch: OnceLock<crate::vm::timing::ClockEpoch>,
     memory: RefCell<FrozenDomain<'bindings>>,
     gics: Vec<RefCell<MutexGuard<'bindings, Gic>>>,
@@ -354,7 +356,11 @@ impl CpuPublication<'_, '_> {
                     let now = self
                         .scope
                         .activation_epoch
-                        .get_or_init(|| self.scope.activation_clock.at_publication())
+                        .get_or_init(|| {
+                            self.scope
+                                .activation_clock
+                                .at_publication(self.scope.importing_clock)
+                        })
                         .clone();
                     let _ = epoch.set(now);
                 }

@@ -312,7 +312,25 @@ impl SnapshotBundle {
                     .vm_context
                     .as_ref()
                     .ok_or_else(|| Error::InvalidConfig("missing native Intel VM graph".into()))?;
-                crate::backend::intel_hvf_context::GlobalContext::decode(&shared.data)?.regions
+                let shared =
+                    crate::backend::intel_hvf_context::GlobalContext::decode(&shared.data)?;
+                shared.require_controller_owned_irqs()?;
+                if self
+                    .execution
+                    .as_ref()
+                    .and_then(|state| state.pc.as_ref())
+                    .is_none()
+                {
+                    return Err(Error::InvalidConfig(
+                        "native Intel checkpoint requires its PC controller inventory".into(),
+                    ));
+                }
+                if self.pci.is_none() {
+                    return Err(Error::InvalidConfig(
+                        "native Intel checkpoint requires its PCI bridge image".into(),
+                    ));
+                }
+                shared.regions
             };
             for (base, size) in spans {
                 let end = base.checked_add(size).ok_or_else(|| {
@@ -451,6 +469,15 @@ impl SnapshotBundle {
                     if context.tpr != apic.registers.priority_handle().load() {
                         return Err(Error::InvalidConfig(
                             "native Intel TPR and local APIC priority differ".into(),
+                        ));
+                    }
+                    let timer = apic.registers.deadline_handle().snapshot();
+                    if context
+                        .deadline
+                        .map_or(!timer.is_quiescent(), |saved| saved != timer)
+                    {
+                        return Err(Error::InvalidConfig(
+                            "native Intel deadline and local APIC timer differ".into(),
                         ));
                     }
                 }

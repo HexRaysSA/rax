@@ -1,0 +1,21 @@
+{
+  "retrieved_utc": "2026-11-05T02:55:12.710584+00:00",
+  "files": [
+    {
+      "path": "hvf-intel-vmcs-41954251789.json",
+      "sha256": "d2a139469e41b1d366dabbb1f01b4a2a3843bf40f85fd419a006544557caabbc",
+      "source": "GitHub Actions artifact from run 41954251789",
+      "run_url": "https://github.com/HexRaysSA/rax/actions/runs/41954251789",
+      "source_commit": "eb08d0140fb789d73a519ac2b8b8a624ff336a6a"
+    },
+    {
+      "path": "hvf-intel-availability-41954251789.json",
+      "sha256": "3e8aa626977bf15687e461e426c03e6cd55dba3a1d0175818c2f1165ab1702a8",
+      "source": "GitHub Actions artifact from run 41954251789",
+      "run_url": "https://github.com/HexRaysSA/rax/actions/runs/41954251789",
+      "source_commit": "eb08d0140fb789d73a519ac2b8b8a624ff336a6a"
+    }
+  ],
+  "scope": "Unmodified native SDK experiment results. No guest instruction execution.",
+  "corrected_native_guest_qualified": false
+}

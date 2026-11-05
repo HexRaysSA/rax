@@ -1,0 +1,1019 @@
+{
+  "utc": "2026-11-03T20:31:53.231385+00:00",
+  "exit_code": 101,
+  "final_content_verified": true,
+  "source_manifest": "inputs-v3.json",
+  "source_manifest_sha256": "9b2ffa34dff09411053b6c9c8885320b91c775f0b768a29a2ee629849ba04124",
+  "receipt_recovery": "First5 commands retained without rerun; documentation summary aggregation corrected. Original raw receipts retained.",
+  "scope": "Canonical Cargo commands on native Intel Linux KVM; root library run excludes historical ignored backlog cases.",
+  "commands": [
+    {
+      "label": "fmt",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": null,
+      "results": [],
+      "elapsed_seconds": 52.453481554053724,
+      "utc": "2026-11-03T19:55:47.567593+00:00",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "clippy",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": null,
+      "results": [],
+      "elapsed_seconds": 246.15706576779485,
+      "utc": "2026-11-03T19:59:53.963065+00:00",
+      "log_sha256": "f6cc833cde2619e07d158cae77c65624b1e6dfb0f2dab4ad2ddf0ca4ed232957",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "build",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": null,
+      "results": [],
+      "elapsed_seconds": 940.3813397614285,
+      "utc": "2026-11-03T20:15:34.604489+00:00",
+      "log_sha256": "7f82584be8e4be454b34ec8e61c9c879ac1e6342f3519e0d704b0e3b569efc23",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "no-jit",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,kvm"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": null,
+      "results": [],
+      "elapsed_seconds": 198.79158516135067,
+      "utc": "2026-11-03T20:18:53.602517+00:00",
+      "log_sha256": "e0be114927fee55428b03a9cbf64bb23f918d715e488cacca3814817c72d412f",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "doc",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug,rax-capi/jit",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 3,
+      "results": [
+        [
+          0,
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "elapsed_seconds": 16.985233653336763,
+      "utc": "2026-11-03T20:19:10.805365+00:00",
+      "coverage_recovery": "Rustdoc emits separate ignored-example, compile-fail and empty workspace-member summaries. Aggregate3 passed,0 failed,5 ignored,0 measured,0 filtered. Original raw receipt retained; command not rerun.",
+      "log_sha256": "3c8b0cdafe6223d7364a2f4cfb8702d8301a52d7ce016fdf957ed792beaa11ad",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "pc-unit",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "machine::pc::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 35,
+      "results": [
+        [
+          35,
+          0,
+          0,
+          0,
+          13181
+        ]
+      ],
+      "elapsed_seconds": 11.115690590813756,
+      "utc": "2026-11-03T20:24:28.230759+00:00",
+      "log_sha256": "6bf6a0ba676cd612f886084c3f5f755860a369467a3418862c62d02598f60d58",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "bios-unit",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "isa::x86_64::bios::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": null,
+      "results": [
+        [
+          2,
+          0,
+          0,
+          0,
+          13214
+        ]
+      ],
+      "elapsed_seconds": 0.4780457438901067,
+      "utc": "2026-11-03T20:24:28.941367+00:00",
+      "log_sha256": "f4c33f68dabf7d87b057e6c52da24a40689d8aa6915fae7c63a5779101a8e79c",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "intel-context",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::intel_hvf_context::tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 9,
+      "results": [
+        [
+          9,
+          0,
+          0,
+          0,
+          13207
+        ]
+      ],
+      "elapsed_seconds": 0.5680462475866079,
+      "utc": "2026-11-03T20:24:29.755135+00:00",
+      "log_sha256": "3a4478e11ce2443c11fc679a70dbbd1e111dbd8fb156d62d6afd1d5ae28380c5",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "physical-bundles",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "vm::snapshot::native_bundle_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 12,
+      "results": [
+        [
+          12,
+          0,
+          0,
+          0,
+          13204
+        ]
+      ],
+      "elapsed_seconds": 1.7937832111492753,
+      "utc": "2026-11-03T20:24:31.798442+00:00",
+      "log_sha256": "e195cb966cfe84282364e9db4fd06e5a2400716777e36b9515e49f1572057196",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "profile-unit",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::cpuid",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 13,
+      "results": [
+        [
+          13,
+          0,
+          0,
+          0,
+          13203
+        ]
+      ],
+      "elapsed_seconds": 0.5877163484692574,
+      "utc": "2026-11-03T20:24:32.627210+00:00",
+      "log_sha256": "af7cbfe034c5f3e64122bae3c25eb7524d51f685543829cea4a2928313d86ff6",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "public-state",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::state_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 16,
+      "results": [
+        [
+          16,
+          0,
+          0,
+          0,
+          13200
+        ]
+      ],
+      "elapsed_seconds": 0.8311572568491101,
+      "utc": "2026-11-03T20:24:33.711946+00:00",
+      "log_sha256": "ff7fe7a89865d176622e2f1ba6563cc729b9727db6737800348f2d4d2c0ec587",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "io-unit",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::io::tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 8,
+      "results": [
+        [
+          8,
+          0,
+          0,
+          0,
+          13208
+        ]
+      ],
+      "elapsed_seconds": 0.5196030372753739,
+      "utc": "2026-11-03T20:24:34.564417+00:00",
+      "log_sha256": "024fcda81685ecfe02528bab42f6fa0c4352581925ec34a86fd2ba4526fb6cac",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "port-unit",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "vm::runtime::port_io::tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 3,
+      "results": [
+        [
+          3,
+          0,
+          0,
+          0,
+          13213
+        ]
+      ],
+      "elapsed_seconds": 0.5066894991323352,
+      "utc": "2026-11-03T20:24:35.325646+00:00",
+      "log_sha256": "af00517b334ba08a79237002f8921c4a2e601fe92c60db826f90ad176d21dc28",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "native-xsave",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::kvm::xsave::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 2,
+      "results": [
+        [
+          2,
+          0,
+          0,
+          0,
+          13214
+        ]
+      ],
+      "elapsed_seconds": 0.4690264081582427,
+      "utc": "2026-11-03T20:24:36.043144+00:00",
+      "log_sha256": "af6a193fd433a874907d5a8de3add8769b9db38a58735837659092ec1042c439",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "portable-xsave",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "backend::intel_hvf_xsave::tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 15,
+      "results": [
+        [
+          15,
+          0,
+          0,
+          0,
+          13201
+        ]
+      ],
+      "elapsed_seconds": 0.4671405451372266,
+      "utc": "2026-11-03T20:24:36.733499+00:00",
+      "log_sha256": "43fb30254b0ff66f7e7402b81f0e027c3db9c65bc9033ed09de16dfb381f7650",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "coordinator",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "vm::runtime::execution_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 20,
+      "results": [
+        [
+          20,
+          0,
+          0,
+          0,
+          13196
+        ]
+      ],
+      "elapsed_seconds": 372.092199312523,
+      "utc": "2026-11-03T20:30:49.053921+00:00",
+      "log_sha256": "ef2b8124fb6fd0a5672096002f5689ba1200f9524d38e19f0aa0e7e67aaea09a",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "native-smp",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "kvm_smp",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 27,
+      "results": [
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          26
+        ],
+        [
+          27,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "elapsed_seconds": 3.8062388449907303,
+      "utc": "2026-11-03T20:30:53.155506+00:00",
+      "log_sha256": "dbb5e95f7a3d6d72ea295d8b55b64fd8da00013b0070625c00a0870b3cbbc37a",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "native-io",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "kvm_host_slices",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 10,
+      "results": [
+        [
+          10,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "elapsed_seconds": 13.36673388723284,
+      "utc": "2026-11-03T20:31:06.761986+00:00",
+      "log_sha256": "d2bd6612241f0877cdbd3d30d6d3cb40c21e19dd360ad3ccd2453aef7ffbc5a5",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "minimal",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "kvm_minimal",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 14,
+      "results": [
+        [
+          1,
+          0,
+          0,
+          0,
+          13
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          13
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          13
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          13
+        ],
+        [
+          14,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "elapsed_seconds": 0.6943464102223516,
+      "utc": "2026-11-03T20:31:07.707352+00:00",
+      "log_sha256": "b27b299a67b2ce0875ce6724a1f711bf830df3973d57d0882df82a9469464a33",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "mapping",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "hvf_memory",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 18,
+      "results": [
+        [
+          18,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "elapsed_seconds": 0.4867422226816416,
+      "utc": "2026-11-03T20:31:08.431251+00:00",
+      "log_sha256": "585001b8f9002b7f3b03a94dfdd48238f777b91f2450821c6fb36f78ce495e29",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "realmode",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "realmode_boot",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 10,
+      "results": [
+        [
+          10,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "elapsed_seconds": 0.4736852375790477,
+      "utc": "2026-11-03T20:31:09.167604+00:00",
+      "log_sha256": "59373274f4fc4655d6ebf23c9613413382a0191c6679a6f16b49fe44e4dd4ba2",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "workflow",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "ci_actions_pinned",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 12,
+      "results": [
+        [
+          12,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "elapsed_seconds": 0.6167126214131713,
+      "utc": "2026-11-03T20:31:10.037860+00:00",
+      "log_sha256": "185b59e3cf3765e04af39032e022ae06ff0fb067b71c5950305a26ee86de79d6",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "fallback",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "devices::bus::native_fallback_tests::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": 9,
+      "results": [
+        [
+          9,
+          0,
+          0,
+          0,
+          13207
+        ]
+      ],
+      "elapsed_seconds": 0.46866708900779486,
+      "utc": "2026-11-03T20:31:10.760883+00:00",
+      "log_sha256": "3cb67017899726caa87a3b66ccf7e4926aaea8b0fe0d1285428ef7e8620cb226",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "pci-unit",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--lib",
+        "devices::pci::",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "source_unchanged": true,
+      "coverage_verified": true,
+      "expected_pass_count": null,
+      "results": [
+        [
+          17,
+          0,
+          0,
+          0,
+          13199
+        ]
+      ],
+      "elapsed_seconds": 0.47061535250395536,
+      "utc": "2026-11-03T20:31:11.476154+00:00",
+      "log_sha256": "2a0de366c25397ca1f783a59f8a02b18d8ea9a76b0a3138745ebb1b69f028674",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    },
+    {
+      "label": "pci-checkpoint",
+      "argv": [
+        "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,kvm,debug",
+        "--test",
+        "pci_checkpoint",
+        "--",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "source_unchanged": true,
+      "coverage_verified": false,
+      "expected_pass_count": null,
+      "results": [
+        [
+          16,
+          1,
+          0,
+          0,
+          0
+        ]
+      ],
+      "elapsed_seconds": 0.5357186123728752,
+      "utc": "2026-11-03T20:31:12.257678+00:00",
+      "log_sha256": "3ed464112ce0f544581eef12b334daee601f33409b12b629d692ffee137c0b9f",
+      "full_receipt": "/Users/int/dev/rax-audit-work/four-findings-kvm/native-memory-layout-v1/cargo-recovery-v3.json"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "title": "The Linux/x86 Boot Protocol",
+  "organization": "Linux kernel project",
+  "revision": "Linux v6.8",
+  "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/Documentation/arch/x86/boot.rst",
+  "retrieved_utc": "2026-11-03T18:32:56.879391+00:00",
+  "file": "linux-x86-boot-v6.8.rst",
+  "bytes": 51153,
+  "sha256": "69cb3f637e5b8583f2596d529a4ca8e66bc5230369f914f1fa3255b03ecc6d81",
+  "notices": "Original SPDX GPL-2.0 notice and all reference bytes retained unchanged."
+}

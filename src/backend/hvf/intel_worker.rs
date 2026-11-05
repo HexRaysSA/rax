@@ -7,6 +7,7 @@ pub struct HvfVcpu {
     id: u32,
     owner: Owner<HvfCore>,
     lifetime: Arc<Lifetime>,
+    local_apic: Option<Arc<Mutex<crate::devices::lapic::LocalApic>>>,
 }
 
 impl HvfVcpu {
@@ -54,6 +55,7 @@ impl HvfVcpu {
                     id,
                     owner,
                     lifetime,
+                    local_apic: None,
                 })
             }
             Err(error) => {
@@ -134,6 +136,20 @@ impl VCpu for HvfVcpu {
     fn run_host_slice(&mut self, limit: std::time::Duration) -> Result<Option<VcpuExit>> {
         self.request(move |core| core.run_host_slice(limit))
     }
+    fn poll_vm_clock(&mut self) -> Result<()> {
+        let Some(controller) = &self.local_apic else {
+            return Ok(());
+        };
+        // Complete the native request before acquiring the controller lock.
+        // A pending restored clock returns its frozen guest TSC here; polling
+        // cannot start the first-entry epoch or consume publication delay.
+        let now = self.request(|core| core.read_guest_tsc())?;
+        controller
+            .lock()
+            .map_err(|_| Error::Emulator("local APIC deadline lock poisoned".into()))?
+            .poll_tsc_deadline(now);
+        Ok(())
+    }
     fn get_state(&self) -> Result<CpuState> {
         self.request(|core| core.get_state())
     }
@@ -177,18 +193,24 @@ impl VCpu for HvfVcpu {
         // takes controller locks before its native writer; the owner must never
         // wait for the controller while this request retains a native reader.
         let binding = match lapic.lock() {
-            Ok(controller) => Ok(controller.priority_handle()),
+            Ok(controller) => Ok((controller.priority_handle(), controller.deadline_handle())),
             Err(_) => Err("attached local APIC lock poisoned".to_owned()),
         };
-        let _ = self.request(move |core| {
+        let attached = self.request(move |core| {
             match binding {
-                Ok(binding) => core.priority.rebind(binding),
+                Ok((priority, deadline)) => {
+                    core.priority.rebind(priority);
+                    core.deadline = deadline;
+                }
                 Err(error) => {
                     core.priority.poison(error);
                 }
             }
             Ok(())
         });
+        if attached.is_ok() {
+            self.local_apic = Some(lapic);
+        }
     }
     fn is_bootstrap_processor(&self) -> Result<bool> {
         self.request(|core| core.is_bootstrap_processor())

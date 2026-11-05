@@ -1,0 +1,1307 @@
+{
+  "component": "kvm-deferred-overlay-2026-11-04",
+  "utc": "2026-11-04T18:31:54.339519+00:00",
+  "status": "corrected_exclusive_control_passed_managed_and_full_gates_pending",
+  "full_goal_complete": false,
+  "baseline": {
+    "scope": "Exact production state/run/event/XSAVE/I/O modules with an exclusive unregistered FD-owner fixture; synthetic queued exits, actual native GET/SET, and guest canary after delivery. Does not qualify managed exclusion or complete checkpoint records.",
+    "source_sha256": {
+      "control.rs": "260bb583cff97edac2f8bc57d3d307e80e491ddec3896d0b49ec088d9316d998",
+      "backend/intel_xsave.rs": "cd625dc0a8e4e1d31e6c88a412018b25b83bd78452eaf0a10d5056fc5f915df7",
+      "backend/kvm/convert.rs": "6f1fa37e0fa892b6ee6391416610b5898eb7f2cf4dda02d7cddfbf2b55ce7b07",
+      "backend/kvm/special.rs": "b30b0faba2cdbc7d05e0beea3be932add7d52fc826383313521655477bdfbcf7",
+      "backend/kvm/xsave.rs": "61c890c8a2058b9c82d59d3d757e67ee04e473d18788cfe56011b7e9b9b108e1",
+      "backend/kvm/io.rs": "2c62c46a0941aaea84d71d3299fd59e7b547e4a6f53160e02cc3ce4cfad7dee7",
+      "backend/kvm/state.rs": "ce9e9504b566bc564cf48b01c15893ae1b523bc51de9994a343822645d242c2a",
+      "backend/kvm/run.rs": "d26242338ab491f7957649fd65588f732e35baa8eb801837924acb465dace816",
+      "backend/kvm/events.rs": "487f6b021aa91d6fcaa0e126f1d4f3a45f781f0d4bc2e785c02d22af14caa4ce"
+    },
+    "commands": [
+      {
+        "label": "build",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+          "--edition=2024",
+          "-C",
+          "target-cpu=x86-64-v3",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-baseline-v1/source/control.rs",
+          "-L",
+          "dependency=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps",
+          "-o",
+          "/tmp/rax-deferred-overlay-axyoq3zc/control",
+          "--extern",
+          "rax=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/librax-a99e5668075068ad.rlib",
+          "--extern",
+          "serde=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libserde-359c8e9854bf8e9d.rlib",
+          "--extern",
+          "libc=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/liblibc-5d3b72bec2db9c12.rlib",
+          "--extern",
+          "kvm_bindings=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libkvm_bindings-5fac687263fd9afc.rlib",
+          "--extern",
+          "kvm_ioctls=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libkvm_ioctls-66394a511cfc4030.rlib"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "warning: unnecessary `unsafe` block\n  --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-baseline-v1/source/backend/kvm/xsave.rs:22:5\n   |\n22 |     unsafe { std::arch::x86_64::__cpuid_count(leaf, subleaf) }\n   |     ^^^^^^ unnecessary `unsafe` block\n   |\n   = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default\n\nwarning: method `overlay_emulator` is never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-baseline-v1/source/backend/intel_xsave.rs:378:12\n    |\n 37 | impl Layout {\n    | ----------- method in this implementation\n...\n378 |     pub fn overlay_emulator(&self, image: &[u8], emulator: &EmulatorState) -> Result<Vec<u8>> {\n    |            ^^^^^^^^^^^^^^^^\n    |\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: methods `refresh_halted_interrupt_readiness`, `native_can_inject_interrupt`, `native_inject_interrupt`, and `native_inject_nmi` are never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-baseline-v1/source/backend/kvm/events.rs:9:8\n    |\n  8 | impl NativeCore {\n    | --------------- methods in this implementation\n  9 |     fn refresh_halted_interrupt_readiness(&mut self) -> Result<()> {\n    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n 51 |     pub(super) fn native_can_inject_interrupt(&mut self) -> Result<bool> {\n    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n 78 |     pub(super) fn native_inject_interrupt(&mut self, vector: u8) -> Result<bool> {\n    |                   ^^^^^^^^^^^^^^^^^^^^^^^\n...\n108 |     pub(super) fn native_inject_nmi(&mut self) -> Result<bool> {\n    |                   ^^^^^^^^^^^^^^^^^\n\nwarning: methods `fail`, `complete_input`, and `acknowledge_output` are never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-baseline-v1/source/backend/kvm/io.rs:118:8\n    |\n105 | impl State {\n    | ---------- methods in this implementation\n...\n118 |     fn fail(&mut self, error: String) {\n    |        ^^^^\n...\n184 |     pub(super) fn complete_input(&mut self, bytes: &[u8]) {\n    |                   ^^^^^^^^^^^^^^\n...\n219 |     pub(super) fn acknowledge_output(&mut self) -> Result<(), String> {\n    |                   ^^^^^^^^^^^^^^^^^^\n\nwarning: methods `complete_native_input`, `acknowledge_native_output`, and `native_completion_status` are never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-baseline-v1/source/backend/kvm/run.rs:222:19\n    |\n 59 | impl NativeCore {\n    | --------------- methods in this implementation\n...\n222 |     pub(super) fn complete_native_input(&mut self, bytes: &[u8]) {\n    |                   ^^^^^^^^^^^^^^^^^^^^^\n...\n226 |     pub(super) fn acknowledge_native_output(&mut self) -> Result<()> {\n    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n230 |     pub(super) fn native_completion_status(&self) -> Result<()> {\n    |                   ^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: 5 warnings emitted\n\n"
+      },
+      {
+        "label": "baseline",
+        "exit_code": 1,
+        "stdout": "{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"Hlt\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"Shutdown\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"InternalError\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":false}\n",
+        "stderr": "DEFERRED_OVERLAY observations=84 lost=84\n"
+      }
+    ],
+    "executable_sha256": "abe686d2e81ecd5fb9a67ed7d46f8bc6096ed6b604a5db33bdfe51984f50d065",
+    "result": "84_deferred_exits_lost_by_public_overlays",
+    "observations": [
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "Hlt",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "Shutdown",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "InternalError",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": false
+      }
+    ],
+    "owned_build_artifacts_removed": true
+  },
+  "corrected": {
+    "scope": "Exact production state/run/event/XSAVE/I/O modules with an exclusive unregistered FD-owner fixture; synthetic queued exits, actual native GET/SET, and guest canary after delivery. Does not qualify managed exclusion or complete checkpoint records.",
+    "source_sha256": {
+      "control.rs": "260bb583cff97edac2f8bc57d3d307e80e491ddec3896d0b49ec088d9316d998",
+      "backend/intel_xsave.rs": "cd625dc0a8e4e1d31e6c88a412018b25b83bd78452eaf0a10d5056fc5f915df7",
+      "backend/kvm/convert.rs": "6f1fa37e0fa892b6ee6391416610b5898eb7f2cf4dda02d7cddfbf2b55ce7b07",
+      "backend/kvm/special.rs": "b30b0faba2cdbc7d05e0beea3be932add7d52fc826383313521655477bdfbcf7",
+      "backend/kvm/xsave.rs": "61c890c8a2058b9c82d59d3d757e67ee04e473d18788cfe56011b7e9b9b108e1",
+      "backend/kvm/io.rs": "2c62c46a0941aaea84d71d3299fd59e7b547e4a6f53160e02cc3ce4cfad7dee7",
+      "backend/kvm/state.rs": "c31ae20688f8b3ab766e5012c3f7749fed2d6ff0db3982b7795d938935a9aaf3",
+      "backend/kvm/run.rs": "d26242338ab491f7957649fd65588f732e35baa8eb801837924acb465dace816",
+      "backend/kvm/events.rs": "487f6b021aa91d6fcaa0e126f1d4f3a45f781f0d4bc2e785c02d22af14caa4ce"
+    },
+    "commands": [
+      {
+        "label": "build",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+          "--edition=2024",
+          "-C",
+          "target-cpu=x86-64-v3",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-corrected-v1/source/control.rs",
+          "-L",
+          "dependency=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps",
+          "-o",
+          "/tmp/rax-deferred-overlay-ugm_e7e8/control",
+          "--extern",
+          "rax=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/librax-a99e5668075068ad.rlib",
+          "--extern",
+          "serde=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libserde-359c8e9854bf8e9d.rlib",
+          "--extern",
+          "libc=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/liblibc-5d3b72bec2db9c12.rlib",
+          "--extern",
+          "kvm_bindings=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libkvm_bindings-5fac687263fd9afc.rlib",
+          "--extern",
+          "kvm_ioctls=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libkvm_ioctls-66394a511cfc4030.rlib"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "warning: unnecessary `unsafe` block\n  --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-corrected-v1/source/backend/kvm/xsave.rs:22:5\n   |\n22 |     unsafe { std::arch::x86_64::__cpuid_count(leaf, subleaf) }\n   |     ^^^^^^ unnecessary `unsafe` block\n   |\n   = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default\n\nwarning: method `overlay_emulator` is never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-corrected-v1/source/backend/intel_xsave.rs:378:12\n    |\n 37 | impl Layout {\n    | ----------- method in this implementation\n...\n378 |     pub fn overlay_emulator(&self, image: &[u8], emulator: &EmulatorState) -> Result<Vec<u8>> {\n    |            ^^^^^^^^^^^^^^^^\n    |\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: methods `refresh_halted_interrupt_readiness`, `native_can_inject_interrupt`, `native_inject_interrupt`, and `native_inject_nmi` are never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-corrected-v1/source/backend/kvm/events.rs:9:8\n    |\n  8 | impl NativeCore {\n    | --------------- methods in this implementation\n  9 |     fn refresh_halted_interrupt_readiness(&mut self) -> Result<()> {\n    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n 51 |     pub(super) fn native_can_inject_interrupt(&mut self) -> Result<bool> {\n    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n 78 |     pub(super) fn native_inject_interrupt(&mut self, vector: u8) -> Result<bool> {\n    |                   ^^^^^^^^^^^^^^^^^^^^^^^\n...\n108 |     pub(super) fn native_inject_nmi(&mut self) -> Result<bool> {\n    |                   ^^^^^^^^^^^^^^^^^\n\nwarning: methods `fail`, `complete_input`, and `acknowledge_output` are never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-corrected-v1/source/backend/kvm/io.rs:118:8\n    |\n105 | impl State {\n    | ---------- methods in this implementation\n...\n118 |     fn fail(&mut self, error: String) {\n    |        ^^^^\n...\n184 |     pub(super) fn complete_input(&mut self, bytes: &[u8]) {\n    |                   ^^^^^^^^^^^^^^\n...\n219 |     pub(super) fn acknowledge_output(&mut self) -> Result<(), String> {\n    |                   ^^^^^^^^^^^^^^^^^^\n\nwarning: methods `complete_native_input`, `acknowledge_native_output`, and `native_completion_status` are never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/deferred-overlay-corrected-v1/source/backend/kvm/run.rs:222:19\n    |\n 59 | impl NativeCore {\n    | --------------- methods in this implementation\n...\n222 |     pub(super) fn complete_native_input(&mut self, bytes: &[u8]) {\n    |                   ^^^^^^^^^^^^^^^^^^^^^\n...\n226 |     pub(super) fn acknowledge_native_output(&mut self) -> Result<()> {\n    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n230 |     pub(super) fn native_completion_status(&self) -> Result<()> {\n    |                   ^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: 5 warnings emitted\n\n"
+      },
+      {
+        "label": "corrected",
+        "exit_code": 0,
+        "stdout": "{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":1,\"irqchip\":false,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":false,\"id\":1,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":1,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":2,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":false,\"id\":3,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":1,\"irqchip\":true,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":2,\"irqchip\":true,\"id\":1,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"Hlt\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"Shutdown\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"SystemEvent { type_: 7, flags: 4660 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"FailEntry { reason: 39030 }\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"InternalError\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":0,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":1,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":2,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n{\"cpus\":4,\"irqchip\":true,\"id\":3,\"case\":\"Unknown(\\\"retained completion exit\\\")\",\"preserved\":true}\n",
+        "stderr": "DEFERRED_OVERLAY observations=84 lost=0\n"
+      }
+    ],
+    "executable_sha256": "07d80053f89b3121e41685c1404ba23fd33de288308a482978e8eb4bf5b988a3",
+    "result": "84_deferred_exits_preserved_with_delivery_and_canary_controls",
+    "observations": [
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 1,
+        "irqchip": false,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": false,
+        "id": 1,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 1,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 2,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": false,
+        "id": 3,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 1,
+        "irqchip": true,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 2,
+        "irqchip": true,
+        "id": 1,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "Hlt",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "Shutdown",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "SystemEvent { type_: 7, flags: 4660 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "FailEntry { reason: 39030 }",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "InternalError",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 0,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 1,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 2,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      },
+      {
+        "cpus": 4,
+        "irqchip": true,
+        "id": 3,
+        "case": "Unknown(\"retained completion exit\")",
+        "preserved": true
+      }
+    ],
+    "owned_build_artifacts_removed": true
+  },
+  "assumptions": [
+    {
+      "id": "DE1",
+      "assumption": "Changing represented register banks is not acknowledgment of an unrelated deferred exit.",
+      "basis": "Existing native HLT/I/O preservation and run_native deferred-delivery behavior.",
+      "dependent_result": "Remove deferred-exit loss from public overlays.",
+      "stress_test": "Six native direct-exit kinds; userspace and kernel IRQ-chip graphs;1/2/4 CPUs; actual register modification and repeated delivery.",
+      "falsification_probe": "A deferred event vanishes, changes, or permits guest execution before delivery.",
+      "status": "exclusive native control confirmed; managed and broad gates pending"
+    }
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "This does not serialize deferred exits or close native kernel controller/timer checkpoints. Complete producer remains required."
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "title": "Linux v6.8 virt/kvm/irqchip.c",
+  "organization": "Linux kernel contributors",
+  "revision": "v6.8",
+  "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/virt/kvm/irqchip.c",
+  "retrieved_utc": "2026-11-04T05:39:53.193435+00:00",
+  "sha256": "2c9b22d33f02399d0a1503236b39d96a83e8c6dbe659a706f6ce10424042c64e",
+  "license": "Preserved verbatim with upstream notices"
+}

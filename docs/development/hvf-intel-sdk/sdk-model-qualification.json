@@ -1,0 +1,767 @@
+{
+  "utc": "2026-11-05T03:04:55.620953+00:00",
+  "exit_code": 0,
+  "complete_owning_binaries": [
+    {
+      "label": "intel-hvf_intel_owner",
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 639.2154294999782,
+      "results": [
+        [
+          56,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_controls-bbb7936039babd3d",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          10,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "seconds": 0.1670131670543924,
+      "owning_cargo_binary": true,
+      "complete_binary": true
+    },
+    {
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_mmio-5080209b08b8abb9",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "label": "fast-intel-hvf_mmio",
+      "exit_code": 0,
+      "seconds": 0.6646599170053378,
+      "results": [
+        [
+          55,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_memory-f2a87ae8afda091d",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "label": "fast-intel-hvf_memory",
+      "exit_code": 0,
+      "seconds": 0.5264004170894623,
+      "results": [
+        [
+          18,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_run_loop-8e735f8caced78cd",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "label": "fast-intel-hvf_run_loop",
+      "exit_code": 0,
+      "seconds": 2.2011520420201123,
+      "results": [
+        [
+          14,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_native_debug-337cb9d8c798f3ef",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "label": "fast-intel-hvf_native_debug",
+      "exit_code": 0,
+      "seconds": 0.1667137499898672,
+      "results": [
+        [
+          18,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_owner-94d1c5cd54649d71",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "label": "fast-intel-hvf_owner",
+      "exit_code": 0,
+      "seconds": 0.18054558394942433,
+      "results": [
+        [
+          14,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/ci_actions_pinned-bcf1b84c54789f1e",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "label": "fast-intel-ci_actions_pinned",
+      "exit_code": 0,
+      "seconds": 0.18819966702722013,
+      "results": [
+        [
+          15,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "passed": 200,
+  "failed": 0,
+  "ignored": 0,
+  "filtered": 0,
+  "qualified_inputs_sha256": "1eaabbca2b33c15b828f635924caf909decf8a4efeac83e32516da209a69436d",
+  "source_unchanged": true,
+  "physical_intel_guest_execution": false,
+  "initial_controller_failure": {
+    "path": "intel-result.json",
+    "reason": "Harness expected 53 tests from stale count; actual complete target passed 56 with exit 0. The original failed harness receipt is retained; no product test failed and no target was rerun to hide a failure."
+  },
+  "portable_library_codec_gate": "passed in the later frozen Apple Silicon root; see later_qualification",
+  "full_goal_complete": false,
+  "scope": "Complete Intel Cargo integration binaries, executed through Rosetta with SDK symbols supplied by their executables. Native guest consumer cross-compiled and signed; no physical Intel guest execution in this qualification.",
+  "native_consumer": {
+    "source_sha256": "f67f8dfcddb3295a3e140d121884f22a3c2c25647c33ec23a3c4826726dac81c",
+    "executable_sha256": "6266dd4fcb03562d46c44c6b5f853a42c4594920ab65cabf326cadd1d1a88b4b",
+    "compile_link_and_signature_verified": true,
+    "cases_registered": 122,
+    "cases_executed": 0
+  },
+  "later_qualification": {
+    "recorded_utc": "2026-11-05T06:27:47.347479+00:00",
+    "reserved_msr_eight_complete_binaries": {
+      "exit_code": 0,
+      "commands": [
+        {
+          "label": "fmt",
+          "argv": [
+            "cargo",
+            "+stable",
+            "fmt",
+            "--all",
+            "--check"
+          ],
+          "exit_code": 0,
+          "seconds": 15.719058332964778
+        },
+        {
+          "label": "intel-build",
+          "argv": [
+            "cargo",
+            "+stable",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "hvf,debug,x86_64-suite,smir-jit",
+            "--target",
+            "x86_64-apple-darwin",
+            "--test",
+            "hvf_intel_owner",
+            "--test",
+            "hvf_controls",
+            "--test",
+            "hvf_mmio",
+            "--test",
+            "hvf_memory",
+            "--test",
+            "hvf_run_loop",
+            "--test",
+            "hvf_native_debug",
+            "--test",
+            "hvf_owner",
+            "--test",
+            "ci_actions_pinned",
+            "--no-run",
+            "--message-format=json"
+          ],
+          "exit_code": 0,
+          "seconds": 236.8721158329863
+        },
+        {
+          "label": "intel-clippy",
+          "argv": [
+            "cargo",
+            "+stable",
+            "clippy",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "hvf,debug,x86_64-suite,smir-jit",
+            "--target",
+            "x86_64-apple-darwin",
+            "--lib",
+            "--test",
+            "hvf_intel_owner"
+          ],
+          "exit_code": 0,
+          "seconds": 47.50850312493276
+        },
+        {
+          "label": "intel-hvf_intel_owner",
+          "argv": [
+            "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "seconds": 599.9099151249975,
+          "results": [
+            [
+              58,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "label": "intel-hvf_controls",
+          "argv": [
+            "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_controls-bbb7936039babd3d",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "seconds": 0.167086916975677,
+          "results": [
+            [
+              10,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "label": "intel-hvf_mmio",
+          "argv": [
+            "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_mmio-5080209b08b8abb9",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "seconds": 0.5837564999237657,
+          "results": [
+            [
+              55,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "label": "intel-hvf_memory",
+          "argv": [
+            "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_memory-f2a87ae8afda091d",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "seconds": 0.17425000004004687,
+          "results": [
+            [
+              18,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "label": "intel-hvf_run_loop",
+          "argv": [
+            "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_run_loop-8e735f8caced78cd",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "seconds": 0.17937874991912395,
+          "results": [
+            [
+              14,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "label": "intel-hvf_native_debug",
+          "argv": [
+            "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_native_debug-337cb9d8c798f3ef",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "seconds": 0.1540026250295341,
+          "results": [
+            [
+              18,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "label": "intel-hvf_owner",
+          "argv": [
+            "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_owner-94d1c5cd54649d71",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "seconds": 0.17226525000296533,
+          "results": [
+            [
+              14,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "label": "intel-ci_actions_pinned",
+          "argv": [
+            "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/ci_actions_pinned-bcf1b84c54789f1e",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "seconds": 0.19037299999035895,
+          "results": [
+            [
+              15,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        }
+      ],
+      "qualified_inputs_sha256": "8cb7d86bdf981adb9979666adfd88ed4a3464fae73f1a8d9a866971ffbac584a",
+      "source_unchanged": true,
+      "complete_owning_binaries": 8,
+      "physical_intel_guest_execution": false,
+      "full_goal_complete": false
+    },
+    "latest_complete_sdk_owner": {
+      "label": "complete",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 546.7850596904755,
+      "results": [
+        [
+          60,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "source_unchanged": true,
+      "engine_source_digest": "718daf671d83e634c060be6c4dbaedaeeadef8f999533e0ba134b76fd9356143",
+      "qualification": "../hvf-intel-frontier/ram-entry-qualification.json"
+    },
+    "source_closure": {
+      "target_source_digest": "81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708",
+      "paths": 108,
+      "comparisons": {
+        "linux_full_root": {
+          "source_digest": "f3248cac569b33836b6b909e5fff90b81266d5d8163a71a7b6eadcce7d8f12da",
+          "matching_files": 101,
+          "mismatches": [
+            {
+              "path": "src/backend/hvf/intel_checkpoint.rs",
+              "recorded": "c0e0635cbda251e521d99e4bfa8db1b6d89e43265584497532c601fd37d97d90",
+              "current": "c41b88099ebed6254f4841be44e4b70eda13ce4476198e934d21b5654dfc592f"
+            },
+            {
+              "path": "src/backend/hvf/intel_context_format.rs",
+              "recorded": "4d011693e42ddcd3a31697e07a27702a5d67ae08e61b80ae29cf2cb7609063d6",
+              "current": "0da0de67cf145e1df75cd73248a4b38514b976346fbbfd68731b78b53b83089c"
+            },
+            {
+              "path": "src/backend/hvf/intel_context_tests.rs",
+              "recorded": "e80a00f6357721ccf24c7e865937e930e9a64e93712f78781535cbb8b308f1df",
+              "current": "4f593fc722e81c078cfb0db94b37c566ff8d9de7e98568355b1660c72aab203e"
+            },
+            {
+              "path": "src/backend/hvf/mod.rs",
+              "recorded": "0e40779a98a8291fc2c8ca831018e80f625065a88365ad7baee4cb9edacada63",
+              "current": "b1fb13b1a71250f4a3fc6caf5339346d2436ada2dd6814d05dcc6e46651048af"
+            },
+            {
+              "path": "src/vm/snapshot/bundle.rs",
+              "recorded": "c9218d115f634ab6eb0b46db09143fab6287b882b50533c31dff46a2501173a1",
+              "current": "16f614b3eb9d979a7abe0ea5d427073d0bc16e661901b780d5b1781e1cf6eebb"
+            },
+            {
+              "path": "tools/hvf/intel_mmio_native_guest.rs",
+              "recorded": null,
+              "current": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec"
+            },
+            {
+              "path": "tools/hvf/intel_mmio_native_probe.py",
+              "recorded": null,
+              "current": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc"
+            }
+          ]
+        },
+        "apple_full_root": {
+          "source_digest": "1eaabbca2b33c15b828f635924caf909decf8a4efeac83e32516da209a69436d",
+          "matching_files": 105,
+          "mismatches": [
+            {
+              "path": "src/backend/hvf/mod.rs",
+              "recorded": "bd062e21a727446f6c36093ffedfa6459d41cb54e0e1bf32f39988da2294240f",
+              "current": "b1fb13b1a71250f4a3fc6caf5339346d2436ada2dd6814d05dcc6e46651048af"
+            },
+            {
+              "path": "tools/hvf/intel_mmio_native_guest.rs",
+              "recorded": "f67f8dfcddb3295a3e140d121884f22a3c2c25647c33ec23a3c4826726dac81c",
+              "current": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec"
+            },
+            {
+              "path": "tools/hvf/intel_mmio_native_probe.py",
+              "recorded": "5191ca78dbd4ae8d852f69759c021c0ea41c984bcafec3a7c4095303619ea61e",
+              "current": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc"
+            }
+          ]
+        },
+        "intel_sdk_owner": {
+          "source_digest": "e3d042950fbd740c1490078cf7180504644e46c77051f068a054f15e5d5793f5",
+          "matching_files": 106,
+          "mismatches": [
+            {
+              "path": "tools/hvf/intel_mmio_native_guest.rs",
+              "recorded": null,
+              "current": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec"
+            },
+            {
+              "path": "tools/hvf/intel_mmio_native_probe.py",
+              "recorded": null,
+              "current": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc"
+            }
+          ],
+          "complete_target": {
+            "label": "complete-owner",
+            "argv": [
+              "/tmp/rax-intel-attach-order-hvt9ynjt/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "exit_code": 0,
+            "seconds": 637.55594858306,
+            "results": [
+              [
+                59,
+                0,
+                0,
+                0,
+                0
+              ]
+            ]
+          },
+          "runtime_claim": "SDK model only; no native guest executes"
+        }
+      },
+      "cross_build": {
+        "source": "cross-export-after-upstream-v1",
+        "target_source_digest": "81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708",
+        "scope": "Both consumer files match the signed 130-case cross-build; temporary builds and exported executables removed after inspection."
+      }
+    },
+    "portable_library_codec_gate": {
+      "state": "passed in the frozen Apple Silicon complete root",
+      "evidence": "../native-host-test-assumptions/qualification.json",
+      "scope": "Identical current portable context-format source is present in the recorded Apple Silicon root; Linux snapshot predates the PAT codec correction."
+    },
+    "hosted_native_prepare": {
+      "run_id": 41992554080,
+      "head": "02f279376496c0c6a50f08f5572f5200bf09d3cd",
+      "engine_source_digest": "718daf671d83e634c060be6c4dbaedaeeadef8f999533e0ba134b76fd9356143",
+      "executable_sha256": "b04216e291d9db80e8ff396e9b4567d9bc5041f8d9b95f7ea38ffff2c675d6d9",
+      "expected_cases": 130,
+      "hosted_prepare_success": true,
+      "hosted_owned_build_removed": true,
+      "local_artifact_verification": {
+        "run_id": 41992554080,
+        "artifact_id": 13399156665,
+        "zip_sha256": "6b7fb712de89113fa3684620e25fa1931e5f098c049a7182540eb40482dde778",
+        "zip_digest_verified": true,
+        "success": true,
+        "executable_sha256": "b04216e291d9db80e8ff396e9b4567d9bc5041f8d9b95f7ea38ffff2c675d6d9",
+        "prepared": {
+          "version": 1,
+          "executable": "native-guest",
+          "expected_cases": 130,
+          "support_sha256": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
+          "executable_sha256": "b04216e291d9db80e8ff396e9b4567d9bc5041f8d9b95f7ea38ffff2c675d6d9",
+          "engine_source_digest": "718daf671d83e634c060be6c4dbaedaeeadef8f999533e0ba134b76fd9356143",
+          "consumer_sha256": "e8bd9dbfc8b6f1dbd45db4da462ab4026c6dafdb7cb04979226e408f92bc5c9b",
+          "script_sha256": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc",
+          "libraries": {
+            "vm_memory": {
+              "sha256": "de8aaf7aaeca8f4a583b5342dfc3bfee1bbbc56f7acbe1425bd5f5dd4d880576",
+              "bytes": 996312
+            },
+            "rax": {
+              "sha256": "cd5398dc8a36fef31f984ddaf1a024724cbd63d82b4c3c1dbd2cd54c79144a06",
+              "bytes": 272922040
+            }
+          },
+          "build_environment": {
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0",
+            "CARGO_PROFILE_DEV_DEBUG": "0",
+            "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+            "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+            "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true"
+          }
+        },
+        "signature_exit_code": 0,
+        "signature_stderr": "",
+        "owned_binary_directory_removed": true
+      },
+      "native_guest_execution_qualified": false
+    },
+    "native_guest_execution": "Historical run 41983036300 observes failed entry 0x80000021; corrected current run 41992554080 prepared its signed 130-case consumer and awaits execution. Native IRQ and full-audit completion remain unproven.",
+    "full_goal_complete": false,
+    "historical_complete_sdk_owner": {
+      "label": "complete-owner",
+      "argv": [
+        "/tmp/rax-intel-attach-order-hvt9ynjt/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 637.55594858306,
+      "results": [
+        [
+          59,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "historical_hosted_native_prepare": {
+      "prepared_admitted_locally": true,
+      "executable_signature_verified": true,
+      "engine_source_digest": "d2296634d84c32d952ca90ae1e678c20659f75dc47af559f241e64e5f31cbd4b",
+      "expected_cases": 130,
+      "executable_sha256": "406fb4b6f05084c3c8588fdab5f589275761608ac0ea3286ecf7eb7307f4a3b8",
+      "hosted_prepare_success": true,
+      "hosted_owned_build_removed": true,
+      "native_guest_execution_qualified": false,
+      "library_seconds": 481.83085840199993,
+      "recorded_rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: x86_64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+      "recorded_sdk": "15.5\n",
+      "retained_files_sha256": {
+        "rustc.stdout": "bf1658636877f9403ad0a32419fc3b0da3d3164f3585a184108063f8499d7434",
+        "verify-signature.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "result.json": "882b0bb29b7b6e74c97aef786e00e25a7dda1543d5824af02963740e978867b7",
+        "library.stdout": "7b6669b1bf132d8cf922fb9900bead272b7b6477d335c6dcb87c0016a1ade833",
+        "sdk.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "prepared.json": "920a205560a2bc118d5f5f73ed00b7b99091667f984fc79a3221c08e81c71214",
+        "kernel.stdout": "1cb488148919e50ad9f9ec214d22a787aed08e2201970f5fd7beefbfd9e412cc",
+        "library.stderr": "9496093cd644fbb4a0a43b8df9ed2cb8843d4e0b37bbc9faaab6de05ef4bd0c5",
+        "engine-source.json": "ee4e9ea0d3b465cd2de16c7a64f7fd4c522a5e19e61f71bfe69af6a4dbc13a63",
+        "kernel.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sdk.stdout": "521fbd942d19d4f08ee3ac22fe5e1fee54d05fb48db0d8d179461b8195d210eb",
+        "verify-signature.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "rustc.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "os.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sign.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "consumer-build.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commit.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "native-guest": "406fb4b6f05084c3c8588fdab5f589275761608ac0ea3286ecf7eb7307f4a3b8",
+        "commit.stdout": "5528162e3314240fc21c5ff300c63ea39c808e602851778ad8f0cbd3c34e4725",
+        "consumer-build.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sign.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "os.stdout": "31fd674ddb951680692d7b68cafdeab5baa6b3e82aae843269dad73b53f25fc5"
+      }
+    }
+  },
+  "historical_portable_library_codec_gate": "pending in arm-root-library",
+  "latest_frozen_apple_library": {
+    "state": "completed",
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--target",
+      "aarch64-apple-darwin",
+      "--lib",
+      "--no-run",
+      "--message-format=json"
+    ],
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th",
+    "wrapper_pid": 40774,
+    "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+    "compile_pid": 40815,
+    "compile_exit_code": 0,
+    "compile_seconds": 132.1211951659061,
+    "compile_source_unchanged": true,
+    "executable": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/aarch64-apple-darwin/debug/deps/rax-d3a0c2b6ab47e3e6",
+    "executable_sha256": "62ad17a95a2249482c4f7e5c45de5748d96917d430619fdc71b13650a1790654",
+    "test_pid": 64100,
+    "run_command": [
+      "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/aarch64-apple-darwin/debug/deps/rax-d3a0c2b6ab47e3e6",
+      "--nocapture",
+      "--test-threads=4"
+    ],
+    "exit_code": 0,
+    "test_seconds": 3192.9056761249667,
+    "source_changed_since_frozen_compile": true,
+    "success": true,
+    "owned_build_retained": "Shared with current SDK-owner qualification; remove only after every active owner is terminal.",
+    "counts": {
+      "passed": 12440,
+      "failed": 0,
+      "ignored": 36,
+      "filtered": 0
+    },
+    "later_source_delta": [
+      "src/backend/hvf/intel_init.rs",
+      "src/backend/hvf/intel_worker.rs",
+      "src/backend/hvf/mod.rs"
+    ],
+    "scope_note": "Frozen source816828...; later INIT changes are confined to the Intel-only adapter."
+  },
+  "latest_companion_binaries": {
+    "result": {
+      "state": "completed",
+      "wrapper_pid": 65129,
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_memory",
+        "--test",
+        "hvf_owner",
+        "--test",
+        "hvf_controls",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th",
+      "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+      "child_pid": 65132,
+      "exit_code": 0,
+      "seconds": 7.209674624959007,
+      "source_unchanged": true
+    },
+    "counts": {
+      "hvf_controls": 11,
+      "hvf_memory": 18,
+      "hvf_mmio": 55,
+      "hvf_owner": 14
+    },
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "latest_native_146": {
+    "run_id": 42010491792,
+    "passed": 146,
+    "failed": 0,
+    "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+    "scope": "RAM/MMIO/PAT/reserved-MSR/deadline/TSC controls. Startup control is separate."
+  },
+  "native_startup_149": "Run42014912978 in progress; no terminal outcome claimed."
+}

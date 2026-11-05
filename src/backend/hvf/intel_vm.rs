@@ -10,7 +10,7 @@ use std::sync::{Mutex, RwLock};
 pub(super) struct Lifetime {
     pub(super) quiescence: RwLock<()>,
     pub(super) memory_layout: native_memory::Shared,
-    pub(super) pending_irqs: Mutex<Vec<u32>>,
+    pub(super) software_ioapic: crate::backend::software_irq::SoftwareIoApic,
     pub(super) cpus: Mutex<BTreeSet<u32>>,
     pub(super) configured: Mutex<Option<(u8, u64)>>,
     pub(super) capture_clock: AtomicU64,

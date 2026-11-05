@@ -15,6 +15,13 @@ mod devices {
 mod vm {
     pub use rax::vm::memory;
 }
+#[path = "../../../src/machine/pc/ram.rs"]
+pub(crate) mod pc_ram;
+mod machine {
+    pub(crate) mod pc {
+        pub(crate) use crate::pc_ram as ram;
+    }
+}
 #[path = "hvf_memory/native_adapter.rs"]
 mod native_adapter;
 
@@ -27,11 +34,20 @@ fn reported_ram_excludes_padding_and_fixed_device_pages_even_above_four_gib() {
     for size in [0, 4096, 128 << 20, 4 << 30, 8 << 30, 64 << 30] {
         let layout =
             Layout::new(size, &[span(0xfec0_0000, 0x20), span(0xfee0_0000, 0x1000)]).unwrap();
-        assert!(!layout.contains_mapped(size, 1));
+        let end = if size > 3 << 30 {
+            size + (1 << 30)
+        } else {
+            size
+        };
+        assert!(!layout.contains_mapped(end, 1));
+        assert_eq!(
+            layout.mapped.iter().map(|span| span.len()).sum::<u64>(),
+            size
+        );
         assert!(!layout.contains_logical(size + (4 << 30) - 1, 1));
         assert!(!layout.contains_mapped(0xfec0_0000, 4));
         assert!(!layout.contains_logical(0xfee0_0000, 4));
-        if size > 4 << 30 {
+        if size > 3 << 30 {
             assert!(layout.contains_mapped(4 << 30, 4096));
         }
     }
@@ -216,4 +232,21 @@ fn every_small_layout_transition_matches_independent_page_and_byte_membership() 
             }
         }
     }
+}
+
+#[test]
+fn high_ram_keeps_subpage_device_exclusions_and_holes_outside_ram_do_not_remove_backing() {
+    let layout = Layout::new(
+        (3 << 30) + 0x5000,
+        &[span((4 << 30) + 0x2010, 0x20), span(0xc100_0000, 0x1000)],
+    )
+    .unwrap();
+    assert!(layout.contains_logical(4 << 30, 0x2000));
+    assert!(layout.contains_logical((4 << 30) + 0x2000, 0x10));
+    assert!(!layout.contains_logical((4 << 30) + 0x2010, 1));
+    assert!(layout.contains_logical((4 << 30) + 0x2030, 0xfd0));
+    assert!(!layout.contains_mapped((4 << 30) + 0x2000, 1));
+    assert!(layout.contains_mapped((4 << 30) + 0x3000, 0x2000));
+    assert!(!layout.contains_logical(3 << 30, 1));
+    assert!(!layout.contains_logical((4 << 30) + 0x5000, 1));
 }

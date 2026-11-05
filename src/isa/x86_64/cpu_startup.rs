@@ -28,7 +28,9 @@ impl X86_64Vcpu {
             ..Default::default()
         };
         let mut sregs = self.sregs.clone();
-        sregs.cr0 = 0x6000_0010;
+        // Intel SDM Table11-1 note2: INIT retains CD/NW, sets ET, and
+        // clears the remaining CR0 bits. RESET separately sets both CD/NW.
+        sregs.cr0 = (sregs.cr0 & 0x6000_0000) | 0x10;
         sregs.cr2 = 0;
         sregs.cr3 = 0;
         sregs.cr4 = 0;
@@ -92,6 +94,25 @@ impl X86_64Vcpu {
 mod tests {
     use super::*;
     use vm_memory::{GuestAddress, GuestMemoryMmap};
+
+    #[test]
+    fn init_preserves_legal_cache_control_modes_and_reset_sets_both_flags() {
+        for cache in [0, 0x4000_0000, 0x6000_0000] {
+            let memory =
+                Arc::new(GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 65536)]).unwrap());
+            let mut cpu = X86_64Vcpu::new(1, memory);
+            assert_eq!(cpu.sregs.cr0, 0x6000_0010);
+            cpu.sregs.cr0 = cache | 0x0005_003f;
+            cpu.regs.rip = 0x1234;
+            cpu.regs.rax = 0xa5;
+            cpu.deliver_init().unwrap();
+            assert_eq!(cpu.sregs.cr0, cache | 0x10, "initial cache bits={cache:#x}");
+            assert_eq!(cpu.regs.rip, 0xfff0);
+            assert_eq!(cpu.regs.rax, 0);
+            cpu.reset().unwrap();
+            assert_eq!(cpu.sregs.cr0, 0x6000_0010);
+        }
+    }
 
     #[test]
     fn init_resets_control_flow_and_preserves_vector_fp_msr_and_retirement_state() {

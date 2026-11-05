@@ -7,7 +7,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub(crate) enum ClockEpoch {
     Wall(Instant),
-    Retired {
+    Owned {
         owner: Arc<TimingContext>,
         nanos: u64,
     },
@@ -16,7 +16,7 @@ impl PartialEq for ClockEpoch {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Wall(a), Self::Wall(b)) => a == b,
-            (Self::Retired { owner: a, nanos: x }, Self::Retired { owner: b, nanos: y }) => {
+            (Self::Owned { owner: a, nanos: x }, Self::Owned { owner: b, nanos: y }) => {
                 Arc::ptr_eq(a, b) && x == y
             }
             _ => false,
@@ -29,7 +29,7 @@ impl std::fmt::Debug for ClockEpoch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Wall(now) => f.debug_tuple("Wall").field(now).finish(),
-            Self::Retired { nanos, .. } => f.debug_struct("Retired").field("nanos", nanos).finish(),
+            Self::Owned { nanos, .. } => f.debug_struct("Owned").field("nanos", nanos).finish(),
         }
     }
 }
@@ -39,10 +39,10 @@ impl From<Instant> for ClockEpoch {
     }
 }
 impl ClockEpoch {
-    /// Bind once to the explicitly selected retired clock, or preserve host time.
+    /// Bind once to the selected VM clock, or preserve unbound host time.
     pub(crate) fn selected_at(wall: Instant) -> Self {
-        match TimingContext::current().filter(|clock| clock.mode() == ClockMode::Retired) {
-            Some(owner) => Self::Retired {
+        match TimingContext::current() {
+            Some(owner) => Self::Owned {
                 nanos: owner.elapsed_nanos(),
                 owner,
             },
@@ -53,7 +53,7 @@ impl ClockEpoch {
     pub(crate) fn sample(&self) -> Self {
         match self {
             Self::Wall(_) => Self::Wall(Instant::now()),
-            Self::Retired { owner, .. } => Self::Retired {
+            Self::Owned { owner, .. } => Self::Owned {
                 nanos: owner.elapsed_nanos(),
                 owner: owner.clone(),
             },
@@ -62,7 +62,7 @@ impl ClockEpoch {
     pub(crate) fn same_domain(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Wall(_), Self::Wall(_)) => true,
-            (Self::Retired { owner: a, .. }, Self::Retired { owner: b, .. }) => Arc::ptr_eq(a, b),
+            (Self::Owned { owner: a, .. }, Self::Owned { owner: b, .. }) => Arc::ptr_eq(a, b),
             _ => false,
         }
     }
@@ -72,8 +72,8 @@ impl ClockEpoch {
         match (self, earlier) {
             (Self::Wall(now), Self::Wall(start)) => Ok(now.saturating_duration_since(*start)),
             (
-                Self::Retired { owner, nanos },
-                Self::Retired {
+                Self::Owned { owner, nanos },
+                Self::Owned {
                     owner: previous,
                     nanos: start,
                 },
@@ -92,7 +92,7 @@ impl ClockEpoch {
         incoming.validate()?;
         match (self, incoming.mode) {
             (Self::Wall(_), ClockMode::Wall) => Ok(self.clone()),
-            (Self::Retired { owner, .. }, ClockMode::Retired) => Ok(Self::Retired {
+            (Self::Owned { owner, .. }, mode) if owner.mode() == mode => Ok(Self::Owned {
                 owner: owner.clone(),
                 nanos: incoming.elapsed_nanos,
             }),
@@ -101,13 +101,14 @@ impl ClockEpoch {
             )),
         }
     }
-    /// No clock lock, callback or allocation: wall mode samples its publication
-    /// boundary; retired mode copies the already admitted incoming epoch. Clock
-    /// writers are quiescent through this stopped-VM publication scope.
-    pub(crate) fn at_publication(&self) -> Self {
+    /// Importing a VM clock copies the admitted incoming epoch. Publication
+    /// without a clock import samples the live domain at its own boundary.
+    /// Clock writers are quiescent through this stopped-VM publication scope.
+    pub(crate) fn at_publication(&self, importing_clock: bool) -> Self {
         match self {
             Self::Wall(_) => Self::Wall(Instant::now()),
-            Self::Retired { .. } => self.clone(),
+            Self::Owned { .. } if importing_clock => self.clone(),
+            Self::Owned { .. } => self.sample(),
         }
     }
 }

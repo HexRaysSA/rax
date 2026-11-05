@@ -1,9 +1,13 @@
 //! Modeled controller image; publication never replays register-write effects.
-use super::{IOAPIC_NUM_RTE, IoApic, PendingIrq};
+use super::{
+    IOAPIC_NUM_RTE, IoApic, PendingIrq, RTE_DELIVERY_MODE_SHIFT, RTE_DELIVERY_STATUS,
+    RTE_DEST_SHIFT, RTE_MASK, RTE_REMOTE_IRR, RTE_TRIGGER_MODE,
+};
 use crate::error::{Error, Result};
-use serde::{Deserialize, Serialize};
+use serde::de::{Error as _, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 
-const MAX_PENDING: usize = 1_048_576;
+const MAX_PENDING: usize = IOAPIC_NUM_RTE;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Delivery {
@@ -19,7 +23,38 @@ pub(crate) struct IoApicCheckpoint {
     id: u32,
     redirection_table: [u64; IOAPIC_NUM_RTE],
     line_asserted: [bool; IOAPIC_NUM_RTE],
+    #[serde(deserialize_with = "deliveries")]
     pending: Vec<Delivery>,
+}
+
+fn deliveries<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Vec<Delivery>, D::Error> {
+    struct Messages;
+    impl<'de> Visitor<'de> for Messages {
+        type Value = Vec<Delivery>;
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("at most 24 I/O APIC messages")
+        }
+        fn visit_seq<A: SeqAccess<'de>>(
+            self,
+            mut sequence: A,
+        ) -> std::result::Result<Self::Value, A::Error> {
+            let count = sequence.size_hint().unwrap_or(0);
+            if count > MAX_PENDING {
+                return Err(A::Error::custom("I/O APIC pending message bound"));
+            }
+            let mut messages = Vec::with_capacity(count);
+            while let Some(message) = sequence.next_element()? {
+                if messages.len() == MAX_PENDING {
+                    return Err(A::Error::custom("I/O APIC pending message bound"));
+                }
+                messages.push(message);
+            }
+            Ok(messages)
+        }
+    }
+    deserializer.deserialize_seq(Messages)
 }
 
 pub(crate) struct PreparedIoApicCheckpoint {
@@ -49,13 +84,15 @@ impl IoApic {
             destination: entry.destination,
             level_triggered: entry.level_triggered,
         }));
-        Ok(IoApicCheckpoint {
+        let image = IoApicCheckpoint {
             ioregsel: self.ioregsel,
             id: self.id,
             redirection_table: self.redirection_table,
             line_asserted: self.line_asserted,
             pending,
-        })
+        };
+        image.prepare()?;
+        Ok(image)
     }
 }
 
@@ -69,6 +106,37 @@ impl IoApicCheckpoint {
                 .any(|entry| usize::from(entry.gsi) >= IOAPIC_NUM_RTE)
         {
             return Err(invalid("invalid identity, queue length or source pin"));
+        }
+        let mut queued = [false; IOAPIC_NUM_RTE];
+        for request in &self.pending {
+            let pin = usize::from(request.gsi);
+            let rte = self.redirection_table[pin];
+            if std::mem::replace(&mut queued[pin], true)
+                || rte & RTE_MASK != 0
+                || rte & RTE_REMOTE_IRR != 0
+                || request.vector != rte as u8
+                || request.destination != (rte >> RTE_DEST_SHIFT) as u8
+                || request.level_triggered != (rte & RTE_TRIGGER_MODE != 0)
+                || (request.level_triggered && !self.line_asserted[pin])
+            {
+                return Err(invalid("ambiguous or inconsistent pending message"));
+            }
+        }
+        for (pin, &rte) in self.redirection_table.iter().enumerate() {
+            let mode = (rte >> RTE_DELIVERY_MODE_SHIFT) & 7;
+            if (rte & RTE_DELIVERY_STATUS != 0) != queued[pin]
+                || (rte & RTE_REMOTE_IRR != 0 && (rte & RTE_TRIGGER_MODE == 0 || mode > 1))
+                || (mode <= 1
+                    && rte & RTE_TRIGGER_MODE != 0
+                    && rte & RTE_MASK == 0
+                    && self.line_asserted[pin]
+                    && rte & RTE_REMOTE_IRR == 0
+                    && !queued[pin])
+            {
+                return Err(invalid(
+                    "controller delivery status differs from its owned phase",
+                ));
+            }
         }
         let mut pending = Vec::new();
         pending
@@ -146,6 +214,11 @@ mod tests {
         assert!(target.line_asserted[0]);
         target.set_irq(0, false);
         target.set_irq(0, true);
+        assert!(
+            target.pending().is_empty(),
+            "accepted level still awaits EOI"
+        );
+        target.end_of_interrupt(0x41);
         assert_eq!(target.take_pending().len(), 1);
     }
 
@@ -203,5 +276,82 @@ mod tests {
         let mut invalid = bytes;
         invalid[197] = 2;
         assert!(crate::codec::deserialize_strict::<IoApicCheckpoint>(&invalid).is_err());
+    }
+
+    #[test]
+    fn pending_and_accepted_level_phases_survive_source_free_codec_roundtrips() {
+        for accepted in [false, true] {
+            let mut source = IoApic::new();
+            source.write_indexed(0x38, 0x8051);
+            source.set_irq(20, true);
+            if accepted {
+                assert_eq!(source.take_pending().len(), 1);
+            }
+            let image = source.checkpoint_state().unwrap();
+            let json = serde_json::to_vec(&image).unwrap();
+            let binary = crate::codec::serialize(&image).unwrap();
+            drop(image);
+            drop(source);
+            for restored in [
+                serde_json::from_slice::<IoApicCheckpoint>(&json).unwrap(),
+                crate::codec::deserialize_strict::<IoApicCheckpoint>(&binary).unwrap(),
+            ] {
+                let mut target = IoApic::new();
+                restored.prepare().unwrap().commit(&mut target);
+                assert_eq!(target.pending().len(), usize::from(!accepted));
+                assert_eq!(target.redirection_table[20] & RTE_REMOTE_IRR != 0, accepted);
+                if !accepted {
+                    assert_eq!(target.take_pending().len(), 1);
+                }
+                target.set_irq(20, true);
+                assert!(!target.has_pending());
+                target.end_of_interrupt(0x51);
+                assert_eq!(target.take_pending().len(), 1);
+            }
+        }
+    }
+
+    #[test]
+    fn duplicate_stale_and_ambiguous_delivery_records_reject_before_publication() {
+        let mut source = IoApic::new();
+        source.write_indexed(0x38, 0x8051);
+        source.set_irq(20, true);
+        let image = source.checkpoint_state().unwrap();
+        for corruption in 0..10 {
+            let mut bad = image.clone();
+            match corruption {
+                0 => bad.pending.push(bad.pending[0].clone()),
+                1 => bad.pending[0].vector ^= 1,
+                2 => bad.pending[0].destination ^= 1,
+                3 => bad.pending[0].level_triggered = false,
+                4 => bad.redirection_table[20] |= RTE_REMOTE_IRR,
+                5 => bad.redirection_table[20] |= RTE_MASK,
+                6 => bad.line_asserted[20] = false,
+                7 => bad.redirection_table[20] &= !RTE_DELIVERY_STATUS,
+                8 => bad.pending.clear(),
+                _ => {
+                    // The old implementation could drop a consumed level
+                    // without recording remote IRR. Its continuation cannot
+                    // be reconstructed as a canonical new-controller phase.
+                    bad.pending.clear();
+                    bad.redirection_table[20] &= !RTE_DELIVERY_STATUS;
+                }
+            }
+            assert!(bad.prepare().is_err(), "corruption {corruption}");
+        }
+        let mut impossible = IoApic::new().checkpoint_state().unwrap();
+        impossible.redirection_table[20] |= RTE_REMOTE_IRR;
+        assert!(impossible.prepare().is_err());
+    }
+
+    #[test]
+    fn oversized_delivery_count_rejects_before_reserving_a_vector() {
+        let empty = crate::codec::serialize(&IoApic::new().checkpoint_state().unwrap()).unwrap();
+        for count in [25u64, 1_048_576, u64::MAX] {
+            let mut bad = empty.clone();
+            let offset = bad.len() - 8;
+            bad[offset..].copy_from_slice(&count.to_le_bytes());
+            assert!(crate::codec::deserialize_strict::<IoApicCheckpoint>(&bad).is_err());
+        }
     }
 }

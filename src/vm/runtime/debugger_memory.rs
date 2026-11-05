@@ -76,7 +76,7 @@ impl Vmm {
                 .vm
                 .as_any()
                 .is::<crate::backend::emulator::EmulatorVm>();
-        let mut holes = self.mmio_bus.ranges();
+        let mut holes = self.mmio_bus.ranges()?;
         if self
             .vm
             .as_any()

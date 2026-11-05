@@ -5,7 +5,9 @@
 pub(crate) mod budget;
 pub use budget::{DEFAULT_RETIREMENT_QUANTUM, RetirementRun, RetirementStop};
 mod checkpoint_capture;
+mod checkpoint_io;
 pub use checkpoint_capture::PreparedCheckpointCapture;
+pub use checkpoint_io::{CheckpointIoReply, CheckpointIoState};
 
 #[cfg(feature = "debug")]
 mod debug_memory;
@@ -646,6 +648,16 @@ pub trait VCpu: Send {
     /// The caller must have stopped this CPU; source-owned software state must
     /// remain unchanged until the matching scoped record is captured. Hardware
     /// producers retain their existing boundary path through the default None.
+    /// Close native userspace I/O before taking device/RAM publication locks.
+    /// Device service runs without a CPU owner guard. A deferred result retains
+    /// an exit or powered-off transfer and requires an explicit private producer.
+    fn settle_checkpoint_io(
+        &self,
+        _service: &mut dyn FnMut(VcpuExit) -> Result<CheckpointIoReply>,
+    ) -> Result<CheckpointIoState> {
+        Ok(CheckpointIoState::Complete)
+    }
+
     fn prepare_checkpoint_capture(&self) -> Result<Option<PreparedCheckpointCapture>> {
         Ok(None)
     }

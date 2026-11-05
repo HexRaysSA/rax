@@ -24,6 +24,9 @@ pub struct OwnedVcpuFd {
 
 impl OwnedVcpuFd {
     pub(super) fn new(native: VcpuFd, owner: Arc<MemoryOwner>) -> Self {
+        owner
+            .sdk_cpus
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         Self {
             native,
             _owner: owner,
