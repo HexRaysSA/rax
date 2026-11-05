@@ -1,0 +1,206 @@
+{
+  "version": 1,
+  "cases": 12672,
+  "case_bytes": 172,
+  "record_bytes": 168,
+  "exhaustive_counts": false,
+  "kernel": "6.8.0-138-generic",
+  "machine": "x86_64",
+  "cpuinfo": "processor\t: 0\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 63\nmodel name\t: Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz\nstepping\t: 2\nmicrocode\t: 0x49\ncpu MHz\t\t: 3591.814\ncache size\t: 15360 KB\nphysical id\t: 0\nsiblings\t: 12\ncore id\t\t: 0\ncpu cores\t: 6\napicid\t\t: 0\ninitial apicid\t: 0\nfpu\t\t: yes\nfpu_exception\t: yes\ncpuid level\t: 15\nwp\t\t: yes\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm cpuid_fault epb pti intel_ppin ssbd ibrs ibpb stibp tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm xsaveopt cqm_llc cqm_occup_llc dtherm ida arat pln pts vnmi md_clear flush_l1d ibpb_exit_to_user\nvmx flags\t: vnmi preemption_timer posted_intr invvpid ept_x_only ept_ad ept_1gb flexpriority apicv tsc_offset vtpr mtf vapic ept vpid unrestricted_guest vapic_reg vid ple shadow_vmcs\nbugs\t\t: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds swapgs itlb_multihit mmio_stale_data vmscape\nbogomips\t: 6984.10\nclflush size\t: 64\ncache_alignment\t: 64\naddress sizes\t: 46 bits physical, 48 bits virtual\npower management:",
+  "sources": {
+    "tools/hvf/mmio_shift_oracle.py": "8e176358b6478a65e52d9cfa2ddc1fab0369ffbb5f384eedfb5b9009378ef30d",
+    "tools/hvf/mmio_guest.s": "1ba01779b9eed974b3cc8eb13bead2b69b9fd3b65b999876328c4d60e158eecc",
+    "tools/hvf/mmio_movsxd_native.c": "c8707e1f0b39ba50bb3b32d216e2bc3156e40f0833fcb630ddaf3957e9b66ad6"
+  },
+  "commands": [
+    {
+      "label": "compiler-version",
+      "argv": [
+        "gcc",
+        "--version"
+      ],
+      "exit_code": 0,
+      "seconds": 0.0021352283656597137
+    },
+    {
+      "label": "assembler-version",
+      "argv": [
+        "/usr/local/bin/llvm-mc",
+        "--version"
+      ],
+      "exit_code": 0,
+      "seconds": 0.23225997667759657
+    },
+    {
+      "label": "runner-build",
+      "argv": [
+        "gcc",
+        "-std=gnu11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/project/tools/hvf/mmio_movsxd_native.c",
+        "-o",
+        "/tmp/rax-mmio-shift-15ekjizs/native"
+      ],
+      "exit_code": 0,
+      "seconds": 0.7598478933796287
+    },
+    {
+      "label": "assemble-0",
+      "argv": [
+        "/usr/local/bin/llvm-mc",
+        "-triple=i386-none-elf",
+        "-filetype=obj",
+        "guest.s",
+        "-o",
+        "guest.o"
+      ],
+      "exit_code": 0,
+      "seconds": 0.013372600078582764
+    },
+    {
+      "label": "link-0",
+      "argv": [
+        "/usr/local/bin/ld.lld",
+        "-m",
+        "elf_i386",
+        "-T",
+        "link.ld",
+        "guest.o",
+        "-o",
+        "guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.9889827286824584
+    },
+    {
+      "label": "native-0",
+      "argv": [
+        "/tmp/rax-mmio-shift-15ekjizs/native",
+        "/tmp/rax-mmio-shift-15ekjizs/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 5.272121095098555
+    },
+    {
+      "label": "assemble-1",
+      "argv": [
+        "/usr/local/bin/llvm-mc",
+        "-triple=i386-none-elf",
+        "-filetype=obj",
+        "guest.s",
+        "-o",
+        "guest.o"
+      ],
+      "exit_code": 0,
+      "seconds": 0.015216507948935032
+    },
+    {
+      "label": "link-1",
+      "argv": [
+        "/usr/local/bin/ld.lld",
+        "-m",
+        "elf_i386",
+        "-T",
+        "link.ld",
+        "guest.o",
+        "-o",
+        "guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.021701241843402386
+    },
+    {
+      "label": "native-1",
+      "argv": [
+        "/tmp/rax-mmio-shift-15ekjizs/native",
+        "/tmp/rax-mmio-shift-15ekjizs/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 5.26308649033308
+    },
+    {
+      "label": "assemble-2",
+      "argv": [
+        "/usr/local/bin/llvm-mc",
+        "-triple=i386-none-elf",
+        "-filetype=obj",
+        "guest.s",
+        "-o",
+        "guest.o"
+      ],
+      "exit_code": 0,
+      "seconds": 0.014312231913208961
+    },
+    {
+      "label": "link-2",
+      "argv": [
+        "/usr/local/bin/ld.lld",
+        "-m",
+        "elf_i386",
+        "-T",
+        "link.ld",
+        "guest.o",
+        "-o",
+        "guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.020636473782360554
+    },
+    {
+      "label": "native-2",
+      "argv": [
+        "/tmp/rax-mmio-shift-15ekjizs/native",
+        "/tmp/rax-mmio-shift-15ekjizs/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 5.183606004342437
+    },
+    {
+      "label": "assemble-3",
+      "argv": [
+        "/usr/local/bin/llvm-mc",
+        "-triple=i386-none-elf",
+        "-filetype=obj",
+        "guest.s",
+        "-o",
+        "guest.o"
+      ],
+      "exit_code": 0,
+      "seconds": 0.012937705032527447
+    },
+    {
+      "label": "link-3",
+      "argv": [
+        "/usr/local/bin/ld.lld",
+        "-m",
+        "elf_i386",
+        "-T",
+        "link.ld",
+        "guest.o",
+        "-o",
+        "guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.021037686616182327
+    },
+    {
+      "label": "native-3",
+      "argv": [
+        "/tmp/rax-mmio-shift-15ekjizs/native",
+        "/tmp/rax-mmio-shift-15ekjizs/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.505360709503293
+    }
+  ],
+  "scope": "Physical Linux x86-64 KVM RAM instructions; no RAX code linked. All16GPRs,24memory bytes,defined/unaffected flags. Does not qualify Intel macOS HVF exits or device ordering.",
+  "owned_build_artifacts_removed": true,
+  "artifact_sha256": {
+    "cases.bin": "1700ca8d6f004889037f76873acf4c3b3048c9e6603abe1b42a80aabe353904d",
+    "records.bin": "87b1d23a68baba4c2a2d0b908871a72b6e0499e59b0cb73c5a6c70d1773b854d"
+  },
+  "result": "native_reference_complete"
+}

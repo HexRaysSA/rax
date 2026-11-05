@@ -1,0 +1,2980 @@
+{
+  "component": "hvf-scalar-mmio-shifts-2026-11-04",
+  "status": "native_reference_and_complete_owning_cargo_qualified",
+  "utc": "2026-11-04T17:37:20.079640+00:00",
+  "full_goal_complete": false,
+  "primary_source": {
+    "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "sections": [
+      "Vol2B RCL/RCR/ROL/ROR pp4-531..4-535",
+      "Vol2B SAL/SAR/SHL/SHR pp4-600..4-604"
+    ]
+  },
+  "native_reference": {
+    "version": 1,
+    "cases": 12672,
+    "case_bytes": 172,
+    "record_bytes": 168,
+    "exhaustive_counts": false,
+    "kernel": "6.8.0-138-generic",
+    "machine": "x86_64",
+    "cpuinfo": "processor\t: 0\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 63\nmodel name\t: Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz\nstepping\t: 2\nmicrocode\t: 0x49\ncpu MHz\t\t: 3591.814\ncache size\t: 15360 KB\nphysical id\t: 0\nsiblings\t: 12\ncore id\t\t: 0\ncpu cores\t: 6\napicid\t\t: 0\ninitial apicid\t: 0\nfpu\t\t: yes\nfpu_exception\t: yes\ncpuid level\t: 15\nwp\t\t: yes\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm cpuid_fault epb pti intel_ppin ssbd ibrs ibpb stibp tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm xsaveopt cqm_llc cqm_occup_llc dtherm ida arat pln pts vnmi md_clear flush_l1d ibpb_exit_to_user\nvmx flags\t: vnmi preemption_timer posted_intr invvpid ept_x_only ept_ad ept_1gb flexpriority apicv tsc_offset vtpr mtf vapic ept vpid unrestricted_guest vapic_reg vid ple shadow_vmcs\nbugs\t\t: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds swapgs itlb_multihit mmio_stale_data vmscape\nbogomips\t: 6984.10\nclflush size\t: 64\ncache_alignment\t: 64\naddress sizes\t: 46 bits physical, 48 bits virtual\npower management:",
+    "sources": {
+      "tools/hvf/mmio_shift_oracle.py": "8e176358b6478a65e52d9cfa2ddc1fab0369ffbb5f384eedfb5b9009378ef30d",
+      "tools/hvf/mmio_guest.s": "1ba01779b9eed974b3cc8eb13bead2b69b9fd3b65b999876328c4d60e158eecc",
+      "tools/hvf/mmio_movsxd_native.c": "c8707e1f0b39ba50bb3b32d216e2bc3156e40f0833fcb630ddaf3957e9b66ad6"
+    },
+    "commands": [
+      {
+        "label": "compiler-version",
+        "argv": [
+          "gcc",
+          "--version"
+        ],
+        "exit_code": 0,
+        "seconds": 0.0021352283656597137
+      },
+      {
+        "label": "assembler-version",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "--version"
+        ],
+        "exit_code": 0,
+        "seconds": 0.23225997667759657
+      },
+      {
+        "label": "runner-build",
+        "argv": [
+          "gcc",
+          "-std=gnu11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-O2",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/project/tools/hvf/mmio_movsxd_native.c",
+          "-o",
+          "/tmp/rax-mmio-shift-15ekjizs/native"
+        ],
+        "exit_code": 0,
+        "seconds": 0.7598478933796287
+      },
+      {
+        "label": "assemble-0",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013372600078582764
+      },
+      {
+        "label": "link-0",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.9889827286824584
+      },
+      {
+        "label": "native-0",
+        "argv": [
+          "/tmp/rax-mmio-shift-15ekjizs/native",
+          "/tmp/rax-mmio-shift-15ekjizs/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.272121095098555
+      },
+      {
+        "label": "assemble-1",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.015216507948935032
+      },
+      {
+        "label": "link-1",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.021701241843402386
+      },
+      {
+        "label": "native-1",
+        "argv": [
+          "/tmp/rax-mmio-shift-15ekjizs/native",
+          "/tmp/rax-mmio-shift-15ekjizs/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.26308649033308
+      },
+      {
+        "label": "assemble-2",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014312231913208961
+      },
+      {
+        "label": "link-2",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.020636473782360554
+      },
+      {
+        "label": "native-2",
+        "argv": [
+          "/tmp/rax-mmio-shift-15ekjizs/native",
+          "/tmp/rax-mmio-shift-15ekjizs/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.183606004342437
+      },
+      {
+        "label": "assemble-3",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.012937705032527447
+      },
+      {
+        "label": "link-3",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.021037686616182327
+      },
+      {
+        "label": "native-3",
+        "argv": [
+          "/tmp/rax-mmio-shift-15ekjizs/native",
+          "/tmp/rax-mmio-shift-15ekjizs/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.505360709503293
+      }
+    ],
+    "scope": "Physical Linux x86-64 KVM RAM instructions; no RAX code linked. All16GPRs,24memory bytes,defined/unaffected flags. Does not qualify Intel macOS HVF exits or device ordering.",
+    "owned_build_artifacts_removed": true,
+    "artifact_sha256": {
+      "cases.bin": "1700ca8d6f004889037f76873acf4c3b3048c9e6603abe1b42a80aabe353904d",
+      "records.bin": "87b1d23a68baba4c2a2d0b908871a72b6e0499e59b0cb73c5a6c70d1773b854d"
+    },
+    "result": "native_reference_complete"
+  },
+  "baseline": {
+    "engine_sha256": "b1c072373fc275271dd8c066ce984010625f85201674a8f18841a30ddc8ee4c8",
+    "actual_comparison_source_sha256": "a297d602251a4c1649e29c2426f6f935535cb353afb2c3f645a4dcf03f339f2f",
+    "cases": 12672,
+    "groups": [
+      {
+        "group": 0,
+        "cases": 1584,
+        "exit_code": 101,
+        "stdout": "",
+        "stderr": "\nthread 'main' (892987) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/project/tools/hvf/mmio_rmw_compare.rs:99:33:\ncase0,code[d0, 07]: unsupported MMIO instruction operands or effects\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+      },
+      {
+        "group": 1,
+        "cases": 1584,
+        "exit_code": 101,
+        "stdout": "",
+        "stderr": "\nthread 'main' (892988) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/project/tools/hvf/mmio_rmw_compare.rs:99:33:\ncase0,code[d0, 0f]: unsupported MMIO instruction operands or effects\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+      },
+      {
+        "group": 2,
+        "cases": 1584,
+        "exit_code": 101,
+        "stdout": "",
+        "stderr": "\nthread 'main' (892989) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/project/tools/hvf/mmio_rmw_compare.rs:99:33:\ncase0,code[d0, 17]: unsupported MMIO instruction operands or effects\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+      },
+      {
+        "group": 3,
+        "cases": 1584,
+        "exit_code": 101,
+        "stdout": "",
+        "stderr": "\nthread 'main' (892990) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/project/tools/hvf/mmio_rmw_compare.rs:99:33:\ncase0,code[d0, 1f]: unsupported MMIO instruction operands or effects\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+      },
+      {
+        "group": 4,
+        "cases": 1584,
+        "exit_code": 101,
+        "stdout": "",
+        "stderr": "\nthread 'main' (892991) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/project/tools/hvf/mmio_rmw_compare.rs:99:33:\ncase0,code[d0, 27]: unsupported MMIO instruction operands or effects\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+      },
+      {
+        "group": 5,
+        "cases": 1584,
+        "exit_code": 101,
+        "stdout": "",
+        "stderr": "\nthread 'main' (892992) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/project/tools/hvf/mmio_rmw_compare.rs:99:33:\ncase0,code[d0, 2f]: unsupported MMIO instruction operands or effects\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+      },
+      {
+        "group": 6,
+        "cases": 1584,
+        "exit_code": 101,
+        "stdout": "",
+        "stderr": "\nthread 'main' (892993) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/project/tools/hvf/mmio_rmw_compare.rs:99:33:\ncase0,code[d0, 37]: unsupported MMIO instruction operands or effects\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+      },
+      {
+        "group": 7,
+        "cases": 1584,
+        "exit_code": 101,
+        "stdout": "",
+        "stderr": "\nthread 'main' (892994) panicked at /tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/project/tools/hvf/mmio_rmw_compare.rs:99:33:\ncase0,code[d0, 3f]: unsupported MMIO instruction operands or effects\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+      }
+    ],
+    "executable_sha256": "e4202244cc79512717389c44fae8cf94059bda65d0927474c54a3671420f20bd",
+    "owned_build_artifacts_removed": true
+  },
+  "production_module_comparison": {
+    "source_sha256": {
+      "tools/hvf/mmio_shift_compare.rs": "441b0aa39076fd8b738a2b3d04bcd409e83bedf1112f95189c818f80bacfafa7",
+      "tools/hvf/mmio_rmw_compare.rs": "a297d602251a4c1649e29c2426f6f935535cb353afb2c3f645a4dcf03f339f2f",
+      "src/isa/x86_64/inspection.rs": "aa627c23348822e45fff857768a789762caef7df6ea5bebe65467220dcd483e1",
+      "src/backend/hvf/mmio.rs": "3901bbd0a6c863995d1c54a24c207208abd510c1815f548516d0627c837a003b",
+      "src/backend/hvf/mmio/rmw.rs": "f35956e1f9570560bf448113b4e40dec990b969103839ed492f665185aa40daf",
+      "src/backend/hvf/mmio/alu_read.rs": "d28d9f7ddfec6323d62c3e48a8024305d3fa5948ccbc3dd4307d060f67bc8aad",
+      "src/backend/hvf/mmio/shift.rs": "850b60670d75655fd61dd921955256999162f7e56447eafb79d14fdec8afb681",
+      "src/devices/bus/rmw.rs": "cd866a13606376e80100795f837c233173e0d2288a77db87d500c1214bbd8568",
+      "src/devices/bus/shift.rs": "d46d8aae71a5bb1b93716f9adc5fb526c822d04a8a0511e53c26f95bb2470501"
+    },
+    "engine_sha256": "b1c072373fc275271dd8c066ce984010625f85201674a8f18841a30ddc8ee4c8",
+    "full_source_export": false,
+    "git_worktree_created": false,
+    "commands": [
+      {
+        "label": "build",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+          "--edition=2024",
+          "-C",
+          "target-cpu=x86-64-v3",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-v1/source/tools/hvf/mmio_shift_compare.rs",
+          "--extern",
+          "rax=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/librax-a99e5668075068ad.rlib",
+          "--extern",
+          "serde=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libserde-359c8e9854bf8e9d.rlib",
+          "-L",
+          "dependency=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps",
+          "-o",
+          "/tmp/rax-shift-product-5zeoutrv/compare"
+        ],
+        "exit_code": 0
+      },
+      {
+        "label": "compare",
+        "argv": [
+          "/tmp/rax-shift-product-5zeoutrv/compare",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-native-v1/reference/cases.bin",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-native-v1/reference/records.bin"
+        ],
+        "exit_code": 0
+      }
+    ],
+    "executable_sha256": "ac91824ac0b4eeb161ab00734961ea278778c199d97d3c7c5920f037f1fc1db7",
+    "stdout": "{\"cases\":12672,\"plans\":25344,\"mismatches\":0}\n",
+    "stderr": "",
+    "result": "native_product_match",
+    "owned_build_artifacts_removed": true
+  },
+  "module_target": {
+    "passed": 47,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "scope": "All original integration test bodies with current production MMIO/bus transform modules; prior qualified engine supplies metadata/flags/codec. Dependency binding adapter; not a Cargo or full-library gate.",
+    "prior_compile_failure": "Existing ALU comparison helper missing from small harness input closure; zero tests ran; preserved before adding the missing source.",
+    "receipt": {
+      "source_sha256": {
+        "tests/suites/backend/hvf_mmio.rs": "6c2a30d1f2ff8e4e12c130a7f92b975a93aad6392ee44da8410c70ea3be71442",
+        "tests/suites/backend/hvf_mmio/alu_read.rs": "08ff944f84a68da9cc0332269ee6169c6e4bc3d35d2d440bc3aef9d58ca6f6c3",
+        "tests/suites/backend/hvf_mmio/movsxd.rs": "e6505f198734ea4885c06dbfe9716f19813ff856a4af2eeaea770a4037194433",
+        "tests/suites/backend/hvf_mmio/rmw.rs": "909492af7184358cb3f8a42f9c4e9c82b7d9741390cb6283b7a5e5b9ffbc3257",
+        "tests/suites/backend/hvf_mmio/shifts.rs": "abb4ef203cc31d9dc350eab75ebf49f89696d3ef5d46f478d8a43f28a9789f21",
+        "tools/hvf/mmio_rmw_compare.rs": "a297d602251a4c1649e29c2426f6f935535cb353afb2c3f645a4dcf03f339f2f",
+        "src/isa/x86_64/inspection.rs": "aa627c23348822e45fff857768a789762caef7df6ea5bebe65467220dcd483e1",
+        "src/backend/hvf/mmio.rs": "3901bbd0a6c863995d1c54a24c207208abd510c1815f548516d0627c837a003b",
+        "src/backend/hvf/mmio/rmw.rs": "f35956e1f9570560bf448113b4e40dec990b969103839ed492f665185aa40daf",
+        "src/backend/hvf/mmio/alu_read.rs": "d28d9f7ddfec6323d62c3e48a8024305d3fa5948ccbc3dd4307d060f67bc8aad",
+        "src/backend/hvf/mmio/shift.rs": "26b059aa958e31f107f422103cca54b53ed22e3e527e81d00a4c79105771ead0",
+        "src/devices/bus/rmw.rs": "cd866a13606376e80100795f837c233173e0d2288a77db87d500c1214bbd8568",
+        "src/devices/bus/shift.rs": "5c991483e375691ee9fc73a5f3b4eb8805925565c3f7dff5bdaacf554e59e51a"
+      },
+      "derived_entry_sha256": "5b5594a0fd6560ae432ca18bae760e7b8b52c0d37814e428fee60c3e216441f9",
+      "derived_dependency_sha256": "7bc5dfd37bacd87d5f04dbed04d333e7dc7a5fc0118253304859faf2976fc2f0",
+      "dependency_adaptation": "Actual production bus prefix compiled without its separate library-unit tests; original integration target only changes dependency binding to this prefix. Test bodies and assertions are unchanged. Linked engine supplies metadata/flags/codec. This is a module harness, not the Cargo or complete-library gate.",
+      "commands": [
+        {
+          "label": "build",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+            "--test",
+            "--edition=2024",
+            "-C",
+            "target-cpu=x86-64-v3",
+            "/tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-module-target-v1/source/tests/suites/backend/hvf_mmio.rs",
+            "--extern",
+            "rax=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/librax-a99e5668075068ad.rlib",
+            "--extern",
+            "serde=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libserde-359c8e9854bf8e9d.rlib",
+            "--extern",
+            "serde_json=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libserde_json-08ee9c6c9937fd66.rlib",
+            "-L",
+            "dependency=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps",
+            "-o",
+            "/tmp/rax-shift-module-target-_694isvd/target"
+          ],
+          "exit_code": 0
+        },
+        {
+          "label": "complete-module-target",
+          "argv": [
+            "/tmp/rax-shift-module-target-_694isvd/target",
+            "--test-threads=2",
+            "--nocapture"
+          ],
+          "exit_code": 0
+        }
+      ],
+      "owned_build_artifacts_removed": true,
+      "prior_result": "module target v1 failed compilation before tests: missing existing tools/hvf/mmio_alu_compare.rs in the small harness input closure",
+      "added_input_sha256": "c3a2740f2965b452ca637799e6756a228bf0ac590e1d1c7795149de83d28a1bc",
+      "executable_sha256": "863344bcd0b5b5dfcf7ac8392ce0ebdc1606719334df642de15c9469f9c2e229",
+      "tests_stdout": "\nrunning 47 tests\ntest alu_read_tests::captured_carry_and_partial_registers_survive_delayed_reply ... ok\ntest alu_read_tests::alu_reply_width_and_every_publication_failure_stop_before_another_commit ... ok\ntest alu_read_tests::compare_and_test_memory_left_register_forms_remain_read_only ... ok\ntest alu_read_tests::compare_orders_and_immediates_update_only_the_defined_flags ... ok\ntest alu_read_tests::flags_only_completion_skips_gprs_and_publishes_once ... ok\ntest alu_read_tests::immediate_compare_and_test_admit_short_and_full_signed_encodings ... ok\ntest alu_read_tests::device_read_alu_families_admit_all_scalar_widths_before_any_device_access ... ok\ntest alu_read_tests::legacy_and_compatibility_code_modes_admit_device_read_alu_operations ... ok\ntest alu_read_tests::qword_signed_overflow_boundaries_preserve_nonarithmetic_flags ... ok\ntest alu_read_tests::read_alu_rejects_write_qualifications_and_single_step_before_device_access ... ok\ntest complete_data_range_must_be_physically_contiguous_before_any_device_access ... ok\ntest ept_faults_during_event_delivery_cannot_become_instruction_mmio ... ok\ntest gla_direction_ram_and_truncation_mismatches_stop_before_device_effects ... ok\ntest incremental_fetch_does_not_touch_an_unneeded_next_code_page ... ok\ntest independent_guest_records_preserve_all_registers_memory_and_flags ... ok\ntest load_framing_and_register_alias_frontiers_are_explicit ... ok\ntest load_register_parts_and_zero_extension_are_exact ... ok\ntest malformed_ept_or_unrepresented_instruction_never_becomes_device_io ... ok\ntest malformed_input_and_both_host_failure_stages_are_terminal ... ok\ntest mmio_retirement_clears_only_rf_and_propagates_each_host_failure ... ok\ntest moffs_uses_every_active_segment_override_and_guest_address_width ... ok\ntest movsxd_tests::movsxd_admission_retains_legacy_arpl_and_rejects_invalid_exit_or_lock ... ok\ntest movsxd_tests::movsxd_metadata_represents_all_legal_widths_and_operand_directions ... ok\ntest movsxd_tests::movsxd_mmio_completes_all_destinations_sign_edges_and_saved_pending_reads ... ok\ntest movsxd_tests::native_kvm_records_match_all_registers_memory_and_flags ... ok\ntest rip_relative_and_addr32_eip_relative_addresses_include_the_complete_encoding ... ok\ntest rmw_exit_accepts_both_architectural_ept_qualification_encodings ... ok\ntest rmw_tests::carry_borrow_and_increment_boundaries_preserve_control_flags ... ok\ntest rmw_tests::cmpxchg_success_preserves_accumulator_and_failure_zero_extends_eax ... ok\ntest rmw_tests::compatibility_widths_and_addr32_override_preserve_effective_addresses ... ok\ntest rmw_tests::exchange_aliases_preserve_flags_and_only_replace_the_named_register_part ... ok\ntest alu_read_tests::independent_alu_guest_records_match_complete_product_publication ... ok\ntest rmw_tests::register_bit_strings_use_signed_word_offsets_and_immediates_stay_within_the_operand ... ok\ntest rmw_tests::successful_rmw_completion_publishes_once_and_excludes_an_overlapping_read ... ok\ntest rmw_tests::xadd_completion_failures_are_terminal_at_every_sdk_publication_stage ... ok\ntest scaled_displaced_and_wrapped_effective_addresses_match_the_exit ... ok\ntest shift_tests::forged_shift_carry_and_completion_failures_remain_fenced_after_checkpoint ... ok\ntest shift_tests::full_turns_and_masked_zero_counts_have_distinct_carry_rules ... ok\ntest rmw_tests::independent_qemu_rmw_records_preserve_all_registers_memory_and_defined_flags ... ok\ntest shift_tests::legacy_and_addr32_shift_plans_use_the_same_validated_effective_address ... ok\ntest shift_tests::shift_admission_rejects_lock_step_wrong_ept_and_truncation_before_effects ... ok\ntest shift_tests::shift_counts_and_flags_continue_after_source_free_pending_codec_roundtrips ... ok\ntest signed_and_unsigned_load_extensions_match_primary_subregister_rules ... ok\ntest special_ept_accesses_are_rejected_while_undefined_permission_bits_are_ignored ... ok\ntest stores_capture_actual_register_bytes_and_signed_immediates ... ok\ntest typed_completion_commits_only_the_captured_destination_once ... ok\ntest shift_tests::independent_intel_shift_records_preserve_gprs_neighbors_and_defined_flags ... ok\n\ntest result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.18s\n\n",
+      "tests_stderr": "",
+      "result": "module_target_passed"
+    },
+    "prior_failed_receipt": {
+      "source_sha256": {
+        "tests/suites/backend/hvf_mmio.rs": "6c2a30d1f2ff8e4e12c130a7f92b975a93aad6392ee44da8410c70ea3be71442",
+        "tests/suites/backend/hvf_mmio/alu_read.rs": "08ff944f84a68da9cc0332269ee6169c6e4bc3d35d2d440bc3aef9d58ca6f6c3",
+        "tests/suites/backend/hvf_mmio/movsxd.rs": "e6505f198734ea4885c06dbfe9716f19813ff856a4af2eeaea770a4037194433",
+        "tests/suites/backend/hvf_mmio/rmw.rs": "909492af7184358cb3f8a42f9c4e9c82b7d9741390cb6283b7a5e5b9ffbc3257",
+        "tests/suites/backend/hvf_mmio/shifts.rs": "abb4ef203cc31d9dc350eab75ebf49f89696d3ef5d46f478d8a43f28a9789f21",
+        "tools/hvf/mmio_rmw_compare.rs": "a297d602251a4c1649e29c2426f6f935535cb353afb2c3f645a4dcf03f339f2f",
+        "src/isa/x86_64/inspection.rs": "aa627c23348822e45fff857768a789762caef7df6ea5bebe65467220dcd483e1",
+        "src/backend/hvf/mmio.rs": "3901bbd0a6c863995d1c54a24c207208abd510c1815f548516d0627c837a003b",
+        "src/backend/hvf/mmio/rmw.rs": "f35956e1f9570560bf448113b4e40dec990b969103839ed492f665185aa40daf",
+        "src/backend/hvf/mmio/alu_read.rs": "d28d9f7ddfec6323d62c3e48a8024305d3fa5948ccbc3dd4307d060f67bc8aad",
+        "src/backend/hvf/mmio/shift.rs": "26b059aa958e31f107f422103cca54b53ed22e3e527e81d00a4c79105771ead0",
+        "src/devices/bus/rmw.rs": "cd866a13606376e80100795f837c233173e0d2288a77db87d500c1214bbd8568",
+        "src/devices/bus/shift.rs": "5c991483e375691ee9fc73a5f3b4eb8805925565c3f7dff5bdaacf554e59e51a"
+      },
+      "derived_entry_sha256": "5b5594a0fd6560ae432ca18bae760e7b8b52c0d37814e428fee60c3e216441f9",
+      "derived_dependency_sha256": "7bc5dfd37bacd87d5f04dbed04d333e7dc7a5fc0118253304859faf2976fc2f0",
+      "dependency_adaptation": "Actual production bus prefix compiled without its separate library-unit tests; original integration target only changes dependency binding to this prefix. Test bodies and assertions are unchanged. Linked engine supplies metadata/flags/codec. This is a module harness, not the Cargo or complete-library gate.",
+      "commands": [
+        {
+          "label": "build",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+            "--test",
+            "--edition=2024",
+            "-C",
+            "target-cpu=x86-64-v3",
+            "/tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-module-target-v1/source/tests/suites/backend/hvf_mmio.rs",
+            "--extern",
+            "rax=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/librax-a99e5668075068ad.rlib",
+            "--extern",
+            "serde=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libserde-359c8e9854bf8e9d.rlib",
+            "--extern",
+            "serde_json=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libserde_json-08ee9c6c9937fd66.rlib",
+            "-L",
+            "dependency=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps",
+            "-o",
+            "/tmp/rax-shift-module-target-41kiyu_z/target"
+          ],
+          "exit_code": 1
+        }
+      ],
+      "owned_build_artifacts_removed": true
+    }
+  },
+  "actual_cargo_and_workspace_gates": {
+    "result": {
+      "state": "completed",
+      "wrapper_pid": 65129,
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_memory",
+        "--test",
+        "hvf_owner",
+        "--test",
+        "hvf_controls",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th",
+      "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+      "child_pid": 65132,
+      "exit_code": 0,
+      "seconds": 7.209674624959007,
+      "source_unchanged": true
+    },
+    "counts": {
+      "hvf_controls": 11,
+      "hvf_memory": 18,
+      "hvf_mmio": 55,
+      "hvf_owner": 14
+    },
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "assumptions": [
+    {
+      "id": "SH1",
+      "assumption": "The physical Linux Intel host executes the seven legacy scalar shift/rotate families in 64-bit code according to Intel SDM086.",
+      "dependent_result": "Architectural differential oracle; not Intel HVF platform closure",
+      "stress_test": "All widths; count 0,1,width-1,width,width+1,31,32,63,64,255; both carry states; memory neighbors and unchanged GPRs.",
+      "falsification_probe": "Any independent native register, memory or defined flag disagreement.",
+      "status": "confirmed for every imm8/CL count and the recorded operand/flag partitions"
+    },
+    {
+      "id": "SH2",
+      "assumption": "Masked-zero memory shifts still require write permission; external HVF device cycles require their separate platform gate.",
+      "dependent_result": "Device effect conservation and single completion",
+      "stress_test": "Native zero-count write access against read-only memory; planner EPT qualification with either read/write bit form.",
+      "falsification_probe": "Native zero-count memory shift succeeds without write permission.",
+      "status": "64 native write-permission faults confirmed; external HVF cycles remain unverified"
+    }
+  ],
+  "publication_dependencies": [
+    "MOVSXD modifies the same integration target entry; publish it first after its frozen full-library gate.",
+    "src/devices/bus.rs already contains the native RAM fallback changes; preserve and qualify this overlap before exact-file staging."
+  ],
+  "bounded_findings": [
+    {
+      "impact": "high",
+      "finding": "Physical Intel macOS HVF execution remains unverified; Linux architectural evidence cannot establish SDK/EPT/IRQ integration.",
+      "blocks": "Full C-HVF closure"
+    }
+  ],
+  "exhaustive_native_reference": {
+    "version": 1,
+    "cases": 196992,
+    "case_bytes": 172,
+    "record_bytes": 168,
+    "exhaustive_counts": true,
+    "kernel": "6.8.0-138-generic",
+    "machine": "x86_64",
+    "cpuinfo": "processor\t: 0\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 63\nmodel name\t: Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz\nstepping\t: 2\nmicrocode\t: 0x49\ncpu MHz\t\t: 3591.811\ncache size\t: 15360 KB\nphysical id\t: 0\nsiblings\t: 12\ncore id\t\t: 0\ncpu cores\t: 6\napicid\t\t: 0\ninitial apicid\t: 0\nfpu\t\t: yes\nfpu_exception\t: yes\ncpuid level\t: 15\nwp\t\t: yes\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm cpuid_fault epb pti intel_ppin ssbd ibrs ibpb stibp tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm xsaveopt cqm_llc cqm_occup_llc dtherm ida arat pln pts vnmi md_clear flush_l1d ibpb_exit_to_user\nvmx flags\t: vnmi preemption_timer posted_intr invvpid ept_x_only ept_ad ept_1gb flexpriority apicv tsc_offset vtpr mtf vapic ept vpid unrestricted_guest vapic_reg vid ple shadow_vmcs\nbugs\t\t: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds swapgs itlb_multihit mmio_stale_data vmscape\nbogomips\t: 6984.10\nclflush size\t: 64\ncache_alignment\t: 64\naddress sizes\t: 46 bits physical, 48 bits virtual\npower management:",
+    "sources": {
+      "tools/hvf/mmio_shift_oracle.py": "8e176358b6478a65e52d9cfa2ddc1fab0369ffbb5f384eedfb5b9009378ef30d",
+      "tools/hvf/mmio_guest.s": "1ba01779b9eed974b3cc8eb13bead2b69b9fd3b65b999876328c4d60e158eecc",
+      "tools/hvf/mmio_movsxd_native.c": "c8707e1f0b39ba50bb3b32d216e2bc3156e40f0833fcb630ddaf3957e9b66ad6"
+    },
+    "commands": [
+      {
+        "label": "compiler-version",
+        "argv": [
+          "gcc",
+          "--version"
+        ],
+        "exit_code": 0,
+        "seconds": 0.0021111806854605675
+      },
+      {
+        "label": "assembler-version",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "--version"
+        ],
+        "exit_code": 0,
+        "seconds": 0.32538484316319227
+      },
+      {
+        "label": "runner-build",
+        "argv": [
+          "gcc",
+          "-std=gnu11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-O2",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/project/tools/hvf/mmio_movsxd_native.c",
+          "-o",
+          "/tmp/rax-mmio-shift-ypmzmyaf/native"
+        ],
+        "exit_code": 0,
+        "seconds": 0.9915000833570957
+      },
+      {
+        "label": "assemble-0",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.015045784413814545
+      },
+      {
+        "label": "link-0",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.05225492548197508
+      },
+      {
+        "label": "native-0",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.242264316417277
+      },
+      {
+        "label": "assemble-1",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014016829431056976
+      },
+      {
+        "label": "link-1",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.021145867183804512
+      },
+      {
+        "label": "native-1",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.1294216411188245
+      },
+      {
+        "label": "assemble-2",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.01290853600949049
+      },
+      {
+        "label": "link-2",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.022326018661260605
+      },
+      {
+        "label": "native-2",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.256513954140246
+      },
+      {
+        "label": "assemble-3",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.01670315768569708
+      },
+      {
+        "label": "link-3",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.029702739790081978
+      },
+      {
+        "label": "native-3",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.142194620333612
+      },
+      {
+        "label": "assemble-4",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.016156719997525215
+      },
+      {
+        "label": "link-4",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.023566636256873608
+      },
+      {
+        "label": "native-4",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.377840057015419
+      },
+      {
+        "label": "assemble-5",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014177406206727028
+      },
+      {
+        "label": "link-5",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.022449067793786526
+      },
+      {
+        "label": "native-5",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.0849334970116615
+      },
+      {
+        "label": "assemble-6",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.015256701037287712
+      },
+      {
+        "label": "link-6",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.023106378503143787
+      },
+      {
+        "label": "native-6",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.2597203236073256
+      },
+      {
+        "label": "assemble-7",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.01607020664960146
+      },
+      {
+        "label": "link-7",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.0257123950868845
+      },
+      {
+        "label": "native-7",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.159318261779845
+      },
+      {
+        "label": "assemble-8",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.01401936262845993
+      },
+      {
+        "label": "link-8",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.02196513582020998
+      },
+      {
+        "label": "native-8",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.22107969969511
+      },
+      {
+        "label": "assemble-9",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.012762479484081268
+      },
+      {
+        "label": "link-9",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.022166691720485687
+      },
+      {
+        "label": "native-9",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 4.955766685307026
+      },
+      {
+        "label": "assemble-10",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014597024768590927
+      },
+      {
+        "label": "link-10",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.02120059821754694
+      },
+      {
+        "label": "native-10",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.184735263697803
+      },
+      {
+        "label": "assemble-11",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.012628892436623573
+      },
+      {
+        "label": "link-11",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.02099999040365219
+      },
+      {
+        "label": "native-11",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.160618339665234
+      },
+      {
+        "label": "assemble-12",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013838795013725758
+      },
+      {
+        "label": "link-12",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.02047794871032238
+      },
+      {
+        "label": "native-12",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.164804936386645
+      },
+      {
+        "label": "assemble-13",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014044403098523617
+      },
+      {
+        "label": "link-13",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.14137964881956577
+      },
+      {
+        "label": "native-13",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.162276287563145
+      },
+      {
+        "label": "assemble-14",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013682099059224129
+      },
+      {
+        "label": "link-14",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.021157446317374706
+      },
+      {
+        "label": "native-14",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.790655958466232
+      },
+      {
+        "label": "assemble-15",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.015139982104301453
+      },
+      {
+        "label": "link-15",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.023627785965800285
+      },
+      {
+        "label": "native-15",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.369418181478977
+      },
+      {
+        "label": "assemble-16",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013859509490430355
+      },
+      {
+        "label": "link-16",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.020988168194890022
+      },
+      {
+        "label": "native-16",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.330926115624607
+      },
+      {
+        "label": "assemble-17",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014160840772092342
+      },
+      {
+        "label": "link-17",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.02064816653728485
+      },
+      {
+        "label": "native-17",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.110294288024306
+      },
+      {
+        "label": "assemble-18",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013357051648199558
+      },
+      {
+        "label": "link-18",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.020433335565030575
+      },
+      {
+        "label": "native-18",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.17825067229569
+      },
+      {
+        "label": "assemble-19",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013872864656150341
+      },
+      {
+        "label": "link-19",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.020390823483467102
+      },
+      {
+        "label": "native-19",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.7908670250326395
+      },
+      {
+        "label": "assemble-20",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014760470017790794
+      },
+      {
+        "label": "link-20",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.3465510755777359
+      },
+      {
+        "label": "native-20",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.149980776011944
+      },
+      {
+        "label": "assemble-21",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013624010607600212
+      },
+      {
+        "label": "link-21",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.022118857130408287
+      },
+      {
+        "label": "native-21",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.159073734655976
+      },
+      {
+        "label": "assemble-22",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013297989033162594
+      },
+      {
+        "label": "link-22",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.023299033753573895
+      },
+      {
+        "label": "native-22",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.162998106330633
+      },
+      {
+        "label": "assemble-23",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.0141365397721529
+      },
+      {
+        "label": "link-23",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.022614565677940845
+      },
+      {
+        "label": "native-23",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.1679673828184605
+      },
+      {
+        "label": "assemble-24",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013804926536977291
+      },
+      {
+        "label": "link-24",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.043607753701508045
+      },
+      {
+        "label": "native-24",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.18556294683367
+      },
+      {
+        "label": "assemble-25",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013981197029352188
+      },
+      {
+        "label": "link-25",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.023923175409436226
+      },
+      {
+        "label": "native-25",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.174000860191882
+      },
+      {
+        "label": "assemble-26",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.015165219083428383
+      },
+      {
+        "label": "link-26",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.021925879642367363
+      },
+      {
+        "label": "native-26",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.162739482708275
+      },
+      {
+        "label": "assemble-27",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.01362376194447279
+      },
+      {
+        "label": "link-27",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.021282010711729527
+      },
+      {
+        "label": "native-27",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 4.992838802747428
+      },
+      {
+        "label": "assemble-28",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014850121922791004
+      },
+      {
+        "label": "link-28",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.021564597263932228
+      },
+      {
+        "label": "native-28",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.306934608146548
+      },
+      {
+        "label": "assemble-29",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.01550388429313898
+      },
+      {
+        "label": "link-29",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.021419783122837543
+      },
+      {
+        "label": "native-29",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.928065525367856
+      },
+      {
+        "label": "assemble-30",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014718858525156975
+      },
+      {
+        "label": "link-30",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.16306716483086348
+      },
+      {
+        "label": "native-30",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.151987824589014
+      },
+      {
+        "label": "assemble-31",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.01868220418691635
+      },
+      {
+        "label": "link-31",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.02030595764517784
+      },
+      {
+        "label": "native-31",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.138008085079491
+      },
+      {
+        "label": "assemble-32",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014485036954283714
+      },
+      {
+        "label": "link-32",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.05468060541898012
+      },
+      {
+        "label": "native-32",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 4.953679027035832
+      },
+      {
+        "label": "assemble-33",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.012517589144408703
+      },
+      {
+        "label": "link-33",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.019264988601207733
+      },
+      {
+        "label": "native-33",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.172949448227882
+      },
+      {
+        "label": "assemble-34",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013669236563146114
+      },
+      {
+        "label": "link-34",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.020757850259542465
+      },
+      {
+        "label": "native-34",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.1455343356356025
+      },
+      {
+        "label": "assemble-35",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013220609165728092
+      },
+      {
+        "label": "link-35",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.017142711207270622
+      },
+      {
+        "label": "native-35",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.227450042031705
+      },
+      {
+        "label": "assemble-36",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014938375912606716
+      },
+      {
+        "label": "link-36",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.021523231640458107
+      },
+      {
+        "label": "native-36",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.1750418320298195
+      },
+      {
+        "label": "assemble-37",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014909227378666401
+      },
+      {
+        "label": "link-37",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.02602243423461914
+      },
+      {
+        "label": "native-37",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.388380334712565
+      },
+      {
+        "label": "assemble-38",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014284017495810986
+      },
+      {
+        "label": "link-38",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.020523248240351677
+      },
+      {
+        "label": "native-38",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.184163951314986
+      },
+      {
+        "label": "assemble-39",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.014960970729589462
+      },
+      {
+        "label": "link-39",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.02113346941769123
+      },
+      {
+        "label": "native-39",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 4.948788215406239
+      },
+      {
+        "label": "assemble-40",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.01736590825021267
+      },
+      {
+        "label": "link-40",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.022500879131257534
+      },
+      {
+        "label": "native-40",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.2637768145650625
+      },
+      {
+        "label": "assemble-41",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013822185806930065
+      },
+      {
+        "label": "link-41",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.019988488405942917
+      },
+      {
+        "label": "native-41",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.150066366419196
+      },
+      {
+        "label": "assemble-42",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013796916231513023
+      },
+      {
+        "label": "link-42",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.021064210683107376
+      },
+      {
+        "label": "native-42",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.151240856386721
+      },
+      {
+        "label": "assemble-43",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.016254832036793232
+      },
+      {
+        "label": "link-43",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.020717470906674862
+      },
+      {
+        "label": "native-43",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.210338524542749
+      },
+      {
+        "label": "assemble-44",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013594460673630238
+      },
+      {
+        "label": "link-44",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.019480502232909203
+      },
+      {
+        "label": "native-44",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.152402080595493
+      },
+      {
+        "label": "assemble-45",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.015502525493502617
+      },
+      {
+        "label": "link-45",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.02128120232373476
+      },
+      {
+        "label": "native-45",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.14282993786037
+      },
+      {
+        "label": "assemble-46",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013755537569522858
+      },
+      {
+        "label": "link-46",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.02401870209723711
+      },
+      {
+        "label": "native-46",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.133269872516394
+      },
+      {
+        "label": "assemble-47",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.013644156977534294
+      },
+      {
+        "label": "link-47",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.0197142343968153
+      },
+      {
+        "label": "native-47",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 5.065692904405296
+      },
+      {
+        "label": "assemble-48",
+        "argv": [
+          "/usr/local/bin/llvm-mc",
+          "-triple=i386-none-elf",
+          "-filetype=obj",
+          "guest.s",
+          "-o",
+          "guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.012208402156829834
+      },
+      {
+        "label": "link-48",
+        "argv": [
+          "/usr/local/bin/ld.lld",
+          "-m",
+          "elf_i386",
+          "-T",
+          "link.ld",
+          "guest.o",
+          "-o",
+          "guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.018560731783509254
+      },
+      {
+        "label": "native-48",
+        "argv": [
+          "/tmp/rax-mmio-shift-ypmzmyaf/native",
+          "/tmp/rax-mmio-shift-ypmzmyaf/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.49438189435750246
+      }
+    ],
+    "scope": "Physical Linux x86-64 KVM RAM instructions; no RAX code linked. All16GPRs,24memory bytes,defined/unaffected flags. Does not qualify Intel macOS HVF exits or device ordering.",
+    "owned_build_artifacts_removed": true,
+    "artifact_sha256": {
+      "cases.bin": "304c1d788fbc2158d3109242f92f9e0b604fc300158a08dd002d5c38b35b76bf",
+      "records.bin": "697b24b95da72fbd8e01eeffa3eae98ff7253542d076d6431a336f6728279fee"
+    },
+    "result": "native_reference_complete"
+  },
+  "exhaustive_production_comparison": {
+    "source_sha256": {
+      "tools/hvf/mmio_shift_compare.rs": "441b0aa39076fd8b738a2b3d04bcd409e83bedf1112f95189c818f80bacfafa7",
+      "tools/hvf/mmio_rmw_compare.rs": "a297d602251a4c1649e29c2426f6f935535cb353afb2c3f645a4dcf03f339f2f",
+      "src/isa/x86_64/inspection.rs": "aa627c23348822e45fff857768a789762caef7df6ea5bebe65467220dcd483e1",
+      "src/backend/hvf/mmio.rs": "3901bbd0a6c863995d1c54a24c207208abd510c1815f548516d0627c837a003b",
+      "src/backend/hvf/mmio/rmw.rs": "f35956e1f9570560bf448113b4e40dec990b969103839ed492f665185aa40daf",
+      "src/backend/hvf/mmio/alu_read.rs": "d28d9f7ddfec6323d62c3e48a8024305d3fa5948ccbc3dd4307d060f67bc8aad",
+      "src/backend/hvf/mmio/shift.rs": "26b059aa958e31f107f422103cca54b53ed22e3e527e81d00a4c79105771ead0",
+      "src/devices/bus/rmw.rs": "cd866a13606376e80100795f837c233173e0d2288a77db87d500c1214bbd8568",
+      "src/devices/bus/shift.rs": "5c991483e375691ee9fc73a5f3b4eb8805925565c3f7dff5bdaacf554e59e51a"
+    },
+    "engine_sha256": "b1c072373fc275271dd8c066ce984010625f85201674a8f18841a30ddc8ee4c8",
+    "reference_manifest_sha256": "b0c98fe0200914195e4384d5d65e579496e416b9fa6774f117eb5f3d9ae0d0cb",
+    "full_source_export": false,
+    "git_worktree_created": false,
+    "commands": [
+      {
+        "label": "build",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+          "--edition=2024",
+          "-C",
+          "target-cpu=x86-64-v3",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/mmio_shift_compare.rs",
+          "--extern",
+          "rax=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/librax-a99e5668075068ad.rlib",
+          "--extern",
+          "serde=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/libserde-359c8e9854bf8e9d.rlib",
+          "-L",
+          "dependency=/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps",
+          "-o",
+          "/tmp/rax-shift-exhaustive-uesookg4/compare"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "warning: unused imports: `devices` and `isa`\n --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/mmio_rmw_compare.rs:2:11\n  |\n2 | use rax::{devices, isa};\n  |           ^^^^^^^  ^^^\n  |\n  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `main` is never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/mmio_rmw_compare.rs:140:4\n    |\n140 | fn main() {\n    |    ^^^^\n    |\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: methods `validate` and `value` are never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/../../src/backend/hvf/mmio.rs:118:19\n    |\n117 | impl Input {\n    | ---------- methods in this implementation\n118 |     pub(crate) fn validate(&self) -> Result<(), String> {\n    |                   ^^^^^^^^\n...\n138 |     pub(crate) fn value(&self, data: &[u8]) -> Result<u64, String> {\n    |                   ^^^^^\n\nwarning: field `0` is never read\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/../../src/backend/hvf/mmio.rs:161:10\n    |\n161 |     Read(Input),\n    |     ---- ^^^^^\n    |     |\n    |     field in this variant\n    |\n    = note: `Action` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis\nhelp: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field\n    |\n161 -     Read(Input),\n161 +     Read(()),\n    |\n\nwarning: field `0` is never read\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/../../src/backend/hvf/mmio.rs:162:11\n    |\n162 |     Write(Vec<u8>),\n    |     ----- ^^^^^^^\n    |     |\n    |     field in this variant\n    |\n    = note: `Action` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis\nhelp: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field\n    |\n162 -     Write(Vec<u8>),\n162 +     Write(()),\n    |\n\nwarning: field `0` is never read\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/../../src/backend/hvf/mmio.rs:164:13\n    |\n164 |     AluRead(AluReadInput),\n    |     ------- ^^^^^^^^^^^^\n    |     |\n    |     field in this variant\n    |\n    = note: `Action` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis\nhelp: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field\n    |\n164 -     AluRead(AluReadInput),\n164 +     AluRead(()),\n    |\n\nwarning: trait `CompletionAccess` is never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/../../src/backend/hvf/mmio.rs:406:18\n    |\n406 | pub(crate) trait CompletionAccess {\n    |                  ^^^^^^^^^^^^^^^^\n\nwarning: enum `Pending` is never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/../../src/backend/hvf/mmio.rs:413:6\n    |\n413 | enum Pending {\n    |      ^^^^^^^\n\nwarning: struct `InputState` is never constructed\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/../../src/backend/hvf/mmio.rs:419:19\n    |\n419 | pub(crate) struct InputState {\n    |                   ^^^^^^^^^^\n\nwarning: multiple methods are never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/../../src/backend/hvf/mmio.rs:425:19\n    |\n424 | impl InputState {\n    | --------------- methods in this implementation\n425 |     pub(crate) fn hold_failure(&mut self, data: &[u8], failure: String) {\n    |                   ^^^^^^^^^^^^\n...\n437 |     pub(crate) fn failure(&self) -> Option<&str> {\n    |                   ^^^^^^^\n...\n440 |     pub(crate) fn descriptor(&self) -> Option<(u8, Option<crate::devices::bus::MmioRmwOp>)> {\n    |                   ^^^^^^^^^^\n...\n447 |     pub(crate) fn validate_checkpoint(&self) -> Result<(), String> {\n    |                   ^^^^^^^^^^^^^^^^^^^\n...\n469 |     pub(crate) fn pending(&self) -> bool {\n    |                   ^^^^^^^\n...\n472 |     pub(crate) fn ready(&self) -> Result<(), &str> {\n    |                   ^^^^^\n...\n481 |     pub(crate) fn begin(&mut self, input: Input) -> Result<(), String> {\n    |                   ^^^^^\n...\n487 |     pub(crate) fn begin_rmw(&mut self, input: RmwInput) -> Result<(), String> {\n    |                   ^^^^^^^^^\n...\n493 |     pub(crate) fn begin_alu_read(&mut self, input: AluReadInput) -> Result<(), String> {\n    |                   ^^^^^^^^^^^^^^\n...\n499 |     pub(crate) fn complete<T: CompletionAccess>(&mut self, host: &mut T, data: &[u8]) {\n    |                   ^^^^^^^^\n\nwarning: trait `RetirementAccess` is never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/../../src/backend/hvf/mmio.rs:540:18\n    |\n540 | pub(crate) trait RetirementAccess {\n    |                  ^^^^^^^^^^^^^^^^\n\nwarning: function `retire` is never used\n   --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/../../src/backend/hvf/mmio.rs:548:15\n    |\n548 | pub(crate) fn retire<T: RetirementAccess>(host: &mut T, length: u64) -> Result<(), T::Error> {\n    |               ^^^^^^\n\nwarning: method `completion` is never used\n  --> /tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-product-exhaustive-v1/source/tools/hvf/../../src/backend/hvf/mmio/alu_read.rs:49:19\n   |\n32 | impl AluReadInput {\n   | ----------------- method in this implementation\n...\n49 |     pub(crate) fn completion(\n   |                   ^^^^^^^^^^\n\nwarning: 13 warnings emitted\n\n"
+      },
+      {
+        "label": "compare",
+        "argv": [
+          "/tmp/rax-shift-exhaustive-uesookg4/compare",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-native-exhaustive-v1/cases.bin",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shifts-native-exhaustive-v1/records.bin"
+        ],
+        "exit_code": 0,
+        "stdout": "{\"cases\":196992,\"plans\":393984,\"mismatches\":0}\n",
+        "stderr": ""
+      }
+    ],
+    "executable_sha256": "5aa7410f10b4be4cf2f0c1697fb804cd531f6172c0f097b77c1f8b6671682597",
+    "comparison": {
+      "cases": 196992,
+      "plans": 393984,
+      "mismatches": 0
+    },
+    "result": "native_exhaustive_product_match",
+    "owned_build_artifacts_removed": true
+  },
+  "exhaustive_current_main_source_matched": {
+    "tools/hvf/mmio_shift_compare.rs": true,
+    "tools/hvf/mmio_rmw_compare.rs": true,
+    "src/isa/x86_64/inspection.rs": true,
+    "src/backend/hvf/mmio.rs": true,
+    "src/backend/hvf/mmio/rmw.rs": true,
+    "src/backend/hvf/mmio/alu_read.rs": true,
+    "src/backend/hvf/mmio/shift.rs": true,
+    "src/devices/bus/rmw.rs": true,
+    "src/devices/bus/shift.rs": true
+  },
+  "native_zero_count_access": {
+    "source_sha256": "cf09011f1ec865919d9f16242dcbae59fca04cc5d4adf36205218612a1dd0c56",
+    "commands": [
+      {
+        "argv": [
+          "gcc",
+          "-std=gnu11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-O2",
+          "/tmp/rax-kvm-native-entry-ixif9sv1/observations/mmio-shift-access-v1/probe.c",
+          "-o",
+          "/tmp/rax-shift-access-ezcgu7ok/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/tmp/rax-shift-access-ezcgu7ok/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "{\"group\":0,\"size\":1,\"count\":0,\"exit\":77}\n{\"group\":0,\"size\":1,\"count\":32,\"exit\":77}\n{\"group\":0,\"size\":2,\"count\":0,\"exit\":77}\n{\"group\":0,\"size\":2,\"count\":32,\"exit\":77}\n{\"group\":0,\"size\":4,\"count\":0,\"exit\":77}\n{\"group\":0,\"size\":4,\"count\":32,\"exit\":77}\n{\"group\":0,\"size\":8,\"count\":0,\"exit\":77}\n{\"group\":0,\"size\":8,\"count\":64,\"exit\":77}\n{\"group\":1,\"size\":1,\"count\":0,\"exit\":77}\n{\"group\":1,\"size\":1,\"count\":32,\"exit\":77}\n{\"group\":1,\"size\":2,\"count\":0,\"exit\":77}\n{\"group\":1,\"size\":2,\"count\":32,\"exit\":77}\n{\"group\":1,\"size\":4,\"count\":0,\"exit\":77}\n{\"group\":1,\"size\":4,\"count\":32,\"exit\":77}\n{\"group\":1,\"size\":8,\"count\":0,\"exit\":77}\n{\"group\":1,\"size\":8,\"count\":64,\"exit\":77}\n{\"group\":2,\"size\":1,\"count\":0,\"exit\":77}\n{\"group\":2,\"size\":1,\"count\":32,\"exit\":77}\n{\"group\":2,\"size\":2,\"count\":0,\"exit\":77}\n{\"group\":2,\"size\":2,\"count\":32,\"exit\":77}\n{\"group\":2,\"size\":4,\"count\":0,\"exit\":77}\n{\"group\":2,\"size\":4,\"count\":32,\"exit\":77}\n{\"group\":2,\"size\":8,\"count\":0,\"exit\":77}\n{\"group\":2,\"size\":8,\"count\":64,\"exit\":77}\n{\"group\":3,\"size\":1,\"count\":0,\"exit\":77}\n{\"group\":3,\"size\":1,\"count\":32,\"exit\":77}\n{\"group\":3,\"size\":2,\"count\":0,\"exit\":77}\n{\"group\":3,\"size\":2,\"count\":32,\"exit\":77}\n{\"group\":3,\"size\":4,\"count\":0,\"exit\":77}\n{\"group\":3,\"size\":4,\"count\":32,\"exit\":77}\n{\"group\":3,\"size\":8,\"count\":0,\"exit\":77}\n{\"group\":3,\"size\":8,\"count\":64,\"exit\":77}\n{\"group\":4,\"size\":1,\"count\":0,\"exit\":77}\n{\"group\":4,\"size\":1,\"count\":32,\"exit\":77}\n{\"group\":4,\"size\":2,\"count\":0,\"exit\":77}\n{\"group\":4,\"size\":2,\"count\":32,\"exit\":77}\n{\"group\":4,\"size\":4,\"count\":0,\"exit\":77}\n{\"group\":4,\"size\":4,\"count\":32,\"exit\":77}\n{\"group\":4,\"size\":8,\"count\":0,\"exit\":77}\n{\"group\":4,\"size\":8,\"count\":64,\"exit\":77}\n{\"group\":5,\"size\":1,\"count\":0,\"exit\":77}\n{\"group\":5,\"size\":1,\"count\":32,\"exit\":77}\n{\"group\":5,\"size\":2,\"count\":0,\"exit\":77}\n{\"group\":5,\"size\":2,\"count\":32,\"exit\":77}\n{\"group\":5,\"size\":4,\"count\":0,\"exit\":77}\n{\"group\":5,\"size\":4,\"count\":32,\"exit\":77}\n{\"group\":5,\"size\":8,\"count\":0,\"exit\":77}\n{\"group\":5,\"size\":8,\"count\":64,\"exit\":77}\n{\"group\":6,\"size\":1,\"count\":0,\"exit\":77}\n{\"group\":6,\"size\":1,\"count\":32,\"exit\":77}\n{\"group\":6,\"size\":2,\"count\":0,\"exit\":77}\n{\"group\":6,\"size\":2,\"count\":32,\"exit\":77}\n{\"group\":6,\"size\":4,\"count\":0,\"exit\":77}\n{\"group\":6,\"size\":4,\"count\":32,\"exit\":77}\n{\"group\":6,\"size\":8,\"count\":0,\"exit\":77}\n{\"group\":6,\"size\":8,\"count\":64,\"exit\":77}\n{\"group\":7,\"size\":1,\"count\":0,\"exit\":77}\n{\"group\":7,\"size\":1,\"count\":32,\"exit\":77}\n{\"group\":7,\"size\":2,\"count\":0,\"exit\":77}\n{\"group\":7,\"size\":2,\"count\":32,\"exit\":77}\n{\"group\":7,\"size\":4,\"count\":0,\"exit\":77}\n{\"group\":7,\"size\":4,\"count\":32,\"exit\":77}\n{\"group\":7,\"size\":8,\"count\":0,\"exit\":77}\n{\"group\":7,\"size\":8,\"count\":64,\"exit\":77}\n",
+        "stderr": ""
+      }
+    ],
+    "executable_sha256": "9931679dea6bc20a25b2d4b2877f5456b6583ed01b7b9acc88af229d408fa7fd",
+    "observations": [
+      {
+        "group": 0,
+        "size": 1,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 0,
+        "size": 1,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 0,
+        "size": 2,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 0,
+        "size": 2,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 0,
+        "size": 4,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 0,
+        "size": 4,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 0,
+        "size": 8,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 0,
+        "size": 8,
+        "count": 64,
+        "exit": 77
+      },
+      {
+        "group": 1,
+        "size": 1,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 1,
+        "size": 1,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 1,
+        "size": 2,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 1,
+        "size": 2,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 1,
+        "size": 4,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 1,
+        "size": 4,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 1,
+        "size": 8,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 1,
+        "size": 8,
+        "count": 64,
+        "exit": 77
+      },
+      {
+        "group": 2,
+        "size": 1,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 2,
+        "size": 1,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 2,
+        "size": 2,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 2,
+        "size": 2,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 2,
+        "size": 4,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 2,
+        "size": 4,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 2,
+        "size": 8,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 2,
+        "size": 8,
+        "count": 64,
+        "exit": 77
+      },
+      {
+        "group": 3,
+        "size": 1,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 3,
+        "size": 1,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 3,
+        "size": 2,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 3,
+        "size": 2,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 3,
+        "size": 4,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 3,
+        "size": 4,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 3,
+        "size": 8,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 3,
+        "size": 8,
+        "count": 64,
+        "exit": 77
+      },
+      {
+        "group": 4,
+        "size": 1,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 4,
+        "size": 1,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 4,
+        "size": 2,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 4,
+        "size": 2,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 4,
+        "size": 4,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 4,
+        "size": 4,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 4,
+        "size": 8,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 4,
+        "size": 8,
+        "count": 64,
+        "exit": 77
+      },
+      {
+        "group": 5,
+        "size": 1,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 5,
+        "size": 1,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 5,
+        "size": 2,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 5,
+        "size": 2,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 5,
+        "size": 4,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 5,
+        "size": 4,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 5,
+        "size": 8,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 5,
+        "size": 8,
+        "count": 64,
+        "exit": 77
+      },
+      {
+        "group": 6,
+        "size": 1,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 6,
+        "size": 1,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 6,
+        "size": 2,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 6,
+        "size": 2,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 6,
+        "size": 4,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 6,
+        "size": 4,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 6,
+        "size": 8,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 6,
+        "size": 8,
+        "count": 64,
+        "exit": 77
+      },
+      {
+        "group": 7,
+        "size": 1,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 7,
+        "size": 1,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 7,
+        "size": 2,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 7,
+        "size": 2,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 7,
+        "size": 4,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 7,
+        "size": 4,
+        "count": 32,
+        "exit": 77
+      },
+      {
+        "group": 7,
+        "size": 8,
+        "count": 0,
+        "exit": 77
+      },
+      {
+        "group": 7,
+        "size": 8,
+        "count": 64,
+        "exit": 77
+      }
+    ],
+    "result": "64_operand_write_permission_faults_confirmed",
+    "owned_build_artifacts_removed": true
+  },
+  "latest_frozen_apple_library": {
+    "state": "completed",
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--target",
+      "aarch64-apple-darwin",
+      "--lib",
+      "--no-run",
+      "--message-format=json"
+    ],
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th",
+    "wrapper_pid": 40774,
+    "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+    "compile_pid": 40815,
+    "compile_exit_code": 0,
+    "compile_seconds": 132.1211951659061,
+    "compile_source_unchanged": true,
+    "executable": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/aarch64-apple-darwin/debug/deps/rax-d3a0c2b6ab47e3e6",
+    "executable_sha256": "62ad17a95a2249482c4f7e5c45de5748d96917d430619fdc71b13650a1790654",
+    "test_pid": 64100,
+    "run_command": [
+      "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th/aarch64-apple-darwin/debug/deps/rax-d3a0c2b6ab47e3e6",
+      "--nocapture",
+      "--test-threads=4"
+    ],
+    "exit_code": 0,
+    "test_seconds": 3192.9056761249667,
+    "source_changed_since_frozen_compile": true,
+    "success": true,
+    "owned_build_retained": "Shared with current SDK-owner qualification; remove only after every active owner is terminal.",
+    "counts": {
+      "passed": 12440,
+      "failed": 0,
+      "ignored": 36,
+      "filtered": 0
+    },
+    "later_source_delta": [
+      "src/backend/hvf/intel_init.rs",
+      "src/backend/hvf/intel_worker.rs",
+      "src/backend/hvf/mod.rs"
+    ],
+    "scope_note": "Frozen source816828...; later INIT changes are confined to the Intel-only adapter."
+  },
+  "latest_companion_binaries": {
+    "result": {
+      "state": "completed",
+      "wrapper_pid": 65129,
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_memory",
+        "--test",
+        "hvf_owner",
+        "--test",
+        "hvf_controls",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-deadline-owner-mw_vv6th",
+      "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+      "child_pid": 65132,
+      "exit_code": 0,
+      "seconds": 7.209674624959007,
+      "source_unchanged": true
+    },
+    "counts": {
+      "hvf_controls": 11,
+      "hvf_memory": 18,
+      "hvf_mmio": 55,
+      "hvf_owner": 14
+    },
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "latest_native_146": {
+    "run_id": 42010491792,
+    "passed": 146,
+    "failed": 0,
+    "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+    "scope": "RAM/MMIO/PAT/reserved-MSR/deadline/TSC controls. Startup control is separate."
+  },
+  "native_startup_149": "Run42014912978 in progress; no terminal outcome claimed."
+}
