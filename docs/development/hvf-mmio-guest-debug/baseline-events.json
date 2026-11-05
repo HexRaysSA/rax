@@ -1,0 +1,9 @@
+{
+  "argv": [
+    "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/baseline-events",
+    "--nocapture"
+  ],
+  "exit_code": 101,
+  "seconds": 0.26975137495901436,
+  "scope": "complete registered event target via standalone rustc; same source; no VM or SDK execution"
+}

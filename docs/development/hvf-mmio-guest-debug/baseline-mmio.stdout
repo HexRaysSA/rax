@@ -1,0 +1,74 @@
+
+running 63 tests
+test bit_test_tests::invalid_bit_test_records_reject_before_device_effects ... ok
+test alu_read_tests::captured_carry_and_partial_registers_survive_delayed_reply ... ok
+test alu_read_tests::alu_reply_width_and_every_publication_failure_stop_before_another_commit ... ok
+test alu_read_tests::compare_and_test_memory_left_register_forms_remain_read_only ... ok
+test alu_read_tests::compare_orders_and_immediates_update_only_the_defined_flags ... ok
+test alu_read_tests::flags_only_completion_skips_gprs_and_publishes_once ... ok
+test alu_read_tests::device_read_alu_families_admit_all_scalar_widths_before_any_device_access ... ok
+test alu_read_tests::immediate_compare_and_test_admit_short_and_full_signed_encodings ... ok
+test double_shift_tests::double_shift_operations_append_wire_tags_and_reject_byte_widths_without_writes ... ok
+test double_shift_tests::double_shift_invalid_descriptors_and_publication_errors_cannot_resume ... ok
+test bit_test_tests::source_free_pending_bit_tests_preserve_zero_flag_and_complete_only_once ... ok
+test double_shift_tests::double_shift_admission_rejects_lock_step_wrong_ept_and_truncation_before_effects ... ok
+test bit_test_tests::signed_register_bit_strings_select_the_correct_word_before_device_access ... ok
+test guest_debug_tests::every_mmio_publication_failure_retains_reply_and_prevents_debug_completion ... FAILED
+test ept_faults_during_event_delivery_cannot_become_instruction_mmio ... ok
+test gla_direction_ram_and_truncation_mismatches_stop_before_device_effects ... ok
+test alu_read_tests::legacy_and_compatibility_code_modes_admit_device_read_alu_operations ... ok
+test alu_read_tests::qword_signed_overflow_boundaries_preserve_nonarithmetic_flags ... ok
+test double_shift_tests::double_shift_zero_masks_and_undefined_word_counts_retain_selected_state ... ok
+test alu_read_tests::read_alu_rejects_write_qualifications_and_single_step_before_device_access ... ok
+test bit_test_tests::bit_string_addressing_handles_base_aliasing_and_address_size_wrap ... ok
+test bit_test_tests::legacy_code_modes_admit_read_only_bit_tests ... ok
+test bit_test_tests::malformed_pending_bit_tests_reject_before_register_publication ... ok
+test complete_data_range_must_be_physically_contiguous_before_any_device_access ... ok
+test bit_test_tests::every_immediate_byte_selects_a_bit_without_adjusting_the_base_address ... ok
+test load_framing_and_register_alias_frontiers_are_explicit ... ok
+test malformed_ept_or_unrepresented_instruction_never_becomes_device_io ... ok
+test malformed_input_and_both_host_failure_stages_are_terminal ... ok
+test mmio_retirement_clears_only_rf_and_propagates_each_host_failure ... ok
+test moffs_uses_every_active_segment_override_and_guest_address_width ... ok
+test movsxd_tests::movsxd_admission_retains_legacy_arpl_and_rejects_invalid_exit_or_lock ... ok
+test movsxd_tests::movsxd_mmio_completes_all_destinations_sign_edges_and_saved_pending_reads ... ok
+test incremental_fetch_does_not_touch_an_unneeded_next_code_page ... ok
+test load_register_parts_and_zero_extension_are_exact ... ok
+test rip_relative_and_addr32_eip_relative_addresses_include_the_complete_encoding ... ok
+test movsxd_tests::movsxd_metadata_represents_all_legal_widths_and_operand_directions ... ok
+test rmw_exit_accepts_both_architectural_ept_qualification_encodings ... ok
+test rmw_tests::cmpxchg_success_preserves_accumulator_and_failure_zero_extends_eax ... ok
+test rmw_tests::carry_borrow_and_increment_boundaries_preserve_control_flags ... ok
+test rmw_tests::compatibility_widths_and_addr32_override_preserve_effective_addresses ... ok
+test double_shift_tests::double_shift_counts_and_captured_sources_survive_pending_codec_roundtrips ... ok
+test guest_debug_tests::scalar_mmio_tf_rf_btf_shadow_and_host_step_survive_pending_codec_roundtrips ... FAILED
+test rmw_tests::exchange_aliases_preserve_flags_and_only_replace_the_named_register_part ... ok
+test independent_guest_records_preserve_all_registers_memory_and_flags ... ok
+test rmw_tests::register_bit_strings_use_signed_word_offsets_and_immediates_stay_within_the_operand ... ok
+test rmw_tests::xadd_completion_failures_are_terminal_at_every_sdk_publication_stage ... ok
+test shift_tests::legacy_and_addr32_shift_plans_use_the_same_validated_effective_address ... ok
+test rmw_tests::successful_rmw_completion_publishes_once_and_excludes_an_overlapping_read ... ok
+test scaled_displaced_and_wrapped_effective_addresses_match_the_exit ... ok
+test shift_tests::forged_shift_carry_and_completion_failures_remain_fenced_after_checkpoint ... ok
+test shift_tests::full_turns_and_masked_zero_counts_have_distinct_carry_rules ... ok
+test typed_completion_commits_only_the_captured_destination_once ... ok
+test stores_capture_actual_register_bytes_and_signed_immediates ... ok
+test shift_tests::shift_admission_rejects_lock_step_wrong_ept_and_truncation_before_effects ... ok
+test special_ept_accesses_are_rejected_while_undefined_permission_bits_are_ignored ... ok
+test signed_and_unsigned_load_extensions_match_primary_subregister_rules ... ok
+test shift_tests::shift_counts_and_flags_continue_after_source_free_pending_codec_roundtrips ... ok
+test movsxd_tests::native_kvm_records_match_all_registers_memory_and_flags ... ok
+test bit_test_tests::physical_intel_bit_test_records_match_read_planning_and_completion ... ok
+test alu_read_tests::independent_alu_guest_records_match_complete_product_publication ... ok
+test rmw_tests::independent_qemu_rmw_records_preserve_all_registers_memory_and_defined_flags ... ok
+test shift_tests::independent_intel_shift_records_preserve_gprs_neighbors_and_defined_flags ... ok
+test double_shift_tests::independent_double_shift_records_preserve_gprs_neighbors_and_defined_flags ... ok
+
+failures:
+
+failures:
+    guest_debug_tests::every_mmio_publication_failure_retains_reply_and_prevents_debug_completion
+    guest_debug_tests::scalar_mmio_tf_rf_btf_shadow_and_host_step_survive_pending_codec_roundtrips
+
+test result: FAILED. 61 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+

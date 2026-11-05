@@ -1,0 +1,749 @@
+{
+  "recorded_utc": "2026-11-05T20:44:06.528735+00:00",
+  "status": "locally_validated",
+  "scope": "guest debug retirement at scalar MMIO and pending-trap/IRQ arbitration",
+  "base": "de052176c1d2471b1045c7634b98207388e748dd",
+  "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+  "engine_inputs": 4493,
+  "changed_engine_paths": [
+    "src/backend/hvf/event_injection.rs",
+    "src/backend/hvf/mod.rs",
+    "src/backend/hvf/mmio.rs"
+  ],
+  "commands": {
+    "fixed-controls": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_event_injection",
+        "--test",
+        "hvf_native_debug",
+        "--test",
+        "hvf_port_io",
+        "--test",
+        "hvf_run_loop",
+        "--test",
+        "hvf_interrupt_shadow",
+        "--test",
+        "hvf_sync_exits",
+        "--",
+        "--nocapture"
+      ],
+      "wrapper_pid": 40293,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+      "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+      "pid": 40410,
+      "exit_code": 0,
+      "seconds": 157.96685166691896,
+      "engine_source_unchanged": true,
+      "logs": {
+        "stdout": {
+          "sha256": "47ce6335e6d0c812de098f50ee745314454e1cf2bfa449b19f81b28e6a0c52bc",
+          "bytes": 11842
+        },
+        "stderr": {
+          "sha256": "b2a82d196bbdcef1fd43b16f74dbe16488838dd7fe236dbd153faf72480e3b53",
+          "bytes": 1341
+        }
+      },
+      "test_counts": [
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        {
+          "passed": 64,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        }
+      ]
+    },
+    "final-mmio": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "hvf_mmio",
+        "--",
+        "--nocapture"
+      ],
+      "wrapper_pid": 96928,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+      "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+      "pid": 18870,
+      "exit_code": 0,
+      "seconds": 7.543456790968776,
+      "engine_source_unchanged": true,
+      "logs": {
+        "stdout": {
+          "sha256": "040ee1a10e74c5b8ed10f55951be3085c5e7f6b5351921f44e056448b350dd58",
+          "bytes": 5989
+        },
+        "stderr": {
+          "sha256": "4856276caf87d0a3c75182ef00515ba429dc9a1c22d9b3a456c32123cc9e513b",
+          "bytes": 268
+        }
+      },
+      "test_counts": [
+        {
+          "passed": 65,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        }
+      ]
+    },
+    "intel-owner-fixed": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--target",
+        "x86_64-apple-darwin",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1"
+      ],
+      "wrapper_pid": 80641,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+      "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+      "pid": 81154,
+      "exit_code": 0,
+      "seconds": 714.1146136249881,
+      "engine_source_unchanged": true,
+      "logs": {
+        "stdout": {
+          "sha256": "9b660c7c51576e15706df85fb69b11a1fcce50f757af6d22cb339620216b21d3",
+          "bytes": 6929
+        },
+        "stderr": {
+          "sha256": "3279ad689844e246b73b402a9cddb94aebd504cc5bb7cd2226fba71e0ae2b1a2",
+          "bytes": 302
+        }
+      },
+      "test_counts": [
+        {
+          "passed": 75,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        }
+      ]
+    },
+    "no-debug-owner-corrected": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--target",
+        "x86_64-apple-darwin",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1"
+      ],
+      "wrapper_pid": 59683,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+      "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+      "pid": 59830,
+      "exit_code": 0,
+      "seconds": 508.89126004104037,
+      "engine_source_unchanged": true,
+      "logs": {
+        "stdout": {
+          "sha256": "e434744a2ce4f98890b7e740706132235383da748ce137d8b448c8650f3d3413",
+          "bytes": 6653
+        },
+        "stderr": {
+          "sha256": "35a3b21d38073ae62671ea333dbae94c1c1f19ba9907c5659fc7ffa2d6af532a",
+          "bytes": 302
+        }
+      },
+      "test_counts": [
+        {
+          "passed": 72,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        }
+      ]
+    },
+    "native-library": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "build",
+        "--locked",
+        "--target",
+        "x86_64-apple-darwin",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "--message-format=json"
+      ],
+      "wrapper_pid": 96928,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+      "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+      "pid": 17239,
+      "exit_code": 0,
+      "seconds": 0.35741116700228304,
+      "engine_source_unchanged": true,
+      "logs": {
+        "stdout": {
+          "sha256": "364b798960bae323379128079770ba338ccf1edc90dd61389a3b02e3dd8164d0",
+          "bytes": 94440
+        },
+        "stderr": {
+          "sha256": "c9ad137b5fa0df0abd2b6014f732948a88b19d6b3600338bc3b6b052b50b9fdf",
+          "bytes": 58
+        }
+      },
+      "test_counts": []
+    },
+    "tooling": {
+      "state": "completed",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/hvf",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "wrapper_pid": 96928,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+      "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+      "pid": 96957,
+      "exit_code": 0,
+      "seconds": 5.780720499926247,
+      "engine_source_unchanged": true,
+      "logs": {
+        "stdout": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "stderr": {
+          "sha256": "7ad0079ae29e5ed13428a435adc972d0bb3d946a060b825e0f4814ff84d3d143",
+          "bytes": 6155
+        }
+      },
+      "test_counts": []
+    },
+    "clippy": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--locked",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug"
+      ],
+      "wrapper_pid": 96928,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+      "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+      "pid": 22558,
+      "exit_code": 0,
+      "seconds": 324.1697286249837,
+      "engine_source_unchanged": true,
+      "logs": {
+        "stdout": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "stderr": {
+          "sha256": "5694727734de489a8d87423fe99673b2cb2e39c59619e7a68a257bf6187a817b",
+          "bytes": 2271
+        }
+      },
+      "test_counts": []
+    },
+    "all-target-build": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "build",
+        "--locked",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug"
+      ],
+      "wrapper_pid": 96928,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+      "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+      "pid": 41323,
+      "exit_code": 0,
+      "seconds": 760.1522039590636,
+      "engine_source_unchanged": true,
+      "logs": {
+        "stdout": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "stderr": {
+          "sha256": "f5208c1e391c0e724edfc2e72be1ced24ffeaf542475b5958a5aeb1c9ab3fb18",
+          "bytes": 105
+        }
+      },
+      "test_counts": []
+    },
+    "doctests": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--doc",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug"
+      ],
+      "wrapper_pid": 96928,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+      "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+      "pid": 13614,
+      "exit_code": 0,
+      "seconds": 12.475610665977001,
+      "engine_source_unchanged": true,
+      "logs": {
+        "stdout": {
+          "sha256": "345134692736b0e5224893ec1bc01df4a2846cb9b859a7dedf730cf54a6b23c6",
+          "bytes": 510
+        },
+        "stderr": {
+          "sha256": "6f1907511a372ac3ebab54f41786b187b4d06c2468e28a37f58a0d06ebf90c44",
+          "bytes": 76
+        }
+      },
+      "test_counts": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "measured": 0,
+          "filtered": 0
+        }
+      ]
+    },
+    "workspace-format-final": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "wrapper_pid": 59683,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+      "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+      "pid": 43252,
+      "exit_code": 0,
+      "seconds": 28.529273208929226,
+      "engine_source_unchanged": true,
+      "logs": {
+        "stdout": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "stderr": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      },
+      "test_counts": []
+    }
+  },
+  "toolchain": {
+    "rustc": {
+      "argv": [
+        "rustc",
+        "+stable",
+        "-vV"
+      ],
+      "stdout": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+      "stderr": ""
+    },
+    "host": {
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "stdout": "Darwin ints-MacBook-Pro.local 27.2.0 Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041 arm64\n",
+      "stderr": ""
+    },
+    "os": {
+      "argv": [
+        "sw_vers"
+      ],
+      "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+      "stderr": ""
+    },
+    "sdk": {
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "stdout": "27.2\n",
+      "stderr": ""
+    }
+  },
+  "run_environment": {
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "1 for later gates; unset for initial baseline and initial portable/Intel builds",
+    "debug_assertions": true,
+    "overflow_checks": true,
+    "baseline_test_set": "Initial two MMIO regression tests; final width/mode and output-failure tests added afterward. Exhaustive event matrix added after the original14-test event baseline."
+  },
+  "baseline": {
+    "mmio": {
+      "passed": 61,
+      "failed": 2,
+      "evidence": "baseline-mmio.json"
+    },
+    "events": {
+      "passed": 13,
+      "failed": 1,
+      "evidence": "baseline-events.json"
+    }
+  },
+  "consumer_compile": {
+    "state": "completed",
+    "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+    "consumer_inputs": {
+      "tools/hvf/intel_mmio_native_guest.rs": "b1dabd8b6767a67e9f502db88c866919470cabd1c2293d7d1143561f7bab5c68",
+      "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a",
+      "tools/hvf/intel_mmio_guest_debug.rs": "8f43749afea9adb62b612edaea661d15bed2278b6d47dff2aa6f95cf2b168914"
+    },
+    "commands": [
+      {
+        "label": "consumer-build",
+        "argv": [
+          "rustc",
+          "+stable",
+          "--edition=2024",
+          "--target",
+          "x86_64-apple-darwin",
+          "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+          "--extern",
+          "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/x86_64-apple-darwin/debug/deps/librax-39b5ff5770a4e682.rlib",
+          "--extern",
+          "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/x86_64-apple-darwin/debug/deps/libvm_memory-3714371deded42a1.rlib",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/x86_64-apple-darwin/debug/deps",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/debug/deps",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/native-consumer290"
+        ],
+        "pid": 55488,
+        "exit_code": 0,
+        "seconds": 1.044850334059447
+      },
+      {
+        "label": "consumer-sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--timestamp=none",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/native-consumer290"
+        ],
+        "pid": 55634,
+        "exit_code": 0,
+        "seconds": 0.06233791704289615
+      },
+      {
+        "label": "consumer-verify",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/native-consumer290"
+        ],
+        "pid": 55635,
+        "exit_code": 0,
+        "seconds": 0.04562616709154099
+      },
+      {
+        "label": "consumer-reference-emission",
+        "argv": [
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/native-consumer290",
+          "--emit-double-shift-references"
+        ],
+        "pid": 55636,
+        "exit_code": 0,
+        "seconds": 2.5556037080241367
+      }
+    ],
+    "native_guests_executed": 0,
+    "library_basis": "exact compiled owner libraries; compile terminal; owner tests may still run",
+    "libraries": {
+      "rax": {
+        "path": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/x86_64-apple-darwin/debug/deps/librax-39b5ff5770a4e682.rlib",
+        "sha256": "36afc5327b31f5416dbc23af74a1e6b174a303f597e0e1b7f2ad05bdc10687dc"
+      },
+      "vm_memory": {
+        "path": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/x86_64-apple-darwin/debug/deps/libvm_memory-3714371deded42a1.rlib",
+        "sha256": "fff1363b66e7364facfacf9d52fadc61f13887f41896d9807352e76dec10c0e1"
+      }
+    },
+    "executable_sha256": "5018ac0553bd4d8411beb477537e01b3ff1b928f26d6e4bb23c5b96be46d1e6a",
+    "success": true
+  },
+  "native_hvf_gate": {
+    "status": "not_yet_run",
+    "expected_cases": 290,
+    "new_guest_debug_cases": 84,
+    "guest_execution_qualified": false,
+    "scope": "Previous206 plus seven MMIO actions * two host-step states * three restore phases * IRQ/NMI"
+  },
+  "assumption_register": [
+    {
+      "id": "D1",
+      "assumption": "The common retirement boundary is valid only for represented non-branch scalar operations that do not explicitly change TF/RF",
+      "probe": "Trace every admitted opcode and verify direct host write/flags/completion and original exception frontiers",
+      "status": "retained"
+    },
+    {
+      "id": "D2",
+      "assumption": "Unblocked pending debug traps must defer both external interrupts and NMIs before VM entry",
+      "basis": "Intel SDM December 2024 Vol3C28.7.3 explicitly prioritizes previous-instruction traps and clears them for injected IRQ/NMI",
+      "probe": "Pending BS and enabled-breakpoint matrices and actual guest saved RIP/DR6 plus later caller-owned IRQ/NMI delivery",
+      "status": "confirmed"
+    },
+    {
+      "id": "D3",
+      "assumption": "Existing private packets preserve pending transactions and debug state independently of the source owner",
+      "basis": "Native record fields are restored through the producer after source destruction",
+      "dependent_result": "Source-free completion and saved pending debug priority",
+      "stress_test": "Load/store/ALU/RMW/shift/double-shift; BTF and host MTF; exact pending replies/acks; failed completion records",
+      "falsification_probe": "Fresh owner enters the SDK before re-emitting pending I/O, completes twice, loses BS/MTF, or native guest saved RIP/DR6 differs",
+      "status": "SDK-confirmed; actual guest qualification pending"
+    }
+  ],
+  "change_surface": {
+    "decode_and_ISA": "Existing metadata and scalar validation unchanged; guest TF no longer rejects",
+    "backend": "Common retirement retained; pending debug arbitration added to actual SDK adapter",
+    "checkpoint": "No format or fields changed; source-free input/output/BS and host MTF qualification",
+    "SMIR_JIT": "No change to lowering, arithmetic semantics or admission",
+    "C_ABI": "No layout, identifier or function changes"
+  },
+  "unrun_gates": [
+    {
+      "gate": "complete root library suite on this exact engine",
+      "reason": "This three-file HVF backend policy change is qualified through its complete affected backend targets; no ISA/SMIR/optimizer/CPU layout changes. Older root results remain source-pinned and are not attributed to this tree."
+    },
+    {
+      "gate": "native Intel HVF guest execution",
+      "reason": "Requires the newly published290-case consumer and a native Intel runner; local cross-build/SDK fixtures/emission execute zero guests."
+    },
+    {
+      "gate": "C/C++ ABI consumer suite",
+      "reason": "No public C/C++ API or representation changes; backend behavior is exercised through the public Rust CPU APIs."
+    }
+  ],
+  "remaining_goal_requirements": [
+    "Data and I/O breakpoint synthesis; string/vector and other MMIO profiles",
+    "Remaining coordinated backend state and SMP/clock/native profiles in original goal"
+  ],
+  "full_goal_complete": false,
+  "owned_paths": [
+    "docs/development/hvf-memory-layout.md",
+    "docs/development/hvf-mmio-alu-read.md",
+    "docs/development/hvf-mmio-bit-test/README.md",
+    "docs/development/hvf-mmio-movsxd.md",
+    "docs/development/hvf-mmio-rmw.md",
+    "docs/development/hvf-mmio-shifts/README.md",
+    "src/backend/hvf/event_injection.rs",
+    "src/backend/hvf/mmio.rs",
+    "src/backend/hvf/mod.rs",
+    "tests/suites/backend/hvf_event_injection.rs",
+    "tests/suites/backend/hvf_intel_owner.rs",
+    "tests/suites/backend/hvf_mmio.rs",
+    "tests/suites/backend/hvf_mmio/alu_read.rs",
+    "tests/suites/backend/hvf_mmio/bit_test.rs",
+    "tests/suites/backend/hvf_mmio/double_shifts.rs",
+    "tests/suites/backend/hvf_mmio/shifts.rs",
+    "tools/hvf/README.md",
+    "tools/hvf/intel_mmio_native_guest.rs",
+    "tools/hvf/intel_mmio_native_probe.py",
+    "tools/hvf/intel_mmio_prepared.py",
+    "tests/suites/backend/hvf_mmio/guest_debug.rs",
+    "tests/suites/backend/hvf_intel_owner/native_mmio_debug.rs",
+    "tools/hvf/intel_mmio_guest_debug.rs",
+    "docs/development/hvf-mmio-guest-debug/README.md",
+    "docs/development/hvf-mmio-guest-debug/provenance.json",
+    "docs/development/hvf-mmio-guest-debug/qualification.json",
+    "docs/development/hvf-mmio-guest-debug/baseline-mmio.json",
+    "docs/development/hvf-mmio-guest-debug/baseline-mmio.stdout",
+    "docs/development/hvf-mmio-guest-debug/baseline-mmio.stderr",
+    "docs/development/hvf-mmio-guest-debug/baseline-events.json",
+    "docs/development/hvf-mmio-guest-debug/baseline-events.stdout",
+    "docs/development/hvf-mmio-guest-debug/baseline-events.stderr",
+    "docs/development/audit-remediation-2026-10.json",
+    "tests/suites/backend/hvf_intel_owner/native_context.rs",
+    "docs/development/hvf-mmio-guest-debug/.gitattributes"
+  ],
+  "test_harness_correction": {
+    "record": {
+      "path": "tests/suites/backend/hvf_intel_owner/native_context.rs",
+      "before_sha256": "b0cff549aa6afab7f28b3c7dd5207ac139d65d80b985aebbe9cadd310503b319",
+      "observed_failure": "Panic indexing absent fake SDK VMCS_CTRL_EXC_BITMAP key at845. The fake SDK read API returns0 for this absent field.",
+      "second_confirmed_test_assumption": "RAXHVI03 always appends a44-byte deadline Image after the inner Context. DebugState is last only within the body; editing the final3bytes corrupts the deadline pending bitmap instead.",
+      "production_changes": false,
+      "intermediate_sha256": "56e34a20d1c30eca45e566916becaf70267c2fc2964f2479a0a7c000cc74cb81",
+      "after_sha256": "db8051388cde336a80db18ebc6a0c6881db9e0d55e5ba0f7c85427802e00ba82",
+      "isolated_final_result": {
+        "argv": [
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/no-debug-import-fixed-probe-final",
+          "--exact",
+          "native_context::no_debug_backend_rejects_raw_debug_controls_and_preserves_current_vm_controls",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 3.661758583970368
+      }
+    },
+    "no_debug_baseline": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--target",
+        "x86_64-apple-darwin",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1"
+      ],
+      "wrapper_pid": 96928,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+      "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+      "pid": 17307,
+      "exit_code": 101,
+      "seconds": 982.8927527499618,
+      "engine_source_unchanged": true
+    },
+    "default_debug_75_run_scope": "The corrected native_context test is cfg(not(feature=debug)); its body is excluded from the unchanged debug-enabled75-test run. Production engine inputs remained identical."
+  },
+  "source_input_hashes": {
+    "src/backend/hvf/event_injection.rs": "b66c7a0b0f0efd6ae54f243cb10a9b618a3558e7ea546cccae69ef9478d368bb",
+    "src/backend/hvf/mmio.rs": "df18456e38e8794e6682ae4511d02bd646352a3807ecdcf4b5773b192d1ea509",
+    "src/backend/hvf/mod.rs": "1ce29739773431bd3e5b292980099d69d247c40df1c540b0bdeab3c672b532c3",
+    "tests/suites/backend/hvf_event_injection.rs": "898905ab4d93de61df4afd358bae48187a46777e8b4f3948193e6a2e70c6d1aa",
+    "tests/suites/backend/hvf_intel_owner.rs": "1ff2c1f21830416d9733b082d6d8c6c660f9c9821e33dd478866a411495bd624",
+    "tests/suites/backend/hvf_mmio.rs": "a238630d86af926db526f3245c0a2eb775242f2174f890bc6139586492a33b16",
+    "tests/suites/backend/hvf_mmio/alu_read.rs": "dc4453063902510c317e8f12a197f25ebc8a2b2de9c9ffd1df1ae67c338162aa",
+    "tests/suites/backend/hvf_mmio/bit_test.rs": "17d8169828fb8f874729a97e24449fdd5580be31544ccb45b38d3410914bb3e8",
+    "tests/suites/backend/hvf_mmio/double_shifts.rs": "ff7a35997d9d332357952c4435ded95fd61898fcc96e445e6cef286aa4d2e956",
+    "tests/suites/backend/hvf_mmio/shifts.rs": "3dfe9ac158b4024efd2bd8d5bc02ac66fca2f5eb6b54dc122a306ec4dc3bdc81",
+    "tools/hvf/intel_mmio_native_guest.rs": "b1dabd8b6767a67e9f502db88c866919470cabd1c2293d7d1143561f7bab5c68",
+    "tools/hvf/intel_mmio_native_probe.py": "0889611119897b99c9a1b0bb7bdc47d155bc4425876b399e03154560864549fa",
+    "tools/hvf/intel_mmio_prepared.py": "1fd0b157cd0f94434f5de42b2cc6d474d3d9da56c4373a72f92ae483baa016e9",
+    "tests/suites/backend/hvf_mmio/guest_debug.rs": "caeec43d75abcd803ecfec439f3a9af473cd01a08144ac1e9cc4eedea5fafe8a",
+    "tests/suites/backend/hvf_intel_owner/native_mmio_debug.rs": "32e2842c0852cf9cc10b99e405cc7734fd4ed594ca6a0504ea3391c26eb9b32c",
+    "tools/hvf/intel_mmio_guest_debug.rs": "8f43749afea9adb62b612edaea661d15bed2278b6d47dff2aa6f95cf2b168914",
+    "tests/suites/backend/hvf_intel_owner/native_context.rs": "db8051388cde336a80db18ebc6a0c6881db9e0d55e5ba0f7c85427802e00ba82"
+  },
+  "quality_gates": {
+    "requirements": "Complete affected portable and SDK-owner targets, explicit native pending gate",
+    "source": "Engine/input maps unchanged through commands",
+    "provenance": "Pinned Intel SDM sections in provenance.json",
+    "worktree": "Exact owned paths; pre-existing untracked input preserved",
+    "remaining_scope": "All four original findings remain open"
+  },
+  "baseline_log_storage": "Verbatim bytes retained; directory attributes allow the Rust harness terminal blank line without weakening source whitespace checks."
+}

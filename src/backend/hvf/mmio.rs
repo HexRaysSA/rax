@@ -293,9 +293,9 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     if (!read && !write) || record.qualification & 4 != 0 || record.qualification & 0x180 != 0x180 {
         return Err("EPT violation is not a translated scalar data access".into());
     }
-    if context.rflags & (1 << 8) != 0 {
-        return Err("single-stepped MMIO completion is not yet supported".into());
-    }
+    // Guest TF is retained in the captured flags. Input completion and output
+    // acknowledgment reach the owner's common debug-retirement boundary only
+    // after the device effect succeeds; preparing a plan never retires it.
     let instruction = fetch(context, memory)?;
     if let Some(plan) = rmw::prepare(context, memory, record, &instruction)? {
         return Ok(plan);

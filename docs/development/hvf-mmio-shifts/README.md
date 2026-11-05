@@ -1,5 +1,7 @@
 # Scalar MMIO shifts and rotations
 
+[Scalar guest TF completion](../hvf-mmio-guest-debug/README.md) supersedes the historical TF-rejection controls and limitation below.
+
 The Intel HVF scalar MMIO planner now admits `SHL`/`SAL`, `SHR`, `SAR`,
 `ROL`, `ROR`, `RCL` and `RCR` with 8-, 16-, 32- and 64-bit memory operands.
 It captures the immediate or CL count, incoming flags and carry before device

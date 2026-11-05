@@ -16,6 +16,8 @@ const MARKER: u64 = 0xa1b2_c3d4_e5f6_0718;
 
 #[path = "intel_mmio_double_shift.rs"]
 mod double_shift;
+#[path = "intel_mmio_guest_debug.rs"]
+mod guest_debug;
 
 fn word(memory: &GuestMemoryWrapper, address: u64, value: u64) {
     memory
@@ -1276,6 +1278,7 @@ fn main() {
         );
         case += 1;
     }
-    assert_eq!(case, 206);
+    guest_debug::run(&output, &mut case);
+    assert_eq!(case, 290);
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }

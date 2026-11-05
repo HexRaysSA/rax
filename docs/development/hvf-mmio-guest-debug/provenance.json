@@ -1,0 +1,19 @@
+{
+  "source": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+  "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+  "sections": [
+    "Vol3C26.4.2/Table26-4 Pending-Debug-Exceptions",
+    "Vol3C28.7.3 Delivery of Pending Debug Exceptions after VM Entry",
+    "Vol3C29.3.4 Saving Guest Non-Register State",
+    "Vol3B19.3.1.4 Single-Step Exception"
+  ],
+  "verified_contract": [
+    "VM entry injecting an external interrupt or NMI clears pending debug exceptions",
+    "Valid pending debug traps require BS bit14 or enabled-breakpoint bit12",
+    "An unblocked pending debug trap has priority over IRQ and NMI and updates DR6 on delivery",
+    "MOV-SS blocking suppresses debug delivery; STI blocking does not suppress debug traps"
+  ],
+  "engine_before": "1acd926b035eaf2b531c2e18f04e7bac628345af7e8870c988d8bfe39671b0a3",
+  "engine_after": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+  "engine_inputs": 4493
+}

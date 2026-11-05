@@ -1,0 +1,23 @@
+{
+  "state": "completed",
+  "argv": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "--no-default-features",
+    "--features",
+    "x86_64-suite,smir-jit,hvf,debug",
+    "--test",
+    "hvf_mmio",
+    "--",
+    "--nocapture"
+  ],
+  "wrapper_pid": 62516,
+  "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm",
+  "engine_source_digest": "1acd926b035eaf2b531c2e18f04e7bac628345af7e8870c988d8bfe39671b0a3",
+  "pid": 62532,
+  "exit_code": 101,
+  "seconds": 177.06985845800955,
+  "engine_source_unchanged": true
+}

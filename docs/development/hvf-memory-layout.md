@@ -1,5 +1,7 @@
 # Intel HVF memory and device routing
 
+[Scalar guest TF completion](hvf-mmio-guest-debug/README.md) now supersedes the historical TF rejection below; data/I/O breakpoint synthesis remains open.
+
 Intel HVF now maps reported RAM, excluding fixed MMIO pages and exact live PCI
 BAR windows rounded outward to 4096-byte pages. It retains the backing mmap for
 the lifetime of the shared mapping owner. The wrapper's extra 4 GiB allocation

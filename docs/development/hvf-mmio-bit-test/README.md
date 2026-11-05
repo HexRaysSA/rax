@@ -1,5 +1,7 @@
 # Read-only bit tests from MMIO
 
+[Scalar guest TF completion](../hvf-mmio-guest-debug/README.md) supersedes the historical TF-rejection controls and limitation below.
+
 Intel HVF now plans both scalar BT memory encodings: register bit strings
 (`0F A3 /r`) and immediate bit selection (`0F BA /4 ib`). Operand widths are
 16, 32 and 64 bits. The baseline planner rejected all four new positive test

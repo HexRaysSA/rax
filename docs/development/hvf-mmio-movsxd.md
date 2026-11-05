@@ -1,5 +1,7 @@
 # MOVSXD metadata and Intel MMIO admission
 
+[Scalar guest TF completion](hvf-mmio-guest-debug/README.md) supersedes the historical TF limit recorded in this qualification.
+
 Opcode `63 /r` in 64-bit code has three forms: 16-bit and 32-bit copies, and a
 REX.W 32-to-64-bit signed extension. The source width is at most 32 bits. The
 metadata decoder previously marked every form incomplete and gave the REX.W

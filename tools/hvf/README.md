@@ -492,10 +492,11 @@ and pass the complete MMIO owning binary. Input is202272 bytes; output is
 
 Atomic forms outside the represented RMW table, string, vector,
 segment-register, APX-only and incomplete metadata forms remain unsupported.
-TF single-stepped MMIO remains unsupported
-before device access pending complete debug-retirement semantics. Native Intel
-execution, controller/device ordering, concurrent page-table changes and the
-complete checkpoint representation remain separate validation requirements.
+Guest TF now uses the common scalar MMIO retirement boundary, with pending
+debug traps preceding IRQ/NMI injection; see
+[guest debug qualification](../../docs/development/hvf-mmio-guest-debug/README.md).
+Data/I/O breakpoint synthesis, controller/device ordering, concurrent page-table
+changes and the complete checkpoint representation remain separate requirements.
 
 
 ## Native Apple Silicon consumers

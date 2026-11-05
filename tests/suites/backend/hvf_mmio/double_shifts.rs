@@ -100,23 +100,22 @@ fn double_shift_zero_masks_and_undefined_word_counts_retain_selected_state() {
 }
 
 #[test]
-fn double_shift_admission_rejects_lock_step_wrong_ept_and_truncation_before_effects() {
+fn double_shift_admission_rejects_lock_wrong_ept_and_truncation_before_effects() {
     for size in [2, 4, 8] {
         for right in [false, true] {
             for cl in [false, true] {
-                for rejection in 0..5 {
+                for rejection in 0..4 {
                     let mut bytes = code(size, 8, cl, 1, right);
                     if rejection == 0 {
                         bytes.insert(0, 0xf0);
                     } else if rejection == 1 {
                         bytes.pop();
                     }
-                    let (mut context, mut memory, mut record) = fixture(&bytes);
+                    let (context, mut memory, mut record) = fixture(&bytes);
                     record.qualification = 0x183;
                     match rejection {
-                        2 => context.rflags |= 1 << 8,
-                        3 => record.qualification = 0x181,
-                        4 => record.vectoring_information = 1 << 31,
+                        2 => record.qualification = 0x181,
+                        3 => record.vectoring_information = 1 << 31,
                         _ => (),
                     }
                     let before = memory.bytes.clone();

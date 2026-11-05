@@ -90,23 +90,22 @@ fn shift_counts_and_flags_continue_after_source_free_pending_codec_roundtrips() 
 }
 
 #[test]
-fn shift_admission_rejects_lock_step_wrong_ept_and_truncation_before_effects() {
+fn shift_admission_rejects_lock_wrong_ept_and_truncation_before_effects() {
     for group in 0..8 {
         for size in [1, 2, 4, 8] {
             let code = code(size, group, 1);
-            for rejection in 0..5 {
+            for rejection in 0..4 {
                 let mut bytes = code.clone();
                 if rejection == 0 {
                     bytes.insert(0, 0xf0);
                 } else if rejection == 1 {
                     bytes.pop();
                 }
-                let (mut context, mut memory, mut record) = fixture(&bytes);
+                let (context, mut memory, mut record) = fixture(&bytes);
                 record.qualification = 0x183;
                 match rejection {
-                    2 => context.rflags |= 1 << 8,
-                    3 => record.qualification = 0x181,
-                    4 => record.vectoring_information = 1 << 31,
+                    2 => record.qualification = 0x181,
+                    3 => record.vectoring_information = 1 << 31,
                     _ => (),
                 }
                 let before = memory.bytes.clone();

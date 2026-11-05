@@ -842,7 +842,19 @@ fn no_debug_backend_rejects_raw_debug_controls_and_preserves_current_vm_controls
     for single_step in [false, true] {
         let mut record = context.clone().unwrap();
         let id: u32 = if single_step { 0x4002 } else { 0x4004 };
-        let old = SDK.lock().unwrap().cpus.values().next().unwrap().vmcs[&id];
+        // Match the SDK fixture's read semantics for an untouched field. The
+        // backend preserves the SDK's exception bitmap instead of writing it.
+        let old = SDK
+            .lock()
+            .unwrap()
+            .cpus
+            .values()
+            .next()
+            .unwrap()
+            .vmcs
+            .get(&id)
+            .copied()
+            .unwrap_or(0);
         let mut marker = id.to_le_bytes().to_vec();
         marker.extend(old.to_le_bytes());
         let offset = record
@@ -853,10 +865,14 @@ fn no_debug_backend_rejects_raw_debug_controls_and_preserves_current_vm_controls
         let value = old | if single_step { 1 << 27 } else { 1 << 3 };
         record.data[offset + 4..offset + 12].copy_from_slice(&value.to_le_bytes());
         if single_step {
-            // DebugState is the final inner schema field: enabled, completed,
-            // and the absent-failure Option tag are one byte each.
-            let length = record.data.len();
-            assert_eq!(&record.data[length - 3..], &[0, 0, 0]);
+            // DebugState ends the inner Context, before any versioned trailer.
+            // RAXHVI03 appends LVT:u32, deadline:u64 and four pending:u64 words.
+            let length = match &record.data[..8] {
+                b"RAXHVI02" => record.data.len(),
+                b"RAXHVI03" => record.data.len() - (4 + 8 + 4 * 8),
+                version => panic!("unexpected native context version: {version:?}"),
+            };
+            assert_eq!(&record.data[length - 3..length], &[0, 0, 0]);
             record.data[length - 3] = 1;
         }
         // This remains a readable producer record for forward VM restoration.

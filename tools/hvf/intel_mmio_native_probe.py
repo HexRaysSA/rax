@@ -12,7 +12,7 @@ import tempfile
 
 import intel_mmio_prepared as prepared
 
-EXPECTED_CASES = 206
+EXPECTED_CASES = 290
 
 
 def sha(path):
@@ -135,14 +135,14 @@ def main():
                 if args.export_guest:
                     shutil.copy2(executable, output / prepared.EXECUTABLE)
                 elif not args.compile_only:
-                    run("guest", [str(executable), str(output / "observations.jsonl")], timeout=600)
+                    run("guest", [str(executable), str(output / "observations.jsonl")], timeout=900)
                     observations = prepared.observations(output / "observations.jsonl", EXPECTED_CASES)
                     result["cases"] = len(observations)
                     result["guest_execution_qualified"] = True
         else:
             if sha(executable) != result["executable_sha256"]:
                 raise ValueError("prepared executable changed before execution")
-            run("guest", [str(executable), str(output / "observations.jsonl")], timeout=600)
+            run("guest", [str(executable), str(output / "observations.jsonl")], timeout=900)
             result["cases"] = len(prepared.observations(output / "observations.jsonl", EXPECTED_CASES))
             result["guest_execution_qualified"] = True
         assert prepared.engine_inputs(root) == inputs

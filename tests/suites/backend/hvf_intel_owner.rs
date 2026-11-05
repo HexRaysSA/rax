@@ -29,6 +29,9 @@ mod native_pat;
 #[path = "hvf_intel_owner/native_irq.rs"]
 mod native_irq;
 
+#[path = "hvf_intel_owner/native_mmio_debug.rs"]
+mod native_mmio_debug;
+
 #[path = "hvf_intel_owner/native_context.rs"]
 mod native_context;
 

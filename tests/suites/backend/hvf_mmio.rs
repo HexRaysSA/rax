@@ -2,8 +2,16 @@
 use rax::{devices, isa};
 #[path = "../../../src/isa/x86_64/inspection.rs"]
 mod guest_translation;
+#[path = "../../../src/backend/hvf/interrupt_shadow.rs"]
+mod interrupt_shadow;
 #[path = "../../../src/backend/hvf/mmio.rs"]
 mod mmio;
+#[path = "../../../src/backend/hvf/native_step.rs"]
+mod native_step;
+#[path = "../../../src/backend/hvf/output.rs"]
+mod output;
+#[path = "../../../src/backend/hvf/retirement.rs"]
+mod retirement;
 use guest_translation::{Paging, PhysicalMemory};
 use mmio::{Action, Context, ExitRecord, Extension, Input, RegisterPart, prepare};
 use std::collections::BTreeMap;
@@ -14,6 +22,8 @@ mod alu_read_tests;
 mod bit_test_tests;
 #[path = "hvf_mmio/double_shifts.rs"]
 mod double_shift_tests;
+#[path = "hvf_mmio/guest_debug.rs"]
+mod guest_debug_tests;
 #[path = "hvf_mmio/movsxd.rs"]
 mod movsxd_tests;
 #[path = "hvf_mmio/rmw.rs"]
@@ -232,10 +242,6 @@ fn malformed_ept_or_unrepresented_instruction_never_becomes_device_io() {
         let (c, mut r, e) = fixture(code);
         assert!(prepare(&c, &mut r, e).is_err());
     }
-    let (mut c, mut r, e) = fixture(&[0x8a, 7]);
-    c.rflags |= 1 << 8;
-    assert!(prepare(&c, &mut r, e).is_err());
-    assert!(r.reads.is_empty());
 }
 
 #[test]

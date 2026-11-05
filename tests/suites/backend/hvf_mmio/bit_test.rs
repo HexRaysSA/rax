@@ -198,21 +198,20 @@ fn bit_string_addressing_handles_base_aliasing_and_address_size_wrap() {
 #[test]
 fn invalid_bit_test_records_reject_before_device_effects() {
     for size in [2, 4, 8] {
-        for rejection in 0..7 {
+        for rejection in 0..6 {
             let mut code = encoding(size, Some(1), 0);
             if rejection == 0 {
                 code.insert(0, 0xf0);
             }
-            if rejection == 6 {
+            if rejection == 5 {
                 code.pop();
             }
-            let (mut context, mut memory, mut record) = fixture(&code);
+            let (context, mut memory, mut record) = fixture(&code);
             match rejection {
                 1 => record.qualification = 0x182,
                 2 => record.qualification = 0x183,
-                3 => context.rflags |= 1 << 8,
-                4 => record.linear += 1,
-                5 => memory.bytes(record.physical, &[0; 8]),
+                3 => record.linear += 1,
+                4 => memory.bytes(record.physical, &[0; 8]),
                 _ => (),
             }
             assert!(prepare(&context, &mut memory, record).is_err());

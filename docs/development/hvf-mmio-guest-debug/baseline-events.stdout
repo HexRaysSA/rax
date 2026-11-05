@@ -1,0 +1,24 @@
+
+running 14 tests
+test blocked_then_retried_request_does_not_enqueue_or_duplicate ... ok
+test interrupt_window::tests::already_acknowledged_window_avoids_a_redundant_control_write ... ok
+test host_read_and_write_errors_propagate_without_accepting_request ... ok
+test disabled_breakpoint_causes_do_not_defer_asynchronous_events ... ok
+test interrupt_window::tests::ignored_write_or_other_control_mutation_is_never_reported_successful ... ok
+test eligibility_query_never_mutates_the_event_slot ... ok
+test interrupt_window::tests::clear_only_window_preserving_each_opaque_bit_and_monitor_trap ... ok
+test interrupt_window::tests::failed_first_read_has_no_write_or_control_effect ... ok
+test interrupt_window::tests::failed_readback_propagates_after_one_successful_control_write ... ok
+test interrupt_window::tests::write_errors_propagate_both_before_and_after_mutation_without_retry ... ok
+test nmi_matrix_ignores_if_and_preserves_nmi_and_ss_sti_blocking ... ok
+test previous_instruction_debug_traps_defer_irq_and_nmi_without_consuming_either ... FAILED
+test every_occupied_event_type_and_vector_has_priority ... ok
+test irq_matrix_preserves_existing_event_and_ignores_nmi_blocking ... ok
+
+failures:
+
+failures:
+    previous_instruction_debug_traps_defer_irq_and_nmi_without_consuming_either
+
+test result: FAILED. 13 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

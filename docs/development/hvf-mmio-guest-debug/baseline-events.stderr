@@ -1,0 +1,6 @@
+
+thread 'previous_instruction_debug_traps_defer_irq_and_nmi_without_consuming_either' (380507773) panicked at tests/suites/backend/hvf_event_injection.rs:198:17:
+assertion `left == right` failed
+  left: Ok(true)
+ right: Ok(false)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

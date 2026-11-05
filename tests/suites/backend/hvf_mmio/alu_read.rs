@@ -89,7 +89,7 @@ fn legacy_and_compatibility_code_modes_admit_device_read_alu_operations() {
 }
 
 #[test]
-fn read_alu_rejects_write_qualifications_and_single_step_before_device_access() {
+fn read_alu_rejects_write_qualifications_before_device_access() {
     for qualification in [0x182, 0x183] {
         let (context, mut memory, mut record) = fixture(&[0x03, 0x07]);
         record.qualification = qualification;
@@ -101,10 +101,6 @@ fn read_alu_rejects_write_qualifications_and_single_step_before_device_access() 
                 .any(|&(address, _)| address == record.physical)
         );
     }
-    let (mut context, mut memory, record) = fixture(&[0x03, 0x07]);
-    context.rflags |= 1 << 8;
-    assert!(prepare(&context, &mut memory, record).is_err());
-    assert!(memory.reads.is_empty());
 }
 
 fn alu(code: &[u8], flags: u64, register: u64) -> mmio::AluReadInput {

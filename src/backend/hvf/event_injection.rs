@@ -29,11 +29,15 @@ pub(crate) trait Access {
     fn entry_information(&mut self) -> Result<u64, Self::Error>;
     fn rflags(&mut self) -> Result<u64, Self::Error>;
     fn interruptibility(&mut self) -> Result<u64, Self::Error>;
+    fn pending_debug(&mut self) -> Result<u64, Self::Error>;
     fn write_entry_information(&mut self, information: u64) -> Result<(), Self::Error>;
 }
 
 /// Intel SDM Vol.3C28.3.1.4-5: external IRQs require IF and no STI/MOV-SS
 /// blocking. NMI blocking applies to NMIs, not to external IRQs.
+/// Section28.7.3: injecting either event discards pending debug exceptions.
+/// Deliver an unblocked previous-instruction debug trap first; it has higher
+/// priority than either event. The caller continues to own a deferred request.
 pub(crate) fn available<T: Access>(host: &mut T, event: Event) -> Result<bool, T::Error> {
     if host.entry_information()? & VALID != 0 {
         return Ok(false);
@@ -45,7 +49,14 @@ pub(crate) fn available<T: Access>(host: &mut T, event: Event) -> Result<bool, T
         Event::Interrupt(_) => STI_OR_MOV_SS,
         Event::Nmi => STI_OR_MOV_SS | NMI_BLOCKING,
     };
-    Ok(host.interruptibility()? & blocked == 0)
+    let shadow = host.interruptibility()?;
+    if shadow & blocked != 0 {
+        return Ok(false);
+    }
+    Ok(!super::retirement::pending_trap(
+        host.pending_debug()?,
+        shadow,
+    ))
 }
 
 /// True means the event was written successfully; false consumes nothing.

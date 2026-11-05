@@ -1001,6 +1001,12 @@ impl event_injection::Access for EventAccess<'_> {
             information,
         )
     }
+    fn pending_debug(&mut self) -> Result<u64> {
+        vmcs_read(
+            self.vcpu.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_GUEST_PENDING_DBG_EXCEPTIONS,
+        )
+    }
 }
 
 #[cfg(target_arch = "x86_64")]

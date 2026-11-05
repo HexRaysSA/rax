@@ -1,5 +1,7 @@
 # Scalar HVF MMIO read/modify/write
 
+[Scalar guest TF completion](hvf-mmio-guest-debug/README.md) supersedes the historical TF limit recorded below; data/I/O breakpoint synthesis remains open.
+
 The native x86 HVF exit planner decodes modifying scalar memory instructions
 before issuing device I/O. It captures source registers, incoming flags, operand
 width, effective address and instruction length. The VMM services a typed

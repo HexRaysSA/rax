@@ -1,8 +1,12 @@
 //! Primary-contract VM-entry event arbitration and host-failure partitions.
 #[path = "../../../src/backend/hvf/event_injection.rs"]
 mod event_injection;
+#[path = "../../../src/backend/hvf/interrupt_shadow.rs"]
+mod interrupt_shadow;
 #[path = "../../../src/backend/hvf/interrupt_window.rs"]
 mod interrupt_window;
+#[path = "../../../src/backend/hvf/retirement.rs"]
+mod retirement;
 use event_injection::{Access, Event, available, inject};
 
 #[derive(Default)]
@@ -10,6 +14,7 @@ struct Host {
     info: u64,
     flags: u64,
     blocking: u64,
+    pending: u64,
     fail: Option<&'static str>,
     calls: Vec<&'static str>,
     writes: Vec<u64>,
@@ -37,6 +42,10 @@ impl Access for Host {
     fn interruptibility(&mut self) -> Result<u64, Self::Error> {
         self.call("blocking")?;
         Ok(self.blocking)
+    }
+    fn pending_debug(&mut self) -> Result<u64, Self::Error> {
+        self.call("pending")?;
+        Ok(self.pending)
     }
     fn write_entry_information(&mut self, information: u64) -> Result<(), Self::Error> {
         self.call("write")?;
@@ -127,7 +136,7 @@ fn every_occupied_event_type_and_vector_has_priority() {
 #[test]
 fn host_read_and_write_errors_propagate_without_accepting_request() {
     for event in [Event::Interrupt(0x41), Event::Nmi] {
-        for fail in ["entry", "flags", "blocking", "write"] {
+        for fail in ["entry", "flags", "blocking", "pending", "write"] {
             if event == Event::Nmi && fail == "flags" {
                 continue;
             }
@@ -179,6 +188,83 @@ fn eligibility_query_never_mutates_the_event_slot() {
                 let _ = available(&mut h, event).unwrap();
                 assert_eq!(h.info, info);
                 assert!(h.writes.is_empty());
+            }
+        }
+    }
+}
+
+#[test]
+fn previous_instruction_debug_traps_defer_irq_and_nmi_without_consuming_either() {
+    for pending in [1 << 12, 1 << 14, 0x500f] {
+        for event in [Event::Interrupt(0x51), Event::Nmi] {
+            let mut host = Host {
+                flags: 0x202,
+                pending,
+                ..Host::default()
+            };
+            for _ in 0..3 {
+                assert_eq!(available(&mut host, event), Ok(false));
+                assert_eq!(inject(&mut host, event), Ok(false));
+                assert_eq!(host.pending, pending);
+                assert_eq!(host.info, 0);
+                assert!(host.writes.is_empty());
+            }
+            // Actual guest delivery consumes the debug trap. The same
+            // caller-owned event can then be injected once, without a queue.
+            host.pending = 0;
+            assert_eq!(inject(&mut host, event), Ok(true));
+            assert_eq!(inject(&mut host, event), Ok(false));
+            assert_eq!(host.writes.len(), 1);
+        }
+    }
+}
+
+#[test]
+fn disabled_breakpoint_causes_do_not_defer_asynchronous_events() {
+    for pending in 0..16 {
+        for event in [Event::Interrupt(0x51), Event::Nmi] {
+            let mut host = Host {
+                flags: 0x202,
+                pending,
+                ..Host::default()
+            };
+            assert_eq!(inject(&mut host, event), Ok(true));
+            assert_eq!(host.pending, pending);
+        }
+    }
+}
+
+#[test]
+fn debug_causes_shadow_and_event_occupancy_partition_all_eligibility_cases() {
+    for status in 0..16 {
+        for enabled in [0, 1 << 12] {
+            for bs in [0, 1 << 14] {
+                for shadow in 0..32 {
+                    for occupied in [false, true] {
+                        for event in [Event::Interrupt(0x51), Event::Nmi] {
+                            let pending = status | enabled | bs;
+                            let info = if occupied { 0x8000_030d } else { 0 };
+                            let mut host = Host {
+                                flags: 0x202,
+                                pending,
+                                blocking: shadow,
+                                info,
+                                ..Host::default()
+                            };
+                            let expected = !occupied
+                                && enabled == 0
+                                && bs == 0
+                                && shadow & if event == Event::Nmi { 11 } else { 3 } == 0;
+                            assert_eq!(available(&mut host, event), Ok(expected));
+                            assert_eq!(inject(&mut host, event), Ok(expected));
+                            assert_eq!(host.pending, pending);
+                            if !expected {
+                                assert_eq!(host.info, info);
+                                assert!(host.writes.is_empty());
+                            }
+                        }
+                    }
+                }
             }
         }
     }

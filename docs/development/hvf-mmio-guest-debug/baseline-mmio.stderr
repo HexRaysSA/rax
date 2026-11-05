@@ -1,0 +1,94 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling libc v0.2.189
+   Compiling syn v3.0.5
+   Compiling serde_core v1.0.229
+   Compiling jobserver v0.1.35
+   Compiling find-msvc-tools v0.1.12
+   Compiling version_check v0.9.5
+   Compiling shlex v2.0.1
+   Compiling generic-array v0.14.7
+   Compiling cc v1.4.5
+   Compiling pkg-config v0.3.34
+   Compiling cfg-if v1.0.4
+   Compiling zstd-sys v2.1.2+zstd.1.5.7
+   Compiling typenum v1.20.1
+   Compiling objc2 v0.6.4
+   Compiling thiserror v2.0.20
+   Compiling cfg_aliases v0.2.2
+   Compiling once_cell v1.21.4
+   Compiling objc2-encode v4.1.0
+   Compiling utf8parse v0.2.2
+   Compiling anstyle-parse v1.0.0
+   Compiling tracing-core v0.1.36
+   Compiling nix v0.31.3
+   Compiling thiserror-impl v2.0.20
+   Compiling syn v2.0.119
+   Compiling zmij v1.0.23
+   Compiling zstd-safe v8.2.0
+   Compiling regex-syntax v0.8.11
+   Compiling log v0.4.34
+   Compiling colorchoice v1.0.5
+   Compiling anstyle v1.0.14
+   Compiling serde v1.0.229
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling anstyle-query v1.1.5
+   Compiling bitflags v2.13.2
+   Compiling anstream v1.0.0
+   Compiling tracing-attributes v0.1.31
+   Compiling regex-automata v0.4.18
+   Compiling block2 v0.6.2
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling serde_derive v1.0.229
+   Compiling scroll_derive v0.13.2
+   Compiling strsim v0.11.1
+   Compiling lazy_static v1.5.0
+   Compiling pin-project-lite v0.2.17
+   Compiling winnow v1.0.4
+   Compiling serde_json v1.0.151
+   Compiling heck v0.5.0
+   Compiling clap_lex v1.1.0
+   Compiling getrandom v0.4.3
+   Compiling clap_derive v4.6.4
+   Compiling clap_builder v4.6.6
+   Compiling toml_parser v1.1.5+spec-1.1.0
+   Compiling tracing v0.1.44
+   Compiling sharded-slab v0.1.7
+   Compiling scroll v0.13.0
+   Compiling digest v0.10.7
+   Compiling matchers v0.2.0
+   Compiling dispatch2 v0.3.1
+   Compiling vm-memory v0.17.1 (/Users/int/dev/rax/vendor/vm-memory)
+   Compiling tracing-log v0.2.0
+   Compiling serde_spanned v1.1.2
+   Compiling toml_datetime v1.1.2+spec-1.1.0
+   Compiling thread_local v1.1.10
+   Compiling cpufeatures v0.2.17
+   Compiling itoa v1.0.18
+   Compiling smallvec v1.16.0
+   Compiling toml_writer v1.1.3+spec-1.1.0
+   Compiling memchr v2.8.3
+   Compiling nu-ansi-term v0.50.3
+   Compiling plain v0.2.3
+   Compiling goblin v0.10.7
+   Compiling tracing-subscriber v0.3.23
+   Compiling toml v1.1.8+spec-1.1.0
+   Compiling sha2 v0.10.9
+   Compiling zstd v0.14.3
+   Compiling linux-loader v0.13.2 (https://github.com/19h/linux-loader?rev=f745b555942c4e840a784bca61e6f3976d101960#f745b555)
+   Compiling ctrlc v3.5.2
+   Compiling uklad v1.0.0
+   Compiling clap v4.6.6
+   Compiling rax v0.1.0 (/Users/int/dev/rax)
+    Finished `test` profile [optimized] target(s) in 2m 56s
+     Running tests/suites/backend/hvf_mmio.rs (/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-debug-owner-tdqqojxm/debug/deps/hvf_mmio-c0b985628ed899fb)
+
+thread 'guest_debug_tests::every_mmio_publication_failure_retains_reply_and_prevents_debug_completion' (380789179) panicked at tests/suites/backend/hvf_mmio/guest_debug.rs:108:55:
+called `Result::unwrap()` on an `Err` value: "single-stepped MMIO completion is not yet supported"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'guest_debug_tests::scalar_mmio_tf_rf_btf_shadow_and_host_step_survive_pending_codec_roundtrips' (380789180) panicked at tests/suites/backend/hvf_mmio/guest_debug.rs:108:55:
+called `Result::unwrap()` on an `Err` value: "single-stepped MMIO completion is not yet supported"
+error: test failed, to rerun pass `--test hvf_mmio`

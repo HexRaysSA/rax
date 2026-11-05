@@ -10,7 +10,8 @@ import threading
 import time
 
 EXECUTABLE = "native-guest"
-CONSUMER_SOURCES = ("intel_mmio_native_guest.rs", "intel_mmio_double_shift.rs")
+CONSUMER_SOURCES = ("intel_mmio_native_guest.rs", "intel_mmio_double_shift.rs",
+                    "intel_mmio_guest_debug.rs")
 
 
 def sha(path):

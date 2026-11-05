@@ -1,5 +1,7 @@
 # Scalar ALU reads from MMIO
 
+[Scalar guest TF completion](hvf-mmio-guest-debug/README.md) supersedes the historical TF limit recorded below; other debug profiles remain open.
+
 Intel HVF now accepts device-read operands for ADD, ADC, SUB, SBB, AND, OR, XOR,
 CMP and TEST. Previously the planner rejected these instructions even when the
 EPT exit described an ordinary read. The four baseline positive groups failed
