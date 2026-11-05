@@ -1,9 +1,10 @@
 # TSC-deadline admission and expiry controls
 
-The Intel HVF CPUID profile advertises TSC-deadline support, but its current
-`IA32_TSC_DEADLINE` (MSR `0x6e0`) dispatch returns zero and discards writes.
-This observer establishes independent execution controls for the pending fix;
-it does not change that backend behavior or qualify macOS HVF.
+The original Intel HVF `IA32_TSC_DEADLINE` (MSR `0x6e0`) dispatch returned zero
+and discarded writes despite advertising the facility. This observer establishes
+independent execution controls. The [implementation](implementation.md) now
+shares deadline ownership with the LAPIC and passes the corresponding native
+Intel controls, including private restore and interrupt delivery through HLT.
 
 The architectural source is the [Intel SDM](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf),
 revision 086, December 2024, Volume 3A, section 12.5.4.1, printed pages
@@ -75,9 +76,9 @@ inputs. Its execution timeout is a harness bound, not an architectural bound.
 |---|---|---|---|
 | A1: the guest profile admits TSC-deadline instructions | Interpretation of MSR observations | Require KVM capability, in-kernel APIC, guest CPUID bit, and nonzero future-value roundtrip | Confirmed on this host |
 | A2: mask/expiry behavior is stable on this KVM profile | Input to the HVF implementation design | Twenty independent repetitions; any differing MSR/IRR tuple falsifies stability | Confirmed for these 20 runs |
-| A3: these KVM results predict native HVF behavior | Native implementation qualification | Execute corresponding guests through RAX on the Intel macOS runner | Unknown; not claimed |
+| A3: the corrected RAX implementation matches these control partitions | Native implementation qualification | Execute corresponding guests through RAX on the Intel macOS runner | Confirmed for native cases 130-140 in run 42010491792 |
 
-High-impact remaining work: implement and qualify the advertised HVF deadline
-facility, including private checkpoint state, mode transitions, per-CPU clock
-ownership, halted-CPU wakeup, and coordinated interrupt delivery. This observer
-does not close those requirements or the separate KVM private timer-phase gap.
+High-impact remaining work includes complete native multi-CPU startup,
+serialized whole-VM continuation and the separate KVM private timer-phase gap.
+The native deadline controls use a frozen controller clone for the restored IRQ
+case; that result does not qualify serialized whole-VM continuation.

@@ -66,5 +66,7 @@ Run 42001141985 subsequently passes the mask check and reaches a different
 [exception-intercept policy rejection](exception-intercepts.md), again after
 118 cases. The subsequent [run 42006230493](native-checkpoint-pass.md) completes
 all 130 controls, including private native capture and fresh-owner continuation.
-High impact: the expanded deadline/IRQ controls, complete multi-CPU startup,
-other MMIO forms and the full audit findings remain unqualified.
+The later [146-case run](../hvf-tsc-deadline/implementation.md) also passes native
+deadline mode, expiry, restored-arm, HLT interrupt delivery and TSC-domain
+controls. High impact: complete multi-CPU startup, other MMIO forms and the full
+audit findings remain unqualified.

@@ -30,8 +30,8 @@ the signed executable SHA-256 is
 The pinned candidate was built from workflow commit
 `097c57f0bbb5401a7f5f1d663dec3d22906b98ea`. The engine identity matches the
 complete 65-test SDK-owner qualification. The new 146-case consumer adds
-[deadline and TSC programs](../hvf-tsc-deadline/implementation.md); those cases
-require separate native execution.
+[deadline and TSC programs](../hvf-tsc-deadline/implementation.md); all 146 cases
+subsequently passed in run 42010491792.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|

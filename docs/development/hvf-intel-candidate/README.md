@@ -3,7 +3,7 @@
 This source patch lets the manual [native Intel workflow](../../../.github/workflows/native-intel-hvf-mmio.yml)
 execute the pending, coupled backend changes in its disposable CI checkout.
 It does not install those changes into the production source on master.
-Native qualification remains pending until the actual guest observations pass.
+Its 146 registered native guest observations passed in run 42010491792.
 
 An earlier real RAX run stopped during VM construction before guest entry.
 The later run 41968179867 exceeded its 45-minute limit and retained neither
@@ -28,8 +28,10 @@ policy at private capture. The published base now
 This candidate also includes the pending deadline owner, queued expiries and
 versioned CPU/controller checkpoint records. All 65 local owner tests pass.
 Actual RAX run 42006230493 passes all 130 preceding RAM/MMIO/PAT/MSR and private
-checkpoint controls. Native deadline-specific qualification is outstanding.
-This refreshed candidate requires a new actual RAX run. It contains the SDK
+checkpoint controls. The subsequent
+[run 42010491792](../hvf-tsc-deadline/implementation.md) passes all 146 controls,
+including deadline expiry, armed restore, HLT interrupt delivery and TSC-domain
+alignment. This candidate contains the SDK
 compatibility correction, software PAT state, interrupt and RAM integration, and the native consumer with
 146 registered cases: 114 original cases, eight PAT cases, eight reserved-MSR
 exception cases, and 16 deadline/TSC cases. It also retains the combined source
@@ -99,7 +101,7 @@ in the historical record with their original source identities.
 | Assumption | Dependent result | Stress test and falsification probe | Status |
 |---|---|---|---|
 | A1: the pinned content is the intended CI candidate | Native result attribution | Compare both source fingerprints; a changed input must reject before building | Confirmed for generation; checked again in CI |
-| A2: model qualification predicts usable SDK construction | Actual native execution | Run the real backend on the Intel runner and require all registered cases to execute | Existing 130 cases pass natively after constructor corrections; 16 new deadline/TSC cases require native execution |
+| A2: model qualification predicts usable SDK construction | Actual native execution | Run the real backend on the Intel runner and require all registered cases to execute | All 146 registered cases pass in run 42010491792 |
 
 High-impact remaining boundary: a model or cross-build pass does not establish
 native behavior. The workflow must retain the actual host identity, nonzero

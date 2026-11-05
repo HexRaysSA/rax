@@ -1,0 +1,85 @@
+{
+  "recorded_utc": "2026-11-05T10:39:05.585527+00:00",
+  "run_id": 42010491792,
+  "attempt": 1,
+  "head": "4396eb1fbda73b59eaafb9f1f2373c611d57a6e0",
+  "artifact_id": 13408150703,
+  "artifact_name": "native-intel-hvf-mmio-42010491792-1",
+  "archive_sha256": "54801d25846e70c619a595ddadbff9a9eb24eadb86f68d34ba2030a6fdf67d2c",
+  "archive_bytes": 207932,
+  "all_downloaded_files_match": true,
+  "files": {
+    "availability.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "availability.stdout": {
+      "bytes": 107,
+      "sha256": "fb15ce70627e0b5642d650f4cfbe96b24867711712c74bd3bec9ab02835c6b98"
+    },
+    "commit.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "availability/result.json": {
+      "bytes": 4406,
+      "sha256": "c9742b8d6f1f400ee5cd1eb4a9db5f5d821fb91416b0c8602463103ca09d7d24"
+    },
+    "commit.stdout": {
+      "bytes": 41,
+      "sha256": "e8bbc31e273925e0f72b9451f6b5a52d230da127e9d724850df6e958933debd1"
+    },
+    "engine-source.json": {
+      "bytes": 542666,
+      "sha256": "1f4c65ae98749282927e0c6856533a8b110a85fd3972f80563a38dea2cbce665"
+    },
+    "guest.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "guest.stdout": {
+      "bytes": 58,
+      "sha256": "4a0f533a86fe3b422f3fd0b186c33b9c22f4bc10abdfb4a67bef27f19532d9dc"
+    },
+    "kernel.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kernel.stdout": {
+      "bytes": 195,
+      "sha256": "8df5b57d231c2c7d91f8617df94527c1378c3db8598ac487d17529bdd5674719"
+    },
+    "observations.jsonl": {
+      "bytes": 11565,
+      "sha256": "4199c99f08f3b998e17a1bcc42a8ace83f9f78f3b3ff089ccbd9cd27ec79f678"
+    },
+    "os.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "os.stdout": {
+      "bytes": 66,
+      "sha256": "31fd674ddb951680692d7b68cafdeab5baa6b3e82aae843269dad73b53f25fc5"
+    },
+    "result.json": {
+      "bytes": 4202,
+      "sha256": "9e90a6aadb1335216edf5ec7835eaba9df775288c634e7d2d4d8b61ed122ca90"
+    },
+    "sdk.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "sdk.stdout": {
+      "bytes": 5,
+      "sha256": "521fbd942d19d4f08ee3ac22fe5e1fee54d05fb48db0d8d179461b8195d210eb"
+    },
+    "verify-signature.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "verify-signature.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

@@ -1,4 +1,4 @@
-# Pending native Intel deadline ownership and execution controls
+# Native Intel deadline ownership and execution controls
 
 The [audit candidate](../hvf-intel-candidate/candidate.patch) implements the
 advertised Intel HVF deadline facility through the same LAPIC used by the PC
@@ -67,27 +67,35 @@ Case 144 transports the controller through a value clone; it is not a complete
 serialized VM-file test. Each program must reach its exact HLT PC and marker.
 Host servicing holds no controller lock across a CPU callback. A partial or
 reordered observation stream cannot satisfy the driver's exact 146-case count.
-These 16 added cases have not executed on native Intel yet.
+All 146 ordered cases passed in
+[run 42010491792](https://github.com/HexRaysSA/rax/actions/runs/42010491792).
+The [result](native-pass-42010491792.json) and
+[observations](native-pass-42010491792.jsonl) retain Boolean outcomes for IDs
+0-145, successful guest execution, strict signature validation and native Intel
+host admission. The [archive verification](native-pass-42010491792-archive.json)
+checks the published execution ZIP checksum and all 18 downloaded files.
+All 4471 recorded engine inputs match the current implementation; the source
+digest remains `81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87`.
 
 The preceding [run 42006230493](https://github.com/HexRaysSA/rax/actions/runs/42006230493)
 passes all 130 existing native cases, including fresh-owner private PAT restore
 and guest reserved-MSR faults. It uses the same engine source as this local
 deadline qualification, but its consumer lacks the 16 new programs. That result
-proves the repaired native checkpoint frontier; it does not prove deadline
-expiry, interrupt delivery or TSC-domain alignment. See the
+proves the repaired native checkpoint frontier. The later 146-case run also
+executes deadline expiry, interrupt delivery and TSC-domain alignment controls.
+See the
 [implementation qualification](implementation-qualification.json) for exact
 source identities and limits.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
 | A1 | CPU and controller share exactly one timer owner | MSR/MMIO coherence and restore | Independent CPU arms, frozen clones, restored handles and CPU/controller graph mismatch rejection | Confirmed in model/library checks |
-| A2 | Masked expiry follows the selected measured KVM profile | Mask transition semantics | Independent KVM repetitions; native RAX scenarios 9/10 | KVM reference confirmed; native RAX pending |
-| A3 | SDK virtual TSC sampling agrees with guest TSC after rebasing | Deadline timing | Native case 145; ordered counter samples must enclose the emulated MSR read | Native verification pending |
+| A2 | Masked expiry follows the selected measured KVM profile | Mask transition semantics | Independent KVM repetitions; native RAX cases 139/140 | Confirmed for the recorded KVM and native RAX cases |
+| A3 | SDK virtual TSC sampling agrees with guest TSC after rebasing | Deadline timing | Native case 145; ordered counter samples must enclose the emulated MSR read | Confirmed in this native control |
 
-High-impact remaining gates: complete unfiltered library execution and the
-146-case native run. Native multi-CPU startup/scheduling, the complete KVM
-producer and the remaining A32-FP/MMIO profiles remain separate parent-goal
-requirements. Medium impact: the hosted Intel runner is itself a hypervisor
+High-impact remaining gates: complete unfiltered library execution, native
+multi-CPU startup/scheduling, the complete KVM producer and the remaining
+A32-FP/MMIO profiles. Medium impact: the hosted Intel runner is itself a hypervisor
 guest; no bare-metal qualification follows. Timer operations use constant
 storage and at most 256 vector transfers per poll. Execution framing uses time
 and storage linear in the CPU count plus its existing inner frame.
