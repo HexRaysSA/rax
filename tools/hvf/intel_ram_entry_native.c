@@ -138,9 +138,53 @@ static void populate(uint8_t *memory)
     memory[CODE + 10] = 0xf4;
 }
 
+/* Flags independently reproduce the three constructor operations omitted by
+ * the first observer: native MSR bindings, SDK-relative TSC, and reset XSAVE.
+ * All execute on this process's sole owning thread, before public state import.
+ */
+static void constructor(hv_vcpuid_t cpu, unsigned flags)
+{
+    if ((flags & 1) != 0) {
+        const uint32_t msrs[] = {0xc0000081, 0xc0000082, 0xc0000083,
+                                 0xc0000084, 0xc0000102, 0xc0000103};
+        for (size_t i = 0; i < sizeof(msrs) / sizeof(msrs[0]); i++) {
+            check(hv_vcpu_enable_native_msr(cpu, msrs[i], true), "bind native MSR");
+            check(hv_vcpu_write_msr(cpu, msrs[i], 0), "reset native MSR");
+        }
+    }
+    if ((flags & 2) != 0) {
+        check(hv_vcpu_set_tsc_relative(cpu, 0), "initialize relative TSC");
+    }
+    reg(cpu, HV_X86_XCR0, 1);
+    if ((flags & 4) != 0) {
+        unsigned eax, ebx, ecx, edx;
+        if (!__get_cpuid_count(0x0d, 0, &eax, &ebx, &ecx, &edx) ||
+            ecx < 576 || ecx > 1048576) {
+            fprintf(stderr, "invalid host XSAVE size\n");
+            exit(1);
+        }
+        void *image = NULL;
+        if (posix_memalign(&image, 64, ecx) != 0) exit(1);
+        memset(image, 0, ecx);
+        check(hv_vcpu_read_fpstate(cpu, image, ecx), "read initial XSAVE");
+        uint32_t mask;
+        memcpy(&mask, (uint8_t *)image + 28, sizeof(mask));
+        if (mask == 0) mask = 0xffbf;
+        memset(image, 0, ecx);
+        uint16_t fcw = 0x037f;
+        uint32_t mxcsr = 0x1f80;
+        uint64_t bv = 3;
+        memcpy(image, &fcw, sizeof(fcw));
+        memcpy((uint8_t *)image + 24, &mxcsr, sizeof(mxcsr));
+        memcpy((uint8_t *)image + 28, &mask, sizeof(mask));
+        memcpy((uint8_t *)image + 512, &bv, sizeof(bv));
+        check(hv_vcpu_write_fpstate(cpu, image, ecx), "reset XSAVE");
+        free(image);
+    }
+}
+
 static void setup(hv_vcpuid_t cpu, const struct variant *v)
 {
-    controls(cpu);
     uint64_t cr0_mask = 0x20, cr4_mask = 0;
     if (v->required_masks) {
         cr0_mask |= required(cpu, CR0_MASK);
@@ -193,7 +237,6 @@ static void setup(hv_vcpuid_t cpu, const struct variant *v)
     reg(cpu, HV_X86_DR3, 0);
     reg(cpu, HV_X86_DR6, 0xffff0ff0);
     field(cpu, 0x681a, 0x400);
-    reg(cpu, HV_X86_XCR0, 1);
     reg(cpu, HV_X86_RAX, UINT64_C(0x1122334455667788));
     reg(cpu, HV_X86_RDI, 0x40000080);
     reg(cpu, HV_X86_R10, 0);
@@ -209,6 +252,7 @@ static void snapshot(hv_vcpuid_t cpu)
         {"cr0_mask", CR0_MASK}, {"cr4_mask", CR4_MASK},
         {"cr0_shadow", CR0_SHADOW}, {"cr4_shadow", CR4_SHADOW},
         {"entry_controls", ENTRY}, {"cs_access", 0x4816},
+        {"pin_controls", 0x4000}, {"primary_controls", 0x4002}, {"secondary_controls", 0x401e},
         {"activity", 0x4826}, {"interruptibility", 0x4824},
     };
     printf("{");
@@ -227,9 +271,14 @@ int main(int argc, char **argv)
 {
     const struct variant *v = NULL;
     for (size_t i = 0; i < sizeof(variants) / sizeof(variants[0]); i++) {
-        if (argc == 2 && strcmp(argv[1], variants[i].name) == 0) v = &variants[i];
+        if ((argc == 2 || argc == 3) && strcmp(argv[1], variants[i].name) == 0) v = &variants[i];
     }
     if (v == NULL) return 2;
+    unsigned constructor_flags = 0;
+    if (argc == 3) {
+        if (strlen(argv[2]) != 1 || argv[2][0] < '0' || argv[2][0] > '7') return 2;
+        constructor_flags = (unsigned)(argv[2][0] - '0');
+    }
     int preflight = availability_main();
     if (preflight != 0) return preflight;
     check(hv_vm_create(HV_VM_DEFAULT), "create VM");
@@ -241,8 +290,11 @@ int main(int argc, char **argv)
           "map guest RAM");
     hv_vcpuid_t cpu;
     check(hv_vcpu_create(&cpu, HV_VCPU_DEFAULT), "create CPU");
+    controls(cpu);
+    constructor(cpu, constructor_flags);
     setup(cpu, v);
-    printf("{\"probe\":\"ram-entry\",\"variant\":\"%s\",\"before\":", v->name);
+    printf("{\"probe\":\"ram-entry\",\"version\":2,\"constructor_flags\":%u,"
+           "\"variant\":\"%s\",\"before\":", constructor_flags, v->name);
     snapshot(cpu);
     fflush(stdout);
     mach_timebase_info_data_t timebase;
@@ -259,7 +311,7 @@ int main(int argc, char **argv)
         entries++;
         if (status != HV_SUCCESS) break;
         reason = read_field(cpu, EXIT_REASON);
-    } while (reason == 52 && entries < 10); /* SDK deadline, not guest HLT. */
+    } while ((reason == 52 || reason == 1) && entries < 10); /* Deadline/host interrupt. */
     bool halted = status == HV_SUCCESS && reason == 12 &&
         read_reg(cpu, HV_X86_RIP) == CODE + 10 &&
         read_reg(cpu, HV_X86_R10) == MARKER &&
@@ -271,6 +323,14 @@ int main(int argc, char **argv)
     if (status == HV_SUCCESS) printf("%" PRIu64, reason); else printf("null");
     printf(",\"entries\":%zu,\"guest_entry_attempted\":true,\"guest_reached_hlt\":%s",
            entries, halted ? "true" : "false");
+    uint32_t vmx_flags = 0;
+    uint64_t instruction_error = 0;
+    hv_return_t vmx_status = hv_vcpu_vmx_status(cpu, &vmx_flags);
+    hv_return_t error_status = hv_vmx_vcpu_read_vmcs(cpu, 0x4400, &instruction_error);
+    printf(",\"vmx_status_read_status\":%u,\"vmx_flags\":", (uint32_t)vmx_status);
+    if (vmx_status == HV_SUCCESS) printf("%u", vmx_flags); else printf("null");
+    printf(",\"instruction_error_read_status\":%u,\"instruction_error\":", (uint32_t)error_status);
+    if (error_status == HV_SUCCESS) printf("%" PRIu64, instruction_error); else printf("null");
     hv_return_t cpu_destroy = hv_vcpu_destroy(cpu);
     hv_return_t unmap = hv_vm_unmap(0, RAM);
     hv_return_t vm_destroy = hv_vm_destroy();

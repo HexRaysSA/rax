@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Observe eight independent SDK-only RAM-entry variants; no RAX library is linked."""
+"""Observe SDK-only RAM-entry controls and optional constructor subsets; no RAX library is linked."""
 import argparse
 import hashlib
 import json
@@ -17,6 +17,7 @@ VARIANTS = (
 STATE_FIELDS = (
     "cr0", "cr3", "cr4", "efer", "cr0_mask", "cr4_mask", "cr0_shadow", "cr4_shadow",
     "entry_controls", "cs_access", "activity", "interruptibility", "rip", "r10", "rax", "rdi", "rflags",
+    "pin_controls", "primary_controls", "secondary_controls",
 )
 MARKER = 0xA1B2C3D4E5F60718
 
@@ -29,7 +30,7 @@ def unsigned(value, bits=64):
     return type(value) is int and 0 <= value < (1 << bits)
 
 
-def validate_observation(rows, variant):
+def validate_observation(rows, variant, constructor_flags=0):
     """Admit complete observations without turning a failed entry into a guest pass."""
     if not isinstance(rows, list) or len(rows) != 2:
         raise ValueError("expected availability and RAM-entry records")
@@ -40,6 +41,10 @@ def validate_observation(rows, variant):
         raise ValueError("native Intel HVF availability was not established")
     if entry.get("probe") != "ram-entry" or entry.get("variant") != variant:
         raise ValueError("unexpected RAM-entry variant")
+    if type(entry.get("version")) is not int or entry["version"] != 2:
+        raise ValueError("unexpected RAM-entry record version")
+    if not unsigned(entry.get("constructor_flags"), 3) or entry["constructor_flags"] != constructor_flags:
+        raise ValueError("unexpected constructor controls")
     if entry.get("guest_entry_attempted") is not True:
         raise ValueError("missing guest-entry attempt")
     for phase in ("before", "after"):
@@ -66,6 +71,13 @@ def validate_observation(rows, variant):
                     entry["after"]["rax"] != 0x1122334455667788 or
                     entry["after"]["rdi"] != 0x40000080 or entry["after"]["rflags"] != 2):
         raise ValueError("claimed HLT disagrees with observed guest state")
+    for status_key, value_key, bits in (("vmx_status_read_status", "vmx_flags", 32),
+                                        ("instruction_error_read_status", "instruction_error", 64)):
+        status, value = entry.get(status_key), entry.get(value_key)
+        if not unsigned(status, 32) or (status == 0 and not unsigned(value, bits)):
+            raise ValueError("incomplete VMX diagnostic read")
+        if status != 0 and value is not None:
+            raise ValueError("failed VMX diagnostic read must have a null value")
     for key in ("vcpu_destroy_status", "guest_unmap_status", "vm_destroy_status", "host_unmap_status"):
         if type(entry.get(key)) is not int or entry[key] != 0:
             raise ValueError("owned resources were not released")
@@ -76,6 +88,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="new report directory")
     parser.add_argument("--compile-only", action="store_true", help="sign and verify without executing")
+    parser.add_argument("--constructor-matrix", action="store_true",
+                        help="also compare constructor subsets and all-core transfer variants")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     source = Path(__file__).with_suffix(".c")
@@ -87,6 +101,11 @@ def main():
         "source_sha256": {path.name: sha(path) for path in sources},
     }
     scratch = None
+    cases = [(variant, 0) for variant in VARIANTS]
+    if args.constructor_matrix:
+        cases += [("baseline", flags) for flags in range(1, 8)]
+        cases += [(variant, 7) for variant in VARIANTS[1:]]
+    result["expected_observations"] = len(cases)
 
     def run(label, argv):
         completed = subprocess.run(argv, capture_output=True, text=True, timeout=60)
@@ -115,14 +134,15 @@ def main():
             run("verify-signature", ["codesign", "--verify", "--strict", str(executable)])
             result["executable_sha256"] = sha(executable)
             if not args.compile_only:
-                for variant in VARIANTS:
-                    completed = run(variant, [str(executable), variant])
+                for variant, flags in cases:
+                    label = f"{variant}/constructor-{flags}"
+                    completed = run(label, [str(executable), variant, str(flags)])
                     rows = [json.loads(line) for line in completed.stdout.splitlines()]
                     # Preserve raw and parsed records before rejecting malformed output.
                     result["observations"].append(rows)
-                    entry = validate_observation(rows, variant)
+                    entry = validate_observation(rows, variant, flags)
                     if entry["guest_reached_hlt"]:
-                        result["positive_sdk_variants"].append(variant)
+                        result["positive_sdk_variants"].append(label)
                 result["observation_matrix_complete"] = True
             if any(sha(path) != result["source_sha256"][path.name] for path in sources):
                 raise RuntimeError("probe source changed during observation")

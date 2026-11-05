@@ -11,8 +11,11 @@ def observation():
                  rax=0x1122334455667788, rdi=0x40000080, rflags=2)
     return [
         {"native_intel_process": True, "vm_created": True},
-        {"probe": "ram-entry", "variant": "baseline", "before": dict(state), "after": dict(state),
+        {"probe": "ram-entry", "version": 2, "constructor_flags": 0,
+         "variant": "baseline", "before": dict(state), "after": dict(state),
          "guest_entry_attempted": True, "run_status": 0, "exit_reason": 0x80000021,
+         "vmx_status_read_status": 0xFAE94001, "vmx_flags": None,
+         "instruction_error_read_status": 0xFAE9400F, "instruction_error": None,
          "entries": 1, "guest_reached_hlt": False, "vcpu_destroy_status": 0,
          "guest_unmap_status": 0, "vm_destroy_status": 0, "host_unmap_status": 0},
     ]
@@ -78,6 +81,31 @@ class ObservationTests(unittest.TestCase):
         for rows in (None, [], observation()[:1], [False, {}], [observation()[0], []]):
             with self.assertRaises(ValueError):
                 validate_observation(rows, "baseline")
+
+    def test_requires_exact_constructor_subset_and_record_version(self):
+        for flags in range(8):
+            rows = observation()
+            rows[1]["constructor_flags"] = flags
+            validate_observation(rows, "baseline", flags)
+            with self.assertRaises(ValueError):
+                validate_observation(rows, "baseline", flags ^ 1)
+        for key, value in (("constructor_flags", True), ("constructor_flags", 8),
+                           ("version", True), ("version", 1), ("version", None)):
+            rows = observation()
+            rows[1][key] = value
+            with self.assertRaises(ValueError):
+                validate_observation(rows, "baseline")
+
+    def test_vmx_diagnostics_preserve_api_errors_and_optional_values(self):
+        for status_key, value_key in (("vmx_status_read_status", "vmx_flags"),
+                                      ("instruction_error_read_status", "instruction_error")):
+            rows = observation()
+            rows[1].update({status_key: 0, value_key: 7})
+            validate_observation(rows, "baseline")
+            for status, value in ((0, None), (0, True), (False, 0), (1, 0)):
+                rows[1].update({status_key: status, value_key: value})
+                with self.assertRaises(ValueError):
+                    validate_observation(rows, "baseline")
 
 
 if __name__ == "__main__":

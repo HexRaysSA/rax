@@ -31,6 +31,282 @@
     "guest_execution_qualified": false
   },
   "compile_link_signature": {
+    "scope": "Observe SDK-only RAM-entry controls and optional constructor subsets; no RAX library is linked.",
+    "success": true,
+    "error": null,
+    "commands": [
+      {
+        "label": "os",
+        "argv": [
+          "sw_vers"
+        ],
+        "exit_code": 0,
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+        "stderr": ""
+      },
+      {
+        "label": "sdk",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "--show-sdk-version"
+        ],
+        "exit_code": 0,
+        "stdout": "27.2\n",
+        "stderr": ""
+      },
+      {
+        "label": "compiler",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "clang",
+          "--version"
+        ],
+        "exit_code": 0,
+        "stdout": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+        "stderr": ""
+      },
+      {
+        "label": "build",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "clang",
+          "-arch",
+          "x86_64",
+          "-std=c11",
+          "-O1",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "/Users/int/dev/rax/tools/hvf/intel_ram_entry_native.c",
+          "-framework",
+          "Hypervisor",
+          "-o",
+          "/tmp/rax-hvf-intel-ram-entry-ps27z6vu/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          "/tmp/rax-hvf-intel-ram-entry-ps27z6vu/entitlements.plist",
+          "--timestamp=none",
+          "/tmp/rax-hvf-intel-ram-entry-ps27z6vu/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "verify-signature",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/tmp/rax-hvf-intel-ram-entry-ps27z6vu/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    ],
+    "observations": [],
+    "compile_only": true,
+    "observation_matrix_complete": false,
+    "rax_guest_execution_qualified": false,
+    "positive_sdk_variants": [],
+    "source_sha256": {
+      "intel_ram_entry_native.c": "e79399d72531d97065c19e8028e7f253413b639b5c7bcd92a3bc81134ef040e5",
+      "intel_ram_entry_native.py": "f0dc9321cab50814a6ce87ac502af13fb15868153f4978a87c4526030f7135e0",
+      "native_intel_availability.c": "f440845f87c1dcb5093de9a09e3b48a703f74158d6bb98a5a2c3451fb1d62a6d"
+    },
+    "expected_observations": 22,
+    "executable_sha256": "60575b1395f4dca5d247bbf32f1f55ed2290ffa590c4927badebc5a2bd4e6475",
+    "owned_build_removed": true
+  },
+  "local_negative_control": {
+    "scope": "Observe SDK-only RAM-entry controls and optional constructor subsets; no RAX library is linked.",
+    "success": false,
+    "error": "RuntimeError('baseline/constructor-0 failed with status 3')",
+    "commands": [
+      {
+        "label": "os",
+        "argv": [
+          "sw_vers"
+        ],
+        "exit_code": 0,
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+        "stderr": ""
+      },
+      {
+        "label": "sdk",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "--show-sdk-version"
+        ],
+        "exit_code": 0,
+        "stdout": "27.2\n",
+        "stderr": ""
+      },
+      {
+        "label": "compiler",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "clang",
+          "--version"
+        ],
+        "exit_code": 0,
+        "stdout": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+        "stderr": ""
+      },
+      {
+        "label": "build",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "clang",
+          "-arch",
+          "x86_64",
+          "-std=c11",
+          "-O1",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "/Users/int/dev/rax/tools/hvf/intel_ram_entry_native.c",
+          "-framework",
+          "Hypervisor",
+          "-o",
+          "/tmp/rax-hvf-intel-ram-entry-sjw7e6hj/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          "/tmp/rax-hvf-intel-ram-entry-sjw7e6hj/entitlements.plist",
+          "--timestamp=none",
+          "/tmp/rax-hvf-intel-ram-entry-sjw7e6hj/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "verify-signature",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/tmp/rax-hvf-intel-ram-entry-sjw7e6hj/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "baseline/constructor-0",
+        "argv": [
+          "/tmp/rax-hvf-intel-ram-entry-sjw7e6hj/probe",
+          "baseline",
+          "0"
+        ],
+        "exit_code": 3,
+        "stdout": "{\"probe_version\":1,\"cpuid_genuine_intel\":true,\"translated\":1,\"translation_query_errno\":0,\"native_intel_process\":false,\"hv_support\":1,\"hv_support_query_errno\":0,\"hypervisor_guest\":0,\"hypervisor_guest_query_errno\":0,\"vm_create_attempted\":false,\"vm_created\":false,\"vm_destroyed\":false,\"vm_create_status\":null,\"vm_destroy_status\":null,\"guest_execution_performed\":false}\n",
+        "stderr": ""
+      }
+    ],
+    "observations": [],
+    "compile_only": false,
+    "observation_matrix_complete": false,
+    "rax_guest_execution_qualified": false,
+    "positive_sdk_variants": [],
+    "source_sha256": {
+      "intel_ram_entry_native.c": "e79399d72531d97065c19e8028e7f253413b639b5c7bcd92a3bc81134ef040e5",
+      "intel_ram_entry_native.py": "f0dc9321cab50814a6ce87ac502af13fb15868153f4978a87c4526030f7135e0",
+      "native_intel_availability.c": "f440845f87c1dcb5093de9a09e3b48a703f74158d6bb98a5a2c3451fb1d62a6d"
+    },
+    "expected_observations": 22,
+    "executable_sha256": "60575b1395f4dca5d247bbf32f1f55ed2290ffa590c4927badebc5a2bd4e6475",
+    "owned_build_removed": true
+  },
+  "native_sdk_matrix_status": "Initial 8 cases observed API errors; expanded 22-case constructor matrix not yet run",
+  "full_goal_complete": false,
+  "validation": {
+    "python_tests": {
+      "passed": 9,
+      "failed": 0
+    },
+    "actionlint": {
+      "version": "1.7.12",
+      "exit_code": 0
+    },
+    "ci_actions_pinned": {
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--test",
+        "ci_actions_pinned"
+      ],
+      "owned_build": "/tmp/rax-ram-entry-policy-v2-jjrlc9fb",
+      "success": true,
+      "exit_code": 0,
+      "seconds": 56.48534107208252,
+      "owned_build_removed": true,
+      "passed": 15,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    }
+  },
+  "source_sha256": {
+    "tools/hvf/intel_ram_entry_native.c": "e79399d72531d97065c19e8028e7f253413b639b5c7bcd92a3bc81134ef040e5",
+    "tools/hvf/intel_ram_entry_native.py": "f0dc9321cab50814a6ce87ac502af13fb15868153f4978a87c4526030f7135e0",
+    "tools/hvf/test_intel_ram_entry_native.py": "ac9a56ccaaa8c22e30b4f7293462edbb1728a33bbef08b26eb2246ef792091bd",
+    ".github/workflows/native-intel-hvf-availability.yml": "e58e4639079571a0d7f5a5b3e4e6c867acbdd4ac94b00487edeb9253d0cdb7dd"
+  },
+  "initial_native_sdk_matrix": {
+    "run_id": 41988534104,
+    "job_id": 127114959102,
+    "head": "36ba6e0a793ad951cb632cb4df7e8ef9700e9cfe",
+    "url": "https://github.com/HexRaysSA/rax/actions/runs/41988534104",
+    "raw_record": "sdk-ram-observation-41988534104.json",
+    "raw_sha256": "4d6459ec1ac7aec6510e319a74d15bacf10a67cb409fa2a8e86250cac1647f80",
+    "artifact_id": 13397332636,
+    "artifact_zip_sha256": "efa856b82b265d7ad250df33542818a3a4e90a0712a47caa63ce0b2da30929fc",
+    "observations": 8,
+    "sdk_status": 4209590273,
+    "exit_reasons": "all null",
+    "positive_sdk_variants": [],
+    "interpretation": "API-error boundary differs from RAX failed-entry VM-exit boundary; initial constructor equivalence assumption falsified"
+  },
+  "historical_compile_link_signature": {
     "scope": "Observe eight independent SDK-only RAM-entry variants; no RAX library is linked.",
     "success": true,
     "error": null,
@@ -135,7 +411,7 @@
     "executable_sha256": "f17f99b03c179a096956363255b5e7d0a5302a5d7d14fc84e56cfd312a47469d",
     "owned_build_removed": true
   },
-  "local_negative_control": {
+  "historical_local_negative_control": {
     "scope": "Observe eight independent SDK-only RAM-entry variants; no RAX library is linked.",
     "success": false,
     "error": "RuntimeError('baseline failed with status 3')",
@@ -249,44 +525,5 @@
     },
     "executable_sha256": "f17f99b03c179a096956363255b5e7d0a5302a5d7d14fc84e56cfd312a47469d",
     "owned_build_removed": true
-  },
-  "native_sdk_matrix_status": "not yet run",
-  "full_goal_complete": false,
-  "validation": {
-    "python_tests": {
-      "passed": 7,
-      "failed": 0
-    },
-    "actionlint": {
-      "version": "1.7.12",
-      "exit_code": 0
-    },
-    "ci_actions_pinned": {
-      "command": [
-        "cargo",
-        "+stable",
-        "test",
-        "--locked",
-        "--no-default-features",
-        "--test",
-        "ci_actions_pinned"
-      ],
-      "owned_build": "/tmp/rax-ram-entry-ci-policy-4o6zbmjd",
-      "success": true,
-      "started": 1793864050.683827,
-      "exit_code": 0,
-      "seconds": 62.4314911365509,
-      "owned_build_removed": true,
-      "passed": 15,
-      "failed": 0,
-      "ignored": 0,
-      "filtered": 0
-    }
-  },
-  "source_sha256": {
-    "tools/hvf/intel_ram_entry_native.c": "ab7f0e44f36c983a152cab511bddf8acb36ff7b4868e9da04736d3674da7f53f",
-    "tools/hvf/intel_ram_entry_native.py": "b8e074df49fce72b3195b6618d4b1405af4ec0ced1ec7d0cacce26c33203d70b",
-    "tools/hvf/test_intel_ram_entry_native.py": "67b9db3043291fb2bf3a8c90972a8f60c0c82670bfb497752795ea29db0a7b55",
-    ".github/workflows/native-intel-hvf-availability.yml": "d8609695623113ef3264d4591cf08e0fc9d4e4c4f6e7645a50770e6b5f02f36c"
   }
 }
