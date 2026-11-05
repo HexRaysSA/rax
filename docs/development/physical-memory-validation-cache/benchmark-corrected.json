@@ -1,0 +1,58 @@
+{
+  "scope": "64 MiB actual public physical snapshot capture and four validations through Rosetta; no native guest. Same host/profile/workload required for comparison.",
+  "source_sha256": "c9f1af5b87dc60731f9238bd0db32d83dd10a44d5723b9f7bdbccfdd105f3f51",
+  "commands": [
+    {
+      "label": "compile",
+      "argv": [
+        "rustc",
+        "+stable",
+        "--edition=2024",
+        "--target",
+        "x86_64-apple-darwin",
+        "-C",
+        "opt-level=0",
+        "-C",
+        "debuginfo=0",
+        "-C",
+        "debug-assertions=yes",
+        "-C",
+        "overflow-checks=yes",
+        "-L",
+        "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/debug/deps",
+        "-L",
+        "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps",
+        "--extern",
+        "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps/librax-4d54be5232e16cdd.rlib",
+        "--extern",
+        "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
+        "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/physical-validation-cache-v1/benchmark.rs",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/physical-validation-corrected"
+      ],
+      "exit_code": 0,
+      "seconds": 1.4620712919859216
+    },
+    {
+      "label": "run",
+      "argv": [
+        "arch",
+        "-x86_64",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/physical-validation-corrected"
+      ],
+      "exit_code": 0,
+      "seconds": 0.6007482500281185
+    }
+  ],
+  "observation": {
+    "bytes": 67108864,
+    "capture_seconds": 0.254901208,
+    "verify_seconds": [
+      1.7041e-05,
+      7.25e-06,
+      7e-06,
+      7e-06
+    ]
+  },
+  "executable_sha256": "64e550d0c6affc78878e7e5f9d9b8aa018cdaf54b4e53ccffb53dfb39b0a4e54"
+}

@@ -3,6 +3,7 @@ use super::stream::{FallibleBytes, compressed_limit};
 use crate::error::{Error, Result};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
+use std::sync::OnceLock;
 use vm_memory::{Address, Bytes, GuestAddress, GuestMemory, GuestMemoryMmap, GuestMemoryRegion};
 pub(super) const MAX_TOTAL: u64 = 68 * 1024 * 1024 * 1024;
 const MAX_REGIONS: usize = 128;
@@ -23,6 +24,15 @@ struct Region {
 #[derive(Clone)]
 pub struct PhysicalMemorySnapshot {
     regions: Vec<Region>,
+    verified: OnceLock<[u8; 32]>,
+    verified_projection: OnceLock<ProjectionKey>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct ProjectionKey {
+    physical: [u8; 32],
+    projection: [u8; 32],
+    reported: u64,
 }
 /// A checked immutable checkpoint/target pair. Only this module constructs it.
 /// Caller-controlled writers/mapping changes must stay quiescent until commit.
@@ -158,7 +168,44 @@ impl PhysicalMemorySnapshot {
         let projection = projection
             .map(|p| p.finish().map(|p| p.bytes).map_err(invalid))
             .transpose()?;
-        Ok((Self { regions }, projection))
+        let snapshot = Self::new(regions);
+        // Both encoders consumed the same successfully read chunks. Successful
+        // finish produces complete frames; the captured digests cover their
+        // uncompressed contents. Cache only after all construction checks pass.
+        let physical = snapshot.fingerprint();
+        let _ = snapshot.verified.set(physical);
+        if let (Some(reported), Some(projection)) = (reported, projection.as_ref()) {
+            let _ = snapshot.verified_projection.set(ProjectionKey {
+                physical,
+                projection: Sha256::digest(projection).into(),
+                reported,
+            });
+        }
+        Ok((snapshot, projection))
+    }
+
+    fn new(regions: Vec<Region>) -> Self {
+        Self {
+            regions,
+            verified: OnceLock::new(),
+            verified_projection: OnceLock::new(),
+        }
+    }
+
+    /// Include every declared extent, expected digest and compressed byte in
+    /// cache identity. A changed image cannot inherit another image's proof.
+    fn fingerprint(&self) -> [u8; 32] {
+        let mut digest = Sha256::new();
+        digest.update(b"RAXRAM01/verified\0");
+        digest.update((self.regions.len() as u64).to_le_bytes());
+        for region in &self.regions {
+            digest.update(region.start.to_le_bytes());
+            digest.update(region.size.to_le_bytes());
+            digest.update(region.digest);
+            digest.update((region.data.len() as u64).to_le_bytes());
+            digest.update(&region.data);
+        }
+        digest.finalize().into()
     }
     pub fn layout(&self) -> impl ExactSizeIterator<Item = (u64, u64)> + '_ {
         self.regions.iter().map(|r| (r.start, r.size))
@@ -182,12 +229,14 @@ impl PhysicalMemorySnapshot {
     }
     fn visit(&self, mut visit: impl FnMut(u64, &[u8]) -> Result<()>) -> Result<()> {
         self.validate_metadata(0)?;
+        let fingerprint = self.fingerprint();
+        let needs_digest = self.verified.get() != Some(&fingerprint);
         let mut chunk = [0u8; CHUNK];
         for region in &self.regions {
             let mut decoder =
                 zstd::stream::read::Decoder::new(region.data.as_slice()).map_err(invalid)?;
             decoder.window_log_max(27).map_err(invalid)?;
-            let mut digest = Sha256::new();
+            let mut digest = needs_digest.then(Sha256::new);
             let mut offset = 0u64;
             loop {
                 let remaining = region.size - offset;
@@ -199,7 +248,9 @@ impl PhysicalMemorySnapshot {
                 if n as u64 > remaining {
                     return Err(invalid("region exceeds declared size"));
                 }
-                digest.update(&chunk[..n]);
+                if let Some(digest) = &mut digest {
+                    digest.update(&chunk[..n]);
+                }
                 visit(
                     region
                         .start
@@ -212,17 +263,33 @@ impl PhysicalMemorySnapshot {
             if offset != region.size {
                 return Err(invalid("region size mismatch"));
             }
-            if <[u8; 32]>::from(digest.finalize()) != region.digest {
-                return Err(invalid("region SHA-256 mismatch"));
+            if let Some(digest) = digest {
+                if <[u8; 32]>::from(digest.finalize()) != region.digest {
+                    return Err(invalid("region SHA-256 mismatch"));
+                }
             }
         }
+        let _ = self.verified.set(fingerprint);
         Ok(())
     }
     /// Check all compressed bytes/digests without writing guest memory.
     pub fn verify(&self) -> Result<()> {
+        self.validate_metadata(0)?;
+        if self.verified.get() == Some(&self.fingerprint()) {
+            return Ok(());
+        }
         self.visit(|_, _| Ok(()))
     }
     pub(super) fn verify_projection(&self, compressed: &[u8], reported: u64) -> Result<()> {
+        self.validate_metadata(0)?;
+        let key = ProjectionKey {
+            physical: self.fingerprint(),
+            projection: Sha256::digest(compressed).into(),
+            reported,
+        };
+        if self.verified_projection.get() == Some(&key) {
+            return Ok(());
+        }
         let mut base = zstd::stream::read::Decoder::new(compressed).map_err(invalid)?;
         base.window_log_max(27).map_err(invalid)?;
         let mut expected = [0u8; CHUNK];
@@ -244,6 +311,7 @@ impl PhysicalMemorySnapshot {
         if covered != reported || base.read(&mut expected[..1]).map_err(invalid)? != 0 {
             return Err(invalid("reported projection size mismatch"));
         }
+        let _ = self.verified_projection.set(key);
         Ok(())
     }
     /// All layout/content failures precede the first guest write. The immutable
@@ -378,6 +446,10 @@ impl PhysicalMemorySnapshot {
                 data,
             });
         }
-        Ok(Self { regions })
+        Ok(Self::new(regions))
     }
 }
+
+#[cfg(test)]
+#[path = "physical_cache_tests.rs"]
+mod cache_tests;

@@ -1,0 +1,273 @@
+{
+  "recorded_utc": "2026-11-05T12:52:49.900440+00:00",
+  "scope": "Bounded compressed-image verification caches; all physical backing and existing wire formats retained.",
+  "engine_source_digest": "43b2149de212b56ea2dd6649e7fa0b83584505e8dba6770c454a847b735f0c09",
+  "engine_inputs": 4474,
+  "benchmark": {
+    "bytes": 67108864,
+    "before": {
+      "bytes": 67108864,
+      "capture_seconds": 0.214523208,
+      "verify_seconds": [
+        0.156086666,
+        0.142900417,
+        0.137348208,
+        0.137752083
+      ]
+    },
+    "after": {
+      "bytes": 67108864,
+      "capture_seconds": 0.254901208,
+      "verify_seconds": [
+        1.7041e-05,
+        7.25e-06,
+        7e-06,
+        7e-06
+      ]
+    },
+    "before_verify_median_seconds": 0.14032624999999999,
+    "after_verify_median_seconds": 7.125e-06,
+    "same_source": true,
+    "native_guests_executed": 0,
+    "limitations": "Four iterations in concurrent development workloads through Rosetta. No bare-metal, incompressible-memory or whole-VMM speed guarantee follows."
+  },
+  "native_baseline": {
+    "run_id": 42022280261,
+    "passed": 151,
+    "expected": 152,
+    "timeout_seconds": 600,
+    "four_cpu_backing_bytes": 4429185024,
+    "archive_sha256": "572543002fb3c162c4be58fad720982bf4032c6daa8fc38cf30fa13a3e3eb63a"
+  },
+  "focused": {
+    "state": "completed",
+    "argv": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--lib",
+      "vm::snapshot::physical_memory::cache_tests::",
+      "--",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "pid": 38211,
+    "exit_code": 0,
+    "seconds": 237.027874374995
+  },
+  "complete_owner": {
+    "result": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "pid": 28699,
+      "wrapper_pid": 28490,
+      "state": "completed",
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y",
+      "engine_source_digest": "43b2149de212b56ea2dd6649e7fa0b83584505e8dba6770c454a847b735f0c09",
+      "exit_code": 0,
+      "seconds": 417.9055854170583,
+      "engine_source_unchanged": true
+    },
+    "passed": 73,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0
+  },
+  "complete_root": {
+    "state": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "--",
+        "--test-threads=4"
+      ],
+      "pid": 53893,
+      "wrapper_pid": 53886,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y",
+      "engine_source_digest": "43b2149de212b56ea2dd6649e7fa0b83584505e8dba6770c454a847b735f0c09",
+      "exit_code": 0,
+      "seconds": 1871.8016369580291,
+      "engine_source_unchanged": true
+    },
+    "passed": 12445,
+    "failed": 0,
+    "ignored": 36,
+    "filtered_out": 0,
+    "executable": {
+      "bytes": 774878768,
+      "sha256": "c0f86756b2a09d34bd6bce5448c3ecb5b3fa39a7284c251f7897be94ab1fcf70"
+    }
+  },
+  "physical_target": {
+    "result": {
+      "label": "physical-target",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "checkpoint_physical_memory",
+        "--",
+        "--nocapture",
+        "--test-threads=2"
+      ],
+      "pid": 54297,
+      "state": "completed",
+      "exit_code": 0,
+      "seconds": 188.08905487507582
+    },
+    "passed": 30,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0
+  },
+  "full_goal_complete": false,
+  "focused_counts": {
+    "passed": 4,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 12477
+  },
+  "checks": {
+    "state": "completed",
+    "wrapper_pid": 54296,
+    "commands": [
+      {
+        "label": "physical-target",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--test",
+          "checkpoint_physical_memory",
+          "--",
+          "--nocapture",
+          "--test-threads=2"
+        ],
+        "pid": 54297,
+        "state": "completed",
+        "exit_code": 0,
+        "seconds": 188.08905487507582
+      },
+      {
+        "label": "clippy",
+        "argv": [
+          "cargo",
+          "+stable",
+          "clippy",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--target",
+          "x86_64-apple-darwin",
+          "--lib",
+          "--test",
+          "hvf_intel_owner"
+        ],
+        "pid": 59447,
+        "state": "completed",
+        "exit_code": 0,
+        "seconds": 32.553931792033836
+      },
+      {
+        "label": "format",
+        "argv": [
+          "cargo",
+          "+stable",
+          "fmt",
+          "--all",
+          "--check"
+        ],
+        "pid": 62370,
+        "state": "completed",
+        "exit_code": 0,
+        "seconds": 14.873643832979724
+      }
+    ]
+  },
+  "build_cleanup": {
+    "utc": "2026-11-05T12:52:48.970335+00:00",
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y",
+    "no_open_files": true,
+    "protected_before": {
+      "births": {
+        "28735": [
+          1793118729,
+          942421
+        ],
+        "28737": [
+          1793118730,
+          94426
+        ]
+      },
+      "trace_sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d"
+    },
+    "executables": {
+      "debug/deps/rax-cbbec34421e26e80": {
+        "bytes": 774878768,
+        "sha256": "c0f86756b2a09d34bd6bce5448c3ecb5b3fa39a7284c251f7897be94ab1fcf70"
+      },
+      "x86_64-apple-darwin/debug/deps/hvf_intel_owner-f93db0b9c45e8fe4": {
+        "bytes": 64112936,
+        "sha256": "6ca5446e1b1370808aeeae957fc061e96e0ed346cc589b3b635f63a7c5959709"
+      },
+      "debug/deps/checkpoint_physical_memory-92592b0dc9dbb610": {
+        "bytes": 18652144,
+        "sha256": "0a8f3ebc87b47fa497a0ddd1d673bc0582da09dc3a0d60501c0084549a323c70"
+      },
+      "native-guest-155": {
+        "bytes": 63843904,
+        "sha256": "6f6cd89cd4fdbe8114ef4be031af2d5b73af995e6449d7778a71183783ca0f47"
+      }
+    },
+    "owned_build_removed": true,
+    "protected_after": {
+      "births": {
+        "28735": [
+          1793118729,
+          942421
+        ],
+        "28737": [
+          1793118730,
+          94426
+        ]
+      },
+      "trace_sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d"
+    }
+  },
+  "local_component_gates": "passed; native155 remains required"
+}

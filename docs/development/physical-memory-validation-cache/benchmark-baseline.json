@@ -1,0 +1,58 @@
+{
+  "commands": [
+    {
+      "label": "compile",
+      "argv": [
+        "rustc",
+        "+stable",
+        "--edition=2024",
+        "--target",
+        "x86_64-apple-darwin",
+        "-C",
+        "opt-level=0",
+        "-C",
+        "debuginfo=0",
+        "-C",
+        "debug-assertions=yes",
+        "-C",
+        "overflow-checks=yes",
+        "-L",
+        "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/debug/deps",
+        "-L",
+        "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps",
+        "--extern",
+        "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps/librax-4d54be5232e16cdd.rlib",
+        "--extern",
+        "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
+        "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/physical-validation-cache-v1/benchmark.rs",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/physical-validation-baseline"
+      ],
+      "exit_code": 0,
+      "seconds": 1.179382749949582
+    },
+    {
+      "label": "run",
+      "argv": [
+        "arch",
+        "-x86_64",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/physical-validation-baseline"
+      ],
+      "exit_code": 0,
+      "seconds": 1.1241020419402048
+    }
+  ],
+  "source_sha256": "c9f1af5b87dc60731f9238bd0db32d83dd10a44d5723b9f7bdbccfdd105f3f51",
+  "scope": "64 MiB actual public physical snapshot capture and four validations through Rosetta; no native guest. Same host/profile/workload required for comparison.",
+  "observation": {
+    "bytes": 67108864,
+    "capture_seconds": 0.214523208,
+    "verify_seconds": [
+      0.156086666,
+      0.142900417,
+      0.137348208,
+      0.137752083
+    ]
+  },
+  "executable_sha256": "14d759b800a1e3e95ab5b07e3cde4580842c26506dfe1a8d53417b1247207d96"
+}
