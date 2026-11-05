@@ -86,8 +86,7 @@ fn native_windows_corpus_capture_follows_rust_cache_restore() {
     let job = workflow_block(&workflow, "  observe:");
     let prepare_marker = "      - name: Prepare contained native CSR build directories";
     let setup_marker = "      - uses: ./.github/actions/setup-rust";
-    let capture_marker =
-        "      - name: Observe native notification admission and completion stores";
+    let capture_marker = "      - name: Observe native CFG private-code lifecycle";
     let prepare = job
         .find(prepare_marker)
         .expect("missing contained temporary directory setup");
@@ -116,6 +115,55 @@ fn native_windows_corpus_capture_follows_rust_cache_restore() {
             "missing contained build setting: {required}"
         );
     }
+}
+
+#[test]
+fn native_cfg_collection_cannot_reuse_cached_or_unqualified_observations() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workflow = read_workflow(root.join(".github/workflows/windows-exception-profile.yml"))
+        .expect("failed to read native Windows workflow");
+    for source in [
+        "docs/specifications/windows/native-cfg-private-code/**",
+        "tools/ci/windows_cfg_private_code.py",
+        "tools/ci/test_windows_cfg_private_code.py",
+    ] {
+        assert_eq!(
+            workflow.matches(&format!("      - {source}\n")).count(),
+            2,
+            "both push and PR filters must include {source}"
+        );
+    }
+    let job = workflow_block(&workflow, "  observe:");
+    let capture = workflow_block(
+        &job,
+        "      - name: Observe native CFG private-code lifecycle",
+    );
+    assert!(
+        capture.contains(
+            "python -B -m unittest discover -s tools/ci -p test_windows_cfg_private_code.py"
+        ) && capture.contains("python -B tools/ci/windows_cfg_private_code.py")
+    );
+    assert_eq!(
+        capture
+            .matches("if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }")
+            .count(),
+        2,
+        "a passing collector must not hide a failed provenance test"
+    );
+    let artifact = workflow_block(
+        &job,
+        "      - name: Preserve native CFG private-code observations",
+    );
+    assert!(
+        artifact.contains("if: always()")
+            && artifact.contains("path: target/native-cfg-private-code-v1")
+            && artifact.contains("if-no-files-found: error")
+    );
+    let setup = workflow_block(&job, "      - uses: ./.github/actions/setup-rust");
+    assert!(
+        setup.contains("workspaces: . -> target/native-csr-cargo")
+            && !setup.contains("target/native-cfg-private-code-v1")
+    );
 }
 
 #[test]
