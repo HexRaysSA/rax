@@ -100,8 +100,17 @@ collector and parser tests; the output is kept outside the Rust-cache workspace
 and uploaded even after a failed capture. Fresh CI results are separate from
 the retained ARM64 corpus and are not claimed here before inspection.
 
-The parser's 16 rejection tests include LF and CRLF source fixtures plus explicit
+The parser's 19 rejection tests include LF and CRLF source fixtures plus explicit
 rejection of doubled carriage returns. The first AMD64 CI attempt exposed a test
 fixture that added CRLF to an already-CRLF checkout; that failed run is retained.
 The fixture now constructs both newline forms from normalized LF bytes without
 weakening the production source-identity check.
+
+The subsequent native AMD64 run passed all 102 native-x64 cases per kernel but
+stopped before running x86: MSVC's PE32 data-directory length is 64 bytes while
+its load-configuration structure declares 192 bytes. Microsoft documents the
+[64-byte x86 compatibility directory](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#load-configuration-directory).
+The metadata reader now validates the extended structure's own declared size,
+the complete file-backed section bounds and the required CFG flags. Regression
+tests retain rejection of truncated, undersized and inconsistent structures.
+Both failed CI stages remain separate from the retained ARM64 observations.

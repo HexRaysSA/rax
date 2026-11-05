@@ -1,6 +1,7 @@
 """Evidence-parser rejection tests. Generated rows are synthetic format fixtures."""
 import copy
 from pathlib import Path
+import struct
 import unittest
 
 import windows_cfg_target_records as records
@@ -46,6 +47,27 @@ def corpus():
     return {"schema": records.SCHEMA, "state": "complete", "source_sha256": records.source_sha(SOURCE),
             "source_raw_sha256": records.sha(SOURCE), "native_machine": 0xAA64,
             "kernel": [10, 0, 29698], "reports": [report("arm64"), report("x86")]}
+
+
+def pe_fixture(pe32=True, directory_bytes=None, structure_bytes=None):
+    """Synthetic headers reproduce MSVC's 64-byte PE32 directory convention."""
+    raw = bytearray(1024)
+    raw[:2] = b"MZ"
+    struct.pack_into("<I", raw, 0x3C, 128)
+    raw[128:132] = b"PE\0\0"
+    optional = 152
+    optional_bytes = 224 if pe32 else 240
+    struct.pack_into("<HH", raw, 132, 0x14C if pe32 else 0x8664, 1)
+    struct.pack_into("<H", raw, 148, optional_bytes)
+    struct.pack_into("<H", raw, optional, 0x10B if pe32 else 0x20B)
+    struct.pack_into("<H", raw, optional + 70, 0x4000)
+    directory_bytes = (64 if pe32 else 320) if directory_bytes is None else directory_bytes
+    structure_bytes = (192 if pe32 else 320) if structure_bytes is None else structure_bytes
+    struct.pack_into("<II", raw, optional + (96 if pe32 else 112) + 80, 0x1000, directory_bytes)
+    struct.pack_into("<III", raw, optional + optional_bytes + 12, 0x1000, 512, 512)
+    struct.pack_into("<I", raw, 512, structure_bytes)
+    struct.pack_into("<I", raw, 512 + (88 if pe32 else 144), 0x17500)
+    return raw
 
 
 class EvidenceRejections(unittest.TestCase):
@@ -146,6 +168,29 @@ class EvidenceRejections(unittest.TestCase):
         value["reports"] = [value["reports"][0], extra]
         with self.assertRaisesRegex(ValueError, "omitted.*WoW64"):
             records.validate_corpus(value, SOURCE)
+
+    def test_pe32_legacy_directory_uses_the_bounded_extended_structure(self):
+        for pe32, directory in [(True, 64), (True, 192), (False, 320)]:
+            with self.subTest(pe32=pe32, directory=directory):
+                info = records.pe_info(pe_fixture(pe32, directory_bytes=directory))
+                self.assertEqual(info["guard_flags"], 0x17500)
+                self.assertEqual(info["load_config_directory_bytes"], directory)
+                self.assertEqual(info["load_config_structure_bytes"], 192 if pe32 else 320)
+
+    def test_load_config_declared_sizes_cannot_hide_truncated_or_missing_cfg(self):
+        bad = [pe_fixture(directory_bytes=63), pe_fixture(directory_bytes=80),
+               pe_fixture(structure_bytes=88), pe_fixture(structure_bytes=1024),
+               pe_fixture(directory_bytes=200, structure_bytes=192), pe_fixture()[:-1]]
+        for index, raw in enumerate(bad):
+            with self.subTest(index=index):
+                with self.assertRaisesRegex(ValueError, "configuration"):
+                    records.pe_info(raw)
+
+    def test_compatibility_directory_does_not_relax_cfg_flag_requirements(self):
+        raw = pe_fixture()
+        struct.pack_into("<I", raw, 512 + 88, 0)
+        with self.assertRaisesRegex(ValueError, "CFG instrumentation"):
+            records.pe_info(raw)
 
 
 if __name__ == "__main__":

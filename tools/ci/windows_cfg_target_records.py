@@ -8,7 +8,6 @@ from pathlib import Path
 import re
 import shutil
 import struct
-import subprocess
 import sys
 
 SCHEMA = "rax-native-cfg-target-records-v1"
@@ -125,16 +124,28 @@ def pe_info(raw):
     characteristics = struct.unpack_from("<H", raw, optional + 70)[0]
     require(characteristics & 0x4000, "observer CFG DLL characteristic")
     rva, length = struct.unpack_from("<II", raw, optional + directories + 10 * 8)
-    require(length >= guard_at + 4, "observer load configuration length")
+    # Microsoft PE32 linkers retain the 64-byte directory size for loader
+    # compatibility. The structure's own Size describes its CFG extension.
+    # LLVM also emits the complete modern size in the directory entry.
+    require(length >= guard_at + 4 or magic == 0x10B and length == 64,
+            "observer load configuration directory length")
     sections = optional + struct.unpack_from("<H", raw, pe + 20)[0]
     for index in range(struct.unpack_from("<H", raw, pe + 6)[0]):
         at = sections + index * 40
         va, size, offset = struct.unpack_from("<III", raw, at + 12)
-        if va <= rva and rva + guard_at + 4 <= va + size:
-            flags = struct.unpack_from("<I", raw, offset + rva - va + guard_at)[0]
+        if va <= rva and rva + 4 <= va + size:
+            require(offset + size <= len(raw), "observer load configuration section file bounds")
+            first = offset + rva - va
+            declared = struct.unpack_from("<I", raw, first)[0]
+            require(declared >= guard_at + 4 and length <= declared,
+                    "observer load configuration structure length")
+            require(rva + declared <= va + size,
+                    "observer load configuration structure file bounds")
+            flags = struct.unpack_from("<I", raw, first + guard_at)[0]
             require(flags & 0x500 == 0x500, "observer CFG instrumentation and function table")
             return {"machine": machine, "optional_magic": magic,
-                    "dll_characteristics": characteristics, "guard_flags": flags}
+                    "dll_characteristics": characteristics, "guard_flags": flags,
+                    "load_config_directory_bytes": length, "load_config_structure_bytes": declared}
     raise ValueError("observer load configuration is not file backed")
 
 
