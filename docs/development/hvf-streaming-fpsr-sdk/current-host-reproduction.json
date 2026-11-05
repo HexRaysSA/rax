@@ -1,0 +1,270 @@
+{
+  "utc": "2026-11-05T16:51:39.024460+00:00",
+  "steps": [
+    {
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang++",
+        "-std=c++17",
+        "-O2",
+        "/Users/int/dev/rax/docs/development/hvf-streaming-fpsr-sdk/reentry-control.cpp",
+        "-framework",
+        "Hypervisor",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-a32-shift-owner-c5zbni5h/streaming-fpsr-direct-sdk"
+      ],
+      "exit_code": 0,
+      "seconds": 0.14661575003992766
+    },
+    {
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-a32-shift-owner-c5zbni5h/streaming-fpsr-entitlements.plist",
+        "--timestamp=none",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-a32-shift-owner-c5zbni5h/streaming-fpsr-direct-sdk"
+      ],
+      "exit_code": 0,
+      "seconds": 0.03302149998489767
+    },
+    {
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-a32-shift-owner-c5zbni5h/streaming-fpsr-direct-sdk"
+      ],
+      "exit_code": 0,
+      "seconds": 0.039132207981310785
+    },
+    {
+      "argv": [
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-a32-shift-owner-c5zbni5h/streaming-fpsr-direct-sdk"
+      ],
+      "exit_code": 0,
+      "seconds": 0.015475791995413601
+    }
+  ],
+  "source_sha256": "bf8296136c09952ca597ded8e5bbafe422bdbff68c5400d62aa1783a27c7495e",
+  "binary_sha256": "f41ce81ec18a0cfa0802b97eb71e1980d7d70ec599ef2bb9f3a941e01b171e28",
+  "entries": [
+    {
+      "stream": 0,
+      "getter": 0,
+      "phase": 0,
+      "before": 0,
+      "guest": 1,
+      "PC": 4100,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 0,
+      "getter": 0,
+      "phase": 1,
+      "before": 0,
+      "guest": 1,
+      "PC": 4112,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 0,
+      "getter": 0,
+      "phase": 2,
+      "before": 0,
+      "guest": 1,
+      "PC": 4120,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 0,
+      "getter": 0,
+      "phase": 3,
+      "before": 0,
+      "guest": 2,
+      "PC": 4128,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 0,
+      "getter": 0,
+      "phase": 4,
+      "before": 0,
+      "guest": 4,
+      "PC": 4136,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 0,
+      "getter": 1,
+      "phase": 0,
+      "before": 1,
+      "guest": 1,
+      "PC": 4100,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 0,
+      "getter": 1,
+      "phase": 1,
+      "before": 1,
+      "guest": 1,
+      "PC": 4112,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 0,
+      "getter": 1,
+      "phase": 2,
+      "before": 1,
+      "guest": 1,
+      "PC": 4120,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 0,
+      "getter": 1,
+      "phase": 3,
+      "before": 2,
+      "guest": 2,
+      "PC": 4128,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 0,
+      "getter": 1,
+      "phase": 4,
+      "before": 4,
+      "guest": 4,
+      "PC": 4136,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 1,
+      "getter": 0,
+      "phase": 0,
+      "before": 0,
+      "guest": 134217887,
+      "PC": 4100,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 1,
+      "getter": 0,
+      "phase": 1,
+      "before": 0,
+      "guest": 1,
+      "PC": 4112,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 1,
+      "getter": 0,
+      "phase": 2,
+      "before": 0,
+      "guest": 134217887,
+      "PC": 4120,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 1,
+      "getter": 0,
+      "phase": 3,
+      "before": 0,
+      "guest": 134217887,
+      "PC": 4128,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 1,
+      "getter": 0,
+      "phase": 4,
+      "before": 0,
+      "guest": 134217887,
+      "PC": 4136,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 1,
+      "getter": 1,
+      "phase": 0,
+      "before": 1,
+      "guest": 134217887,
+      "PC": 4100,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 1,
+      "getter": 1,
+      "phase": 1,
+      "before": 134217887,
+      "guest": 1,
+      "PC": 4112,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 1,
+      "getter": 1,
+      "phase": 2,
+      "before": 1,
+      "guest": 134217887,
+      "PC": 4120,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 1,
+      "getter": 1,
+      "phase": 3,
+      "before": 2,
+      "guest": 134217887,
+      "PC": 4128,
+      "reason": 1,
+      "syndrome": 2478932038
+    },
+    {
+      "stream": 1,
+      "getter": 1,
+      "phase": 4,
+      "before": 4,
+      "guest": 134217887,
+      "PC": 4136,
+      "reason": 1,
+      "syndrome": 2478932038
+    }
+  ],
+  "all_expected_exit_pcs_and_scalar_syndromes_verified": true,
+  "streaming_reentry_counterexample_reproduced": true,
+  "nonstreaming_controls_passed": true,
+  "RAX_code_used": false,
+  "private_SDK_calls": false,
+  "repair_established": false,
+  "full_goal_complete": false,
+  "owned_binary_and_entitlements_removed": true,
+  "host": {
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a",
+    "machine": "arm64",
+    "cpu": "Apple M4 Max"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "utc": "2026-11-05T16:49:16.147117+00:00",
+  "sdk": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk",
+  "sdk_version": "27.2",
+  "header": {
+    "source": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_vcpu.h",
+    "sha256": "b2994fcff480214887eb1880e82dd69fb37855da32f28786cb2d9b402275f772",
+    "copyright": "Retained unmodified in local hv_vcpu.h; local reference only, not selected for publication."
+  },
+  "original_probe_source": "/Users/int/dev/rax-audit-work/four-findings-coordinator/native-streaming-fpsr-controls-v1/reentry-control-v2.cpp",
+  "original_source_sha256": "57c0719f6d60e990b835caa9dd6d90f083cdd4198f3b975820bc72069dcdc54f",
+  "formatted_probe_sha256": "bf8296136c09952ca597ded8e5bbafe422bdbff68c5400d62aa1783a27c7495e",
+  "transformation": "clang-format only; actual direct public-SDK control, no RAX code and no private calls."
+}
