@@ -5,9 +5,12 @@ execute the pending, coupled backend changes in its disposable CI checkout.
 It does not install those changes into the production source on master.
 Native qualification remains pending until the actual guest observations pass.
 
-The previous real RAX run stopped during VM construction before executing a
-guest instruction. SDK model tests and cross-compilation do not resolve that
-failure on hardware. This candidate contains the SDK compatibility correction,
+An earlier real RAX run stopped during VM construction before guest entry.
+The later run 41968179867 exceeded its 45-minute limit and retained neither
+usable logs nor artifacts; whether it entered a guest is unknown. The
+[split build/execution workflow](../hvf-intel-pipeline/README.md) now preserves
+the signed build before attempting native execution. SDK model tests and
+cross-compilation do not establish native guest behavior. This candidate contains the SDK compatibility correction,
 software PAT state, interrupt and RAM integration, and the native consumer with
 130 registered cases: 114 existing cases, eight PAT cases, and eight reserved-MSR
 exception cases. It also retains the combined source dependencies against which
@@ -15,18 +18,18 @@ the local checks ran. The complete path inventory is in [candidate.json](candida
 
 | Input | Value |
 |---|---|
-| Base source commit | `6c259f73a1a02d3259312010c8db937040bbb89d` |
-| Changed source paths | 117 |
-| Patch size | 617326 bytes |
-| Patch SHA-256 | `aad2a3b86647ea6eb8d8937980d8b4a13bdac391bf34291fd3961e1c70add1af` |
-| Base source fingerprint | `8c32fcba9da58a7241e50e8f7f2dc57d7e0765eeff0bc61a1100d48d4cf400fc` |
-| Candidate source fingerprint | `a82c24ae4bdb7432f919518664555dc913bc45f4c02f2e71eaba69acfc500572` |
+| Base source commit | `b80cf96df5197eba99c37900d25cc6f9029fb5dc` |
+| Changed source paths | 109 |
+| Patch size | 597528 bytes |
+| Patch SHA-256 | `6dada2ad5c94c0785698369d9f467d088be182bd0fbd265aa236d28a4eb5b479` |
+| Base source fingerprint | `7d31c9dd6323d69b382d58468c324f5cae169dcf1ffa49e476fb1dfba801938c` |
+| Candidate source fingerprint | `81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708` |
 
 Fingerprints are SHA-256 of a JSON object mapping relative source paths to file
 SHA-256 values, using sorted keys and compact JSON separators. The scope is all
 Rust files under `src`, Rust and TOML files under `vendor/vm-memory`, the root
 Cargo manifest and lockfile, `.cargo/config.toml`, and the two native consumer
-files. It contains 4405 base inputs and 4455 candidate inputs. The Git commit is
+files. It contains 4412 base inputs and 4461 candidate inputs. The Git commit is
 provenance; exact content fingerprints enforce admission, independently of
 later documentation or tooling commits.
 
@@ -51,8 +54,8 @@ new output directory:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 tools/hvf/build_native_candidate.py \
-  --repo . --base-ref 6c259f73a1a02d3259312010c8db937040bbb89d \
-  --expected-target-digest a82c24ae4bdb7432f919518664555dc913bc45f4c02f2e71eaba69acfc500572 \
+  --repo . --base-ref b80cf96df5197eba99c37900d25cc6f9029fb5dc \
+  --expected-target-digest 81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708 \
   --output /tmp/rax-native-candidate-new
 ```
 
@@ -64,12 +67,14 @@ The command rejects a working source that differs from the explicitly supplied
 qualified fingerprint. Patch generation is linear in the inspected source
 bytes; retained output is proportional to the changed source bytes.
 
-[Qualification](qualification.json) records eight complete tooling regressions,
-15 complete CI policy tests, the actual generator roundtrip, and rejection of
-the already modified local source before mutation. The combined engine passed
-202 tests across eight complete Intel SDK/model binaries. Its 130-case native
-consumer compiled, linked, and passed signature verification on Apple Silicon;
-zero native Intel guest cases executed in that local check.
+[Qualification](qualification.json) records all 22 current tooling regressions,
+the actual generator roundtrip against the published base, and rejection of
+the already modified local source before mutation. The unchanged split workflow
+passed all 15 declared CI policy tests. The integrated 130-case consumer compiled,
+linked, exported, and passed signature verification on Apple Silicon with
+optimization level 0; zero native Intel guest cases executed locally. Earlier
+202-test SDK/model qualification and the original candidate evidence remain
+in the historical record with their original source identities.
 
 | Assumption | Dependent result | Stress test and falsification probe | Status |
 |---|---|---|---|

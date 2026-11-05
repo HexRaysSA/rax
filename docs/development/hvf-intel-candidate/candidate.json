@@ -1,8 +1,8 @@
 {
   "version": 1,
   "patch": "candidate.patch",
-  "base_commit": "6c259f73a1a02d3259312010c8db937040bbb89d",
-  "patch_sha256": "aad2a3b86647ea6eb8d8937980d8b4a13bdac391bf34291fd3961e1c70add1af",
+  "base_commit": "b80cf96df5197eba99c37900d25cc6f9029fb5dc",
+  "patch_sha256": "6dada2ad5c94c0785698369d9f467d088be182bd0fbd265aa236d28a4eb5b479",
   "paths": [
     "Cargo.lock",
     "Cargo.toml",
@@ -72,7 +72,6 @@
     "src/devices/pci.rs",
     "src/devices/pci/checkpoint.rs",
     "src/devices/pci/ram_profile_tests.rs",
-    "src/isa/arm/decoder/aarch32/neon/lengths_scalar.rs",
     "src/isa/x86_64/bios.rs",
     "src/isa/x86_64/cpu.rs",
     "src/isa/x86_64/cpu_context/exit.rs",
@@ -83,10 +82,6 @@
     "src/machine/pc/owned_setup.rs",
     "src/machine/pc/ram.rs",
     "src/machine/s5l8900/runtime/time/selected_tests.rs",
-    "src/user/darwin/syscall/bsd/ptrace/remote_mach_backpressure_tests.rs",
-    "src/user/darwin/wait/fifo_tests.rs",
-    "src/user/linux/tests/netlink.rs",
-    "src/user/readiness.rs",
     "src/user/windows/process/sched/tests/services_tests/file_directory_tests.rs",
     "src/vm/memory.rs",
     "src/vm/memory/checkpoint.rs",
@@ -100,8 +95,6 @@
     "src/vm/runtime/coordinator.rs",
     "src/vm/runtime/debugger_memory.rs",
     "src/vm/runtime/execution.rs",
-    "src/vm/runtime/native_checkpoint_tests.rs",
-    "src/vm/runtime/native_checkpoint_uart_tests.rs",
     "src/vm/runtime/pc_interrupts.rs",
     "src/vm/runtime/pc_interrupts/routing.rs",
     "src/vm/runtime/pc_interrupts/tests.rs",
@@ -112,7 +105,6 @@
     "src/vm/snapshot/execution_eoi.rs",
     "src/vm/snapshot/intel_bundle_tests.rs",
     "src/vm/snapshot/intel_bundle_tests/file_owners.rs",
-    "src/vm/snapshot/native_bundle_tests.rs",
     "src/vm/timing/context.rs",
     "src/vm/timing/epoch.rs",
     "src/vm/timing/epoch_tests.rs",
@@ -122,7 +114,7 @@
     "tools/hvf/intel_mmio_native_guest.rs",
     "tools/hvf/intel_mmio_native_probe.py"
   ],
-  "base_source_digest": "8c32fcba9da58a7241e50e8f7f2dc57d7e0765eeff0bc61a1100d48d4cf400fc",
-  "target_source_digest": "a82c24ae4bdb7432f919518664555dc913bc45f4c02f2e71eaba69acfc500572",
-  "target_source_tree": "4ed12e6b712751b4ff2bbe1dabd083792bc7a5a3"
+  "base_source_digest": "7d31c9dd6323d69b382d58468c324f5cae169dcf1ffa49e476fb1dfba801938c",
+  "target_source_digest": "81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708",
+  "target_source_tree": "c27a3fafeccdb9ae4fe378148b51b67d18f7fb5e"
 }
