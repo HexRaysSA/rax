@@ -1,0 +1,220 @@
+{
+  "recorded_utc": "2026-11-05T06:41:49.231399+00:00",
+  "failed_native_run": {
+    "id": 41978606771,
+    "head": "dc5254780576962f1f396632672ab1ed6f1a4b31",
+    "url": "https://github.com/HexRaysSA/rax/actions/runs/41978606771",
+    "guest_command_exit_code": 101,
+    "recorded_passed_cases": 0,
+    "first_case": "ram-control",
+    "error": "\nthread 'main' (65139) panicked at /Users/runner/work/rax/rax/tools/hvf/intel_mmio_native_guest.rs:152:5:\nguest did not reach HLT\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+    "native_guest_instruction_execution": "unknown; the old assertion discarded the returned exit"
+  },
+  "independent_kvm": {
+    "source_sha256": "bf9a5e58726a5ef82f14f35411108a7e2a09090195954d5a311565c9212085bc",
+    "host": {
+      "system": "Linux",
+      "node": "abyss",
+      "release": "6.8.0-138-generic",
+      "version": "#138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026",
+      "machine": "x86_64",
+      "processor": "x86_64"
+    },
+    "scope": "Independent KVM validation of the RAM guest setup; no RAX linked; no HVF execution.",
+    "compile": {
+      "argv": [
+        "cc",
+        "-std=c11",
+        "-O1",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/ram-control-hvf-setup-v1/control.c",
+        "-o",
+        "/tmp/rax-ram-control-t4i3c48d/control"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "run": {
+      "argv": [
+        "/tmp/rax-ram-control-t4i3c48d/control"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"exit_reason\":5,\"rip\":\"0x1000b\",\"r10\":\"0xa1b2c3d4e5f60718\",\"passed\":true}\n",
+      "stderr": ""
+    },
+    "owned_build_removed": true
+  },
+  "cross_export": {
+    "scope": "Build and execute the actual RAX Intel HVF MMIO and MSR guest controls.",
+    "compile_only": true,
+    "export_guest": true,
+    "expected_cases": 130,
+    "commands": [
+      {
+        "label": "os",
+        "argv": [
+          "sw_vers"
+        ],
+        "pid": 79510,
+        "exit_code": 0,
+        "seconds": 0.012403666041791439
+      },
+      {
+        "label": "kernel",
+        "argv": [
+          "uname",
+          "-a"
+        ],
+        "pid": 79511,
+        "exit_code": 0,
+        "seconds": 0.004495042026974261
+      },
+      {
+        "label": "sdk",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "--show-sdk-version"
+        ],
+        "pid": 79512,
+        "exit_code": 0,
+        "seconds": 0.008701166952960193
+      },
+      {
+        "label": "rustc",
+        "argv": [
+          "rustc",
+          "+stable",
+          "-vV"
+        ],
+        "pid": 79513,
+        "exit_code": 0,
+        "seconds": 0.031419208040460944
+      },
+      {
+        "label": "commit",
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 79517,
+        "exit_code": 0,
+        "seconds": 0.00689641700591892
+      },
+      {
+        "label": "library",
+        "argv": [
+          "cargo",
+          "+stable",
+          "build",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--target",
+          "x86_64-apple-darwin",
+          "--lib",
+          "--message-format=json"
+        ],
+        "pid": 79518,
+        "exit_code": 0,
+        "seconds": 60.08191974996589
+      },
+      {
+        "label": "consumer-build",
+        "argv": [
+          "rustc",
+          "+stable",
+          "--edition=2024",
+          "--target",
+          "x86_64-apple-darwin",
+          "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+          "--extern",
+          "rax=/tmp/rax-hvf-intel-mmio-u66rhhkq/build/x86_64-apple-darwin/debug/librax.rlib",
+          "--extern",
+          "vm_memory=/tmp/rax-hvf-intel-mmio-u66rhhkq/build/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
+          "-L",
+          "dependency=/tmp/rax-hvf-intel-mmio-u66rhhkq/build/x86_64-apple-darwin/debug/deps",
+          "-L",
+          "dependency=/tmp/rax-hvf-intel-mmio-u66rhhkq/build/debug/deps",
+          "-o",
+          "/tmp/rax-hvf-intel-mmio-u66rhhkq/native-mmio"
+        ],
+        "pid": 87522,
+        "exit_code": 0,
+        "seconds": 0.46814112493302673
+      },
+      {
+        "label": "sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          "/tmp/rax-hvf-intel-mmio-u66rhhkq/entitlements.plist",
+          "--timestamp=none",
+          "/tmp/rax-hvf-intel-mmio-u66rhhkq/native-mmio"
+        ],
+        "pid": 87587,
+        "exit_code": 0,
+        "seconds": 0.02673325000796467
+      },
+      {
+        "label": "verify-signature",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/tmp/rax-hvf-intel-mmio-u66rhhkq/native-mmio"
+        ],
+        "pid": 87591,
+        "exit_code": 0,
+        "seconds": 0.011981499963440001
+      }
+    ],
+    "success": true,
+    "guest_execution_qualified": false,
+    "error": null,
+    "consumer_sha256": "e8bd9dbfc8b6f1dbd45db4da462ab4026c6dafdb7cb04979226e408f92bc5c9b",
+    "script_sha256": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc",
+    "support_sha256": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
+    "github": {
+      "GITHUB_REPOSITORY": null,
+      "GITHUB_SHA": null,
+      "GITHUB_RUN_ID": null,
+      "GITHUB_RUN_ATTEMPT": null
+    },
+    "engine_source_digest": "d2296634d84c32d952ca90ae1e678c20659f75dc47af559f241e64e5f31cbd4b",
+    "build_environment": {
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+      "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true"
+    },
+    "libraries": {
+      "vm_memory": {
+        "sha256": "94923c77ad1ba246bb131a8bad2a1542e850c846e92ab669a0f4366358e7c75b",
+        "bytes": 996368
+      },
+      "rax": {
+        "sha256": "a40a4d733f7d1fa477ac4e4da2d1a10bedf202783a2260cfa29eedaf39d570a2",
+        "bytes": 272973168
+      }
+    },
+    "executable_sha256": "3346cab9653047697d7560e51b1fbb05ac304a7d9fcbd0c46ce3e058a8af24c4",
+    "engine_inputs_unchanged": 4459,
+    "owned_build_removed": true
+  },
+  "published_consumer_sha256": "4d5f768a7e8ca5f798db8b034ad6d0d09e920b94469e15a17883d98d592f33e0",
+  "combined_consumer_sha256": "e8bd9dbfc8b6f1dbd45db4da462ab4026c6dafdb7cb04979226e408f92bc5c9b",
+  "publication_scope": "Only diagnostic changes in the 114-case production consumer; pending 130-case content remains in the pinned candidate. Full combined consumer cross-built and signed; no local native Intel guest execution.",
+  "full_goal_complete": false
+}

@@ -136,13 +136,18 @@ fn event(cpu: &mut dyn VCpu) -> VcpuExit {
             return exit;
         }
     }
-    panic!("no guest exit after 100 bounded entries");
+    panic!(
+        "no guest exit after 100 bounded entries; state={:#x?}",
+        cpu.get_state()
+    );
 }
 
 fn halted(cpu: &mut dyn VCpu, instruction_length: usize, expected_rax: u64) {
+    let exit = event(cpu);
     assert!(
-        matches!(event(cpu), VcpuExit::Hlt),
-        "guest did not reach HLT"
+        matches!(exit, VcpuExit::Hlt),
+        "guest did not reach HLT: {exit:?}; state={:#x?}",
+        cpu.get_state()
     );
     let state = state(cpu);
     assert_eq!(state.regs.rip, CODE + instruction_length as u64 + 11);

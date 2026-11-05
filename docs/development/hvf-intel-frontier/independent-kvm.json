@@ -1,0 +1,37 @@
+{
+  "source_sha256": "bf9a5e58726a5ef82f14f35411108a7e2a09090195954d5a311565c9212085bc",
+  "host": {
+    "system": "Linux",
+    "node": "abyss",
+    "release": "6.8.0-138-generic",
+    "version": "#138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026",
+    "machine": "x86_64",
+    "processor": "x86_64"
+  },
+  "scope": "Independent KVM validation of the RAM guest setup; no RAX linked; no HVF execution.",
+  "compile": {
+    "argv": [
+      "cc",
+      "-std=c11",
+      "-O1",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "/tmp/rax-kvm-native-entry-ixif9sv1/observations/ram-control-hvf-setup-v1/control.c",
+      "-o",
+      "/tmp/rax-ram-control-t4i3c48d/control"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "run": {
+    "argv": [
+      "/tmp/rax-ram-control-t4i3c48d/control"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"exit_reason\":5,\"rip\":\"0x1000b\",\"r10\":\"0xa1b2c3d4e5f60718\",\"passed\":true}\n",
+    "stderr": ""
+  },
+  "owned_build_removed": true
+}
