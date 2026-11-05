@@ -1,10 +1,10 @@
 {
-  "recorded_utc": "2026-11-05T06:19:47.976520+00:00",
+  "recorded_utc": "2026-11-05T06:47:02.648805+00:00",
   "current_candidate": {
     "version": 1,
     "patch": "candidate.patch",
-    "base_commit": "e1a5fc616ebf6291872fcae3b8987a669f789c68",
-    "patch_sha256": "a9a57a32fb831f8abf13a8dcb13d8e5a5c3c0b13465731759c348d790cf06680",
+    "base_commit": "1bef693b088fb9599c73233e0b0be45cc3625d96",
+    "patch_sha256": "c1718808d4e5c0e31da0d626d2defb544a17d14c54bd5985ac0e9bd381ed3fe9",
     "paths": [
       "Cargo.lock",
       "Cargo.toml",
@@ -115,20 +115,21 @@
       "tools/hvf/intel_mmio_native_guest.rs",
       "tools/hvf/intel_mmio_native_probe.py"
     ],
-    "base_source_digest": "08f96e80659eab582c76c8d2f8687c71e18c0f994722b895900f449d791e7565",
-    "target_source_digest": "81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708",
-    "target_source_tree": "f695c380d561895a2ee5e52fb1c196fbfbeb84a4"
+    "base_source_digest": "4b9fb339c8e56aabd2f141085a0632f78297d5ca800f91e87a3a05b3f84744af",
+    "target_source_digest": "ca47a578eb499df09c6e21af559cde2c18f1917215ada845ffb47c6a1f71d584",
+    "target_source_tree": "9c43a35c3df7a195aa1931baec4382e336283410"
   },
   "generator": {
     "paths": 108,
     "patch_bytes": 592943,
     "base_inputs": 4412,
     "target_inputs": 4461,
-    "target_source_digest": "81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708",
+    "target_source_digest": "ca47a578eb499df09c6e21af559cde2c18f1917215ada845ffb47c6a1f71d584",
     "temporary_index_removed": true,
     "real_index_preserved": true,
     "working_source_preserved": true,
-    "base_commit": "e1a5fc616ebf6291872fcae3b8987a669f789c68"
+    "base_commit": "1bef693b088fb9599c73233e0b0be45cc3625d96",
+    "cross_export_matches": true
   },
   "tooling": {
     "command": [
@@ -151,9 +152,9 @@
     "patch_applied": false,
     "scope": "Apply a pinned audit candidate in a matching disposable CI checkout.",
     "commands": [],
-    "base_source_digest": "81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708",
-    "patch_sha256": "a9a57a32fb831f8abf13a8dcb13d8e5a5c3c0b13465731759c348d790cf06680",
-    "manifest_sha256": "7e6279dc422bfd0765d99514a751a6164bbc9a6bb2f6a2bc4efdfdef119ae73f",
+    "base_source_digest": "ca47a578eb499df09c6e21af559cde2c18f1917215ada845ffb47c6a1f71d584",
+    "patch_sha256": "c1718808d4e5c0e31da0d626d2defb544a17d14c54bd5985ac0e9bd381ed3fe9",
+    "manifest_sha256": "3b68d0e44f6b076c36f92add0f64d5487abcfe1ead473e1435c5179e297d1131",
     "paths": [
       "Cargo.lock",
       "Cargo.toml",
@@ -264,11 +265,9 @@
       "tools/hvf/intel_mmio_native_guest.rs",
       "tools/hvf/intel_mmio_native_probe.py"
     ],
-    "base_commit": "e1a5fc616ebf6291872fcae3b8987a669f789c68",
+    "base_commit": "1bef693b088fb9599c73233e0b0be45cc3625d96",
     "error": "ValueError('checkout source does not match the candidate base')",
-    "owned_build_removed": true,
-    "real_index_preserved": true,
-    "working_source_preserved": true
+    "owned_build_removed": true
   },
   "native_consumer_cross_export": {
     "scope": "Build and execute the actual RAX Intel HVF MMIO and MSR guest controls.",
@@ -281,9 +280,9 @@
         "argv": [
           "sw_vers"
         ],
-        "pid": 26071,
+        "pid": 79510,
         "exit_code": 0,
-        "seconds": 0.012356917024590075
+        "seconds": 0.012403666041791439
       },
       {
         "label": "kernel",
@@ -291,9 +290,9 @@
           "uname",
           "-a"
         ],
-        "pid": 26075,
+        "pid": 79511,
         "exit_code": 0,
-        "seconds": 0.014304707990959287
+        "seconds": 0.004495042026974261
       },
       {
         "label": "sdk",
@@ -303,9 +302,9 @@
           "macosx",
           "--show-sdk-version"
         ],
-        "pid": 26080,
+        "pid": 79512,
         "exit_code": 0,
-        "seconds": 0.013578000012785196
+        "seconds": 0.008701166952960193
       },
       {
         "label": "rustc",
@@ -314,9 +313,9 @@
           "+stable",
           "-vV"
         ],
-        "pid": 26087,
+        "pid": 79513,
         "exit_code": 0,
-        "seconds": 0.041629458079114556
+        "seconds": 0.031419208040460944
       },
       {
         "label": "commit",
@@ -325,9 +324,9 @@
           "rev-parse",
           "HEAD"
         ],
-        "pid": 26101,
+        "pid": 79517,
         "exit_code": 0,
-        "seconds": 0.010693541960790753
+        "seconds": 0.00689641700591892
       },
       {
         "label": "library",
@@ -344,9 +343,9 @@
           "--lib",
           "--message-format=json"
         ],
-        "pid": 26102,
+        "pid": 79518,
         "exit_code": 0,
-        "seconds": 64.04199595900718
+        "seconds": 60.08191974996589
       },
       {
         "label": "consumer-build",
@@ -358,19 +357,19 @@
           "x86_64-apple-darwin",
           "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
           "--extern",
-          "rax=/tmp/rax-hvf-intel-mmio-kwknbar4/build/x86_64-apple-darwin/debug/librax.rlib",
+          "rax=/tmp/rax-hvf-intel-mmio-u66rhhkq/build/x86_64-apple-darwin/debug/librax.rlib",
           "--extern",
-          "vm_memory=/tmp/rax-hvf-intel-mmio-kwknbar4/build/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
+          "vm_memory=/tmp/rax-hvf-intel-mmio-u66rhhkq/build/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
           "-L",
-          "dependency=/tmp/rax-hvf-intel-mmio-kwknbar4/build/x86_64-apple-darwin/debug/deps",
+          "dependency=/tmp/rax-hvf-intel-mmio-u66rhhkq/build/x86_64-apple-darwin/debug/deps",
           "-L",
-          "dependency=/tmp/rax-hvf-intel-mmio-kwknbar4/build/debug/deps",
+          "dependency=/tmp/rax-hvf-intel-mmio-u66rhhkq/build/debug/deps",
           "-o",
-          "/tmp/rax-hvf-intel-mmio-kwknbar4/native-mmio"
+          "/tmp/rax-hvf-intel-mmio-u66rhhkq/native-mmio"
         ],
-        "pid": 38807,
+        "pid": 87522,
         "exit_code": 0,
-        "seconds": 0.4725517500191927
+        "seconds": 0.46814112493302673
       },
       {
         "label": "sign",
@@ -380,13 +379,13 @@
           "--sign",
           "-",
           "--entitlements",
-          "/tmp/rax-hvf-intel-mmio-kwknbar4/entitlements.plist",
+          "/tmp/rax-hvf-intel-mmio-u66rhhkq/entitlements.plist",
           "--timestamp=none",
-          "/tmp/rax-hvf-intel-mmio-kwknbar4/native-mmio"
+          "/tmp/rax-hvf-intel-mmio-u66rhhkq/native-mmio"
         ],
-        "pid": 38905,
+        "pid": 87587,
         "exit_code": 0,
-        "seconds": 0.03929187508765608
+        "seconds": 0.02673325000796467
       },
       {
         "label": "verify-signature",
@@ -394,17 +393,17 @@
           "codesign",
           "--verify",
           "--strict",
-          "/tmp/rax-hvf-intel-mmio-kwknbar4/native-mmio"
+          "/tmp/rax-hvf-intel-mmio-u66rhhkq/native-mmio"
         ],
-        "pid": 38915,
+        "pid": 87591,
         "exit_code": 0,
-        "seconds": 0.013527292059734464
+        "seconds": 0.011981499963440001
       }
     ],
     "success": true,
     "guest_execution_qualified": false,
     "error": null,
-    "consumer_sha256": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec",
+    "consumer_sha256": "e8bd9dbfc8b6f1dbd45db4da462ab4026c6dafdb7cb04979226e408f92bc5c9b",
     "script_sha256": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc",
     "support_sha256": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
     "github": {
@@ -424,24 +423,24 @@
     },
     "libraries": {
       "vm_memory": {
-        "sha256": "f7556badff5dba26bf501510d0b2ecf5b2d3a1aa014a3d78f667654cb33a375a",
+        "sha256": "94923c77ad1ba246bb131a8bad2a1542e850c846e92ab669a0f4366358e7c75b",
         "bytes": 996368
       },
       "rax": {
-        "sha256": "039a656263916536fdd0c40ead93bf7bc388095df9f56fc552c22dc35c102dd1",
+        "sha256": "a40a4d733f7d1fa477ac4e4da2d1a10bedf202783a2260cfa29eedaf39d570a2",
         "bytes": 272973168
       }
     },
-    "executable_sha256": "d0daee99ad1efe359ea6328642305011cc0a558b4a3ed75b366f47a60b59bdd9",
+    "executable_sha256": "3346cab9653047697d7560e51b1fbb05ac304a7d9fcbd0c46ce3e058a8af24c4",
     "engine_inputs_unchanged": 4459,
     "owned_build_removed": true
   },
   "prepared_admission": {
     "success": true,
-    "signature_verification_exit": 0,
     "expected_cases": 130,
     "source_matches_cross_export": true,
-    "executable_sha256": "d0daee99ad1efe359ea6328642305011cc0a558b4a3ed75b366f47a60b59bdd9"
+    "executable_sha256": "3346cab9653047697d7560e51b1fbb05ac304a7d9fcbd0c46ce3e058a8af24c4",
+    "scope": "New diagnostic cross-build; signature verification completed in its driver"
   },
   "ci_policy": {
     "reference": "../hvf-intel-pipeline/qualification.json",
@@ -458,10 +457,10 @@
     "tools/hvf/test_native_candidate.py": "b656039bea9a88a536b80c8c3bd5242d2b385e1dd59a65aa87767dd5e6bde5ef",
     "tools/hvf/intel_mmio_prepared.py": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
     "tools/hvf/intel_mmio_native_probe.py": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc",
-    "tools/hvf/intel_mmio_native_guest.rs": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec",
+    "tools/hvf/intel_mmio_native_guest.rs": "e8bd9dbfc8b6f1dbd45db4da462ab4026c6dafdb7cb04979226e408f92bc5c9b",
     ".github/workflows/native-intel-hvf-mmio.yml": "c3269cec7559d5b94d81b253670579c6caabe28302211a97e02323b75ebae0e7",
-    "docs/development/hvf-intel-candidate/candidate.json": "7e6279dc422bfd0765d99514a751a6164bbc9a6bb2f6a2bc4efdfdef119ae73f",
-    "docs/development/hvf-intel-candidate/candidate.patch": "a9a57a32fb831f8abf13a8dcb13d8e5a5c3c0b13465731759c348d790cf06680"
+    "docs/development/hvf-intel-candidate/candidate.json": "3b68d0e44f6b076c36f92add0f64d5487abcfe1ead473e1435c5179e297d1131",
+    "docs/development/hvf-intel-candidate/candidate.patch": "c1718808d4e5c0e31da0d626d2defb544a17d14c54bd5985ac0e9bd381ed3fe9"
   },
   "historical_qualification": {
     "recorded_utc": "2026-11-05T04:28:24.424138+00:00",
@@ -601,7 +600,7 @@
     "native_guest_result": "unknown; dispatch required",
     "full_goal_complete": false
   },
-  "native_guest_result": "unknown; run 41978606771 is in progress on the identical target source fingerprint",
+  "native_guest_result": "New diagnostic target not yet run; preceding target failed its first RAM-only control, with returned exit unknown.",
   "full_goal_complete": false,
   "superseded_candidates": [
     {
@@ -728,13 +727,140 @@
       "native_run_id": 41978606771,
       "native_run_head": "dc5254780576962f1f396632672ab1ed6f1a4b31",
       "reason": "The directory test correction is now published; target source content is unchanged."
+    },
+    {
+      "manifest": {
+        "version": 1,
+        "patch": "candidate.patch",
+        "base_commit": "e1a5fc616ebf6291872fcae3b8987a669f789c68",
+        "patch_sha256": "a9a57a32fb831f8abf13a8dcb13d8e5a5c3c0b13465731759c348d790cf06680",
+        "paths": [
+          "Cargo.lock",
+          "Cargo.toml",
+          "src/backend/emulator/mod.rs",
+          "src/backend/hvf/intel_checkpoint.rs",
+          "src/backend/hvf/intel_context_format.rs",
+          "src/backend/hvf/intel_context_tests.rs",
+          "src/backend/hvf/intel_vm.rs",
+          "src/backend/hvf/intel_vm_checkpoint.rs",
+          "src/backend/hvf/memory_layout.rs",
+          "src/backend/hvf/mmio/alu_read.rs",
+          "src/backend/hvf/mmio/rmw.rs",
+          "src/backend/hvf/mmio/shift.rs",
+          "src/backend/hvf/mod.rs",
+          "src/backend/kvm/access.rs",
+          "src/backend/kvm/access_tests.rs",
+          "src/backend/kvm/checkpoint/bank.rs",
+          "src/backend/kvm/checkpoint/bounded.rs",
+          "src/backend/kvm/checkpoint/clock.rs",
+          "src/backend/kvm/checkpoint/cpu.rs",
+          "src/backend/kvm/checkpoint/deferred.rs",
+          "src/backend/kvm/checkpoint/deferred_owner_tests.rs",
+          "src/backend/kvm/checkpoint/deferred_tests.rs",
+          "src/backend/kvm/checkpoint/device_clock_tests.rs",
+          "src/backend/kvm/checkpoint/first_entry_tests.rs",
+          "src/backend/kvm/checkpoint/mod.rs",
+          "src/backend/kvm/checkpoint/msrs.rs",
+          "src/backend/kvm/checkpoint/nested.rs",
+          "src/backend/kvm/checkpoint/owner.rs",
+          "src/backend/kvm/checkpoint/owner_tests.rs",
+          "src/backend/kvm/checkpoint/profile.rs",
+          "src/backend/kvm/checkpoint/shared.rs",
+          "src/backend/kvm/checkpoint/sregs2.rs",
+          "src/backend/kvm/checkpoint/terminal_owner_tests.rs",
+          "src/backend/kvm/checkpoint/terminal_provenance_tests.rs",
+          "src/backend/kvm/checkpoint_io.rs",
+          "src/backend/kvm/checkpoint_io_tests.rs",
+          "src/backend/kvm/clock_gate.rs",
+          "src/backend/kvm/cpuid_native_tests.rs",
+          "src/backend/kvm/deadline.rs",
+          "src/backend/kvm/events.rs",
+          "src/backend/kvm/io.rs",
+          "src/backend/kvm/io_terminal.rs",
+          "src/backend/kvm/io_terminal_tests.rs",
+          "src/backend/kvm/irq.rs",
+          "src/backend/kvm/mod.rs",
+          "src/backend/kvm/owned_vcpu.rs",
+          "src/backend/kvm/run.rs",
+          "src/backend/kvm/state.rs",
+          "src/backend/kvm/state_deferred_tests.rs",
+          "src/backend/kvm/state_tests.rs",
+          "src/backend/mod.rs",
+          "src/backend/software_irq.rs",
+          "src/devices/bus.rs",
+          "src/devices/bus/fallback.rs",
+          "src/devices/bus/native_fallback_tests.rs",
+          "src/devices/bus/rmw.rs",
+          "src/devices/bus/shift.rs",
+          "src/devices/ioapic.rs",
+          "src/devices/ioapic/checkpoint.rs",
+          "src/devices/ioapic/delivery.rs",
+          "src/devices/ioapic/irq_tests.rs",
+          "src/devices/lapic.rs",
+          "src/devices/lapic/checkpoint.rs",
+          "src/devices/lapic/timer_clock.rs",
+          "src/devices/lapic/timer_clock_tests.rs",
+          "src/devices/pci.rs",
+          "src/devices/pci/checkpoint.rs",
+          "src/devices/pci/ram_profile_tests.rs",
+          "src/isa/x86_64/bios.rs",
+          "src/isa/x86_64/cpu.rs",
+          "src/isa/x86_64/cpu_context/exit.rs",
+          "src/isa/x86_64/cpu_context/exit_tests.rs",
+          "src/isa/x86_64/cpu_initialization.rs",
+          "src/isa/x86_64/cpu_startup.rs",
+          "src/machine/pc/mod.rs",
+          "src/machine/pc/owned_setup.rs",
+          "src/machine/pc/ram.rs",
+          "src/machine/s5l8900/runtime/time/selected_tests.rs",
+          "src/vm/memory.rs",
+          "src/vm/memory/checkpoint.rs",
+          "src/vm/runtime.rs",
+          "src/vm/runtime/bus_owner.rs",
+          "src/vm/runtime/checkpoint_capture.rs",
+          "src/vm/runtime/checkpoint_io.rs",
+          "src/vm/runtime/checkpoint_io_tests.rs",
+          "src/vm/runtime/checkpoint_restore.rs",
+          "src/vm/runtime/clock.rs",
+          "src/vm/runtime/coordinator.rs",
+          "src/vm/runtime/debugger_memory.rs",
+          "src/vm/runtime/execution.rs",
+          "src/vm/runtime/pc_interrupts.rs",
+          "src/vm/runtime/pc_interrupts/routing.rs",
+          "src/vm/runtime/pc_interrupts/tests.rs",
+          "src/vm/runtime/port_io.rs",
+          "src/vm/snapshot/bundle.rs",
+          "src/vm/snapshot/codec.rs",
+          "src/vm/snapshot/execution.rs",
+          "src/vm/snapshot/execution_eoi.rs",
+          "src/vm/snapshot/intel_bundle_tests.rs",
+          "src/vm/snapshot/intel_bundle_tests/file_owners.rs",
+          "src/vm/timing/context.rs",
+          "src/vm/timing/epoch.rs",
+          "src/vm/timing/epoch_tests.rs",
+          "src/vm/timing/stopped_tests.rs",
+          "src/vm/vcpu/checkpoint_io.rs",
+          "src/vm/vcpu/mod.rs",
+          "tools/hvf/intel_mmio_native_guest.rs",
+          "tools/hvf/intel_mmio_native_probe.py"
+        ],
+        "base_source_digest": "08f96e80659eab582c76c8d2f8687c71e18c0f994722b895900f449d791e7565",
+        "target_source_digest": "81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708",
+        "target_source_tree": "f695c380d561895a2ee5e52fb1c196fbfbeb84a4"
+      },
+      "native_run_id": 41978606771,
+      "reason": "Returned-exit diagnostics changed the consumer bytes; engine source is unchanged."
     }
   ],
-  "native_run": {
+  "last_native_run": {
     "id": 41978606771,
     "head": "dc5254780576962f1f396632672ab1ed6f1a4b31",
     "target_source_digest": "81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708",
     "target_content_unchanged": true,
-    "url": "https://github.com/HexRaysSA/rax/actions/runs/41978606771"
+    "url": "https://github.com/HexRaysSA/rax/actions/runs/41978606771",
+    "conclusion": "failure",
+    "passed_case_observations": 0,
+    "first_case": "ram-control",
+    "returned_exit": "unknown; previous assertion discarded it"
   }
 }

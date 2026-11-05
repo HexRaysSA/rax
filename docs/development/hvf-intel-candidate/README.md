@@ -10,7 +10,12 @@ The later run 41968179867 exceeded its 45-minute limit and retained neither
 usable logs nor artifacts; whether it entered a guest is unknown. The
 [split build/execution workflow](../hvf-intel-pipeline/README.md) now preserves
 the signed build before attempting native execution. SDK model tests and
-cross-compilation do not establish native guest behavior. This candidate contains the SDK compatibility correction,
+cross-compilation do not establish native guest behavior.
+Run 41978606771 retained its build and failure reports, but its first RAM-only
+control did not return HLT. No passed case was recorded. The new
+[frontier diagnostic](../hvf-intel-frontier/README.md) now prints the returned exit
+and CPU projection when that assertion fails; the independent KVM RAM setup control
+passes. The changed diagnostic requires a new native run. This candidate contains the SDK compatibility correction,
 software PAT state, interrupt and RAM integration, and the native consumer with
 130 registered cases: 114 existing cases, eight PAT cases, and eight reserved-MSR
 exception cases. It also retains the combined source dependencies against which
@@ -18,12 +23,12 @@ the local checks ran. The complete path inventory is in [candidate.json](candida
 
 | Input | Value |
 |---|---|
-| Base source commit | `e1a5fc616ebf6291872fcae3b8987a669f789c68` |
+| Base source commit | `1bef693b088fb9599c73233e0b0be45cc3625d96` |
 | Changed source paths | 108 |
 | Patch size | 592943 bytes |
-| Patch SHA-256 | `a9a57a32fb831f8abf13a8dcb13d8e5a5c3c0b13465731759c348d790cf06680` |
-| Base source fingerprint | `08f96e80659eab582c76c8d2f8687c71e18c0f994722b895900f449d791e7565` |
-| Candidate source fingerprint | `81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708` |
+| Patch SHA-256 | `c1718808d4e5c0e31da0d626d2defb544a17d14c54bd5985ac0e9bd381ed3fe9` |
+| Base source fingerprint | `4b9fb339c8e56aabd2f141085a0632f78297d5ca800f91e87a3a05b3f84744af` |
+| Candidate source fingerprint | `ca47a578eb499df09c6e21af559cde2c18f1917215ada845ffb47c6a1f71d584` |
 
 Fingerprints are SHA-256 of a JSON object mapping relative source paths to file
 SHA-256 values, using sorted keys and compact JSON separators. The scope is all
@@ -54,8 +59,8 @@ new output directory:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 tools/hvf/build_native_candidate.py \
-  --repo . --base-ref e1a5fc616ebf6291872fcae3b8987a669f789c68 \
-  --expected-target-digest 81311e7d0806a3cf9ffe763ff8298cd116083ae74b0330d6a000eff778fd8708 \
+  --repo . --base-ref 1bef693b088fb9599c73233e0b0be45cc3625d96 \
+  --expected-target-digest ca47a578eb499df09c6e21af559cde2c18f1917215ada845ffb47c6a1f71d584 \
   --output /tmp/rax-native-candidate-new
 ```
 

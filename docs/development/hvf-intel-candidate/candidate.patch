@@ -14689,7 +14689,7 @@ index 5711e14fddbec77321f7ca506fe2348bc3422cde..b61df4736d050f3c824ae8bcfb4a5ab6
          Ok(None)
      }
 diff --git a/tools/hvf/intel_mmio_native_guest.rs b/tools/hvf/intel_mmio_native_guest.rs
-index 27e2ae3ad0ccdfde3002a9f6043dbf80e09f972c..3226a28a628ea177dbd6ccb2dc152b5e06f06d70 100644
+index e3a61ea7c6888119fe9491dd602b5ddd3c391c90..2c3558c9bf63d36373b8ae0b09a1a26ed4883065 100644
 --- a/tools/hvf/intel_mmio_native_guest.rs
 +++ b/tools/hvf/intel_mmio_native_guest.rs
 @@ -21,6 +21,15 @@ fn word(memory: &GuestMemoryWrapper, address: u64, value: u64) {
@@ -14708,7 +14708,7 @@ index 27e2ae3ad0ccdfde3002a9f6043dbf80e09f972c..3226a28a628ea177dbd6ccb2dc152b5e
  fn guest_memory(instruction: &[u8]) -> GuestMemoryWrapper {
      let memory = GuestMemoryWrapper::new(RAM).unwrap();
      // Four-level identity translation for RAM and the unmapped MMIO address.
-@@ -191,6 +200,109 @@ fn read_case(instruction: &[u8], width: usize, value: u64, expected: u64) {
+@@ -196,6 +205,109 @@ fn read_case(instruction: &[u8], width: usize, value: u64, expected: u64) {
      drop(vm);
  }
  
@@ -14818,7 +14818,7 @@ index 27e2ae3ad0ccdfde3002a9f6043dbf80e09f972c..3226a28a628ea177dbd6ccb2dc152b5e
  fn main() {
      let output = std::path::PathBuf::from(std::env::args_os().nth(1).expect("observations path"));
      assert!(!output.exists(), "observations must be new");
-@@ -306,6 +418,35 @@ fn main() {
+@@ -311,6 +423,35 @@ fn main() {
              case += 1;
          }
      }
