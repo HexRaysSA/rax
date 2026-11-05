@@ -72,7 +72,7 @@ pub(crate) fn value<E>(
 /// Read and validate every used capability before the first VMCS write.
 /// A later write failure propagates with prior successful writes still visible;
 /// the owning vCPU is destroyed by its constructor's error path.
-/// There are four banks and ten writes:O(1) time and auxiliary space.
+/// There are four banks and nine writes:O(1) time and auxiliary space.
 pub(crate) fn initialize<T: ControlAccess>(host: &mut T) -> Result<(), ControlError<T::Error>> {
     let mut capabilities = [0; 4];
     for (index, (capability, _, _)) in REQUESTS.iter().enumerate() {
@@ -86,13 +86,13 @@ pub(crate) fn initialize<T: ControlAccess>(host: &mut T) -> Result<(), ControlEr
         host.write(*field, values[index])
             .map_err(ControlError::Host)?;
     }
+    // The SDK owns the VMCS link pointer; it is outside its client write interface.
     for (field, data) in [
         (hv_vmx_vmcs_field_t::VMCS_CTRL_EXC_BITMAP, 0),
         (hv_vmx_vmcs_field_t::VMCS_CTRL_CR0_MASK, CR0_NE),
         (hv_vmx_vmcs_field_t::VMCS_CTRL_CR0_SHADOW, CR0_NE),
         (hv_vmx_vmcs_field_t::VMCS_CTRL_CR4_MASK, 0),
         (hv_vmx_vmcs_field_t::VMCS_CTRL_CR4_SHADOW, 0),
-        (hv_vmx_vmcs_field_t::VMCS_GUEST_LINK_POINTER, u64::MAX),
     ] {
         host.write(field, data).map_err(ControlError::Host)?;
     }

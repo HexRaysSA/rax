@@ -20,6 +20,7 @@ struct Host {
     trace: Vec<Call>,
     committed: Vec<(hv_vmx_vmcs_field_t, u64)>,
     fail_at: Option<usize>,
+    reject_link_pointer: bool,
 }
 impl Host {
     fn new() -> Self {
@@ -28,6 +29,7 @@ impl Host {
             trace: vec![],
             committed: vec![],
             fail_at: None,
+            reject_link_pointer: false,
         }
     }
     fn call(&mut self, call: Call) -> Result<(), usize> {
@@ -52,6 +54,9 @@ impl ControlAccess for Host {
     }
     fn write(&mut self, field: hv_vmx_vmcs_field_t, data: u64) -> Result<(), usize> {
         self.call(Call::Write(field, data))?;
+        if self.reject_link_pointer && field == hv_vmx_vmcs_field_t::VMCS_GUEST_LINK_POINTER {
+            return Err(self.trace.len() - 1);
+        }
         self.committed.push((field, data));
         Ok(())
     }
@@ -126,7 +131,7 @@ fn seeded_full_width_masks_preserve_all_mandatory_and_forbidden_bits() {
     }
 }
 #[test]
-fn complete_initialization_reads_four_banks_before_ten_exact_writes() {
+fn complete_initialization_reads_four_banks_before_nine_exact_writes() {
     let mut h = Host::new();
     h.caps[0] |= 1 << 1;
     initialize(&mut h).unwrap();
@@ -150,10 +155,9 @@ fn complete_initialization_reads_four_banks_before_ten_exact_writes() {
             (VMCS_CTRL_CR0_SHADOW, 1 << 5),
             (VMCS_CTRL_CR4_MASK, 0),
             (VMCS_CTRL_CR4_SHADOW, 0),
-            (VMCS_GUEST_LINK_POINTER, u64::MAX),
         ]
     );
-    assert_eq!(h.trace.len(), 14);
+    assert_eq!(h.trace.len(), 13);
 }
 #[test]
 fn every_capability_api_error_stops_before_any_vmcs_mutation() {
@@ -210,7 +214,7 @@ fn contradictory_masks_fail_for_every_bank_and_bit_before_writes() {
 fn every_write_failure_preserves_prior_commits_and_stops_the_sequence() {
     let mut baseline = Host::new();
     initialize(&mut baseline).unwrap();
-    for fail in 4..14 {
+    for fail in 4..13 {
         let mut h = Host::new();
         h.fail_at = Some(fail);
         assert_eq!(initialize(&mut h), Err(ControlError::Host(fail)));
@@ -255,5 +259,17 @@ fn native_profile_preserves_xsave_component_offsets_and_other_feature_bits() {
     assert_eq!(
         intel_cpuid_profile::normalize(1, 0, [1, 0x1234_5678, 3, 4]),
         [1, 0x0034_5678, 3, 4]
+    );
+}
+
+#[test]
+fn sdk_private_link_pointer_is_not_written() {
+    let mut host = Host::new();
+    host.reject_link_pointer = true;
+    initialize(&mut host).unwrap();
+    assert!(
+        host.committed
+            .iter()
+            .all(|(field, _)| *field != hv_vmx_vmcs_field_t::VMCS_GUEST_LINK_POINTER)
     );
 }
