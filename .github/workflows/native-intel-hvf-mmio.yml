@@ -13,9 +13,11 @@ permissions:
   contents: read
 
 jobs:
-  execute:
+  prepare:
     runs-on: macos-15-intel
-    timeout-minutes: 45
+    timeout-minutes: 60
+    outputs:
+      artifact_name: native-intel-hvf-build-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - name: Apply the pinned audit candidate
@@ -28,14 +30,51 @@ jobs:
         with:
           components: rustfmt
           cache: "false"
-      - name: Execute real Intel HVF MMIO and MSR guests
-        run: python3 tools/hvf/intel_mmio_native_probe.py --output "$RUNNER_TEMP/hvf-intel-mmio"
-      - name: Preserve exact source and guest observations
+      - name: Build and sign the real native consumer without guest entry
+        run: >-
+          python3 tools/hvf/intel_mmio_native_probe.py
+          --compile-only --export-guest --opt-level 0
+          --output "$RUNNER_TEMP/hvf-intel-build"
+      - name: Preserve the signed consumer before native execution
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-intel-hvf-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hvf-intel-build
+          if-no-files-found: error
+      - name: Preserve candidate admission evidence
+        if: ${{ always() && inputs.candidate }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-intel-hvf-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hvf-intel-candidate
+          if-no-files-found: error
+
+  execute:
+    needs: prepare
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Apply the same pinned source candidate
+        if: ${{ inputs.candidate }}
+        run: >-
+          python3 tools/hvf/apply_native_candidate.py --repo .
+          --manifest docs/development/hvf-intel-candidate/candidate.json
+          --output "$RUNNER_TEMP/hvf-intel-candidate"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ needs.prepare.outputs.artifact_name }}
+          path: ${{ runner.temp }}/hvf-intel-prepared
+      - name: Verify prepared source and execute the real native guests
+        run: >-
+          python3 tools/hvf/intel_mmio_native_probe.py
+          --execute-prepared "$RUNNER_TEMP/hvf-intel-prepared"
+          --output "$RUNNER_TEMP/hvf-intel-mmio"
+      - name: Preserve execution observations
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: native-intel-hvf-mmio-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/hvf-intel-mmio
-            ${{ runner.temp }}/hvf-intel-candidate
+          path: ${{ runner.temp }}/hvf-intel-mmio
           if-no-files-found: error

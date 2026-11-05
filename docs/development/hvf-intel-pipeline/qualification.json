@@ -1,0 +1,562 @@
+{
+  "recorded_utc": "2026-11-05T06:04:48.679260+00:00",
+  "previous_hosted_run": {
+    "run_id": 41968179867,
+    "job_id": 127049993359,
+    "url": "https://github.com/HexRaysSA/rax/actions/runs/41968179867",
+    "conclusion": "cancelled",
+    "annotation": "The job has exceeded the maximum execution time of 45m0s",
+    "artifact_count": 0,
+    "usable_logs_retrieved": false,
+    "guest_execution": "unknown"
+  },
+  "python_unit": {
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tools/hvf",
+      "-p",
+      "test_intel_mmio_prepared.py",
+      "-v"
+    ],
+    "exit_code": 0,
+    "cases": 14
+  },
+  "ci_policy": {
+    "success": true,
+    "method": "complete declared Cargo test target, no name filter",
+    "started": 1793858570.258484,
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--test",
+      "ci_actions_pinned"
+    ],
+    "environment": {
+      "CARGO_TARGET_DIR": "/tmp/rax-ci-policy-x0m9bip2",
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+      "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+      "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+      "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true"
+    },
+    "owned_build": "/tmp/rax-ci-policy-x0m9bip2",
+    "exit_code": 0,
+    "seconds": 62.26089310646057,
+    "owned_build_removed": true,
+    "passed": 15,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "workflow": {
+    "command": [
+      "actionlint",
+      ".github/workflows/native-intel-hvf-mmio.yml"
+    ],
+    "exit_code": 0,
+    "workflow_sha256": "c3269cec7559d5b94d81b253670579c6caabe28302211a97e02323b75ebae0e7",
+    "version": "1.7.12\ninstalled from Homebrew\nbuilt with go1.26.3 compiler for darwin/arm64"
+  },
+  "cli_baseline": {
+    "head": "7a8b0bb8ca5abe67660600a5a92608d54dd7d8fd",
+    "cases": [
+      {
+        "label": "export",
+        "exit_code": 2,
+        "report_created": false
+      },
+      {
+        "label": "prepared",
+        "exit_code": 2,
+        "report_created": false
+      }
+    ],
+    "owned_build_removed": true
+  },
+  "cross_export": {
+    "scope": "Build and execute the actual RAX Intel HVF MMIO and MSR guest controls.",
+    "compile_only": true,
+    "export_guest": true,
+    "expected_cases": 130,
+    "commands": [
+      {
+        "label": "os",
+        "argv": [
+          "sw_vers"
+        ],
+        "pid": 73221,
+        "exit_code": 0,
+        "seconds": 0.009205540991388261
+      },
+      {
+        "label": "kernel",
+        "argv": [
+          "uname",
+          "-a"
+        ],
+        "pid": 73222,
+        "exit_code": 0,
+        "seconds": 0.004535541986115277
+      },
+      {
+        "label": "sdk",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "--show-sdk-version"
+        ],
+        "pid": 73223,
+        "exit_code": 0,
+        "seconds": 0.006649750052019954
+      },
+      {
+        "label": "rustc",
+        "argv": [
+          "rustc",
+          "+stable",
+          "-vV"
+        ],
+        "pid": 73224,
+        "exit_code": 0,
+        "seconds": 0.03079245798289776
+      },
+      {
+        "label": "commit",
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 73237,
+        "exit_code": 0,
+        "seconds": 0.007416917011141777
+      },
+      {
+        "label": "library",
+        "argv": [
+          "cargo",
+          "+stable",
+          "build",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--target",
+          "x86_64-apple-darwin",
+          "--lib",
+          "--message-format=json"
+        ],
+        "pid": 73241,
+        "exit_code": 0,
+        "seconds": 61.322295082965866
+      },
+      {
+        "label": "consumer-build",
+        "argv": [
+          "rustc",
+          "+stable",
+          "--edition=2024",
+          "--target",
+          "x86_64-apple-darwin",
+          "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+          "--extern",
+          "rax=/tmp/rax-hvf-intel-mmio-w08dtzng/build/x86_64-apple-darwin/debug/librax.rlib",
+          "--extern",
+          "vm_memory=/tmp/rax-hvf-intel-mmio-w08dtzng/build/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
+          "-L",
+          "dependency=/tmp/rax-hvf-intel-mmio-w08dtzng/build/x86_64-apple-darwin/debug/deps",
+          "-L",
+          "dependency=/tmp/rax-hvf-intel-mmio-w08dtzng/build/debug/deps",
+          "-o",
+          "/tmp/rax-hvf-intel-mmio-w08dtzng/native-mmio"
+        ],
+        "pid": 84966,
+        "exit_code": 0,
+        "seconds": 0.3930971249938011
+      },
+      {
+        "label": "sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          "/tmp/rax-hvf-intel-mmio-w08dtzng/entitlements.plist",
+          "--timestamp=none",
+          "/tmp/rax-hvf-intel-mmio-w08dtzng/native-mmio"
+        ],
+        "pid": 84998,
+        "exit_code": 0,
+        "seconds": 0.02452770806849003
+      },
+      {
+        "label": "verify-signature",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/tmp/rax-hvf-intel-mmio-w08dtzng/native-mmio"
+        ],
+        "pid": 84999,
+        "exit_code": 0,
+        "seconds": 0.013028000015765429
+      }
+    ],
+    "success": true,
+    "guest_execution_qualified": false,
+    "error": null,
+    "consumer_sha256": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec",
+    "script_sha256": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc",
+    "support_sha256": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
+    "github": {
+      "GITHUB_REPOSITORY": null,
+      "GITHUB_SHA": null,
+      "GITHUB_RUN_ID": null,
+      "GITHUB_RUN_ATTEMPT": null
+    },
+    "engine_source_digest": "7274c2932198117b676ac12da109e2f30d1931d581d8cd1e27b5bc8afb3346ac",
+    "build_environment": {
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+      "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true"
+    },
+    "libraries": {
+      "vm_memory": {
+        "sha256": "1ebd14ce3c2a5dc2352130086b744e601aa6328e7992d2d5e5f58c12f92e3a3f",
+        "bytes": 996368
+      },
+      "rax": {
+        "sha256": "4a1745e6450efc0d6c787ac2d56d29ec370781a7141f2fef95f1495de22765b3",
+        "bytes": 272773000
+      }
+    },
+    "executable_sha256": "95097a1b93fa51905ae0f5c41d54fe003c665665748d04da8d107b9b56aa01c7",
+    "engine_inputs_unchanged": 4458,
+    "owned_build_removed": true
+  },
+  "prepared": {
+    "version": 1,
+    "executable": "native-guest",
+    "expected_cases": 130,
+    "support_sha256": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
+    "executable_sha256": "95097a1b93fa51905ae0f5c41d54fe003c665665748d04da8d107b9b56aa01c7",
+    "engine_source_digest": "7274c2932198117b676ac12da109e2f30d1931d581d8cd1e27b5bc8afb3346ac",
+    "consumer_sha256": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec",
+    "script_sha256": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc",
+    "libraries": {
+      "vm_memory": {
+        "sha256": "1ebd14ce3c2a5dc2352130086b744e601aa6328e7992d2d5e5f58c12f92e3a3f",
+        "bytes": 996368
+      },
+      "rax": {
+        "sha256": "4a1745e6450efc0d6c787ac2d56d29ec370781a7141f2fef95f1495de22765b3",
+        "bytes": 272773000
+      }
+    },
+    "build_environment": {
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+      "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true"
+    }
+  },
+  "negative_execution": {
+    "scope": "Build and execute the actual RAX Intel HVF MMIO and MSR guest controls.",
+    "compile_only": false,
+    "export_guest": false,
+    "expected_cases": 130,
+    "commands": [
+      {
+        "label": "verify-signature",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/native-intel-pipeline-v2/cross-export-v1/native-guest"
+        ],
+        "pid": 91718,
+        "exit_code": 0,
+        "seconds": 0.01415733399335295
+      },
+      {
+        "label": "os",
+        "argv": [
+          "sw_vers"
+        ],
+        "pid": 91721,
+        "exit_code": 0,
+        "seconds": 0.00955512491054833
+      },
+      {
+        "label": "kernel",
+        "argv": [
+          "uname",
+          "-a"
+        ],
+        "pid": 91723,
+        "exit_code": 0,
+        "seconds": 0.0037531659472733736
+      },
+      {
+        "label": "sdk",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "--show-sdk-version"
+        ],
+        "pid": 91727,
+        "exit_code": 0,
+        "seconds": 0.006793583044782281
+      },
+      {
+        "label": "commit",
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 91730,
+        "exit_code": 0,
+        "seconds": 0.00695974996779114
+      },
+      {
+        "label": "availability",
+        "argv": [
+          "python3",
+          "/Users/int/dev/rax/tools/hvf/native_intel_availability.py",
+          "--output",
+          "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/native-intel-pipeline-v2/m4-execution-rejection-v1/availability"
+        ],
+        "pid": 91731,
+        "exit_code": 1,
+        "seconds": 1.1748263339977711
+      }
+    ],
+    "success": false,
+    "guest_execution_qualified": false,
+    "error": "RuntimeError('availability failed with status 1')",
+    "consumer_sha256": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec",
+    "script_sha256": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc",
+    "support_sha256": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
+    "github": {
+      "GITHUB_REPOSITORY": null,
+      "GITHUB_SHA": null,
+      "GITHUB_RUN_ID": null,
+      "GITHUB_RUN_ATTEMPT": null
+    },
+    "engine_source_digest": "7274c2932198117b676ac12da109e2f30d1931d581d8cd1e27b5bc8afb3346ac",
+    "prepared": {
+      "version": 1,
+      "executable": "native-guest",
+      "expected_cases": 130,
+      "support_sha256": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
+      "executable_sha256": "95097a1b93fa51905ae0f5c41d54fe003c665665748d04da8d107b9b56aa01c7",
+      "engine_source_digest": "7274c2932198117b676ac12da109e2f30d1931d581d8cd1e27b5bc8afb3346ac",
+      "consumer_sha256": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec",
+      "script_sha256": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc",
+      "libraries": {
+        "vm_memory": {
+          "sha256": "1ebd14ce3c2a5dc2352130086b744e601aa6328e7992d2d5e5f58c12f92e3a3f",
+          "bytes": 996368
+        },
+        "rax": {
+          "sha256": "4a1745e6450efc0d6c787ac2d56d29ec370781a7141f2fef95f1495de22765b3",
+          "bytes": 272773000
+        }
+      },
+      "build_environment": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true"
+      }
+    },
+    "executable_sha256": "95097a1b93fa51905ae0f5c41d54fe003c665665748d04da8d107b9b56aa01c7",
+    "owned_build_removed": true
+  },
+  "native_guest_cases_executed_locally": 0,
+  "full_goal_complete": false,
+  "negative_execution_availability": {
+    "scope": "Record Intel macOS HVF availability; this does not qualify guest execution.",
+    "commands": [
+      {
+        "label": "os",
+        "argv": [
+          "sw_vers"
+        ],
+        "exit_code": 0,
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+        "stderr": ""
+      },
+      {
+        "label": "kernel",
+        "argv": [
+          "uname",
+          "-a"
+        ],
+        "exit_code": 0,
+        "stdout": "Darwin ints-MacBook-Pro.local 27.2.0 Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041 arm64\n",
+        "stderr": ""
+      },
+      {
+        "label": "cpu",
+        "argv": [
+          "sysctl",
+          "-n",
+          "machdep.cpu.brand_string"
+        ],
+        "exit_code": 0,
+        "stdout": "Apple M4 Max\n",
+        "stderr": ""
+      },
+      {
+        "label": "sdk",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "--show-sdk-version"
+        ],
+        "exit_code": 0,
+        "stdout": "27.2\n",
+        "stderr": ""
+      },
+      {
+        "label": "compiler",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "clang",
+          "--version"
+        ],
+        "exit_code": 0,
+        "stdout": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+        "stderr": ""
+      },
+      {
+        "label": "build",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "clang",
+          "-arch",
+          "x86_64",
+          "-std=c11",
+          "-O1",
+          "-Wall",
+          "-Wextra",
+          "/Users/int/dev/rax/tools/hvf/native_intel_availability.c",
+          "-framework",
+          "Hypervisor",
+          "-o",
+          "/tmp/rax-hvf-intel-availability-t48nhgay/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          "/tmp/rax-hvf-intel-availability-t48nhgay/entitlements.plist",
+          "--timestamp=none",
+          "/tmp/rax-hvf-intel-availability-t48nhgay/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "verify-signature",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/tmp/rax-hvf-intel-availability-t48nhgay/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "observe",
+        "argv": [
+          "/tmp/rax-hvf-intel-availability-t48nhgay/probe"
+        ],
+        "exit_code": 3,
+        "stdout": "{\"probe_version\":1,\"cpuid_genuine_intel\":true,\"translated\":1,\"translation_query_errno\":0,\"native_intel_process\":false,\"hv_support\":1,\"hv_support_query_errno\":0,\"hypervisor_guest\":0,\"hypervisor_guest_query_errno\":0,\"vm_create_attempted\":false,\"vm_created\":false,\"vm_destroyed\":false,\"vm_create_status\":null,\"vm_destroy_status\":null,\"guest_execution_performed\":false}\n",
+        "stderr": ""
+      }
+    ],
+    "probe": {
+      "probe_version": 1,
+      "cpuid_genuine_intel": true,
+      "translated": 1,
+      "translation_query_errno": 0,
+      "native_intel_process": false,
+      "hv_support": 1,
+      "hv_support_query_errno": 0,
+      "hypervisor_guest": 0,
+      "hypervisor_guest_query_errno": 0,
+      "vm_create_attempted": false,
+      "vm_created": false,
+      "vm_destroyed": false,
+      "vm_create_status": null,
+      "vm_destroy_status": null,
+      "guest_execution_performed": false
+    },
+    "error": null,
+    "guest_execution_qualified": false,
+    "source_sha256": "f440845f87c1dcb5093de9a09e3b48a703f74158d6bb98a5a2c3451fb1d62a6d",
+    "script_sha256": "15ffbf0b49ed74bea8a4739fe665327aa073556cdcf4866842d6fecfd3ecbf4e",
+    "python_machine": "arm64",
+    "github": {
+      "GITHUB_REPOSITORY": null,
+      "GITHUB_SHA": null,
+      "GITHUB_RUN_ID": null,
+      "GITHUB_RUN_ATTEMPT": null
+    },
+    "executable_sha256": "fb095f4553429e01bfcd5b2ad1b2515aaccc7ee02dcb358f861819b6ac2ca09a",
+    "probe_exit_code": 3,
+    "owned_build_removed": true,
+    "hvf_vm_available": false
+  },
+  "scope": "Tooling and workflow qualification, combined pending source; zero native Intel guest cases executed locally",
+  "source_sha256": {
+    "tools/hvf/intel_mmio_prepared.py": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
+    "tools/hvf/test_intel_mmio_prepared.py": "d3a2c2a1f7204802ed3039a77ed2e158a314218c581ee1c16fc2a921168bbdea",
+    "tools/hvf/intel_mmio_native_probe.py": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc",
+    ".github/workflows/native-intel-hvf-mmio.yml": "c3269cec7559d5b94d81b253670579c6caabe28302211a97e02323b75ebae0e7"
+  },
+  "published_driver_sha256": "3396b8a4a0bb3d534c85dce4eb499e028ab73a0a11ce8df2ad48b83344f6eb7a",
+  "publication_profile": "Driver constant 114 accompanies unchanged published consumer; combined pending driver 130 restored after publication. The driver bodies otherwise match."
+}
