@@ -1,0 +1,82 @@
+{
+  "utc": "2026-11-05T16:21:19.944746+00:00",
+  "primary": {
+    "path": "docs/specifications/arm/aarch32-isa-2025-03.pdf",
+    "revision": "Arm DDI0597 ID032025",
+    "sha256": "29b5436067ef93655c2a62b3886ba45ca6772f4b4ad30e9d28b33b00bf2a9dda",
+    "one_based_pdf_pages": {
+      "VMULL_integer_polynomial": [
+        1146,
+        1147
+      ],
+      "VQDMLAL": [
+        1202,
+        1203
+      ],
+      "VQDMLSL": [
+        1205,
+        1206
+      ],
+      "VQDMULL": [
+        1212,
+        1213
+      ]
+    }
+  },
+  "tools": {
+    "/Users/int/local/bin/llvm-mc": {
+      "resolved_path": "/Users/int/local/bin/llvm-mc",
+      "version": [
+        "LLVM (http://llvm.org/):",
+        "  LLVM version 23.0.0git",
+        "  Optimized build."
+      ],
+      "sha256": "0311e88d2281780e2784cd7657bcdc71b70044fa4c530c89a5431a45acc1b971"
+    },
+    "/Users/int/local/bin/ld.lld": {
+      "resolved_path": "/Users/int/local/bin/lld",
+      "version": [
+        "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d) (compatible with GNU linkers)"
+      ],
+      "sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd"
+    },
+    "/opt/homebrew/bin/qemu-system-arm": {
+      "resolved_path": "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-arm",
+      "version": [
+        "QEMU emulator version 11.1.2",
+        "Copyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers"
+      ],
+      "sha256": "121d02f5d368300139d1ae21dc75595b434d7b6318c221b23886fdb28aecd876"
+    }
+  },
+  "baseline_engine_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+  "baseline_owning_counts": {
+    "passed": 103,
+    "failed": 3,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "scope": "Mandatory fixed-zero selector for P8 VMULL and vector saturating-doubling long forms; ordinary unsigned integer long forms remain allocated. No physical AArch32 qualification.",
+  "published_harness_sha256": "cda3ba50afc634654f62c69bf47c24b6376ab4af7e9227cf2efa5c11c80b8b20",
+  "reproduction": "The final published harness reproduces all 28 original guest source/ELF hashes and complete UART observations; its own hash and input hashes are retained in qemu-results.json.",
+  "baseline_source_artifacts": [
+    {
+      "path": "baseline-execution.rs",
+      "sha256_after_rustfmt": "b8b60acdc9795b1b72fb1d6c62adc84ddc85bcf31c932390e46ad7ec2f7d46ed",
+      "original_executed_source_sha256": "d1ec5380fd8e36240abcb5457a509520cc70be33d0555cd608a0dd6cf7ee1f1b",
+      "transformation": "Rustfmt edition 2024 formatting only; original executed bytes retained outside the repository in the audit work directory."
+    },
+    {
+      "path": "baseline-census.rs",
+      "sha256_after_rustfmt": "ed0e3d9d125f7a913307668e9032d03753e278452d9b76e6c5e02bf165183198",
+      "original_executed_source_sha256": "ed0e3d9d125f7a913307668e9032d03753e278452d9b76e6c5e02bf165183198",
+      "transformation": "Rustfmt edition 2024 formatting only; original executed bytes retained outside the repository in the audit work directory."
+    }
+  ],
+  "original_qemu_record_sha256": "6c84e0873d5817b18036d9b5b7d9ad733931c8ad4a20d2c49a3ad6364a3a422a",
+  "baseline_stdout": {
+    "original_sha256": "21647ac6078e0924ade83da540166a091fbdd92158d7aff46091b7bbed7a808b",
+    "published_sha256": "128d1268c408a7f591eef0aae70e421519738b1c9aa95f9fc63e23a35457cd4e",
+    "normalization": "Removed trailing empty lines only; complete original log retained in audit work directory."
+  }
+}

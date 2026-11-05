@@ -698,3 +698,6 @@ mod misc_registers;
 
 #[path = "a32_fp_controls/scalar_selector.rs"]
 mod scalar_selector;
+
+#[path = "a32_fp_controls/multiply_long_selector.rs"]
+mod multiply_long_selector;

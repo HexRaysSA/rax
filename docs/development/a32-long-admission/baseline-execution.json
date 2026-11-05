@@ -1,0 +1,7 @@
+{
+  "exit_code": 0,
+  "cases": 84,
+  "harness_sha256": "d1ec5380fd8e36240abcb5457a509520cc70be33d0555cd608a0dd6cf7ee1f1b",
+  "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+  "owned_executable_removed": true
+}

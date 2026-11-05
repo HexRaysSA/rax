@@ -1082,7 +1082,8 @@
         "a32-structure-operand-admission-2026-11-03",
         "a32-vfp-block-operand-admission-2026-11-03",
         "a32-core-extension-transfer-admission-2026-11-04",
-        "a32-scalar-selector-admission-2026-11-05"
+        "a32-scalar-selector-admission-2026-11-05",
+        "a32-long-selector-admission-2026-11-05"
       ]
     },
     {
@@ -199084,6 +199085,18 @@
         "native206_dispatched": false,
         "full_goal_complete": false
       }
+    },
+    {
+      "id": "a32-long-selector-admission-2026-11-05",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_validated",
+      "scope": "Reject mandatory fixed-zero selector violations for P8 VMULL and vector VQDMLAL/VQDMLSL/VQDMULL in A32/T32 before FP access; retain ordinary signed/unsigned integer long operations.",
+      "qualification": "docs/development/a32-long-admission/qualification.json",
+      "validation": "Complete control target passes 106 tests with JIT enabled and RAX_NO_JIT=1; pairs 5, VFP 524, ARM 46850, A32 native 26, Thumb native 25, C API 246. All-target build, Clippy and formatting pass. Independent 28 QEMU controls; exhaustive 917504 encoding combinations.",
+      "validation_limits": "No physical AArch32 proof; no full library rerun. Doctest command executes zero and ignores five. Immediate-shift defects and complete original finding requirements remain open.",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -199173,6 +199186,7 @@
     "hvf-mmio-double-shifts-2026-11-05",
     "native-intel-file-topology-155-2026-11-05",
     "native-intel-double-shift-203-2026-11-05",
-    "pc-firmware-and-shared-software-ioapic-2026-11-05"
+    "pc-firmware-and-shared-software-ioapic-2026-11-05",
+    "a32-long-selector-admission-2026-11-05"
   ]
 }

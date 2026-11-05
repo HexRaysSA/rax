@@ -266,7 +266,7 @@ impl Aarch32Decoder {
         }
 
         let d = (((raw >> 22) & 1) << 4) | ((raw >> 12) & 0xF);
-        if (d & 1) != 0 || d + 1 >= 32 {
+        if ((raw >> 24) & 1) != 0 || (d & 1) != 0 || d + 1 >= 32 {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
@@ -311,7 +311,7 @@ impl Aarch32Decoder {
             Mnemonic::VQDMULL | Mnemonic::VQDMLAL | Mnemonic::VQDMLSL
         );
         if size == 0b11
-            || (saturating_doubling && size == 0b00)
+            || (saturating_doubling && (size == 0b00 || ((raw >> 24) & 1) != 0))
             || (d & 1) != 0
             || d + 1 >= 32
             || n >= 32

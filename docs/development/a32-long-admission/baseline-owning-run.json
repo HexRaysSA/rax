@@ -1,0 +1,23 @@
+{
+  "state": "completed",
+  "argv": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "--no-default-features",
+    "--features",
+    "x86_64-suite,smir-jit,hvf,debug",
+    "--test",
+    "a32_fp_controls",
+    "--",
+    "--nocapture"
+  ],
+  "wrapper_pid": 49465,
+  "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+  "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+  "pid": 49577,
+  "exit_code": 101,
+  "seconds": 93.65731124999002,
+  "engine_source_unchanged": true
+}

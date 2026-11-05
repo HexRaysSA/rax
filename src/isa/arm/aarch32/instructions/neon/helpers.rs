@@ -103,6 +103,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     pub(crate) fn is_neon_polynomial_multiply_long_shape(raw: u32) -> bool {
         (raw >> 25) == 0b1111001
+            && ((raw >> 24) & 1) == 0
             && ((raw >> 23) & 1) == 1
             && ((raw >> 20) & 0x3) == 0
             && ((raw >> 8) & 0xF) == 0b1110

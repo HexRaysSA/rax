@@ -1,0 +1,471 @@
+{
+  "utc": "2026-11-05T16:27:46.886040+00:00",
+  "status": "locally_validated",
+  "full_goal_complete": false,
+  "engine_source_digest": "7486bbb826935340306636193ba50237f239e99a31e82ec8a140213a86c09f6e",
+  "engine_inputs_count": 4491,
+  "production_delta": {
+    "base_digest": "af04b7385ade3f59eb677702574e46cde56a273ca71b9a77ca17ebf271b6d0a6",
+    "current_digest": "7486bbb826935340306636193ba50237f239e99a31e82ec8a140213a86c09f6e",
+    "changed_paths": [
+      "src/isa/arm/aarch32/instructions/neon/helpers.rs",
+      "src/isa/arm/aarch32/instructions/neon/multiply.rs",
+      "src/isa/arm/decoder/aarch32/neon/lengths_scalar.rs"
+    ],
+    "base_and_current_entries": [
+      {
+        "path": "src/isa/arm/aarch32/instructions/neon/helpers.rs",
+        "base": "81df31f1d815a130aaac4edbcd71e0cccf5ee8fc3bca915b8dbc1e4151c43c42",
+        "current": "cd69e297a60fdb134630505ad1bea528f8b9c76114059eb3a34b133ae8158c8c"
+      },
+      {
+        "path": "src/isa/arm/aarch32/instructions/neon/multiply.rs",
+        "base": "2f8d8b73a4a9ec24522c3d1e6767ba4d76ae8f08e69f64b86411238f9e9048e3",
+        "current": "244fd8b262000dc222f7f5542fdff611e3d82dc6beda01e0c55f2ad5525b27fe"
+      },
+      {
+        "path": "src/isa/arm/decoder/aarch32/neon/lengths_scalar.rs",
+        "base": "f1e0c3edec5b90ba7e9c712b0571bef491a39bd39d65b77932e9c663a3e8c414",
+        "current": "a4ee9659e652a2961ef7d46d09f970843fc08d193fb01fe5055b522cc7cad99f"
+      }
+    ]
+  },
+  "test_inputs": {
+    "utc": "2026-11-05T16:19:38.187553+00:00",
+    "files": [
+      {
+        "path": "tests/suites/backend/a32_fp_controls.rs",
+        "sha256": "e049700526a1f9477f83269ab9be5a60afee2e2e9bc2e900201e8158c40733ff"
+      },
+      {
+        "path": "tests/suites/backend/a32_fp_controls/base_precision.rs",
+        "sha256": "d1efc91a5c97e78e5f28447be4b1619bfae074fd526a0b9c2fb4ac88903e736a"
+      },
+      {
+        "path": "tests/suites/backend/a32_fp_controls/block_memory.rs",
+        "sha256": "e24fdaa712c52aa6807dcf6af98a698dfc4e5370dc72e245ce0b1a41b80f26d0"
+      },
+      {
+        "path": "tests/suites/backend/a32_fp_controls/id_views.rs",
+        "sha256": "83f910b5cc1277edefbcb41caf2532110dd8ca5a70660d69996d8d62b45a3ad5"
+      },
+      {
+        "path": "tests/suites/backend/a32_fp_controls/misc_registers.rs",
+        "sha256": "17f1ec9ae14d79b18d09552830522f56fb490d03a6512fbe8699dbab9cba95e8"
+      },
+      {
+        "path": "tests/suites/backend/a32_fp_controls/multiply_long_selector.rs",
+        "sha256": "cbb5f717fffd5666bdc2acebe942c1f61dbe6c767182a2770f41ab90ee7d2589"
+      },
+      {
+        "path": "tests/suites/backend/a32_fp_controls/register_banks.rs",
+        "sha256": "81f6a3c1878b3b7b47b3d6c82fbd68188f1dbb4fed873afafccfcf0c325eb456"
+      },
+      {
+        "path": "tests/suites/backend/a32_fp_controls/restricted_modes.rs",
+        "sha256": "ae1f4be472b34db670cc36d809c2e526627b8b01b89ca657341ed67cc114dab0"
+      },
+      {
+        "path": "tests/suites/backend/a32_fp_controls/scalar_selector.rs",
+        "sha256": "bcddefa670588d988377dae7590c6c51523ba98fa8736b8ff17fef4a2dbb128e"
+      },
+      {
+        "path": "tests/suites/backend/a32_fp_controls/simd_base.rs",
+        "sha256": "576e14eed26701830d1ba936be79d60823ca72cd4311f9e9eed963b020a3393f"
+      },
+      {
+        "path": "tests/suites/backend/a32_fp_controls/simd_single.rs",
+        "sha256": "e77dc04eeeac90f57b3b54b5f424459ce31e1d4519bd9f2053cd03629123e833"
+      },
+      {
+        "path": "tests/suites/backend/a32_fp_controls/structure_memory.rs",
+        "sha256": "ebd05fd64aa5040792c05d18d1156de651b204d8217d2046e9d5daa3764564b9"
+      }
+    ]
+  },
+  "baseline": {
+    "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+    "owning_target": {
+      "passed": 103,
+      "failed": 3,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "census": {
+      "cases": 917504,
+      "legal_expected": 229376,
+      "mismatches": 229376
+    },
+    "reconciliation": "The published base also contains disjoint upstream Windows changes. The A32 production files match the failing baseline before the three selector changes; the exact current production delta is retained above."
+  },
+  "runs": [
+    {
+      "label": "a32-long-owning-fixed",
+      "run": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--test",
+          "a32_fp_controls",
+          "--",
+          "--nocapture"
+        ],
+        "wrapper_pid": 31022,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+        "engine_source_digest": "7486bbb826935340306636193ba50237f239e99a31e82ec8a140213a86c09f6e",
+        "pid": 31073,
+        "exit_code": 0,
+        "seconds": 89.64506541693117,
+        "engine_source_unchanged": true
+      },
+      "complete_target_results": [
+        {
+          "passed": 106,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 1.3
+        }
+      ],
+      "stdout_sha256": "5eb1870e94b510de59dfd3cb5c696f46fd820ff225045bc8357d473e7e58a748",
+      "stderr_sha256": "462c26762547e57cea12e3dc983a171b1feb79a6af09dbd0c6eab6c159f5dd6a"
+    },
+    {
+      "label": "a32-long-semantic-gates",
+      "run": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--test",
+          "arm_vfp_a32",
+          "--test",
+          "a32_fp_pairs",
+          "--test",
+          "arm",
+          "--test",
+          "smir_jit_aarch32_aarch64",
+          "--test",
+          "smir_jit_thumb_aarch64",
+          "--",
+          "--test-threads=1"
+        ],
+        "wrapper_pid": 33923,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+        "engine_source_digest": "7486bbb826935340306636193ba50237f239e99a31e82ec8a140213a86c09f6e",
+        "pid": 33963,
+        "exit_code": 0,
+        "seconds": 190.9989492909517,
+        "engine_source_unchanged": true
+      },
+      "complete_target_results": [
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.01
+        },
+        {
+          "passed": 46850,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 56.24
+        },
+        {
+          "passed": 524,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 5.91
+        },
+        {
+          "passed": 26,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.03
+        },
+        {
+          "passed": 25,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.02
+        }
+      ],
+      "stdout_sha256": "b55b4f7745be90f3f4c3dcfc9883f335eec7b760e6eeb5479c5f7ce3e90f36cf",
+      "stderr_sha256": "9c37ae5b110d4faaa243921d46bc5ffae45e543b798f1b530792be41943f277f"
+    },
+    {
+      "label": "a32-long-no-jit",
+      "run": {
+        "state": "completed",
+        "argv": [
+          "env",
+          "RAX_NO_JIT=1",
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--test",
+          "a32_fp_controls",
+          "--",
+          "--nocapture"
+        ],
+        "wrapper_pid": 33923,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+        "engine_source_digest": "7486bbb826935340306636193ba50237f239e99a31e82ec8a140213a86c09f6e",
+        "pid": 59430,
+        "exit_code": 0,
+        "seconds": 124.65275212505367,
+        "engine_source_unchanged": true
+      },
+      "complete_target_results": [
+        {
+          "passed": 106,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 1.32
+        }
+      ],
+      "stdout_sha256": "c4ce2546d8803714c1b7adc02490a39988f335c5281d3b2ae1fbbf63a073e8d3",
+      "stderr_sha256": "9b8cab8aa70af80adf0477817450317c60613e31c93e85d8dc3ff346cd77bc0d"
+    },
+    {
+      "label": "a32-long-clippy",
+      "run": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "clippy",
+          "--locked",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug"
+        ],
+        "wrapper_pid": 33923,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+        "engine_source_digest": "7486bbb826935340306636193ba50237f239e99a31e82ec8a140213a86c09f6e",
+        "pid": 78857,
+        "exit_code": 0,
+        "seconds": 85.36950287502259,
+        "engine_source_unchanged": true
+      },
+      "complete_target_results": [],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "54f8b914011efaec3c5bcde6cc6abd57adf591c10a5665cb7b9c39fda1ac9c51"
+    },
+    {
+      "label": "a32-long-public-build",
+      "run": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "build",
+          "--locked",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug"
+        ],
+        "wrapper_pid": 51190,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+        "engine_source_digest": "7486bbb826935340306636193ba50237f239e99a31e82ec8a140213a86c09f6e",
+        "pid": 51191,
+        "exit_code": 0,
+        "seconds": 168.6142036669189,
+        "engine_source_unchanged": true
+      },
+      "complete_target_results": [],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "70e4f32ddcf354c4dcb7b65f69f5b3abfa0f3bf70772f1c03db05507a5e5fe2b"
+    },
+    {
+      "label": "a32-long-doctests",
+      "run": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--doc",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug"
+        ],
+        "wrapper_pid": 51190,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+        "engine_source_digest": "7486bbb826935340306636193ba50237f239e99a31e82ec8a140213a86c09f6e",
+        "pid": 78565,
+        "exit_code": 0,
+        "seconds": 5.798598875058815,
+        "engine_source_unchanged": true
+      },
+      "complete_target_results": [
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.0
+        }
+      ],
+      "stdout_sha256": "6f4d149cd302ea8631f7c1819e30d2e0116c60d01f6c9f16767c39dec2b6f7e7",
+      "stderr_sha256": "1d39f391f254348d7bcac167fd27c956b6332ecf98b3ba4ff3ff76e1b24a3a57"
+    },
+    {
+      "label": "a32-long-capi",
+      "run": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "-p",
+          "rax-capi",
+          "--features",
+          "jit"
+        ],
+        "wrapper_pid": 51190,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+        "engine_source_digest": "7486bbb826935340306636193ba50237f239e99a31e82ec8a140213a86c09f6e",
+        "pid": 79461,
+        "exit_code": 0,
+        "seconds": 170.30944708408788,
+        "engine_source_unchanged": true
+      },
+      "complete_target_results": [
+        {
+          "passed": 246,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 1.64
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.0
+        }
+      ],
+      "stdout_sha256": "f91ba681ec15b4f325a6314c553390ebec05e3ba82e71f729a5063526155f14b",
+      "stderr_sha256": "2776a346c8bb56b3436e728d56211d4c7eef5ba7e51dc8a73983624525ff17a1"
+    }
+  ],
+  "independent_qemu": {
+    "cases": 28,
+    "legal": 14,
+    "reserved": 14,
+    "exact_register_results": true,
+    "temporary_objects_and_executables_removed": true,
+    "final_harness_sha256": "cda3ba50afc634654f62c69bf47c24b6376ab4af7e9227cf2efa5c11c80b8b20"
+  },
+  "change_surface": {
+    "direct_decode": "Affected: reject mandatory fixed-zero selector violations for P8 polynomial and vector doubling long forms in A32 and normalized T32.",
+    "direct_execute": "Affected: retain polynomial shape and vector/scalar doubling selector guards.",
+    "architectural_state": "No layout change. Rejected cases preserve GPRs, vectors, FPSCR, FPEXC, CPSR, memory and mixed-width fault PC/zero retirement in the owning controls.",
+    "memory_mmu": "No new memory access or MMU change.",
+    "smir_lift_ir_interpret_optimize_lower": "No representation or admission change. A32/Thumb scalar lifter fallback returns Unsupported for these NEON mnemonics; the complete existing native scalar targets remain exercised.",
+    "backend_runtime": "No adapter/state-policy change. The mixed-width public CPU path tests Undefined ahead of higher-EL FP traps.",
+    "oracle_capi": "Public decoders inherit the corrected mnemonic. No C ABI layout or identifier change; the complete C API target is run."
+  },
+  "assumption_register": [
+    {
+      "id": "L1",
+      "assumption": "The selected P8 polynomial and vector doubling-long selectors are fixed zero.",
+      "basis": "Primary instruction encoding/guard and 28 independent QEMU cases.",
+      "dependent_result": "Undefined takes priority over FP access for reserved encodings.",
+      "stress_test": "Both ISAs/selectors and all D/N/M fields; enabled/denied/Hyp/mixed-width states.",
+      "falsification_probe": "A selected U=1 instruction completes on the primary-defined profile or independent QEMU control.",
+      "status": "confirmed within scope"
+    },
+    {
+      "id": "L2",
+      "assumption": "Ordinary unsigned VMLAL/VMLSL/VMULL remain allocated.",
+      "basis": "Primary U:size table and independent wrapping-integer result formulas.",
+      "dependent_result": "The new guard is limited to polynomial and saturating-doubling forms.",
+      "stress_test": "Three integer widths, both signedness values, both ISAs, sign-boundary operands and accumulation.",
+      "falsification_probe": "Any of the 36 legal integer-neighbor cases becomes Undefined or differs from its formula.",
+      "status": "confirmed within scope"
+    },
+    {
+      "id": "L3",
+      "assumption": "These NEON forms remain outside scalar SMIR/native admission.",
+      "basis": "A32/Thumb scalar lifter default Unsupported paths; no native admission code changed.",
+      "dependent_result": "No unsupported vector native execution is enabled.",
+      "stress_test": "Complete 26-case A32 and 25-case Thumb native targets plus complete JIT-enabled and RAX_NO_JIT controls.",
+      "falsification_probe": "A new vector-native admission path or unsupported native execution is observed.",
+      "status": "retained; source boundary checked, no physical AArch32 claim"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Immediate shift L-bit/zero-count defects already have independent witnesses and remain a separate semantic group.",
+      "blocks_this_component": false,
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "Complete remaining A32 profile, backend/private/in-flight/coordinated state and interrupt/replay requirements remain open.",
+      "blocks_this_component": false,
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "item": "QEMU and Apple Silicon execution do not establish physical AArch32 behavior.",
+      "blocks_physical_claim": true
+    }
+  ],
+  "validation_limits": [
+    "The full root library binary was not rerun for this narrow group. Its earlier firmware counts describe a different frozen source; no such counts are attributed to this A32 change.",
+    "The doctest command succeeds with zero executed and five ignored examples; it is not five executed tests.",
+    "The complete C API target is a regression gate, not a new ABI surface or physical AArch32 oracle.",
+    "Native Intel run 42063093601 is pinned to the previously published firmware commit, not this A32 source, and is qualified separately."
+  ],
+  "quality_gates": {
+    "assumptions": "pass_with_stated_domain",
+    "requirement_coverage": "pass_within_component",
+    "reproducibility": "pass",
+    "contradictions_edges": "no_hidden_component_failure",
+    "provenance": "local_primary_and_independent_oracle_verified",
+    "bounded_expansion": "recorded",
+    "worktree_integrity": "explicit_owned_paths_only",
+    "behavioral_evidence": "complete_owning_targets_and_independent_controls",
+    "repository_consistency": "format_and_all_target_build_passed"
+  }
+}

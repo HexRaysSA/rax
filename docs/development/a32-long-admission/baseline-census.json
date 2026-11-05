@@ -1,0 +1,14 @@
+{
+  "state": "completed",
+  "result": {
+    "cases": 917504,
+    "legal_expected": 229376,
+    "mismatches": 229376
+  },
+  "seconds": 1.7581046250415966,
+  "source_sha256": "ed0e3d9d125f7a913307668e9032d03753e278452d9b76e6c5e02bf165183198",
+  "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+  "scope": "Exhaustive D/N/M field combinations and selector across seven polynomial/saturating-long variants in A32 and T32; expected fixed-zero selector and even destination.",
+  "owned_executable_removed": true,
+  "excluded_setup_attempt": "Original temporary harness had a closing-brace compile error; no cases executed in that attempt."
+}

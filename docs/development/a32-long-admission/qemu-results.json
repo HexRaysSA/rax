@@ -1,0 +1,1521 @@
+{
+  "results": [
+    {
+      "label": "poly-arm-u0",
+      "raw": "0xf2800e00",
+      "stdout": "L00010000000500040011001000150014\n",
+      "source_sha256": "369de14731a6736f7b5ecd368490015ddbef20e56ac74779f49c4fa67586d11a",
+      "elf_sha256": "fcbc07f00adfb32e9ef200478750bbd55590df26b09b0dc86449bf525cf74f78",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-arm-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-arm-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.020316625013947487
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-arm-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.07443404197692871
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.0995202090125531
+        }
+      ]
+    },
+    {
+      "label": "poly-arm-u1",
+      "raw": "0xf3800e00",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "3e565264ce0d9aa8bd8efa01f2c12d789e897feac05e314b92852d581d14aea5",
+      "elf_sha256": "98af46cff1441e979ab21b764509890bd9a017b08e7b8812be0c9f5a58024ba6",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-arm-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-arm-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.004542666021734476
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-arm-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009581040940247476
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.02827108302153647
+        }
+      ]
+    },
+    {
+      "label": "poly-thumb-u0",
+      "raw": "0xef800e00",
+      "stdout": "L00010000000500040011001000150014\n",
+      "source_sha256": "b04d38aa272952e654767f33c354bac9e0a23ce3736e5d2b258080ebdd9ff191",
+      "elf_sha256": "2e805f069cf25ab9e34b63f545ec92270748c37845b153bed588ac7bf7db2d23",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-thumb-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-thumb-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.005106917000375688
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-thumb-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009802332962863147
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.028242832981050014
+        }
+      ]
+    },
+    {
+      "label": "poly-thumb-u1",
+      "raw": "0xff800e00",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "19479a0b5525cd64a087cbd7d969541114f8940cfcff39c7ab72f15709f70c0e",
+      "elf_sha256": "e0d20b1ca8ef03ace227914afd54df624f811e78d2ebc93b709c207aeaf76902",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-thumb-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-thumb-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.004939542035572231
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-thumb-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009510708972811699
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/poly-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.028039957978762686
+        }
+      ]
+    },
+    {
+      "label": "qdmlal16-arm-u0",
+      "raw": "0xf2900900",
+      "stdout": "L0304010007181d0c1266a6989b1f8738\n",
+      "source_sha256": "1137ab405caa8adbb4fda1085487a62aef7754e573c7b5c8bb6aab8bc7adc409",
+      "elf_sha256": "f3541ba6740c2a9ddbe0ae2b0f117c27248f94cafefa66d0809a5ede41bfd506",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-arm-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-arm-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.005266290972940624
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-arm-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.010004207957535982
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.02818208292592317
+        }
+      ]
+    },
+    {
+      "label": "qdmlal16-arm-u1",
+      "raw": "0xf3900900",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "8d632b9bdbf341ec8e681346d02add8d238cdfd34d4e321fa0e4ca0d05d51a33",
+      "elf_sha256": "97b900b56d97b1deceb742e62455f29c6629a8ca5a728e353d05a26a0dae6bd8",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-arm-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-arm-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.004486332996748388
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-arm-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009720542002469301
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.027988540939986706
+        }
+      ]
+    },
+    {
+      "label": "qdmlal16-thumb-u0",
+      "raw": "0xef900900",
+      "stdout": "L0304010007181d0c1266a6989b1f8738\n",
+      "source_sha256": "3ce345f9712a7acd8074a27c7b49bbf881933e8353c0a8cb433c3541dfa59f93",
+      "elf_sha256": "63c347af1ff1c4581ac2f4cd5945247d1c13ddc849878f6f0daf81e188822931",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-thumb-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-thumb-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.004932916024699807
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-thumb-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.010004749987274408
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.028086084057576954
+        }
+      ]
+    },
+    {
+      "label": "qdmlal16-thumb-u1",
+      "raw": "0xff900900",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "4a71bb020cb5d45da8fc106840b5c16a6f6f2afc405dd9feb38b0bcaa2edf1ec",
+      "elf_sha256": "ebcd770225f25a8c0a92e68ab27eaacea9fa8fa32cbebd9d384baf74c722fb00",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-thumb-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-thumb-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.005143709015101194
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-thumb-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009879459044896066
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal16-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.027245332952588797
+        }
+      ]
+    },
+    {
+      "label": "qdmlsl16-arm-u0",
+      "raw": "0xf2900b00",
+      "stdout": "L0300010006f3ecfc120206589a5a36a8\n",
+      "source_sha256": "a3cb4e3f28423feffb20731e2f26c0a123b784979cbc39f6f09abe3b725ec6dc",
+      "elf_sha256": "d7359c2d0aea374737897f96fcad2bc94b0cb9d80e513d6169889ff9680c4001",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-arm-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-arm-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.004866083967499435
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-arm-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009688916965387762
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.026754582999274135
+        }
+      ]
+    },
+    {
+      "label": "qdmlsl16-arm-u1",
+      "raw": "0xf3900b00",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "eca8cb46eba24ad5c8080392198fce3fcb18dc2ea7b343bcff1267c271b6e685",
+      "elf_sha256": "56a373e4bf228ea9f2c7e359b92aff27a9fb87f5295aa3cc3d8eb685b27afbd4",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-arm-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-arm-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.0051453340565785766
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-arm-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009107375051826239
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.027445917017757893
+        }
+      ]
+    },
+    {
+      "label": "qdmlsl16-thumb-u0",
+      "raw": "0xef900b00",
+      "stdout": "L0300010006f3ecfc120206589a5a36a8\n",
+      "source_sha256": "54a60322902e30b883278548c4b5c04d41fef993bbe43a45b61e46afb3597d5d",
+      "elf_sha256": "1a4f82962cf8845cf4b339107405df3c9ecf79c1bee9069914187d19ce44b8a6",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-thumb-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-thumb-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.005385374999605119
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-thumb-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.010100665967911482
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.027242416981607676
+        }
+      ]
+    },
+    {
+      "label": "qdmlsl16-thumb-u1",
+      "raw": "0xff900b00",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "7f986dec053456f0e6697b03022333020f717ab8391229d5a2ef0d1d6e5e52cb",
+      "elf_sha256": "e3f8fe8a8bfb7ab493f9db5a3e44b32cc216f74bd9f05ba9138a2c99e0333a04",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-thumb-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-thumb-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.004846749943681061
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-thumb-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.00964054197538644
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl16-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.02710962505079806
+        }
+      ]
+    },
+    {
+      "label": "qdmull16-arm-u0",
+      "raw": "0xf2900d00",
+      "stdout": "L0002000000121808003250200062a848\n",
+      "source_sha256": "45dea57f9984f2364e8ad146a225d8e296bfb6e35d83998065e183396898fa5a",
+      "elf_sha256": "be67dc364e264083fe64a27478671f2a029fe8b4a81bba9dfe4d5bd8bb265140",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-arm-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-arm-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.005038667004555464
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-arm-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009084915975108743
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.030911499983631074
+        }
+      ]
+    },
+    {
+      "label": "qdmull16-arm-u1",
+      "raw": "0xf3900d00",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "5c114447cb597d800648c73b0fcbf9c27a66660535953563123c55cabd494ca0",
+      "elf_sha256": "b8cbebfa2dc2c33dd0a9cd7a6bc8d5ae18906c4aeaea34b35a429397f94140e9",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-arm-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-arm-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.005060042021796107
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-arm-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009374666027724743
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.02774125011637807
+        }
+      ]
+    },
+    {
+      "label": "qdmull16-thumb-u0",
+      "raw": "0xef900d00",
+      "stdout": "L0002000000121808003250200062a848\n",
+      "source_sha256": "dabd7f1f941d213061b80b12c92432071b0f7585b6e7f41f001fa1f1f2246726",
+      "elf_sha256": "91d6c9a158e02e3d83a6b03aad0437c83207768d38143e04347563c4e9c31657",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-thumb-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-thumb-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.004832667065784335
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-thumb-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.00923441699706018
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.026962416945025325
+        }
+      ]
+    },
+    {
+      "label": "qdmull16-thumb-u1",
+      "raw": "0xff900d00",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "9a46b5e05467ca1986ae6d76f5f9aba87845a1b7796670f17782708e8ffbeb93",
+      "elf_sha256": "c5c5bd6ba9e93709eaccca12f8869fa1efca1a88dee08d7630499273920e793f",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-thumb-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-thumb-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.00499087490607053
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-thumb-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009551750030368567
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull16-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.026583875063806772
+        }
+      ]
+    },
+    {
+      "label": "qdmlal32-arm-u0",
+      "raw": "0xf2a00900",
+      "stdout": "L0b04010007181d18fac6a6989b1f87c4\n",
+      "source_sha256": "f2f5b505cc41fea1f89d1bf7565494fbb5e7603058c4dec8a5f443ebb0f72fa0",
+      "elf_sha256": "6f1431f090cab8bd336a4d6e6bc2b5aa36d23b280bb17127445b44ac06dc5307",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-arm-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-arm-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.004715042072348297
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-arm-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009300542064011097
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.0270132499281317
+        }
+      ]
+    },
+    {
+      "label": "qdmlal32-arm-u1",
+      "raw": "0xf3a00900",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "314cccec189b7d043d419bfbbc505b5467799b07bfde914b09452078d5476b6a",
+      "elf_sha256": "fc69296e4108909d2f2ff2af51a8fc629a5eb1c1c74dc1b267b9f638830ba53d",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-arm-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-arm-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.004488958977162838
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-arm-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009665542049333453
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.027436833013780415
+        }
+      ]
+    },
+    {
+      "label": "qdmlal32-thumb-u0",
+      "raw": "0xefa00900",
+      "stdout": "L0b04010007181d18fac6a6989b1f87c4\n",
+      "source_sha256": "b82ca4932d0246edd3441e062dc37e24106a7ac088e6de5d4241ec0aec27ff15",
+      "elf_sha256": "504cb5f2a3815ed4c59743f88e23717934d1586d1ef50919588d06ef523c1973",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-thumb-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-thumb-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.004424332990311086
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-thumb-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009608041029423475
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.027938458020798862
+        }
+      ]
+    },
+    {
+      "label": "qdmlal32-thumb-u1",
+      "raw": "0xffa00900",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "4b54217479b1c8e0d76505f35811929027ff37192293abc355d8bd83cc9d9344",
+      "elf_sha256": "904b7d75e265b7c9f70b14d06f470f3977582ccc4b16a2442a9265e2e78c308d",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-thumb-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-thumb-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.0047093749744817615
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-thumb-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009544000029563904
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlal32-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.02751983399502933
+        }
+      ]
+    },
+    {
+      "label": "qdmlsl32-arm-u0",
+      "raw": "0xf2a00b00",
+      "stdout": "Lfb00010006f3ecef29a206589a5a361b\n",
+      "source_sha256": "bbd5350cb2a3deb707389d9ff7235e54a18ba503e873b40dc49f4a7e100c5564",
+      "elf_sha256": "0f37f0d643bace82d6e4c6a2fbd0716f6836b888ac7ff1a899c9074331977a53",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-arm-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-arm-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.004725459031760693
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-arm-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009408624959178269
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.027595166000537574
+        }
+      ]
+    },
+    {
+      "label": "qdmlsl32-arm-u1",
+      "raw": "0xf3a00b00",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "666af1d87f153d11d769db879c87417d6a7bd6c154d1648a31df6021ff840231",
+      "elf_sha256": "7c83bcd5a35bb2f66b6d21c637db48355a4d81dad5377298fb6a869cc684a174",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-arm-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-arm-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.005001042038202286
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-arm-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009345708996988833
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.02850216592196375
+        }
+      ]
+    },
+    {
+      "label": "qdmlsl32-thumb-u0",
+      "raw": "0xefa00b00",
+      "stdout": "Lfb00010006f3ecef29a206589a5a361b\n",
+      "source_sha256": "906d83b96fee870efae8a11f63dcc5780af18e01db74d047c1dea8f4e4cdbece",
+      "elf_sha256": "2f7f0b40220590662c53811a597feb522977e15252e21f91921ef53c5e9ca34a",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-thumb-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-thumb-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.0049855419201776385
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-thumb-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.010223624994978309
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.027964415960013866
+        }
+      ]
+    },
+    {
+      "label": "qdmlsl32-thumb-u1",
+      "raw": "0xffa00b00",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "1c1ebfa82771800fec7addcbbd9160b66132e85f811f70d752365eaf4c24d380",
+      "elf_sha256": "65e0e55c8bb3a9bb7acb70abf8e1eed2380216f29990e54eaa9ac0f50061b40f",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-thumb-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-thumb-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.00509416707791388
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-thumb-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009903499973006546
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmlsl32-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.028403125004842877
+        }
+      ]
+    },
+    {
+      "label": "qdmull32-arm-u0",
+      "raw": "0xf2a00d00",
+      "stdout": "L0802000000121814e89250200062a8d4\n",
+      "source_sha256": "560c028599b20a5e470bf95e2f5a394590dcae7f261c1536d4d1875055c037ff",
+      "elf_sha256": "422b844973d0a7ddc7984ba4287a9544d648844bd5653b5a9db0c9804bb546d3",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-arm-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-arm-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.005165625014342368
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-arm-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.00983658293262124
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-arm-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.02857700001914054
+        }
+      ]
+    },
+    {
+      "label": "qdmull32-arm-u1",
+      "raw": "0xf3a00d00",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "a9e146ebc17da1169885cc5e3f61c96677f27094b50efc3a6afb816d28d7888c",
+      "elf_sha256": "72f4542ede8d85f18e31c8a1098b3e40b6d804a578e77a53e951b14a23927889",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-arm-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-arm-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.005183166009373963
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-arm-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009860167047008872
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-arm-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.028285957989282906
+        }
+      ]
+    },
+    {
+      "label": "qdmull32-thumb-u0",
+      "raw": "0xefa00d00",
+      "stdout": "L0802000000121814e89250200062a8d4\n",
+      "source_sha256": "f04d3606b1619f8c73c29190fb55533a75e0368ef9c578f3cc4119c451151bf1",
+      "elf_sha256": "28dc26bfb0350ccaa8e0e7b9af20f91833e94359126dd113142b323cae0512be",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-thumb-u0.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-thumb-u0.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.005195208941586316
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-thumb-u0.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009652958950027823
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-thumb-u0.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.028208666015416384
+        }
+      ]
+    },
+    {
+      "label": "qdmull32-thumb-u1",
+      "raw": "0xffa00d00",
+      "stdout": "U0302010007060504123456789abcdef0\n",
+      "source_sha256": "463fd158b11ffbf36871b8e4357e9bebb9cf296f233201a65098c93102da04a7",
+      "elf_sha256": "91d22f7a2307a56527fe1ae39ac3c0975085f229b4483d4ddba7bb42bbbca8c0",
+      "steps": [
+        {
+          "argv": [
+            "/Users/int/local/bin/llvm-mc",
+            "-triple=armv7a-none-eabi",
+            "-filetype=obj",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-thumb-u1.S",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-thumb-u1.o"
+          ],
+          "exit_code": 0,
+          "seconds": 0.005370624945499003
+        },
+        {
+          "argv": [
+            "/Users/int/local/bin/ld.lld",
+            "-T",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/guest.ld",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-thumb-u1.o",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009758208063431084
+        },
+        {
+          "argv": [
+            "/opt/homebrew/bin/qemu-system-arm",
+            "-machine",
+            "virt",
+            "-cpu",
+            "cortex-a15",
+            "-m",
+            "128M",
+            "-nographic",
+            "-monitor",
+            "none",
+            "-serial",
+            "stdio",
+            "-semihosting",
+            "-kernel",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-long-qemu-0timm6p1/qdmull32-thumb-u1.elf"
+          ],
+          "exit_code": 0,
+          "seconds": 0.028219625004567206
+        }
+      ]
+    }
+  ],
+  "owned_compilation_directory_removed": true,
+  "harness_sha256": "cda3ba50afc634654f62c69bf47c24b6376ab4af7e9227cf2efa5c11c80b8b20",
+  "template_sha256": "27e1c923e80c54085c85e61862da382cc3cf1723e0315d77a4a849ece0a5e8b4",
+  "linker_script_sha256": "b26ae8e0ab0524219bf918149de9b062acda3892daa62f7874bbd90e42f49799",
+  "scope": "QEMU Cortex-A15 allocation and register controls; no physical AArch32 qualification."
+}

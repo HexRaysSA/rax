@@ -261,7 +261,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
         let unsigned = ((insn.raw >> 24) & 1) != 0 && !saturating_doubling;
-        if scalar && saturating_doubling && ((insn.raw >> 24) & 1) != 0 {
+        if saturating_doubling && ((insn.raw >> 24) & 1) != 0 {
             return ExecResult::Undefined;
         }
         let (accumulate, subtract) = match (insn.mnemonic, scalar, (insn.raw >> 8) & 0xF) {
