@@ -33,6 +33,8 @@ pub enum SlotKind {
     DispatcherRetry,
     /// The selected x86 NTDLL's WoW64 kernel transition.
     NtServiceTransition,
+    /// An ARM64EC emulator helper, selected by its metadata slot index.
+    Arm64EcHelper(u8),
 }
 
 /// A decoded trap.
@@ -54,6 +56,8 @@ pub enum Trap {
     DispatcherRetry,
     /// Enter the x86 NT kernel boundary after its real leaf CALL.
     NtServiceTransition,
+    /// An ARM64EC emulator helper, selected by its metadata slot index.
+    Arm64EcHelper(u8),
 }
 
 #[derive(Debug)]
@@ -73,6 +77,7 @@ pub struct Traps {
     fiber_start: u64,
     dispatcher_retry: u64,
     wow64_transition: u64,
+    arm64ec_helpers: [u64; 8],
 }
 
 impl Traps {
@@ -87,6 +92,11 @@ impl Traps {
                 SlotKind::FiberStart => self.fiber_start = at,
                 SlotKind::DispatcherRetry => self.dispatcher_retry = at,
                 SlotKind::NtServiceTransition => self.wow64_transition = at,
+                SlotKind::Arm64EcHelper(index) => {
+                    if let Some(slot) = self.arm64ec_helpers.get_mut(usize::from(*index)) {
+                        *slot = at;
+                    }
+                }
                 _ => {}
             }
         }
@@ -128,8 +138,14 @@ impl Traps {
             (0, SlotKind::FiberStart) => Some(Trap::FiberStart),
             (0, SlotKind::DispatcherRetry) => Some(Trap::DispatcherRetry),
             (0, SlotKind::NtServiceTransition) => Some(Trap::NtServiceTransition),
+            (0, SlotKind::Arm64EcHelper(index)) if *index < 8 => Some(Trap::Arm64EcHelper(*index)),
             _ => None,
         }
+    }
+
+    /// A private emulator helper address; zero if no mixed process range exists.
+    pub(crate) fn arm64ec_helper(&self, index: usize) -> u64 {
+        self.arm64ec_helpers.get(index).copied().unwrap_or(0)
     }
 
     /// Whether `addr` lies in a trap section (a built-in DLL's code).

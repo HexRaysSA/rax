@@ -24,7 +24,7 @@ fn native_arm64_executes_arm64_instructions_in_an_arm64ec_tagged_range() {
             }],
             entries: vec![],
             redirections: vec![],
-            dispatch_slots: [0; 5],
+            dispatch_slots: [0; 8],
             alternate_entry: 0,
         }));
         let pc = base + 0x1000;
@@ -108,7 +108,7 @@ fn amd64_range_checks_preserve_native_execution_and_ignore_unloaded_modules() {
         ],
         entries: Vec::<EntryRange>::new(),
         redirections: Vec::<Redirection>::new(),
-        dispatch_slots: [0; 5],
+        dispatch_slots: [0; 8],
         alternate_entry: 0,
     }));
     assert!(p.modules.has_hybrid_code());

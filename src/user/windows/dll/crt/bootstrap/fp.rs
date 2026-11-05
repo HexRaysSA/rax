@@ -52,6 +52,11 @@ fn reset_cpu(c: &mut Ctx) -> Result<(), ApiErr> {
             }
         }
         WinCpu::X86(cpu, WinArch::X64) => cpu.vcpu_mut().set_mxcsr(0x1F80).map_err(mxcsr_error)?,
+        WinCpu::Arm64Ec(ec) => ec
+            .x64_mut()
+            .vcpu_mut()
+            .set_mxcsr(0x1F80)
+            .map_err(mxcsr_error)?,
         WinCpu::X86(_, WinArch::Arm64) => {
             return Err(ApiErr::Internal(
                 "CRT _fpreset inconsistent x86 CPU architecture".into(),

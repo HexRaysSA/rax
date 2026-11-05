@@ -70,6 +70,27 @@ impl VirtualMemory {
             return Err(VmError::InvalidParameter);
         }
         let full_image = !large && offset == 0 && size == image.bytes.len() as u64;
+        let code_bitmap = image
+            .arm64ec_code_bitmap()
+            .map_err(|_| VmError::NotSupported)?
+            .map(|mut plan| {
+                // A partial SEC_IMAGE view keeps the original RVA slicing.
+                // The bitmap describes its actual guest virtual pages.
+                plan.ranges = plan
+                    .ranges
+                    .into_iter()
+                    .filter_map(|(start, end)| {
+                        let start = u64::from(start).max(offset);
+                        let end = u64::from(end).min(offset + size);
+                        if start < end {
+                            Some(((start - offset) as u32, (end - offset) as u32))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                plan
+            });
         let extensions = if full_image {
             image.extensions.clone()
         } else {
@@ -149,6 +170,9 @@ impl VirtualMemory {
                 self.space
                     .track_private_copies(address, length)
                     .map_err(mm)?;
+            }
+            if let Some(plan) = &code_bitmap {
+                self.publish_ec_image(plan, image_base, size)?;
             }
             Ok(())
         })();

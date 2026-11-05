@@ -397,6 +397,79 @@ impl RegContext {
         self.put128(arm64::V0 + 16 * n, v);
     }
 
+    fn capture_x64(&mut self, cpu: &WinCpu, x: &crate::user::cpu::x86_64::X86UserCpu) {
+        let v = x.vcpu();
+        for n in 0..16 {
+            self.set_gpr(n, cpu.gpr(n));
+        }
+        self.put64(x64::RIP, cpu.pc());
+        self.put32(x64::EFLAGS, v.user_rflags() as u32);
+        for (off, seg) in [
+            (x64::SEG_CS, X86UserSegment::Cs),
+            (x64::SEG_SS, X86UserSegment::Ss),
+            (x64::SEG_DS, X86UserSegment::Ds),
+            (x64::SEG_ES, X86UserSegment::Es),
+            (x64::SEG_FS, X86UserSegment::Fs),
+            (x64::SEG_GS, X86UserSegment::Gs),
+        ] {
+            self.put16(off, v.user_selector(seg));
+        }
+        self.put32(x64::MXCSR, v.mxcsr());
+        let fx = v.xsave_image(3).bytes;
+        self.bytes[x64::FLT_SAVE..x64::FLT_SAVE + 512].copy_from_slice(&fx[..512]);
+    }
+
+    fn apply_x64(&self, x: &mut crate::user::cpu::x86_64::X86UserCpu) -> Result<(), u32> {
+        let flags = self.flags();
+        let has = |group| flags & group != 0;
+
+        if has(INTEGER) {
+            for n in (0..16).filter(|&n| n != 4) {
+                set_x86_gpr(x, n, self.gpr(n));
+            }
+        }
+        if has(CONTROL) {
+            let v = x.vcpu_mut();
+            if self.get16(x64::SEG_CS) != v.user_selector(X86UserSegment::Cs) {
+                return Err(STATUS_INVALID_PARAMETER);
+            }
+            let ss = self.get16(x64::SEG_SS);
+            if v.user_selector(X86UserSegment::Ss) != ss {
+                v.load_user_segment(X86UserSegment::Ss, ss)
+                    .map_err(|_| STATUS_INVALID_PARAMETER)?;
+            }
+            set_x86_gpr(x, 4, self.gpr(4));
+            let v = x.vcpu_mut();
+            v.user_regs_mut().rip = self.get64(x64::RIP);
+            let fl = (self.get32(x64::EFLAGS) & EFLAGS_USER) | 0x202;
+            v.set_user_rflags(u64::from(fl));
+        }
+        if has(SEGMENTS) {
+            // 64-bit FS/GS bases are OS-owned thread bindings,
+            // not contained in CONTEXT. A selector change here is
+            // deliberately unsupported rather than silently lost.
+            let v = x.vcpu();
+            for (off, seg) in [
+                (x64::SEG_DS, X86UserSegment::Ds),
+                (x64::SEG_ES, X86UserSegment::Es),
+                (x64::SEG_FS, X86UserSegment::Fs),
+                (x64::SEG_GS, X86UserSegment::Gs),
+            ] {
+                if self.get16(off) != v.user_selector(seg) {
+                    return Err(STATUS_INVALID_PARAMETER);
+                }
+            }
+        }
+        if has(FLOATING_POINT_X86) {
+            let v = x.vcpu_mut();
+            let mut fx = self.bytes[x64::FLT_SAVE..x64::FLT_SAVE + 512].to_vec();
+            // MxCsr is authoritative over FltSave.MxCsr.
+            fx[24..28].copy_from_slice(&self.get32(x64::MXCSR).to_le_bytes());
+            v.fxrstor_image(&fx).map_err(|_| STATUS_INVALID_PARAMETER)?;
+        }
+        Ok(())
+    }
+
     /// Captures every register group of `cpu`.
     pub fn capture(cpu: &WinCpu) -> Self {
         let arch = cpu.arch();
@@ -425,27 +498,8 @@ impl RegContext {
                 let fsave = fxsave_to_fsave(&fx[..512]);
                 c.bytes[x86::FLOAT_SAVE..x86::FLOAT_SAVE + 0x70].copy_from_slice(&fsave);
             }
-            WinCpu::X86(x, _) => {
-                let v = x.vcpu();
-                for n in 0..16 {
-                    c.set_gpr(n, cpu.gpr(n));
-                }
-                c.put64(x64::RIP, cpu.pc());
-                c.put32(x64::EFLAGS, v.user_rflags() as u32);
-                for (off, seg) in [
-                    (x64::SEG_CS, X86UserSegment::Cs),
-                    (x64::SEG_SS, X86UserSegment::Ss),
-                    (x64::SEG_DS, X86UserSegment::Ds),
-                    (x64::SEG_ES, X86UserSegment::Es),
-                    (x64::SEG_FS, X86UserSegment::Fs),
-                    (x64::SEG_GS, X86UserSegment::Gs),
-                ] {
-                    c.put16(off, v.user_selector(seg));
-                }
-                c.put32(x64::MXCSR, v.mxcsr());
-                let fx = v.xsave_image(3).bytes;
-                c.bytes[x64::FLT_SAVE..x64::FLT_SAVE + 512].copy_from_slice(&fx[..512]);
-            }
+            WinCpu::X86(x, _) => c.capture_x64(cpu, x),
+            WinCpu::Arm64Ec(ec) => c.capture_x64(cpu, ec.x64()),
             WinCpu::Arm64(a) => {
                 let core = a.core();
                 for n in 0..31 {
@@ -471,30 +525,10 @@ impl RegContext {
     pub fn apply(&self, cpu: &mut WinCpu) -> Result<(), u32> {
         let next = self.prepare(cpu)?;
         match (cpu, next) {
-            (WinCpu::X86(original, _), WinCpu::X86(copy, _)) => {
-                let state = copy
-                    .vcpu()
-                    .get_state()
-                    .map_err(|_| STATUS_INVALID_PARAMETER)?;
-                let emulator = copy
-                    .vcpu()
-                    .get_emulator_state()
-                    .ok_or(STATUS_INVALID_PARAMETER)?;
-                // Both commit APIs reject only a wrong architecture or
-                // invalid MXCSR. These properties are checked before any
-                // original state changes; no guest memory is touched here.
-                if !crate::isa::x86_64::mxcsr_value_is_valid(emulator.mxcsr) {
-                    return Err(STATUS_INVALID_PARAMETER);
-                }
-                let v = original.vcpu_mut();
-                v.set_emulator_state(&emulator)
-                    .map_err(|_| STATUS_INVALID_PARAMETER)?;
-                v.set_state(&state).map_err(|_| STATUS_INVALID_PARAMETER)?;
-                let mut index = 0;
-                while let Some(descriptor) = copy.vcpu().user_gdt_entry(index) {
-                    v.set_user_gdt_entry(index, descriptor);
-                    index += 1;
-                }
+            (WinCpu::X86(original, _), WinCpu::X86(copy, _)) => Self::commit_x64(original, &copy),
+            (original @ WinCpu::Arm64Ec(_), copy @ WinCpu::Arm64Ec(_)) => {
+                Self::commit_x64(original.x86_mut().unwrap(), copy.x86().unwrap())?;
+                original.context_restored();
                 Ok(())
             }
             (original @ WinCpu::Arm64(_), WinCpu::Arm64(_)) => {
@@ -505,6 +539,36 @@ impl RegContext {
             }
             _ => Err(STATUS_INVALID_PARAMETER),
         }
+    }
+
+    fn commit_x64(
+        original: &mut crate::user::cpu::x86_64::X86UserCpu,
+        copy: &crate::user::cpu::x86_64::X86UserCpu,
+    ) -> Result<(), u32> {
+        let state = copy
+            .vcpu()
+            .get_state()
+            .map_err(|_| STATUS_INVALID_PARAMETER)?;
+        let emulator = copy
+            .vcpu()
+            .get_emulator_state()
+            .ok_or(STATUS_INVALID_PARAMETER)?;
+        // Both commit APIs reject only a wrong architecture or
+        // invalid MXCSR. These properties are checked before any
+        // original state changes; no guest memory is touched here.
+        if !crate::isa::x86_64::mxcsr_value_is_valid(emulator.mxcsr) {
+            return Err(STATUS_INVALID_PARAMETER);
+        }
+        let v = original.vcpu_mut();
+        v.set_emulator_state(&emulator)
+            .map_err(|_| STATUS_INVALID_PARAMETER)?;
+        v.set_state(&state).map_err(|_| STATUS_INVALID_PARAMETER)?;
+        let mut index = 0;
+        while let Some(descriptor) = copy.vcpu().user_gdt_entry(index) {
+            v.set_user_gdt_entry(index, descriptor);
+            index += 1;
+        }
+        Ok(())
     }
 
     /// Checks restoration without mutating `cpu` or guest memory.
@@ -524,7 +588,7 @@ impl RegContext {
         let mut next = cpu.new_thread();
         // clone_thread copies the OS's normal TLS entries; a checked
         // restoration must also retain every configurable GDT descriptor.
-        if let (WinCpu::X86(original, _), WinCpu::X86(copy, _)) = (cpu, &mut next) {
+        if let (Some(original), Some(copy)) = (cpu.x86(), next.x86_mut()) {
             // The ordinary thread-clone contract excludes system segment
             // caches such as SS. Retain them for unselected groups here.
             let state = original
@@ -604,52 +668,8 @@ impl RegContext {
                     v.fxrstor_image(&fx).map_err(|_| STATUS_INVALID_PARAMETER)?;
                 }
             }
-            WinCpu::X86(x, _) => {
-                if has(INTEGER) {
-                    for n in (0..16).filter(|&n| n != 4) {
-                        set_x86_gpr(x, n, self.gpr(n));
-                    }
-                }
-                if has(CONTROL) {
-                    let v = x.vcpu_mut();
-                    if self.get16(x64::SEG_CS) != v.user_selector(X86UserSegment::Cs) {
-                        return Err(STATUS_INVALID_PARAMETER);
-                    }
-                    let ss = self.get16(x64::SEG_SS);
-                    if v.user_selector(X86UserSegment::Ss) != ss {
-                        v.load_user_segment(X86UserSegment::Ss, ss)
-                            .map_err(|_| STATUS_INVALID_PARAMETER)?;
-                    }
-                    set_x86_gpr(x, 4, self.gpr(4));
-                    let v = x.vcpu_mut();
-                    v.user_regs_mut().rip = self.get64(x64::RIP);
-                    let fl = (self.get32(x64::EFLAGS) & EFLAGS_USER) | 0x202;
-                    v.set_user_rflags(u64::from(fl));
-                }
-                if has(SEGMENTS) {
-                    // 64-bit FS/GS bases are OS-owned thread bindings,
-                    // not contained in CONTEXT. A selector change here is
-                    // deliberately unsupported rather than silently lost.
-                    let v = x.vcpu();
-                    for (off, seg) in [
-                        (x64::SEG_DS, X86UserSegment::Ds),
-                        (x64::SEG_ES, X86UserSegment::Es),
-                        (x64::SEG_FS, X86UserSegment::Fs),
-                        (x64::SEG_GS, X86UserSegment::Gs),
-                    ] {
-                        if self.get16(off) != v.user_selector(seg) {
-                            return Err(STATUS_INVALID_PARAMETER);
-                        }
-                    }
-                }
-                if has(FLOATING_POINT_X86) {
-                    let v = x.vcpu_mut();
-                    let mut fx = self.bytes[x64::FLT_SAVE..x64::FLT_SAVE + 512].to_vec();
-                    // MxCsr is authoritative over FltSave.MxCsr.
-                    fx[24..28].copy_from_slice(&self.get32(x64::MXCSR).to_le_bytes());
-                    v.fxrstor_image(&fx).map_err(|_| STATUS_INVALID_PARAMETER)?;
-                }
-            }
+            WinCpu::X86(x, _) => self.apply_x64(x)?,
+            WinCpu::Arm64Ec(ec) => self.apply_x64(ec.x64_mut())?,
             WinCpu::Arm64(a) => {
                 if has(INTEGER) {
                     for n in (0..29).filter(|&n| n != 18) {

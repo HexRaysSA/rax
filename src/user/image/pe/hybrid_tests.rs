@@ -168,3 +168,27 @@ fn load_config_chpe_pointer_obeys_both_declared_extents_and_pointer_widths() {
         }
     }
 }
+
+#[test]
+fn all_eight_helper_slots_use_their_declared_noncontiguous_header_fields() {
+    for version in [1, 2] {
+        let mut memory = fixture(version);
+        for (index, offset) in [20, 24, 28, 32, 36, 56, 60, 72].into_iter().enumerate() {
+            memory.u32(HEADER + offset, 0x1800 + index as u32 * 8);
+        }
+        memory.u32(HEADER + 40, 0x1100);
+        let metadata = read(&memory).unwrap();
+        assert_eq!(
+            metadata.dispatch_slots,
+            [
+                0x1800, 0x1808, 0x1810, 0x1818, 0x1820, 0x1828, 0x1830, 0x1838
+            ]
+        );
+        assert_eq!(metadata.alternate_entry, 0x1100);
+        for offset in [20, 24, 28, 32, 36, 56, 60, 72] {
+            let mut malformed = fixture(version);
+            malformed.u32(HEADER + offset, 0x1ff9);
+            assert!(read(&malformed).is_err(), "helper field {offset}");
+        }
+    }
+}

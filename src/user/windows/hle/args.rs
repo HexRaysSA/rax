@@ -130,15 +130,16 @@ fn read_loc(
     loc: Loc,
     width: u64,
 ) -> Result<u64, MemFault> {
-    let arch = cpu.arch();
+    let arch = cpu.instruction_arch();
     Ok(match loc {
         Loc::Reg(i) => match arch {
             WinArch::X64 => cpu.gpr(X64_INT[i]),
-            _ => cpu.gpr(i),
+            _ => cpu.call_gpr(i),
         },
         Loc::FReg(i) => match cpu {
             WinCpu::X86(x, _) => x.vcpu().user_regs().xmm[i][0],
             WinCpu::Arm64(a) => a.core().get_simd(i as u8) as u64,
+            WinCpu::Arm64Ec(ec) => ec.x64().vcpu().user_regs().xmm[i][0],
         },
         Loc::Stack(off) => {
             let at = stack_addr(arch, entry_sp, off, width)?;
@@ -180,7 +181,24 @@ pub fn read_arg(
     conv: Conv,
     index: usize,
 ) -> Result<u64, MemFault> {
-    let loc = locate(cpu.arch(), args, conv, index)?;
+    let arch = cpu.instruction_arch();
+    let ec_variadic = cpu.is_arm64ec() && arch == WinArch::Arm64 && conv == Conv::Variadic;
+    let (loc, entry_sp) = if ec_variadic {
+        if index < 4 {
+            (Loc::Reg(index), entry_sp)
+        } else {
+            let offset = u64::try_from(index - 4)
+                .ok()
+                .and_then(|n| n.checked_mul(8))
+                .ok_or(MemFault {
+                    addr: u64::MAX,
+                    write: false,
+                })?;
+            (Loc::Stack(offset), cpu.call_gpr(4))
+        }
+    } else {
+        (locate(arch, args, conv, index)?, entry_sp)
+    };
     let width = match args.get(index) {
         Some(Arg::I32 | Arg::F32) => 4,
         Some(Arg::I64 | Arg::F64) => 8,

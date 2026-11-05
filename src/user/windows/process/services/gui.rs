@@ -60,8 +60,8 @@ pub(super) fn remote_connect_state(
 }
 
 fn first_dword(p: &Proc, t: &Thread, sp: u64) -> Option<u32> {
-    match p.arch {
-        WinArch::Arm64 => Some(t.cpu.gpr(0) as u32),
+    match t.cpu.instruction_arch() {
+        WinArch::Arm64 => Some(t.cpu.call_gpr(0) as u32),
         WinArch::X64 => Some(t.cpu.gpr(10) as u32),
         WinArch::X86 => sp
             .checked_add(4)
@@ -130,8 +130,8 @@ pub(super) fn process_ui_context(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
-    let arguments = match p.arch {
-        WinArch::Arm64 => Some((t.cpu.gpr(0), t.cpu.gpr(1))),
+    let arguments = match t.cpu.instruction_arch() {
+        WinArch::Arm64 => Some((t.cpu.call_gpr(0), t.cpu.call_gpr(1))),
         WinArch::X64 => Some((t.cpu.gpr(10), t.cpu.gpr(2))),
         WinArch::X86 => sp.checked_add(8).and_then(|last| {
             Some((
@@ -365,8 +365,8 @@ pub(super) fn callback_return(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
-    let arguments = match p.arch {
-        WinArch::Arm64 => Ok([t.cpu.gpr(0), t.cpu.gpr(1), t.cpu.gpr(2)]),
+    let arguments = match t.cpu.instruction_arch() {
+        WinArch::Arm64 => Ok([t.cpu.call_gpr(0), t.cpu.call_gpr(1), t.cpu.call_gpr(2)]),
         WinArch::X64 => Ok([t.cpu.gpr(10), t.cpu.gpr(2), t.cpu.gpr(8)]),
         WinArch::X86 => (|| {
             Ok([

@@ -25,6 +25,9 @@ use crate::user::image::pe::{
 use crate::user::mm::AddressSpace;
 
 mod cycle_counter;
+mod hybrid;
+pub use hybrid::Arm64EcCpu;
+pub(crate) use hybrid::InstructionRoute;
 
 /// A Windows guest architecture.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -175,6 +178,8 @@ pub enum WinCpu {
     X86(X86UserCpu, WinArch),
     /// ARM64.
     Arm64(A64UserCpu),
+    /// AMD64 process context with paired ARM64EC execution.
+    Arm64Ec(Box<Arm64EcCpu>),
 }
 
 impl WinCpu {
@@ -200,6 +205,7 @@ impl WinCpu {
         match self {
             WinCpu::X86(_, arch) => *arch,
             WinCpu::Arm64(_) => WinArch::Arm64,
+            WinCpu::Arm64Ec(_) => WinArch::X64,
         }
     }
 
@@ -223,6 +229,7 @@ impl WinCpu {
             }
             WinCpu::X86(cpu, _) => cpu.vcpu_mut().set_gs_base(teb),
             WinCpu::Arm64(cpu) => cpu.core_mut().set_x(18, teb),
+            WinCpu::Arm64Ec(cpu) => cpu.x64.vcpu_mut().set_gs_base(teb),
         }
     }
 
@@ -232,6 +239,7 @@ impl WinCpu {
             WinCpu::X86(cpu, WinArch::X86) => u64::from(cpu.vcpu().fs_base() as u32),
             WinCpu::X86(cpu, _) => cpu.vcpu().gs_base(),
             WinCpu::Arm64(cpu) => cpu.core().get_x(18),
+            WinCpu::Arm64Ec(cpu) => cpu.x64.vcpu().gs_base(),
         }
     }
 
@@ -264,6 +272,7 @@ impl WinCpu {
         match self {
             WinCpu::X86(cpu, arch) => arch.ptr(cpu.pc()),
             WinCpu::Arm64(cpu) => cpu.pc(),
+            WinCpu::Arm64Ec(cpu) => cpu.x64.pc(),
         }
     }
 
@@ -272,6 +281,7 @@ impl WinCpu {
         match self {
             WinCpu::X86(cpu, arch) => cpu.vcpu_mut().user_regs_mut().rip = arch.ptr(pc),
             WinCpu::Arm64(cpu) => cpu.core_mut().set_pc(pc),
+            WinCpu::Arm64Ec(cpu) => cpu.x64.vcpu_mut().user_regs_mut().rip = pc,
         }
     }
 
@@ -280,6 +290,7 @@ impl WinCpu {
         match self {
             WinCpu::X86(cpu, arch) => arch.ptr(cpu.vcpu().user_regs().rsp),
             WinCpu::Arm64(cpu) => cpu.sp(),
+            WinCpu::Arm64Ec(cpu) => cpu.x64.vcpu().user_regs().rsp,
         }
     }
 
@@ -288,6 +299,7 @@ impl WinCpu {
         match self {
             WinCpu::X86(cpu, arch) => cpu.vcpu_mut().user_regs_mut().rsp = arch.ptr(sp),
             WinCpu::Arm64(cpu) => cpu.set_sp(sp),
+            WinCpu::Arm64Ec(cpu) => cpu.x64.vcpu_mut().user_regs_mut().rsp = sp,
         }
     }
 
@@ -324,6 +336,7 @@ impl WinCpu {
                 arch.ptr(v)
             }
             WinCpu::Arm64(cpu) => cpu.core().get_x(n as u8),
+            WinCpu::Arm64Ec(cpu) => hybrid::registers(&cpu.x64)[n],
         }
     }
 
@@ -358,6 +371,7 @@ impl WinCpu {
                 *slot = value;
             }
             WinCpu::Arm64(cpu) => cpu.core_mut().set_x(n as u8, value),
+            WinCpu::Arm64Ec(cpu) => hybrid::set_register(&mut cpu.x64, n, value),
         }
     }
 
@@ -366,6 +380,7 @@ impl WinCpu {
         match self {
             WinCpu::X86(cpu, _) => Some(cpu),
             WinCpu::Arm64(_) => None,
+            WinCpu::Arm64Ec(cpu) => Some(&cpu.x64),
         }
     }
 
@@ -374,6 +389,7 @@ impl WinCpu {
         match self {
             WinCpu::X86(cpu, _) => Some(cpu),
             WinCpu::Arm64(_) => None,
+            WinCpu::Arm64Ec(cpu) => Some(&mut cpu.x64),
         }
     }
 
@@ -381,7 +397,7 @@ impl WinCpu {
     pub fn a64(&self) -> Option<&A64UserCpu> {
         match self {
             WinCpu::Arm64(cpu) => Some(cpu),
-            WinCpu::X86(..) => None,
+            WinCpu::X86(..) | WinCpu::Arm64Ec(_) => None,
         }
     }
 
@@ -389,7 +405,7 @@ impl WinCpu {
     pub fn a64_mut(&mut self) -> Option<&mut A64UserCpu> {
         match self {
             WinCpu::Arm64(cpu) => Some(cpu),
-            WinCpu::X86(..) => None,
+            WinCpu::X86(..) | WinCpu::Arm64Ec(_) => None,
         }
     }
 
@@ -415,6 +431,7 @@ impl WinCpu {
                 cycle_counter::bind(&mut child);
                 WinCpu::Arm64(child)
             }
+            WinCpu::Arm64Ec(cpu) => WinCpu::Arm64Ec(Box::new(cpu.clone_thread())),
         }
     }
 
@@ -471,6 +488,9 @@ impl WinCpu {
                 A64Exit::Yield => CpuStop::Yield,
                 A64Exit::Internal(e) => CpuStop::Internal(e),
             },
+            WinCpu::Arm64Ec(_) => self.run_routed(budget, |pc, _, _| {
+                guard(pc).map(|()| hybrid::InstructionRoute::Stay)
+            }),
         }
     }
 
@@ -479,6 +499,10 @@ impl WinCpu {
         match self {
             WinCpu::X86(cpu, _) => cpu.discard_native_code(),
             WinCpu::Arm64(cpu) => cpu.discard_native_code(),
+            WinCpu::Arm64Ec(cpu) => {
+                cpu.x64.discard_native_code();
+                cpu.arm64.discard_native_code();
+            }
         }
     }
 
@@ -490,23 +514,28 @@ impl WinCpu {
     /// specify mixed flag combinations or the exact extended-state subset.
     pub(crate) fn inherit_fiber_fp(&mut self, source: &WinCpu) -> Result<(), u32> {
         use crate::user::windows::nt::status::STATUS_INVALID_PARAMETER;
-        match (self, source) {
-            (WinCpu::X86(target, a), WinCpu::X86(source, b)) if a == b => {
-                // x87/SSE/AVX/opmask/ZMM only. APX's XSAVE component 19
-                // contains integer EGPRs and is not floating-point state.
-                const FP_SIMD: u64 = 0xE7;
-                let image = source.vcpu().xsave_image(FP_SIMD);
-                target
-                    .vcpu_mut()
-                    .set_xcr0(source.vcpu().xcr0())
-                    .map_err(|_| STATUS_INVALID_PARAMETER)?;
-                target
-                    .vcpu_mut()
-                    .xrstor_image(&image.bytes, FP_SIMD)
-                    .map_err(|_| STATUS_INVALID_PARAMETER)
-            }
-            _ => Err(STATUS_INVALID_PARAMETER),
+        if self.arch() != source.arch() {
+            return Err(STATUS_INVALID_PARAMETER);
         }
+        let Some(source) = source.x86() else {
+            return Err(STATUS_INVALID_PARAMETER);
+        };
+        let Some(target) = self.x86_mut() else {
+            return Err(STATUS_INVALID_PARAMETER);
+        };
+        // The public carrier is AMD64 state even during ARM64EC execution.
+        // x87/SIMD state remains shared under the existing flag-zero policy;
+        // APX's integer XSAVE component 19 remains excluded.
+        const FP_SIMD: u64 = 0xE7;
+        let image = source.vcpu().xsave_image(FP_SIMD);
+        target
+            .vcpu_mut()
+            .set_xcr0(source.vcpu().xcr0())
+            .map_err(|_| STATUS_INVALID_PARAMETER)?;
+        target
+            .vcpu_mut()
+            .xrstor_image(&image.bytes, FP_SIMD)
+            .map_err(|_| STATUS_INVALID_PARAMETER)
     }
 }
 

@@ -1,0 +1,55 @@
+[
+  {
+    "path": "arm64ec-abi.md",
+    "url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-dev-docs/a8a49ddb186f4e492a05ea5c2fabcc2f72a40a86/landing/arm-docs/arm64ec-abi.md",
+    "revision": "a8a49ddb186f4e492a05ea5c2fabcc2f72a40a86",
+    "bytes": 47150,
+    "sha256": "3369f3181a4a86c19e27086f9dbe0ce65267e1ae713119d4f4b80801df95ff5d",
+    "retrieved_utc": "2026-11-05T09:34:02.441882+00:00"
+  },
+  {
+    "path": "MicrosoftDocs-LICENSE",
+    "url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-dev-docs/a8a49ddb186f4e492a05ea5c2fabcc2f72a40a86/LICENSE",
+    "revision": "a8a49ddb186f4e492a05ea5c2fabcc2f72a40a86",
+    "bytes": 18650,
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e",
+    "retrieved_utc": "2026-11-05T09:34:03.397771+00:00"
+  },
+  {
+    "utc": "2026-11-05T10:46:38.074297+00:00",
+    "repository": "https://github.com/winsiderss/phnt",
+    "commit": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "url": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntpebteb.h",
+    "bytes": 42029,
+    "sha256": "9869d45323706a6bf7cb3ed168b4ca6560aef194f1c6a4d37aaad74a356ad248",
+    "scope": "Primary PHNT implementation header identifies PEB.EcCodeBitMap as the Windows11 ARM64 code-bitmap pointer. Native owning-process qualification remains separate.",
+    "path": "phnt-ntpebteb.h"
+  },
+  {
+    "path": "wine-winternl.h",
+    "url": "https://raw.githubusercontent.com/wine-mirror/wine/30a8ee48ce207e29905eb6334ffe0279c5e6a89d/include/winternl.h",
+    "revision": "30a8ee48ce207e29905eb6334ffe0279c5e6a89d",
+    "bytes": 264983,
+    "sha256": "ea76a9a46a879cf8e96c2d04a1ca1892ff3f2d3f4c640407eaf79aa9df30dbb3",
+    "retrieved_utc": "2026-11-05T12:21:40.160962+00:00",
+    "scope": "Unmodified primary implementation reference; native Windows observations establish the tested ABI separately."
+  },
+  {
+    "path": "wine-signal-arm64ec.c",
+    "url": "https://raw.githubusercontent.com/wine-mirror/wine/30a8ee48ce207e29905eb6334ffe0279c5e6a89d/dlls/ntdll/signal_arm64ec.c",
+    "revision": "30a8ee48ce207e29905eb6334ffe0279c5e6a89d",
+    "bytes": 108186,
+    "sha256": "8d32e9d77b0719b9e7fc65a390dd92cec2e7807f8785e6baa9daf95923477064",
+    "retrieved_utc": "2026-11-05T12:21:40.549248+00:00",
+    "scope": "Unmodified primary implementation reference; native Windows observations establish the tested ABI separately."
+  },
+  {
+    "path": "Wine-COPYING.LIB",
+    "url": "https://raw.githubusercontent.com/wine-mirror/wine/30a8ee48ce207e29905eb6334ffe0279c5e6a89d/COPYING.LIB",
+    "revision": "30a8ee48ce207e29905eb6334ffe0279c5e6a89d",
+    "bytes": 26434,
+    "sha256": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
+    "retrieved_utc": "2026-11-05T12:21:40.908605+00:00",
+    "scope": "Unmodified primary implementation reference; native Windows observations establish the tested ABI separately."
+  }
+]

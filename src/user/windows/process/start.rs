@@ -578,16 +578,16 @@ fn spawn_image_file(
         p.vm.commit(traps, 0x1000, prot::READONLY).map_err(memory)?;
         p.vm.set_reported(traps, 0x1000, prot::EXECUTE_READ);
         use crate::user::windows::traps::SlotKind;
-        p.traps.add(
-            traps,
-            vec![
-                SlotKind::CallbackReturn,
-                SlotKind::ThreadStart,
-                SlotKind::FiberStart,
-                SlotKind::DispatcherRetry,
-            ],
-            0x1000 / 16,
-        );
+        let mut slots = vec![
+            SlotKind::CallbackReturn,
+            SlotKind::ThreadStart,
+            SlotKind::FiberStart,
+            SlotKind::DispatcherRetry,
+        ];
+        if p.arch == WinArch::X64 {
+            slots.extend((0..8).map(SlotKind::Arm64EcHelper));
+        }
+        p.traps.add(traps, slots, 0x1000 / 16);
     }
     // Pseudo process handles must resolve independently of whether a real
     // process handle has ever been duplicated. The internal reference keeps
@@ -614,6 +614,13 @@ fn spawn_image_file(
         status: e.status,
         message: e.message,
     })?;
+    if let Some(base) = p.vm.code_bitmap_address().map_err(memory)? {
+        // The kernel supplies this guest-owned address before the first RTL
+        // instruction. Installed NTDLL initializes its own cached globals.
+        p.space
+            .wptr(p.peb + o.peb_ec_code_bitmap, o.ptr, base)
+            .map_err(|e| memory(format!("{e:?}")))?;
+    }
     let shared = layout::KUSER_SHARED_DATA;
     p.vm.poke(
         shared + kuser::QPC_FREQUENCY,

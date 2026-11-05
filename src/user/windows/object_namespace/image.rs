@@ -9,6 +9,7 @@ use std::sync::Arc;
 pub(crate) const MAX_IMAGE_BYTES: u64 = 64 << 20;
 pub(crate) const MAX_EXTENSION_BYTES: u64 = 64 << 10;
 pub(crate) const MAX_IMAGE_TAIL_BYTES: u64 = 64 << 10;
+pub(crate) mod code_bitmap;
 pub(crate) mod extension_query;
 #[cfg(any(windows, test))]
 pub(crate) mod region;

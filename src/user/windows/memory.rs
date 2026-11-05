@@ -32,6 +32,7 @@ use vm_memory::{Address, GuestMemory};
 use crate::error::MemoryAccessKind;
 use crate::user::mm::{AddressSpace, Mapping, MmError, PAGE_SIZE, Perms};
 
+mod code_bitmap;
 mod data_section;
 pub(crate) use data_section::KernelDataView;
 mod extended;
@@ -546,6 +547,7 @@ pub struct VirtualMemory {
     pagefile_views: BTreeSet<u64>,
     section_views: BTreeMap<u64, section::SectionView>,
     data_views: BTreeMap<u64, data_section::DataView>,
+    code_bitmap: Option<code_bitmap::CodeBitmap>,
     file_views: BTreeMap<u64, file_section::FileView>,
     shared_views: shared_section::SharedViews,
     section_low_placements: BTreeMap<usize, section::LowPlacement>,
@@ -582,6 +584,7 @@ impl VirtualMemory {
             pagefile_views: BTreeSet::new(),
             section_views: BTreeMap::new(),
             data_views: BTreeMap::new(),
+            code_bitmap: None,
             file_views: BTreeMap::new(),
             shared_views: shared_section::SharedViews::default(),
             section_low_placements: BTreeMap::new(),
@@ -913,6 +916,7 @@ impl VirtualMemory {
         }
         if self.section_views.contains_key(&a.base)
             || (self.data_views.contains_key(&a.base) && !kernel_data)
+            || (self.is_code_bitmap(a.base) && !kernel_data)
             || self.is_shared_view(a.base)
             || self.is_file_view(a.base)
         {
@@ -955,6 +959,16 @@ impl VirtualMemory {
         if charge > self.commit_limit {
             return Err(VmError::CommitmentLimit);
         }
+        let bitmap_pages = if effective_perms(protect).contains(Perms::EXEC) {
+            self.bitmap_execute_pages(first, end)?
+        } else {
+            BTreeSet::new()
+        };
+        let charge = charge
+            .checked_add(self.bitmap_page_charge(&bitmap_pages))
+            .filter(|&total| total <= self.commit_limit)
+            .ok_or(VmError::CommitmentLimit)?;
+        self.commit_bitmap_pages(&bitmap_pages)?;
         for &(lo, hi, state) in &runs {
             if !state.committed {
                 let mut mapping = Mapping::anonymous(effective_perms(protect));
@@ -993,6 +1007,7 @@ impl VirtualMemory {
         }
         if self.section_views.contains_key(&a.base)
             || self.data_views.contains_key(&a.base)
+            || self.is_code_bitmap(a.base)
             || self.is_shared_view(a.base)
             || self.is_file_view(a.base)
         {
@@ -1074,6 +1089,13 @@ impl VirtualMemory {
         });
         self.space.unmap(base, size).map_err(mm)?;
         self.allocs.remove(&base);
+        if let Some(bitmap) = self
+            .code_bitmap
+            .as_mut()
+            .filter(|bitmap| bitmap.base == base)
+        {
+            bitmap.retired = true;
+        }
         self.mapped_filenames.remove(&base);
         self.allocation_nodes.remove(&base);
         self.nls_views.remove(&base);
@@ -1122,6 +1144,9 @@ impl VirtualMemory {
         let (first, end) = page_range(start, len)?;
         let a = self.allocation(first).ok_or(VmError::NotAllocated)?;
         self.check_file_protection(a.base, protect)?;
+        if self.is_code_bitmap(a.base) && !matches!(protect, prot::NOACCESS | prot::READONLY) {
+            return Err(VmError::SectionProtection);
+        }
         if self.nls_views.contains(&a.base) && protect != prot::READONLY {
             return Err(VmError::InvalidProtection);
         }
@@ -1165,6 +1190,19 @@ impl VirtualMemory {
         } else {
             p.reported.unwrap_or(p.protect)
         };
+        let bitmap_pages = if effective_perms(protect).contains(Perms::EXEC) {
+            self.bitmap_execute_pages(first, end)?
+        } else {
+            BTreeSet::new()
+        };
+        if self
+            .committed
+            .checked_add(self.bitmap_page_charge(&bitmap_pages))
+            .is_none_or(|total| total > self.commit_limit)
+        {
+            return Err(VmError::CommitmentLimit);
+        }
+        self.commit_bitmap_pages(&bitmap_pages)?;
         // This single AddressSpace operation checks all mapping coverage
         // before changing permissions; metadata changes only on success.
         self.space

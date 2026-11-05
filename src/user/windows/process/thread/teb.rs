@@ -26,6 +26,7 @@ pub(crate) struct Allocation {
     companion: Option<u64>,
     claim: Option<Arc<()>>,
     owner: Option<Arc<str>>,
+    chpe: Option<super::chpe::Area>,
 }
 
 impl Allocation {
@@ -38,10 +39,16 @@ impl Allocation {
             companion: None,
             claim: None,
             owner: None,
+            chpe: None,
         }
     }
 
     pub(crate) fn allocate(p: &mut Proc) -> Result<Self, u32> {
+        let chpe = p.arch == WinArch::X64
+            && p.vm
+                .code_bitmap_address()
+                .map_err(|error| error.status())?
+                .is_some();
         let companion = p.wow64.is_some();
         let native_bytes = if companion {
             layout::teb_stride(WinArch::X64)
@@ -85,14 +92,25 @@ impl Allocation {
                 p.teb_arena
                     .slots
                     .insert(base, (bytes, Arc::downgrade(&claim)));
-                return Ok(Self {
+                let mut allocation = Self {
                     base,
                     bytes,
                     teb: base + native_bytes,
                     companion: companion.then_some(base),
                     claim: Some(claim),
                     owner: Some(owner),
-                });
+                    chpe: None,
+                };
+                if chpe {
+                    match super::chpe::Area::allocate(&mut p.vm) {
+                        Ok(area) => allocation.chpe = Some(area),
+                        Err(status) => {
+                            allocation.release(p);
+                            return Err(status);
+                        }
+                    }
+                }
+                return Ok(allocation);
             }
             base = base.checked_sub(bytes).ok_or(STATUS_NO_MEMORY)?;
         }
@@ -141,7 +159,24 @@ impl Allocation {
         Ok(())
     }
 
+    pub(crate) fn initialize_chpe(&self, p: &Proc, cpu: &mut super::WinCpu) -> Result<(), u32> {
+        let Some(area) = &self.chpe else {
+            return Ok(());
+        };
+        let offset = layout::offsets(p.arch)
+            .teb_chpe_cpu_area
+            .ok_or(STATUS_INVALID_PARAMETER)?;
+        p.space
+            .w64(self.teb + offset, area.base)
+            .map_err(|_| STATUS_NO_MEMORY)?;
+        cpu.bind_chpe_area(area.clone())
+            .map_err(|_| STATUS_INVALID_PARAMETER)
+    }
+
     pub(crate) fn release(self, p: &mut Proc) {
+        if let Some(area) = &self.chpe {
+            area.release(p);
+        }
         if let Some(claim) = &self.claim {
             let owned = p
                 .teb_arena

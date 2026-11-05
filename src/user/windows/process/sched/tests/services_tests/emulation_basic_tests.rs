@@ -387,7 +387,7 @@ fn installed_emulation_basic_query_leaf_reports_guest_metadata() {
         t.cpu.set_pc(entry);
         assert_eq!(execute_to_return(p, &mut t, resume), 0);
         assert_eq!(p.space.u32(output + 8).unwrap(), PAGE_SIZE as u32);
-        assert_eq!(p.space.u32(output + 12).unwrap(), 65_536);
+        assert_eq!(p.space.u32(output + 24).unwrap(), 65_536);
         let first = if arch == WinArch::X86 { 28 } else { 32 };
         assert_eq!(
             p.space.ptr(output + first, arch.ptr_size()).unwrap(),

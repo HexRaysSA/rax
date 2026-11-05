@@ -214,7 +214,14 @@ impl Scheduler {
             } else if t.cpu.pc() == p.traps.thread_start() && !t.apcs.is_empty() {
                 begin_apcs(p, &mut t, None)
             } else {
-                let stop = if p.modules.has_hybrid_code() {
+                let stop = if p.arch == WinArch::X64
+                    && (p.modules.has_hybrid_code() || t.cpu.is_arm64ec())
+                {
+                    t.cpu
+                        .run_routed(p.cfg.slice_insns.max(1), |pc, active, context| {
+                            p.modules.instruction_route(&p.space, pc, active, context)
+                        })
+                } else if p.modules.has_hybrid_code() {
                     t.cpu.run_guarded(p.cfg.slice_insns.max(1), |pc| {
                         p.modules.check_instruction(p.arch, pc)
                     })
@@ -596,6 +603,7 @@ fn access_fault(p: &mut Proc, t: &mut Thread, f: AccessFault) -> Outcome {
             Trap::FiberStart => crate::user::windows::dll::fibers::fiber_start(p, t),
             Trap::DispatcherRetry => dispatch::dispatcher_retry(p, t, f.pc),
             Trap::NtServiceTransition => services::wow64(p, t, f.pc),
+            Trap::Arm64EcHelper(index) => super::hybrid::helper(p, t, index),
             Trap::Missing(name) => Outcome::Fail(format!(
                 "unimplemented Windows export: {name} at {:#x}",
                 f.pc
@@ -699,7 +707,10 @@ fn x86_event(p: &mut Proc, t: &mut Thread, e: X86UserEvent) -> Outcome {
 /// user result is zero, except that the reserved X18 TEB register survives
 /// exception return. Keep this OS compatibility outside the shared ISA core.
 fn windows_current_el(p: &Proc, t: &mut Thread, pc: u64) -> bool {
-    if p.arch != WinArch::Arm64 || t.cpu.arch() != WinArch::Arm64 || pc & 3 != 0 || t.cpu.pc() != pc
+    if t.cpu.arch() != p.arch
+        || t.cpu.instruction_arch() != WinArch::Arm64
+        || pc & 3 != 0
+        || t.cpu.pc() != pc
     {
         return false;
     }
@@ -716,7 +727,7 @@ fn windows_current_el(p: &Proc, t: &mut Thread, pc: u64) -> bool {
     }
     let rt = (word & 31) as usize;
     if rt < 31 && rt != 18 {
-        t.cpu.set_gpr(rt, 0);
+        t.cpu.set_call_gpr(rt, 0);
     }
     t.cpu.set_pc(next);
     true
@@ -744,7 +755,7 @@ fn handle_stop(p: &mut Proc, t: &mut Thread, stop: CpuStop) -> Outcome {
                 p.cfg.version.build
             )))
         }
-        CpuStop::Brk { imm: 0xF003, .. } => seh::fail_fast(t.cpu.gpr(0)),
+        CpuStop::Brk { imm: 0xF003, .. } => seh::fail_fast(t.cpu.call_gpr(0)),
         CpuStop::Brk { pc, imm } => raise(p, t, STATUS_BREAKPOINT, pc, vec![u64::from(imm)], pc),
         CpuStop::Undefined { pc, .. } if windows_current_el(p, t, pc) => Outcome::Continue,
         CpuStop::Undefined { pc, .. } => raise(p, t, STATUS_ILLEGAL_INSTRUCTION, pc, vec![], pc),

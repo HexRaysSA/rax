@@ -149,6 +149,9 @@ pub(crate) fn processor_feature_present(cpu: &WinCpu, feature: u32) -> bool {
             })
         }
         WinCpu::Arm64(_) => arm64_feature(feature),
+        WinCpu::Arm64Ec(ec) => {
+            x86_feature(feature, true, |leaf, sub| ec.x64().vcpu().cpuid(leaf, sub))
+        }
     }
 }
 

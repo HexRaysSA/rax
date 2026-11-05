@@ -34,6 +34,7 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{ObjId, Object};
 use crate::user::windows::sync::Wait;
 
+pub(crate) mod chpe;
 mod dynamic_tls;
 pub(crate) mod teb;
 pub(crate) use dynamic_tls::{install_dynamic_tls, remove_dynamic_tls};
@@ -218,6 +219,14 @@ fn init_fpu(cpu: &mut WinCpu) -> Result<(), u32> {
             v.fxrstor_image(&fx).map_err(|_| STATUS_INVALID_PARAMETER)?;
         }
         WinCpu::Arm64(a) => a.core_mut().set_fpcr_value(0),
+        WinCpu::Arm64Ec(ec) => {
+            let v = ec.x64_mut().vcpu_mut();
+            let mut fx = v.xsave_image(3).bytes;
+            fx.truncate(512);
+            fx[0..2].copy_from_slice(&0x027Fu16.to_le_bytes());
+            fx[24..28].copy_from_slice(&0x1F80u32.to_le_bytes());
+            v.fxrstor_image(&fx).map_err(|_| STATUS_INVALID_PARAMETER)?;
+        }
     }
     Ok(())
 }
@@ -389,6 +398,7 @@ fn create_inner(
     if p.native.is_some() {
         super::native_start::prepare(p, &mut cpu, main)?;
     }
+    teb_allocation.initialize_chpe(p, &mut cpu)?;
 
     let obj = p
         .objects

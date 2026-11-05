@@ -226,6 +226,7 @@ pub struct Modules {
     /// Service identities from the exact selected installed Win32u file.
     /// Supplied or application DLLs cannot populate this table by basename.
     pub(crate) win32u_services: Option<(usize, services::ServiceTable)>,
+    pub(crate) arm64ec_cfg: bool,
 }
 
 impl Modules {
@@ -655,6 +656,16 @@ pub fn load_exe(
     let hybrid = hybrid::decode(pe)?;
     let base = map_pe(p, pe, &name)?;
     let h = pe.headers();
+    let config = LoadConfig::read(pe, h.kind, h.directory(dir::LOAD_CONFIG)).map_err(|_| {
+        LoadError::new(
+            STATUS_INVALID_IMAGE_FORMAT,
+            "executable load configuration is unreadable",
+        )
+    })?;
+    p.modules.arm64ec_cfg = h.dll_characteristics & 0x4000 != 0
+        && config
+            .and_then(|config| config.guard_flags)
+            .is_some_and(|flags| flags & 0x100 != 0);
     let module = Module {
         name,
         path: win_path,
@@ -693,6 +704,8 @@ pub fn load_exe(
 /// exist: loader entry, cookie, SafeSEH, TLS, imports, protections.
 pub fn finish_exe(p: &mut Proc, pe: &PeImage) -> Result<(), LoadError> {
     let base = p.modules.list[0].base;
+    let metadata = p.modules.list[0].hybrid.clone();
+    hybrid::bind_helpers(p, metadata.as_deref(), base)?;
     ldr::add_entry(p, 0)?;
     init_security_cookie(p, pe, base)?;
     p.modules.list[0].safe_seh = safe_seh(p, pe, base)?;
@@ -1192,6 +1205,7 @@ fn load_image(
         Some(base) => base,
         None => map_pe(p, &pe, name)?,
     };
+    hybrid::bind_helpers(p, hybrid.as_deref(), base)?;
     if selected_native.is_none()
         && let Some(filename) = filename
     {

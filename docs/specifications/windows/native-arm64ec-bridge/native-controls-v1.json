@@ -1,0 +1,30 @@
+{
+  "utc": "2026-11-05T12:29:37.315815+00:00",
+  "controls": [
+    {
+      "version": 10,
+      "source": "native-code-bitmap-v10.rs",
+      "original_source_sha256": "12b270774b6574337856ac62b33034619444acb7578d4663450c2cf31dd6024d",
+      "published_source_sha256": "0bcbce1cac75bc74fb4618939aead91c521ab0bb5f72d4733ee7781a122f0a0e",
+      "transformation": "Owning PE module path adjusted for docs location, then rustfmt1.95 edition2024; original native source hash retained.",
+      "observations": "native-bitmap-observations-v10.log",
+      "observations_sha256": "ed114cf0db2509e49a7002842abdee70d23f3c45fab7eceb7e9e01d46218c1a0",
+      "native_image_sha256": "221e8775e6a71b9484b27db4ea1c803b8fba67c278626691593c5c72149c9222",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "native_exit_code": 0
+    },
+    {
+      "version": 11,
+      "source": "native-callback-alignment-v11.rs",
+      "original_source_sha256": "98357407501238d1dc999856d635170d5419754b8fc7ac4052d1927a510982ae",
+      "published_source_sha256": "b717f1a483d35491b89458725ade6be01b8ea48031f4328cb8ee608a4074c06a",
+      "transformation": "Owning PE module path adjusted for docs location, then rustfmt1.95 edition2024; original native source hash retained.",
+      "observations": "native-callback-alignment-observations-v11.log",
+      "observations_sha256": "599cad2c000894c5573894c94676f809dd8b366c4ba7ed5bc6a6ab34fe4f6066",
+      "native_image_sha256": "7b3f7886d57e0f18fdb2b6c4d7ed6982c907da874abcbf52de0c007f70b3afbb",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "native_exit_code": 0
+    }
+  ],
+  "scope": "Native current-process controls on Windows ARM64 running an AMD64 image; no emulator CPU/personality linked. These establish native contracts, not complete RAX startup."
+}

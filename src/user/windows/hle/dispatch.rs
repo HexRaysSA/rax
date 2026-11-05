@@ -127,8 +127,8 @@ pub fn enter(p: &mut Proc, t: &mut Thread, api: &'static Api, pc: u64) -> Outcom
         };
         return run(p, t, site, |ctx| retry(ctx, 0));
     }
-    let ret_addr = match p.arch {
-        WinArch::Arm64 => t.cpu.gpr(30),
+    let ret_addr = match t.cpu.instruction_arch() {
+        WinArch::Arm64 => t.cpu.call_gpr(30),
         _ => match p.space.ptr(entry_sp, p.arch.ptr_size()) {
             Ok(address) => address,
             Err(fault) => {
@@ -890,7 +890,7 @@ fn raise_from_site(p: &mut Proc, t: &mut Thread, site: &CallSite, rec: Exception
 /// Writes `v` to the return registers and returns from the export.
 fn return_to_caller(p: &mut Proc, t: &mut Thread, site: &CallSite, v: Value) {
     write_value(&mut t.cpu, v);
-    match p.arch {
+    match t.cpu.instruction_arch() {
         WinArch::X86 => {
             let pop = 4 + if site.api.conv == Conv::Stdcall {
                 stdcall_bytes(site.api.args)
@@ -907,12 +907,12 @@ fn return_to_caller(p: &mut Proc, t: &mut Thread, site: &CallSite, v: Value) {
 
 /// Writes a return value as the calling convention requires.
 pub fn write_value(cpu: &mut WinCpu, v: Value) {
-    let arch = cpu.arch();
+    let arch = cpu.instruction_arch();
     match v {
         Value::None => {}
-        Value::Int(x) => cpu.set_gpr(0, x),
+        Value::Int(x) => cpu.set_call_gpr(0, x),
         Value::I64(x) => {
-            cpu.set_gpr(
+            cpu.set_call_gpr(
                 0,
                 if arch == WinArch::X86 {
                     x & 0xFFFF_FFFF
@@ -921,7 +921,7 @@ pub fn write_value(cpu: &mut WinCpu, v: Value) {
                 },
             );
             if arch == WinArch::X86 {
-                cpu.set_gpr(2, x >> 32);
+                cpu.set_call_gpr(2, x >> 32);
             }
         }
         Value::F64(f) => write_float(cpu, f, f.to_bits(), 8),
@@ -938,6 +938,11 @@ fn write_float(cpu: &mut WinCpu, value: f64, bits: u64, width: u32) {
             r[0] = (r[0] & !mask) | (bits & mask);
         }
         WinCpu::Arm64(a) => a.core_mut().set_simd(0, u128::from(bits)),
+        WinCpu::Arm64Ec(ec) => {
+            let mask = if width == 8 { u64::MAX } else { 0xFFFF_FFFF };
+            let r = &mut ec.x64_mut().vcpu_mut().user_regs_mut().xmm[0];
+            r[0] = (r[0] & !mask) | (bits & mask);
+        }
     }
 }
 

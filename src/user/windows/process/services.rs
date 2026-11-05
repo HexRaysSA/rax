@@ -117,7 +117,7 @@ fn enter(
     // SYSCALL has overwritten RCX with its resume PC. The native wrapper
     // saved argument 0 in R10. Remaining arguments retain the ordinary
     // Windows x64 positions, including the stack return-address slot.
-    let saved_rcx = (p.arch == WinArch::X64).then(|| t.cpu.gpr(1));
+    let saved_rcx = (t.cpu.instruction_arch() == WinArch::X64).then(|| t.cpu.gpr(1));
     if saved_rcx.is_some() {
         t.cpu.set_gpr(1, t.cpu.gpr(10));
     }

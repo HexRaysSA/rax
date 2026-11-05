@@ -37,6 +37,7 @@ pub(super) fn query(
     let (level, revision) = if matches!(architecture, 0 | 9) {
         match &c.t.cpu {
             WinCpu::X86(cpu, _) => signature(cpu.vcpu().cpuid(1, 0).0),
+            WinCpu::Arm64Ec(ec) => signature(ec.x64().vcpu().cpuid(1, 0).0),
             _ => return Err(c.unsupported("x86 processor identity without an x86 CPU")),
         }
     } else {
@@ -49,6 +50,9 @@ pub(super) fn query(
     } else {
         match &c.t.cpu {
             WinCpu::X86(cpu, _) => x86_features(|leaf, subleaf| cpu.vcpu().cpuid(leaf, subleaf)),
+            WinCpu::Arm64Ec(ec) => {
+                x86_features(|leaf, subleaf| ec.x64().vcpu().cpuid(leaf, subleaf))
+            }
             _ => return Err(c.unsupported("AMD64 kernel features without an x86 CPU")),
         }
     };

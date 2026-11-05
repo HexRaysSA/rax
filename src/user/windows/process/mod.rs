@@ -13,6 +13,7 @@
 
 pub(crate) mod fiber;
 mod fls_exit;
+mod hybrid;
 pub(crate) mod image_information;
 mod lifecycle;
 pub(crate) mod native_start;

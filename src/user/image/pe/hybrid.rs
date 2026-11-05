@@ -74,8 +74,8 @@ pub struct HybridMetadata {
     pub code: Vec<CodeRange>,
     pub entries: Vec<EntryRange>,
     pub redirections: Vec<Redirection>,
-    /// RVAs of the five v1 dispatch-helper pointer slots, in header order.
-    pub dispatch_slots: [u32; 5],
+    /// RVAs of call, return, direct/indirect/CFG check, get/set context and jump helper slots.
+    pub dispatch_slots: [u32; 8],
     pub alternate_entry: u32,
 }
 
@@ -140,14 +140,18 @@ impl HybridMetadata {
             code: Vec::with_capacity(code_count),
             entries: Vec::with_capacity(entry_count),
             redirections: Vec::with_capacity(redirect_count),
-            dispatch_slots: [0; 5],
+            dispatch_slots: [0; 8],
             alternate_entry: src.u32_at(at + 40)?,
         };
         if result.alternate_entry != 0 {
             extent(u64::from(result.alternate_entry), 1, size)?;
         }
-        for (index, slot) in result.dispatch_slots.iter_mut().enumerate() {
-            *slot = src.u32_at(at + 20 + index as u64 * 4)?;
+        for (slot, offset) in result
+            .dispatch_slots
+            .iter_mut()
+            .zip([20, 24, 28, 32, 36, 56, 60, 72])
+        {
+            *slot = src.u32_at(at + offset)?;
             if *slot != 0 {
                 extent(u64::from(*slot), 8, size)?;
             }

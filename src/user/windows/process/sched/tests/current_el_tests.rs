@@ -50,6 +50,45 @@ fn windows_current_el_read_retires_all_destinations_and_preserves_context() {
 }
 
 #[test]
+fn windows_current_el_uses_arm64_registers_inside_an_amd64_ec_process() {
+    use crate::user::windows::arch::InstructionRoute;
+    for rt in 0..32 {
+        let (mut p, mut t, pc) = instruction(WinArch::X64, 0xD538_4240 | rt);
+        for n in 0..16 {
+            t.cpu.set_gpr(n, 0x1234_5678_9000_0000 + n as u64);
+        }
+        // Restore a valid stack after populating the AMD64 context carriers.
+        t.cpu.set_sp(0x1234_0000);
+        t.cpu.set_teb(t.teb);
+        let stop = t
+            .cpu
+            .run_routed(1, |_, _, _| Ok(InstructionRoute::ResumeArm64));
+        assert!(matches!(stop, CpuStop::Undefined { pc: at, .. } if at == pc));
+        assert_eq!(t.cpu.arch(), WinArch::X64);
+        assert_eq!(t.cpu.instruction_arch(), WinArch::Arm64);
+        let before = (0..31).map(|n| t.cpu.call_gpr(n)).collect::<Vec<_>>();
+        let sp = t.cpu.sp();
+        assert_eq!(
+            handle_stop(&mut p, &mut t, stop),
+            Outcome::Continue,
+            "rt={rt}"
+        );
+        assert_eq!(t.cpu.pc(), pc + 4);
+        assert_eq!(t.cpu.sp(), sp);
+        for (n, expected) in before.into_iter().enumerate() {
+            let expected = if n == rt as usize && n != 18 {
+                0
+            } else {
+                expected
+            };
+            assert_eq!(t.cpu.call_gpr(n), expected, "rt={rt} x{n}");
+        }
+        assert!(t.frames.is_empty());
+        assert!(p.failure.is_none());
+    }
+}
+
+#[test]
 fn windows_current_el_compatibility_does_not_admit_other_privileged_instructions() {
     for word in [
         0xD538_1000, // MRS X0,SCTLR_EL1.

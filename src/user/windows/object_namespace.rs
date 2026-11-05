@@ -127,6 +127,7 @@ mod named;
 mod section;
 pub use data::DataSection;
 pub(crate) use data::SelectedSection;
+pub(crate) use image::code_bitmap::{BITMAP_BYTES, CodeBitmapPlan};
 pub(crate) use image::{ExtensionQuery, ImageExtension, ImageRegion, ImageTemplate};
 pub(crate) use named::Name as NativeName;
 pub(crate) use section::CapturedSection;

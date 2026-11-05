@@ -98,6 +98,8 @@ pub struct Offsets {
     /// Modern private `PEB.ApiSetMap`; the ARM64 installed version-6
     /// namespace is checked against `RtlGetCurrentPeb` by the native probe.
     pub peb_api_set_map: u64,
+    /// Windows 11 `PEB.EcCodeBitMap` (0x238/0x368 by pointer width).
+    pub peb_ec_code_bitmap: u64,
     /// `PEB.TlsExpansionCounter`.
     pub peb_tls_expansion_counter: u64,
     /// `PEB.TlsBitmap`.
@@ -177,6 +179,8 @@ pub struct Offsets {
     pub teb_reserved_for_ole: u64,
     /// `TEB.TlsExpansionSlots` (winternl.h).
     pub teb_tls_expansion_slots: u64,
+    /// Native64 CHPE CPU-area pointer; absent from the x86 TEB layout.
+    pub teb_chpe_cpu_area: Option<u64>,
     /// Bytes to commit for a TEB.
     pub teb_size: u64,
 
@@ -291,6 +295,7 @@ const OFFSETS32: Offsets = Offsets {
     peb_process_heap: 0x018,
     peb_fast_peb_lock: 0x01C,
     peb_api_set_map: 0x038,
+    peb_ec_code_bitmap: 0x238,
     peb_tls_expansion_counter: 0x03C,
     peb_tls_bitmap: 0x040,
     peb_tls_bitmap_bits: 0x044,
@@ -329,6 +334,7 @@ const OFFSETS32: Offsets = Offsets {
     teb_guaranteed_stack_bytes: 0xF78,
     teb_reserved_for_ole: 0xF80,
     teb_tls_expansion_slots: 0xF94,
+    teb_chpe_cpu_area: None,
     teb_size: 0x2000,
     ldr_length: 0x00,
     ldr_initialized: 0x04,
@@ -389,6 +395,7 @@ const OFFSETS64: Offsets = Offsets {
     peb_process_heap: 0x030,
     peb_fast_peb_lock: 0x038,
     peb_api_set_map: 0x068,
+    peb_ec_code_bitmap: 0x368,
     peb_tls_expansion_counter: 0x070,
     peb_tls_bitmap: 0x078,
     peb_tls_bitmap_bits: 0x080,
@@ -427,6 +434,7 @@ const OFFSETS64: Offsets = Offsets {
     teb_guaranteed_stack_bytes: 0x1748,
     teb_reserved_for_ole: 0x1758,
     teb_tls_expansion_slots: 0x1780,
+    teb_chpe_cpu_area: Some(0x1788),
     teb_size: 0x2000,
     ldr_length: 0x00,
     ldr_initialized: 0x04,
