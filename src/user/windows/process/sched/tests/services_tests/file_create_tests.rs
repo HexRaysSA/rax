@@ -6,6 +6,8 @@ use crate::user::windows::nt::status::*;
 
 #[path = "file_create_tests/metadata_share.rs"]
 mod metadata_share;
+#[path = "file_create_tests/null_device.rs"]
+mod null_device;
 #[path = "file_create_tests/pointers.rs"]
 mod pointers;
 #[path = "file_create_tests/scalars.rs"]

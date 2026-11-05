@@ -1,0 +1,397 @@
+OPEN id=0 create=0 name="\\??\\NUL" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=0 value=2
+QUERY id=0 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=0 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=0 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=0 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=0 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=0 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=0 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=0 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=0 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=0 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=0 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=1 create=1 name="\\??\\NUL" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=1 value=2
+QUERY id=1 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=1 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=1 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=1 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=1 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=1 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=1 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=1 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=1 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=1 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=1 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=2 create=0 name="\\??\\NUL" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=2 value=2
+QUERY id=2 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=2 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=2 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=2 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=2 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=2 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=2 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=2 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=2 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=2 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=2 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=3 create=1 name="\\??\\NUL" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=3 value=2
+QUERY id=3 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=3 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=3 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=3 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=3 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=3 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=3 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=3 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=3 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=3 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=3 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=4 create=0 name="\\??\\nul" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=4 value=2
+QUERY id=4 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=4 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=4 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=4 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=4 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=4 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=4 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=4 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=4 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=4 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=4 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=5 create=1 name="\\??\\nul" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=5 value=2
+QUERY id=5 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=5 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=5 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=5 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=5 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=5 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=5 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=5 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=5 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=5 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=5 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=6 create=0 name="\\??\\nul" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=6 value=2
+QUERY id=6 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=6 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=6 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=6 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=6 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=6 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=6 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=6 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=6 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=6 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=6 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=7 create=1 name="\\??\\nul" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=7 value=2
+QUERY id=7 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=7 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=7 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=7 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=7 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=7 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=7 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=7 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=7 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=7 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=7 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=8 create=0 name="\\Device\\Null" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=8 value=2
+QUERY id=8 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=8 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=8 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=8 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=8 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=8 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=8 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=8 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=8 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=8 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=8 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=9 create=1 name="\\Device\\Null" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=9 value=2
+QUERY id=9 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=9 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=9 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=9 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=9 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=9 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=9 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=9 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=9 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=9 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=9 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=10 create=0 name="\\Device\\Null" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=10 value=2
+QUERY id=10 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=10 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=10 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=10 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=10 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=10 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=10 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=10 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=10 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=10 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=10 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=11 create=1 name="\\Device\\Null" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=11 value=2
+QUERY id=11 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=11 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=11 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=11 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=11 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=11 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=11 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=11 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=11 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=11 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=11 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=12 create=0 name="\\device\\null" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=12 value=2
+QUERY id=12 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=12 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=12 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=12 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=12 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=12 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=12 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=12 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=12 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=12 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=12 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=13 create=1 name="\\device\\null" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=13 value=2
+QUERY id=13 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=13 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=13 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=13 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=13 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=13 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=13 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=13 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=13 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=13 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=13 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=14 create=0 name="\\device\\null" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=14 value=2
+QUERY id=14 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=14 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=14 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=14 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=14 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=14 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=14 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=14 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=14 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=14 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=14 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=15 create=1 name="\\device\\null" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=15 value=2
+QUERY id=15 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=15 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=15 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=15 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=15 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=15 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=15 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=15 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=15 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=15 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=15 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=16 create=0 name="\\DosDevices\\NUL" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=16 value=2
+QUERY id=16 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=16 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=16 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=16 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=16 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=16 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=16 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=16 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=16 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=16 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=16 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=17 create=1 name="\\DosDevices\\NUL" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=17 value=2
+QUERY id=17 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=17 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=17 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=17 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=17 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=17 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=17 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=17 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=17 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=17 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=17 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=18 create=0 name="\\DosDevices\\NUL" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=18 value=2
+QUERY id=18 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=18 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=18 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=18 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=18 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=18 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=18 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=18 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=18 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=18 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=18 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=19 create=1 name="\\DosDevices\\NUL" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=19 value=2
+QUERY id=19 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=19 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=19 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=19 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=19 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=19 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=19 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=19 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=19 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=19 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=19 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=20 create=0 name="\\??\\NUL." flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0xc0000034 io=0xffffffffffffffff/0xffffffffffffffff handle=0
+OPEN id=21 create=1 name="\\??\\NUL." flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0xc0000034 io=0xffffffffffffffff/0xffffffffffffffff handle=0
+OPEN id=22 create=0 name="\\??\\NUL." flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0xc0000034 io=0xffffffffffffffff/0xffffffffffffffff handle=0
+OPEN id=23 create=1 name="\\??\\NUL." flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0xc0000034 io=0xffffffffffffffff/0xffffffffffffffff handle=0
+OPEN id=24 create=0 name="\\??\\NUL\\child" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=24 value=2
+QUERY id=24 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=24 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=24 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=24 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=24 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=24 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=24 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=24 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=24 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=24 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=24 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=25 create=1 name="\\??\\NUL\\child" flags=0x0 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=25 value=2
+QUERY id=25 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=25 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=25 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=25 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=25 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=25 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=25 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=25 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=25 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=25 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=25 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=26 create=0 name="\\??\\NUL\\child" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=26 value=2
+QUERY id=26 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=26 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=26 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=26 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=26 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=26 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=26 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=26 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=26 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=26 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=26 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=27 create=1 name="\\??\\NUL\\child" flags=0x40 access=0x80100080 share=3 disposition=1 options=0x20060 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=27 value=2
+QUERY id=27 class=4 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=27 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=27 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=27 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=27 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=27 class=35 status=0xc0000003 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=27 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=27 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=27 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=27 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=27 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=28 create=1 name="\\??\\NUL" flags=0x40 access=0xc0100080 share=0 disposition=0 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+OPEN id=29 create=1 name="\\??\\NUL" flags=0x40 access=0xc0100080 share=0 disposition=1 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+OPEN id=30 create=1 name="\\??\\NUL" flags=0x40 access=0xc0100080 share=0 disposition=2 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+OPEN id=31 create=1 name="\\??\\NUL" flags=0x40 access=0xc0100080 share=0 disposition=3 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+OPEN id=32 create=1 name="\\??\\NUL" flags=0x40 access=0xc0100080 share=0 disposition=4 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+OPEN id=33 create=1 name="\\??\\NUL" flags=0x40 access=0xc0100080 share=0 disposition=5 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+OPEN id=34 create=1 name="\\??\\NUL" flags=0x40 access=0x00000001 share=0 disposition=1 options=0x40 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=34 value=2
+OPEN id=35 create=1 name="\\??\\NUL" flags=0x40 access=0x00100001 share=0 disposition=1 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=35 value=2
+QUERY id=35 class=4 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=35 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=35 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=35 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=35 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=35 class=35 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=35 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=35 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=35 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=35 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=35 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=36 create=1 name="\\??\\NUL" flags=0x40 access=0x00100002 share=0 disposition=1 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=36 value=2
+QUERY id=36 class=4 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=36 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=36 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=36 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=36 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=36 class=35 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=36 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=36 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=36 length=0 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5
+READ id=36 length=1 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5
+READ id=36 length=4 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5
+OPEN id=37 create=1 name="\\??\\NUL" flags=0x40 access=0x00100003 share=0 disposition=1 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=37 value=2
+QUERY id=37 class=4 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=37 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=37 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=37 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=37 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=37 class=35 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=37 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=37 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=37 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=37 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=37 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=38 create=1 name="\\??\\NUL" flags=0x40 access=0x00000000 share=0 disposition=1 options=0x40 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff handle=0
+OPEN id=39 create=1 name="\\??\\NUL" flags=0x40 access=0x00100000 share=0 disposition=1 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=39 value=2
+QUERY id=39 class=4 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=39 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=39 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=39 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=39 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=39 class=35 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=39 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=39 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=39 length=0 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5
+READ id=39 length=1 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5
+READ id=39 length=4 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5
+OPEN id=40 create=1 name="\\??\\NUL" flags=0x40 access=0x00100003 share=0 disposition=1 options=0x21 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=40 value=2
+QUERY id=40 class=4 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+QUERY id=40 class=5 status=0x00000000 io=0xffffffff00000000/0x18 bytes=000000000000000000000000000000000100000000000000
+QUERY id=40 class=14 status=0x00000000 io=0x0/0x8 bytes=0000000000000000
+QUERY id=40 class=16 status=0x00000000 io=0xffffffff00000000/0x4 bytes=20000000
+QUERY id=40 class=17 status=0x00000000 io=0xffffffff00000000/0x4 bytes=00000000
+QUERY id=40 class=35 status=0xc0000022 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5
+VOLUME id=40 class=4 status=0x00000000 io=0x0/0x8 bytes=1500000000010000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+VOLUME id=40 class=5 status=0xc0000010 io=0xffffffffffffffff/0xffffffffffffffff bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+READ id=40 length=0 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=40 length=1 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+READ id=40 length=4 status=0xc0000011 io=0xc0000011/0x0 bytes=a5a5a5a5
+OPEN id=41 create=1 name="\\??\\NUL" flags=0x40 access=0x00100003 share=0 disposition=1 options=0x41 status=0x00000000 io=0x0/0x0 handle=1
+TYPE id=41 value=2
+OPEN id=42 create=1 name="\\??\\NUL" flags=0x40 access=0x00100003 share=0 disposition=1 options=0x30 status=0xc000000d io=0xffffffffffffffff/0xffffffffffffffff handle=0
+OPEN id=43 create=1 name="\\??\\NUL" flags=0x40 access=0x00100003 share=0 disposition=1 options=0x1000 status=0xc000000d io=0xffffffffffffffff/0xffffffffffffffff handle=0
+OPEN id=44 create=1 name="\\??\\NUL" flags=0x40 access=0x00100003 share=0 disposition=1 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+OPEN id=45 create=1 name="\\Device\\Null" flags=0x40 access=0x00100003 share=0 disposition=1 options=0x60 status=0x00000000 io=0x0/0x0 handle=1
+COMPLETE cases=46 opened=39 all_successful_handles_closed=true pointer_bytes=8

@@ -2,6 +2,7 @@
 //! Native IO_STATUS_BLOCK probing and WoW64 copyback have distinct failure effects.
 
 pub(super) mod host;
+mod null;
 
 use super::file_attributes::{attributes, path};
 use super::named_object::{Checked, Failure, finish_with, status};
@@ -51,7 +52,6 @@ fn parameters(r: Request) -> Checked<()> {
     if r.share & !7 != 0
         || r.options & !0x20ff_ffff != 0
         || r.options & 0x30 == 0x30
-        || r.options & 0x41 == 0x41
         || r.options & 0x30 != 0 && r.access & 0x100000 == 0
         || r.options & 0x1000 != 0 && r.access & 0x10000 == 0
         || r.access & !0xf31f_01ff != 0
@@ -87,18 +87,18 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
     let core = match parameters(r) {
         Err(error) => Err(error),
         Ok(()) if wow && (r.output == 0 || r.io == 0) => status(STATUS_ACCESS_VIOLATION),
-        Ok(()) => kernel(c, r, captured, None).map(|(handle, _)| handle),
+        Ok(()) => kernel(c, r, captured, None),
     };
-    let (code, handle) = match core {
-        Ok(handle) => (STATUS_SUCCESS, handle),
-        Err(Failure::Status(s)) => (s, 0),
+    let (code, handle, information) = match core {
+        Ok((handle, information)) => (STATUS_SUCCESS, handle, information),
+        Err(Failure::Status(s)) => (s, 0, 0),
         Err(Failure::Api(ApiErr::Fault(fault))) if wow => {
             let code = if c.p.vm.take_guard(fault.addr) {
                 STATUS_GUARD_PAGE_VIOLATION
             } else {
                 STATUS_ACCESS_VIOLATION
             };
-            (code, 0)
+            (code, 0, 0)
         }
         Err(error) => return Err(error),
     };
@@ -106,7 +106,7 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
         return Ok(code);
     }
     *caller_store = true;
-    let result = publish(c, r, code, handle);
+    let result = publish(c, r, code, handle, information);
     if wow && result.is_err() && handle != 0 {
         // WoW64 closes the temporary native result after any caller copyback
         // fault. Bytes already written to the handle slot remain observable.
@@ -115,19 +115,19 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
     result
 }
 
-fn publish(c: &Ctx, r: Request, code: u32, handle: u64) -> Checked<u32> {
+fn publish(c: &Ctx, r: Request, code: u32, handle: u64, information: u64) -> Checked<u32> {
     if r.output != 0 {
         c.mem().wptr(r.output, c.psize(), handle)?;
     }
     if code == STATUS_SUCCESS {
         c.mem().wptr(r.io, c.psize(), 0)?;
-        let information =
+        let address =
             r.io.checked_add(c.psize())
                 .ok_or(crate::user::windows::memory::MemFault {
                     addr: u64::MAX,
                     write: true,
                 })?;
-        c.mem().wptr(information, c.psize(), 1)?;
+        c.mem().wptr(address, c.psize(), information)?;
     }
     Ok(code)
 }
@@ -194,6 +194,18 @@ pub(super) fn kernel(
         return status(STATUS_INVALID_PARAMETER);
     }
     let name = attributes::validate(c, &attrs)?;
+    if let Some(result) = null::open(c, r, &attrs, name.as_deref()) {
+        return result;
+    }
+    // These restrictions belong to filesystems. The native null device
+    // accepts directory and non-directory flags together.
+    if r.options & 0x41 == 0x41
+        || creation
+            .as_ref()
+            .is_some_and(|request| r.options & 1 != 0 && !matches!(request.disposition, 1..=3))
+    {
+        return status(STATUS_INVALID_PARAMETER);
+    }
     let resolved = path::resolve_open(c, &attrs, name.as_deref())?;
     let mut access = mapped_access(r.access);
     if access & 0x0200_0000 != 0 {

@@ -1,0 +1,100 @@
+{
+  "utc": "2026-11-05T06:25:05.982107+00:00",
+  "source": {
+    "path": "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-null-device-v1/native-null-device-control-v1.rs",
+    "sha256": "f724ba9a69e50cdda918ea20fd9c442b127b7a36378941f663af82ae9d203333"
+  },
+  "rows": [
+    {
+      "arch": "arm64",
+      "receipt": ".task-evidence/windows-null-device-v1/null-device-control-arm64-v1-tests-receipt-v2.json",
+      "receipt_sha256": "b24b6819821e2c280b246af0b752da999fbc900200c89f0dd15e591c41b63927",
+      "pid": 5796,
+      "creation": "134383333044858651",
+      "image_sha256": "a41d98a2b17608f5e78c7c647776f00717e7d0ea7805ea34439ce0bf098b5c06",
+      "source_binding_sha256": "a0c2b2c9e39000e1d08384373dc6ba3958bd84d6c5be9137f14dd198e8d56ec2",
+      "stdout_sha256": "9c4d4acd1b66d69a5282e7482bf27ac840c3afc48ae2b560816bdf58152a9928"
+    },
+    {
+      "arch": "x64",
+      "receipt": ".task-evidence/windows-null-device-v1/null-device-control-x64-v1-tests-receipt-v2.json",
+      "receipt_sha256": "0a9593bd2c6269efa5202b5436fbabe172e750d533b07897bc2c92c26e99bec9",
+      "pid": 1820,
+      "creation": "134383331274704456",
+      "image_sha256": "29b56dc89b56da62752f6e6275ed776bf8c1cb295f410b19a22c5bcb01bab4da",
+      "source_binding_sha256": "81c991b46ee24c5d8a4bec2d289468f854ef387ed9da5020b71385debc302949",
+      "stdout_sha256": "9c4d4acd1b66d69a5282e7482bf27ac840c3afc48ae2b560816bdf58152a9928"
+    }
+  ],
+  "profile": "Windows10.0.29698ARM64; nativeARM64 and translatedx64 produce identical complete output. WoW64 measured output notyetavailable.",
+  "source_to_image": {
+    "state": "independent-controls-built",
+    "source": {
+      "path": "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-null-device-v1/native-null-device-control-v1.rs",
+      "sha256": "f724ba9a69e50cdda918ea20fd9c442b127b7a36378941f663af82ae9d203333"
+    },
+    "rows": [
+      {
+        "arch": "arm64",
+        "argv": [
+          "rustc",
+          "+1.95.0",
+          "--edition=2024",
+          "--target",
+          "aarch64-pc-windows-msvc",
+          "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-null-device-v1/native-null-device-control-v1.rs",
+          "-C",
+          "opt-level=2",
+          "-C",
+          "debuginfo=0",
+          "-C",
+          "linker=/Users/int/local/bin/lld-link",
+          "-Lnative=/Users/int/Library/Caches/cargo-xwin/xwin/crt/lib/aarch64",
+          "-Lnative=/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/um/aarch64",
+          "-Lnative=/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/ucrt/aarch64",
+          "-o",
+          "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/native-null-control-v1/control-arm64-v1.exe"
+        ],
+        "exit_code": 0,
+        "image": {
+          "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/native-null-control-v1/control-arm64-v1.exe",
+          "bytes": 131584,
+          "sha256": "a41d98a2b17608f5e78c7c647776f00717e7d0ea7805ea34439ce0bf098b5c06"
+        }
+      },
+      {
+        "arch": "x64",
+        "argv": [
+          "rustc",
+          "+1.95.0",
+          "--edition=2024",
+          "--target",
+          "x86_64-pc-windows-msvc",
+          "/Users/int/.rax-fifo-pub-20261103/.task-evidence/windows-null-device-v1/native-null-device-control-v1.rs",
+          "-C",
+          "opt-level=2",
+          "-C",
+          "debuginfo=0",
+          "-C",
+          "linker=/Users/int/local/bin/lld-link",
+          "-Lnative=/Users/int/Library/Caches/cargo-xwin/xwin/crt/lib/x86_64",
+          "-Lnative=/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/um/x86_64",
+          "-Lnative=/Users/int/Library/Caches/cargo-xwin/xwin/sdk/lib/ucrt/x86_64",
+          "-o",
+          "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/native-null-control-v1/control-x64-v1.exe"
+        ],
+        "exit_code": 0,
+        "image": {
+          "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/native-null-control-v1/control-x64-v1.exe",
+          "bytes": 134144,
+          "sha256": "29b56dc89b56da62752f6e6275ed776bf8c1cb295f410b19a22c5bcb01bab4da"
+        }
+      }
+    ],
+    "utc": "2026-11-05T06:18:02.851747+00:00"
+  },
+  "published_source": {
+    "path": "native-control-v1.rs",
+    "sha256": "f724ba9a69e50cdda918ea20fd9c442b127b7a36378941f663af82ae9d203333"
+  }
+}

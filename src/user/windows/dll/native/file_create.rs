@@ -23,10 +23,8 @@ fn parameters(r: Request, disposition: u32, attributes: u32) -> Checked<()> {
         || r.share & !7 != 0
         || r.options & !0x20ff_ffff != 0
         || r.options & 0x30 == 0x30
-        || r.options & 0x41 == 0x41
         || r.options & 0x30 != 0 && r.access & 0x100000 == 0
         || r.options & 0x1000 != 0 && r.access & 0x10000 == 0
-        || r.options & 1 != 0 && !matches!(disposition, 1..=3)
         || r.access & !0xf31f_01ff != 0
         || attributes & !0x00da_ffb7 != 0
     {

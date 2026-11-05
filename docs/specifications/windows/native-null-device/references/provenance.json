@@ -1,0 +1,29 @@
+{
+  "documents": [
+    {
+      "file": "ntcreatefile.md",
+      "issuer": "Microsoft",
+      "title": "NtCreateFile (winternl.h)",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winternl/nf-winternl-ntcreatefile.md",
+      "retrieved_utc": "2026-11-05T06:25:56.966889+00:00",
+      "bytes": 37266,
+      "sha256": "d35698185fa62bd5d819a78b7f0f4b5161e6211fae1a461fdbde8a673d29469e"
+    },
+    {
+      "file": "ntopenfile.md",
+      "issuer": "Microsoft",
+      "title": "NtOpenFile (winternl.h)",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winternl/nf-winternl-ntopenfile.md",
+      "retrieved_utc": "2026-11-05T06:25:57.652651+00:00",
+      "bytes": 3973,
+      "sha256": "cede1767156dc895381e2f99c01725ba66d27250797383c7a966664f1924730e"
+    }
+  ],
+  "license": {
+    "file": "LICENSE",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/LICENSE",
+    "retrieved_utc": "2026-11-05T06:50:29.898208+00:00",
+    "bytes": 18650,
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  }
+}
