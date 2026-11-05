@@ -66,8 +66,8 @@
       ".github/workflows/native-intel-hvf-mmio.yml"
     ],
     "exit_code": 0,
-    "workflow_sha256": "c3269cec7559d5b94d81b253670579c6caabe28302211a97e02323b75ebae0e7",
-    "version": "1.7.12\ninstalled from Homebrew\nbuilt with go1.26.3 compiler for darwin/arm64"
+    "version": "1.7.12",
+    "workflow_sha256": "6658a7dab6e250ae82c254bf791af5ccc76b6506d8d15edbb80e4d34c490485a"
   },
   "cli_baseline": {
     "head": "7a8b0bb8ca5abe67660600a5a92608d54dd7d8fd",
@@ -558,5 +558,63 @@
     ".github/workflows/native-intel-hvf-mmio.yml": "c3269cec7559d5b94d81b253670579c6caabe28302211a97e02323b75ebae0e7"
   },
   "published_driver_sha256": "3396b8a4a0bb3d534c85dce4eb499e028ab73a0a11ce8df2ad48b83344f6eb7a",
-  "publication_profile": "Driver constant 114 accompanies unchanged published consumer; combined pending driver 130 restored after publication. The driver bodies otherwise match."
+  "publication_profile": "Driver constant 114 accompanies unchanged published consumer; combined pending driver 130 restored after publication. The driver bodies otherwise match.",
+  "single_runner_update": {
+    "recorded_utc": "2026-11-05T09:07:25.580051+00:00",
+    "workflow_sha256": "6658a7dab6e250ae82c254bf791af5ccc76b6506d8d15edbb80e4d34c490485a",
+    "workflow_lint": {
+      "command": [
+        "actionlint",
+        ".github/workflows/native-intel-hvf-mmio.yml"
+      ],
+      "exit_code": 0,
+      "version": "1.7.12"
+    },
+    "ci_policy": {
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--test",
+        "ci_actions_pinned"
+      ],
+      "owned_build": "/tmp/rax-single-runner-policy-54y8ty2j",
+      "exit_code": 0,
+      "seconds": 62.659563064575195,
+      "success": true,
+      "owned_build_removed": true,
+      "passed": 15,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "historical_two_job_run": {
+      "id": 41992554080,
+      "head": "02f279376496c0c6a50f08f5572f5200bf09d3cd",
+      "prepare_job": 127127978490,
+      "execute_job": 127131292237,
+      "library_seconds": 327.30916053399994,
+      "execution_seconds": 1.7214216739999983,
+      "passed_case_records": 118,
+      "expected_case_records": 130,
+      "failure": "first private PAT capture rejects saved control-register masks differing from producer policy",
+      "second_job_queue": "Observed queued through 08:39:49 UTC after prepare completed by 08:19:29 UTC; more than 1200 s.",
+      "build_artifact_id": 13399156665,
+      "execution_artifact_id": 13400626825
+    },
+    "updated_workflow_execution": "not yet run",
+    "native_guest_result": "historical partial pass only; updated mask policy and all 130 cases remain unqualified",
+    "no_new_source_or_tooling_admission_rules": true
+  },
+  "historical_workflow": {
+    "command": [
+      "actionlint",
+      ".github/workflows/native-intel-hvf-mmio.yml"
+    ],
+    "exit_code": 0,
+    "workflow_sha256": "c3269cec7559d5b94d81b253670579c6caabe28302211a97e02323b75ebae0e7",
+    "version": "1.7.12\ninstalled from Homebrew\nbuilt with go1.26.3 compiler for darwin/arm64"
+  }
 }

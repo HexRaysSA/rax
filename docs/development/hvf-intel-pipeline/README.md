@@ -1,13 +1,17 @@
 # Retained native Intel build and execution evidence
 
 The [manual Intel workflow](../../../.github/workflows/native-intel-hvf-mmio.yml)
-builds and signs the real consumer in one job, uploads that result, and executes
-the retained binary in a second Intel job. A guest failure cannot erase the
-already uploaded build report. Both jobs use `macos-15-intel`.
+builds and signs the real consumer, uploads that result, and then verifies and
+executes the retained binary on the same `macos-15-intel` runner. A guest failure
+cannot erase the already uploaded build report. This retains separate build and
+execution phases without allocating a second runner.
 
 ```text
-exact source -> prepare -> signed binary + build report -> artifact
-exact source -> execute <- verified artifact -> guest observations
+exact source -> prepare -> signed binary + build report -> uploaded artifact
+                             |
+                    source/signature admission
+                             |
+                  guest -> execution observations
 ```
 
 The preceding [run 41968179867](https://github.com/HexRaysSA/rax/actions/runs/41968179867)
@@ -24,8 +28,8 @@ its phase, arguments, exit status and raw output incrementally; stderr also
 streams to the workflow log. Timeouts terminate the invocation's own process
 group, including compiler descendants. Pipe drainage shares that deadline.
 
-The second job downloads the artifact produced by its prerequisite job in the
-same workflow run. Before guest entry, admission requires exact engine input,
+The execution phase consumes the same prepared directory already uploaded by
+the build phase. Before guest entry, admission requires exact scoped engine input,
 consumer, driver, support-module and executable SHA-256 values, a completed
 successful compilation report, strict code-signature verification, and an
 untranslated Intel host with usable Hypervisor.framework. The engine input map
@@ -34,10 +38,20 @@ covers `src/**/*.rs`, Rust/TOML files under `vendor/vm-memory`, `Cargo.toml`,
 positive and exact, with ordered integer case identifiers and Boolean passes.
 An empty, partial or reordered report cannot qualify execution.
 
-The artifact is trusted as output from the same workflow run. Its checksums
+The artifact is trusted as output from the same workflow job. Its checksums
 establish consistency; they do not authenticate an arbitrary externally supplied
-binary and manifest. Artifact download does not preserve executable permission,
-so the driver restores the owner execute bit before signature verification.
+binary and manifest. The driver also retains support for downloaded artifacts,
+restoring the owner execute bit before signature verification when necessary.
+
+The earlier two-job run 41992554080 successfully retained its build and then
+spent over 20 minutes awaiting its second runner. It passed 118 native guest
+cases before rejecting the first private PAT checkpoint because the SDK changed
+control-register masks after the producer policy had been captured. The
+[frontier evidence](../hvf-intel-frontier/README.md) distinguishes this partial
+native result from a completed 130-case run. Reusing the allocated runner avoids
+that second queue while preserving pre-execution artifact retention and all
+admission checks. A build or upload failure prevents guest entry; execution
+observations upload only when the guest phase was attempted.
 
 From the repository root:
 
@@ -65,12 +79,13 @@ cross-build used the combined pending 130-case consumer; production source has
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| A1 | Prepared input comes from this workflow's prerequisite job | Binary/source attribution | Job output selects the same-run artifact; altered source, tooling, binary or unsuccessful report must reject | Retained trust boundary; admission partitions tested |
-| A2 | A signed cross-build can be transported before native execution | Split-job execution | Export the real signed executable, admit it, and verify its signature after copying | Confirmed locally; hosted transport remains unverified |
+| A1 | Prepared input comes from the earlier build phase in this job | Binary/source attribution | Upload precedes guest entry; altered source, tooling, binary or unsuccessful report must reject | Retained trust boundary; admission partitions tested |
+| A2 | A signed build can be retained before native execution | Build preservation | Export the real signed executable, upload it, admit it and verify its signature | Confirmed in historical two-job runs, including 41992554080; updated one-job workflow execution pending |
 | A3 | A supported Intel host is required before guest entry | Native execution claim | Attempt execution on Apple Silicon; require availability failure and no guest command | Confirmed negative control |
 
-High-impact unresolved scope: the previous timeout's internal cause and native
-guest outcomes remain unknown. Neither the workflow restructuring nor local
+High-impact unresolved scope: the original timeout's internal cause remains
+unknown; the latest native run passes 118 cases and then fails private capture.
+Neither the workflow restructuring nor local
 model tests close the broader HVF, checkpoint, SMP or A32-FP audit findings.
 Admission work is linear in the inspected source and executable bytes; retained
 input-map space is proportional to the number of scoped source files.
