@@ -15,6 +15,9 @@ pub(super) fn information(c: &mut Ctx) -> ApiResult {
 
 fn checked(c: &mut Ctx) -> ApiResult {
     let (process, class, output, length) = (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?);
+    if class == 12 {
+        return super::process_query::error_mode::set(c, process, output, length);
+    }
     if class == 34 {
         return execute_flags::information(c, process, output, length);
     }

@@ -128,6 +128,7 @@ static KERNEL32: BuiltinDll = BuiltinDll {
         slist::KERNEL_FORWARDS,
         sysinfo::EXPORTS,
         sysinfo::KERNEL32_FORWARDS,
+        kernel::ERROR_MODE_EXPORTS,
     ],
 };
 static KERNELBASE: BuiltinDll = BuiltinDll {
@@ -147,6 +148,7 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
         kernel::VCH_EXPORTS,
         slist::KERNEL_FORWARDS,
         sysinfo::EXPORTS,
+        kernel::ERROR_MODE_EXPORTS,
     ],
 };
 static MSVCRT: BuiltinDll = BuiltinDll {

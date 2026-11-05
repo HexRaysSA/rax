@@ -121,3 +121,10 @@ docs/specifications/windows/native-volume-attributes/** -text
 docs/specifications/windows/native-volume-attributes/primary/** -text -whitespace
 docs/specifications/windows/native-volume-attributes/observations-*.json -diff
 docs/specifications/windows/native-volume-attributes/faults-*.log -diff
+
+# Preserve independent process error-mode controls and exact primary inputs.
+docs/specifications/windows/native-process-error-mode/** -text
+docs/specifications/windows/native-process-error-mode/primary/** -text -whitespace
+docs/specifications/windows/native-process-error-mode/observations-*.log -diff
+docs/specifications/windows/native-process-error-mode/bounds-*.log -diff
+docs/specifications/windows/native-process-error-mode/inheritance-*.log -diff

@@ -17,6 +17,7 @@ const PROCESS_COOKIE: u32 = 36;
 const PROCESS_VM_WRITE: u32 = 0x20;
 
 mod debug_port;
+pub(super) mod error_mode;
 mod execute_flags;
 mod image_information;
 mod wow64_information;
@@ -54,17 +55,20 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
     if length != 0
         && c.arch() != WinArch::X86
-        && matches!(class, 7 | 26 | 34 | PROCESS_COOKIE | 37)
+        && matches!(class, 7 | 12 | 26 | 34 | PROCESS_COOKIE | 37)
         && output
             .checked_add(u64::from(length))
             .is_none_or(|end| end > c.p.vm.high())
     {
         // Native upper-user-span rejection precedes ReturnLength visitation.
-        // The measured WoW64 direct class34/36 paths do not share this check.
+        // The measured WoW64 direct class12/34/36 paths omit this check.
         return Flow::ret(STATUS_ACCESS_VIOLATION.into());
     }
     if returned != 0 {
         probe_write(c, returned, 4)?;
+    }
+    if class == 12 {
+        return error_mode::query(c, handle, output, length, returned);
     }
     if class == 7 {
         return debug_port::query(c, handle, output, length, returned);

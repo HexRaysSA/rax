@@ -1,0 +1,47 @@
+{
+  "repository": "https://github.com/MicrosoftDocs/sdk-api",
+  "commit": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+  "files": [
+    {
+      "path": "nf-errhandlingapi-geterrormode.md",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/errhandlingapi/nf-errhandlingapi-geterrormode.md",
+      "bytes": 4284,
+      "sha256": "6cba0f2e29c520cf4054863db88508bd169745d2bfad2c032e1efd93e6cf6148",
+      "git_blob_sha1": "ff09540eaf6636cf334176da9339b69548306d09"
+    },
+    {
+      "path": "nf-errhandlingapi-seterrormode.md",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/errhandlingapi/nf-errhandlingapi-seterrormode.md",
+      "bytes": 6465,
+      "sha256": "43249f66f4125f2b6b1e9ad62ea4c55fff1f1745e8b89dea343f6a515316d15d",
+      "git_blob_sha1": "552c4f1629e07f62b4338f4605d5308545cfae47"
+    },
+    {
+      "path": "nf-winternl-ntqueryinformationprocess.md",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/winternl/nf-winternl-ntqueryinformationprocess.md",
+      "bytes": 11570,
+      "sha256": "640f38d34949399e88eec39f2e8992faa4c1ef84fe3a9848750018fd67926b46",
+      "git_blob_sha1": "5bada6ee9e84bacc587255e1bc1375bea0a6863e"
+    },
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE",
+      "bytes": 18650,
+      "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e",
+      "git_blob_sha1": "e056e7c3ec54533985dfb3a4c6ef70dab8ca2e42"
+    },
+    {
+      "path": "LICENSE-CODE",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE-CODE",
+      "bytes": 1090,
+      "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2",
+      "git_blob_sha1": "b17b032a43088ac7f3d2f3e34a2431c778a95e6f"
+    }
+  ],
+  "private_class_declaration": {
+    "source": "../native-process-tls/phnt-ntpsapi.h",
+    "provenance": "../native-process-tls/primary-contracts.json",
+    "scope": "PHNT supplies class12 name and ULONG query/set declaration; native observations own behavior."
+  },
+  "utc": "2026-11-04T23:55:11.398763+00:00"
+}

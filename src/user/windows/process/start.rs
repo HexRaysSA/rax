@@ -442,6 +442,7 @@ fn spawn_image_file(
     let performance_clock =
         super::super::performance_clock::PerformanceClock::select(native.is_some())
             .map_err(SpawnError::Io)?;
+    let error_mode = super::error_mode::State::select(native.is_some()).map_err(SpawnError::Io)?;
     let mut p = Proc {
         arch,
         space,
@@ -482,6 +483,7 @@ fn spawn_image_file(
         rng: seed,
         // Keep cookie derivation independent of the existing random stream.
         process_cookie: (seed ^ (seed >> 32)) as u32 ^ 0xA5A5_5A5A,
+        error_mode,
         console_host_process: 2,
         cwd: cwd.encode_utf16().collect(),
         exe_stack_reserve: h.stack_reserve,

@@ -1,0 +1,31 @@
+kind=parent raw=00000000 requested=00000000 status=00000000 public=00000001
+kind=thread raw=00000000 public=00000001 thread-mode=00000000
+kind=inherit parent=00000000 default=0 child-pid=3008 flags=08000000 kind=child raw=00000000 public=00000001 thread-mode=00000000
+kind=child-terminal pid=3008 exit=0
+kind=inherit parent=00000000 default=1 child-pid=7712 flags=0C000000 kind=child raw=00000001 public=00000000 thread-mode=00000000
+kind=child-terminal pid=7712 exit=0
+kind=parent raw=00000001 requested=00000001 status=00000000 public=00000000
+kind=thread raw=00000001 public=00000000 thread-mode=00000000
+kind=inherit parent=00000001 default=0 child-pid=10096 flags=08000000 kind=child raw=00000001 public=00000000 thread-mode=00000000
+kind=child-terminal pid=10096 exit=0
+kind=inherit parent=00000001 default=1 child-pid=3456 flags=0C000000 kind=child raw=00000001 public=00000000 thread-mode=00000000
+kind=child-terminal pid=3456 exit=0
+kind=parent raw=00000004 requested=00000004 status=00000000 public=00000005
+kind=thread raw=00000004 public=00000005 thread-mode=00000000
+kind=inherit parent=00000004 default=0 child-pid=9968 flags=08000000 kind=child raw=00000004 public=00000005 thread-mode=00000000
+kind=child-terminal pid=9968 exit=0
+kind=inherit parent=00000004 default=1 child-pid=2000 flags=0C000000 kind=child raw=00000001 public=00000000 thread-mode=00000000
+kind=child-terminal pid=2000 exit=0
+kind=parent raw=00008007 requested=00008007 status=00000000 public=00008006
+kind=thread raw=00008007 public=00008006 thread-mode=00000000
+kind=inherit parent=00008007 default=0 child-pid=10044 flags=08000000 kind=child raw=00008007 public=00008006 thread-mode=00000000
+kind=child-terminal pid=10044 exit=0
+kind=inherit parent=00008007 default=1 child-pid=9232 flags=0C000000 kind=child raw=00000001 public=00000000 thread-mode=00000000
+kind=child-terminal pid=9232 exit=0
+kind=parent raw=FFFFFFFF requested=FFFFFFFF status=00000000 public=FFFFFFFE
+kind=thread raw=FFFFFFFF public=FFFFFFFE thread-mode=00000000
+kind=inherit parent=FFFFFFFF default=0 child-pid=8872 flags=08000000 kind=child raw=FFFFFFFF public=FFFFFFFE thread-mode=00000000
+kind=child-terminal pid=8872 exit=0
+kind=inherit parent=FFFFFFFF default=1 child-pid=2316 flags=0C000000 kind=child raw=00000001 public=00000000 thread-mode=00000000
+kind=child-terminal pid=2316 exit=0
+summary children=10 closed=45 initial=00008000 final=00008000 restore=00000000

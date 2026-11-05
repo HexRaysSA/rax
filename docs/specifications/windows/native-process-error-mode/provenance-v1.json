@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "rows": [
+    {
+      "view": "arm64",
+      "source": "native-process-error-mode-v1.cpp",
+      "cpp_source_sha256": "99c25cd2c82ddabd717a30f01e57f1f4f7b6e0ef4babf0b61ef132ca5cb31326",
+      "collector_binding_sha256": "8afe7ae33baefe816a02f9b474ccca52cac65f5b5fd771e8b1629602c3d92788",
+      "image_sha256": "cccff27bd0d88c99976dd4a548a6356025b0f2cc9329d005d55c5abb80728b9f",
+      "stdout_sha256": "11fdad7acad7ba3a7d157aa1d1654dda1c10c5848f893036c45749dc17bbace0",
+      "receipt_sha256": "63dfd293e3b564e7e0413b64fd158185d830efe46fb54facb49cf31a08e3ba43",
+      "pid": 8432,
+      "creation": "134383100189941312",
+      "calls": 3814,
+      "ntdll_filesystem_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_filesystem_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_filesystem_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "module_scope": "Filesystem context before/after; not loaded-child-module attestation."
+    },
+    {
+      "view": "x64",
+      "source": "native-process-error-mode-v1.cpp",
+      "cpp_source_sha256": "99c25cd2c82ddabd717a30f01e57f1f4f7b6e0ef4babf0b61ef132ca5cb31326",
+      "collector_binding_sha256": "bfd32723dacab7b90fa1b371bcb45da6638d117252bb7c20f6dd1abfd25514ea",
+      "image_sha256": "77e9be6195528bb3276a6c550a8cc0e4058f9e87a5c6d9b132e40691c18b5eb3",
+      "stdout_sha256": "42217dc7f2b188e183c8d093f2b89a27e7f6837d1431d8b73463f9d128b8eb79",
+      "receipt_sha256": "b7ac43226f970bfa4eb1b50a4a89412d38559953d9ea39d4465556a7dc146833",
+      "pid": 9108,
+      "creation": "134383100252535766",
+      "calls": 3814,
+      "ntdll_filesystem_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_filesystem_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_filesystem_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "module_scope": "Filesystem context before/after; not loaded-child-module attestation."
+    },
+    {
+      "view": "x86",
+      "source": "native-process-error-mode-v1.cpp",
+      "cpp_source_sha256": "99c25cd2c82ddabd717a30f01e57f1f4f7b6e0ef4babf0b61ef132ca5cb31326",
+      "collector_binding_sha256": "c7cef238f10d96b5e80db39d8fc1726471e52f053a006c61e176d7d959e76ec1",
+      "image_sha256": "fd97b623ad9c32c07811e863ae9710c5eeb76ff7db230334dd89a54c3e7633cb",
+      "stdout_sha256": "7bb92c1a7a5aa6376ede9854974099b4c4807d8388cf046a709ae1a5e267e5d1",
+      "receipt_sha256": "1df2c8867202550b1061904e356f22cc66cd917436deaa4d181f36f6325c696a",
+      "pid": 5904,
+      "creation": "134383100272924725",
+      "calls": 3814,
+      "ntdll_filesystem_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_filesystem_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_filesystem_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "module_scope": "Filesystem context before/after; not loaded-child-module attestation."
+    },
+    {
+      "view": "x86-laa",
+      "source": "native-process-error-mode-v1.cpp",
+      "cpp_source_sha256": "99c25cd2c82ddabd717a30f01e57f1f4f7b6e0ef4babf0b61ef132ca5cb31326",
+      "collector_binding_sha256": "e0760bbfcb7aa3e5e588b9bf6d798f7855de9a5bb684acb515e85286c7bba361",
+      "image_sha256": "66731cc212eb88359409c9642cf852e5aa3c2200848494380ed164d8d60ebdea",
+      "stdout_sha256": "3821fd62fa01261bcb77e48c3805c20cd2d15da665004ab2c9fa4d0860802186",
+      "receipt_sha256": "45cd0587ad245c171df0a6000878a4601b49d93ddb274a873e7b5c42510e230a",
+      "pid": 8612,
+      "creation": "134383100269301811",
+      "calls": 3814,
+      "ntdll_filesystem_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_filesystem_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_filesystem_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "module_scope": "Filesystem context before/after; not loaded-child-module attestation."
+    }
+  ],
+  "kernel": "Windows10.0.29698 ARM64; x64/x86 compatibility views, not physical AMD64 kernel proof.",
+  "utc": "2026-11-04T23:56:20.577949+00:00"
+}

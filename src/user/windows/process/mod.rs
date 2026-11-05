@@ -28,6 +28,7 @@ pub use super::dll::libraries::LoaderState;
 pub use fiber::FiberState;
 pub use sched::RunStatus;
 pub(crate) use sched::{continue_alertable, is_apc_dispatcher};
+pub(crate) mod error_mode;
 pub(crate) mod registry_notify;
 pub use thread::{Thread, ThreadState, UserApc};
 
@@ -342,6 +343,8 @@ pub struct Proc {
     /// Seed-derived opaque ProcessCookie value, stable across queries/threads.
     /// This compatibility value does not provide a cryptographic guarantee.
     pub(crate) process_cookie: u32,
+    /// Mutable native error-mode flags; shared by all threads in this process.
+    pub(crate) error_mode: error_mode::State,
     /// Private ProcessConsoleHostProcess value. The standalone root has no
     /// modeled parent (PID 0); creation therefore starts with owner tag 2.
     /// Native detached initialization replaces it with tag 1 through class49.

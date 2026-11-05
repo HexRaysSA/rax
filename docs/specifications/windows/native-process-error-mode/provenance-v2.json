@@ -1,0 +1,110 @@
+{
+  "rows": [
+    {
+      "kind": "inheritance",
+      "view": "arm64",
+      "image_sha256": "53d10f17f4a4e97e5bcf7c20687a323713e7c404002fa6db28156445ae293667",
+      "source_binding_sha256": "8b9d588fea1d7faa434dec52b216b813768d33eacbb5b44a17cb7e2a9c32b256",
+      "stdout_sha256": "fbf88c49c0f28b3db2b75e9b6b39a21c561c5db9bca82b124a2522dbb6791287",
+      "receipt_sha256": "ef2b3b2fd269abd650882c2284ac970dc0f70acfe6ad83b95a11b174b4d4a8f5",
+      "pid": 9592,
+      "creation": "134383103241433462",
+      "ntdll_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+    },
+    {
+      "kind": "inheritance",
+      "view": "x64",
+      "image_sha256": "b914a2c881a9a50834c84449dec1cddc71f776a2afda16a9e71b634e1896772a",
+      "source_binding_sha256": "f64514ab3b5615990f7f055ba94d946b175027f9ca4b3b573ed27a072e2f1252",
+      "stdout_sha256": "a6ee7d755ee0f28d49c293c8e596c5ab36f41888712e135e77d883f7194ae0ae",
+      "receipt_sha256": "0e16b14cea7bcaa66e409dc28348262a715a9170224d20d0dd21044d429a8626",
+      "pid": 6696,
+      "creation": "134383103250455599",
+      "ntdll_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+    },
+    {
+      "kind": "inheritance",
+      "view": "x86",
+      "image_sha256": "294533bc534d8335099dce08971b277743817bd300eba0d7465355604b5a9608",
+      "source_binding_sha256": "5558fa24c3b54b51a57b927ee2b9dce5cd4cafa68d01fd8103135c64fcccb052",
+      "stdout_sha256": "7e43bbba660e54111ea9e34f6af6870813d52a96b75bb99b75e58003a7fea5cf",
+      "receipt_sha256": "2901aa9512c9a3ff8112dcdbfc25de26ccb4e446b546a4c4674d2ccf44bf72e2",
+      "pid": 4416,
+      "creation": "134383103265717165",
+      "ntdll_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+    },
+    {
+      "kind": "inheritance",
+      "view": "x86-laa",
+      "image_sha256": "d536d72e7752a58819d37cae7428f7c067b055c994fc63bafe0ce771fc5cdd48",
+      "source_binding_sha256": "e589c06807a532a2351ef9c1016222596bf738b4cde54facf3a17699d16f40bb",
+      "stdout_sha256": "70a45bb671951f16bf9f2852b42e5ec80ab528e928c3cb253bc1e420f2071329",
+      "receipt_sha256": "06e4f349ffd6a78d180a39de1df110af41a05e276f7a2b9d76f62c43015161c3",
+      "pid": 4268,
+      "creation": "134383103278486454",
+      "ntdll_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+    },
+    {
+      "kind": "bounds",
+      "view": "arm64",
+      "image_sha256": "1ad91a11f3c16d0f1af028f2d474b782f20735a3ac2255b99c451dd71291f0eb",
+      "source_binding_sha256": "d27c1ec2e97c49ebcfe655f7cb4123325b1b7f57297e931ddcd1cbd078f9f816",
+      "stdout_sha256": "247da86e5b90d751610c50b84e8428f21aa32dbccc950e662887d6a2953d4879",
+      "receipt_sha256": "3d4818675ed97398d25d8d6279f95b20dc9c0f22171a647cc0e9964f95a47027",
+      "pid": 8372,
+      "creation": "134383104775097556",
+      "ntdll_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+    },
+    {
+      "kind": "bounds",
+      "view": "x64",
+      "image_sha256": "3fd7d551d06463065a1a189e044dccfc37d44dc7295dd620e10ae73373265c95",
+      "source_binding_sha256": "3bba0a3dc7e0627107820f9bb0303af1e8c63dbc03d7ab3e30f0aaa02d6684a2",
+      "stdout_sha256": "699fb2899aa42e8843db04a296eb7d022221589af7a74523594855a60bba556d",
+      "receipt_sha256": "422edf4036396b4b2d35d87c9eaf437d3426bba88b42187b360ff71374b6d777",
+      "pid": 7820,
+      "creation": "134383104757977091",
+      "ntdll_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+    },
+    {
+      "kind": "bounds",
+      "view": "x86",
+      "image_sha256": "2ab8ecdd80ebd08a358e4c6c553faa318261caf88c75646f47d46048db460658",
+      "source_binding_sha256": "942b30e562bec9cf208c7a158277875784b8f3b0de2d39b9d1fe3c50f24476f0",
+      "stdout_sha256": "e96c327de309e2985406bf538f3fed0b0caaadf9c02a5bcd9271fe255cca34dc",
+      "receipt_sha256": "be0734b9b6d213042dd3492ffcf7bb58b5ca9e16ea5a7790e1ef10f83641140c",
+      "pid": 3816,
+      "creation": "134383104780307444",
+      "ntdll_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+    },
+    {
+      "kind": "bounds",
+      "view": "x86-laa",
+      "image_sha256": "b3d3f02186ea680caea9db51aa867613742e56d011cdb0f7dd964c2c52f95f49",
+      "source_binding_sha256": "fd45b3bd5b5ec24d9929a7f6a1f9155b700668aa3c8d6561e1f58829f1c57f1b",
+      "stdout_sha256": "d16ad6c29ec4bafc762df631c343d92afb425933599917dd83209647f7b88e1c",
+      "receipt_sha256": "f53c1f41c1cd3e2635f720719fe66dbb7ed9250d6546e11acd8b1dce327e7c5b",
+      "pid": 4020,
+      "creation": "134383104798139642",
+      "ntdll_context_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_context_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_context_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+    }
+  ],
+  "scope": "Four caller views on ARM64 Windows29698; filesystem context hashes do not attest loaded modules.",
+  "utc": "2026-11-05T00:02:19.637786+00:00"
+}

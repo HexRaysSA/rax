@@ -6,6 +6,14 @@ use super::super::layout::offsets;
 use super::super::memory::Mem;
 use super::super::nt::error::*;
 
+mod error_mode;
+
+/// Appended separately so existing synthetic ordinals remain stable.
+pub(super) static ERROR_MODE_EXPORTS: &[Export] = &[
+    Export::func("GetErrorMode", Stdcall, &[], error_mode::get),
+    Export::func("SetErrorMode", Stdcall, &[I32], error_mode::set),
+];
+
 pub(super) static EXPORTS: &[Export] = &[
     Export::func("ExitProcess", Stdcall, &[I32], exit_process),
     Export::func("ExitThread", Stdcall, &[I32], exit_thread),

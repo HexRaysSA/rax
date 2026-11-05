@@ -9,6 +9,11 @@ mod wow64_information;
 #[path = "process_query_tests/execute_flags_set.rs"]
 mod execute_flags_set;
 
+#[path = "process_query_tests/error_mode.rs"]
+mod error_mode;
+#[path = "process_query_tests/error_mode_replay.rs"]
+mod error_mode_replay;
+
 fn arguments(p: &mut Proc, t: &mut Thread, handle: u64, class: u32, out: u64, len: u32, ret: u64) {
     let sp = t.cpu.sp();
     t.cpu.set_pc(0x1234_0004);
