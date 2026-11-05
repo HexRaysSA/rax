@@ -26,7 +26,9 @@ use crate::isa::arm::aarch32::vfp::{
     vnmul_f64, vorn, vorr, vrev, vrint_f16_bits, vrint_f32, vrint_f64, vsqrt_f16_bits, vsqrt_f32,
     vsqrt_f64, vsub_f16_bits, vsub_f32, vsub_f64, vsub_i,
 };
-use crate::isa::arm::decoder::{Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType};
+use crate::isa::arm::decoder::{
+    Aarch32Decoder, Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType,
+};
 
 impl<'a, M: ArmMemory> Executor<'a, M> {
     pub(crate) fn is_neon_abs_neg(raw: u32) -> bool {
@@ -112,11 +114,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn is_neon_modified_immediate_shape(raw: u32) -> bool {
-        (raw >> 25) == 0b1111001
-            && ((raw >> 23) & 1) == 1
-            && ((raw >> 7) & 1) == 0
-            && ((raw >> 4) & 1) == 1
-            && (((raw >> 8) & 0xF) != 0b1111 || ((raw >> 5) & 1) == 0)
+        Aarch32Decoder::is_neon_modified_immediate_shape(raw)
     }
 
     pub(crate) fn is_neon_directed_convert_shape(raw: u32) -> bool {

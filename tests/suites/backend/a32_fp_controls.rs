@@ -707,3 +707,6 @@ mod shift_immediate;
 
 #[path = "a32_fp_controls/widen_narrow.rs"]
 mod widen_narrow;
+
+#[path = "a32_fp_controls/modified_immediate.rs"]
+mod modified_immediate;

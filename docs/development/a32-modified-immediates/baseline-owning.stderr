@@ -1,0 +1,100 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling libc v0.2.189
+   Compiling syn v3.0.5
+   Compiling serde_core v1.0.229
+   Compiling jobserver v0.1.35
+   Compiling version_check v0.9.5
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.12
+   Compiling generic-array v0.14.7
+   Compiling cc v1.4.5
+   Compiling cfg-if v1.0.4
+   Compiling pkg-config v0.3.34
+   Compiling zstd-sys v2.1.2+zstd.1.5.7
+   Compiling typenum v1.20.1
+   Compiling objc2 v0.6.4
+   Compiling utf8parse v0.2.2
+   Compiling thiserror v2.0.20
+   Compiling cfg_aliases v0.2.2
+   Compiling once_cell v1.21.4
+   Compiling objc2-encode v4.1.0
+   Compiling tracing-core v0.1.36
+   Compiling nix v0.31.3
+   Compiling anstyle-parse v1.0.0
+   Compiling thiserror-impl v2.0.20
+   Compiling syn v2.0.119
+   Compiling serde v1.0.229
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling anstyle-query v1.1.5
+   Compiling bitflags v2.13.2
+   Compiling zmij v1.0.23
+   Compiling zstd-safe v8.2.0
+   Compiling colorchoice v1.0.5
+   Compiling anstyle v1.0.14
+   Compiling regex-syntax v0.8.11
+   Compiling log v0.4.34
+   Compiling tracing-attributes v0.1.31
+   Compiling regex-automata v0.4.18
+   Compiling anstream v1.0.0
+   Compiling block2 v0.6.2
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling scroll_derive v0.13.2
+   Compiling serde_derive v1.0.229
+   Compiling serde_json v1.0.151
+   Compiling heck v0.5.0
+   Compiling clap_lex v1.1.0
+   Compiling getrandom v0.4.3
+   Compiling strsim v0.11.1
+   Compiling lazy_static v1.5.0
+   Compiling pin-project-lite v0.2.17
+   Compiling winnow v1.0.4
+   Compiling tracing v0.1.44
+   Compiling toml_parser v1.1.5+spec-1.1.0
+   Compiling sharded-slab v0.1.7
+   Compiling clap_builder v4.6.6
+   Compiling clap_derive v4.6.4
+   Compiling scroll v0.13.0
+   Compiling digest v0.10.7
+   Compiling matchers v0.2.0
+   Compiling dispatch2 v0.3.1
+   Compiling vm-memory v0.17.1 (/Users/int/dev/rax/vendor/vm-memory)
+   Compiling tracing-log v0.2.0
+   Compiling toml_datetime v1.1.2+spec-1.1.0
+   Compiling serde_spanned v1.1.2
+   Compiling thread_local v1.1.10
+   Compiling cpufeatures v0.2.17
+   Compiling memchr v2.8.3
+   Compiling nu-ansi-term v0.50.3
+   Compiling plain v0.2.3
+   Compiling itoa v1.0.18
+   Compiling smallvec v1.16.0
+   Compiling toml_writer v1.1.3+spec-1.1.0
+   Compiling tracing-subscriber v0.3.23
+   Compiling toml v1.1.8+spec-1.1.0
+   Compiling goblin v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling ctrlc v3.5.2
+   Compiling linux-loader v0.13.2 (https://github.com/19h/linux-loader?rev=f745b555942c4e840a784bca61e6f3976d101960#f745b555)
+   Compiling zstd v0.14.3
+   Compiling clap v4.6.6
+   Compiling uklad v1.0.0
+   Compiling rax v0.1.0 (/Users/int/dev/rax)
+    Finished `test` profile [optimized] target(s) in 2m 33s
+     Running tests/suites/backend/a32_fp_controls.rs (/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-owner-8v5qu20w/debug/deps/a32_fp_controls-d83b96d0a6f2297b)
+
+thread 'modified_immediate::mixed_width_reserved_prefixes_do_not_select_fp_traps_or_retire' (378545539) panicked at tests/suites/backend/a32_fp_controls/modified_immediate.rs:280:13:
+raw=f2880b12
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'modified_immediate::reserved_prefixes_are_undefined_before_fp_access_without_effects' (378545540) panicked at tests/suites/backend/a32_fp_controls/modified_immediate.rs:232:17:
+f2880b12, denial=0: Continue
+
+thread 'modified_immediate::every_reserved_high_prefix_rejects_before_modified_immediate_allocation' (378545537) panicked at tests/suites/backend/a32_fp_controls/modified_immediate.rs:155:33:
+assertion `left == right` failed: raw=f2880b10
+  left: "vorr"
+ right: "udf"
+scalar mode matrix: 64312 completed, 73928 precise bounces
+error: test failed, to rerun pass `--test a32_fp_controls`

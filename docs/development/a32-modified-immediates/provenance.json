@@ -1,0 +1,90 @@
+{
+  "utc": "2026-11-05T19:14:16.942621+00:00",
+  "primary": {
+    "path": "docs/architecture/arm/asl/arm_instrs.asl",
+    "sha256": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+    "entries": [
+      {
+        "instruction": "aarch32_VMOV_i_A",
+        "modified_immediate_opcodes": [
+          "'1111001x 1x000xxx xxxx0xx0 0x01xxxx'",
+          "'1111001x 1x000xxx xxxx10x0 0x01xxxx'",
+          "'1111001x 1x000xxx xxxx11xx 0x01xxxx'",
+          "'1111001x 1x000xxx xxxx1110 0x11xxxx'",
+          "'111x1111 1x000xxx xxxx0xx0 0x01xxxx'",
+          "'111x1111 1x000xxx xxxx10x0 0x01xxxx'",
+          "'111x1111 1x000xxx xxxx11xx 0x01xxxx'",
+          "'111x1111 1x000xxx xxxx1110 0x11xxxx'"
+        ]
+      },
+      {
+        "instruction": "aarch32_VMVN_i_A",
+        "modified_immediate_opcodes": [
+          "'1111001x 1x000xxx xxxx0xx0 0x11xxxx'",
+          "'1111001x 1x000xxx xxxx10x0 0x11xxxx'",
+          "'1111001x 1x000xxx xxxx110x 0x11xxxx'",
+          "'111x1111 1x000xxx xxxx0xx0 0x11xxxx'",
+          "'111x1111 1x000xxx xxxx10x0 0x11xxxx'",
+          "'111x1111 1x000xxx xxxx110x 0x11xxxx'"
+        ]
+      },
+      {
+        "instruction": "aarch32_VORR_i_A",
+        "modified_immediate_opcodes": [
+          "'1111001x 1x000xxx xxxx0xx1 0x01xxxx'",
+          "'1111001x 1x000xxx xxxx10x1 0x01xxxx'",
+          "'111x1111 1x000xxx xxxx0xx1 0x01xxxx'",
+          "'111x1111 1x000xxx xxxx10x1 0x01xxxx'"
+        ]
+      },
+      {
+        "instruction": "aarch32_VBIC_i_A",
+        "modified_immediate_opcodes": [
+          "'1111001x 1x000xxx xxxx0xx1 0x11xxxx'",
+          "'1111001x 1x000xxx xxxx10x1 0x11xxxx'",
+          "'111x1111 1x000xxx xxxx0xx1 0x11xxxx'",
+          "'111x1111 1x000xxx xxxx10x1 0x11xxxx'"
+        ]
+      }
+    ]
+  },
+  "tools": {
+    "llvm-mc": {
+      "resolved_path": "/Users/int/local/bin/llvm-mc",
+      "sha256": "0311e88d2281780e2784cd7657bcdc71b70044fa4c530c89a5431a45acc1b971",
+      "version": [
+        "LLVM (http://llvm.org/):",
+        "  LLVM version 23.0.0git",
+        "  Optimized build."
+      ]
+    },
+    "ld.lld": {
+      "resolved_path": "/Users/int/local/bin/lld",
+      "sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd",
+      "version": [
+        "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d) (compatible with GNU linkers)"
+      ]
+    },
+    "qemu-system-arm": {
+      "resolved_path": "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-arm",
+      "sha256": "121d02f5d368300139d1ae21dc75595b434d7b6318c221b23886fdb28aecd876",
+      "version": [
+        "QEMU emulator version 11.1.2",
+        "Copyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers"
+      ]
+    }
+  },
+  "rustc_version_verbose": [
+    "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "binary: rustc",
+    "commit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67",
+    "commit-date: 2026-10-13",
+    "host: aarch64-apple-darwin",
+    "release: 1.99.1",
+    "LLVM version: 23.1.1"
+  ],
+  "qemu_receipt": "qemu-result.json",
+  "raw_evidence_directory": "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/modified-immediate-admission-v1/complete-qemu-v1",
+  "observations_policy": "Retain full observations and case descriptions in the local audit directory; the repository keeps the reproducible harness and compact receipt. Generated guest source, objects and executable are removed after execution.",
+  "baseline_log_normalization": "Removed trailing empty lines only; complete original bytes remain in the local audit directory."
+}

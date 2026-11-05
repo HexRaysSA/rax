@@ -1,0 +1,61 @@
+{
+  "cases": 33912,
+  "legal": 31744,
+  "reserved": 2168,
+  "all_match": true,
+  "steps": [
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv7a-none-eabi",
+        "-filetype=obj",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.S",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.o"
+      ],
+      "exit_code": 0,
+      "seconds": 1.1044775419868529
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.ld",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.o",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.08967708295676857
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-arm",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a15",
+        "-m",
+        "128M",
+        "-nographic",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting",
+        "-kernel",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 1.4630615829955786
+    }
+  ],
+  "source_bytes": 17476329,
+  "source_sha256": "4aebb7f023f8ccc4112cd194f3b772084add12f39f42f22af50300374a76a6df",
+  "harness_sha256": "ec0c1f86078413b1ee5174b4fae61a62ef9f3be9cdf4df9a416485e2d8a8113b",
+  "support_sha256": "527697500295b4a310c7a889e309cc181d09bf1bafc3bacd2f5da63d314c5c6a",
+  "executable_sha256": "6c6109e5974cf457a84bd2a2975d279246c2d4c0e4e3b07cb3aef39e92728748",
+  "observations_sha256": "26e295c11a3ddf6b3a80ab85ac7d7661a3bbe4328dbf9032ecddc8e6c37f2933",
+  "owned_compilation_directory_removed": true,
+  "scope": "Independent QEMU Cortex-A15; exact completion class, D0/D1 and FPSCR. No physical AArch32 claim."
+}

@@ -1,0 +1,516 @@
+{
+  "utc": "2026-11-05T19:31:08.358168+00:00",
+  "status": "locally_validated",
+  "full_goal_complete": false,
+  "original_base_head": "304b486ead15375a23952e8eaa315a9db96c9198",
+  "engine_source_digest": "1acd926b035eaf2b531c2e18f04e7bac628345af7e8870c988d8bfe39671b0a3",
+  "engine_inputs_count": 4493,
+  "production_delta": [
+    {
+      "path": "src/isa/arm/aarch32/instructions/neon/helpers.rs",
+      "before": "cd69e297a60fdb134630505ad1bea528f8b9c76114059eb3a34b133ae8158c8c",
+      "after": "076024bc68ab2f5b46e1ea347ad0391186017487e6acf174943769ce376a055c"
+    },
+    {
+      "path": "src/isa/arm/decoder/aarch32/neon/shift_imm.rs",
+      "before": "f1a9a4f7dc3351611d144d9640d30dea4eed7f9dd91502f12c16e59278794e99",
+      "after": "46066d67ee2adacd9b6fab082e4ea5815be16c74df8eabf83d4ca02fae4320e4"
+    }
+  ],
+  "test_inputs": {
+    "tests/suites/backend/a32_fp_controls.rs": "26fb037829d106b4e777447c3fd5372c03a53842c419a1b0ac8bb50171d25cdb",
+    "tests/suites/backend/a32_fp_controls/base_precision.rs": "d1efc91a5c97e78e5f28447be4b1619bfae074fd526a0b9c2fb4ac88903e736a",
+    "tests/suites/backend/a32_fp_controls/block_memory.rs": "e24fdaa712c52aa6807dcf6af98a698dfc4e5370dc72e245ce0b1a41b80f26d0",
+    "tests/suites/backend/a32_fp_controls/id_views.rs": "83f910b5cc1277edefbcb41caf2532110dd8ca5a70660d69996d8d62b45a3ad5",
+    "tests/suites/backend/a32_fp_controls/misc_registers.rs": "17f1ec9ae14d79b18d09552830522f56fb490d03a6512fbe8699dbab9cba95e8",
+    "tests/suites/backend/a32_fp_controls/modified_immediate.rs": "4f2f1b3a6672c734752a7fe35e17de08d7c0fe361530c7acf84bd2e6d38d4979",
+    "tests/suites/backend/a32_fp_controls/multiply_long_selector.rs": "cbb5f717fffd5666bdc2acebe942c1f61dbe6c767182a2770f41ab90ee7d2589",
+    "tests/suites/backend/a32_fp_controls/register_banks.rs": "81f6a3c1878b3b7b47b3d6c82fbd68188f1dbb4fed873afafccfcf0c325eb456",
+    "tests/suites/backend/a32_fp_controls/restricted_modes.rs": "ae1f4be472b34db670cc36d809c2e526627b8b01b89ca657341ed67cc114dab0",
+    "tests/suites/backend/a32_fp_controls/scalar_selector.rs": "bcddefa670588d988377dae7590c6c51523ba98fa8736b8ff17fef4a2dbb128e",
+    "tests/suites/backend/a32_fp_controls/shift_immediate.rs": "8f3e77db0da7bf127456b96aa17a1271f0e7318f062d0ec5b7e76389df5a16cb",
+    "tests/suites/backend/a32_fp_controls/simd_base.rs": "576e14eed26701830d1ba936be79d60823ca72cd4311f9e9eed963b020a3393f",
+    "tests/suites/backend/a32_fp_controls/simd_single.rs": "e77dc04eeeac90f57b3b54b5f424459ce31e1d4519bd9f2053cd03629123e833",
+    "tests/suites/backend/a32_fp_controls/structure_memory.rs": "ebd05fd64aa5040792c05d18d1156de651b204d8217d2046e9d5daa3764564b9",
+    "tests/suites/backend/a32_fp_controls/widen_narrow.rs": "60b061ba8a848763cdec0e22f8487783d5da01b01772b6e2705f77bdbc95b0db"
+  },
+  "baseline": {
+    "label": "owning-baseline",
+    "state": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "--",
+        "--nocapture"
+      ],
+      "wrapper_pid": 29214,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-owner-8v5qu20w",
+      "engine_source_digest": "8229e2061cd2e5b8de64e0ff45bf562b249203892bca15907d5bf24fe1eba050",
+      "pid": 29306,
+      "exit_code": 101,
+      "seconds": 156.5285749169998,
+      "engine_source_unchanged": true
+    },
+    "results": [
+      {
+        "status": "FAILED",
+        "passed": 126,
+        "failed": 3,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0,
+        "seconds": 2.56
+      }
+    ],
+    "stdout_sha256": "515dcbd124a98929c13730cc7d0f6a8028ad8da276bdbdfbd54adebb745393ef",
+    "stderr_sha256": "d238cbe936baa3df805c55b82c59bf9e5ef58766bead457fd9f2b8d16f326ca1"
+  },
+  "runs": [
+    {
+      "label": "owning-fixed",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--test",
+          "a32_fp_controls",
+          "--",
+          "--nocapture"
+        ],
+        "wrapper_pid": 21666,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-owner-8v5qu20w",
+        "engine_source_digest": "1acd926b035eaf2b531c2e18f04e7bac628345af7e8870c988d8bfe39671b0a3",
+        "pid": 21720,
+        "exit_code": 0,
+        "seconds": 138.3810762920184,
+        "engine_source_unchanged": true
+      },
+      "results": [
+        {
+          "status": "ok",
+          "passed": 129,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "seconds": 1.41
+        }
+      ],
+      "stdout_sha256": "afdad5512cc9ba78a4aea3bb9dc33333b72269317bcae056d1526d703c5e5baa",
+      "stderr_sha256": "00898c19a486e93ec68cd5771ae1449e1f0ad0657a6c61ce7fec8cfaf4ed9993"
+    },
+    {
+      "label": "no-jit-controls",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "env",
+          "RAX_NO_JIT=1",
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--test",
+          "a32_fp_controls",
+          "--",
+          "--nocapture"
+        ],
+        "wrapper_pid": 88313,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-owner-8v5qu20w",
+        "engine_source_digest": "1acd926b035eaf2b531c2e18f04e7bac628345af7e8870c988d8bfe39671b0a3",
+        "pid": 89250,
+        "exit_code": 0,
+        "seconds": 1.5442396249854937,
+        "engine_source_unchanged": true
+      },
+      "results": [
+        {
+          "status": "ok",
+          "passed": 129,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "seconds": 1.35
+        }
+      ],
+      "stdout_sha256": "1c2478b730767ccf31465d1bb835b810858d6996dba552aa7c8c5514b1bcdc0b",
+      "stderr_sha256": "de7d2d81ad918eef7d2db612c8719a2a8f568223204fd042b329a367a3541abb"
+    },
+    {
+      "label": "semantic-gates",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--test",
+          "arm_vfp_a32",
+          "--test",
+          "a32_fp_pairs",
+          "--test",
+          "arm",
+          "--test",
+          "isa_oracle",
+          "--test",
+          "smir_jit_aarch32_aarch64",
+          "--test",
+          "smir_jit_thumb_aarch64",
+          "--",
+          "--test-threads=1"
+        ],
+        "wrapper_pid": 88313,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-owner-8v5qu20w",
+        "engine_source_digest": "1acd926b035eaf2b531c2e18f04e7bac628345af7e8870c988d8bfe39671b0a3",
+        "pid": 89275,
+        "exit_code": 0,
+        "seconds": 209.15588229091372,
+        "engine_source_unchanged": true
+      },
+      "results": [
+        {
+          "status": "ok",
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "seconds": 0.01
+        },
+        {
+          "status": "ok",
+          "passed": 46850,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "seconds": 83.11
+        },
+        {
+          "status": "ok",
+          "passed": 524,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "seconds": 13.6
+        },
+        {
+          "status": "ok",
+          "passed": 102,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "seconds": 0.05
+        },
+        {
+          "status": "ok",
+          "passed": 26,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "seconds": 0.03
+        },
+        {
+          "status": "ok",
+          "passed": 25,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "seconds": 0.02
+        }
+      ],
+      "stdout_sha256": "cc891082feb5549132638ffbc694f92df436403c9929cd2f7d3fbf20bd53f6cf",
+      "stderr_sha256": "12bd80e94770205d7c5aeacfcba7a205451d673f96e51ef22af4a07a167c79f0"
+    },
+    {
+      "label": "capi",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "-p",
+          "rax-capi",
+          "--features",
+          "jit"
+        ],
+        "wrapper_pid": 88313,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-owner-8v5qu20w",
+        "engine_source_digest": "1acd926b035eaf2b531c2e18f04e7bac628345af7e8870c988d8bfe39671b0a3",
+        "pid": 63821,
+        "exit_code": 0,
+        "seconds": 141.2868615000043,
+        "engine_source_unchanged": true
+      },
+      "results": [
+        {
+          "status": "ok",
+          "passed": 246,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "seconds": 1.88
+        },
+        {
+          "status": "ok",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "seconds": 0.0
+        }
+      ],
+      "stdout_sha256": "f496f0ad0ad4e5c274ff5dd006e2ec87170e0bce3887a40a80231650920fa6d5",
+      "stderr_sha256": "af3f25864206c3c22e734f15827fe8a2eee9165f111ae03672d27fd569bf085c"
+    },
+    {
+      "label": "clippy",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "clippy",
+          "--locked",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug"
+        ],
+        "wrapper_pid": 88313,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-owner-8v5qu20w",
+        "engine_source_digest": "1acd926b035eaf2b531c2e18f04e7bac628345af7e8870c988d8bfe39671b0a3",
+        "pid": 9965,
+        "exit_code": 0,
+        "seconds": 141.7809060830623,
+        "engine_source_unchanged": true
+      },
+      "results": [],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "40a8eb3ba670b0d6b794603137d664552a4606b623daca0096e3c12e3cc7ee29"
+    },
+    {
+      "label": "all-target-build",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "build",
+          "--locked",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug"
+        ],
+        "wrapper_pid": 88313,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-owner-8v5qu20w",
+        "engine_source_digest": "1acd926b035eaf2b531c2e18f04e7bac628345af7e8870c988d8bfe39671b0a3",
+        "pid": 65572,
+        "exit_code": 0,
+        "seconds": 229.06315583304968,
+        "engine_source_unchanged": true
+      },
+      "results": [],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "01368da8b4117f6b568b7f5dc97445f8674396f9a71f803ce8006e13a90e6d05"
+    },
+    {
+      "label": "doctests",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--doc",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug"
+        ],
+        "wrapper_pid": 88313,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-owner-8v5qu20w",
+        "engine_source_digest": "1acd926b035eaf2b531c2e18f04e7bac628345af7e8870c988d8bfe39671b0a3",
+        "pid": 49855,
+        "exit_code": 0,
+        "seconds": 7.281480500008911,
+        "engine_source_unchanged": true
+      },
+      "results": [
+        {
+          "status": "ok",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "measured": 0,
+          "filtered": 0,
+          "seconds": 0.0
+        }
+      ],
+      "stdout_sha256": "345134692736b0e5224893ec1bc01df4a2846cb9b859a7dedf730cf54a6b23c6",
+      "stderr_sha256": "f4feec6222b0079ebd48234518f0b85d8fdd2e79b6c14902b97f58db8a577f81"
+    }
+  ],
+  "independent_qemu": {
+    "cases": 33912,
+    "legal": 31744,
+    "reserved": 2168,
+    "all_match": true,
+    "steps": [
+      {
+        "argv": [
+          "/Users/int/local/bin/llvm-mc",
+          "-triple=armv7a-none-eabi",
+          "-filetype=obj",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.S",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 1.1044775419868529
+      },
+      {
+        "argv": [
+          "/Users/int/local/bin/ld.lld",
+          "-T",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.ld",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.o",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.08967708295676857
+      },
+      {
+        "argv": [
+          "/opt/homebrew/bin/qemu-system-arm",
+          "-machine",
+          "virt",
+          "-cpu",
+          "cortex-a15",
+          "-m",
+          "128M",
+          "-nographic",
+          "-monitor",
+          "none",
+          "-serial",
+          "stdio",
+          "-semihosting",
+          "-kernel",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-qemu-tnk7qd3i/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 1.4630615829955786
+      }
+    ],
+    "source_bytes": 17476329,
+    "source_sha256": "4aebb7f023f8ccc4112cd194f3b772084add12f39f42f22af50300374a76a6df",
+    "harness_sha256": "ec0c1f86078413b1ee5174b4fae61a62ef9f3be9cdf4df9a416485e2d8a8113b",
+    "support_sha256": "527697500295b4a310c7a889e309cc181d09bf1bafc3bacd2f5da63d314c5c6a",
+    "executable_sha256": "6c6109e5974cf457a84bd2a2975d279246c2d4c0e4e3b07cb3aef39e92728748",
+    "observations_sha256": "26e295c11a3ddf6b3a80ab85ac7d7661a3bbe4328dbf9032ecddc8e6c37f2933",
+    "owned_compilation_directory_removed": true,
+    "scope": "Independent QEMU Cortex-A15; exact completion class, D0/D1 and FPSCR. No physical AArch32 claim."
+  },
+  "change_surface": {
+    "decode": "Restrict the modified-immediate allocation to its fixed bits; preserve all earlier shift/narrow/widen/fixed-conversion dispatch.",
+    "execute": "Reuse that allocation predicate for the existing VMOV/VMVN/VORR/VBIC execution dispatch. Literal expansion and architectural state representation remain unchanged.",
+    "profile": "Undefined allocated/reserved distinction must precede FP capability and access selection; preserve legal SIMD integer/storage profiles and mixed-width EC7 traps.",
+    "smir_native": "Existing vector rejection at the exact guest address; complete native scalar targets.",
+    "state_memory_cabi": "No state, memory model, checkpoint format or C ABI changes."
+  },
+  "assumption_register": [
+    {
+      "id": "M1",
+      "assumption": "Modified-immediate bits21:19 are fixed zero and nonzero op0xb controls have no higher-priority allocation.",
+      "stress_test": "All56 high-immediate values, both ISAs, high literal bit, operation bit and D/Q length; valid canonical literal fields and every higher-priority immediate family.",
+      "falsification_probe": "A selected reserved encoding has a primary-defined allocation or executes on the reference.",
+      "status": "confirmed within the recorded domain"
+    },
+    {
+      "id": "M2",
+      "assumption": "Canonical literals retain their architectural results.",
+      "dependent_result": "The fixed-field repair preserves existing legal encodings and data behavior.",
+      "stress_test": "All256 literal values and31 legal mode/opcode combinations, both ISAs and lengths, high D indices and full-bank comparisons.",
+      "falsification_probe": "A legal literal is rejected or an exact QEMU/direct result differs.",
+      "status": "confirmed by independent QEMU and complete owning controls"
+    },
+    {
+      "id": "M3",
+      "assumption": "Earlier valid immediate families retain their allocation.",
+      "dependent_result": "The fallback predicate cannot shadow valid shift/narrow/widen/fixed-conversion dispatch.",
+      "stress_test": "Complete owning, ARM and VFP targets, including the existing field/count matrices.",
+      "falsification_probe": "An existing valid neighboring control changes decode or architectural outcome.",
+      "status": "confirmed within the represented and recorded target scopes"
+    },
+    {
+      "id": "M4",
+      "assumption": "Vector literal operations retain their scalar-native frontier.",
+      "dependent_result": "No additional native FP/vector admission.",
+      "stress_test": "Exact Unsupported address controls, complete native scalar targets and no-JIT owning controls.",
+      "falsification_probe": "A literal encoding is newly admitted to native execution or loses its precise frontier.",
+      "status": "confirmed within the recorded domain"
+    }
+  ],
+  "matrix_counts": {
+    "canonical_decode": 1015808,
+    "reserved_prefix_decode": 458752,
+    "legal_execution": 111104
+  },
+  "format": {
+    "exit_code": 0
+  },
+  "unrun_gates": [
+    "No new unfiltered full-root library run for this two-file allocation predicate repair. Complete unfiltered owning integration and affected semantic/workspace targets are recorded. The earlier full-root result is pinned in a32-widen-narrow/qualification.json.",
+    "No physical AArch32 vector execution; independent reference execution is QEMU Cortex-A15.",
+    "No new native Intel or complete backend/private/SMP/IRQ/clock/replay qualification is claimed by this A32 component."
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Remaining profile/security/debug, complete backend/private/in-flight/coordinated restore, IRQ/clock/replay and streaming-FPSR requirements remain open.",
+      "blocks_full_goal": true
+    }
+  ],
+  "quality_gates": {
+    "assumptions": "reconciled",
+    "coverage": "complete_within_component",
+    "provenance": "retained_primary_masks_and_independent_QEMU",
+    "contradictions": "three_observed_owning_failures_repaired_without_changing_architectural_expectations",
+    "bounded_scope": "full_goal_retained",
+    "worktree_integrity": "exact_owned_paths",
+    "behavioral_evidence": "complete_owning_JIT_and_no_JIT_and_affected_targets",
+    "repository_consistency": "registered_tests_and_workspace_gates"
+  }
+}

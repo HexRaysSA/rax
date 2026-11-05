@@ -1,0 +1,23 @@
+{
+  "state": "completed",
+  "argv": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "--no-default-features",
+    "--features",
+    "x86_64-suite,smir-jit,hvf,debug",
+    "--test",
+    "a32_fp_controls",
+    "--",
+    "--nocapture"
+  ],
+  "wrapper_pid": 29214,
+  "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-modimm-owner-8v5qu20w",
+  "engine_source_digest": "8229e2061cd2e5b8de64e0ff45bf562b249203892bca15907d5bf24fe1eba050",
+  "pid": 29306,
+  "exit_code": 101,
+  "seconds": 156.5285749169998,
+  "engine_source_unchanged": true
+}

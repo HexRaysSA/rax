@@ -15,12 +15,19 @@ impl Aarch32Decoder {
         ))
     }
 
+    pub(crate) fn is_neon_modified_immediate_shape(raw: u32) -> bool {
+        // Arm ASL VMOV/VMVN/VORR/VBIC (immediate): bits21:19 are fixed
+        // zero. An unmatched neighboring encoding must not fall through here.
+        (raw >> 25) == 0b1111001
+            && ((raw >> 23) & 1) == 1
+            && ((raw >> 19) & 7) == 0
+            && ((raw >> 7) & 1) == 0
+            && ((raw >> 4) & 1) == 1
+            && (((raw >> 8) & 15) != 15 || ((raw >> 5) & 1) == 0)
+    }
+
     pub(crate) fn decode_neon_modified_immediate(raw: u32) -> Option<DecodedInsn> {
-        if (raw >> 25) != 0b1111001
-            || ((raw >> 23) & 1) != 1
-            || ((raw >> 7) & 1) != 0
-            || ((raw >> 4) & 1) != 1
-        {
+        if !Self::is_neon_modified_immediate_shape(raw) {
             return None;
         }
 
