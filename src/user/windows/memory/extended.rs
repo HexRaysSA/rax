@@ -36,11 +36,7 @@ pub(super) fn validate_private(
     if size == 0 || allocation_type & !KNOWN != 0 || allocation_type == 0 {
         return Err(VmError::InvalidParameter);
     }
-    if !valid_protection(protect)
-        || matches!(protect & 0xFF, prot::WRITECOPY | prot::EXECUTE_WRITECOPY)
-    {
-        return Err(VmError::InvalidProtection);
-    }
+    call_targets::allocation_protection(protect)?;
     Ok(())
 }
 

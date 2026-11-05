@@ -1,0 +1,35 @@
+{
+  "license": "CC-BY-4.0; full license retained alongside the original documents.",
+  "sources": [
+    {
+      "file": "memory-protection-constants.md",
+      "title": "Memory Protection Constants",
+      "issuer": "Microsoft documentation project; license issued by Creative Commons",
+      "source_url": "https://github.com/MicrosoftDocs/win32/blob/docs/desktop-src/Memory/memory-protection-constants.md",
+      "retrieved_utc": "2026-11-05T18:45:45.321910+00:00",
+      "bytes": 17825,
+      "sha256": "0838e7ff8928745ba2543125aa121eb7dd0d1dfad1b060fcd61588f47e60a03c",
+      "preserved": "Exact UTF-8 content returned by the GitHub connector; no formatting or content edits."
+    },
+    {
+      "file": "pe-metadata.md",
+      "title": "PE metadata",
+      "issuer": "Microsoft documentation project; license issued by Creative Commons",
+      "source_url": "https://github.com/MicrosoftDocs/win32/blob/docs/desktop-src/SecBP/pe-metadata.md",
+      "retrieved_utc": "2026-11-05T18:45:45.322128+00:00",
+      "bytes": 21105,
+      "sha256": "6dd83acd24d65d17454bb4c70508036bc3f640eeff7ab9b4956f95543dbdefea",
+      "preserved": "Exact UTF-8 content returned by the GitHub connector; no formatting or content edits."
+    },
+    {
+      "file": "LICENSE-MicrosoftDocs.txt",
+      "title": "Creative Commons Attribution4.0 International",
+      "issuer": "Microsoft documentation project; license issued by Creative Commons",
+      "source_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE",
+      "retrieved_utc": "2026-11-05T18:45:45.322178+00:00",
+      "bytes": 18650,
+      "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e",
+      "preserved": "Exact UTF-8 content returned by the GitHub connector; no formatting or content edits."
+    }
+  ]
+}

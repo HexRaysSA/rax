@@ -126,6 +126,8 @@ fn native_cfg_collection_cannot_reuse_cached_or_unqualified_observations() {
         "docs/specifications/windows/native-cfg-private-code/**",
         "tools/ci/windows_cfg_private_code.py",
         "tools/ci/test_windows_cfg_private_code.py",
+        "tools/ci/windows_cfg_original_protection.py",
+        "tools/ci/test_windows_cfg_original_protection.py",
     ] {
         assert_eq!(
             workflow.matches(&format!("      - {source}\n")).count(),
@@ -142,12 +144,16 @@ fn native_cfg_collection_cannot_reuse_cached_or_unqualified_observations() {
         capture.contains(
             "python -B -m unittest discover -s tools/ci -p test_windows_cfg_private_code.py"
         ) && capture.contains("python -B tools/ci/windows_cfg_private_code.py")
+            && capture.contains(
+                "python -B -m unittest discover -s tools/ci -p test_windows_cfg_original_protection.py"
+            )
+            && capture.contains("python -B tools/ci/windows_cfg_original_protection.py")
     );
     assert_eq!(
         capture
             .matches("if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }")
             .count(),
-        2,
+        4,
         "a passing collector must not hide a failed provenance test"
     );
     let artifact = workflow_block(
@@ -156,13 +162,16 @@ fn native_cfg_collection_cannot_reuse_cached_or_unqualified_observations() {
     );
     assert!(
         artifact.contains("if: always()")
-            && artifact.contains("path: target/native-cfg-private-code-v1")
+            && artifact.contains("path: |")
+            && artifact.contains("target/native-cfg-private-code-v1")
+            && artifact.contains("target/native-cfg-original-protection-v1")
             && artifact.contains("if-no-files-found: error")
     );
     let setup = workflow_block(&job, "      - uses: ./.github/actions/setup-rust");
     assert!(
         setup.contains("workspaces: . -> target/native-csr-cargo")
             && !setup.contains("target/native-cfg-private-code-v1")
+            && !setup.contains("target/native-cfg-original-protection-v1")
     );
 }
 

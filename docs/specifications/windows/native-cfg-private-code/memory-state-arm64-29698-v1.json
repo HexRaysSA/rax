@@ -1,0 +1,744 @@
+{
+  "schema": "rax-native-private-cfg-memory-state-v1",
+  "captured_utc": "2026-11-05T19:07:38.194084+00:00",
+  "kernel": "10.0.29698.1000",
+  "source": "native-memory-state-v1.rs",
+  "source_sha256": "207bcda2d4f653bdbcb855d05bd993c032ee2e6b2fa7e08bd2a87352cea583b5",
+  "reports": [
+    {
+      "process_view": "arm64",
+      "native_machine": "ARM64",
+      "parent_pid": 2412,
+      "parent_creation": "134383791327371878",
+      "native_exit_code": 0,
+      "image_sha256": "2bc556e3a8b246fc7bdee7c5c7eca55a13a83fbe110dd0ebfb19f01281ecd585",
+      "image_bytes": 273920,
+      "compiler": "rustc 1.95.0",
+      "cfg_compiler_arguments": [
+        "-C control-flow-guard=yes",
+        "-C link-arg=/guard:cf"
+      ],
+      "dll_sha256": {
+        "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+        "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+        "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf"
+      },
+      "stdout_sha256": "42f183e123070b161fa3f02cf3bb46df522b611afae02400c048c84e034721f9",
+      "stdout": "STORAGE base=280eb720000 target=280eb740000 distance=1000 pre=0 pre_error=3e6 post=1 post_error=3e6 flags=3\nSTORAGE base=280ebb20000 target=280ebb40000 distance=10000 pre=0 pre_error=3e6 post=1 post_error=3e6 flags=3\nSTORAGE base=280ebf20000 target=280ebf40000 distance=20000 pre=0 pre_error=3e6 post=1 post_error=3e6 flags=3\nSTORAGE base=280ec320000 target=280ec340000 distance=3f000 pre=0 pre_error=3e6 post=1 post_error=3e6 flags=3\nSTORAGE base=280ec720000 target=280ec740000 distance=40000 pre=0 pre_error=3e6 post=0 post_error=3e6 flags=1\nSTORAGE base=280ecb20000 target=280ecb40000 distance=80000 pre=0 pre_error=3e6 post=0 post_error=3e6 flags=1\nSTORAGE base=280ecf20000 target=280ecf40000 distance=100000 pre=0 pre_error=3e6 post=0 post_error=3e6 flags=1\nCOMPLETE storage_controls=7 all_owned_allocations_released=true\nBEGIN_CASE case=default pid=9212\nCHILD_STDOUT case=default\nTARGET_STATE case=default base=27a8e300000 initial=00000040 reserved=false\nCALL case=default arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=default result=1234\nCOMPLETE case=default all_owned_allocations_released=true\n\nCHILD_STDERR case=default\n\nEND_CASE case=default exit=00000000\nBEGIN_CASE case=invalid pid=2360\nCHILD_STDOUT case=invalid\nTARGET_STATE case=invalid base=2c59e510000 initial=40000040 reserved=false\nCALL case=invalid arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid\n\nEND_CASE case=invalid exit=c0000409\nBEGIN_CASE case=invalid-mark-valid pid=6764\nCHILD_STDOUT case=invalid-mark-valid\nUPDATE_BEFORE base=226a9440000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=invalid-mark-valid base=226a9440000 initial=40000040 reserved=false\nCALL case=invalid-mark-valid arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=invalid-mark-valid result=1234\nCOMPLETE case=invalid-mark-valid all_owned_allocations_released=true\n\nCHILD_STDERR case=invalid-mark-valid\n\nEND_CASE case=invalid-mark-valid exit=00000000\nBEGIN_CASE case=default-mark-invalid pid=4868\nCHILD_STDOUT case=default-mark-invalid\nUPDATE_BEFORE base=19d7d190000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=default-mark-invalid base=19d7d190000 initial=00000040 reserved=false\nCALL case=default-mark-invalid arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=default-mark-invalid\n\nEND_CASE case=default-mark-invalid exit=c0000409\nBEGIN_CASE case=invalid-protect-no-update pid=4724\nCHILD_STDOUT case=invalid-protect-no-update\nTARGET_STATE case=invalid-protect-no-update base=2c5df2b0000 initial=40000040 reserved=false\nCALL case=invalid-protect-no-update arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-protect-no-update\n\nEND_CASE case=invalid-protect-no-update exit=c0000409\nBEGIN_CASE case=invalid-protect-default pid=6012\nCHILD_STDOUT case=invalid-protect-default\nTARGET_STATE case=invalid-protect-default base=18f50f60000 initial=40000040 reserved=false\nCALL case=invalid-protect-default arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-protect-default\n\nEND_CASE case=invalid-protect-default exit=c0000409\nBEGIN_CASE case=invalid-recommit-default pid=9396\nCHILD_STDOUT case=invalid-recommit-default\nTARGET_STATE case=invalid-recommit-default base=1dd25c20000 initial=40000040 reserved=false\nCALL case=invalid-recommit-default arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-recommit-default\n\nEND_CASE case=invalid-recommit-default exit=c0000409\nBEGIN_CASE case=default-recommit-invalid pid=8360\nCHILD_STDOUT case=default-recommit-invalid\nTARGET_STATE case=default-recommit-invalid base=265cfe40000 initial=00000040 reserved=false\nCALL case=default-recommit-invalid arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=default-recommit-invalid\n\nEND_CASE case=default-recommit-invalid exit=c0000409\nBEGIN_CASE case=invalid-decommit-recommit pid=3968\nCHILD_STDOUT case=invalid-decommit-recommit\nTARGET_STATE case=invalid-decommit-recommit base=20e08460000 initial=40000040 reserved=false\nCALL case=invalid-decommit-recommit arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-decommit-recommit\n\nEND_CASE case=invalid-decommit-recommit exit=c0000409\nBEGIN_CASE case=invalid-mark-invalid-then-valid pid=9148\nCHILD_STDOUT case=invalid-mark-invalid-then-valid\nUPDATE_BEFORE base=22be5c40000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nUPDATE_BEFORE base=22be5c40000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=invalid-mark-invalid-then-valid base=22be5c40000 initial=40000040 reserved=false\nCALL case=invalid-mark-invalid-then-valid arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=invalid-mark-invalid-then-valid result=1234\nCOMPLETE case=invalid-mark-invalid-then-valid all_owned_allocations_released=true\n\nCHILD_STDERR case=invalid-mark-invalid-then-valid\n\nEND_CASE case=invalid-mark-invalid-then-valid exit=00000000\nBEGIN_CASE case=default-unaligned pid=5920\nCHILD_STDOUT case=default-unaligned\nTARGET_STATE case=default-unaligned base=2612d990000 initial=00000040 reserved=false\nCALL case=default-unaligned arch=aarch64 cfg_policy=00000001 offset=4 expected_leaf=1234\nRETURN case=default-unaligned result=1234\nCOMPLETE case=default-unaligned all_owned_allocations_released=true\n\nCHILD_STDERR case=default-unaligned\n\nEND_CASE case=default-unaligned exit=00000000\nBEGIN_CASE case=invalid-mark-valid-unaligned pid=7552\nCHILD_STDOUT case=invalid-mark-valid-unaligned\nUPDATE_BEFORE base=24cacc20000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=invalid-mark-valid-unaligned base=24cacc20000 initial=40000040 reserved=false\nCALL case=invalid-mark-valid-unaligned arch=aarch64 cfg_policy=00000001 offset=4 expected_leaf=1234\n\nCHILD_STDERR case=invalid-mark-valid-unaligned\n\nEND_CASE case=invalid-mark-valid-unaligned exit=c0000409\nBEGIN_CASE case=default-mark-invalid-other-slot pid=8772\nCHILD_STDOUT case=default-mark-invalid-other-slot\nUPDATE_BEFORE base=22efe550000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=default-mark-invalid-other-slot base=22efe550000 initial=00000040 reserved=false\nCALL case=default-mark-invalid-other-slot arch=aarch64 cfg_policy=00000001 offset=16 expected_leaf=1234\nRETURN case=default-mark-invalid-other-slot result=1234\nCOMPLETE case=default-mark-invalid-other-slot all_owned_allocations_released=true\n\nCHILD_STDERR case=default-mark-invalid-other-slot\n\nEND_CASE case=default-mark-invalid-other-slot exit=00000000\nBEGIN_CASE case=invalid-mark-valid-other-slot pid=8388\nCHILD_STDOUT case=invalid-mark-valid-other-slot\nUPDATE_BEFORE base=1fdff7c0000 offset=10 flags=1\nUPDATE_AFTER result=1 error=6 offset=10 flags=3\nTARGET_STATE case=invalid-mark-valid-other-slot base=1fdff7c0000 initial=40000040 reserved=false\nCALL case=invalid-mark-valid-other-slot arch=aarch64 cfg_policy=00000001 offset=16 expected_leaf=1234\nRETURN case=invalid-mark-valid-other-slot result=1234\nCOMPLETE case=invalid-mark-valid-other-slot all_owned_allocations_released=true\n\nCHILD_STDERR case=invalid-mark-valid-other-slot\n\nEND_CASE case=invalid-mark-valid-other-slot exit=00000000\nBEGIN_CASE case=invalid-mark-valid-wrong-slot pid=7488\nCHILD_STDOUT case=invalid-mark-valid-wrong-slot\nUPDATE_BEFORE base=1f2469d0000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=invalid-mark-valid-wrong-slot base=1f2469d0000 initial=40000040 reserved=false\nCALL case=invalid-mark-valid-wrong-slot arch=aarch64 cfg_policy=00000001 offset=16 expected_leaf=1234\n\nCHILD_STDERR case=invalid-mark-valid-wrong-slot\n\nEND_CASE case=invalid-mark-valid-wrong-slot exit=c0000409\nBEGIN_CASE case=reserve-invalid-commit-default pid=9744\nCHILD_STDOUT case=reserve-invalid-commit-default\nTARGET_STATE case=reserve-invalid-commit-default base=8000110000 initial=40000040 reserved=true\nCALL case=reserve-invalid-commit-default arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=reserve-invalid-commit-default\n\nEND_CASE case=reserve-invalid-commit-default exit=c0000409\nBEGIN_CASE case=reserve-invalid-commit-invalid pid=5028\nCHILD_STDOUT case=reserve-invalid-commit-invalid\nTARGET_STATE case=reserve-invalid-commit-invalid base=ee66b90000 initial=40000040 reserved=true\nCALL case=reserve-invalid-commit-invalid arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=reserve-invalid-commit-invalid\n\nEND_CASE case=reserve-invalid-commit-invalid exit=c0000409\nBEGIN_CASE case=invalid-release-reuse pid=6368\nCHILD_STDOUT case=invalid-release-reuse\nTARGET_STATE case=invalid-release-reuse base=27e07780000 initial=40000040 reserved=false\nCALL case=invalid-release-reuse arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=invalid-release-reuse result=1234\nCOMPLETE case=invalid-release-reuse all_owned_allocations_released=true\n\nCHILD_STDERR case=invalid-release-reuse\n\nEND_CASE case=invalid-release-reuse exit=00000000\nBEGIN_CASE case=rw-mark-valid-no-update pid=3660\nCHILD_STDOUT case=rw-mark-valid-no-update\nUPDATE_BEFORE base=1fa7c120000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=rw-mark-valid-no-update base=1fa7c120000 initial=00000040 reserved=false\nCALL case=rw-mark-valid-no-update arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=rw-mark-valid-no-update result=1234\nCOMPLETE case=rw-mark-valid-no-update all_owned_allocations_released=true\n\nCHILD_STDERR case=rw-mark-valid-no-update\n\nEND_CASE case=rw-mark-valid-no-update exit=00000000\nBEGIN_CASE case=rw-mark-invalid-no-update pid=4152\nCHILD_STDOUT case=rw-mark-invalid-no-update\nUPDATE_BEFORE base=1fcd4ca0000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=rw-mark-invalid-no-update base=1fcd4ca0000 initial=00000040 reserved=false\nCALL case=rw-mark-invalid-no-update arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=rw-mark-invalid-no-update\n\nEND_CASE case=rw-mark-invalid-no-update exit=c0000409\nBEGIN_CASE case=rw-mark-invalid-default pid=3848\nCHILD_STDOUT case=rw-mark-invalid-default\nUPDATE_BEFORE base=20d6ba90000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=rw-mark-invalid-default base=20d6ba90000 initial=00000040 reserved=false\nCALL case=rw-mark-invalid-default arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=rw-mark-invalid-default\n\nEND_CASE case=rw-mark-invalid-default exit=c0000409\nBEGIN_CASE case=initial-rw-call pid=1980\nCHILD_STDOUT case=initial-rw-call\nTARGET_STATE case=initial-rw-call base=1ac0ac10000 initial=00000004 reserved=false\nCALL case=initial-rw-call arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=initial-rw-call\n\nEND_CASE case=initial-rw-call exit=c0000409\nBEGIN_CASE case=initial-rw-exec-default pid=3728\nCHILD_STDOUT case=initial-rw-exec-default\nTARGET_STATE case=initial-rw-exec-default base=191b0190000 initial=00000004 reserved=false\nCALL case=initial-rw-exec-default arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-exec-default result=1234\nCOMPLETE case=initial-rw-exec-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-exec-default\n\nEND_CASE case=initial-rw-exec-default exit=00000000\nBEGIN_CASE case=initial-rw-exec-no-update pid=6432\nCHILD_STDOUT case=initial-rw-exec-no-update\nTARGET_STATE case=initial-rw-exec-no-update base=2792aef0000 initial=00000004 reserved=false\nCALL case=initial-rw-exec-no-update arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=initial-rw-exec-no-update\n\nEND_CASE case=initial-rw-exec-no-update exit=c0000409\nBEGIN_CASE case=initial-rw-valid-exec-no-update pid=9612\nCHILD_STDOUT case=initial-rw-valid-exec-no-update\nUPDATE_BEFORE base=1af41b30000 offset=0 flags=1\nUPDATE_AFTER result=0 error=3e6 offset=0 flags=1\n\nCHILD_STDERR case=initial-rw-valid-exec-no-update\n\nthread 'main' (5744) panicked at /Users/int/.rax-arm64ec-pub-20261105/.task-evidence/windows-cfg-runtime-v1/native-cfg-extra-v8.rs:71:9:\nassertion `left != right` failed: target error 998\n  left: 0\n right: 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\nEND_CASE case=initial-rw-valid-exec-no-update exit=00000065\nBEGIN_CASE case=initial-rw-invalid-exec-default pid=6116\nCHILD_STDOUT case=initial-rw-invalid-exec-default\nUPDATE_BEFORE base=1ca6d630000 offset=0 flags=0\nUPDATE_AFTER result=0 error=3e6 offset=0 flags=0\n\nCHILD_STDERR case=initial-rw-invalid-exec-default\n\nthread 'main' (6176) panicked at /Users/int/.rax-arm64ec-pub-20261105/.task-evidence/windows-cfg-runtime-v1/native-cfg-extra-v8.rs:71:9:\nassertion `left != right` failed: target error 998\n  left: 0\n right: 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\nEND_CASE case=initial-rw-invalid-exec-default exit=00000065\nBEGIN_CASE case=reserve-default-call pid=9532\nCHILD_STDOUT case=reserve-default-call\nTARGET_STATE case=reserve-default-call base=c288d60000 initial=00000040 reserved=true\nCALL case=reserve-default-call arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nEXCEPTION code=c0000005 pc=c288d60000 count=2 kind=8 address=c288d60000\n\nCHILD_STDERR case=reserve-default-call\n\nEND_CASE case=reserve-default-call exit=c0000005\nBEGIN_CASE case=default-decommit-call pid=2108\nCHILD_STDOUT case=default-decommit-call\nTARGET_STATE case=default-decommit-call base=1dbc8980000 initial=00000040 reserved=false\nCALL case=default-decommit-call arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nEXCEPTION code=c0000005 pc=1dbc8980000 count=2 kind=8 address=1dbc8980000\n\nCHILD_STDERR case=default-decommit-call\n\nEND_CASE case=default-decommit-call exit=c0000005\nBEGIN_CASE case=default-release-call pid=5972\nCHILD_STDOUT case=default-release-call\nTARGET_STATE case=default-release-call base=1b35c8a0000 initial=00000040 reserved=false\nCALL case=default-release-call arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nEXCEPTION code=c0000005 pc=1b35c8a0000 count=2 kind=8 address=1b35c8a0000\n\nCHILD_STDERR case=default-release-call\n\nEND_CASE case=default-release-call exit=c0000005\nBEGIN_CASE case=initial-rw-neighbor-exec-valid pid=3080\nCHILD_STDOUT case=initial-rw-neighbor-exec-valid\nUPDATE_BEFORE base=1d27ef00000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=initial-rw-neighbor-exec-valid base=1d27ef00000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-exec-valid arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-neighbor-exec-valid result=1234\nCOMPLETE case=initial-rw-neighbor-exec-valid all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-neighbor-exec-valid\n\nEND_CASE case=initial-rw-neighbor-exec-valid exit=00000000\nBEGIN_CASE case=initial-rw-neighbor-exec-invalid pid=9412\nCHILD_STDOUT case=initial-rw-neighbor-exec-invalid\nUPDATE_BEFORE base=2365b4a0000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=initial-rw-neighbor-exec-invalid base=2365b4a0000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-exec-invalid arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=initial-rw-neighbor-exec-invalid\n\nEND_CASE case=initial-rw-neighbor-exec-invalid exit=c0000409\nBEGIN_CASE case=default-release-rw-register pid=3260\nCHILD_STDOUT case=default-release-rw-register\nUPDATE_BEFORE base=19a33d60000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=default-release-rw-register base=19a33d60000 initial=00000040 reserved=false\nCALL case=default-release-rw-register arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=default-release-rw-register result=1234\nCOMPLETE case=default-release-rw-register all_owned_allocations_released=true\n\nCHILD_STDERR case=default-release-rw-register\n\nEND_CASE case=default-release-rw-register exit=00000000\nBEGIN_CASE case=reserve-invalid-call pid=8544\nCHILD_STDOUT case=reserve-invalid-call\nTARGET_STATE case=reserve-invalid-call base=9569f20000 initial=40000040 reserved=true\nCALL case=reserve-invalid-call arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=reserve-invalid-call\n\nEND_CASE case=reserve-invalid-call exit=c0000409\nBEGIN_CASE case=invalid-decommit-call pid=7840\nCHILD_STDOUT case=invalid-decommit-call\nTARGET_STATE case=invalid-decommit-call base=20ba4e20000 initial=40000040 reserved=false\nCALL case=invalid-decommit-call arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-decommit-call\n\nEND_CASE case=invalid-decommit-call exit=c0000409\nBEGIN_CASE case=invalid-release-call pid=4356\nCHILD_STDOUT case=invalid-release-call\nTARGET_STATE case=invalid-release-call base=2bf94290000 initial=40000040 reserved=false\nCALL case=invalid-release-call arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-release-call\n\nEND_CASE case=invalid-release-call exit=c0000409\nBEGIN_CASE case=initial-rw-no-update-then-default pid=3948\nCHILD_STDOUT case=initial-rw-no-update-then-default\nTARGET_STATE case=initial-rw-no-update-then-default base=1f308a00000 initial=00000004 reserved=false\nCALL case=initial-rw-no-update-then-default arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-no-update-then-default result=1234\nCOMPLETE case=initial-rw-no-update-then-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-no-update-then-default\n\nEND_CASE case=initial-rw-no-update-then-default exit=00000000\nBEGIN_CASE case=initial-rw-neighbor-default pid=3372\nCHILD_STDOUT case=initial-rw-neighbor-default\nTARGET_STATE case=initial-rw-neighbor-default base=2801af80000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-default arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-neighbor-default result=1234\nCOMPLETE case=initial-rw-neighbor-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-neighbor-default\n\nEND_CASE case=initial-rw-neighbor-default exit=00000000\nBEGIN_CASE case=default-release-rw-call pid=10000\nCHILD_STDOUT case=default-release-rw-call\nTARGET_STATE case=default-release-rw-call base=1be26be0000 initial=00000040 reserved=false\nCALL case=default-release-rw-call arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nEXCEPTION code=c0000005 pc=1be26be0000 count=2 kind=8 address=1be26be0000\n\nCHILD_STDERR case=default-release-rw-call\n\nEND_CASE case=default-release-rw-call exit=c0000005\nBEGIN_CASE case=invalid-release-rw-call pid=4448\nCHILD_STDOUT case=invalid-release-rw-call\nTARGET_STATE case=invalid-release-rw-call base=1b19e490000 initial=40000040 reserved=false\nCALL case=invalid-release-rw-call arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-release-rw-call\n\nEND_CASE case=invalid-release-rw-call exit=c0000409\nBEGIN_CASE case=invalid-release-rw-exec pid=3076\nCHILD_STDOUT case=invalid-release-rw-exec\nTARGET_STATE case=invalid-release-rw-exec base=1cf4a460000 initial=40000040 reserved=false\nCALL case=invalid-release-rw-exec arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=invalid-release-rw-exec result=1234\nCOMPLETE case=invalid-release-rw-exec all_owned_allocations_released=true\n\nCHILD_STDERR case=invalid-release-rw-exec\n\nEND_CASE case=invalid-release-rw-exec exit=00000000\nBEGIN_CASE case=default-mark-valid-unaligned pid=3560\nCHILD_STDOUT case=default-mark-valid-unaligned\nUPDATE_BEFORE base=20259c80000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=default-mark-valid-unaligned base=20259c80000 initial=00000040 reserved=false\nCALL case=default-mark-valid-unaligned arch=aarch64 cfg_policy=00000001 offset=4 expected_leaf=1234\n\nCHILD_STDERR case=default-mark-valid-unaligned\n\nEND_CASE case=default-mark-valid-unaligned exit=c0000409\nBEGIN_CASE case=default-mark-invalid-then-valid-unaligned pid=5152\nCHILD_STDOUT case=default-mark-invalid-then-valid-unaligned\nUPDATE_BEFORE base=203a01b0000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nUPDATE_BEFORE base=203a01b0000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=default-mark-invalid-then-valid-unaligned base=203a01b0000 initial=00000040 reserved=false\nCALL case=default-mark-invalid-then-valid-unaligned arch=aarch64 cfg_policy=00000001 offset=4 expected_leaf=1234\n\nCHILD_STDERR case=default-mark-invalid-then-valid-unaligned\n\nEND_CASE case=default-mark-invalid-then-valid-unaligned exit=c0000409\nBEGIN_CASE case=initial-rw-neighbor-invalid-default pid=2432\nCHILD_STDOUT case=initial-rw-neighbor-invalid-default\nUPDATE_BEFORE base=1962add0000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=initial-rw-neighbor-invalid-default base=1962add0000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-invalid-default arch=aarch64 cfg_policy=00000001 offset=4 expected_leaf=1234\nRETURN case=initial-rw-neighbor-invalid-default result=1234\nCOMPLETE case=initial-rw-neighbor-invalid-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-neighbor-invalid-default\n\nEND_CASE case=initial-rw-neighbor-invalid-default exit=00000000\nBEGIN_CASE case=initial-rw-neighbor-valid-default pid=3088\nCHILD_STDOUT case=initial-rw-neighbor-valid-default\nUPDATE_BEFORE base=253f6bf0000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=initial-rw-neighbor-valid-default base=253f6bf0000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-valid-default arch=aarch64 cfg_policy=00000001 offset=4 expected_leaf=1234\nRETURN case=initial-rw-neighbor-valid-default result=1234\nCOMPLETE case=initial-rw-neighbor-valid-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-neighbor-valid-default\n\nEND_CASE case=initial-rw-neighbor-valid-default exit=00000000\nCOMPLETE controls=44 all_children_terminal=true\n",
+      "stderr": "",
+      "qualified_calls": [
+        {
+          "case": "default",
+          "pid": 9212,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "invalid",
+          "pid": 2360,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-mark-valid",
+          "pid": 6764,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "default-mark-invalid",
+          "pid": 4868,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-protect-no-update",
+          "pid": 4724,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-protect-default",
+          "pid": 6012,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-recommit-default",
+          "pid": 9396,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "default-recommit-invalid",
+          "pid": 8360,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-decommit-recommit",
+          "pid": 3968,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-mark-invalid-then-valid",
+          "pid": 9148,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "default-unaligned",
+          "pid": 5920,
+          "exit_code": "00000000",
+          "offset": 4,
+          "valid_target": true
+        },
+        {
+          "case": "invalid-mark-valid-unaligned",
+          "pid": 7552,
+          "exit_code": "c0000409",
+          "offset": 4,
+          "valid_target": false
+        },
+        {
+          "case": "default-mark-invalid-other-slot",
+          "pid": 8772,
+          "exit_code": "00000000",
+          "offset": 16,
+          "valid_target": true
+        },
+        {
+          "case": "invalid-mark-valid-other-slot",
+          "pid": 8388,
+          "exit_code": "00000000",
+          "offset": 16,
+          "valid_target": true
+        },
+        {
+          "case": "invalid-mark-valid-wrong-slot",
+          "pid": 7488,
+          "exit_code": "c0000409",
+          "offset": 16,
+          "valid_target": false
+        },
+        {
+          "case": "reserve-invalid-commit-default",
+          "pid": 9744,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "reserve-invalid-commit-invalid",
+          "pid": 5028,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-release-reuse",
+          "pid": 6368,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "rw-mark-valid-no-update",
+          "pid": 3660,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "rw-mark-invalid-no-update",
+          "pid": 4152,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "rw-mark-invalid-default",
+          "pid": 3848,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "initial-rw-call",
+          "pid": 1980,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "initial-rw-exec-default",
+          "pid": 3728,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-exec-no-update",
+          "pid": 6432,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "reserve-default-call",
+          "pid": 9532,
+          "exit_code": "c0000005",
+          "offset": 0,
+          "valid_target": true,
+          "instruction_fetch_fault": true
+        },
+        {
+          "case": "default-decommit-call",
+          "pid": 2108,
+          "exit_code": "c0000005",
+          "offset": 0,
+          "valid_target": true,
+          "instruction_fetch_fault": true
+        },
+        {
+          "case": "default-release-call",
+          "pid": 5972,
+          "exit_code": "c0000005",
+          "offset": 0,
+          "valid_target": true,
+          "instruction_fetch_fault": true
+        },
+        {
+          "case": "initial-rw-neighbor-exec-valid",
+          "pid": 3080,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-neighbor-exec-invalid",
+          "pid": 9412,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "default-release-rw-register",
+          "pid": 3260,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "reserve-invalid-call",
+          "pid": 8544,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-decommit-call",
+          "pid": 7840,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-release-call",
+          "pid": 4356,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "initial-rw-no-update-then-default",
+          "pid": 3948,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-neighbor-default",
+          "pid": 3372,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "default-release-rw-call",
+          "pid": 10000,
+          "exit_code": "c0000005",
+          "offset": 0,
+          "valid_target": true,
+          "instruction_fetch_fault": true
+        },
+        {
+          "case": "invalid-release-rw-call",
+          "pid": 4448,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-release-rw-exec",
+          "pid": 3076,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "default-mark-valid-unaligned",
+          "pid": 3560,
+          "exit_code": "c0000409",
+          "offset": 4,
+          "valid_target": false
+        },
+        {
+          "case": "default-mark-invalid-then-valid-unaligned",
+          "pid": 5152,
+          "exit_code": "c0000409",
+          "offset": 4,
+          "valid_target": false
+        },
+        {
+          "case": "initial-rw-neighbor-invalid-default",
+          "pid": 2432,
+          "exit_code": "00000000",
+          "offset": 4,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-neighbor-valid-default",
+          "pid": 3088,
+          "exit_code": "00000000",
+          "offset": 4,
+          "valid_target": true
+        }
+      ],
+      "excluded_preparatory_cases": [
+        {
+          "case": "initial-rw-valid-exec-no-update",
+          "pid": 9612,
+          "exit_code": "00000065",
+          "reason": "Fresh RW bitmap storage is address-history-dependent; this preparatory target update does not isolate target admission."
+        },
+        {
+          "case": "initial-rw-invalid-exec-default",
+          "pid": 6116,
+          "exit_code": "00000065",
+          "reason": "Fresh RW bitmap storage is address-history-dependent; this preparatory target update does not isolate target admission."
+        }
+      ],
+      "storage_controls": [
+        {
+          "distance_bytes": 4096,
+          "registration_succeeded": true
+        },
+        {
+          "distance_bytes": 65536,
+          "registration_succeeded": true
+        },
+        {
+          "distance_bytes": 131072,
+          "registration_succeeded": true
+        },
+        {
+          "distance_bytes": 258048,
+          "registration_succeeded": true
+        },
+        {
+          "distance_bytes": 262144,
+          "registration_succeeded": false
+        },
+        {
+          "distance_bytes": 524288,
+          "registration_succeeded": false
+        },
+        {
+          "distance_bytes": 1048576,
+          "registration_succeeded": false
+        }
+      ]
+    },
+    {
+      "process_view": "x64",
+      "native_machine": "AMD64 translated on ARM64",
+      "parent_pid": 7576,
+      "parent_creation": "134383791325800003",
+      "native_exit_code": 0,
+      "image_sha256": "75f4a2421d5da8c8432eaddfbb7a9ab018c16de24cc0896033775363a3859a64",
+      "image_bytes": 297984,
+      "compiler": "rustc 1.95.0",
+      "cfg_compiler_arguments": [
+        "-C control-flow-guard=yes",
+        "-C link-arg=/guard:cf"
+      ],
+      "dll_sha256": {
+        "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+        "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+        "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf"
+      },
+      "stdout_sha256": "2f20677de4d138849f460a393a6d823ee54847b395ce8c4d2d77128c1a2bd1cc",
+      "stdout": "STORAGE base=268d4740000 target=268d4740000 distance=1000 pre=0 pre_error=3e6 post=1 post_error=3e6 flags=3\nSTORAGE base=268d4b40000 target=268d4b40000 distance=10000 pre=0 pre_error=3e6 post=1 post_error=3e6 flags=3\nSTORAGE base=268d4f40000 target=268d4f40000 distance=20000 pre=0 pre_error=3e6 post=1 post_error=3e6 flags=3\nSTORAGE base=268d5340000 target=268d5340000 distance=3f000 pre=0 pre_error=3e6 post=1 post_error=3e6 flags=3\nSTORAGE base=268d5740000 target=268d5740000 distance=40000 pre=0 pre_error=3e6 post=0 post_error=3e6 flags=1\nSTORAGE base=268d5b40000 target=268d5b40000 distance=80000 pre=0 pre_error=3e6 post=0 post_error=3e6 flags=1\nSTORAGE base=268d5f40000 target=268d5f40000 distance=100000 pre=0 pre_error=3e6 post=0 post_error=3e6 flags=1\nCOMPLETE storage_controls=7 all_owned_allocations_released=true\nBEGIN_CASE case=default pid=4556\nCHILD_STDOUT case=default\nTARGET_STATE case=default base=2c260bc0000 initial=00000040 reserved=false\nCALL case=default arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=default result=1234\nCOMPLETE case=default all_owned_allocations_released=true\n\nCHILD_STDERR case=default\n\nEND_CASE case=default exit=00000000\nBEGIN_CASE case=invalid pid=9808\nCHILD_STDOUT case=invalid\nTARGET_STATE case=invalid base=1fbbeb30000 initial=40000040 reserved=false\nCALL case=invalid arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid\n\nEND_CASE case=invalid exit=c0000409\nBEGIN_CASE case=invalid-mark-valid pid=5772\nCHILD_STDOUT case=invalid-mark-valid\nUPDATE_BEFORE base=1e79e6a0000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=invalid-mark-valid base=1e79e6a0000 initial=40000040 reserved=false\nCALL case=invalid-mark-valid arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=invalid-mark-valid result=1234\nCOMPLETE case=invalid-mark-valid all_owned_allocations_released=true\n\nCHILD_STDERR case=invalid-mark-valid\n\nEND_CASE case=invalid-mark-valid exit=00000000\nBEGIN_CASE case=default-mark-invalid pid=6512\nCHILD_STDOUT case=default-mark-invalid\nUPDATE_BEFORE base=18eb6da0000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=default-mark-invalid base=18eb6da0000 initial=00000040 reserved=false\nCALL case=default-mark-invalid arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=default-mark-invalid\n\nEND_CASE case=default-mark-invalid exit=c0000409\nBEGIN_CASE case=invalid-protect-no-update pid=4908\nCHILD_STDOUT case=invalid-protect-no-update\nTARGET_STATE case=invalid-protect-no-update base=2042fbb0000 initial=40000040 reserved=false\nCALL case=invalid-protect-no-update arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-protect-no-update\n\nEND_CASE case=invalid-protect-no-update exit=c0000409\nBEGIN_CASE case=invalid-protect-default pid=9084\nCHILD_STDOUT case=invalid-protect-default\nTARGET_STATE case=invalid-protect-default base=20339040000 initial=40000040 reserved=false\nCALL case=invalid-protect-default arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-protect-default\n\nEND_CASE case=invalid-protect-default exit=c0000409\nBEGIN_CASE case=invalid-recommit-default pid=7864\nCHILD_STDOUT case=invalid-recommit-default\nTARGET_STATE case=invalid-recommit-default base=19f0bd50000 initial=40000040 reserved=false\nCALL case=invalid-recommit-default arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-recommit-default\n\nEND_CASE case=invalid-recommit-default exit=c0000409\nBEGIN_CASE case=default-recommit-invalid pid=888\nCHILD_STDOUT case=default-recommit-invalid\nTARGET_STATE case=default-recommit-invalid base=29a99a60000 initial=00000040 reserved=false\nCALL case=default-recommit-invalid arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=default-recommit-invalid\n\nEND_CASE case=default-recommit-invalid exit=c0000409\nBEGIN_CASE case=invalid-decommit-recommit pid=6816\nCHILD_STDOUT case=invalid-decommit-recommit\nTARGET_STATE case=invalid-decommit-recommit base=20a637a0000 initial=40000040 reserved=false\nCALL case=invalid-decommit-recommit arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-decommit-recommit\n\nEND_CASE case=invalid-decommit-recommit exit=c0000409\nBEGIN_CASE case=invalid-mark-invalid-then-valid pid=9324\nCHILD_STDOUT case=invalid-mark-invalid-then-valid\nUPDATE_BEFORE base=19457530000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nUPDATE_BEFORE base=19457530000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=invalid-mark-invalid-then-valid base=19457530000 initial=40000040 reserved=false\nCALL case=invalid-mark-invalid-then-valid arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=invalid-mark-invalid-then-valid result=1234\nCOMPLETE case=invalid-mark-invalid-then-valid all_owned_allocations_released=true\n\nCHILD_STDERR case=invalid-mark-invalid-then-valid\n\nEND_CASE case=invalid-mark-invalid-then-valid exit=00000000\nBEGIN_CASE case=default-unaligned pid=3956\nCHILD_STDOUT case=default-unaligned\nTARGET_STATE case=default-unaligned base=2566a210000 initial=00000040 reserved=false\nCALL case=default-unaligned arch=x86_64 cfg_policy=00000001 offset=1 expected_leaf=1234\nRETURN case=default-unaligned result=1234\nCOMPLETE case=default-unaligned all_owned_allocations_released=true\n\nCHILD_STDERR case=default-unaligned\n\nEND_CASE case=default-unaligned exit=00000000\nBEGIN_CASE case=invalid-mark-valid-unaligned pid=2520\nCHILD_STDOUT case=invalid-mark-valid-unaligned\nUPDATE_BEFORE base=22d24650000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=invalid-mark-valid-unaligned base=22d24650000 initial=40000040 reserved=false\nCALL case=invalid-mark-valid-unaligned arch=x86_64 cfg_policy=00000001 offset=1 expected_leaf=1234\n\nCHILD_STDERR case=invalid-mark-valid-unaligned\n\nEND_CASE case=invalid-mark-valid-unaligned exit=c0000409\nBEGIN_CASE case=default-mark-invalid-other-slot pid=2844\nCHILD_STDOUT case=default-mark-invalid-other-slot\nUPDATE_BEFORE base=1b079a60000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=default-mark-invalid-other-slot base=1b079a60000 initial=00000040 reserved=false\nCALL case=default-mark-invalid-other-slot arch=x86_64 cfg_policy=00000001 offset=16 expected_leaf=1234\nRETURN case=default-mark-invalid-other-slot result=1234\nCOMPLETE case=default-mark-invalid-other-slot all_owned_allocations_released=true\n\nCHILD_STDERR case=default-mark-invalid-other-slot\n\nEND_CASE case=default-mark-invalid-other-slot exit=00000000\nBEGIN_CASE case=invalid-mark-valid-other-slot pid=8452\nCHILD_STDOUT case=invalid-mark-valid-other-slot\nUPDATE_BEFORE base=224eda80000 offset=10 flags=1\nUPDATE_AFTER result=1 error=6 offset=10 flags=3\nTARGET_STATE case=invalid-mark-valid-other-slot base=224eda80000 initial=40000040 reserved=false\nCALL case=invalid-mark-valid-other-slot arch=x86_64 cfg_policy=00000001 offset=16 expected_leaf=1234\nRETURN case=invalid-mark-valid-other-slot result=1234\nCOMPLETE case=invalid-mark-valid-other-slot all_owned_allocations_released=true\n\nCHILD_STDERR case=invalid-mark-valid-other-slot\n\nEND_CASE case=invalid-mark-valid-other-slot exit=00000000\nBEGIN_CASE case=invalid-mark-valid-wrong-slot pid=5912\nCHILD_STDOUT case=invalid-mark-valid-wrong-slot\nUPDATE_BEFORE base=1c686510000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=invalid-mark-valid-wrong-slot base=1c686510000 initial=40000040 reserved=false\nCALL case=invalid-mark-valid-wrong-slot arch=x86_64 cfg_policy=00000001 offset=16 expected_leaf=1234\n\nCHILD_STDERR case=invalid-mark-valid-wrong-slot\n\nEND_CASE case=invalid-mark-valid-wrong-slot exit=c0000409\nBEGIN_CASE case=reserve-invalid-commit-default pid=2832\nCHILD_STDOUT case=reserve-invalid-commit-default\nTARGET_STATE case=reserve-invalid-commit-default base=e344b70000 initial=40000040 reserved=true\nCALL case=reserve-invalid-commit-default arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=reserve-invalid-commit-default\n\nEND_CASE case=reserve-invalid-commit-default exit=c0000409\nBEGIN_CASE case=reserve-invalid-commit-invalid pid=5876\nCHILD_STDOUT case=reserve-invalid-commit-invalid\nTARGET_STATE case=reserve-invalid-commit-invalid base=8000130000 initial=40000040 reserved=true\nCALL case=reserve-invalid-commit-invalid arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=reserve-invalid-commit-invalid\n\nEND_CASE case=reserve-invalid-commit-invalid exit=c0000409\nBEGIN_CASE case=invalid-release-reuse pid=1592\nCHILD_STDOUT case=invalid-release-reuse\nTARGET_STATE case=invalid-release-reuse base=218eb210000 initial=40000040 reserved=false\nCALL case=invalid-release-reuse arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=invalid-release-reuse result=1234\nCOMPLETE case=invalid-release-reuse all_owned_allocations_released=true\n\nCHILD_STDERR case=invalid-release-reuse\n\nEND_CASE case=invalid-release-reuse exit=00000000\nBEGIN_CASE case=rw-mark-valid-no-update pid=8176\nCHILD_STDOUT case=rw-mark-valid-no-update\nUPDATE_BEFORE base=2abe0ce0000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=rw-mark-valid-no-update base=2abe0ce0000 initial=00000040 reserved=false\nCALL case=rw-mark-valid-no-update arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=rw-mark-valid-no-update result=1234\nCOMPLETE case=rw-mark-valid-no-update all_owned_allocations_released=true\n\nCHILD_STDERR case=rw-mark-valid-no-update\n\nEND_CASE case=rw-mark-valid-no-update exit=00000000\nBEGIN_CASE case=rw-mark-invalid-no-update pid=3216\nCHILD_STDOUT case=rw-mark-invalid-no-update\nUPDATE_BEFORE base=1f2a1cd0000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=rw-mark-invalid-no-update base=1f2a1cd0000 initial=00000040 reserved=false\nCALL case=rw-mark-invalid-no-update arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=rw-mark-invalid-no-update\n\nEND_CASE case=rw-mark-invalid-no-update exit=c0000409\nBEGIN_CASE case=rw-mark-invalid-default pid=1824\nCHILD_STDOUT case=rw-mark-invalid-default\nUPDATE_BEFORE base=251fd8a0000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=rw-mark-invalid-default base=251fd8a0000 initial=00000040 reserved=false\nCALL case=rw-mark-invalid-default arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=rw-mark-invalid-default\n\nEND_CASE case=rw-mark-invalid-default exit=c0000409\nBEGIN_CASE case=initial-rw-call pid=5124\nCHILD_STDOUT case=initial-rw-call\nTARGET_STATE case=initial-rw-call base=1b799cb0000 initial=00000004 reserved=false\nCALL case=initial-rw-call arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=initial-rw-call\n\nEND_CASE case=initial-rw-call exit=c0000409\nBEGIN_CASE case=initial-rw-exec-default pid=6100\nCHILD_STDOUT case=initial-rw-exec-default\nTARGET_STATE case=initial-rw-exec-default base=21189bc0000 initial=00000004 reserved=false\nCALL case=initial-rw-exec-default arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-exec-default result=1234\nCOMPLETE case=initial-rw-exec-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-exec-default\n\nEND_CASE case=initial-rw-exec-default exit=00000000\nBEGIN_CASE case=initial-rw-exec-no-update pid=8220\nCHILD_STDOUT case=initial-rw-exec-no-update\nTARGET_STATE case=initial-rw-exec-no-update base=18b63fd0000 initial=00000004 reserved=false\nCALL case=initial-rw-exec-no-update arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=initial-rw-exec-no-update\n\nEND_CASE case=initial-rw-exec-no-update exit=c0000409\nBEGIN_CASE case=initial-rw-valid-exec-no-update pid=9468\nCHILD_STDOUT case=initial-rw-valid-exec-no-update\nUPDATE_BEFORE base=1e725730000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=initial-rw-valid-exec-no-update base=1e725730000 initial=00000004 reserved=false\nCALL case=initial-rw-valid-exec-no-update arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-valid-exec-no-update result=1234\nCOMPLETE case=initial-rw-valid-exec-no-update all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-valid-exec-no-update\n\nEND_CASE case=initial-rw-valid-exec-no-update exit=00000000\nBEGIN_CASE case=initial-rw-invalid-exec-default pid=9652\nCHILD_STDOUT case=initial-rw-invalid-exec-default\nUPDATE_BEFORE base=26bcaed0000 offset=0 flags=0\nUPDATE_AFTER result=0 error=3e6 offset=0 flags=0\n\nCHILD_STDERR case=initial-rw-invalid-exec-default\n\nthread 'main' (6340) panicked at /Users/int/.rax-arm64ec-pub-20261105/.task-evidence/windows-cfg-runtime-v1/native-cfg-extra-v8.rs:71:9:\nassertion `left != right` failed: target error 998\n  left: 0\n right: 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\nEND_CASE case=initial-rw-invalid-exec-default exit=00000065\nBEGIN_CASE case=reserve-default-call pid=9348\nCHILD_STDOUT case=reserve-default-call\nTARGET_STATE case=reserve-default-call base=de89340000 initial=00000040 reserved=true\nCALL case=reserve-default-call arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nEXCEPTION code=c0000005 pc=de89340000 count=2 kind=8 address=de89340000\n\nCHILD_STDERR case=reserve-default-call\n\nEND_CASE case=reserve-default-call exit=c0000005\nBEGIN_CASE case=default-decommit-call pid=1376\nCHILD_STDOUT case=default-decommit-call\nTARGET_STATE case=default-decommit-call base=1d756bf0000 initial=00000040 reserved=false\nCALL case=default-decommit-call arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nEXCEPTION code=c0000005 pc=1d756bf0000 count=2 kind=8 address=1d756bf0000\n\nCHILD_STDERR case=default-decommit-call\n\nEND_CASE case=default-decommit-call exit=c0000005\nBEGIN_CASE case=default-release-call pid=300\nCHILD_STDOUT case=default-release-call\nTARGET_STATE case=default-release-call base=2397ebc0000 initial=00000040 reserved=false\nCALL case=default-release-call arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nEXCEPTION code=c0000005 pc=2397ebc0000 count=2 kind=8 address=2397ebc0000\n\nCHILD_STDERR case=default-release-call\n\nEND_CASE case=default-release-call exit=c0000005\nBEGIN_CASE case=initial-rw-neighbor-exec-valid pid=5988\nCHILD_STDOUT case=initial-rw-neighbor-exec-valid\nUPDATE_BEFORE base=2707e850000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=initial-rw-neighbor-exec-valid base=2707e850000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-exec-valid arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-neighbor-exec-valid result=1234\nCOMPLETE case=initial-rw-neighbor-exec-valid all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-neighbor-exec-valid\n\nEND_CASE case=initial-rw-neighbor-exec-valid exit=00000000\nBEGIN_CASE case=initial-rw-neighbor-exec-invalid pid=3364\nCHILD_STDOUT case=initial-rw-neighbor-exec-invalid\nUPDATE_BEFORE base=27a6b260000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=initial-rw-neighbor-exec-invalid base=27a6b260000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-exec-invalid arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=initial-rw-neighbor-exec-invalid\n\nEND_CASE case=initial-rw-neighbor-exec-invalid exit=c0000409\nBEGIN_CASE case=default-release-rw-register pid=9960\nCHILD_STDOUT case=default-release-rw-register\nUPDATE_BEFORE base=192170e0000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=default-release-rw-register base=192170e0000 initial=00000040 reserved=false\nCALL case=default-release-rw-register arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=default-release-rw-register result=1234\nCOMPLETE case=default-release-rw-register all_owned_allocations_released=true\n\nCHILD_STDERR case=default-release-rw-register\n\nEND_CASE case=default-release-rw-register exit=00000000\nBEGIN_CASE case=reserve-invalid-call pid=5680\nCHILD_STDOUT case=reserve-invalid-call\nTARGET_STATE case=reserve-invalid-call base=b536d60000 initial=40000040 reserved=true\nCALL case=reserve-invalid-call arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=reserve-invalid-call\n\nEND_CASE case=reserve-invalid-call exit=c0000409\nBEGIN_CASE case=invalid-decommit-call pid=4320\nCHILD_STDOUT case=invalid-decommit-call\nTARGET_STATE case=invalid-decommit-call base=1fee1fc0000 initial=40000040 reserved=false\nCALL case=invalid-decommit-call arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-decommit-call\n\nEND_CASE case=invalid-decommit-call exit=c0000409\nBEGIN_CASE case=invalid-release-call pid=1460\nCHILD_STDOUT case=invalid-release-call\nTARGET_STATE case=invalid-release-call base=1aa44fa0000 initial=40000040 reserved=false\nCALL case=invalid-release-call arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-release-call\n\nEND_CASE case=invalid-release-call exit=c0000409\nBEGIN_CASE case=initial-rw-no-update-then-default pid=9040\nCHILD_STDOUT case=initial-rw-no-update-then-default\nTARGET_STATE case=initial-rw-no-update-then-default base=1d68bd30000 initial=00000004 reserved=false\nCALL case=initial-rw-no-update-then-default arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-no-update-then-default result=1234\nCOMPLETE case=initial-rw-no-update-then-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-no-update-then-default\n\nEND_CASE case=initial-rw-no-update-then-default exit=00000000\nBEGIN_CASE case=initial-rw-neighbor-default pid=7120\nCHILD_STDOUT case=initial-rw-neighbor-default\nTARGET_STATE case=initial-rw-neighbor-default base=1d49df50000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-default arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-neighbor-default result=1234\nCOMPLETE case=initial-rw-neighbor-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-neighbor-default\n\nEND_CASE case=initial-rw-neighbor-default exit=00000000\nBEGIN_CASE case=default-release-rw-call pid=3144\nCHILD_STDOUT case=default-release-rw-call\nTARGET_STATE case=default-release-rw-call base=1ed1ea90000 initial=00000040 reserved=false\nCALL case=default-release-rw-call arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nEXCEPTION code=c0000005 pc=1ed1ea90000 count=2 kind=8 address=1ed1ea90000\n\nCHILD_STDERR case=default-release-rw-call\n\nEND_CASE case=default-release-rw-call exit=c0000005\nBEGIN_CASE case=invalid-release-rw-call pid=4380\nCHILD_STDOUT case=invalid-release-rw-call\nTARGET_STATE case=invalid-release-rw-call base=207cd910000 initial=40000040 reserved=false\nCALL case=invalid-release-rw-call arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\n\nCHILD_STDERR case=invalid-release-rw-call\n\nEND_CASE case=invalid-release-rw-call exit=c0000409\nBEGIN_CASE case=invalid-release-rw-exec pid=9748\nCHILD_STDOUT case=invalid-release-rw-exec\nTARGET_STATE case=invalid-release-rw-exec base=1cf880b0000 initial=40000040 reserved=false\nCALL case=invalid-release-rw-exec arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=invalid-release-rw-exec result=1234\nCOMPLETE case=invalid-release-rw-exec all_owned_allocations_released=true\n\nCHILD_STDERR case=invalid-release-rw-exec\n\nEND_CASE case=invalid-release-rw-exec exit=00000000\nBEGIN_CASE case=default-mark-valid-unaligned pid=6400\nCHILD_STDOUT case=default-mark-valid-unaligned\nUPDATE_BEFORE base=241f8f60000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=default-mark-valid-unaligned base=241f8f60000 initial=00000040 reserved=false\nCALL case=default-mark-valid-unaligned arch=x86_64 cfg_policy=00000001 offset=1 expected_leaf=1234\n\nCHILD_STDERR case=default-mark-valid-unaligned\n\nEND_CASE case=default-mark-valid-unaligned exit=c0000409\nBEGIN_CASE case=default-mark-invalid-then-valid-unaligned pid=6020\nCHILD_STDOUT case=default-mark-invalid-then-valid-unaligned\nUPDATE_BEFORE base=23192680000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nUPDATE_BEFORE base=23192680000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=default-mark-invalid-then-valid-unaligned base=23192680000 initial=00000040 reserved=false\nCALL case=default-mark-invalid-then-valid-unaligned arch=x86_64 cfg_policy=00000001 offset=1 expected_leaf=1234\n\nCHILD_STDERR case=default-mark-invalid-then-valid-unaligned\n\nEND_CASE case=default-mark-invalid-then-valid-unaligned exit=c0000409\nBEGIN_CASE case=initial-rw-neighbor-invalid-default pid=3196\nCHILD_STDOUT case=initial-rw-neighbor-invalid-default\nUPDATE_BEFORE base=1e0903c0000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=initial-rw-neighbor-invalid-default base=1e0903c0000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-invalid-default arch=x86_64 cfg_policy=00000001 offset=1 expected_leaf=1234\nRETURN case=initial-rw-neighbor-invalid-default result=1234\nCOMPLETE case=initial-rw-neighbor-invalid-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-neighbor-invalid-default\n\nEND_CASE case=initial-rw-neighbor-invalid-default exit=00000000\nBEGIN_CASE case=initial-rw-neighbor-valid-default pid=4004\nCHILD_STDOUT case=initial-rw-neighbor-valid-default\nUPDATE_BEFORE base=18a56640000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=initial-rw-neighbor-valid-default base=18a56640000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-valid-default arch=x86_64 cfg_policy=00000001 offset=1 expected_leaf=1234\nRETURN case=initial-rw-neighbor-valid-default result=1234\nCOMPLETE case=initial-rw-neighbor-valid-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-neighbor-valid-default\n\nEND_CASE case=initial-rw-neighbor-valid-default exit=00000000\nCOMPLETE controls=44 all_children_terminal=true\n",
+      "stderr": "",
+      "qualified_calls": [
+        {
+          "case": "default",
+          "pid": 4556,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "invalid",
+          "pid": 9808,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-mark-valid",
+          "pid": 5772,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "default-mark-invalid",
+          "pid": 6512,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-protect-no-update",
+          "pid": 4908,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-protect-default",
+          "pid": 9084,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-recommit-default",
+          "pid": 7864,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "default-recommit-invalid",
+          "pid": 888,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-decommit-recommit",
+          "pid": 6816,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-mark-invalid-then-valid",
+          "pid": 9324,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "default-unaligned",
+          "pid": 3956,
+          "exit_code": "00000000",
+          "offset": 1,
+          "valid_target": true
+        },
+        {
+          "case": "invalid-mark-valid-unaligned",
+          "pid": 2520,
+          "exit_code": "c0000409",
+          "offset": 1,
+          "valid_target": false
+        },
+        {
+          "case": "default-mark-invalid-other-slot",
+          "pid": 2844,
+          "exit_code": "00000000",
+          "offset": 16,
+          "valid_target": true
+        },
+        {
+          "case": "invalid-mark-valid-other-slot",
+          "pid": 8452,
+          "exit_code": "00000000",
+          "offset": 16,
+          "valid_target": true
+        },
+        {
+          "case": "invalid-mark-valid-wrong-slot",
+          "pid": 5912,
+          "exit_code": "c0000409",
+          "offset": 16,
+          "valid_target": false
+        },
+        {
+          "case": "reserve-invalid-commit-default",
+          "pid": 2832,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "reserve-invalid-commit-invalid",
+          "pid": 5876,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-release-reuse",
+          "pid": 1592,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "rw-mark-valid-no-update",
+          "pid": 8176,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "rw-mark-invalid-no-update",
+          "pid": 3216,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "rw-mark-invalid-default",
+          "pid": 1824,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "initial-rw-call",
+          "pid": 5124,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "initial-rw-exec-default",
+          "pid": 6100,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-exec-no-update",
+          "pid": 8220,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "reserve-default-call",
+          "pid": 9348,
+          "exit_code": "c0000005",
+          "offset": 0,
+          "valid_target": true,
+          "instruction_fetch_fault": true
+        },
+        {
+          "case": "default-decommit-call",
+          "pid": 1376,
+          "exit_code": "c0000005",
+          "offset": 0,
+          "valid_target": true,
+          "instruction_fetch_fault": true
+        },
+        {
+          "case": "default-release-call",
+          "pid": 300,
+          "exit_code": "c0000005",
+          "offset": 0,
+          "valid_target": true,
+          "instruction_fetch_fault": true
+        },
+        {
+          "case": "initial-rw-neighbor-exec-valid",
+          "pid": 5988,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-neighbor-exec-invalid",
+          "pid": 3364,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "default-release-rw-register",
+          "pid": 9960,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "reserve-invalid-call",
+          "pid": 5680,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-decommit-call",
+          "pid": 4320,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-release-call",
+          "pid": 1460,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "initial-rw-no-update-then-default",
+          "pid": 9040,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-neighbor-default",
+          "pid": 7120,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "default-release-rw-call",
+          "pid": 3144,
+          "exit_code": "c0000005",
+          "offset": 0,
+          "valid_target": true,
+          "instruction_fetch_fault": true
+        },
+        {
+          "case": "invalid-release-rw-call",
+          "pid": 4380,
+          "exit_code": "c0000409",
+          "offset": 0,
+          "valid_target": false
+        },
+        {
+          "case": "invalid-release-rw-exec",
+          "pid": 9748,
+          "exit_code": "00000000",
+          "offset": 0,
+          "valid_target": true
+        },
+        {
+          "case": "default-mark-valid-unaligned",
+          "pid": 6400,
+          "exit_code": "c0000409",
+          "offset": 1,
+          "valid_target": false
+        },
+        {
+          "case": "default-mark-invalid-then-valid-unaligned",
+          "pid": 6020,
+          "exit_code": "c0000409",
+          "offset": 1,
+          "valid_target": false
+        },
+        {
+          "case": "initial-rw-neighbor-invalid-default",
+          "pid": 3196,
+          "exit_code": "00000000",
+          "offset": 1,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-neighbor-valid-default",
+          "pid": 4004,
+          "exit_code": "00000000",
+          "offset": 1,
+          "valid_target": true
+        }
+      ],
+      "excluded_preparatory_cases": [
+        {
+          "case": "initial-rw-valid-exec-no-update",
+          "pid": 9468,
+          "exit_code": "00000000",
+          "reason": "Fresh RW bitmap storage is address-history-dependent; this preparatory target update does not isolate target admission."
+        },
+        {
+          "case": "initial-rw-invalid-exec-default",
+          "pid": 9652,
+          "exit_code": "00000065",
+          "reason": "Fresh RW bitmap storage is address-history-dependent; this preparatory target update does not isolate target admission."
+        }
+      ],
+      "storage_controls": [
+        {
+          "distance_bytes": 4096,
+          "registration_succeeded": true
+        },
+        {
+          "distance_bytes": 65536,
+          "registration_succeeded": true
+        },
+        {
+          "distance_bytes": 131072,
+          "registration_succeeded": true
+        },
+        {
+          "distance_bytes": 258048,
+          "registration_succeeded": true
+        },
+        {
+          "distance_bytes": 262144,
+          "registration_succeeded": false
+        },
+        {
+          "distance_bytes": 524288,
+          "registration_succeeded": false
+        },
+        {
+          "distance_bytes": 1048576,
+          "registration_succeeded": false
+        }
+      ]
+    }
+  ],
+  "scope": "84 qualified private-call children and14 non-reused storage controls on one ARM64 kernel; four preparatory cases excluded. Native AMD64 CI profiles qualify only the original21 lifecycle controls."
+}

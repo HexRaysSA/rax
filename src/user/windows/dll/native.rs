@@ -698,7 +698,9 @@ fn protect(c: &mut Ctx) -> ApiResult {
             {
                 c.mem().w32(old_ptr, super::super::memory::prot::NOACCESS)?;
             }
-            if c.p.vm.is_nls_view(base) && e == super::super::memory::VmError::InvalidProtection
+            if e == super::super::memory::VmError::InvalidParameter4
+                && protection & super::super::memory::prot::TARGETS_NO_UPDATE != 0
+                || c.p.vm.is_nls_view(base) && e == super::super::memory::VmError::InvalidProtection
                 || (c.p.vm.is_data_view(base) || c.p.vm.is_file_view(base))
                     && matches!(
                         e,

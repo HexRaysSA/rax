@@ -1,0 +1,144 @@
+{
+  "schema": "rax-native-private-cfg-repeated-protection-v1",
+  "collected_utc": "2026-11-05T20:04:05.200177+00:00",
+  "kernel_profile": "10.0.29698.1000;same verified DLL identities as the retained private-memory cohort",
+  "source": "native-repeated-protection-v1.rs",
+  "source_sha256": "334e922d2e19ca259563c1c526c0cc70f525043dbf657b1de4a48dd3b20476f9",
+  "reports": [
+    {
+      "process_view": "arm64",
+      "parent_pid": 8708,
+      "parent_creation": "134383811637516105",
+      "native_exit_code": 0,
+      "image_sha256": "e35d594f702b53a6d75ba8a36e1d85c37de7d7c1ab2a8aedabc43cc4154accde",
+      "image_bytes": 266752,
+      "dll_sha256": {
+        "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+        "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+        "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf"
+      },
+      "stdout_sha256": "b4dbd9ebb9b6893a547476934b7811d117e2681d8aac33d3064a94526a47ad15",
+      "stdout": "BEGIN_CASE case=initial-rw-repeat-default-invalid pid=1704\nCHILD_STDOUT case=initial-rw-repeat-default-invalid\nUPDATE_BEFORE base=1d377d50000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=initial-rw-repeat-default-invalid base=1d377d50000 initial=00000004 reserved=false\nCALL case=initial-rw-repeat-default-invalid arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-repeat-default-invalid result=1234\nCOMPLETE case=initial-rw-repeat-default-invalid all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-repeat-default-invalid\n\nEND_CASE case=initial-rw-repeat-default-invalid exit=00000000\nBEGIN_CASE case=initial-rw-repeat-default-aligned pid=8796\nCHILD_STDOUT case=initial-rw-repeat-default-aligned\nUPDATE_BEFORE base=2a69ae40000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=initial-rw-repeat-default-aligned base=2a69ae40000 initial=00000004 reserved=false\nCALL case=initial-rw-repeat-default-aligned arch=aarch64 cfg_policy=00000001 offset=4 expected_leaf=1234\nRETURN case=initial-rw-repeat-default-aligned result=1234\nCOMPLETE case=initial-rw-repeat-default-aligned all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-repeat-default-aligned\n\nEND_CASE case=initial-rw-repeat-default-aligned exit=00000000\nBEGIN_CASE case=initial-rw-repeat-exec-invalid pid=3868\nCHILD_STDOUT case=initial-rw-repeat-exec-invalid\nUPDATE_BEFORE base=2abe1680000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=initial-rw-repeat-exec-invalid base=2abe1680000 initial=00000004 reserved=false\nCALL case=initial-rw-repeat-exec-invalid arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-repeat-exec-invalid result=1234\nCOMPLETE case=initial-rw-repeat-exec-invalid all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-repeat-exec-invalid\n\nEND_CASE case=initial-rw-repeat-exec-invalid exit=00000000\nBEGIN_CASE case=initial-rw-repeat-commit-invalid pid=52\nCHILD_STDOUT case=initial-rw-repeat-commit-invalid\nUPDATE_BEFORE base=26204ca0000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=initial-rw-repeat-commit-invalid base=26204ca0000 initial=00000004 reserved=false\nCALL case=initial-rw-repeat-commit-invalid arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-repeat-commit-invalid result=1234\nCOMPLETE case=initial-rw-repeat-commit-invalid all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-repeat-commit-invalid\n\nEND_CASE case=initial-rw-repeat-commit-invalid exit=00000000\nBEGIN_CASE case=initial-rw-commit-invalid-default pid=1256\nCHILD_STDOUT case=initial-rw-commit-invalid-default\nTARGET_STATE case=initial-rw-commit-invalid-default base=269cc410000 initial=00000004 reserved=false\nCALL case=initial-rw-commit-invalid-default arch=aarch64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-commit-invalid-default result=1234\nCOMPLETE case=initial-rw-commit-invalid-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-commit-invalid-default\n\nEND_CASE case=initial-rw-commit-invalid-default exit=00000000\nBEGIN_CASE case=initial-rw-neighbor-default-aligned pid=8144\nCHILD_STDOUT case=initial-rw-neighbor-default-aligned\nUPDATE_BEFORE base=2a547110000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=initial-rw-neighbor-default-aligned base=2a547110000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-default-aligned arch=aarch64 cfg_policy=00000001 offset=4 expected_leaf=1234\nRETURN case=initial-rw-neighbor-default-aligned result=1234\nCOMPLETE case=initial-rw-neighbor-default-aligned all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-neighbor-default-aligned\n\nEND_CASE case=initial-rw-neighbor-default-aligned exit=00000000\nCOMPLETE controls=6 all_children_terminal=true\n",
+      "stderr": "",
+      "qualified_calls": [
+        {
+          "case": "initial-rw-repeat-default-invalid",
+          "pid": 1704,
+          "exit_code": "00000000",
+          "offset": 0,
+          "allocation_protection": 4,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-repeat-default-aligned",
+          "pid": 8796,
+          "exit_code": "00000000",
+          "offset": 4,
+          "allocation_protection": 4,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-repeat-exec-invalid",
+          "pid": 3868,
+          "exit_code": "00000000",
+          "offset": 0,
+          "allocation_protection": 4,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-repeat-commit-invalid",
+          "pid": 52,
+          "exit_code": "00000000",
+          "offset": 0,
+          "allocation_protection": 4,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-commit-invalid-default",
+          "pid": 1256,
+          "exit_code": "00000000",
+          "offset": 0,
+          "allocation_protection": 4,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-neighbor-default-aligned",
+          "pid": 8144,
+          "exit_code": "00000000",
+          "offset": 4,
+          "allocation_protection": 4,
+          "valid_target": true
+        }
+      ]
+    },
+    {
+      "process_view": "x64",
+      "parent_pid": 1352,
+      "parent_creation": "134383811549368700",
+      "native_exit_code": 0,
+      "image_sha256": "9d3e87421938587e809da9a44d50a8fc3fb7dab9dccddb9a676a67686b70ccd6",
+      "image_bytes": 289280,
+      "dll_sha256": {
+        "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+        "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+        "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf"
+      },
+      "stdout_sha256": "bb0a01944ef3ac71f125fc24a6ea75ac88e573821c67d7f3b4e89dc3c9ac70df",
+      "stdout": "BEGIN_CASE case=initial-rw-repeat-default-invalid pid=9904\nCHILD_STDOUT case=initial-rw-repeat-default-invalid\nUPDATE_BEFORE base=22f10fa0000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=initial-rw-repeat-default-invalid base=22f10fa0000 initial=00000004 reserved=false\nCALL case=initial-rw-repeat-default-invalid arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-repeat-default-invalid result=1234\nCOMPLETE case=initial-rw-repeat-default-invalid all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-repeat-default-invalid\n\nEND_CASE case=initial-rw-repeat-default-invalid exit=00000000\nBEGIN_CASE case=initial-rw-repeat-default-aligned pid=3532\nCHILD_STDOUT case=initial-rw-repeat-default-aligned\nUPDATE_BEFORE base=195862a0000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=initial-rw-repeat-default-aligned base=195862a0000 initial=00000004 reserved=false\nCALL case=initial-rw-repeat-default-aligned arch=x86_64 cfg_policy=00000001 offset=1 expected_leaf=1234\nRETURN case=initial-rw-repeat-default-aligned result=1234\nCOMPLETE case=initial-rw-repeat-default-aligned all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-repeat-default-aligned\n\nEND_CASE case=initial-rw-repeat-default-aligned exit=00000000\nBEGIN_CASE case=initial-rw-repeat-exec-invalid pid=1096\nCHILD_STDOUT case=initial-rw-repeat-exec-invalid\nUPDATE_BEFORE base=1cfdedd0000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=initial-rw-repeat-exec-invalid base=1cfdedd0000 initial=00000004 reserved=false\nCALL case=initial-rw-repeat-exec-invalid arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-repeat-exec-invalid result=1234\nCOMPLETE case=initial-rw-repeat-exec-invalid all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-repeat-exec-invalid\n\nEND_CASE case=initial-rw-repeat-exec-invalid exit=00000000\nBEGIN_CASE case=initial-rw-repeat-commit-invalid pid=6016\nCHILD_STDOUT case=initial-rw-repeat-commit-invalid\nUPDATE_BEFORE base=18f4e120000 offset=0 flags=0\nUPDATE_AFTER result=1 error=6 offset=0 flags=2\nTARGET_STATE case=initial-rw-repeat-commit-invalid base=18f4e120000 initial=00000004 reserved=false\nCALL case=initial-rw-repeat-commit-invalid arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-repeat-commit-invalid result=1234\nCOMPLETE case=initial-rw-repeat-commit-invalid all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-repeat-commit-invalid\n\nEND_CASE case=initial-rw-repeat-commit-invalid exit=00000000\nBEGIN_CASE case=initial-rw-commit-invalid-default pid=4064\nCHILD_STDOUT case=initial-rw-commit-invalid-default\nTARGET_STATE case=initial-rw-commit-invalid-default base=2542ad40000 initial=00000004 reserved=false\nCALL case=initial-rw-commit-invalid-default arch=x86_64 cfg_policy=00000001 offset=0 expected_leaf=1234\nRETURN case=initial-rw-commit-invalid-default result=1234\nCOMPLETE case=initial-rw-commit-invalid-default all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-commit-invalid-default\n\nEND_CASE case=initial-rw-commit-invalid-default exit=00000000\nBEGIN_CASE case=initial-rw-neighbor-default-aligned pid=9780\nCHILD_STDOUT case=initial-rw-neighbor-default-aligned\nUPDATE_BEFORE base=25e8cbf0000 offset=0 flags=1\nUPDATE_AFTER result=1 error=6 offset=0 flags=3\nTARGET_STATE case=initial-rw-neighbor-default-aligned base=25e8cbf0000 initial=00000004 reserved=false\nCALL case=initial-rw-neighbor-default-aligned arch=x86_64 cfg_policy=00000001 offset=1 expected_leaf=1234\nRETURN case=initial-rw-neighbor-default-aligned result=1234\nCOMPLETE case=initial-rw-neighbor-default-aligned all_owned_allocations_released=true\n\nCHILD_STDERR case=initial-rw-neighbor-default-aligned\n\nEND_CASE case=initial-rw-neighbor-default-aligned exit=00000000\nCOMPLETE controls=6 all_children_terminal=true\n",
+      "stderr": "",
+      "qualified_calls": [
+        {
+          "case": "initial-rw-repeat-default-invalid",
+          "pid": 9904,
+          "exit_code": "00000000",
+          "offset": 0,
+          "allocation_protection": 4,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-repeat-default-aligned",
+          "pid": 3532,
+          "exit_code": "00000000",
+          "offset": 1,
+          "allocation_protection": 4,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-repeat-exec-invalid",
+          "pid": 1096,
+          "exit_code": "00000000",
+          "offset": 0,
+          "allocation_protection": 4,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-repeat-commit-invalid",
+          "pid": 6016,
+          "exit_code": "00000000",
+          "offset": 0,
+          "allocation_protection": 4,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-commit-invalid-default",
+          "pid": 4064,
+          "exit_code": "00000000",
+          "offset": 0,
+          "allocation_protection": 4,
+          "valid_target": true
+        },
+        {
+          "case": "initial-rw-neighbor-default-aligned",
+          "pid": 9780,
+          "exit_code": "00000000",
+          "offset": 1,
+          "allocation_protection": 4,
+          "valid_target": true
+        }
+      ]
+    }
+  ],
+  "scope": "12 initially READWRITE repeat-transition controls on ARM64 and translatedAMD64;original-executable preservation is independently observed in the prior corpus;other original protections remain in the pending expanded cohort."
+}
