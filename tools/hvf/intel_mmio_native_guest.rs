@@ -21,6 +21,15 @@ fn word(memory: &GuestMemoryWrapper, address: u64, value: u64) {
         .unwrap();
 }
 
+fn read_word(memory: &GuestMemoryWrapper, address: u64) -> u64 {
+    let mut bytes = [0; 8];
+    memory
+        .memory()
+        .read_slice(&mut bytes, GuestAddress(address))
+        .unwrap();
+    u64::from_le_bytes(bytes)
+}
+
 fn guest_memory(instruction: &[u8]) -> GuestMemoryWrapper {
     let memory = GuestMemoryWrapper::new(RAM).unwrap();
     // Four-level identity translation for RAM and the unmapped MMIO address.
@@ -196,6 +205,407 @@ fn read_case(instruction: &[u8], width: usize, value: u64, expected: u64) {
     drop(vm);
 }
 
+fn pat_case(pat: u64, restore: bool) {
+    let mut instruction = vec![0xb9]; // MOV ECX, IA32_PAT.
+    instruction.extend(0x277u32.to_le_bytes());
+    instruction.push(0xb8); // MOV EAX, low32.
+    instruction.extend((pat as u32).to_le_bytes());
+    instruction.push(0xba); // MOV EDX, high32.
+    instruction.extend(((pat >> 32) as u32).to_le_bytes());
+    instruction.extend([0x0f, 0x30]); // WRMSR.
+    if restore {
+        instruction.push(0xf4); // Private CPU checkpoint before RDMSR.
+    }
+    instruction.extend([0x0f, 0x32]); // RDMSR.
+    let memory = guest_memory(&instruction);
+    let (mut vm, mut cpu) = machine(&memory);
+    if restore {
+        assert!(matches!(event(cpu.as_mut()), VcpuExit::Hlt));
+        assert_eq!(state(cpu.as_ref()).regs.rip, CODE + 18);
+        let boundary = vm.checkpoint_boundary().unwrap();
+        let (saved, private) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+        assert_eq!(saved.emulator.pat, pat);
+        drop(boundary);
+        drop(cpu);
+        drop(vm);
+        (vm, cpu) = machine(&memory);
+        cpu.restore_checkpoint_context(&saved.state, &saved.emulator, private.as_ref())
+            .unwrap();
+        cpu.wake();
+    }
+    halted(cpu.as_mut(), instruction.len(), pat & 0xffff_ffff);
+    assert_eq!(state(cpu.as_ref()).regs.rdx, pat >> 32);
+    assert_eq!(cpu.get_emulator_state().unwrap().pat, pat);
+    drop(cpu);
+    drop(vm);
+}
+
+fn msr_fault_handler(observations: u32) -> Vec<u8> {
+    let mut handler = vec![0x50, 0x48, 0xff, 0x04, 0x25]; // PUSH RAX; INC qword [abs32].
+    handler.extend(observations.to_le_bytes());
+    // After PUSH RAX: saved RAX at RSP, error code at RSP+8, fault RIP at RSP+16.
+    for (offset, address) in [
+        (8, observations + 8),
+        (16, observations + 16),
+        (0, observations + 24),
+    ] {
+        handler.extend([0x48, 0x8b, 0x44, 0x24, offset]); // MOV RAX,[RSP+disp8].
+        handler.extend([0x48, 0x89, 0x04, 0x25]); // MOV [abs32],RAX.
+        handler.extend(address.to_le_bytes());
+    }
+    handler.extend([0x48, 0x89, 0x14, 0x25]); // MOV [abs32],RDX.
+    handler.extend((observations + 32).to_le_bytes());
+    handler.extend([
+        0x48, 0x83, 0x44, 0x24, 0x10, 2,    // ADD qword [RSP+16],2: skip the faulting MSR.
+        0x58, // POP RAX.
+        0x48, 0x83, 0xc4, 8, // Discard the error code.
+        0x48, 0xcf, // IRETQ.
+    ]);
+    handler
+}
+
+fn reserved_msr_case(msr: u32, write: bool) -> [u64; 5] {
+    const OBSERVATIONS: u64 = 0xa000;
+    const HANDLER: u64 = 0xb000;
+    const IDT: u64 = 0xc000;
+    const RDX: u64 = 0x8877_6655_4433_2211;
+    let instruction = [0x0f, if write { 0x30 } else { 0x32 }];
+    let memory = guest_memory(&instruction);
+    // #GP gate: 64-bit interrupt gate, selector8, IST0, reserved fields zero.
+    let gate = (HANDLER & 0xffff) | (8 << 16) | (0x8e << 40) | (((HANDLER >> 16) & 0xffff) << 48);
+    word(&memory, IDT + 13 * 16, gate);
+    word(&memory, IDT + 13 * 16 + 8, HANDLER >> 32);
+    let handler = msr_fault_handler(OBSERVATIONS as u32);
+    memory
+        .memory()
+        .write_slice(&handler, GuestAddress(HANDLER))
+        .unwrap();
+    let (vm, mut cpu) = machine(&memory);
+    let mut input = initial();
+    let CpuState::X86_64(ref mut input_state) = input else {
+        unreachable!()
+    };
+    input_state.regs.rcx = u64::from(msr);
+    input_state.regs.rdx = RDX;
+    input_state.sregs.idt.base = IDT;
+    input_state.sregs.idt.limit = 4095;
+    cpu.set_state(&input).unwrap();
+    halted(cpu.as_mut(), instruction.len(), SEED);
+    assert_eq!(state(cpu.as_ref()).regs.rdx, RDX);
+    let observed = std::array::from_fn(|index| read_word(&memory, OBSERVATIONS + index as u64 * 8));
+    assert_eq!(observed, [1, 0, CODE, SEED, RDX]);
+    drop(cpu);
+    drop(vm);
+    observed
+}
+
+fn record_msr_fault(output: &Path, case: usize, msr: u32, write: bool, observed: [u64; 5]) {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(output)
+        .unwrap();
+    writeln!(file, "{{\"case\":{case},\"name\":\"reserved-msr-gp\",\"msr\":{msr},\"write\":{write},\"fault_count\":{},\"error\":{},\"fault_rip\":{},\"saved_rax\":{},\"saved_rdx\":{},\"passed\":true}}", observed[0], observed[1], observed[2], observed[3], observed[4]).unwrap();
+}
+
+mod deadline {
+    use super::*;
+    use rax::devices::bus::MmioDevice;
+    use rax::devices::lapic::{LAPIC_BASE, LAPIC_SIZE, LapicDevice, LocalApic};
+    use std::sync::Mutex;
+
+    const OBS: u64 = 0xa000;
+    const IDT: u64 = 0xb000;
+    const HANDLER: u64 = 0xc000;
+    const VECTOR: u8 = 0x51;
+
+    fn store_register(code: &mut Vec<u8>, register: u8, address: u64) {
+        code.extend([0x89, 0x04 | (register << 3), 0x25]);
+        code.extend((address as u32).to_le_bytes());
+    }
+
+    fn store_pair(code: &mut Vec<u8>, address: u64) {
+        store_register(code, 0, address); // MOV [abs32],EAX.
+        store_register(code, 2, address + 4); // MOV [abs32+4],EDX.
+    }
+
+    fn write_msr(code: &mut Vec<u8>, index: u32, value: u64) {
+        code.push(0xb9);
+        code.extend(index.to_le_bytes());
+        code.push(0xb8);
+        code.extend((value as u32).to_le_bytes());
+        code.push(0xba);
+        code.extend(((value >> 32) as u32).to_le_bytes());
+        code.extend([0x0f, 0x30]);
+    }
+
+    fn read_msr(code: &mut Vec<u8>, index: u32, address: u64) {
+        code.push(0xb9);
+        code.extend(index.to_le_bytes());
+        code.extend([0x0f, 0x32]);
+        store_pair(code, address);
+    }
+
+    fn write_apic(code: &mut Vec<u8>, offset: u64, value: u32) {
+        code.extend([0x48, 0xbf]); // MOV RDI,absolute APIC register.
+        code.extend((LAPIC_BASE + offset).to_le_bytes());
+        code.extend([0xc7, 0x07]); // MOV dword [RDI],imm32.
+        code.extend(value.to_le_bytes());
+        code.extend([0x0f, 0xae, 0xf0]); // MFENCE orders xAPIC before WRMSR.
+    }
+
+    fn memory(code: &[u8]) -> GuestMemoryWrapper {
+        let memory = guest_memory(code);
+        // Also translate the high MMIO gigabytes containing the xAPIC page.
+        for gigabyte in 2..4 {
+            let directory = 0x3000 + gigabyte * 0x1000;
+            word(&memory, 0x2000 + gigabyte * 8, directory | 3);
+            for page in 0..512 {
+                word(
+                    &memory,
+                    directory + page * 8,
+                    (gigabyte << 30) | (page << 21) | 0x83,
+                );
+            }
+        }
+        memory
+    }
+
+    fn attach(cpu: &mut dyn VCpu) -> (Arc<Mutex<LocalApic>>, LapicDevice) {
+        let model = Arc::new(Mutex::new(LocalApic::new(0)));
+        cpu.attach_local_apic(model.clone());
+        (model.clone(), LapicDevice::new(model))
+    }
+
+    /// Service the actual public exits, without holding a model lock across
+    /// a CPU call. Clock sampling precedes each observed MMIO state change.
+    fn halt(cpu: &mut dyn VCpu, bus: &mut LapicDevice) {
+        for _ in 0..128 {
+            cpu.poll_vm_clock().unwrap();
+            let exit = event(cpu);
+            cpu.poll_vm_clock().unwrap();
+            match exit {
+                VcpuExit::MmioWrite { addr, data }
+                    if (LAPIC_BASE..LAPIC_BASE + LAPIC_SIZE).contains(&addr) =>
+                {
+                    bus.write(addr, &data);
+                    cpu.complete_io_out().unwrap();
+                }
+                VcpuExit::MmioRead { addr, size }
+                    if (LAPIC_BASE..LAPIC_BASE + LAPIC_SIZE).contains(&addr) =>
+                {
+                    let mut bytes = vec![0; usize::from(size)];
+                    bus.read(addr, &mut bytes);
+                    cpu.complete_io_in(&bytes);
+                    cpu.io_completion_result().unwrap();
+                }
+                VcpuExit::Hlt => return,
+                other => panic!(
+                    "deadline guest exit: {other:?}; state={:?}",
+                    cpu.get_state()
+                ),
+            }
+        }
+        panic!("deadline guest exceeded its bounded exit inventory");
+    }
+
+    fn complete(cpu: &dyn VCpu, length: usize) {
+        let final_state = state(cpu);
+        assert_eq!(final_state.regs.r10, MARKER);
+        assert_eq!(final_state.regs.rip, CODE + length as u64 + 11);
+    }
+
+    pub(super) fn scenario(scenario: u32) {
+        let mut code = vec![0xb8, 1, 0, 0, 0, 0x31, 0xc9, 0x0f, 0xa2];
+        store_register(&mut code, 1, OBS + 32); // Actual guest CPUID.1:ECX.
+        let lvt = match scenario {
+            0 => 0x51,
+            1 => 0x20051,
+            9 | 10 => 0x50051,
+            _ => 0x40051,
+        };
+        write_apic(&mut code, 0x320, lvt);
+        write_msr(&mut code, 0x6e0, if scenario >= 8 { 1 } else { u64::MAX });
+        match scenario {
+            3 => write_msr(&mut code, 0x6e0, 0),
+            4 => write_apic(&mut code, 0x320, 0x51),
+            5 => write_apic(&mut code, 0x320, 0x20051),
+            6 => write_apic(&mut code, 0x380, 0x1234_5678),
+            7 => write_apic(&mut code, 0x320, 0x50061),
+            _ => (),
+        }
+        read_msr(&mut code, 0x6e0, OBS);
+        code.extend([0x48, 0xbf]);
+        code.extend((LAPIC_BASE + 0x390).to_le_bytes());
+        code.extend([0x8b, 0x07]); // Current count must remain zero in deadline mode.
+        store_register(&mut code, 0, OBS + 8);
+        code.extend([0x0f, 0x31]);
+        store_pair(&mut code, OBS + 16);
+        if scenario == 10 {
+            write_apic(&mut code, 0x320, 0x40051);
+        }
+        read_msr(&mut code, 0x6e0, OBS + 24);
+        let memory = memory(&code);
+        let (vm, mut cpu) = machine(&memory);
+        let (model, mut bus) = attach(cpu.as_mut());
+        halt(cpu.as_mut(), &mut bus);
+        complete(cpu.as_ref(), code.len());
+        let expected = if matches!(scenario, 2 | 6 | 7) {
+            u64::MAX
+        } else {
+            0
+        };
+        assert_eq!(read_word(&memory, OBS), expected, "scenario {scenario}");
+        assert_eq!(read_word(&memory, OBS + 24), expected);
+        assert_eq!(read_word(&memory, OBS + 8) as u32, 0);
+        assert_ne!(read_word(&memory, OBS + 32) as u32 & (1 << 24), 0);
+        assert!(read_word(&memory, OBS + 16) > 1);
+        assert_eq!(
+            model.lock().unwrap().get_pending_vector(),
+            (scenario == 8).then_some(VECTOR)
+        );
+        if scenario == 6 {
+            let mut initial = [0; 4];
+            bus.read(LAPIC_BASE + 0x380, &mut initial);
+            assert_eq!(
+                u32::from_le_bytes(initial),
+                0,
+                "initial-count write was ignored"
+            );
+        }
+        drop(cpu);
+        drop(vm);
+    }
+
+    pub(super) fn restore_armed(value: u64) {
+        let mut code = Vec::new();
+        write_apic(&mut code, 0x320, 0x40051);
+        write_msr(&mut code, 0x6e0, value);
+        code.push(0xf4);
+        let boundary_pc = CODE + code.len() as u64;
+        read_msr(&mut code, 0x6e0, OBS);
+        let memory = memory(&code);
+        let (vm, mut cpu) = machine(&memory);
+        let (_, mut bus) = attach(cpu.as_mut());
+        halt(cpu.as_mut(), &mut bus);
+        assert_eq!(state(cpu.as_ref()).regs.rip, boundary_pc);
+        let boundary = vm.checkpoint_boundary().unwrap();
+        let (public, private) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+        drop(boundary);
+        drop(cpu);
+        drop(vm);
+        let (vm, mut cpu) = machine(&memory);
+        let (_, mut bus) = attach(cpu.as_mut());
+        cpu.restore_checkpoint_context(&public.state, &public.emulator, private.as_ref())
+            .unwrap();
+        let mut lvt = [0; 4];
+        bus.read(LAPIC_BASE + 0x320, &mut lvt);
+        assert_eq!(
+            u32::from_le_bytes(lvt),
+            0x40051,
+            "restored controller binding"
+        );
+        cpu.wake();
+        halt(cpu.as_mut(), &mut bus);
+        complete(cpu.as_ref(), code.len());
+        assert_eq!(read_word(&memory, OBS), value);
+        drop(cpu);
+        drop(vm);
+    }
+
+    pub(super) fn wake(restore: bool) {
+        let mut code = Vec::new();
+        write_apic(&mut code, 0x320, 0x40051);
+        write_msr(&mut code, 0x6e0, 1);
+        code.extend([0xfb, 0xf4]); // STI; HLT: IRQ injection must wake this owner.
+        let first_pc = CODE + code.len() as u64;
+        read_msr(&mut code, 0x6e0, OBS);
+        let memory = memory(&code);
+        let gate =
+            (HANDLER & 0xffff) | (8 << 16) | (0x8e << 40) | (((HANDLER >> 16) & 0xffff) << 48);
+        word(&memory, IDT + u64::from(VECTOR) * 16, gate);
+        word(&memory, IDT + u64::from(VECTOR) * 16 + 8, HANDLER >> 32);
+        let mut handler = vec![0x50, 0x57, 0xff, 0x04, 0x25]; // PUSH RAX/RDI; INC dword [abs32].
+        handler.extend(((OBS + 64) as u32).to_le_bytes());
+        write_apic(&mut handler, 0xb0, 0); // Guest EOI through the same controller.
+        handler.extend([0x5f, 0x58, 0x48, 0xcf]); // POP RDI/RAX; IRETQ.
+        memory
+            .memory()
+            .write_slice(&handler, GuestAddress(HANDLER))
+            .unwrap();
+        let (mut vm, mut cpu) = machine(&memory);
+        let mut input = initial();
+        if let CpuState::X86_64(state) = &mut input {
+            state.sregs.idt.base = IDT;
+            state.sregs.idt.limit = 4095;
+        }
+        cpu.set_state(&input).unwrap();
+        let (mut model, mut bus) = attach(cpu.as_mut());
+        halt(cpu.as_mut(), &mut bus);
+        assert_eq!(state(cpu.as_ref()).regs.rip, first_pc);
+        assert_eq!(model.lock().unwrap().get_pending_vector(), Some(VECTOR));
+        if restore {
+            let saved_model = model.lock().unwrap().clone();
+            let boundary = vm.checkpoint_boundary().unwrap();
+            let (public, private) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+            drop(boundary);
+            drop(cpu);
+            drop(vm);
+            (vm, cpu) = machine(&memory);
+            model = Arc::new(Mutex::new(saved_model));
+            cpu.attach_local_apic(model.clone());
+            bus = LapicDevice::new(model.clone());
+            cpu.restore_checkpoint_context(&public.state, &public.emulator, private.as_ref())
+                .unwrap();
+        }
+        assert!(cpu.can_inject_interrupt());
+        assert!(cpu.inject_interrupt(VECTOR).unwrap());
+        model.lock().unwrap().ack_interrupt(VECTOR);
+        halt(cpu.as_mut(), &mut bus);
+        complete(cpu.as_ref(), code.len());
+        assert_eq!(read_word(&memory, OBS), 0);
+        assert_eq!(
+            read_word(&memory, OBS + 64),
+            1,
+            "one guest IRQ handler execution"
+        );
+        assert_eq!(model.lock().unwrap().get_pending_vector(), None);
+        let mut isr = [0; 4];
+        bus.read(LAPIC_BASE + 0x120, &mut isr);
+        assert_eq!(
+            u32::from_le_bytes(isr),
+            0,
+            "guest EOI retires the in-service timer"
+        );
+        drop(cpu);
+        drop(vm);
+    }
+
+    pub(super) fn tsc_domain() {
+        let mut code = Vec::new();
+        write_msr(&mut code, 0x10, 1_000_000);
+        code.extend([0x0f, 0xae, 0xe8, 0x0f, 0x31, 0x0f, 0xae, 0xe8]); // LFENCE; RDTSC; LFENCE.
+        store_pair(&mut code, OBS);
+        read_msr(&mut code, 0x10, OBS + 8);
+        code.extend([0x0f, 0xae, 0xe8, 0x0f, 0x31, 0x0f, 0xae, 0xe8]);
+        store_pair(&mut code, OBS + 16);
+        let memory = memory(&code);
+        let (vm, mut cpu) = machine(&memory);
+        let (_, mut bus) = attach(cpu.as_mut());
+        halt(cpu.as_mut(), &mut bus);
+        complete(cpu.as_ref(), code.len());
+        let first = read_word(&memory, OBS);
+        let middle = read_word(&memory, OBS + 8);
+        let last = read_word(&memory, OBS + 16);
+        assert!(
+            1_000_000 <= first && first <= middle && middle <= last,
+            "guest RDTSC/RDMSR/RDTSC domains differ: {first:#x}, {middle:#x}, {last:#x}"
+        );
+        drop(cpu);
+        drop(vm);
+    }
+}
+
 fn main() {
     let output = std::path::PathBuf::from(std::env::args_os().nth(1).expect("observations path"));
     assert!(!output.exists(), "observations must be new");
@@ -311,6 +721,59 @@ fn main() {
             case += 1;
         }
     }
-    assert_eq!(case, 114);
+    for restore in [false, true] {
+        for pat in [
+            0,
+            0x0101_0101_0101_0101,
+            0x0405_0607_0001_0406,
+            0x0007_0406_0007_0406,
+        ] {
+            pat_case(pat, restore);
+            record(
+                &output,
+                case,
+                if restore {
+                    "pat-private-restore"
+                } else {
+                    "pat-guest-write-read"
+                },
+                8,
+                pat,
+            );
+            case += 1;
+        }
+    }
+    for msr in [0xffff_ffff, 0xffff_fffe, 0xdead_beef, 0x2000_0000] {
+        for write in [false, true] {
+            let observed = reserved_msr_case(msr, write);
+            record_msr_fault(&output, case, msr, write, observed);
+            case += 1;
+        }
+    }
+    for scenario in 0..11 {
+        deadline::scenario(scenario);
+        record(
+            &output,
+            case,
+            "deadline-mode-expiry",
+            8,
+            u64::from(scenario),
+        );
+        case += 1;
+    }
+    for value in [u64::MAX, u64::MAX - 1] {
+        deadline::restore_armed(value);
+        record(&output, case, "deadline-private-restore", 8, value);
+        case += 1;
+    }
+    for restore in [false, true] {
+        deadline::wake(restore);
+        record(&output, case, "deadline-halt-irq", 8, u64::from(restore));
+        case += 1;
+    }
+    deadline::tsc_domain();
+    record(&output, case, "deadline-tsc-domain", 8, 1_000_000);
+    case += 1;
+    assert_eq!(case, 146);
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }
