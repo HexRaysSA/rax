@@ -99,3 +99,9 @@ on Windows Server 2022 and 2025. Both trigger filters include the observer,
 collector and parser tests; the output is kept outside the Rust-cache workspace
 and uploaded even after a failed capture. Fresh CI results are separate from
 the retained ARM64 corpus and are not claimed here before inspection.
+
+The parser's 16 rejection tests include LF and CRLF source fixtures plus explicit
+rejection of doubled carriage returns. The first AMD64 CI attempt exposed a test
+fixture that added CRLF to an already-CRLF checkout; that failed run is retained.
+The fixture now constructs both newline forms from normalized LF bytes without
+weakening the production source-identity check.

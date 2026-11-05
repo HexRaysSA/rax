@@ -118,7 +118,16 @@ class EvidenceRejections(unittest.TestCase):
             records.validate_corpus(value, SOURCE)
 
     def test_crlf_source_preserves_canonical_source_identity(self):
-        self.assertEqual(records.validate_corpus(corpus(), SOURCE.replace(b"\n", b"\r\n")), 2 * len(CASES))
+        lf_source = SOURCE.replace(b"\r\n", b"\n")
+        for source in (lf_source, lf_source.replace(b"\n", b"\r\n")):
+            with self.subTest(crlf=b"\r\n" in source):
+                self.assertEqual(records.validate_corpus(corpus(), source), 2 * len(CASES))
+
+    def test_doubled_carriage_returns_do_not_match_the_canonical_source(self):
+        lf_source = SOURCE.replace(b"\r\n", b"\n")
+        malformed = lf_source.replace(b"\n", b"\r\r\n")
+        with self.assertRaisesRegex(ValueError, "source identity"):
+            records.validate_corpus(corpus(), malformed)
 
     def test_wrong_pe_abi_cannot_qualify_a_wow64_capture(self):
         value = copy.deepcopy(corpus())
