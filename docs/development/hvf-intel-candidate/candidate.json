@@ -1,8 +1,8 @@
 {
   "version": 1,
   "patch": "candidate.patch",
-  "base_commit": "9ad33d07d0556c52bff8a6c9581433c163f042e3",
-  "patch_sha256": "c1718808d4e5c0e31da0d626d2defb544a17d14c54bd5985ac0e9bd381ed3fe9",
+  "base_commit": "3fbfef03994aea9b4f2223cc3e8d1c6319683f03",
+  "patch_sha256": "5d5d1a968f12c2f863bd1536963116b4ba5eea203e83d53e420237b175058a80",
   "paths": [
     "Cargo.lock",
     "Cargo.toml",
@@ -12,6 +12,7 @@
     "src/backend/hvf/intel_context_tests.rs",
     "src/backend/hvf/intel_vm.rs",
     "src/backend/hvf/intel_vm_checkpoint.rs",
+    "src/backend/hvf/intel_worker.rs",
     "src/backend/hvf/memory_layout.rs",
     "src/backend/hvf/mmio/alu_read.rs",
     "src/backend/hvf/mmio/rmw.rs",
@@ -67,8 +68,10 @@
     "src/devices/ioapic/irq_tests.rs",
     "src/devices/lapic.rs",
     "src/devices/lapic/checkpoint.rs",
+    "src/devices/lapic/tests.rs",
     "src/devices/lapic/timer_clock.rs",
     "src/devices/lapic/timer_clock_tests.rs",
+    "src/devices/lapic/tsc_deadline.rs",
     "src/devices/pci.rs",
     "src/devices/pci/checkpoint.rs",
     "src/devices/pci/ram_profile_tests.rs",
@@ -101,6 +104,7 @@
     "src/vm/snapshot/bundle.rs",
     "src/vm/snapshot/codec.rs",
     "src/vm/snapshot/execution.rs",
+    "src/vm/snapshot/execution_deadline.rs",
     "src/vm/snapshot/execution_eoi.rs",
     "src/vm/snapshot/intel_bundle_tests.rs",
     "src/vm/snapshot/intel_bundle_tests/file_owners.rs",
@@ -113,7 +117,7 @@
     "tools/hvf/intel_mmio_native_guest.rs",
     "tools/hvf/intel_mmio_native_probe.py"
   ],
-  "base_source_digest": "a200a78bf78000a99929824ffb1769307f4975bfb9f6496ddbfdd7beafb52678",
-  "target_source_digest": "d0caf2f5dba46cbe41fdd3067a6fd488b7f4694f74b59db5c6781320f0fe61ba",
-  "target_source_tree": "1d2aecbcbc493292636b1ea88bad910bd5146fba"
+  "base_source_digest": "88ae7676baf6c25aea1ef8531d8960cc7ccd5bbeddd8ef09f2950ac925be9e32",
+  "target_source_digest": "8b30ed82923174366ed33f28bbfaae9f8555decd333524242e4dd6b198e248b0",
+  "target_source_tree": "45d76b88517b65017182ac64a40bd586fa46d70b"
 }

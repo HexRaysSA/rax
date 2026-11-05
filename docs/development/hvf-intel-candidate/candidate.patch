@@ -122,10 +122,17 @@ index 77d99deebf8627c3f12f5b142ae622b61ca844d6..a9e3921748007509643bf24a0bde02dd
              return cluster.set_irq_line(irq, level);
          }
 diff --git a/src/backend/hvf/intel_checkpoint.rs b/src/backend/hvf/intel_checkpoint.rs
-index 69201530de44768e5e88651e2f2b09c7b9fd0a4a..5f777bdd8bb1792a613c620764791e4a3325a463 100644
+index 69201530de44768e5e88651e2f2b09c7b9fd0a4a..b5fb27e7001da5880e93d8fc779e6c7be11833e5 100644
 --- a/src/backend/hvf/intel_checkpoint.rs
 +++ b/src/backend/hvf/intel_checkpoint.rs
-@@ -136,7 +136,10 @@ impl HvfCore {
+@@ -130,13 +130,17 @@ impl HvfCore {
+             .map(|(exit, length)| -> Result<_> { Ok((Packet::from_exit(&exit)?, length)) })
+             .transpose()?;
+         let mut context = Context {
++            deadline: Some(self.deadline.snapshot()),
+             id: self.id,
+             profile,
+             public: X86_64CpuState {
                  regs: Default::default(),
                  sregs: Default::default(),
              },
@@ -137,7 +144,7 @@ index 69201530de44768e5e88651e2f2b09c7b9fd0a4a..5f777bdd8bb1792a613c620764791e4a
              registers,
              vmcs,
              msrs,
-@@ -194,7 +197,7 @@ impl HvfCore {
+@@ -194,7 +198,7 @@ impl HvfCore {
          let mut emulator = self.native_profile()?.xsave.project(&fp, &mut registers)?;
          emulator.kernel_gs_base = native_msr::read(self.vcpu_id, wire::KERNEL_GS_BASE)?;
          emulator.tsc_aux = native_msr::read(self.vcpu_id, wire::TSC_AUX)? as u32;
@@ -146,7 +153,7 @@ index 69201530de44768e5e88651e2f2b09c7b9fd0a4a..5f777bdd8bb1792a613c620764791e4a
          emulator.misc_enable = rosetta::MsrDefaults::default().misc_enable;
          emulator.halted = self.halted;
          emulator.interrupt_inhibit = vmcs_read(
-@@ -215,7 +218,7 @@ impl HvfCore {
+@@ -215,7 +219,7 @@ impl HvfCore {
              || emulator.tsc_adjust != 0
              || emulator.umwait_control != 0
              || emulator.misc_enable != rosetta::MsrDefaults::default().misc_enable
@@ -155,7 +162,7 @@ index 69201530de44768e5e88651e2f2b09c7b9fd0a4a..5f777bdd8bb1792a613c620764791e4a
          {
              return Err(Error::InvalidConfig(
                  "native Intel state contains unsupported software-private controls".into(),
-@@ -251,6 +254,7 @@ impl HvfCore {
+@@ -251,6 +255,7 @@ impl HvfCore {
              }
          }
          context.halted = emulator.halted;
@@ -163,7 +170,21 @@ index 69201530de44768e5e88651e2f2b09c7b9fd0a4a..5f777bdd8bb1792a613c620764791e4a
          let (public, projection) = context.projection()?;
          context.public = public;
          context.emulator = projection;
-@@ -426,6 +430,7 @@ impl HvfCore {
+@@ -416,6 +421,13 @@ impl HvfCore {
+         self.priority
+             .restore_checkpoint(context.tpr, context.priority_failure.clone())
+             .map_err(Error::Emulator)?;
++        let deadline = context.deadline.unwrap_or_else(|| {
++            let mut image = self.deadline.snapshot();
++            image.deadline = 0;
++            image.pending = [0; 4];
++            image
++        });
++        self.deadline.restore(deadline);
+         self.apic_base.store(context.apic_base, Ordering::SeqCst);
+         self.native_step = debug;
+         self.port_input = context.port_input.clone();
+@@ -426,6 +438,7 @@ impl HvfCore {
          self.restore_failure = context.restore_failure.clone();
          self.halted = context.halted;
          self.shutdown = context.shutdown;
@@ -172,23 +193,40 @@ index 69201530de44768e5e88651e2f2b09c7b9fd0a4a..5f777bdd8bb1792a613c620764791e4a
          Ok(())
      }
 diff --git a/src/backend/hvf/intel_context_format.rs b/src/backend/hvf/intel_context_format.rs
-index 13888f078cc267f9fe40014828732f718506fa36..5fd7e61bb0cdb0d2d7364f05c157faacf80303b9 100644
+index 13888f078cc267f9fe40014828732f718506fa36..689801ccf9afc7905ce5b39a44fe2575e7a7df9e 100644
 --- a/src/backend/hvf/intel_context_format.rs
 +++ b/src/backend/hvf/intel_context_format.rs
-@@ -12,8 +12,10 @@ use serde::{Deserialize, Serialize};
+@@ -12,11 +12,15 @@ use serde::{Deserialize, Serialize};
  #[path = "intel_context_tests.rs"]
  pub(crate) mod tests;
  
 -const CPU_TAG: &[u8; 8] = b"RAXHVI01";
 -const VM_TAG: &[u8; 8] = b"RAXHVG01";
 +const CPU_TAG: &[u8; 8] = b"RAXHVI02";
++const DEADLINE_CPU_TAG: &[u8; 8] = b"RAXHVI03";
 +const LEGACY_CPU_TAG: &[u8; 8] = b"RAXHVI01";
 +const VM_TAG: &[u8; 8] = b"RAXHVG02";
 +const LEGACY_VM_TAG: &[u8; 8] = b"RAXHVG01";
  const CPU_LIMIT: usize = MAX_IMAGE + 128 * 1024;
  const VM_LIMIT: usize = 64 * 1024 * 1024;
- pub(crate) const MAX_CPU_CONTEXT: u64 = (CPU_LIMIT + 8) as u64;
-@@ -357,9 +359,12 @@ impl Context {
+-pub(crate) const MAX_CPU_CONTEXT: u64 = (CPU_LIMIT + 8) as u64;
++pub(crate) const MAX_CPU_CONTEXT: u64 =
++    (CPU_LIMIT + 8 + crate::devices::lapic::tsc_deadline::Image::BYTES) as u64;
+ pub(crate) const STAR: u32 = 0xc000_0081;
+ pub(crate) const LSTAR: u32 = 0xc000_0082;
+ pub(crate) const CSTAR: u32 = 0xc000_0083;
+@@ -308,6 +312,10 @@ impl ClockBinding {
+ }
+ #[derive(Clone, Debug, Serialize, Deserialize)]
+ pub(crate) struct Context {
++    /// Older producers never implemented deadline writes. Their absent image
++    /// imports an unarmed timer; new records preserve its full shared owner.
++    #[serde(skip)]
++    pub deadline: Option<crate::devices::lapic::tsc_deadline::Image>,
+     pub id: u32,
+     pub profile: Profile,
+     pub public: X86_64CpuState,
+@@ -357,9 +365,12 @@ impl Context {
          let mut emulator = self.profile.xsave.project(&self.fp, &mut regs)?;
          emulator.kernel_gs_base = self.msr(KERNEL_GS_BASE)?;
          emulator.tsc_aux = self.msr(TSC_AUX)? as u32;
@@ -204,23 +242,60 @@ index 13888f078cc267f9fe40014828732f718506fa36..5fd7e61bb0cdb0d2d7364f05c157faac
          emulator.misc_enable = 0x0085_0089;
          emulator.halted = self.halted;
          emulator.interrupt_inhibit =
-@@ -494,14 +499,61 @@ impl Context {
-         if raw.len() > CPU_LIMIT + CPU_TAG.len() {
+@@ -367,6 +378,9 @@ impl Context {
+         Ok((X86_64CpuState { regs, sregs }, emulator))
+     }
+     pub fn validate(&self) -> Result<()> {
++        if self.deadline.is_some_and(|image| !image.valid()) {
++            return Err(invalid("armed deadline outside deadline mode"));
++        }
+         self.profile.validate()?;
+         if self.clock.at(self.anchor) != self.guest_tsc {
+             return Err(invalid("guest time point differs from its clock binding"));
+@@ -486,22 +500,86 @@ impl Context {
+     }
+     pub fn encode(&self) -> Result<Vec<u8>> {
+         self.validate()?;
+-        let mut raw = CPU_TAG.to_vec();
++        let mut raw = if self.deadline.is_some() {
++            DEADLINE_CPU_TAG.to_vec()
++        } else {
++            CPU_TAG.to_vec()
++        };
+         raw.extend(crate::codec::serialize_limited(self, CPU_LIMIT).map_err(invalid)?);
++        if let Some(deadline) = self.deadline {
++            raw.extend(deadline.encode());
++        }
+         Ok(raw)
+     }
+     pub fn decode(raw: &[u8]) -> Result<Self> {
+-        if raw.len() > CPU_LIMIT + CPU_TAG.len() {
++        if raw.len() as u64 > MAX_CPU_CONTEXT {
              return Err(invalid("CPU record exceeds its byte limit"));
          }
 -        let raw = raw
 -            .strip_prefix(CPU_TAG)
 -            .ok_or_else(|| invalid("unknown CPU producer/version"))?;
 -        let context: Self =
-+        let (raw, legacy) = if let Some(raw) = raw.strip_prefix(CPU_TAG) {
-+            (raw, false)
++        let (raw, legacy, deadline) = if let Some(raw) = raw.strip_prefix(DEADLINE_CPU_TAG) {
++            let length = raw
++                .len()
++                .checked_sub(crate::devices::lapic::tsc_deadline::Image::BYTES)
++                .ok_or_else(|| invalid("truncated deadline producer"))?;
++            let (body, trailer) = raw.split_at(length);
++            let image = crate::devices::lapic::tsc_deadline::Image::decode(trailer)
++                .ok_or_else(|| invalid("invalid deadline producer"))?;
++            (body, false, Some(image))
++        } else if let Some(raw) = raw.strip_prefix(CPU_TAG) {
++            (raw, false, None)
 +        } else if let Some(raw) = raw.strip_prefix(LEGACY_CPU_TAG) {
-+            (raw, true)
++            (raw, true, None)
 +        } else {
 +            return Err(invalid("unknown CPU producer/version"));
 +        };
 +        let mut context: Self =
              crate::codec::deserialize_limited::<_, CPU_LIMIT>(raw).map_err(invalid)?;
++        context.deadline = deadline;
 +        if legacy {
 +            context.migrate_fixed_pat_legacy()?;
 +        }
@@ -270,7 +345,7 @@ index 13888f078cc267f9fe40014828732f718506fa36..5fd7e61bb0cdb0d2d7364f05c157faac
  }
  
  fn encode_projection(public: &X86_64CpuState, emulator: &EmulatorState) -> Result<Vec<u8>> {
-@@ -519,6 +571,18 @@ pub(crate) struct GlobalContext {
+@@ -519,6 +597,18 @@ pub(crate) struct GlobalContext {
      pub anchor: u64,
  }
  impl GlobalContext {
@@ -289,7 +364,7 @@ index 13888f078cc267f9fe40014828732f718506fa36..5fd7e61bb0cdb0d2d7364f05c157faac
      pub fn validate(&self) -> Result<()> {
          if self.cpus == 0
              || self.ram_size == 0
-@@ -557,12 +621,19 @@ impl GlobalContext {
+@@ -557,12 +647,19 @@ impl GlobalContext {
          if raw.len() > VM_LIMIT + VM_TAG.len() {
              return Err(invalid("VM record exceeds its byte limit"));
          }
@@ -312,7 +387,7 @@ index 13888f078cc267f9fe40014828732f718506fa36..5fd7e61bb0cdb0d2d7364f05c157faac
          Ok(context)
      }
  }
-@@ -632,9 +703,7 @@ pub(crate) fn vmcs_candidates() -> Vec<u32> {
+@@ -632,9 +729,7 @@ pub(crate) fn vmcs_candidates() -> Vec<u32> {
          VMCS_GUEST_GS_SELECTOR,
          VMCS_GUEST_LDTR_SELECTOR,
          VMCS_GUEST_TR_SELECTOR,
@@ -323,10 +398,57 @@ index 13888f078cc267f9fe40014828732f718506fa36..5fd7e61bb0cdb0d2d7364f05c157faac
          VMCS_GUEST_IA32_PERF_GLOBAL_CTRL,
          VMCS_GUEST_PDPTE0,
 diff --git a/src/backend/hvf/intel_context_tests.rs b/src/backend/hvf/intel_context_tests.rs
-index 2c106f306da3ec973149ba4d591407b145c58310..fef7dd3c0115565c817a4a4aa72bc2c07c08ac39 100644
+index 2c106f306da3ec973149ba4d591407b145c58310..2d8968860f570ac5677104144b4e7a6212629f7b 100644
 --- a/src/backend/hvf/intel_context_tests.rs
 +++ b/src/backend/hvf/intel_context_tests.rs
-@@ -125,11 +125,100 @@ fn bounded_cpu_codec_rejects_every_truncation_and_trailing_byte() {
+@@ -2,6 +2,38 @@
+ use super::*;
+ use crate::backend::intel_hvf_xsave::{Component, Layout};
+ 
++#[test]
++fn deadline_cpu_record_preserves_lvt_arm_and_queued_vectors_without_changing_old_records() {
++    use crate::devices::lapic::tsc_deadline::Image;
++    let old = context();
++    let legacy = old.encode().unwrap();
++    assert!(legacy.starts_with(b"RAXHVI02"));
++    let loaded = Context::decode(&legacy).unwrap();
++    assert!(loaded.deadline.is_none());
++    assert_eq!(loaded.encode().unwrap(), legacy);
++    let mut current = old;
++    current.deadline = Some(Image {
++        lvt: 0x40051,
++        deadline: u64::MAX,
++        pending: [0, 1 << 17, 0, 0],
++    });
++    let raw = current.encode().unwrap();
++    assert!(raw.starts_with(b"RAXHVI03"));
++    let decoded = Context::decode(&raw).unwrap();
++    assert_eq!(decoded.deadline, current.deadline);
++    assert_eq!(decoded.encode().unwrap(), raw);
++    for end in 0..raw.len() {
++        assert!(Context::decode(&raw[..end]).is_err(), "prefix {end}");
++    }
++    let mut bad = raw.clone();
++    let image = bad.len() - Image::BYTES;
++    bad[image..image + 4].copy_from_slice(&0x51u32.to_le_bytes());
++    assert!(Context::decode(&bad).is_err());
++    let mut trailing = raw;
++    trailing.push(0);
++    assert!(Context::decode(&trailing).is_err());
++}
++
+ pub(crate) fn context() -> Context {
+     let layout = Layout {
+         mask: 7,
+@@ -46,6 +78,7 @@ pub(crate) fn context() -> Context {
+         tsc_hz: None,
+     };
+     let mut context = Context {
++        deadline: None,
+         id: 0,
+         registers: register_ids()
+             .into_iter()
+@@ -125,11 +158,100 @@ fn bounded_cpu_codec_rejects_every_truncation_and_trailing_byte() {
      trailing.push(0);
      assert!(Context::decode(&trailing).is_err());
      let mut tag = encoded;
@@ -428,7 +550,7 @@ index 2c106f306da3ec973149ba4d591407b145c58310..fef7dd3c0115565c817a4a4aa72bc2c0
  #[test]
  fn missing_duplicate_reordered_and_foreign_registers_reject() {
      for bank_index in 0..3 {
-@@ -320,6 +409,15 @@ fn shared_codec_preserves_irq_order_and_rejects_ambiguous_mappings() {
+@@ -320,6 +442,15 @@ fn shared_codec_preserves_irq_order_and_rejects_ambiguous_mappings() {
      let raw = saved.encode().unwrap();
      let loaded = GlobalContext::decode(&raw).unwrap();
      assert_eq!(loaded.pending_irqs, [33, 17, 44]);
@@ -444,7 +566,7 @@ index 2c106f306da3ec973149ba4d591407b145c58310..fef7dd3c0115565c817a4a4aa72bc2c0
      assert_eq!(loaded.regions, saved.regions);
      for corruption in 0..5 {
          let mut saved = saved.clone();
-@@ -419,3 +517,24 @@ fn clock_binding_distinguishes_running_and_pending_domains_and_rejects_incoheren
+@@ -419,3 +550,24 @@ fn clock_binding_distinguishes_running_and_pending_domains_and_rejects_incoheren
      saved.clock.offset ^= 1;
      assert!(saved.validate().is_err());
  }
@@ -531,6 +653,75 @@ index c270eb3dff23b669a671a069c43c288ef0dbce21..419ac98920ff61c6d7e5b8f7ab5dbf57
          *clock = if rollback { context.resume_clock } else { None };
          Ok(())
      }
+diff --git a/src/backend/hvf/intel_worker.rs b/src/backend/hvf/intel_worker.rs
+index 937c96d2948867ef336f88c38c7dfd09e18cbf88..27ed15b97707eaad71f5ae768f29fe76d37d345f 100644
+--- a/src/backend/hvf/intel_worker.rs
++++ b/src/backend/hvf/intel_worker.rs
+@@ -7,6 +7,7 @@ pub struct HvfVcpu {
+     id: u32,
+     owner: Owner<HvfCore>,
+     lifetime: Arc<Lifetime>,
++    local_apic: Option<Arc<Mutex<crate::devices::lapic::LocalApic>>>,
+ }
+ 
+ impl HvfVcpu {
+@@ -54,6 +55,7 @@ impl HvfVcpu {
+                     id,
+                     owner,
+                     lifetime,
++                    local_apic: None,
+                 })
+             }
+             Err(error) => {
+@@ -134,6 +136,20 @@ impl VCpu for HvfVcpu {
+     fn run_host_slice(&mut self, limit: std::time::Duration) -> Result<Option<VcpuExit>> {
+         self.request(move |core| core.run_host_slice(limit))
+     }
++    fn poll_vm_clock(&mut self) -> Result<()> {
++        let Some(controller) = &self.local_apic else {
++            return Ok(());
++        };
++        // Complete the native request before acquiring the controller lock.
++        // A pending restored clock returns its frozen guest TSC here; polling
++        // cannot start the first-entry epoch or consume publication delay.
++        let now = self.request(|core| core.read_guest_tsc())?;
++        controller
++            .lock()
++            .map_err(|_| Error::Emulator("local APIC deadline lock poisoned".into()))?
++            .poll_tsc_deadline(now);
++        Ok(())
++    }
+     fn get_state(&self) -> Result<CpuState> {
+         self.request(|core| core.get_state())
+     }
+@@ -177,18 +193,24 @@ impl VCpu for HvfVcpu {
+         // takes controller locks before its native writer; the owner must never
+         // wait for the controller while this request retains a native reader.
+         let binding = match lapic.lock() {
+-            Ok(controller) => Ok(controller.priority_handle()),
++            Ok(controller) => Ok((controller.priority_handle(), controller.deadline_handle())),
+             Err(_) => Err("attached local APIC lock poisoned".to_owned()),
+         };
+-        let _ = self.request(move |core| {
++        let attached = self.request(move |core| {
+             match binding {
+-                Ok(binding) => core.priority.rebind(binding),
++                Ok((priority, deadline)) => {
++                    core.priority.rebind(priority);
++                    core.deadline = deadline;
++                }
+                 Err(error) => {
+                     core.priority.poison(error);
+                 }
+             }
+             Ok(())
+         });
++        if attached.is_ok() {
++            self.local_apic = Some(lapic);
++        }
+     }
+     fn is_bootstrap_processor(&self) -> Result<bool> {
+         self.request(|core| core.is_bootstrap_processor())
 diff --git a/src/backend/hvf/memory_layout.rs b/src/backend/hvf/memory_layout.rs
 index 151bebcc8b74d1a9474d14f797ac008f36ee6050..9bab294bf5cc7cbd846a3dbd23a8c25dcf49a287 100644
 --- a/src/backend/hvf/memory_layout.rs
@@ -885,7 +1076,7 @@ index 0000000000000000000000000000000000000000..33a7e985e2d9f654b565aff9f86cd011
 +    after
 +}
 diff --git a/src/backend/hvf/mod.rs b/src/backend/hvf/mod.rs
-index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..91bd622432b0dc76a887f4cfd39893384f6d2c99 100644
+index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bdde400d43 100644
 --- a/src/backend/hvf/mod.rs
 +++ b/src/backend/hvf/mod.rs
 @@ -201,6 +201,19 @@ impl HvfVm {
@@ -935,7 +1126,15 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..91bd622432b0dc76a887f4cfd3989338
          Ok(())
      }
  
-@@ -318,6 +325,8 @@ struct HvfCore {
+@@ -309,6 +316,7 @@ struct HvfCore {
+     /// CPUID configuration
+     cpuid_config: CpuidConfig,
+     priority: priority_native::State,
++    deadline: crate::devices::lapic::tsc_deadline::Handle,
+     apic_base: AtomicU64,
+     /// Scalar input request and terminal completion failure.
+     port_input: port_io::InputState,
+@@ -318,6 +326,8 @@ struct HvfCore {
      /// Whether the vCPU is halted
      halted: bool,
      shutdown: bool,
@@ -944,7 +1143,15 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..91bd622432b0dc76a887f4cfd3989338
      checkpoint_profile: Option<crate::backend::intel_hvf_context::Profile>,
      pending_request: Option<crate::backend::intel_hvf_context::Packet>,
      execution_failure: Option<String>,
-@@ -370,6 +379,7 @@ impl HvfCore {
+@@ -363,6 +373,7 @@ impl HvfCore {
+             memory_layout: lifetime.memory_layout.clone(),
+             cpuid_config,
+             priority: priority_native::new(),
++            deadline: crate::devices::lapic::tsc_deadline::TimerLvt::new(1 << 16).handle(),
+             apic_base: AtomicU64::new(apic_profile::initial_apic_base(id)),
+             port_input: port_io::InputState::default(),
+             mmio_input: mmio::InputState::default(),
+@@ -370,6 +381,7 @@ impl HvfCore {
              native_step: native_step::State::default(),
              halted: false,
              shutdown: false,
@@ -952,7 +1159,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..91bd622432b0dc76a887f4cfd3989338
              checkpoint_profile: None,
              pending_request: None,
              execution_failure: None,
-@@ -558,8 +568,22 @@ impl HvfCore {
+@@ -558,8 +570,22 @@ impl HvfCore {
          Ok(())
      }
  
@@ -975,16 +1182,22 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..91bd622432b0dc76a887f4cfd3989338
          let ecx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RCX)? as u32;
          if ecx == 0x1b {
              self.handle_apic_base(None)?;
-@@ -608,7 +632,7 @@ impl HvfCore {
+@@ -608,9 +634,12 @@ impl HvfCore {
                  )?
              }
              0x1A0 => rosetta::MsrDefaults::default().misc_enable, // IA32_MISC_ENABLE
 -            0x277 => rosetta::MsrDefaults::default().pat,         // IA32_PAT
 +            0x277 => self.pat,                                    // IA32_PAT
              0x10 => self.read_guest_tsc()?,
-             0x6E0 => 0, // IA32_TSC_DEADLINE
+-            0x6E0 => 0, // IA32_TSC_DEADLINE
++            0x6E0 => {
++                self.deadline.expire(self.read_guest_tsc()?);
++                self.deadline.read()
++            }
              _ => {
-@@ -630,6 +654,9 @@ impl HvfCore {
+                 debug!(msr = format!("{:#x}", ecx), "Unhandled RDMSR");
+                 self.inject_fault(xsetbv::XsetbvFault::GeneralProtection)?;
+@@ -630,6 +659,9 @@ impl HvfCore {
  
      /// Handle WRMSR exit.
      fn handle_wrmsr(&mut self) -> Result<Option<VcpuExit>> {
@@ -994,7 +1207,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..91bd622432b0dc76a887f4cfd3989338
          let ecx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RCX)? as u32;
          let eax = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX)? as u32;
          let edx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RDX)? as u32;
-@@ -640,6 +667,13 @@ impl HvfCore {
+@@ -640,6 +672,13 @@ impl HvfCore {
          }
  
          match ecx {
@@ -1008,6 +1221,17 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..91bd622432b0dc76a887f4cfd3989338
              0x10 => self.write_guest_tsc(value)?,
              0xC0000080 => {
                  // IA32_EFER
+@@ -688,8 +727,8 @@ impl HvfCore {
+                 )?;
+             }
+             0x6E0 => {
+-                // IA32_TSC_DEADLINE
+-                debug!(value = format!("{:#x}", value), "WRMSR IA32_TSC_DEADLINE");
++                self.deadline.expire(self.read_guest_tsc()?);
++                self.deadline.write(value);
+             }
+             _ => {
+                 debug!(
 diff --git a/src/backend/kvm/access.rs b/src/backend/kvm/access.rs
 new file mode 100644
 index 0000000000000000000000000000000000000000..e8d0272e31ab6edd671da2c7c49cdd6144c747bc
@@ -9689,10 +9913,27 @@ index 0000000000000000000000000000000000000000..170ab348e48735ad9c433bcd54df8ccc
 +    }
 +}
 diff --git a/src/devices/lapic.rs b/src/devices/lapic.rs
-index ba4113e59d98aff69b9aab25addbfe6be0f31322..009f6b3177b507acafe0fdf3c2d4cadd9ee37049 100644
+index ba4113e59d98aff69b9aab25addbfe6be0f31322..6ee4826eed318f9b1aeb614cd93f58705fee00f9 100644
 --- a/src/devices/lapic.rs
 +++ b/src/devices/lapic.rs
-@@ -182,6 +182,10 @@ pub struct LocalApic {
+@@ -13,6 +13,7 @@ use crate::host::time::Instant;
+ 
+ #[path = "lapic/timer_clock.rs"]
+ mod timer_clock;
++pub(crate) mod tsc_deadline;
+ use serde::{Deserialize, Serialize};
+ use timer_clock::TimerClock;
+ 
+@@ -148,7 +149,7 @@ pub struct LocalApic {
+     /// Interrupt Command Register (64-bit)
+     icr: u64,
+     /// LVT Timer Register
+-    lvt_timer: u32,
++    lvt_timer: tsc_deadline::TimerLvt,
+     /// LVT Thermal Sensor Register
+     lvt_thermal: u32,
+     /// LVT Performance Counter Register
+@@ -182,6 +183,10 @@ pub struct LocalApic {
      /// the execution checkpoint section carries this complete FIFO explicitly.
      #[serde(skip)]
      pending_ipis: std::collections::VecDeque<IpiRequest>,
@@ -9703,7 +9944,16 @@ index ba4113e59d98aff69b9aab25addbfe6be0f31322..009f6b3177b507acafe0fdf3c2d4cadd
      #[serde(skip)]
      coordinated_ipis: bool,
      /// Pending NMI to deliver
-@@ -226,6 +230,7 @@ impl LocalApic {
+@@ -211,7 +216,7 @@ impl LocalApic {
+             irr: [0; 8],
+             esr: 0,
+             icr: 0,
+-            lvt_timer: LVT_MASK, // Masked initially
++            lvt_timer: tsc_deadline::TimerLvt::new(LVT_MASK),
+             lvt_thermal: LVT_MASK,
+             lvt_pmc: LVT_MASK,
+             lvt_lint0: 0x700, // ExtInt mode, not masked - virtual wire mode
+@@ -226,6 +231,7 @@ impl LocalApic {
              timer_pending: false,
              pending_ipi: None,
              pending_ipis: Default::default(),
@@ -9711,7 +9961,77 @@ index ba4113e59d98aff69b9aab25addbfe6be0f31322..009f6b3177b507acafe0fdf3c2d4cadd
              coordinated_ipis: false,
              nmi_pending: false,
          }
-@@ -426,6 +431,7 @@ impl LocalApic {
+@@ -240,6 +246,29 @@ impl LocalApic {
+         self.tpr.handle()
+     }
+ 
++    pub(crate) fn deadline_handle(&self) -> tsc_deadline::Handle {
++        self.lvt_timer.handle()
++    }
++
++    /// Sample this CPU's virtual TSC outside all native callbacks. Expired
++    /// vectors transfer to the same IRR used by ordinary controller routing.
++    pub(crate) fn poll_tsc_deadline(&mut self, now: u64) {
++        let timer = self.deadline_handle();
++        timer.expire(now);
++        for (word, mut pending) in timer.take_pending().into_iter().enumerate() {
++            while pending != 0 {
++                let bit = pending.trailing_zeros();
++                let vector = (word * 64 + bit as usize) as u8;
++                pending &= pending - 1;
++                if vector < 16 {
++                    self.record_error(1 << 6); // Send illegal vector.
++                } else {
++                    self.set_irr(vector);
++                }
++            }
++        }
++    }
++
+     /// Keep CPU bindings live when replacing captured controller state.
+     pub(crate) fn replace_state(&mut self, mut restored: Self) {
+         restored
+@@ -247,6 +276,8 @@ impl LocalApic {
+             .retain_target_binding(&self.timer_clock);
+         std::mem::swap(&mut restored.tpr, &mut self.tpr);
+         restored.tpr.restore_from(&self.tpr);
++        std::mem::swap(&mut restored.lvt_timer, &mut self.lvt_timer);
++        restored.lvt_timer.restore_from(&self.lvt_timer);
+         *self = restored;
+     }
+ 
+@@ -271,17 +302,17 @@ impl LocalApic {
+ 
+     /// Get the timer mode from LVT timer register
+     fn timer_mode(&self) -> u32 {
+-        (self.lvt_timer & LVT_TIMER_MODE_MASK) >> LVT_TIMER_MODE_SHIFT
++        (self.lvt_timer.value() & LVT_TIMER_MODE_MASK) >> LVT_TIMER_MODE_SHIFT
+     }
+ 
+     /// Check if timer is masked
+     fn timer_masked(&self) -> bool {
+-        (self.lvt_timer & LVT_MASK) != 0
++        (self.lvt_timer.value() & LVT_MASK) != 0
+     }
+ 
+     /// Get the timer vector
+     pub fn timer_vector(&self) -> u8 {
+-        (self.lvt_timer & 0xFF) as u8
++        (self.lvt_timer.value() & 0xFF) as u8
+     }
+ 
+     // floor(elapsed_ns * frequency_hz / 1e9) without a potentially
+@@ -355,7 +386,8 @@ impl LocalApic {
+                 }
+             }
+             TIMER_MODE_TSC_DEADLINE => {
+-                // TSC-deadline mode uses MSR, not implemented yet
++                // The CPU's virtual TSC, sampled by poll_tsc_deadline, owns
++                // this mode independently of the initial-count clock.
+             }
+             _ => {}
+         }
+@@ -426,6 +458,7 @@ impl LocalApic {
          let version = self.version;
          let pending = self.pending_ipi.take();
          let pending_ipis = std::mem::take(&mut self.pending_ipis);
@@ -9719,7 +10039,7 @@ index ba4113e59d98aff69b9aab25addbfe6be0f31322..009f6b3177b507acafe0fdf3c2d4cadd
          let coordinated = self.coordinated_ipis;
          self.replace_state(Self::new(u32::from(self.apic_id())));
          self.id = id;
-@@ -435,6 +441,7 @@ impl LocalApic {
+@@ -435,6 +468,7 @@ impl LocalApic {
          self.lvt_lint1 = LVT_MASK;
          self.pending_ipi = pending;
          self.pending_ipis = pending_ipis;
@@ -9727,7 +10047,7 @@ index ba4113e59d98aff69b9aab25addbfe6be0f31322..009f6b3177b507acafe0fdf3c2d4cadd
          self.coordinated_ipis = coordinated;
      }
  
-@@ -627,6 +634,30 @@ impl LocalApic {
+@@ -627,6 +661,30 @@ impl LocalApic {
          let idx = (vector / 32) as usize;
          let bit = vector % 32;
          self.irr[idx] |= 1 << bit;
@@ -9758,7 +10078,7 @@ index ba4113e59d98aff69b9aab25addbfe6be0f31322..009f6b3177b507acafe0fdf3c2d4cadd
      }
  
      /// Acknowledge interrupt (move from IRR to ISR)
-@@ -645,6 +676,11 @@ impl LocalApic {
+@@ -645,6 +703,11 @@ impl LocalApic {
                  for bit in (0..32).rev() {
                      if self.isr[i] & (1 << bit) != 0 {
                          self.isr[i] &= !(1 << bit);
@@ -9770,6 +10090,53 @@ index ba4113e59d98aff69b9aab25addbfe6be0f31322..009f6b3177b507acafe0fdf3c2d4cadd
                          return;
                      }
                  }
+@@ -698,7 +761,7 @@ impl LocalApic {
+             LAPIC_ESR => self.esr,
+             LAPIC_ICR_LOW => self.icr as u32,
+             LAPIC_ICR_HIGH => (self.icr >> 32) as u32,
+-            LAPIC_LVT_TIMER => self.lvt_timer,
++            LAPIC_LVT_TIMER => self.lvt_timer.value(),
+             LAPIC_LVT_THERMAL => self.lvt_thermal,
+             LAPIC_LVT_PMC => self.lvt_pmc,
+             LAPIC_LVT_LINT0 => self.lvt_lint0,
+@@ -706,6 +769,9 @@ impl LocalApic {
+             LAPIC_LVT_ERROR => self.lvt_error,
+             LAPIC_TIMER_ICR => self.timer_initial_count,
+             LAPIC_TIMER_CCR => {
++                if self.timer_mode() == TIMER_MODE_TSC_DEADLINE {
++                    return 0;
++                }
+                 // Current count must be computed dynamically on every read
+                 // The kernel uses this for timer calibration
+                 if self.timer_initial_count == 0 {
+@@ -786,7 +852,16 @@ impl LocalApic {
+                 self.icr = (self.icr & 0x00000000FFFFFFFF) | ((value as u64) << 32);
+             }
+             LAPIC_LVT_TIMER => {
+-                self.lvt_timer = value;
++                let old_mode = self.timer_mode();
++                self.lvt_timer.write(value);
++                if old_mode != self.timer_mode()
++                    && (old_mode == TIMER_MODE_TSC_DEADLINE
++                        || self.timer_mode() == TIMER_MODE_TSC_DEADLINE)
++                {
++                    // Mode selection does not start a count-down timer.
++                    self.timer_start = None;
++                    self.timer_current_count = 0;
++                }
+                 tracing::debug!(
+                     "LVT Timer set: vector={:#x}, mode={}, masked={}",
+                     value & 0xFF,
+@@ -810,6 +885,9 @@ impl LocalApic {
+                 self.lvt_error = value;
+             }
+             LAPIC_TIMER_ICR => {
++                if self.timer_mode() == TIMER_MODE_TSC_DEADLINE {
++                    return;
++                }
+                 self.timer_initial_count = value;
+                 self.timer_current_count = value;
+                 if value > 0 {
 diff --git a/src/devices/lapic/checkpoint.rs b/src/devices/lapic/checkpoint.rs
 index 554436a1732a6a47f65905a92d0bd249cb05dd95..7f9c29e4a0fe338a8d3886b7ee93e5908c9e8643 100644
 --- a/src/devices/lapic/checkpoint.rs
@@ -9860,6 +10227,30 @@ index 554436a1732a6a47f65905a92d0bd249cb05dd95..7f9c29e4a0fe338a8d3886b7ee93e590
      #[test]
      fn forty_second_timer_age_does_not_wrap_the_nanosecond_frequency_product() {
          let mut apic = LocalApic::new(0);
+diff --git a/src/devices/lapic/tests.rs b/src/devices/lapic/tests.rs
+index 99de540b882ecdaf91bfd85199df8dde44eada4c..d3778e71a6a7a8018975e9b5931c129ed2295eac 100644
+--- a/src/devices/lapic/tests.rs
++++ b/src/devices/lapic/tests.rs
+@@ -191,19 +191,6 @@ fn test_icr_register() {
+ fn test_lvt_registers() {
+     let mut lapic = LocalApic::new(0);
+ 
+-    // Test all LVT registers
+-    let lvt_offsets = [
+-        (LAPIC_LVT_TIMER, &mut lapic.lvt_timer),
+-        (LAPIC_LVT_THERMAL, &mut lapic.lvt_thermal),
+-        (LAPIC_LVT_PMC, &mut lapic.lvt_pmc),
+-        (LAPIC_LVT_LINT0, &mut lapic.lvt_lint0),
+-        (LAPIC_LVT_LINT1, &mut lapic.lvt_lint1),
+-        (LAPIC_LVT_ERROR, &mut lapic.lvt_error),
+-    ];
+-
+-    // Re-create lapic to avoid borrow issues
+-    let mut lapic = LocalApic::new(0);
+-
+     // Test LVT Timer
+     lapic.write_register(LAPIC_LVT_TIMER, 0x00030020);
+     assert_eq!(lapic.read_register(LAPIC_LVT_TIMER), 0x00030020);
 diff --git a/src/devices/lapic/timer_clock.rs b/src/devices/lapic/timer_clock.rs
 index 647fa2b878510d2c42b90c2de4bfa51b27facabd..ae88f929f23b2f48f21f815ce3447e005266448f 100644
 --- a/src/devices/lapic/timer_clock.rs
@@ -9992,6 +10383,239 @@ index 0000000000000000000000000000000000000000..f391bbfabcebd5bda0935a12e22cab33
 +    let sample = replacement.sample(wall, wall);
 +    let after = entry.elapsed().as_nanos();
 +    assert!((before..=after).contains(&sample.elapsed_nanos));
++}
+diff --git a/src/devices/lapic/tsc_deadline.rs b/src/devices/lapic/tsc_deadline.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..a9a1d6265da7abe4ebd33f7615f334b250cb9ed0
+--- /dev/null
++++ b/src/devices/lapic/tsc_deadline.rs
+@@ -0,0 +1,227 @@
++//! Shared timer LVT/MSR ownership without taking a controller lock in a CPU.
++//! The bounded state lock never spans native calls, callbacks or allocation.
++//! Controller snapshots clone values; explicitly cloned handles share identity.
++use serde::{Deserialize, Deserializer, Serialize, Serializer};
++use std::sync::{Arc, Mutex, MutexGuard};
++
++const MODE: u32 = 3 << 17;
++const DEADLINE: u32 = 2 << 17;
++const MASK: u32 = 1 << 16;
++
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub(crate) struct Image {
++    pub(crate) lvt: u32,
++    pub(crate) deadline: u64,
++    pub(crate) pending: [u64; 4],
++}
++
++impl Image {
++    pub(crate) const BYTES: usize = 44;
++
++    pub(crate) fn encode(self) -> [u8; Self::BYTES] {
++        let mut bytes = [0; Self::BYTES];
++        bytes[..4].copy_from_slice(&self.lvt.to_le_bytes());
++        bytes[4..12].copy_from_slice(&self.deadline.to_le_bytes());
++        for (index, word) in self.pending.into_iter().enumerate() {
++            bytes[12 + index * 8..20 + index * 8].copy_from_slice(&word.to_le_bytes());
++        }
++        bytes
++    }
++
++    pub(crate) fn decode(bytes: &[u8]) -> Option<Self> {
++        if bytes.len() != Self::BYTES {
++            return None;
++        }
++        let mut image = Self {
++            lvt: u32::from_le_bytes(bytes[..4].try_into().ok()?),
++            deadline: u64::from_le_bytes(bytes[4..12].try_into().ok()?),
++            pending: [0; 4],
++        };
++        for (index, word) in image.pending.iter_mut().enumerate() {
++            *word = u64::from_le_bytes(bytes[12 + index * 8..20 + index * 8].try_into().ok()?);
++        }
++        image.valid().then_some(image)
++    }
++
++    pub(crate) fn valid(&self) -> bool {
++        self.deadline == 0 || self.lvt & MODE == DEADLINE
++    }
++
++    pub(crate) fn is_quiescent(&self) -> bool {
++        self.deadline == 0 && self.pending == [0; 4]
++    }
++}
++
++#[derive(Clone)]
++pub(crate) struct Handle(Arc<Mutex<Image>>);
++
++impl Handle {
++    fn state(&self) -> MutexGuard<'_, Image> {
++        // No user code or fallible operation runs under this lock. Every
++        // mutation below is a bounded scalar/array operation without a panic
++        // path; recovering a poisoned guard cannot expose a partial mutation.
++        self.0
++            .lock()
++            .unwrap_or_else(std::sync::PoisonError::into_inner)
++    }
++
++    pub(crate) fn snapshot(&self) -> Image {
++        *self.state()
++    }
++
++    pub(crate) fn restore(&self, image: Image) {
++        *self.state() = image;
++    }
++
++    pub(crate) fn read(&self) -> u64 {
++        self.state().deadline
++    }
++
++    pub(crate) fn write(&self, value: u64) {
++        let mut state = self.state();
++        if state.lvt & MODE == DEADLINE {
++            state.deadline = value;
++        }
++    }
++
++    /// Intel SDM086 Vol.3A12.5.4.1 uses an unsigned comparison, not modular
++    /// half-range ordering. Expiry disarms even a masked timer. Raised vectors
++    /// remain owned here until the controller transfers them into its IRR.
++    pub(crate) fn expire(&self, now: u64) {
++        let mut state = self.state();
++        if state.deadline == 0 || now < state.deadline {
++            return;
++        }
++        state.deadline = 0;
++        if state.lvt & MASK == 0 {
++            let vector = (state.lvt & 0xff) as usize;
++            state.pending[vector / 64] |= 1u64 << (vector % 64);
++        }
++    }
++
++    pub(crate) fn take_pending(&self) -> [u64; 4] {
++        std::mem::take(&mut self.state().pending)
++    }
++}
++
++pub(crate) struct TimerLvt(Handle);
++
++impl TimerLvt {
++    pub(crate) fn new(lvt: u32) -> Self {
++        Self(Handle(Arc::new(Mutex::new(Image {
++            lvt,
++            ..Image::default()
++        }))))
++    }
++
++    pub(crate) fn value(&self) -> u32 {
++        self.0.state().lvt
++    }
++
++    pub(crate) fn write(&self, value: u32) {
++        let mut state = self.0.state();
++        if state.lvt & MODE != value & MODE {
++            state.deadline = 0;
++        }
++        state.lvt = value;
++    }
++
++    pub(crate) fn handle(&self) -> Handle {
++        self.0.clone()
++    }
++
++    pub(crate) fn restore_from(&self, other: &Self) {
++        self.0.restore(other.0.snapshot());
++    }
++}
++
++impl Clone for TimerLvt {
++    fn clone(&self) -> Self {
++        Self(Handle(Arc::new(Mutex::new(self.0.snapshot()))))
++    }
++}
++
++// Keep the legacy positional LVT u32 byte-for-byte. Complete execution and
++// native CPU extensions transport the deadline and outstanding vector bitmap.
++impl Serialize for TimerLvt {
++    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
++        self.value().serialize(serializer)
++    }
++}
++
++impl<'de> Deserialize<'de> for TimerLvt {
++    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
++        u32::deserialize(deserializer).map(Self::new)
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn deadline_mode_owns_all_64_bits_and_mode_changes_disarm_it() {
++        let timer = TimerLvt::new(0x51);
++        let msr = timer.handle();
++        for mode in [0, 1, 2, 3] {
++            timer.write((mode << 17) | 0x51);
++            for value in [0, 1, 1 << 63, u64::MAX] {
++                msr.write(value);
++                assert_eq!(msr.read(), if mode == 2 { value } else { 0 });
++            }
++        }
++        timer.write(DEADLINE | 0x51);
++        msr.write(u64::MAX);
++        timer.write(DEADLINE | MASK | 0x61);
++        assert_eq!(msr.read(), u64::MAX, "mask/vector changes retain the arm");
++        timer.write(0x51);
++        assert_eq!(msr.read(), 0);
++        timer.write(DEADLINE | 0x51);
++        assert_eq!(msr.read(), 0);
++    }
++
++    #[test]
++    fn expiry_uses_unsigned_tsc_order_and_masked_expiry_does_not_reappear() {
++        for masked in [false, true] {
++            let timer = TimerLvt::new(DEADLINE | 0x51 | if masked { MASK } else { 0 });
++            let msr = timer.handle();
++            msr.write(u64::MAX);
++            msr.expire(u64::MAX - 1);
++            assert_eq!(msr.read(), u64::MAX);
++            msr.expire(u64::MAX);
++            assert_eq!(msr.read(), 0);
++            let mut expected = [0; 4];
++            if !masked {
++                expected[1] = 1 << 17;
++            }
++            assert_eq!(msr.take_pending(), expected);
++            timer.write(DEADLINE | 0x51);
++            msr.expire(u64::MAX);
++            assert_eq!(msr.take_pending(), [0; 4]);
++            msr.write(1);
++            msr.expire(1 << 63);
++            assert_eq!(msr.read(), 0, "unsigned comparison across half range");
++        }
++    }
++
++    #[test]
++    fn expired_vectors_coalesce_without_losing_distinct_vectors_or_identity() {
++        let timer = TimerLvt::new(DEADLINE | 0x51);
++        let msr = timer.handle();
++        for vector in [0x51, 0x61, 0x51] {
++            timer.write(DEADLINE | vector);
++            msr.write(1);
++            msr.expire(1);
++        }
++        let saved = timer.clone();
++        let frozen = saved.handle().snapshot();
++        assert_eq!(msr.take_pending()[1], (1 << 17) | (1 << 33));
++        assert_eq!(saved.handle().snapshot(), frozen);
++        timer.restore_from(&saved);
++        assert_eq!(msr.snapshot(), frozen);
++        assert_eq!(
++            crate::codec::serialize(&timer).unwrap(),
++            crate::codec::serialize(&(DEADLINE | 0x51)).unwrap()
++        );
++    }
 +}
 diff --git a/src/devices/pci.rs b/src/devices/pci.rs
 index 233f3bffd315058858b9968676135a9054e5de00..0b6de888e68fbb58b677833c1779258e8a24de41 100644
@@ -12907,9 +13531,18 @@ index c523e019dd04c5e61bd29fbb56b144b338bb881a..956f0c4b6917e92d139500d187bb9df5
  }
  
 diff --git a/src/vm/runtime/coordinator.rs b/src/vm/runtime/coordinator.rs
-index f41bb7f134709ab960a677fba7c8ddf5221e5984..88bf8459cf6acce0a74649b55797995e99a45793 100644
+index f41bb7f134709ab960a677fba7c8ddf5221e5984..9e5436a9c51b723d0c0f4e6db0c4c99ffc267eb5 100644
 --- a/src/vm/runtime/coordinator.rs
 +++ b/src/vm/runtime/coordinator.rs
+@@ -47,7 +47,7 @@ impl Vmm {
+     fn poll_vm_clocks(&mut self) -> Result<()> {
+         if !matches!(
+             self.checkpoint_config.arch,
+-            ArchKind::Aarch64 | ArchKind::Riscv64
++            ArchKind::Aarch64 | ArchKind::Riscv64 | ArchKind::X86_64
+         ) {
+             return Ok(());
+         }
 @@ -219,6 +219,7 @@ impl Vmm {
          if self.checkpoint_config.arch != ArchKind::X86_64 {
              return Ok(());
@@ -13774,7 +14407,7 @@ index dc05d6315989c5f105baecff66676358e7766825..c3a0eb85ecd1e0f1002c0814ef95b6e2
 +    Ok(false)
 +}
 diff --git a/src/vm/snapshot/bundle.rs b/src/vm/snapshot/bundle.rs
-index 8d40f273bc90388107e84b152dd0055c6f7f37de..43b5cce34311563025eda7853a50d2d684ca07d2 100644
+index 8d40f273bc90388107e84b152dd0055c6f7f37de..f43a6ae635d4907714d9229569a790a6e729107d 100644
 --- a/src/vm/snapshot/bundle.rs
 +++ b/src/vm/snapshot/bundle.rs
 @@ -312,7 +312,25 @@ impl SnapshotBundle {
@@ -13804,6 +14437,22 @@ index 8d40f273bc90388107e84b152dd0055c6f7f37de..43b5cce34311563025eda7853a50d2d6
              };
              for (base, size) in spans {
                  let end = base.checked_add(size).ok_or_else(|| {
+@@ -453,6 +471,15 @@ impl SnapshotBundle {
+                             "native Intel TPR and local APIC priority differ".into(),
+                         ));
+                     }
++                    let timer = apic.registers.deadline_handle().snapshot();
++                    if context
++                        .deadline
++                        .map_or(!timer.is_quiescent(), |saved| saved != timer)
++                    {
++                        return Err(Error::InvalidConfig(
++                            "native Intel deadline and local APIC timer differ".into(),
++                        ));
++                    }
+                 }
+             }
+             if super::producer::is_native(&self.base.config)
 diff --git a/src/vm/snapshot/codec.rs b/src/vm/snapshot/codec.rs
 index 5b3dc859a2c3717b2a75e2ca82a157fa23f228c9..1711b60d67360c6d2dff788476520ad663af2264 100644
 --- a/src/vm/snapshot/codec.rs
@@ -13821,20 +14470,23 @@ index 5b3dc859a2c3717b2a75e2ca82a157fa23f228c9..1711b60d67360c6d2dff788476520ad6
      // layer. Extensions additionally require admission of their whole graph.
      if cpus.is_some() || backend_contexts.is_some() || vm_context.is_some() {
 diff --git a/src/vm/snapshot/execution.rs b/src/vm/snapshot/execution.rs
-index 522714c59ca68b05158c5467dc2cf3675dd72cde..30e62e5d60e40aad5b1c5387a0758fd791a7dad0 100644
+index 522714c59ca68b05158c5467dc2cf3675dd72cde..eeb684d7fd29aa100cc642cb1e093bca60787a2e 100644
 --- a/src/vm/snapshot/execution.rs
 +++ b/src/vm/snapshot/execution.rs
-@@ -17,6 +17,9 @@ pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
+@@ -17,6 +17,12 @@ pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
  const MAX_CONTROL: usize = 4096;
  const MAX_REQUESTS: usize = 1_048_576;
  
 +#[path = "execution_eoi.rs"]
 +mod eoi;
 +
++#[path = "execution_deadline.rs"]
++mod deadline;
++
  fn invalid(message: impl std::fmt::Display) -> Error {
      Error::Emulator(format!("execution checkpoint: {message}"))
  }
-@@ -41,6 +44,7 @@ mod tests {
+@@ -41,6 +47,7 @@ mod tests {
                      vector: 0x41,
                      target: crate::devices::lapic::IpiTarget::Physical(1),
                  }]),
@@ -13842,7 +14494,7 @@ index 522714c59ca68b05158c5467dc2cf3675dd72cde..30e62e5d60e40aad5b1c5387a0758fd7
              }],
          }
          .encoded()
-@@ -257,6 +261,11 @@ impl ExecutionSnapshot {
+@@ -257,6 +264,11 @@ impl ExecutionSnapshot {
      }
  
      pub(crate) fn validate(&self, base: &Snapshot) -> Result<()> {
@@ -13854,7 +14506,7 @@ index 522714c59ca68b05158c5467dc2cf3675dd72cde..30e62e5d60e40aad5b1c5387a0758fd7
          let count = usize::from(base.config.vcpus);
          if count == 0
              || self.online.len() != count
-@@ -304,17 +313,31 @@ impl ExecutionSnapshot {
+@@ -304,17 +316,31 @@ impl ExecutionSnapshot {
          if encode(&first.registers)? != encode(&base.devices.lapic)? {
              return Err(invalid("BSP controller disagrees with base checkpoint"));
          }
@@ -13882,7 +14534,7 @@ index 522714c59ca68b05158c5467dc2cf3675dd72cde..30e62e5d60e40aad5b1c5387a0758fd7
 +            ));
          }
 -        Ok(())
-+        self.encode_eois(self.encoded_base()?)
++        self.encode_deadlines(self.encode_eois(self.encoded_base()?)?)
      }
  
 -    pub(super) fn encoded(&self) -> Result<Vec<u8>> {
@@ -13890,17 +14542,20 @@ index 522714c59ca68b05158c5467dc2cf3675dd72cde..30e62e5d60e40aad5b1c5387a0758fd7
          let mut raw = Vec::new();
          if self.riscv_platform.is_some()
              && (self.pc.is_some() || self.pl011.is_some() || self.arm_cluster.is_some())
-@@ -411,6 +434,9 @@ impl ExecutionSnapshot {
+@@ -411,6 +437,12 @@ impl ExecutionSnapshot {
          if raw.len() as u64 > MAX_SECTION {
              return Err(invalid("execution section exceeds format limit"));
          }
++        if let Some(restored) = Self::decode_deadlines(raw, expected_count)? {
++            return Ok(restored);
++        }
 +        if let Some(restored) = Self::decode_eois(raw, expected_count)? {
 +            return Ok(restored);
 +        }
          struct Reader<'a>(&'a [u8]);
          impl<'a> Reader<'a> {
              fn take(&mut self, count: usize) -> Result<&'a [u8]> {
-@@ -494,6 +520,7 @@ impl ExecutionSnapshot {
+@@ -494,6 +526,7 @@ impl ExecutionSnapshot {
              local_apics.push(LapicCheckpoint {
                  registers,
                  queued,
@@ -13908,9 +14563,221 @@ index 522714c59ca68b05158c5467dc2cf3675dd72cde..30e62e5d60e40aad5b1c5387a0758fd7
                  timer_age_nanos: (armed != 0).then_some(age),
              });
          }
+diff --git a/src/vm/snapshot/execution_deadline.rs b/src/vm/snapshot/execution_deadline.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..36790a7c6544418f9b758917b1a24c182570a4b7
+--- /dev/null
++++ b/src/vm/snapshot/execution_deadline.rs
+@@ -0,0 +1,206 @@
++//! Complete per-CPU deadline/expiry ownership around the stable base frame.
++//! Canonical order is deadline -> EOI -> base; reverse nesting is rejected.
++use super::*;
++use crate::devices::lapic::tsc_deadline::Image;
++
++pub(super) const TAG: &[u8; 8] = b"RAXEXE11";
++
++impl ExecutionSnapshot {
++    pub(super) fn encode_deadlines(&self, base: Vec<u8>) -> Result<Vec<u8>> {
++        let images: Vec<_> = self
++            .local_apics
++            .iter()
++            .map(|apic| apic.registers.deadline_handle().snapshot())
++            .collect();
++        if images.iter().any(|image| !image.valid()) {
++            return Err(invalid("armed timer outside deadline mode"));
++        }
++        if images.iter().all(Image::is_quiescent) {
++            return Ok(base);
++        }
++        if images.len() != self.online.len()
++            || images.is_empty()
++            || images.len() > usize::from(u8::MAX)
++        {
++            return Err(invalid("deadline controller identity count differs"));
++        }
++        let length = 16usize
++            .checked_add(base.len())
++            .and_then(|length| length.checked_add(images.len() * Image::BYTES))
++            .ok_or_else(|| invalid("deadline frame length overflow"))?;
++        if length as u64 > MAX_SECTION {
++            return Err(invalid("deadline section exceeds format limit"));
++        }
++        let mut raw = Vec::new();
++        raw.try_reserve_exact(length).map_err(invalid)?;
++        raw.extend_from_slice(TAG);
++        raw.extend_from_slice(&(base.len() as u32).to_le_bytes());
++        raw.extend_from_slice(&base);
++        raw.extend_from_slice(&(images.len() as u32).to_le_bytes());
++        for image in images {
++            raw.extend(image.encode());
++        }
++        Ok(raw)
++    }
++
++    pub(super) fn decode_deadlines(raw: &[u8], expected_count: u8) -> Result<Option<Self>> {
++        if !raw.starts_with(TAG) {
++            return Ok(None);
++        }
++        let length = raw
++            .get(8..12)
++            .map(|value| u32::from_le_bytes(value.try_into().unwrap()) as usize)
++            .ok_or_else(|| invalid("truncated deadline frame"))?;
++        let end = 12usize
++            .checked_add(length)
++            .ok_or_else(|| invalid("deadline inner length overflow"))?;
++        let inner = raw
++            .get(12..end)
++            .ok_or_else(|| invalid("truncated deadline inner frame"))?;
++        if inner.starts_with(TAG) {
++            return Err(invalid("nested deadline frame"));
++        }
++        let count = raw
++            .get(end..end + 4)
++            .map(|value| u32::from_le_bytes(value.try_into().unwrap()) as usize)
++            .ok_or_else(|| invalid("truncated deadline count"))?;
++        if count == 0
++            || count != usize::from(expected_count)
++            || raw.len() != end + 4 + count * Image::BYTES
++        {
++            return Err(invalid("deadline controller count or length differs"));
++        }
++        let mut restored = Self::decode(inner, expected_count)?;
++        if restored.local_apics.len() != count {
++            return Err(invalid("deadline controller identity count differs"));
++        }
++        let mut nonempty = false;
++        for (apic, bytes) in restored
++            .local_apics
++            .iter_mut()
++            .zip(raw[end + 4..].chunks_exact(Image::BYTES))
++        {
++            let image = Image::decode(bytes).ok_or_else(|| invalid("invalid deadline image"))?;
++            let timer = apic.registers.deadline_handle();
++            if image.lvt != timer.snapshot().lvt {
++                return Err(invalid("deadline LVT differs from controller"));
++            }
++            nonempty |= !image.is_quiescent();
++            timer.restore(image);
++        }
++        if !nonempty {
++            return Err(invalid("empty deadline extension"));
++        }
++        Ok(Some(restored))
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn fixture(count: usize) -> ExecutionSnapshot {
++        ExecutionSnapshot {
++            cursor: count - 1,
++            retired: 53,
++            online: vec![true; count],
++            local_apics: (0..count)
++                .map(|id| LocalApic::new(id as u32).checkpoint_at(std::time::Instant::now()))
++                .collect(),
++            pc: None,
++            pl011: None,
++            riscv_platform: None,
++            arm_cluster: None,
++        }
++    }
++
++    #[test]
++    fn armed_deadlines_and_undelivered_expiries_round_trip_with_eoi_queues() {
++        for count in [1, 2, 4] {
++            let mut state = fixture(count);
++            for (id, apic) in state.local_apics.iter_mut().enumerate() {
++                apic.registers.write_register(0x320, 0x40051 + id as u32);
++                let timer = apic.registers.deadline_handle();
++                timer.write(1);
++                timer.expire(1);
++                timer.write(u64::MAX - id as u64);
++                apic.eois.push_back(0x61 + id as u8);
++            }
++            let expected: Vec<_> = state
++                .local_apics
++                .iter()
++                .map(|apic| apic.registers.deadline_handle().snapshot())
++                .collect();
++            let raw = state.encoded().unwrap();
++            assert!(raw.starts_with(TAG));
++            drop(state);
++            let restored = ExecutionSnapshot::decode(&raw, count as u8).unwrap();
++            assert_eq!(restored.encoded().unwrap(), raw);
++            for (id, apic) in restored.local_apics.iter().enumerate() {
++                let mut live = apic.prepare(std::time::Instant::now());
++                assert_eq!(live.deadline_handle().snapshot(), expected[id]);
++                live.poll_tsc_deadline(2);
++                assert_eq!(live.get_pending_vector(), Some(0x51 + id as u8));
++                assert_eq!(live.deadline_handle().read(), u64::MAX - id as u64);
++                assert_eq!(live.take_pending_eoi(), Some(0x61 + id as u8));
++            }
++        }
++    }
++
++    #[test]
++    fn unarmed_timer_modes_keep_the_exact_legacy_execution_bytes() {
++        let mut state = fixture(2);
++        for apic in &mut state.local_apics {
++            apic.registers.write_register(0x320, 0x40051);
++        }
++        let raw = state.encoded().unwrap();
++        assert_eq!(raw, state.encoded_base().unwrap());
++        assert_eq!(
++            ExecutionSnapshot::decode(&raw, 2)
++                .unwrap()
++                .encoded()
++                .unwrap(),
++            raw
++        );
++    }
++
++    #[test]
++    fn malformed_lengths_images_counts_and_recursive_extensions_reject() {
++        let mut state = fixture(1);
++        state.local_apics[0]
++            .registers
++            .write_register(0x320, 0x40051);
++        state.local_apics[0].registers.deadline_handle().write(123);
++        let raw = state.encoded().unwrap();
++        for end in 0..raw.len() {
++            assert!(
++                ExecutionSnapshot::decode(&raw[..end], 1).is_err(),
++                "prefix {end}"
++            );
++        }
++        let length = u32::from_le_bytes(raw[8..12].try_into().unwrap()) as usize;
++        for case in 0..7 {
++            let mut bad = raw.clone();
++            let image = 16 + length;
++            match case {
++                0 => bad.push(0),
++                1 => bad[12..20].copy_from_slice(TAG),
++                2 => bad[12 + length..16 + length].copy_from_slice(&2u32.to_le_bytes()),
++                3 => bad[image..image + 4].copy_from_slice(&0x40061u32.to_le_bytes()),
++                4 => bad[image..image + 4].copy_from_slice(&0x51u32.to_le_bytes()),
++                5 => bad[image + 4..].fill(0),
++                _ => bad[8..12].copy_from_slice(&u32::MAX.to_le_bytes()),
++            }
++            assert!(ExecutionSnapshot::decode(&bad, 1).is_err(), "case {case}");
++        }
++        // Canonical deadline -> EOI -> base cannot be inverted to create
++        // alternating recursive wrappers and exhaust the parser's stack.
++        let mut inverted = b"RAXEXE10".to_vec();
++        inverted.extend_from_slice(&(raw.len() as u32).to_le_bytes());
++        inverted.extend_from_slice(&raw);
++        inverted.extend_from_slice(&1u32.to_le_bytes());
++        inverted.extend_from_slice(&1u32.to_le_bytes());
++        inverted.push(0x51);
++        assert!(ExecutionSnapshot::decode(&inverted, 1).is_err());
++    }
++}
 diff --git a/src/vm/snapshot/execution_eoi.rs b/src/vm/snapshot/execution_eoi.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..d51eb325778aa03c74452bab8133efad76886cfd
+index 0000000000000000000000000000000000000000..9a641f7b38cf30744e72621f958eb6232742f97d
 --- /dev/null
 +++ b/src/vm/snapshot/execution_eoi.rs
 @@ -0,0 +1,187 @@
@@ -13981,7 +14848,7 @@ index 0000000000000000000000000000000000000000..d51eb325778aa03c74452bab8133efad
 +            return Err(invalid("EOI inner frame exceeds format limit"));
 +        }
 +        let inner = take(&mut input, length)?;
-+        if inner.starts_with(TAG) {
++        if inner.starts_with(TAG) || inner.starts_with(super::deadline::TAG) {
 +            return Err(invalid("nested EOI execution extension"));
 +        }
 +        let mut restored = Self::decode(inner, expected_count)?;

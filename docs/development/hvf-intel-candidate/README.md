@@ -22,6 +22,13 @@ is in the published base. Actual RAX run 41992554080 passes 118 native cases
 before private capture rejects SDK-normalized masks. The
 [mask initializer](../hvf-intel-frontier/control-mask-policy.md) now finalizes
 those masks before freezing producer controls and passes all 62 SDK owner tests.
+The later run 42001141985 passes the mask check but rejects a changed exception
+policy at private capture. The published base now
+[preserves the SDK exception bitmap](../hvf-intel-frontier/exception-intercepts.md).
+This candidate also includes the pending deadline owner, queued expiries and
+versioned CPU/controller checkpoint records. Its local full owner validation is
+running; native deadline-specific qualification is outstanding. The existing
+130 cases exercise RAM/MMIO/PAT/MSR controls and checkpoint continuation.
 This refreshed candidate requires a new actual RAX run. It contains the SDK
 compatibility correction,
 software PAT state, interrupt and RAM integration, and the native consumer with
@@ -31,18 +38,18 @@ the local checks ran. The complete path inventory is in [candidate.json](candida
 
 | Input | Value |
 |---|---|
-| Base source commit | `9ad33d07d0556c52bff8a6c9581433c163f042e3` |
-| Changed source paths | 108 |
-| Patch size | 592943 bytes |
-| Patch SHA-256 | `c1718808d4e5c0e31da0d626d2defb544a17d14c54bd5985ac0e9bd381ed3fe9` |
-| Base source fingerprint | `a200a78bf78000a99929824ffb1769307f4975bfb9f6496ddbfdd7beafb52678` |
-| Candidate source fingerprint | `d0caf2f5dba46cbe41fdd3067a6fd488b7f4694f74b59db5c6781320f0fe61ba` |
+| Base source commit | `3fbfef03994aea9b4f2223cc3e8d1c6319683f03` |
+| Changed source paths | 112 |
+| Patch size | 626336 bytes |
+| Patch SHA-256 | `5d5d1a968f12c2f863bd1536963116b4ba5eea203e83d53e420237b175058a80` |
+| Base source fingerprint | `88ae7676baf6c25aea1ef8531d8960cc7ccd5bbeddd8ef09f2950ac925be9e32` |
+| Candidate source fingerprint | `8b30ed82923174366ed33f28bbfaae9f8555decd333524242e4dd6b198e248b0` |
 
 Fingerprints are SHA-256 of a JSON object mapping relative source paths to file
 SHA-256 values, using sorted keys and compact JSON separators. The scope is all
 Rust files under `src`, Rust and TOML files under `vendor/vm-memory`, the root
 Cargo manifest and lockfile, `.cargo/config.toml`, and the two native consumer
-files. It contains 4422 base inputs and 4471 candidate inputs. The Git commit is
+files. It contains 4422 base inputs and 4473 candidate inputs. The Git commit is
 provenance; exact content fingerprints enforce admission, independently of
 later documentation or tooling commits.
 
@@ -67,8 +74,8 @@ new output directory:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 tools/hvf/build_native_candidate.py \
-  --repo . --base-ref 9ad33d07d0556c52bff8a6c9581433c163f042e3 \
-  --expected-target-digest d0caf2f5dba46cbe41fdd3067a6fd488b7f4694f74b59db5c6781320f0fe61ba \
+  --repo . --base-ref 3fbfef03994aea9b4f2223cc3e8d1c6319683f03 \
+  --expected-target-digest 8b30ed82923174366ed33f28bbfaae9f8555decd333524242e4dd6b198e248b0 \
   --output /tmp/rax-native-candidate-new
 ```
 
@@ -93,7 +100,7 @@ in the historical record with their original source identities.
 | Assumption | Dependent result | Stress test and falsification probe | Status |
 |---|---|---|---|
 | A1: the pinned content is the intended CI candidate | Native result attribution | Compare both source fingerprints; a changed input must reject before building | Confirmed for generation; checked again in CI |
-| A2: model qualification predicts usable SDK construction | Actual native execution | Run the real backend on the Intel runner and require all registered cases to execute | Preceding RAX target passes 118 cases, then fails private capture; mask initializer validated in 62 SDK/model tests, corrected native run pending |
+| A2: model qualification predicts usable SDK construction | Actual native execution | Run the real backend on the Intel runner and require all registered cases to execute | Preceding RAX target passes 118 cases, then fails private capture; mask initializer clears its native check; exception-policy correction and deadline state require a new native run |
 
 High-impact remaining boundary: a model or cross-build pass does not establish
 native behavior. The workflow must retain the actual host identity, nonzero
