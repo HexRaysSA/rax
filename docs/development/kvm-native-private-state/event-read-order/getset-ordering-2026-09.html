@@ -1,0 +1,305 @@
+<!-- MHonArc v2.6.19 -->
+<!--X-Subject: [PATCH] Documentation: KVM: x86: document KVM_GET_*/KVM_SET_* ordering -->
+<!--X-From-R13: Xvz [nggfba &#60;wznggfbaNtbbtyr.pbz> -->
+<!--X-Date: Mon, 14 Sep 2026 14:07:43 &#45;0400 (EDT) -->
+<!--X-Message-Id: 20260914175912.3338133&#45;1&#45;jmattson@google.com -->
+<!--X-Content-Type: text/plain -->
+<!--X-Head-End-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linux-Kernel Archive: [PATCH] Documentation: KVM: x86: document KVM_GET_*/KVM_SET_* ordering</title>
+<meta name="author" content="Jim Mattson &lt;jmattson@xxxxxxxxxx&gt;">
+<meta name="description" content="[PATCH] Documentation: KVM: x86: document KVM_GET_*/KVM_SET_* ordering">
+<style>
+  body { background-color: #fff; color: #000; }
+  h1 { text-align: center; }
+  hr { border: none; border-top: 1px solid #ccc; }
+  .skip-link { position: absolute; left: -9999px; }
+  .skip-link:focus { left: 0; background: #fff; padding: 0.5em; z-index: 1; }
+  nav { margin: 1em 0; }
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<!--X-Body-Begin-->
+<!--X-User-Header-->
+<!--X-User-Header-End-->
+<!--X-TopPNI-->
+
+
+<!--X-TopPNI-End-->
+<!--X-MsgBody-->
+<!--X-Subject-Header-Begin-->
+<main id="main-content">
+<h1>[PATCH] Documentation: KVM: x86: document KVM_GET_*/KVM_SET_* ordering</h1>
+<p><strong>From: </strong>Jim Mattson</p>
+<p><strong>Date: </strong> Mon Sep 14 2026 - 14:07:43 EST</p>
+<nav aria-label="Message navigation">
+<ul>
+<li><strong>Next message: </strong> <a href="16761.html"> Yiwei Lin: "Re: [PATCH] ufs: sysfs: fix current_power_mode read without SSU"</a>
+
+<li><strong>Previous message: </strong> <a href="16759.html"> Geert Uytterhoeven: "Re: [PATCH v3 3/4] arm64: dts: renesas: r9a09g047: Add USB2.0 support"</a>
+
+
+
+<li><strong>Next in thread: </strong> <a href="16949.html"> James Houghton: "Re: [PATCH] Documentation: KVM: x86: document KVM_GET_*/KVM_SET_* ordering"</a>
+
+<li><strong>Messages sorted by: </strong><a href="date.html#16760" aria-label="Sort by date">[ date ]</a> <a href="index.html#16760" aria-label="Sort by thread">[ thread ]</a> <a href="subject.html#16760" aria-label="Sort by subject">[ subject ]</a> <a href="author.html#16760" aria-label="Sort by author">[ author ]</a>
+</ul>
+</nav>
+
+<!--X-Subject-Header-End-->
+<!--X-Head-of-Message-->
+<!--X-Head-of-Message-End-->
+<!--X-Head-Body-Sep-Begin-->
+<hr>
+<!--X-Head-Body-Sep-End-->
+<!--X-Body-of-Message-->
+KVM does not define a total order for the ioctls that save and restore<br>
+guest state, but the ioctls are not fully independent either.  On the<br>
+save path, some getters perturb state that another getter reports.  On<br>
+the restore path, some setters validate their input against state that<br>
+another setter installs, and some setters overwrite state that another<br>
+setter has already written.  One pair of restore constraints is a<br>
+cycle, which forces userspace to issue KVM_SET_MSRS twice.<br>
+<br>
+Replace the TBD in the x86 section of &quot;Known KVM API problems&quot; with the<br>
+partial order that is known to matter, and with the reason for each<br>
+constraint.  Note that a misordered getter fails silently, while a<br>
+misordered setter usually fails with -EINVAL.<br>
+<br>
+Assisted-by: LLM<br>
+Signed-off-by: Jim Mattson &lt;jmattson@xxxxxxxxxx&gt;<br>
+---<br>
+ Documentation/virt/kvm/api.rst | 179 ++++++++++++++++++++++++++++++++-<br>
+ 1 file changed, 178 insertions(+), 1 deletion(-)<br>
+<br>
+diff --git a/Documentation/virt/kvm/api.rst b/Documentation/virt/kvm/api.rst<br>
+index e0430cc750c9..9181dfcd7251 100644<br>
+--- a/Documentation/virt/kvm/api.rst<br>
++++ b/Documentation/virt/kvm/api.rst<br>
+@@ -9659,4 +9659,181 @@ available.<br>
+ Ordering of KVM_GET_*/KVM_SET_* ioctls<br>
+ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<br>
+ <br>
+-TBD<br>
++KVM does not define a total order for the ioctls that save and restore<br>
++guest state, and most pairs of them really are independent.  A few are<br>
++not.  When saving, some getters modify state that another getter<br>
++reports.  When restoring, some setters validate their input against<br>
++state that another setter installs, and some setters overwrite state<br>
++that another setter has already written.<br>
++<br>
++The constraints below are the ones that are known to matter on x86.<br>
++They form a partial order, so any topological sort of them will do.<br>
++One pair of restore constraints points in both directions, and forces<br>
++userspace to issue ``KVM_SET_MSRS`` twice.<br>
++<br>
++Note the difference in failure mode.  A getter that runs too late<br>
++silently returns perturbed state, and the damage is only visible in the<br>
++restored guest.  A setter that runs too early usually fails outright<br>
++with ``-EINVAL``.<br>
++<br>
++Saving state<br>
++~~~~~~~~~~~~<br>
++<br>
++* **Get the MP state before any other vCPU state.**<br>
++  ``KVM_GET_MP_STATE`` calls ``kvm_apic_accept_events()``, which latches<br>
++  a pending INIT or SIPI.  Completing an INIT resets the vCPU, and<br>
++  completing a SIPI sets CS and RIP.  Either can also trigger a nested<br>
++  VM-exit, which overwrites most of the vCPU state.  On Intel, both an<br>
++  INIT and a SIPI can exit, and the VM-exit MSR-store list also writes<br>
++  guest memory.  On AMD, only an INIT can exit.  Every other vCPU<br>
++  getter must therefore run after ``KVM_GET_MP_STATE``.<br>
++<br>
++* **Get the irqchip state before the local APIC state.**<br>
++  ``KVM_GET_IRQCHIP`` clears from the reported I/O APIC IRR every<br>
++  edge-triggered IRQ that KVM has already delivered to a local APIC, on<br>
++  the assumption that ``KVM_GET_LAPIC`` will pick it up.  If the local<br>
++  APIC is read first, an IRQ delivered between the two reads appears in<br>
++  neither snapshot and is lost.  The opposite order can at worst<br>
++  duplicate such an IRQ, which is the safer failure.  The constraint<br>
++  applies only to a full in-kernel irqchip, because ``KVM_GET_IRQCHIP``<br>
++  returns ``-ENXIO`` in split-irqchip mode.<br>
++<br>
++* **Get the local APIC state last among the vCPU getters.**<br>
++  On Intel, ``KVM_GET_LAPIC`` drains the posted-interrupt requests into<br>
++  the IRR, so it reports the most complete view of pending interrupts.<br>
++  Any source of interrupts that is still live when it runs can add to<br>
++  the IRR afterwards, and that addition is not saved.<br>
++<br>
++* **Get all vCPU state before the final pass over guest memory.**<br>
++  On Intel, a nested VM-exit out of ``KVM_GET_MP_STATE`` writes guest<br>
++  memory through the VM-exit MSR-store list.  A guest page copied<br>
++  before that write is stale.<br>
++<br>
++Two constraints that older userspace still carries no longer apply:<br>
++<br>
++* ``KVM_GET_MSRS`` no longer has to precede ``KVM_GET_LAPIC``.  Before<br>
++  commit e800decd9c0a (&quot;KVM: x86: Only reset TSC Deadline Timer in<br>
++  apic_timer_expired on KVM_RUN&quot;), a ``vcpu_load()`` on a vCPU with<br>
++  APICv and the VMX preemption timer could restart the hv timer, find<br>
++  the deadline expired, inject the interrupt, and zero<br>
++  ``MSR_IA32_TSCDEADLINE``.  A ``vcpu_load()`` between the two getters<br>
++  therefore lost the interrupt and the deadline together.<br>
++<br>
++* ``KVM_GET_VCPU_EVENTS`` no longer has to precede ``KVM_GET_SREGS``,<br>
++  ``KVM_GET_SREGS2`` or ``KVM_GET_DEBUGREGS``.  When<br>
++  ``KVM_CAP_EXCEPTION_PAYLOAD`` is disabled, KVM delivers the payload of<br>
++  a pending #PF or #DB into CR2 or DR6 before it reports the exception,<br>
++  because userspace might not preserve the payload across a migration.<br>
++  Before commit d0ad1b05bbe6 (&quot;KVM: x86: Defer non-architectural deliver<br>
++  of exception payload to userspace read&quot;), only ``KVM_GET_VCPU_EVENTS``<br>
++  delivered it, so a CR2 or DR6 read first was stale.  All four getters<br>
++  now deliver it, and therefore agree in any order.<br>
++<br>
++Userspace that runs on older kernels should keep both orders.  Enabling<br>
++``KVM_CAP_EXCEPTION_PAYLOAD`` is worthwhile in any case, because it<br>
++stops KVM from delivering the payload early at all.<br>
++<br>
++One more hazard is not an ordering constraint, because it depends on<br>
++elapsed time rather than on sequence.  ``KVM_GET_CLOCK`` and a read of<br>
++``MSR_IA32_TSC`` describe the same instant only if little time passes<br>
++between them.  Userspace that needs a time-invariant value should<br>
++prefer the ``KVM_VCPU_TSC_OFFSET`` attribute of ``KVM_VCPU_TSC_CTRL``<br>
++over ``MSR_IA32_TSC``.<br>
++<br>
++Restoring state<br>
++~~~~~~~~~~~~~~~<br>
++<br>
++* **Set CPUID and the feature MSRs first.**  KVM freezes the virtual CPU<br>
++  model once the vCPU has run or once it is in guest mode.  After that,<br>
++  ``KVM_SET_CPUID2`` and writes to the immutable feature MSRs, which<br>
++  include the ``MSR_IA32_VMX_*`` MSRs, only succeed if they do not<br>
++  change anything.  Because ``KVM_SET_NESTED_STATE`` can put the vCPU<br>
++  into guest mode, userspace that writes the VMX capability MSRs after<br>
++  restoring nested state will fail to restore an L2 guest.  CPUID also<br>
++  gates the validation performed by ``KVM_SET_SREGS``,<br>
++  ``KVM_SET_XCRS``, ``KVM_SET_NESTED_STATE`` and the ``MSR_IA32_APICBASE``<br>
++  and ``MSR_IA32_XFD`` writes.<br>
++<br>
++* **Set the TSC frequency before the TSC.**  A host write of<br>
++  ``MSR_IA32_TSC`` computes a TSC offset, and a scaling ratio if TSC<br>
++  scaling is in use, from the current guest TSC frequency.<br>
++<br>
++* **Set MSR_IA32_FEATURE_CONTROL before the rest of the vCPU state.**  A<br>
++  host write of zero to this MSR forces the vCPU out of VMX operation.<br>
++  That discards the nested state, and replaces the register state with<br>
++  the L1 host state if the vCPU was running L2.  Only a write of zero<br>
++  has this effect; clearing individual bits, including the VMXON bits,<br>
++  does not.  The hazard therefore belongs to userspace that resets a<br>
++  vCPU before it restores one.<br>
++<br>
++* **Set the special registers before the nested state.**  This<br>
++  constraint is specific to SVM, where the live register state is the L2<br>
++  state.  ``KVM_SET_NESTED_STATE`` rejects a saved guest mode unless<br>
++  EFER.SVME is already set, it validates the live CR0, and it reloads<br>
++  the CR3 that ``KVM_SET_SREGS`` installed.  On VMX the L2 control<br>
++  registers come from the VMCS12 instead.<br>
++<br>
++* **Set the APIC base and the special registers before the local APIC<br>
++  state.**  Changing the APIC enable or x2APIC bit resets the APIC ID,<br>
++  which would clobber the ID restored by ``KVM_SET_LAPIC``.  Separately,<br>
++  the CR8 field of ``KVM_SET_SREGS`` carries only bits 7:4 of the task<br>
++  priority register, so a CR8 write after ``KVM_SET_LAPIC`` clears TPR<br>
++  bits 3:0.<br>
++<br>
++* **Set the irqchip state before the local APIC state.**<br>
++  ``KVM_SET_IRQCHIP`` re-injects the restored I/O APIC IRR into the<br>
++  local APICs.  ``KVM_SET_LAPIC`` must run afterwards so that it<br>
++  overwrites the IRR wholesale; otherwise those interrupts are<br>
++  delivered twice.<br>
++<br>
++* **Set the XSAVE state before MSR_IA32_XFD.**  ``KVM_SET_XSAVE`` clears<br>
++  from the incoming header every state component that the current XFD<br>
++  value disables.  Writing XFD first therefore discards the state of<br>
++  those components.<br>
++<br>
++* **Set the special registers before the MP state.**  ``KVM_SET_SREGS``<br>
++  forces a boot-strap processor whose incoming state looks like a reset<br>
++  state back to ``KVM_MP_STATE_RUNNABLE``.<br>
++<br>
++* **Set the clock last.**  ``KVM_SET_CLOCK`` establishes the kvmclock<br>
++  epoch, and should run as close as possible to the moment the vCPUs<br>
++  resume.  The per-vCPU ``MSR_KVM_SYSTEM_TIME`` and<br>
++  ``MSR_KVM_WALL_CLOCK`` writes only record the guest page address, so<br>
++  they must precede it.<br>
++<br>
++* **Place KVM_SET_VCPU_EVENTS on the correct side of the nested<br>
++  state.**  For a vCPU in guest mode it has to run afterwards, on both<br>
++  vendors, because it writes the interrupt shadow and the NMI mask into<br>
++  the VMCS or the VMCB that is currently loaded, and the nested one<br>
++  becomes current only once ``KVM_SET_NESTED_STATE`` has entered guest<br>
++  mode.  A vCPU in SMM needs the opposite order, but on Intel only:<br>
++  ``KVM_SET_NESTED_STATE`` rejects the saved ``smm.flags`` unless the<br>
++  vCPU is already in SMM, and only ``KVM_SET_VCPU_EVENTS`` puts it<br>
++  there.  The AMD nested state has no equivalent field, because SMM<br>
++  saves and restores the nested state through SMRAM instead.  The two<br>
++  cases never coincide, because SMM temporarily disables VMX operation,<br>
++  so a single call always suffices.<br>
++<br>
++The vendors disagree about the registers.  On SVM the live register<br>
++state *is* the L2 state, so ``KVM_SET_REGS`` and ``KVM_SET_SREGS`` have<br>
++to run before ``KVM_SET_NESTED_STATE``.  On VMX the L2 RIP and RSP come<br>
++from the VMCS12, which ``KVM_SET_NESTED_STATE`` reloads, so<br>
++``KVM_SET_REGS`` is better issued afterwards.  Portable userspace can<br>
++write the registers on both sides of ``KVM_SET_NESTED_STATE``.<br>
++<br>
++KVM_SET_MSRS has to be issued twice<br>
++~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~<br>
++<br>
++``KVM_SET_LAPIC`` sits between two MSR writes that cannot be combined<br>
++into one call.<br>
++<br>
++``MSR_IA32_APICBASE`` has to precede it.  Changing the APIC enable bit<br>
++or the x2APIC bit resets the APIC ID, which would discard the ID that<br>
++``KVM_SET_LAPIC`` restored.<br>
++<br>
++``MSR_IA32_TSCDEADLINE`` has to follow it.  A write to that MSR is<br>
++dropped unless the LVT timer is already in TSC-deadline mode, and only<br>
++``KVM_SET_LAPIC`` establishes the mode.  In the other direction,<br>
++``KVM_SET_LAPIC`` cancels the timer and zeroes any deadline that is<br>
++already armed.  The deadline is an absolute guest TSC value, so<br>
++``MSR_IA32_TSC`` has to be restored before it as well.<br>
+<br>
+base-commit: 827751b699b79a6e569983359c02dce67f81b94c<br>
+-- <br>
+2.55.0.1032.g73a4cd73de-goog<br>
+<br>
+<br>
+<br>
+
+<!--X-Body-of-Message-End-->
+<!--X-MsgBody-End-->
+<!--X-Follow-Ups-->
+<hr>
+
+
+</ul></li></ul>
+<!--X-Follow-Ups-End-->
+<!--X-References-->
+<!--X-References-End-->
+<!--X-BotPNI-->
+<nav aria-label="Message navigation">
+<ul>
+<li><strong>Next message: </strong> <a href="16761.html"> Yiwei Lin: "Re: [PATCH] ufs: sysfs: fix current_power_mode read without SSU"</a>
+
+<li><strong>Previous message: </strong> <a href="16759.html"> Geert Uytterhoeven: "Re: [PATCH v3 3/4] arm64: dts: renesas: r9a09g047: Add USB2.0 support"</a>
+
+
+
+<li><strong>Next in thread: </strong> <a href="16949.html"> James Houghton: "Re: [PATCH] Documentation: KVM: x86: document KVM_GET_*/KVM_SET_* ordering"</a>
+
+<li><strong>Messages sorted by: </strong><a href="date.html#16760" aria-label="Sort by date">[ date ]</a> <a href="index.html#16760" aria-label="Sort by thread">[ thread ]</a> <a href="subject.html#16760" aria-label="Sort by subject">[ subject ]</a> <a href="author.html#16760" aria-label="Sort by author">[ author ]</a>
+</ul>
+</nav>
+
+<!--X-BotPNI-End-->
+<!--X-User-Footer-->
+<!--X-User-Footer-End-->
+</body>
+</html>

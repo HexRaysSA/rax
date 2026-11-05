@@ -15,6 +15,7 @@ remains open. None of these records closes the original four audit findings.
 | [Unscaled native clocks](clock-rebase/README.md) | Independent phase-loss controls; 28 serialized phase restores and 228 rejected record/target controls | Actual first-entry gate, other counter/rate profiles and transaction |
 | [Combined CPU banks](cpu-banks/README.md) | 28 source-free CPU restores, 84 GPR/XMM/upper-YMM guest outputs, 700 unchanged-destination rejection controls and two combined loaded-VMCS continuations | Production hooks, shared state, clocks, generic I/O settlement and full VM transaction |
 | [LAPIC timer counterexample](lapic-timers/README.md) | Five settled source continuations halt after EOI; all five raw destination restores introduce an extra interrupt | Owned pending/completed timer phase and actual first-entry activation |
+| [Pending-exception read-order control](event-read-order/README.md) | Four native #PF/#DB setter/getter cells; candidate stale CR2/DR6 behavior is not reproduced on the recorded kernel | Exact distro source attribution and complete producer event-contract composition |
 
 The experiments use physical Intel Haswell Linux KVM, the actual installed SDK,
 and recorded Rust/C toolchains. The nested VMX and combined CPU witnesses execute

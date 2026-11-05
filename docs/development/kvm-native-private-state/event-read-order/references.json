@@ -1,0 +1,22 @@
+{
+  "retrieved_utc": "2026-11-05T18:33:31.714709+00:00",
+  "sources": [
+    {
+      "path": "getset-ordering-2026-09.html",
+      "url": "https://lkml.iu.edu/2609.1/16760.html",
+      "title": "Documentation: KVM: x86: document KVM_GET_*/KVM_SET_* ordering",
+      "author": "Jim Mattson",
+      "status": "mailing-list documentation proposal; merge status unknown",
+      "sha256": "79d7acf1736a854b2f57edcade0937b585fa11938964c57f07042b11c3196e62"
+    },
+    {
+      "path": "linux-e800decd9c0a.patch",
+      "url": "https://kernel.googlesource.com/pub/scm/linux/kernel/git/axboe/linux/+/e800decd9c0ac4349bcd8f8f9b29fd21fe93165e%5E%21/?format=TEXT",
+      "title": "KVM: x86: Only reset TSC Deadline Timer in apic_timer_expired on KVM_RUN",
+      "author": "Venkatesh Srinivas",
+      "status": "upstream commit e800decd9c0ac4349bcd8f8f9b29fd21fe93165e",
+      "sha256": "546eab491c54ed9c7369d86d6f382e0c3fb0d4cd5adbd82b430258d41ead603d"
+    }
+  ],
+  "native_kernel_source_equivalence": "unknown; retained upstream v6.8 source does not identify every Ubuntu backport"
+}

@@ -1,0 +1,70 @@
+{
+  "status": "no_current_host_counterexample",
+  "all_four_cells_match": true,
+  "observations": [
+    {
+      "payload_enabled": 0,
+      "vector": 1,
+      "cr2_before": "1111222233334444",
+      "cr2_after": "1111222233334444",
+      "dr6_before": "00000000ffff4ff2",
+      "dr6_after": "00000000ffff4ff2",
+      "pending": 1,
+      "injected": 1,
+      "payload_retained": 0,
+      "event_flags": 13
+    },
+    {
+      "payload_enabled": 0,
+      "vector": 14,
+      "cr2_before": "feed123456789abc",
+      "cr2_after": "feed123456789abc",
+      "dr6_before": "00000000ffff0ff0",
+      "dr6_after": "00000000ffff0ff0",
+      "pending": 1,
+      "injected": 1,
+      "payload_retained": 0,
+      "event_flags": 13
+    },
+    {
+      "payload_enabled": 1,
+      "vector": 1,
+      "cr2_before": "1111222233334444",
+      "cr2_after": "1111222233334444",
+      "dr6_before": "00000000ffff0ff0",
+      "dr6_after": "00000000ffff0ff0",
+      "pending": 1,
+      "injected": 0,
+      "payload_retained": 1,
+      "event_flags": 29
+    },
+    {
+      "payload_enabled": 1,
+      "vector": 14,
+      "cr2_before": "1111222233334444",
+      "cr2_after": "1111222233334444",
+      "dr6_before": "00000000ffff0ff0",
+      "dr6_after": "00000000ffff0ff0",
+      "pending": 1,
+      "injected": 0,
+      "payload_retained": 1,
+      "event_flags": 29
+    }
+  ],
+  "seconds": 0.04294832330197096,
+  "uname": [
+    "Linux",
+    "abyss",
+    "6.8.0-138-generic",
+    "#138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026",
+    "x86_64"
+  ],
+  "compiler": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "source_sha256": "02fa6de66c1bd151e8ccb8a543bfe8ede89c38eab83635f0359bb20d980b8a3b",
+  "harness_sha256": "d50b76ef7b2863038e2804c532027c2260f733d7020dfc7d65c1bc7fe4aafda3",
+  "executable_sha256": "ccd8c5c5e9d0beef6bea74c4bf2d15146ccdb6bfb671224b1ee7e35f94a4c585",
+  "owned_temporary_directory_removed": true,
+  "scope": "Independent native setter/getter control; no RAX checkpoint or guest-handler execution.",
+  "production_change": "none",
+  "exact_kernel_patch_provenance": "unknown"
+}
